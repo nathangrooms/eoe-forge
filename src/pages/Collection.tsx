@@ -218,12 +218,12 @@ export default function Collection() {
                     />
                   </div>
                   
-                  <Select onValueChange={(value) => collection.setSelectedSets(value ? [value] : [])}>
+                  <Select onValueChange={(value) => collection.setSelectedSets(value === "all" ? [] : [value])}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Filter by set" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Sets</SelectItem>
+                      <SelectItem value="all">All Sets</SelectItem>
                       <SelectItem value="EOE">Edge of Eternities</SelectItem>
                       <SelectItem value="EOC">EOE Commander</SelectItem>
                       <SelectItem value="EOS">Stellar Sights</SelectItem>
@@ -481,14 +481,14 @@ export default function Collection() {
 
                     <div>
                       <label className="text-sm font-medium">Archetype</label>
-                      <Select value={deckRequirements.archetype} onValueChange={(value) => 
-                        setDeckRequirements(prev => ({ ...prev, archetype: value }))
+                      <Select value={deckRequirements.archetype || "any"} onValueChange={(value) => 
+                        setDeckRequirements(prev => ({ ...prev, archetype: value === "any" ? "" : value }))
                       }>
                         <SelectTrigger>
                           <SelectValue placeholder="Select archetype" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any</SelectItem>
+                          <SelectItem value="any">Any</SelectItem>
                           <SelectItem value="Aggro">Aggro</SelectItem>
                           <SelectItem value="Control">Control</SelectItem>
                           <SelectItem value="Midrange">Midrange</SelectItem>

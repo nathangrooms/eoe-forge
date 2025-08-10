@@ -188,10 +188,9 @@ export default function Collection() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="collection">Collection</TabsTrigger>
           <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="ai-builder">AI Deck Builder</TabsTrigger>
           <TabsTrigger value="add-cards">Add Cards</TabsTrigger>
         </TabsList>
 

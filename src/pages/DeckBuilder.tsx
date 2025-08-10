@@ -128,14 +128,81 @@ const DeckBuilder = () => {
             </div>
           </div>
 
-          {/* Deck Builder Canvas */}
-          <div className="col-span-6">
-            <Card className="cosmic-glow min-h-[800px]">
+          {/* Card Search Results & Deck Builder */}
+          <div className="col-span-6 space-y-6">
+            {/* Search Results */}
+            <Card className="cosmic-glow">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center">
+                  <Search className="h-5 w-5 mr-2 text-primary" />
+                  Search Results
+                  {loading && <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {error && (
+                  <div className="text-red-500 text-sm">{error}</div>
+                )}
+                {!loading && !error && cards.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Search for cards to start building your deck</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-4 gap-4 max-h-96 overflow-y-auto">
+                  {cards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="group border rounded-lg p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => deck.addCard({
+                        id: card.id,
+                        name: card.name,
+                        cmc: card.cmc,
+                        type_line: card.type_line,
+                        colors: card.colors,
+                        quantity: 1,
+                        category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
+                                 card.type_line.toLowerCase().includes('land') ? 'lands' :
+                                 card.type_line.toLowerCase().includes('instant') ? 'instants' :
+                                 card.type_line.toLowerCase().includes('sorcery') ? 'sorceries' :
+                                 card.type_line.toLowerCase().includes('enchantment') ? 'enchantments' :
+                                 card.type_line.toLowerCase().includes('artifact') ? 'artifacts' :
+                                 card.type_line.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other',
+                        mechanics: card.mechanics || []
+                      })}
+                    >
+                      {card.image_uris?.small && (
+                        <img 
+                          src={card.image_uris.small} 
+                          alt={card.name}
+                          className="w-full rounded mb-2"
+                        />
+                      )}
+                      <div className="text-sm font-medium">{card.name}</div>
+                      <div className="text-xs text-muted-foreground">{card.type_line}</div>
+                      <div className="text-xs text-muted-foreground">CMC: {card.cmc}</div>
+                      {card.mechanics && card.mechanics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {card.mechanics.slice(0, 2).map((mechanic) => (
+                            <Badge key={mechanic} variant="secondary" className="text-xs px-1 py-0">
+                              {mechanic}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Deck List */}
+            <Card className="cosmic-glow">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center">
                     <Sparkles className="h-5 w-5 mr-2 text-primary" />
-                    Deck Builder
+                    Your Deck
                   </CardTitle>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <span>Cards: {deck.totalCards}</span>

@@ -134,10 +134,26 @@ export const DeckList = () => {
                       )}
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deck.removeCard(card.id);
+                        }}
+                      >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deck.addCard(card);
+                        }}
+                      >
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
@@ -171,10 +187,26 @@ export const DeckList = () => {
               )}
             </div>
             <div className="flex items-center space-x-1">
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deck.removeCard(card.id);
+                }}
+              >
                 <Minus className="h-3 w-3" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deck.addCard(card);
+                }}
+              >
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
@@ -184,48 +216,39 @@ export const DeckList = () => {
     );
   };
 
-  // Mock data for demonstration
-  const mockDeck = {
-    creatures: [
-      { id: '1', name: 'Stellar Navigator', cmc: 2, quantity: 4, type: 'Creature', colors: ['U'], mechanics: ['Warp', 'Spacecraft'] },
-      { id: '2', name: 'Void Harvester', cmc: 3, quantity: 3, type: 'Creature', colors: ['B'], mechanics: ['Void'] },
-      { id: '3', name: 'Station Commander', cmc: 4, quantity: 2, type: 'Creature', colors: ['W'], mechanics: ['Station'] },
-      { id: '4', name: 'Cosmic Leviathan', cmc: 8, quantity: 1, type: 'Creature', colors: ['U'], mechanics: [] },
-    ],
-    lands: [
-      { id: '5', name: 'Command Tower', cmc: 0, quantity: 1, type: 'Land', colors: [], mechanics: [] },
-      { id: '6', name: 'Stellar Expanse', cmc: 0, quantity: 4, type: 'Land', colors: [], mechanics: ['Planet'] },
-    ],
-    instants: [
-      { id: '7', name: 'Warp Strike', cmc: 2, quantity: 4, type: 'Instant', colors: ['U'], mechanics: ['Warp'] },
-      { id: '8', name: 'Void Blast', cmc: 3, quantity: 2, type: 'Instant', colors: ['B'], mechanics: ['Void'] },
-    ],
-    sorceries: [
-      { id: '9', name: 'Galactic Survey', cmc: 4, quantity: 2, type: 'Sorcery', colors: ['G'], mechanics: [] },
-    ],
-    artifacts: [
-      { id: '10', name: 'Stellar Cruiser', cmc: 5, quantity: 1, type: 'Artifact', colors: [], mechanics: ['Spacecraft', 'Vehicle'] },
-    ]
-  };
+  // Group actual deck cards by category
+  const groupedCards = deck.cards.reduce((groups, card) => {
+    const category = card.category || 'other';
+    if (!groups[category]) groups[category] = [];
+    groups[category].push(card);
+    return groups;
+  }, {} as Record<string, any[]>);
+
+  const categories = ['creatures', 'lands', 'instants', 'sorceries', 'enchantments', 'artifacts', 'planeswalkers', 'battles'];
 
   return (
     <div className="space-y-1">
-      {Object.entries(mockDeck).map(([category, cards]) => (
-        <div key={category}>
-          {renderCategoryHeader(category, cards.length)}
-          {expandedCategories[category] && (
-            <div className="pb-2">
-              {category === 'creatures' ? 
-                renderCreatureBuckets(cards) : 
-                renderCardList(cards)
-              }
-            </div>
-          )}
-        </div>
-      ))}
+      {categories.map((category) => {
+        const cards = groupedCards[category] || [];
+        if (cards.length === 0) return null;
+        
+        return (
+          <div key={category}>
+            {renderCategoryHeader(category, cards.length)}
+            {expandedCategories[category] && (
+              <div className="pb-2">
+                {category === 'creatures' ? 
+                  renderCreatureBuckets(cards) : 
+                  renderCardList(cards)
+                }
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Empty State */}
-      {Object.values(mockDeck).every(cards => cards.length === 0) && (
+      {deck.cards.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-medium mb-2">Start Building Your Deck</h3>

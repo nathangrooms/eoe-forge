@@ -1,15 +1,17 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
-import { AppSidebar } from "@/components/AppSidebar";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
+import Builder from "./pages/Builder";
+import Templates from "./pages/Templates";
+import Cards from "./pages/Cards";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -46,42 +48,32 @@ function AppContent() {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <SidebarTrigger />
-            <div className="ml-4 font-semibold text-lg">
-              MTG Deck Builder
-            </div>
-          </header>
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
-              <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
-              <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <Routes>
+      <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+      <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+      <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
+      <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
+      <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
+      <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+      <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

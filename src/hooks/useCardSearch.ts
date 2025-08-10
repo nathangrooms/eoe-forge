@@ -86,6 +86,14 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
         scryfallQuery += ` (${colorQuery})`;
       }
 
+      if (searchFilters.cmc) {
+        if (searchFilters.cmc === '6') {
+          scryfallQuery += ` cmc>=6`;
+        } else {
+          scryfallQuery += ` cmc:${searchFilters.cmc}`;
+        }
+      }
+
       console.log('Searching with query:', scryfallQuery);
 
       // Encode the search query
@@ -135,14 +143,15 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
 
   // Simple useEffect with minimal dependencies to prevent infinite loops
   useEffect(() => {
-    if (!query || query.length < 2) {
+    // Allow search with filters only (no search term required)
+    if (!query && (!filters.sets?.length && !filters.types?.length && !filters.colors?.length && !filters.format && !filters.rarity)) {
       setCards([]);
       setLoading(false);
       return;
     }
 
     const timeoutId = setTimeout(() => {
-      searchCards(query, filters);
+      searchCards(query || '*', filters); // Use '*' for filter-only searches
     }, 500);
     
     return () => clearTimeout(timeoutId);

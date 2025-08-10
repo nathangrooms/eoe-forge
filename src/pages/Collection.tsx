@@ -45,6 +45,7 @@ export default function Collection() {
   const [selectedSet, setSelectedSet] = useState('all');
   const [setsSearchQuery, setSetsSearchQuery] = useState('');
   const [selectedRarity, setSelectedRarity] = useState('all');
+  const [selectedCmc, setSelectedCmc] = useState('all');
 
   // Get MTG sets from Scryfall
   const { sets: mtgSets, popularSets, loading: setsLoading } = useMTGSets();
@@ -65,7 +66,8 @@ export default function Collection() {
     types: selectedTypes,
     colors: selectedColors,
     format: selectedFormat === 'all' ? undefined : selectedFormat,
-    rarity: selectedRarity === 'all' ? undefined : selectedRarity
+    rarity: selectedRarity === 'all' ? undefined : selectedRarity,
+    cmc: selectedCmc === 'all' ? undefined : selectedCmc
   };
   
   const { cards: searchResults, loading } = useCardSearch(searchQuery, searchFilters);
@@ -305,19 +307,35 @@ export default function Collection() {
                     <SelectItem value="land">Lands</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                <Select defaultValue="all-rarity">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by Rarity" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <SelectItem value="all-rarity">All Rarities</SelectItem>
-                    <SelectItem value="common">Common</SelectItem>
-                    <SelectItem value="uncommon">Uncommon</SelectItem>
-                    <SelectItem value="rare">Rare</SelectItem>
-                    <SelectItem value="mythic">Mythic Rare</SelectItem>
-                  </SelectContent>
-                </Select>
+                 
+                 <Select value={selectedCmc} onValueChange={setSelectedCmc}>
+                   <SelectTrigger>
+                     <SelectValue placeholder="Mana Cost (CMC)" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-background border z-50">
+                     <SelectItem value="all">All CMC</SelectItem>
+                     <SelectItem value="0">0 CMC</SelectItem>
+                     <SelectItem value="1">1 CMC</SelectItem>
+                     <SelectItem value="2">2 CMC</SelectItem>
+                     <SelectItem value="3">3 CMC</SelectItem>
+                     <SelectItem value="4">4 CMC</SelectItem>
+                     <SelectItem value="5">5 CMC</SelectItem>
+                     <SelectItem value="6">6+ CMC</SelectItem>
+                   </SelectContent>
+                 </Select>
+                 
+                 <Select defaultValue="all-rarity">
+                   <SelectTrigger>
+                     <SelectValue placeholder="Filter by Rarity" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-background border z-50">
+                     <SelectItem value="all-rarity">All Rarities</SelectItem>
+                     <SelectItem value="common">Common</SelectItem>
+                     <SelectItem value="uncommon">Uncommon</SelectItem>
+                     <SelectItem value="rare">Rare</SelectItem>
+                     <SelectItem value="mythic">Mythic Rare</SelectItem>
+                   </SelectContent>
+                 </Select>
               </div>
               
               <div className="flex space-x-4 items-center">
@@ -360,23 +378,59 @@ export default function Collection() {
               <Card key={card.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardContent className="p-3">
                   {viewMode === 'grid' ? (
-                    <div>
-                      <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">IMG</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm truncate">{card.name}</div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">{card.quantity}x</span>
-                          <span className="text-xs font-medium">
-                            ${((card.priceUsd || 0) * card.quantity).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-16 bg-muted rounded flex-shrink-0" />
+                     <div>
+                       <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center overflow-hidden relative">
+                         <img 
+                           src={`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=normal`}
+                           alt={card.name}
+                           className="w-full h-full object-cover rounded"
+                           crossOrigin="anonymous"
+                           loading="lazy"
+                           onError={(e) => {
+                             const img = e.currentTarget as HTMLImageElement;
+                             // Try different image format if normal fails
+                             if (img.src.includes('version=normal')) {
+                               img.src = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=large`;
+                             } else if (img.src.includes('version=large')) {
+                               img.src = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`;
+                             } else {
+                               // Show fallback
+                               img.style.display = 'none';
+                               const fallback = img.nextElementSibling as HTMLElement;
+                               if (fallback) fallback.style.display = 'flex';
+                             }
+                           }}
+                         />
+                         <div 
+                           className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded flex items-center justify-center"
+                           style={{ display: 'none' }}
+                         >
+                           <span className="text-xs text-muted-foreground font-medium">MTG</span>
+                         </div>
+                       </div>
+                       <div className="space-y-1">
+                         <div className="font-medium text-sm truncate">{card.name}</div>
+                         <div className="flex justify-between items-center">
+                           <span className="text-xs text-muted-foreground">{card.quantity}x</span>
+                           <span className="text-xs font-medium">
+                             ${((card.priceUsd || 0) * card.quantity).toFixed(2)}
+                           </span>
+                         </div>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex items-center space-x-4">
+                       <div className="w-12 h-16 bg-muted rounded flex-shrink-0 overflow-hidden">
+                         <img 
+                           src={`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`}
+                           alt={card.name}
+                           className="w-full h-full object-cover"
+                           onError={(e) => {
+                             const target = e.target as HTMLImageElement;
+                             target.style.display = 'none';
+                           }}
+                         />
+                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium">{card.name}</div>
                         <div className="text-sm text-muted-foreground">{card.type_line}</div>
@@ -682,6 +736,22 @@ export default function Collection() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <Select value={selectedCmc} onValueChange={setSelectedCmc}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mana Cost" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="all">All CMC</SelectItem>
+                      <SelectItem value="0">0 CMC</SelectItem>
+                      <SelectItem value="1">1 CMC</SelectItem>
+                      <SelectItem value="2">2 CMC</SelectItem>
+                      <SelectItem value="3">3 CMC</SelectItem>
+                      <SelectItem value="4">4 CMC</SelectItem>
+                      <SelectItem value="5">5 CMC</SelectItem>
+                      <SelectItem value="6">6+ CMC</SelectItem>
+                    </SelectContent>
+                  </Select>
                   
                   <Select value={selectedRarity} onValueChange={setSelectedRarity}>
                     <SelectTrigger>

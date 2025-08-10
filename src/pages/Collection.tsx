@@ -36,13 +36,15 @@ export default function Collection() {
   const deckStore = useDeckStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
-  // All hooks must be called at the top level consistently
+  
+  // All search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('all');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedRarity, setSelectedRarity] = useState('all');
   const [selectedSet, setSelectedSet] = useState('all');
+  const [setsSearchQuery, setSetsSearchQuery] = useState('');
+  const [selectedRarity, setSelectedRarity] = useState('all');
 
   // Get MTG sets from Scryfall
   const { sets: mtgSets, popularSets, loading: setsLoading } = useMTGSets();
@@ -50,6 +52,12 @@ export default function Collection() {
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'collection';
+
+  // Filter sets based on search query
+  const filteredSets = mtgSets.filter(set => 
+    set.name.toLowerCase().includes(setsSearchQuery.toLowerCase()) ||
+    set.code.toLowerCase().includes(setsSearchQuery.toLowerCase())
+  );
 
   // Fixed useCardSearch call with stable dependencies including sets
   const searchFilters = {
@@ -622,32 +630,58 @@ export default function Collection() {
                 
                 {/* Advanced Filters for Add Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Select value={selectedSet} onValueChange={setSelectedSet}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Set" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
-                      <SelectItem value="all">All Sets</SelectItem>
-                      {setsLoading ? (
-                        <SelectItem value="loading" disabled>Loading sets...</SelectItem>
-                      ) : (
-                        <>
-                          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Popular Sets</div>
-                          {popularSets.slice(0, 15).map((set) => (
-                            <SelectItem key={set.code} value={set.code}>
-                              {set.name} ({set.code.toUpperCase()})
-                            </SelectItem>
-                          ))}
-                          <div className="px-2 py-1 text-xs font-medium text-muted-foreground mt-2">All Sets (A-Z)</div>
-                          {mtgSets.slice().sort((a, b) => a.name.localeCompare(b.name)).map((set) => (
-                            <SelectItem key={set.code} value={set.code}>
-                              {set.name} ({set.code.toUpperCase()})
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Search Sets</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search sets (e.g. 'Dominaria', 'DOM')..."
+                        value={setsSearchQuery}
+                        onChange={(e) => setSetsSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      />
+                    </div>
+                    <Select value={selectedSet} onValueChange={setSelectedSet}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Set" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
+                        <SelectItem value="all">All Sets</SelectItem>
+                        {setsLoading ? (
+                          <SelectItem value="loading" disabled>Loading sets...</SelectItem>
+                        ) : (
+                          <>
+                            {setsSearchQuery ? (
+                              <>
+                                <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Search Results</div>
+                                {filteredSets.map((set) => (
+                                  <SelectItem key={set.code} value={set.code}>
+                                    {set.name} ({set.code.toUpperCase()}) - {set.released_at}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            ) : (
+                              <>
+                                <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Recent Sets</div>
+                                {popularSets.slice(0, 15).map((set) => (
+                                  <SelectItem key={set.code} value={set.code}>
+                                    {set.name} ({set.code.toUpperCase()})
+                                  </SelectItem>
+                                ))}
+                                <div className="px-2 py-1 text-xs font-medium text-muted-foreground mt-2">All Sets (A-Z)</div>
+                                {mtgSets.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 50).map((set) => (
+                                  <SelectItem key={set.code} value={set.code}>
+                                    {set.name} ({set.code.toUpperCase()})
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   
                   <Select value={selectedRarity} onValueChange={setSelectedRarity}>
                     <SelectTrigger>

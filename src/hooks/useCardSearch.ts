@@ -135,24 +135,19 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
 
   // Use effect with proper dependency management
   useEffect(() => {
+    if (!query || query.length < 2) {
+      setCards([]);
+      setLoading(false);
+      return;
+    }
+
     // Debounce the search
     const timeoutId = setTimeout(() => {
       searchCards(query, filters);
     }, 500);
     
     return () => clearTimeout(timeoutId);
-  }, [query, searchCards]); // Remove filters from dependencies to prevent infinite loops
-
-  // Update search when filters change (separately)
-  useEffect(() => {
-    if (query && query.length >= 2) {
-      const timeoutId = setTimeout(() => {
-        searchCards(query, filters);
-      }, 300);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [filters.format, filters.rarity, filters.types, filters.colors, filters.sets, query, searchCards]);
+  }, [query, filters.format, filters.rarity, filters.types, filters.colors, filters.sets]);
 
   return { cards, loading, error };
 }

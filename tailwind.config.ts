@@ -61,7 +61,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// EOE Mechanic Colors
+				spacecraft: 'hsl(var(--spacecraft))',
+				station: 'hsl(var(--station))',
+				warp: 'hsl(var(--warp))',
+				void: 'hsl(var(--void))',
+				planet: 'hsl(var(--planet))'
+			},
+			backgroundImage: {
+				'cosmic': 'var(--gradient-cosmic)',
+				'nebula': 'var(--gradient-nebula)',
+				'starfield': 'var(--gradient-starfield)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +95,26 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'starfield': {
+					'0%': { transform: 'translateY(0)' },
+					'100%': { transform: 'translateY(-100vh)' }
+				},
+				'glow-pulse': {
+					'0%, 100%': { boxShadow: 'var(--glow-primary)' },
+					'50%': { boxShadow: 'var(--glow-accent)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0px)' },
+					'50%': { transform: 'translateY(-10px)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'starfield': 'starfield 20s linear infinite',
+				'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+				'float': 'float 3s ease-in-out infinite'
 			}
 		}
 	},

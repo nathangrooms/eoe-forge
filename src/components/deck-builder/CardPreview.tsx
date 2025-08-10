@@ -12,14 +12,15 @@ interface CardData {
   name: string;
   cmc: number;
   type_line: string;
-  colors: string[];
+  colors?: string[];
   oracle_text?: string;
   power?: string;
   toughness?: string;
   image_uris?: {
-    small: string;
-    normal: string;
-    large: string;
+    small?: string;
+    normal?: string;
+    large?: string;
+    art_crop?: string;
   };
   mechanics?: string[];
   prices?: {
@@ -65,7 +66,7 @@ export const CardPreview = ({ card, showAddButton = true, variant = 'grid' }: Ca
       name: card.name,
       cmc: card.cmc,
       type_line: card.type_line,
-      colors: card.colors,
+      colors: card.colors || [],
       quantity: 1,
       category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
                card.type_line.toLowerCase().includes('land') ? 'lands' :

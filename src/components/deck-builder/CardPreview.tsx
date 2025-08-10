@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,34 +79,63 @@ export const CardPreview = ({ card, showAddButton = true, variant = 'grid' }: Ca
     });
   };
 
-  const CardImage = ({ className }: { className?: string }) => (
-    <div className={`relative ${className || ''}`}>
-      {card.image_uris?.normal ? (
-        <img 
-          src={card.image_uris.normal} 
-          alt={card.name}
-          className="w-full rounded-lg shadow-lg"
-        />
-      ) : (
-        <div className="w-full aspect-[5/7] bg-muted rounded-lg flex items-center justify-center">
-          <span className="text-muted-foreground">No Image</span>
-        </div>
-      )}
-      
-      {showAddButton && (
-        <Button
-          size="sm"
-          className="absolute top-2 right-2 shadow-lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            addCard();
-          }}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      )}
-    </div>
-  );
+  const CardImage = ({ className }: { className?: string }) => {
+    const [imageError, setImageError] = useState(false);
+    const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+
+    // Determine the best image URL to use
+    useEffect(() => {
+      if (card.image_uris) {
+        // Try normal first, then large, then small as fallbacks
+        const imageUrl = card.image_uris.normal || card.image_uris.large || card.image_uris.small;
+        setCurrentImageUrl(imageUrl || null);
+        setImageError(false);
+      }
+    }, [card.image_uris]);
+
+    return (
+      <div className={`relative ${className || ''}`}>
+        {currentImageUrl && !imageError ? (
+          <img 
+            src={currentImageUrl} 
+            alt={card.name}
+            className="w-full rounded-lg shadow-lg"
+            crossOrigin="anonymous"
+            loading="lazy"
+            onLoad={() => setImageError(false)}
+            onError={() => {
+              console.log(`Failed to load image for ${card.name}:`, currentImageUrl);
+              // Try fallback URLs
+              if (currentImageUrl?.includes('normal') && card.image_uris?.large) {
+                setCurrentImageUrl(card.image_uris.large);
+              } else if (currentImageUrl?.includes('large') && card.image_uris?.small) {
+                setCurrentImageUrl(card.image_uris.small);
+              } else {
+                setImageError(true);
+              }
+            }}
+          />
+        ) : (
+          <div className="w-full aspect-[5/7] bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center">
+            <span className="text-muted-foreground font-medium">MTG</span>
+          </div>
+        )}
+        
+        {showAddButton && (
+          <Button
+            size="sm"
+            className="absolute top-2 right-2 shadow-lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              addCard();
+            }}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   const CardInfo = ({ detailed = false }: { detailed?: boolean }) => (
     <div className="space-y-2">

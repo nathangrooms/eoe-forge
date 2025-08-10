@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import DeckBuilder from "./pages/DeckBuilder";
+import Decks from "./pages/Decks";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +60,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+              <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
               <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

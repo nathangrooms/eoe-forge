@@ -21,7 +21,7 @@ const Index = () => {
             Search every card ever printed and create competitive decks for any format.
           </p>
           <div className="flex items-center justify-center space-x-4">
-            <Link to="/deck-builder">
+            <Link to="/decks">
               <Button size="lg" className="animate-pulse">
                 <Sparkles className="h-5 w-5 mr-2" />
                 Start Building
@@ -154,7 +154,7 @@ const Index = () => {
                 </p>
               </CardHeader>
               <CardContent className="text-center">
-                <Link to="/deck-builder">
+                <Link to="/decks">
                   <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
                     <Wand2 className="h-5 w-5 mr-2" />
                     Build Decks

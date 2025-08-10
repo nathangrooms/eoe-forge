@@ -35,23 +35,27 @@ export default function Collection() {
   const deckStore = useDeckStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
+  // All hooks must be called at the top level consistently
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('all');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedRarity, setSelectedRarity] = useState('all');
 
-  const { cards: searchResults, loading } = useCardSearch(searchQuery, {
+  // Get active tab from URL params  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'collection';
+
+  // Fixed useCardSearch call with stable dependencies
+  const searchFilters = {
     sets: [],
     types: selectedTypes,
     colors: selectedColors,
     format: selectedFormat === 'all' ? undefined : selectedFormat,
     rarity: selectedRarity === 'all' ? undefined : selectedRarity
-  });
-
-  // Get active tab from URL params  
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'collection';
+  };
+  
+  const { cards: searchResults, loading } = useCardSearch(searchQuery, searchFilters);
 
   const setActiveTab = (tab: string) => {
     if (tab === 'collection') {
@@ -671,8 +675,22 @@ export default function Collection() {
                     {popularCards.map((card, index) => (
                       <Card key={index} className="cursor-pointer hover:shadow-md transition-all duration-200 border-primary/20">
                         <CardContent className="p-3">
-                          <div className="aspect-[5/7] bg-gradient-to-br from-primary/10 to-secondary/10 rounded mb-2 flex items-center justify-center">
-                            <span className="text-xs text-muted-foreground">MTG</span>
+                          <div className="aspect-[5/7] bg-gradient-to-br from-primary/10 to-secondary/10 rounded mb-2 flex items-center justify-center overflow-hidden">
+                            {card.image ? (
+                              <img 
+                                src={card.image} 
+                                alt={card.name}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground font-medium">MTG</span>
+                              </div>
+                            )}
                           </div>
                           <div className="space-y-1">
                             <div className="text-sm font-medium text-center">{card.name}</div>

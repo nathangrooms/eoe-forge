@@ -26,7 +26,8 @@ import {
   Download,
   Upload,
   Home,
-  Eye
+  Eye,
+  Heart
 } from 'lucide-react';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useDeckStore } from '@/stores/deckStore';
@@ -39,7 +40,7 @@ export default function Collection() {
   const deckStore = useDeckStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showAddCard, setShowAddCard] = useState(false);
-  const [showDeckBuilder, setShowDeckBuilder] = useState(false);
+  const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   
   // Auto deck builder state
   const [deckRequirements, setDeckRequirements] = useState<DeckRequirements>({
@@ -118,7 +119,7 @@ export default function Collection() {
       });
       
       deckStore.setPowerLevel(generatedDeck.powerLevel);
-      setShowDeckBuilder(false);
+      // Navigate to decks page
       
       // Show success message or navigate to deck builder
       alert(`Generated deck with synergy score: ${generatedDeck.synergyScore.toFixed(2)}`);

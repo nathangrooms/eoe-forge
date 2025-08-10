@@ -1,4 +1,4 @@
-import { FormatRules } from '../types';
+import { FormatRules, Card } from '../types';
 
 // Format rules registry - extensible and maintainable
 export const FORMAT_RULES: Record<string, FormatRules> = {

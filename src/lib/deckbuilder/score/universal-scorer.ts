@@ -182,7 +182,7 @@ export class UniversalScorer {
     if (deck.length === 100) {
       const utilityLands = lands.filter(c => 
         !c.type_line.includes('Basic') && 
-        !c.color_identity.length > 0
+        c.color_identity.length === 0
       ).length;
       if (utilityLands >= 2) score += 0.5;
     }

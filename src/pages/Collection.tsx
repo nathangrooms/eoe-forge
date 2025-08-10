@@ -761,21 +761,36 @@ export default function Collection() {
                     {searchResults.slice(0, 50).map((card) => (
                       <Card key={card.id} className="group hover:shadow-lg transition-all duration-200">
                         <CardContent className="p-3">
-                          <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center overflow-hidden">
-                            {card.image_uris?.small ? (
+                          <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center overflow-hidden relative">
+                            {card.image_uris?.normal || card.image_uris?.large || card.image_uris?.small ? (
                               <img 
-                                src={card.image_uris.small} 
+                                src={card.image_uris.normal || card.image_uris.large || card.image_uris.small} 
                                 alt={card.name}
                                 className="w-full h-full object-cover rounded"
+                                crossOrigin="anonymous"
+                                loading="lazy"
                                 onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  // Try alternative image sources
+                                  const img = e.currentTarget as HTMLImageElement;
+                                  if (img.src.includes('normal') && card.image_uris?.large) {
+                                    img.src = card.image_uris.large;
+                                  } else if (img.src.includes('large') && card.image_uris?.small) {
+                                    img.src = card.image_uris.small;
+                                  } else {
+                                    // Show fallback
+                                    img.style.display = 'none';
+                                    const fallback = img.nextElementSibling as HTMLElement;
+                                    if (fallback) fallback.style.display = 'flex';
+                                  }
                                 }}
                               />
                             ) : null}
-                            <span className="text-xs text-muted-foreground">
-                              {card.image_uris?.small ? 'Loading...' : 'No Image'}
-                            </span>
+                            <div 
+                              className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded flex items-center justify-center"
+                              style={{ display: card.image_uris?.normal || card.image_uris?.large || card.image_uris?.small ? 'none' : 'flex' }}
+                            >
+                              <span className="text-xs text-muted-foreground font-medium">MTG</span>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <div className="font-medium text-sm truncate" title={card.name}>

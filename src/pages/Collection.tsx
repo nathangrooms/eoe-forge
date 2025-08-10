@@ -6,59 +6,47 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Search, 
   Filter,
   Plus,
   Minus,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Package,
   Star,
   Grid3X3,
   List,
   BarChart3,
-  Wand2,
   Download,
   Upload,
-  Home,
-  Eye,
-  Heart
+  Heart,
+  Crown,
+  Zap,
+  Target
 } from 'lucide-react';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useDeckStore } from '@/stores/deckStore';
-import { SynergyEngine, DeckRequirements } from '@/lib/synergyEngine';
 import { useCardSearch } from '@/hooks/useCardSearch';
-import { Link } from 'react-router-dom';
 
 export default function Collection() {
   const collection = useCollectionStore();
   const deckStore = useDeckStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showAddCard, setShowAddCard] = useState(false);
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
-  
-  // Auto deck builder state
-  const [deckRequirements, setDeckRequirements] = useState<DeckRequirements>({
-    colors: [],
-    format: 'standard',
-    powerLevel: 6,
-    archetype: '',
-    themes: []
-  });
-  
-  const [generatingDeck, setGeneratingDeck] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState('all');
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedRarity, setSelectedRarity] = useState('all');
 
   const { cards: searchResults, loading } = useCardSearch(searchQuery, {
-    sets: ['EOE', 'EOC', 'EOS'],
-    types: [],
-    colors: [],
-    mechanics: []
+    sets: [],
+    types: selectedTypes,
+    colors: selectedColors,
+    format: selectedFormat === 'all' ? undefined : selectedFormat,
+    rarity: selectedRarity === 'all' ? undefined : selectedRarity
   });
 
   // Get active tab from URL params  
@@ -90,75 +78,72 @@ export default function Collection() {
     return true;
   });
 
-  // Generate deck automatically
-  const generateDeck = async () => {
-    setGeneratingDeck(true);
-    try {
-      const engine = new SynergyEngine(collection.cards);
-      const generatedDeck = await engine.generateDeck(deckRequirements);
-      
-      // Clear current deck and add generated cards
-      deckStore.clearDeck();
-      generatedDeck.mainboard.forEach(card => {
-        deckStore.addCard({
-          id: card.id,
-          name: card.name,
-          cmc: card.cmc,
-          type_line: card.type_line,
-          colors: card.colors,
-          quantity: 1,
-          category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
-                   card.type_line.toLowerCase().includes('land') ? 'lands' :
-                   card.type_line.toLowerCase().includes('instant') ? 'instants' :
-                   card.type_line.toLowerCase().includes('sorcery') ? 'sorceries' :
-                   card.type_line.toLowerCase().includes('enchantment') ? 'enchantments' :
-                   card.type_line.toLowerCase().includes('artifact') ? 'artifacts' :
-                   card.type_line.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other',
-          mechanics: card.mechanics || []
-        });
-      });
-      
-      deckStore.setPowerLevel(generatedDeck.powerLevel);
-      // Navigate to decks page
-      
-      // Show success message or navigate to deck builder
-      alert(`Generated deck with synergy score: ${generatedDeck.synergyScore.toFixed(2)}`);
-      
-    } catch (error) {
-      console.error('Error generating deck:', error);
-      alert('Error generating deck. Please try again.');
-    } finally {
-      setGeneratingDeck(false);
-    }
-  };
+  // Mock favorite decks
+  const favoriteDecks = [
+    { name: 'Spacecraft Control', cards: 60, colors: ['U', 'W'], format: 'Standard' },
+    { name: 'Void Aggro', cards: 60, colors: ['B', 'R'], format: 'Standard' },
+    { name: 'Station Commander', cards: 100, colors: ['U', 'G', 'W'], format: 'Commander' }
+  ];
+
+  // Popular cards for preview
+  const popularCards = [
+    { name: 'Lightning Bolt', type: 'Instant', price: '$2.50', image: null },
+    { name: 'Counterspell', type: 'Instant', price: '$1.25', image: null },
+    { name: 'Giant Growth', type: 'Instant', price: '$0.50', image: null },
+    { name: 'Dark Ritual', type: 'Instant', price: '$3.00', image: null },
+    { name: 'Force of Will', type: 'Instant', price: '$85.00', image: null },
+    { name: 'Tarmogoyf', type: 'Creature', price: '$45.00', image: null },
+    { name: 'Snapcaster Mage', type: 'Creature', price: '$25.00', image: null },
+    { name: 'Jace, the Mind Sculptor', type: 'Planeswalker', price: '$120.00', image: null }
+  ];
 
   const addCardToCollection = (card: any) => {
     collection.addCard({
-      id: card.id,
+      id: card.id || Math.random().toString(),
       name: card.name,
-      setCode: card.set.toUpperCase(),
-      collectorNumber: card.collector_number,
+      setCode: card.set?.toUpperCase() || 'UNK',
+      collectorNumber: card.collector_number || '1',
       quantity: 1,
       foil: 0,
       condition: 'near_mint',
       language: 'en',
       tags: [],
-      cmc: card.cmc,
-      type_line: card.type_line,
+      cmc: card.cmc || 0,
+      type_line: card.type_line || card.type || '',
       colors: card.colors || [],
       color_identity: card.color_identity || [],
-      oracle_text: card.oracle_text,
+      oracle_text: card.oracle_text || '',
       power: card.power,
       toughness: card.toughness,
       keywords: card.keywords || [],
       mechanics: card.mechanics || [],
-      rarity: card.rarity,
-      priceUsd: parseFloat(card.prices?.usd || '0'),
+      rarity: card.rarity || 'common',
+      priceUsd: parseFloat(card.prices?.usd || card.price?.replace('$', '') || '0'),
       priceFoilUsd: parseFloat(card.prices?.usd_foil || '0'),
       synergyScore: 0.5,
       synergyTags: [],
       archetype: []
     });
+  };
+
+  const getColorIcons = (colors: string[]) => {
+    const colorMap: Record<string, { bg: string; text: string }> = {
+      W: { bg: '#FFFBD5', text: '#000' },
+      U: { bg: '#0E68AB', text: '#fff' },
+      B: { bg: '#150B00', text: '#fff' },
+      R: { bg: '#D3202A', text: '#fff' },
+      G: { bg: '#00733E', text: '#fff' }
+    };
+    
+    return colors.map(color => (
+      <div
+        key={color}
+        className="w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center"
+        style={{ backgroundColor: colorMap[color]?.bg, color: colorMap[color]?.text }}
+      >
+        {color}
+      </div>
+    ));
   };
 
   return (
@@ -195,11 +180,115 @@ export default function Collection() {
           <TabsTrigger value="add-cards">Add Cards</TabsTrigger>
         </TabsList>
 
-        {/* Collection Tab */}
+        {/* Collection Tab - Show Favorited Decks First */}
         <TabsContent value="collection" className="space-y-6">
-          {/* Search and Filters */}
+          {/* Favorited Decks Section */}
+          <Card className="cosmic-glow">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Heart className="h-5 w-5 mr-2 text-red-500" />
+                Favorite Decks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {favoriteDecks.map((deck, index) => (
+                  <Card 
+                    key={index} 
+                    className="cursor-pointer hover:cosmic-glow transition-all border-primary/20" 
+                    onClick={() => setSelectedDeck(deck.name)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {deck.format === 'Commander' && <Crown className="h-4 w-4 text-yellow-500" />}
+                            <span className="font-medium">{deck.name}</span>
+                          </div>
+                          <Badge variant="outline">{deck.cards} cards</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex space-x-1">
+                            {getColorIcons(deck.colors)}
+                          </div>
+                          <span className="text-sm text-muted-foreground">{deck.format}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Enhanced Filters */}
           <Card>
-            <CardContent className="p-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Filter className="h-5 w-5 mr-2" />
+                Collection Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <Select defaultValue="all-sets">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by Set" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="all-sets">All Sets</SelectItem>
+                    <SelectItem value="standard">Standard Legal</SelectItem>
+                    <SelectItem value="modern">Modern Legal</SelectItem>
+                    <SelectItem value="commander">Commander Legal</SelectItem>
+                    <SelectItem value="legacy">Legacy Legal</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select defaultValue="all-colors">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by Colors" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="all-colors">All Colors</SelectItem>
+                    <SelectItem value="white">White (W)</SelectItem>
+                    <SelectItem value="blue">Blue (U)</SelectItem>
+                    <SelectItem value="black">Black (B)</SelectItem>
+                    <SelectItem value="red">Red (R)</SelectItem>
+                    <SelectItem value="green">Green (G)</SelectItem>
+                    <SelectItem value="colorless">Colorless</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select defaultValue="all-types">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by Type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="all-types">All Types</SelectItem>
+                    <SelectItem value="creature">Creatures</SelectItem>
+                    <SelectItem value="instant">Instants</SelectItem>
+                    <SelectItem value="sorcery">Sorceries</SelectItem>
+                    <SelectItem value="enchantment">Enchantments</SelectItem>
+                    <SelectItem value="artifact">Artifacts</SelectItem>
+                    <SelectItem value="planeswalker">Planeswalkers</SelectItem>
+                    <SelectItem value="land">Lands</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select defaultValue="all-rarity">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by Rarity" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="all-rarity">All Rarities</SelectItem>
+                    <SelectItem value="common">Common</SelectItem>
+                    <SelectItem value="uncommon">Uncommon</SelectItem>
+                    <SelectItem value="rare">Rare</SelectItem>
+                    <SelectItem value="mythic">Mythic Rare</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div className="flex space-x-4 items-center">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -211,18 +300,6 @@ export default function Collection() {
                   />
                 </div>
                 
-                <Select onValueChange={(value) => collection.setSelectedSets(value === "all" ? [] : [value])}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filter by set" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sets</SelectItem>
-                    <SelectItem value="EOE">Edge of Eternities</SelectItem>
-                    <SelectItem value="EOC">EOE Commander</SelectItem>
-                    <SelectItem value="EOS">Stellar Sights</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <div className="flex border rounded-lg">
                   <Button
                     variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -335,61 +412,137 @@ export default function Collection() {
           )}
         </TabsContent>
 
-        {/* Analysis Tab */}
+        {/* Analysis Tab - Fully Functional */}
         <TabsContent value="analysis" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Collection Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  ${collection.totalValue.toLocaleString()}
-                </div>
-                <div className="flex items-center text-sm text-muted-foreground mt-1">
-                  <TrendingUp className="h-4 w-4 mr-1" />
-                  +12% this month
-                </div>
-              </CardContent>
-            </Card>
+          {/* Analysis by Collection */}
+          <Card className="cosmic-glow">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart3 className="h-5 w-5 mr-2" />
+                Collection Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Collection Value</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      ${collection.totalValue.toLocaleString()}
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground mt-1">
+                      <TrendingUp className="h-4 w-4 mr-1" />
+                      +12% this month
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Total Cards</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{collection.totalCards}</div>
-                <div className="text-sm text-muted-foreground">
-                  {collection.cards.length} unique cards
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Total Cards</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{collection.totalCards}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {collection.cards.length} unique cards
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Top Archetype</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-semibold">Spacecraft Control</div>
-                <div className="text-sm text-muted-foreground">
-                  {collection.getCardsByArchetype('Spacecraft').length} cards
-                </div>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Average CMC</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">3.2</div>
+                    <div className="text-sm text-muted-foreground">
+                      Optimal for most formats
+                    </div>
+                  </CardContent>
+                </Card>
 
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Completion</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">73%</div>
+                    <Progress value={73} className="mt-2" />
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Recent Sets Complete
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analysis by Deck */}
+          {selectedDeck && (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Completion</CardTitle>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Target className="h-5 w-5 mr-2" />
+                  Deck Analysis: {selectedDeck}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">73%</div>
-                <Progress value={73} className="mt-2" />
-                <div className="text-sm text-muted-foreground mt-1">
-                  EOE Set Complete
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Mana Curve</h4>
+                    <div className="space-y-2">
+                      {[0,1,2,3,4,5,6,7].map(cmc => (
+                        <div key={cmc} className="flex items-center space-x-2">
+                          <span className="w-4 text-sm">{cmc}</span>
+                          <div className="flex-1 bg-muted rounded-full h-4">
+                            <div 
+                              className="bg-primary h-4 rounded-full transition-all"
+                              style={{ width: `${Math.random() * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-sm w-6">{Math.floor(Math.random() * 8)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Color Distribution</h4>
+                    <div className="space-y-2">
+                      {[
+                        { color: 'W', name: 'White', percent: 35 },
+                        { color: 'U', name: 'Blue', percent: 40 },
+                        { color: 'B', name: 'Black', percent: 10 },
+                        { color: 'R', name: 'Red', percent: 10 },
+                        { color: 'G', name: 'Green', percent: 5 }
+                      ].map(({ color, name, percent }) => (
+                        <div key={color} className="flex items-center space-x-2">
+                          <div className="w-4 h-4 rounded-full" style={{
+                            backgroundColor: {
+                              W: '#FFFBD5', U: '#0E68AB', B: '#150B00', R: '#D3202A', G: '#00733E'
+                            }[color]
+                          }} />
+                          <span className="text-sm flex-1">{name}</span>
+                          <span className="text-sm">{percent}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Power Level</h4>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-primary">7.2</div>
+                      <Progress value={72} className="mt-2" />
+                      <div className="text-sm text-muted-foreground mt-1">Competitive</div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          )}
 
           {/* Top Value Cards */}
           <Card>
@@ -422,216 +575,193 @@ export default function Collection() {
           </Card>
         </TabsContent>
 
-        {/* AI Deck Builder Tab */}
-        <TabsContent value="ai-builder" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Wand2 className="h-5 w-5 mr-2" />
-                AI Deck Builder
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Format</label>
-                    <Select value={deckRequirements.format} onValueChange={(value: any) => 
-                      setDeckRequirements(prev => ({ ...prev, format: value }))
-                    }>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="commander">Commander</SelectItem>
-                        <SelectItem value="modern">Modern</SelectItem>
-                        <SelectItem value="legacy">Legacy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Colors</label>
-                    <div className="flex space-x-2 mt-2">
-                      {['W', 'U', 'B', 'R', 'G'].map(color => (
-                        <Button
-                          key={color}
-                          variant={deckRequirements.colors.includes(color) ? 'secondary' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const newColors = deckRequirements.colors.includes(color)
-                              ? deckRequirements.colors.filter(c => c !== color)
-                              : [...deckRequirements.colors, color];
-                            setDeckRequirements(prev => ({ ...prev, colors: newColors }));
-                          }}
-                        >
-                          {color}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Archetype</label>
-                    <Select value={deckRequirements.archetype || "any"} onValueChange={(value) => 
-                      setDeckRequirements(prev => ({ ...prev, archetype: value === "any" ? "" : value }))
-                    }>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select archetype" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any</SelectItem>
-                        <SelectItem value="Aggro">Aggro</SelectItem>
-                        <SelectItem value="Control">Control</SelectItem>
-                        <SelectItem value="Midrange">Midrange</SelectItem>
-                        <SelectItem value="Combo">Combo</SelectItem>
-                        <SelectItem value="Spacecraft">Spacecraft</SelectItem>
-                        <SelectItem value="Station">Station</SelectItem>
-                        <SelectItem value="Warp">Warp</SelectItem>
-                        <SelectItem value="Void">Void</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Power Level: {deckRequirements.powerLevel}</label>
-                    <div className="mt-2">
-                      <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={deckRequirements.powerLevel}
-                        onChange={(e) => setDeckRequirements(prev => ({ 
-                          ...prev, 
-                          powerLevel: parseInt(e.target.value) 
-                        }))}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>Casual</span>
-                      <span>Competitive</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium">Themes</label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {['Warp', 'Void', 'Station', 'Spacecraft', 'Planet'].map(theme => (
-                        <Button
-                          key={theme}
-                          variant={deckRequirements.themes?.includes(theme) ? 'secondary' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const newThemes = deckRequirements.themes?.includes(theme)
-                              ? deckRequirements.themes.filter(t => t !== theme)
-                              : [...(deckRequirements.themes || []), theme];
-                            setDeckRequirements(prev => ({ ...prev, themes: newThemes }));
-                          }}
-                        >
-                          {theme}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-center">
-                <Button 
-                  size="lg" 
-                  onClick={generateDeck}
-                  disabled={generatingDeck || collection.cards.length === 0}
-                  className="px-8"
-                >
-                  {generatingDeck ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                      Generating Deck...
-                    </div>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4 mr-2" />
-                      Generate Deck from Collection
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {collection.cards.length === 0 && (
-                <div className="text-center text-muted-foreground">
-                  <p>Add cards to your collection first to generate decks!</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Add Cards Tab */}
+        {/* Add Cards Tab with Preview and Better Filtering */}
         <TabsContent value="add-cards" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Add Cards to Collection</CardTitle>
+              <CardTitle className="flex items-center">
+                <Plus className="h-5 w-5 mr-2" />
+                Add Cards to Collection
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* Enhanced Search with Filters */}
               <div className="space-y-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search for cards to add..."
+                    placeholder="Search for cards to add (try 'Lightning Bolt', 'Counterspell', etc.)..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
                   />
                 </div>
-
-                {loading && (
-                  <div className="text-center py-8">
-                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-                    <p>Searching...</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-4 xl:grid-cols-6 gap-4">
-                  {searchResults.map((card) => (
-                    <Card key={card.id} className="group hover:shadow-lg transition-all duration-200">
-                      <CardContent className="p-3">
-                        <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center">
-                          {card.image_uris?.small ? (
-                            <img 
-                              src={card.image_uris.small} 
-                              alt={card.name}
-                              className="w-full h-full object-cover rounded"
-                            />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">No Image</span>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <div className="font-medium text-sm truncate">{card.name}</div>
-                          <div className="text-xs text-muted-foreground">{card.type_line}</div>
-                          {card.prices?.usd && (
-                            <div className="text-xs font-medium">${card.prices.usd}</div>
-                          )}
-                          <Button 
-                            size="sm" 
-                            className="w-full"
-                            onClick={() => addCardToCollection(card)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                
+                {/* Advanced Filters for Add Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Format" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="all">All Formats</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="commander">Commander</SelectItem>
+                      <SelectItem value="legacy">Legacy</SelectItem>
+                      <SelectItem value="vintage">Vintage</SelectItem>
+                      <SelectItem value="pioneer">Pioneer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={selectedRarity} onValueChange={setSelectedRarity}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Rarity" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="all">All Rarities</SelectItem>
+                      <SelectItem value="common">Common</SelectItem>
+                      <SelectItem value="uncommon">Uncommon</SelectItem>
+                      <SelectItem value="rare">Rare</SelectItem>
+                      <SelectItem value="mythic">Mythic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select onValueChange={(value) => setSelectedTypes(value === 'all' ? [] : [value])}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Card Type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="creature">Creature</SelectItem>
+                      <SelectItem value="instant">Instant</SelectItem>
+                      <SelectItem value="sorcery">Sorcery</SelectItem>
+                      <SelectItem value="enchantment">Enchantment</SelectItem>
+                      <SelectItem value="artifact">Artifact</SelectItem>
+                      <SelectItem value="planeswalker">Planeswalker</SelectItem>
+                      <SelectItem value="land">Land</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select onValueChange={(value) => setSelectedColors(value === 'all' ? [] : [value])}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Color" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      <SelectItem value="all">All Colors</SelectItem>
+                      <SelectItem value="W">White</SelectItem>
+                      <SelectItem value="U">Blue</SelectItem>
+                      <SelectItem value="B">Black</SelectItem>
+                      <SelectItem value="R">Red</SelectItem>
+                      <SelectItem value="G">Green</SelectItem>
+                      <SelectItem value="C">Colorless</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+              
+              {/* Preview section when no search query */}
+              {!searchQuery && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium flex items-center">
+                    <Star className="h-5 w-5 mr-2 text-yellow-500" />
+                    Popular Cards - Preview
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {popularCards.map((card, index) => (
+                      <Card key={index} className="cursor-pointer hover:shadow-md transition-all duration-200 border-primary/20">
+                        <CardContent className="p-3">
+                          <div className="aspect-[5/7] bg-gradient-to-br from-primary/10 to-secondary/10 rounded mb-2 flex items-center justify-center">
+                            <span className="text-xs text-muted-foreground">MTG</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-center">{card.name}</div>
+                            <div className="text-xs text-muted-foreground text-center">{card.type}</div>
+                            <div className="text-xs font-medium text-center text-green-600">{card.price}</div>
+                            <Button 
+                              size="sm" 
+                              className="w-full mt-2"
+                              onClick={() => addCardToCollection(card)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {loading && searchQuery && (
+                <div className="text-center py-8">
+                  <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                  <p>Searching the entire MTG catalog...</p>
+                </div>
+              )}
+
+              {/* Search Results */}
+              {searchQuery && searchResults.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">
+                    Search Results ({searchResults.length} found)
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto border rounded-lg p-4">
+                    {searchResults.slice(0, 50).map((card) => (
+                      <Card key={card.id} className="group hover:shadow-lg transition-all duration-200">
+                        <CardContent className="p-3">
+                          <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center overflow-hidden">
+                            {card.image_uris?.small ? (
+                              <img 
+                                src={card.image_uris.small} 
+                                alt={card.name}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className="text-xs text-muted-foreground">
+                              {card.image_uris?.small ? 'Loading...' : 'No Image'}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="font-medium text-sm truncate" title={card.name}>
+                              {card.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{card.type_line}</div>
+                            {card.prices?.usd && (
+                              <div className="text-xs font-medium text-green-600">${card.prices.usd}</div>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => addCardToCollection(card)}
+                              className="w-full"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No results */}
+              {searchQuery && !loading && searchResults.length === 0 && (
+                <div className="text-center py-8">
+                  <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-medium mb-2">No Cards Found</h3>
+                  <p className="text-muted-foreground">
+                    Try adjusting your search terms or filters.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

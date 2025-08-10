@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Card interface matching Scryfall API response
 interface Card {
@@ -47,102 +47,107 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!query || query.length < 2) {
+  // Memoize the search function to prevent recreating on every render
+  const searchCards = useCallback(async (searchQuery: string, searchFilters: SearchFilters) => {
+    if (!searchQuery || searchQuery.length < 2) {
       setCards([]);
+      setLoading(false);
       return;
     }
 
-    const searchCards = async () => {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
-        // Build Scryfall search query
-        let searchQuery = query;
-        
-        // Add filters to the search query
-        if (filters.sets && filters.sets.length > 0) {
-          const setQuery = filters.sets.map(set => `set:${set}`).join(' OR ');
-          searchQuery += ` (${setQuery})`;
-        }
-        
-        if (filters.types && filters.types.length > 0) {
-          const typeQuery = filters.types.map(type => `type:${type}`).join(' OR ');
-          searchQuery += ` (${typeQuery})`;
-        }
-        
-        if (filters.colors && filters.colors.length > 0) {
-          const colorQuery = filters.colors.map(color => `color:${color}`).join(' OR ');
-          searchQuery += ` (${colorQuery})`;
-        }
-        
-        if (filters.mechanics && filters.mechanics.length > 0) {
-          const mechanicQuery = filters.mechanics.map(mechanic => `oracle:${mechanic}`).join(' OR ');
-          searchQuery += ` (${mechanicQuery})`;
-        }
-        
-        if (filters.format) {
-          searchQuery += ` legal:${filters.format}`;
-        }
-        
-        if (filters.rarity) {
-          searchQuery += ` rarity:${filters.rarity}`;
-        }
-        
-        if (filters.cmc) {
-          searchQuery += ` cmc:${filters.cmc}`;
-        }
-
-        // Encode the search query
-        const encodedQuery = encodeURIComponent(searchQuery);
-        
-        // Make request to Scryfall API
-        const response = await fetch(
-          `https://api.scryfall.com/cards/search?q=${encodedQuery}&order=name&unique=cards`,
-          {
-            headers: {
-              'User-Agent': 'MTG-Deck-Builder/1.0'
-            }
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setCards([]);
-            return;
-          }
-          throw new Error(`Search failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.data) {
-          // Process cards and extract mechanics
-          const processedCards = data.data.map((card: any) => ({
-            ...card,
-            mechanics: extractMechanics(card)
-          }));
-          
-          setCards(processedCards.slice(0, 100)); // Limit to 100 results for performance
-        } else {
-          setCards([]);
-        }
-        
-      } catch (err) {
-        console.error('Card search error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to search cards');
-        setCards([]);
-      } finally {
-        setLoading(false);
+    try {
+      // Build Scryfall search query
+      let scryfallQuery = searchQuery;
+      
+      // Add filters to the search query
+      if (searchFilters.format && searchFilters.format !== 'all') {
+        scryfallQuery += ` legal:${searchFilters.format}`;
       }
-    };
+      
+      if (searchFilters.rarity && searchFilters.rarity !== 'all') {
+        scryfallQuery += ` rarity:${searchFilters.rarity}`;
+      }
+      
+      if (searchFilters.types && searchFilters.types.length > 0) {
+        const typeQuery = searchFilters.types.map(type => `type:${type}`).join(' OR ');
+        scryfallQuery += ` (${typeQuery})`;
+      }
+      
+      if (searchFilters.colors && searchFilters.colors.length > 0) {
+        const colorQuery = searchFilters.colors.map(color => `color:${color}`).join(' OR ');
+        scryfallQuery += ` (${colorQuery})`;
+      }
 
+      console.log('Searching with query:', scryfallQuery);
+
+      // Encode the search query
+      const encodedQuery = encodeURIComponent(scryfallQuery);
+      
+      // Make request to Scryfall API
+      const response = await fetch(
+        `https://api.scryfall.com/cards/search?q=${encodedQuery}&order=name&unique=cards`,
+        {
+          headers: {
+            'User-Agent': 'MTG-Deck-Builder/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setCards([]);
+          return;
+        }
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.data) {
+        // Process cards and extract mechanics
+        const processedCards = data.data.map((card: any) => ({
+          ...card,
+          mechanics: extractMechanics(card)
+        }));
+        
+        console.log('Found cards:', processedCards.length);
+        setCards(processedCards.slice(0, 100)); // Limit to 100 results for performance
+      } else {
+        setCards([]);
+      }
+      
+    } catch (err) {
+      console.error('Card search error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to search cards');
+      setCards([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Use effect with proper dependency management
+  useEffect(() => {
     // Debounce the search
-    const timeoutId = setTimeout(searchCards, 300);
+    const timeoutId = setTimeout(() => {
+      searchCards(query, filters);
+    }, 500);
     
     return () => clearTimeout(timeoutId);
-  }, [query, filters]);
+  }, [query, searchCards]); // Remove filters from dependencies to prevent infinite loops
+
+  // Update search when filters change (separately)
+  useEffect(() => {
+    if (query && query.length >= 2) {
+      const timeoutId = setTimeout(() => {
+        searchCards(query, filters);
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [filters.format, filters.rarity, filters.types, filters.colors, query, searchCards]);
 
   return { cards, loading, error };
 }
@@ -165,23 +170,7 @@ function extractMechanics(card: Card): string[] {
     'ferocious', 'outlast', 'raid', 'prowess', 'dash', 'exploit', 'megamorph', 'renown', 'awaken',
     'converge', 'devoid', 'ingest', 'surge', 'skulk', 'investigate', 'emerge', 'escalate', 'meld',
     'crew', 'fabricate', 'partner', 'improvise', 'revolt', 'expertise', 'afterlife', 'riot', 'spectacle',
-    'escape', 'companion', 'mutate', 'cycling', 'kicker', 'multikicker', 'buyback', 'replicate',
-    'splice', 'transmute', 'dredge', 'forecast', 'graft', 'recover', 'ripple', 'split second',
-    'vanishing', 'absorb', 'aura swap', 'bushido', 'offering', 'ninjutsu', 'soulshift', 'sweep',
-    'channel', 'flip', 'epic', 'sunburst', 'modular', 'entwine', 'imprint', 'equipment', 'reconfigure',
-    // Newer mechanics
-    'foretell', 'boast', 'changeling', 'daybound', 'nightbound', 'disturb', 'decayed', 'cleave',
-    'training', 'compleated', 'reconfigure', 'blitz', 'casualty', 'shield', 'enlist', 'read ahead',
-    'prototype', 'unearth', 'powerstone', 'backup', 'toxic', 'corrupted', 'for mirrodin', 'incubate',
-    'transform', 'adventure', 'food', 'treasure', 'clue', 'blood', 'powerstone token',
-    // Planeswalker abilities
-    'loyalty', 'planeswalker', 'ultimate',
-    // Vehicle/Artifact mechanics
-    'vehicle', 'artifact', 'equipment', 'fortification',
-    // Land mechanics
-    'basic', 'fetch', 'shock', 'tap', 'enters tapped', 'sacrifice',
-    // Mana abilities
-    'add', 'mana', 'convoke', 'improvise', 'spectacle'
+    'escape', 'companion', 'mutate', 'cycling', 'kicker', 'multikicker', 'buyback', 'replicate'
   ];
 
   // Check for known mechanics in oracle text and type line

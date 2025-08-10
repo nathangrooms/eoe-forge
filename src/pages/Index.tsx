@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package } from 'lucide-react';
+import { Wand2, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Index = () => {
@@ -9,21 +9,20 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="relative py-24 px-4">
-        <div className="absolute inset-0 bg-starfield opacity-30" />
         <div className="container mx-auto text-center relative z-10">
           <div className="flex items-center justify-center mb-6">
-            <Rocket className="h-12 w-12 text-primary animate-pulse mr-4" />
-            <h1 className="text-5xl font-bold bg-cosmic bg-clip-text text-transparent">
-              Edge of Eternities
+            <Wand2 className="h-12 w-12 text-primary animate-pulse mr-4" />
+            <h1 className="text-5xl font-bold">
+              MTG Deck Builder
             </h1>
           </div>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Build, analyze, and perfect your Magic: The Gathering decks with AI-powered optimization
-            for the cosmic mechanics of Spacecraft, Stations, Warp, Void, and Planets.
+            Build, analyze, and perfect your Magic: The Gathering decks with AI-powered optimization.
+            Search every card ever printed and create competitive decks for any format.
           </p>
           <div className="flex items-center justify-center space-x-4">
             <Link to="/deck-builder">
-              <Button size="lg" className="cosmic-glow animate-glow">
+              <Button size="lg" className="animate-pulse">
                 <Sparkles className="h-5 w-5 mr-2" />
                 Start Building
                 <ArrowRight className="h-5 w-5 ml-2" />
@@ -43,84 +42,84 @@ const Index = () => {
       <section className="py-16 px-4">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">
-            Master the <span className="bg-cosmic bg-clip-text text-transparent">Edge of Eternities</span>
+            Master Magic: The Gathering
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
+            <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Rocket className="h-6 w-6 mr-3 text-spacecraft" />
-                  Spacecraft & Stations
+                  <Wand2 className="h-6 w-6 mr-3 text-primary" />
+                  AI Deck Builder
                 </CardTitle>
                 <CardDescription>
-                  Master the art of crewing powerful vehicles and maintaining optimal station density
-                  for maximum battlefield control.
+                  Generate optimized decks using advanced algorithms that analyze card synergies,
+                  mana curves, and power levels for any format.
                 </CardDescription>
               </CardHeader>
             </Card>
 
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
+            <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Zap className="h-6 w-6 mr-3 text-warp" />
-                  Warp Mechanics
+                  <Globe className="h-6 w-6 mr-3 text-primary" />
+                  Universal Card Search
                 </CardTitle>
                 <CardDescription>
-                  Harness instant-speed battlefield manipulation with precise timing and
-                  enter-the-battlefield synergies.
+                  Search through every Magic card ever printed with advanced filters
+                  for sets, formats, mechanics, and more.
                 </CardDescription>
               </CardHeader>
             </Card>
 
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
+            <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Activity className="h-6 w-6 mr-3 text-void" />
-                  Void Interactions
+                  <BarChart3 className="h-6 w-6 mr-3 text-primary" />
+                  Deck Analysis
                 </CardTitle>
                 <CardDescription>
-                  Exploit leaves-the-battlefield triggers and sacrifice outlets for powerful
-                  value engines and combo potential.
+                  Comprehensive deck analysis with mana curve, color distribution,
+                  interaction density, and power level assessment.
                 </CardDescription>
               </CardHeader>
             </Card>
 
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
+            <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Globe className="h-6 w-6 mr-3 text-planet" />
-                  Planet Lands
+                  <Package className="h-6 w-6 mr-3 text-primary" />
+                  Collection Management
                 </CardTitle>
                 <CardDescription>
-                  Build perfect manabases with intelligent planet land suggestions and
-                  color requirement analysis.
+                  Track your card collection with value tracking, completion statistics,
+                  and intelligent deck building from owned cards.
                 </CardDescription>
               </CardHeader>
             </Card>
 
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
+            <Card className="hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Target className="h-6 w-6 mr-3 text-primary" />
+                  Power Level Control
+                </CardTitle>
+                <CardDescription>
+                  Transparent power level control from casual to competitive
+                  with explainable suggestions and automatic tuning.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Cpu className="h-6 w-6 mr-3 text-primary" />
-                  AI Power Tuning
+                  Format Support
                 </CardTitle>
                 <CardDescription>
-                  Transparent power level control from casual battlecruiser to competitive
-                  cEDH with explainable suggestions.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="cosmic-glow hover:animate-float transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Target className="h-6 w-6 mr-3 text-accent" />
-                  Smart Analysis
-                </CardTitle>
-                <CardDescription>
-                  Comprehensive deck analysis with mana curve, role distribution, and
-                  EOE-specific mechanic tracking.
+                  Support for all major MTG formats including Standard, Commander,
+                  Modern, Legacy, and custom formats with legality checking.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -128,12 +127,12 @@ const Index = () => {
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
-            <Card className="group hover:shadow-xl transition-all duration-300 cosmic-glow">
+            <Card className="group hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center pb-4">
                 <Package className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
                 <CardTitle className="text-2xl mb-2">Collection Manager</CardTitle>
                 <p className="text-muted-foreground">
-                  Track your entire MTG collection with advanced analytics and synergy detection
+                  Track your entire MTG collection with advanced analytics and deck building tools
                 </p>
               </CardHeader>
               <CardContent className="text-center">
@@ -146,9 +145,9 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="group hover:shadow-xl transition-all duration-300 cosmic-glow">
+            <Card className="group hover:shadow-xl transition-all duration-300">
               <CardHeader className="text-center pb-4">
-                <Rocket className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+                <Wand2 className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
                 <CardTitle className="text-2xl mb-2">AI Deck Builder</CardTitle>
                 <p className="text-muted-foreground">
                   Build optimized decks with intelligent synergy analysis and power level tuning
@@ -157,7 +156,7 @@ const Index = () => {
               <CardContent className="text-center">
                 <Link to="/deck-builder">
                   <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
-                    <Rocket className="h-5 w-5 mr-2" />
+                    <Wand2 className="h-5 w-5 mr-2" />
                     Build Decks
                   </Button>
                 </Link>
@@ -165,23 +164,23 @@ const Index = () => {
             </Card>
           </div>
 
-          {/* Mechanics Overview */}
+          {/* Formats Overview */}
           <div className="bg-card/50 backdrop-blur-sm rounded-lg p-8 border border-border">
-            <h3 className="text-2xl font-bold mb-6 text-center">EOE Mechanics at a Glance</h3>
+            <h3 className="text-2xl font-bold mb-6 text-center">Supported Formats</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {[
-                { icon: Rocket, name: 'Spacecraft', color: 'spacecraft', description: 'Crewed vehicles with station synergies' },
-                { icon: Cpu, name: 'Station', color: 'station', description: 'Crew power enablers and triggers' },
-                { icon: Zap, name: 'Warp', color: 'warp', description: 'Instant battlefield manipulation' },
-                { icon: Activity, name: 'Void', color: 'void', description: 'Leaves-battlefield value engines' },
-                { icon: Globe, name: 'Planet', color: 'planet', description: 'Special land types with abilities' }
-              ].map((mechanic, index) => (
+                { name: 'Standard', description: 'Current rotation cards', icon: Sparkles },
+                { name: 'Commander', description: '100-card singleton format', icon: Target },
+                { name: 'Modern', description: 'Non-rotating competitive', icon: Zap },
+                { name: 'Legacy', description: 'Eternal format with history', icon: Activity },
+                { name: 'Vintage', description: 'Most powerful cards legal', icon: Globe }
+              ].map((format, index) => (
                 <div key={index} className="text-center p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <mechanic.icon className={`h-8 w-8 mx-auto mb-2 text-${mechanic.color}`} />
-                  <Badge variant="outline" className={`text-${mechanic.color} border-${mechanic.color}/30 mb-2`}>
-                    {mechanic.name}
+                  <format.icon className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <Badge variant="outline" className="mb-2">
+                    {format.name}
                   </Badge>
-                  <p className="text-xs text-muted-foreground">{mechanic.description}</p>
+                  <p className="text-xs text-muted-foreground">{format.description}</p>
                 </div>
               ))}
             </div>

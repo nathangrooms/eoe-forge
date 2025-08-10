@@ -63,6 +63,11 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
       let scryfallQuery = searchQuery;
       
       // Add filters to the search query
+      if (searchFilters.sets && searchFilters.sets.length > 0) {
+        const setQuery = searchFilters.sets.map(set => `set:${set}`).join(' OR ');
+        scryfallQuery += ` (${setQuery})`;
+      }
+      
       if (searchFilters.format && searchFilters.format !== 'all') {
         scryfallQuery += ` legal:${searchFilters.format}`;
       }
@@ -147,7 +152,7 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [filters.format, filters.rarity, filters.types, filters.colors, query, searchCards]);
+  }, [filters.format, filters.rarity, filters.types, filters.colors, filters.sets, query, searchCards]);
 
   return { cards, loading, error };
 }

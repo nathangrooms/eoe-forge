@@ -29,6 +29,7 @@ import {
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useDeckStore } from '@/stores/deckStore';
 import { useCardSearch } from '@/hooks/useCardSearch';
+import { useMTGSets } from '@/hooks/useMTGSets';
 
 export default function Collection() {
   const collection = useCollectionStore();
@@ -41,14 +42,18 @@ export default function Collection() {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedRarity, setSelectedRarity] = useState('all');
+  const [selectedSet, setSelectedSet] = useState('all');
+
+  // Get MTG sets from Scryfall
+  const { sets: mtgSets, popularSets, loading: setsLoading } = useMTGSets();
 
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'collection';
 
-  // Fixed useCardSearch call with stable dependencies
+  // Fixed useCardSearch call with stable dependencies including sets
   const searchFilters = {
-    sets: [],
+    sets: selectedSet === 'all' ? [] : [selectedSet],
     types: selectedTypes,
     colors: selectedColors,
     format: selectedFormat === 'all' ? undefined : selectedFormat,
@@ -235,16 +240,30 @@ export default function Collection() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <Select defaultValue="all-sets">
+                <Select value={selectedSet} onValueChange={setSelectedSet}>
                   <SelectTrigger>
                     <SelectValue placeholder="Filter by Set" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <SelectItem value="all-sets">All Sets</SelectItem>
-                    <SelectItem value="standard">Standard Legal</SelectItem>
-                    <SelectItem value="modern">Modern Legal</SelectItem>
-                    <SelectItem value="commander">Commander Legal</SelectItem>
-                    <SelectItem value="legacy">Legacy Legal</SelectItem>
+                  <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
+                    <SelectItem value="all">All Sets</SelectItem>
+                    {setsLoading ? (
+                      <SelectItem value="loading" disabled>Loading sets...</SelectItem>
+                    ) : (
+                      <>
+                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Recent Sets</div>
+                        {popularSets.slice(0, 10).map((set) => (
+                          <SelectItem key={set.code} value={set.code}>
+                            {set.name} ({set.code.toUpperCase()})
+                          </SelectItem>
+                        ))}
+                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground mt-2">All Sets</div>
+                        {mtgSets.map((set) => (
+                          <SelectItem key={set.code} value={set.code}>
+                            {set.name} ({set.code.toUpperCase()}) - {set.released_at}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
                 
@@ -603,18 +622,30 @@ export default function Collection() {
                 
                 {/* Advanced Filters for Add Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+                  <Select value={selectedSet} onValueChange={setSelectedSet}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Format" />
+                      <SelectValue placeholder="Set" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      <SelectItem value="all">All Formats</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="modern">Modern</SelectItem>
-                      <SelectItem value="commander">Commander</SelectItem>
-                      <SelectItem value="legacy">Legacy</SelectItem>
-                      <SelectItem value="vintage">Vintage</SelectItem>
-                      <SelectItem value="pioneer">Pioneer</SelectItem>
+                    <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
+                      <SelectItem value="all">All Sets</SelectItem>
+                      {setsLoading ? (
+                        <SelectItem value="loading" disabled>Loading sets...</SelectItem>
+                      ) : (
+                        <>
+                          <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Popular Sets</div>
+                          {popularSets.slice(0, 15).map((set) => (
+                            <SelectItem key={set.code} value={set.code}>
+                              {set.name} ({set.code.toUpperCase()})
+                            </SelectItem>
+                          ))}
+                          <div className="px-2 py-1 text-xs font-medium text-muted-foreground mt-2">All Sets (A-Z)</div>
+                          {mtgSets.slice().sort((a, b) => a.name.localeCompare(b.name)).map((set) => (
+                            <SelectItem key={set.code} value={set.code}>
+                              {set.name} ({set.code.toUpperCase()})
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                   

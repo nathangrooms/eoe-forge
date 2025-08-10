@@ -190,13 +190,7 @@ export const CardPreview = ({ card, showAddButton = true, variant = 'grid' }: Ca
             <CardContent className="p-4">
               <div className="flex space-x-4">
                 <div className="w-16 h-20 flex-shrink-0">
-                  {card.image_uris?.small && (
-                    <img 
-                      src={card.image_uris.small} 
-                      alt={card.name}
-                      className="w-full h-full object-cover rounded"
-                    />
-                  )}
+                  <CardImage className="w-full h-full" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <CardInfo />

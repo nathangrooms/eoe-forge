@@ -42,7 +42,9 @@ const DeckBuilder = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
 
-  const { cards, loading, error } = useCardSearch(searchQuery, selectedFilters);
+  // Use a default search when no query is provided to show some cards
+  const effectiveQuery = searchQuery || 'creature OR land OR instant OR sorcery';
+  const { cards, loading, error } = useCardSearch(effectiveQuery, selectedFilters);
   const deck = useDeckStore();
 
   return (
@@ -104,7 +106,7 @@ const DeckBuilder = () => {
                         <div className="flex-1 relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="Search for cards by name, type, or ability..."
+                            placeholder="Search for cards by name, type, or ability... (leave empty to browse all)"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-10 text-lg h-12"
@@ -189,7 +191,7 @@ const DeckBuilder = () => {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center">
-                        Search Results
+                        {searchQuery ? 'Search Results' : 'Browse Cards'}
                         {loading && <div className="ml-3 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
                       </CardTitle>
                       <span className="text-sm text-muted-foreground">
@@ -212,11 +214,11 @@ const DeckBuilder = () => {
                       </div>
                     )}
 
-                    {!searchQuery && cards.length === 0 && (
+                    {!loading && !error && cards.length === 0 && !searchQuery && (
                       <div className="text-center py-12 text-muted-foreground">
                         <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">Ready to build?</h3>
-                        <p>Search for cards to start building your Edge of Eternities deck</p>
+                        <h3 className="text-lg font-medium mb-2">No cards available</h3>
+                        <p>Try adjusting your filters or check your internet connection</p>
                       </div>
                     )}
 

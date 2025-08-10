@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { AppSidebar } from "@/components/AppSidebar";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import DeckBuilder from "./pages/DeckBuilder";
@@ -48,16 +50,30 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-      <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
-      <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
-      <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
-      <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
-      <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
-      <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar />
+        
+        <main className="flex-1 flex flex-col">
+          <header className="h-14 flex items-center border-b px-4">
+            <SidebarTrigger />
+          </header>
+          
+          <div className="flex-1">
+            <Routes>
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+              <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
+              <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
+              <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+              <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
 

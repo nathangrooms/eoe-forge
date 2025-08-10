@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Search, 
   Filter,
@@ -36,6 +37,8 @@ export default function Collection() {
   const deckStore = useDeckStore();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [showCardModal, setShowCardModal] = useState(false);
   
   // All search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -165,8 +168,13 @@ export default function Collection() {
     ));
   };
 
+  const openCardModal = (card: any) => {
+    setSelectedCard(card);
+    setShowCardModal(true);
+  };
+
   return (
-    <div className="p-6">
+    <div className="p-6 h-screen overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -181,7 +189,7 @@ export default function Collection() {
           <div className="text-right">
             <div className="text-sm text-muted-foreground">Total Value</div>
             <div className="text-lg font-bold text-green-600">
-              ${collection.totalValue.toLocaleString()}
+              ${collection.calculateCollectionValue().toLocaleString()}
             </div>
           </div>
           <div className="text-right">
@@ -375,7 +383,7 @@ export default function Collection() {
             : "space-y-2"
           }>
             {filteredCards.map((card) => (
-              <Card key={card.id} className="group hover:shadow-lg transition-all duration-200">
+              <Card key={card.id} className="group hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => openCardModal(card)}>
                 <CardContent className="p-3">
                   {viewMode === 'grid' ? (
                      <div>
@@ -946,6 +954,96 @@ export default function Collection() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Card Preview Modal */}
+      <Dialog open={showCardModal} onOpenChange={setShowCardModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{selectedCard?.name}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedCard && (
+            <div className="grid grid-cols-2 gap-6">
+              <div className="aspect-[5/7] overflow-hidden rounded-lg">
+                <img 
+                  src={`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(selectedCard.name)}&format=image&version=normal`}
+                  alt={selectedCard.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (img.src.includes('version=normal')) {
+                      img.src = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(selectedCard.name)}&format=image&version=large`;
+                    } else if (img.src.includes('version=large')) {
+                      img.src = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(selectedCard.name)}&format=image&version=small`;
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-lg">{selectedCard.name}</h4>
+                  <p className="text-sm text-muted-foreground">{selectedCard.type_line}</p>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <Badge variant="outline" className="text-xs">
+                      {selectedCard.setCode}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {selectedCard.rarity}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      CMC {selectedCard.cmc}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {selectedCard.oracle_text && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm whitespace-pre-line">{selectedCard.oracle_text}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 border rounded-lg">
+                    <div className="text-sm font-medium">Owned</div>
+                    <div className="text-2xl font-bold">{selectedCard.quantity}</div>
+                    <div className="text-xs text-muted-foreground">Regular copies</div>
+                  </div>
+                  <div className="p-3 border rounded-lg">
+                    <div className="text-sm font-medium">Total Value</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      ${((selectedCard.priceUsd || 0) * selectedCard.quantity).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">${(selectedCard.priceUsd || 0).toFixed(2)} each</div>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      collection.updateCardQuantity(selectedCard.id, selectedCard.quantity + 1, selectedCard.foil);
+                    }}
+                    className="flex-1"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Copy
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      collection.updateCardQuantity(selectedCard.id, Math.max(0, selectedCard.quantity - 1), selectedCard.foil);
+                    }}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

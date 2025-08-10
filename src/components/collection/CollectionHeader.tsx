@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Grid3X3, List, BookOpen, Download, Upload } from 'lucide-react';
+import { Search, Filter, Grid3X3, List, BookOpen, Download, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,8 @@ interface CollectionHeaderProps {
   filters: FilterChip[];
   onRemoveFilter: (filter: FilterChip) => void;
   onBulkAction: (action: string) => void;
+  onAddFilter?: (filter: FilterChip) => void;
+  onSearchWithFilters?: () => void;
 }
 
 export function CollectionHeader({
@@ -40,22 +42,38 @@ export function CollectionHeader({
   onViewModeChange,
   filters,
   onRemoveFilter,
-  onBulkAction
+  onBulkAction,
+  onAddFilter,
+  onSearchWithFilters
 }: CollectionHeaderProps) {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
   return (
     <div className="space-y-4 p-4 border-b bg-background/95 backdrop-blur">
       {/* Main Search Bar */}
-      <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search your collection (Scryfall syntax supported)..."
+            placeholder="Search cards (Scryfall syntax supported)..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 pr-4"
+            className="pl-10 pr-20"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onSearchWithFilters?.();
+              }
+            }}
           />
+          {(searchQuery || filters.length > 0) && (
+            <Button
+              size="sm"
+              onClick={onSearchWithFilters}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-3"
+            >
+              <Search className="h-3 w-3" />
+            </Button>
+          )}
         </div>
         
         <Button 
@@ -128,22 +146,21 @@ export function CollectionHeader({
             <Badge 
               key={index} 
               variant="secondary" 
-              className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+              className="group cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-colors"
               onClick={() => onRemoveFilter(filter)}
             >
-              {filter.label} ×
+              <span className="mr-1">{filter.label}</span>
+              <X className="h-3 w-3 group-hover:text-destructive-foreground" />
             </Badge>
           ))}
-          {filters.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => filters.forEach(onRemoveFilter)}
-              className="h-6 px-2 text-xs"
-            >
-              Clear all
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => filters.forEach(onRemoveFilter)}
+            className="h-6 px-2 text-xs"
+          >
+            Clear all
+          </Button>
         </div>
       )}
 
@@ -151,7 +168,7 @@ export function CollectionHeader({
       {showAdvancedSearch && (
         <div className="bg-muted/30 rounded-lg p-4 space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <Select>
+            <Select onValueChange={(value) => onAddFilter?.({ type: 'format', value, label: `Format: ${value}` })}>
               <SelectTrigger>
                 <SelectValue placeholder="Format" />
               </SelectTrigger>
@@ -164,7 +181,7 @@ export function CollectionHeader({
               </SelectContent>
             </Select>
 
-            <Select>
+            <Select onValueChange={(value) => onAddFilter?.({ type: 'color', value, label: `Color: ${value.toUpperCase()}` })}>
               <SelectTrigger>
                 <SelectValue placeholder="Colors" />
               </SelectTrigger>

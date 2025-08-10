@@ -1,12 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Rocket, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -24,19 +22,19 @@ const Index = () => {
             for the cosmic mechanics of Spacecraft, Stations, Warp, Void, and Planets.
           </p>
           <div className="flex items-center justify-center space-x-4">
-            <Button 
-              size="lg" 
-              className="cosmic-glow animate-glow"
-              onClick={() => navigate('/deck-builder')}
-            >
-              <Sparkles className="h-5 w-5 mr-2" />
-              Start Building
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
-            <Button variant="outline" size="lg">
-              <Target className="h-5 w-5 mr-2" />
-              Learn More
-            </Button>
+            <Link to="/deck-builder">
+              <Button size="lg" className="cosmic-glow animate-glow">
+                <Sparkles className="h-5 w-5 mr-2" />
+                Start Building
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
+            </Link>
+            <Link to="/collection">
+              <Button variant="outline" size="lg">
+                <Package className="h-5 w-5 mr-2" />
+                Manage Collection
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -125,6 +123,45 @@ const Index = () => {
                   EOE-specific mechanic tracking.
                 </CardDescription>
               </CardHeader>
+            </Card>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+            <Card className="group hover:shadow-xl transition-all duration-300 cosmic-glow">
+              <CardHeader className="text-center pb-4">
+                <Package className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+                <CardTitle className="text-2xl mb-2">Collection Manager</CardTitle>
+                <p className="text-muted-foreground">
+                  Track your entire MTG collection with advanced analytics and synergy detection
+                </p>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Link to="/collection">
+                  <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
+                    <Package className="h-5 w-5 mr-2" />
+                    Manage Collection
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="group hover:shadow-xl transition-all duration-300 cosmic-glow">
+              <CardHeader className="text-center pb-4">
+                <Rocket className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+                <CardTitle className="text-2xl mb-2">AI Deck Builder</CardTitle>
+                <p className="text-muted-foreground">
+                  Build optimized decks with intelligent synergy analysis and power level tuning
+                </p>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Link to="/deck-builder">
+                  <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
+                    <Rocket className="h-5 w-5 mr-2" />
+                    Build Decks
+                  </Button>
+                </Link>
+              </CardContent>
             </Card>
           </div>
 

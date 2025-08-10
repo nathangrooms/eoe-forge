@@ -797,6 +797,18 @@ export default function Collection() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Search Button for Filter-only Searches */}
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => setSearchQuery(searchQuery || '*')}
+                    disabled={loading}
+                    className="px-8"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    {loading ? 'Searching...' : 'Search with Filters'}
+                  </Button>
+                </div>
               </div>
               
               {/* Preview section when no search query */}

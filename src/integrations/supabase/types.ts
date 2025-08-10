@@ -14,7 +14,152 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      deck_cards: {
+        Row: {
+          card_id: string
+          card_name: string
+          created_at: string
+          deck_id: string
+          id: string
+          is_commander: boolean
+          is_sideboard: boolean
+          quantity: number
+        }
+        Insert: {
+          card_id: string
+          card_name: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          is_commander?: boolean
+          is_sideboard?: boolean
+          quantity?: number
+        }
+        Update: {
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          is_commander?: boolean
+          is_sideboard?: boolean
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_cards_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      user_collections: {
+        Row: {
+          card_id: string
+          card_name: string
+          condition: string
+          created_at: string
+          foil: number
+          id: string
+          price_usd: number | null
+          quantity: number
+          set_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          card_name: string
+          condition?: string
+          created_at?: string
+          foil?: number
+          id?: string
+          price_usd?: number | null
+          quantity?: number
+          set_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          card_name?: string
+          condition?: string
+          created_at?: string
+          foil?: number
+          id?: string
+          price_usd?: number | null
+          quantity?: number
+          set_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_decks: {
+        Row: {
+          colors: string[]
+          created_at: string
+          description: string | null
+          format: string
+          id: string
+          is_public: boolean
+          name: string
+          power_level: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          colors?: string[]
+          created_at?: string
+          description?: string | null
+          format?: string
+          id?: string
+          is_public?: boolean
+          name: string
+          power_level?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          colors?: string[]
+          created_at?: string
+          description?: string | null
+          format?: string
+          id?: string
+          is_public?: boolean
+          name?: string
+          power_level?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

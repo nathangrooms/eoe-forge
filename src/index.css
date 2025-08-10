@@ -145,6 +145,31 @@ All colors MUST be HSL.
     animation: glow-pulse 2s ease-in-out infinite;
   }
 
+  /* Utility classes */
+  .bg-cosmic {
+    background: var(--gradient-cosmic);
+  }
+
+  .text-spacecraft {
+    color: hsl(var(--spacecraft));
+  }
+
+  .text-station {
+    color: hsl(var(--station));
+  }
+
+  .text-warp {
+    color: hsl(var(--warp));
+  }
+
+  .text-void {
+    color: hsl(var(--void));
+  }
+
+  .text-planet {
+    color: hsl(var(--planet));
+  }
+
   /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 8px;

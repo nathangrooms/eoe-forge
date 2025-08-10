@@ -1,6 +1,7 @@
 import { Home, Package, Hammer, BarChart3, Search, Wand2, User, Settings, LogOut, Sparkles } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
+import { useDeckStore } from "@/stores/deckStore";
 
 import {
   Sidebar,
@@ -31,17 +32,19 @@ const features = [
 ];
 
 const formats = [
-  { name: "Standard", description: "Current rotation" },
-  { name: "Commander", description: "100-card singleton" },
-  { name: "Modern", description: "Non-rotating format" },
-  { name: "Legacy", description: "Eternal format" },
-  { name: "Vintage", description: "Most powerful cards" },
+  { name: "Standard", description: "Current rotation", value: "standard" },
+  { name: "Commander", description: "100-card singleton", value: "commander" },
+  { name: "Modern", description: "Non-rotating format", value: "custom" },
+  { name: "Legacy", description: "Eternal format", value: "custom" },
+  { name: "Vintage", description: "Most powerful cards", value: "custom" },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { setFormat } = useDeckStore();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -55,6 +58,11 @@ export function AppSidebar() {
     isActive(path) 
       ? "bg-primary text-primary-foreground font-medium" 
       : "text-muted-foreground hover:text-foreground hover:bg-accent/50";
+
+  const handleFormatClick = (format: { name: string; value: string }) => {
+    setFormat(format.value as any);
+    navigate('/deck-builder');
+  };
 
   if (!user) {
     return null;
@@ -148,7 +156,11 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <div className="space-y-1">
                   {formats.map((format, index) => (
-                    <div key={index} className="px-3 py-2 rounded-md hover:bg-accent/50 transition-colors cursor-pointer">
+                    <div 
+                      key={index} 
+                      className="px-3 py-2 rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => handleFormatClick(format)}
+                    >
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="text-sm font-medium text-card-foreground">{format.name}</div>

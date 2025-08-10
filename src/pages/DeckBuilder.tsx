@@ -52,15 +52,10 @@ const DeckBuilder = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <Home className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Home</span>
-              </Link>
-              <Separator orientation="vertical" className="h-6" />
               <div className="flex items-center space-x-3">
                 <Rocket className="h-7 w-7 text-primary animate-pulse" />
                 <h1 className="text-2xl font-bold bg-cosmic bg-clip-text text-transparent">
-                  EOE Deck Builder
+                  AI Deck Builder
                 </h1>
               </div>
               <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft border-spacecraft/30">

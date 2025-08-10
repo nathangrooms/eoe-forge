@@ -6,10 +6,32 @@ interface Card {
   name: string;
   cmc: number;
   type_line: string;
-  colors: string[];
+  colors?: string[];
+  color_identity?: string[];
+  oracle_text?: string;
+  power?: string;
+  toughness?: string;
+  image_uris?: {
+    small?: string;
+    normal?: string;
+    large?: string;
+    art_crop?: string;
+  };
+  prices?: {
+    usd?: string;
+    usd_foil?: string;
+  };
+  set?: string;
+  set_name?: string;
+  collector_number?: string;
+  rarity?: string;
+  keywords?: string[];
+  legalities?: Record<string, string>;
+  layout?: string;
+  mana_cost?: string;
   quantity: number;
   category: string;
-  mechanics: string[];
+  mechanics?: string[];
 }
 
 interface DeckState {
@@ -172,7 +194,7 @@ export const useDeckStore = create<DeckState>()(
         };
         
         cards.forEach(card => {
-          card.colors.forEach(color => {
+          (card.colors || []).forEach(color => {
             if (color in distribution) {
               distribution[color] += card.quantity;
             }
@@ -187,7 +209,7 @@ export const useDeckStore = create<DeckState>()(
         const mechanics: Record<string, number> = {};
         
         cards.forEach(card => {
-          card.mechanics.forEach(mechanic => {
+          (card.mechanics || []).forEach(mechanic => {
             mechanics[mechanic] = (mechanics[mechanic] || 0) + card.quantity;
           });
         });

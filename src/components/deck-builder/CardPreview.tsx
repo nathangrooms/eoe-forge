@@ -13,6 +13,7 @@ interface CardData {
   cmc: number;
   type_line: string;
   colors?: string[];
+  color_identity?: string[];
   oracle_text?: string;
   power?: string;
   toughness?: string;
@@ -26,6 +27,14 @@ interface CardData {
   prices?: {
     usd?: string;
   };
+  set?: string;
+  set_name?: string;
+  collector_number?: string;
+  rarity?: string;
+  keywords?: string[];
+  legalities?: Record<string, string>;
+  layout?: string;
+  mana_cost?: string;
 }
 
 interface CardPreviewProps {
@@ -67,6 +76,20 @@ export const CardPreview = ({ card, showAddButton = true, variant = 'grid' }: Ca
       cmc: card.cmc,
       type_line: card.type_line,
       colors: card.colors || [],
+      color_identity: card.color_identity || [],
+      oracle_text: card.oracle_text,
+      power: card.power,
+      toughness: card.toughness,
+      image_uris: card.image_uris,
+      prices: card.prices,
+      set: card.set || '',
+      set_name: card.set_name || '',
+      collector_number: card.collector_number || '',
+      rarity: card.rarity || 'common',
+      keywords: card.keywords || [],
+      legalities: card.legalities || {},
+      layout: card.layout || 'normal',
+      mana_cost: card.mana_cost,
       quantity: 1,
       category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
                card.type_line.toLowerCase().includes('land') ? 'lands' :

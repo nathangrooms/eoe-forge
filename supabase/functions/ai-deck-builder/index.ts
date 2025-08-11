@@ -162,21 +162,21 @@ function generateBasicStrategy(commander: any, themes: string[], powerLevel: num
     secondaryStrategies: ["Combat damage", "Synergy value"],
     keyMechanics: themes.length > 0 ? themes : ["value", "synergy"],
     cardTypes: {
-      creatures: { count: 25, description: "Core creatures and synergy pieces" },
-      instants: { count: 12, description: "Interaction and protection" },
-      sorceries: { count: 8, description: "Ramp and draw spells" },
-      enchantments: { count: 5, description: "Permanent value engines" },
-      artifacts: { count: 8, description: "Utility and ramp" },
-      planeswalkers: { count: 2, description: "Additional win conditions" },
-      lands: { count: 36, description: "Consistent mana base" }
+      creatures: { count: format === 'commander' ? 25 : 20, description: "Core creatures and synergy pieces" },
+      instants: { count: format === 'commander' ? 12 : 8, description: "Interaction and protection" },
+      sorceries: { count: format === 'commander' ? 8 : 6, description: "Ramp and draw spells" },
+      enchantments: { count: format === 'commander' ? 5 : 3, description: "Permanent value engines" },
+      artifacts: { count: format === 'commander' ? 8 : 6, description: "Utility and ramp" },
+      planeswalkers: { count: format === 'commander' ? 2 : 2, description: "Additional win conditions" },
+      lands: { count: format === 'commander' ? 36 : 24, description: "Consistent mana base" }
     },
     synergyTags: themes,
     avoidTags: [],
     curvePriority: powerLevel >= 7 ? "early" : "mid",
-    removal: { spot: 6, sweepers: 2 },
-    ramp: 8,
-    draw: 10,
-    protection: 4
+    removal: { spot: format === 'commander' ? 6 : 4, sweepers: format === 'commander' ? 2 : 1 },
+    ramp: format === 'commander' ? 8 : 4,
+    draw: format === 'commander' ? 10 : 6,
+    protection: format === 'commander' ? 4 : 2
   };
 }
 

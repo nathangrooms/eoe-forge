@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCardSearch } from '@/hooks/useCardSearch';
 import { useDeckStore } from '@/stores/deckStore';
 import { useMTGSets } from '@/hooks/useMTGSets';
+import { useAuth } from '@/components/AuthProvider';
 
 interface AIBuilderProps {
   collection?: any[];
@@ -75,11 +76,12 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
   const { toast } = useToast();
   const deckStore = useDeckStore();
   const { sets, loading: setsLoading } = useMTGSets();
+  const { user } = useAuth();
   
   // Search for potential commanders
   const { cards: commanderCards, loading: searchingCommanders } = useCardSearch(
     commanderSearch ? `${commanderSearch} type:legendary type:creature` : '',
-    buildMode === 'set' && selectedSet ? { sets: [selectedSet] } : {}
+    buildMode === 'set' && selectedSet ? { sets: [selectedSet] } : { sets: [] }
   );
 
   const handleThemeToggle = (theme: string) => {
@@ -178,6 +180,9 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
           description: `Created a ${data.metadata.powerLevel}/10 power level deck with ${data.deck.length} cards`,
         });
 
+        // Save deck to database
+        await saveDeckToDatabase(data, commander, format, powerLevel[0], selectedThemes);
+
         // Add deck to store
         if (onDeckBuilt) {
           onDeckBuilt(data);
@@ -253,6 +258,73 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
       title: "Deck Imported!",
       description: "The AI-built deck has been imported to the deck builder",
     });
+  };
+
+  const saveDeckToDatabase = async (deckData: any, commander: any, format: string, powerLevel: number, themes: string[]) => {
+    try {
+      const deckName = `AI Built - ${commander?.name || format} Deck`;
+      const commanderColors = commander?.color_identity || commander?.colors || [];
+      
+      // Create deck record
+      const { data: deck, error: deckError } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user?.id,
+          name: deckName,
+          format: format,
+          colors: commanderColors,
+          description: `AI-generated ${format} deck${commander ? ` with ${commander.name} as commander` : ''}. Themes: ${themes.join(', ')}`,
+          power_level: powerLevel,
+          is_public: false
+        })
+        .select()
+        .single();
+
+      if (deckError) throw deckError;
+
+      // Add commander if present
+      if (commander && deck) {
+        await supabase
+          .from('deck_cards')
+          .insert({
+            deck_id: deck.id,
+            card_id: commander.id,
+            card_name: commander.name,
+            quantity: 1,
+            is_commander: true,
+            is_sideboard: false
+          });
+      }
+
+      // Add deck cards
+      if (deck && deckData.deck.length > 0) {
+        const cardInserts = deckData.deck.map((card: any) => ({
+          deck_id: deck.id,
+          card_id: card.id,
+          card_name: card.name,
+          quantity: 1,
+          is_commander: false,
+          is_sideboard: false
+        }));
+
+        await supabase
+          .from('deck_cards')
+          .insert(cardInserts);
+      }
+
+      toast({
+        title: "Deck Saved!",
+        description: `"${deckName}" has been saved to your deck collection`,
+      });
+
+    } catch (error) {
+      console.error('Error saving deck:', error);
+      toast({
+        title: "Save Failed",
+        description: "Deck was built but couldn't be saved. You can still import it to the deck builder.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

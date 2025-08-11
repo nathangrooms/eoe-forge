@@ -1,1 +1,12 @@
 project_id = "udnaflcohfyljrsgqggy"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://udnaflcohfyljrsgqggy.supabase.co"]
+
+[auth.email]
+enable_signup = true
+
+[functions.ai-deck-builder]
+verify_jwt = false

@@ -25,6 +25,7 @@ import {
 import { SearchFilters } from '@/components/deck-builder/SearchFilters';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { AnalysisPanel } from '@/components/deck-builder/AnalysisPanel';
+import { AIBuilder } from '@/components/deck-builder/AIBuilder';
 import { PowerSlider } from '@/components/deck-builder/PowerSlider';
 import { CardPreview } from '@/components/deck-builder/CardPreview';
 import { useCardSearch } from '@/hooks/useCardSearch';
@@ -78,7 +79,7 @@ const DeckBuilder = () => {
 
       <div className="container mx-auto px-6 py-8">
         <Tabs defaultValue="search" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="search" className="flex items-center space-x-2">
               <Search className="h-4 w-4" />
               <span>Card Database</span>
@@ -86,6 +87,10 @@ const DeckBuilder = () => {
             <TabsTrigger value="deck" className="flex items-center space-x-2">
               <Sparkles className="h-4 w-4" />
               <span>Your Deck ({deck.totalCards})</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-builder" className="flex items-center space-x-2">
+              <Activity className="h-4 w-4" />
+              <span>AI Builder</span>
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
@@ -246,6 +251,11 @@ const DeckBuilder = () => {
           {/* Deck Tab */}
           <TabsContent value="deck">
             <ModernDeckList />
+          </TabsContent>
+
+          {/* AI Builder Tab */}
+          <TabsContent value="ai-builder">
+            <AIBuilder />
           </TabsContent>
 
           {/* Analysis Tab */}

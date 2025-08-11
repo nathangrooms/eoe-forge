@@ -22,13 +22,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const navigationItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Collection", url: "/collection", icon: Package },
-  { title: "Decks", url: "/decks", icon: Hammer },
+  { title: "Deck Builder", url: "/deck-builder", icon: Hammer },
+  { title: "Decks", url: "/decks", icon: BarChart3 },
 ];
 
 const features = [
-  { title: "Card Search", url: "/collection?tab=add-cards", icon: Search },
-  { title: "AI Deck Builder", url: "/collection?tab=ai-builder", icon: Wand2 },
-  { title: "Analytics", url: "/collection?tab=analysis", icon: BarChart3 },
+  { title: "Card Search", url: "/cards", icon: Search },
+  { title: "AI Deck Builder", url: "/deck-builder?tab=ai-builder", icon: Wand2 },
+  { title: "Collection Analytics", url: "/collection?tab=analysis", icon: BarChart3 },
 ];
 
 const formats = [

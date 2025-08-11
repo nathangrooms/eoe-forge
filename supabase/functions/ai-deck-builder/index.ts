@@ -191,17 +191,32 @@ async function buildDeckFromStrategy(
   const deck = [];
   const usedCards = new Set();
   
+  console.log(`Starting deck build with collection size: ${collection.length}`);
+  console.log(`Commander: ${commander?.name || 'None'}`);
+  console.log(`Format: ${format}, Power Level: ${powerLevel}, Deck Size: ${deckSize}`);
+  
   // Filter collection by commander's color identity
   const commanderColors = commander?.color_identity || commander?.colors || [];
-  const availableCards = collection.filter(card => 
-    isLegalInColors(card, commanderColors) && 
-    card.name !== commander?.name
-  );
+  console.log(`Commander colors: ${JSON.stringify(commanderColors)}`);
+  
+  const availableCards = collection.filter(card => {
+    const isColorLegal = isLegalInColors(card, commanderColors);
+    const isNotCommander = card.name !== commander?.name;
+    return isColorLegal && isNotCommander;
+  });
 
   console.log(`Available cards after color filtering: ${availableCards.length}`);
+  
+  if (availableCards.length === 0) {
+    console.log('No cards available after filtering - returning empty deck');
+    return [];
+  }
 
   // Categorize available cards
   const categorizedCards = categorizeCards(availableCards);
+  console.log('Categorized cards:', Object.keys(categorizedCards).map(key => 
+    `${key}: ${categorizedCards[key].length}`
+  ).join(', '));
   
   // Build deck according to strategy
   const categories = [
@@ -214,16 +229,22 @@ async function buildDeckFromStrategy(
 
   for (const category of categories) {
     const categoryCards = categorizedCards[category.type] || [];
+    console.log(`Selecting ${category.target} cards from ${categoryCards.length} ${category.type} cards`);
     const selected = selectBestCards(categoryCards, category.target, powerLevel, usedCards);
+    console.log(`Selected ${selected.length} ${category.type} cards`);
     deck.push(...selected);
     selected.forEach(card => usedCards.add(card.name));
   }
 
   // Fill remaining slots with synergy cards
   const remainingSlots = deckSize - 1 - deck.length; // -1 for commander
+  console.log(`Remaining slots to fill: ${remainingSlots}`);
+  
   if (remainingSlots > 0) {
     const synergyCards = findSynergyCards(availableCards, strategy.synergyTags || [], usedCards);
+    console.log(`Found ${synergyCards.length} synergy cards`);
     const selected = selectBestCards(synergyCards, remainingSlots, powerLevel, usedCards);
+    console.log(`Selected ${selected.length} synergy cards`);
     deck.push(...selected);
   }
 
@@ -317,8 +338,19 @@ function findSynergyCards(cards: any[], synergyTags: string[], usedCards: Set<st
 }
 
 function isLegalInColors(card: any, commanderColors: string[]) {
+  // If no commander colors specified (colorless), allow all cards
+  if (!commanderColors || commanderColors.length === 0) {
+    return true;
+  }
+  
   const cardColors = card.color_identity || card.colors || [];
-  return cardColors.every(color => commanderColors.includes(color));
+  console.log(`Checking card ${card.name}: card colors [${cardColors}] vs commander colors [${commanderColors}]`);
+  
+  // Every color in the card must be present in the commander's color identity
+  const isLegal = cardColors.every(color => commanderColors.includes(color));
+  console.log(`Card ${card.name} is ${isLegal ? 'legal' : 'illegal'}`);
+  
+  return isLegal;
 }
 
 async function analyzeDeck(deck: any[], commander: any, powerLevel: number) {

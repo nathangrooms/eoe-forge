@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCardSearch } from '@/hooks/useCardSearch';
 import { useDeckStore } from '@/stores/deckStore';
+import { useMTGSets } from '@/hooks/useMTGSets';
 
 interface AIBuilderProps {
   collection?: any[];
@@ -55,6 +56,7 @@ const BUDGET_OPTIONS = [
 ];
 
 export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
+  const [buildMode, setBuildMode] = useState<'collection' | 'set'>('collection');
   const [commander, setCommander] = useState<any>(null);
   const [format, setFormat] = useState('commander');
   const [powerLevel, setPowerLevel] = useState([6]);
@@ -66,13 +68,18 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
   const [commanderSearch, setCommanderSearch] = useState('');
   const [showCommanderPicker, setShowCommanderPicker] = useState(false);
   
+  // Set-based building options
+  const [selectedSet, setSelectedSet] = useState<string>('');
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  
   const { toast } = useToast();
   const deckStore = useDeckStore();
+  const { sets, loading: setsLoading } = useMTGSets();
   
   // Search for potential commanders
   const { cards: commanderCards, loading: searchingCommanders } = useCardSearch(
     commanderSearch ? `${commanderSearch} type:legendary type:creature` : '',
-    { sets: ['EOE', 'EOC', 'EOS'] }
+    buildMode === 'set' && selectedSet ? { sets: [selectedSet] } : {}
   );
 
   const handleThemeToggle = (theme: string) => {
@@ -80,6 +87,14 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
       prev.includes(theme) 
         ? prev.filter(t => t !== theme)
         : [...prev, theme]
+    );
+  };
+
+  const handleColorToggle = (color: string) => {
+    setSelectedColors(prev => 
+      prev.includes(color) 
+        ? prev.filter(c => c !== color)
+        : [...prev, color]
     );
   };
 
@@ -93,18 +108,43 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
       return;
     }
 
+    if (buildMode === 'set' && !selectedSet) {
+      toast({
+        title: "Set Required",
+        description: "Please select a set for deck building",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsBuilding(true);
     setBuildProgress(10);
 
     try {
-      // Get user's collection if not provided
-      let deckCollection = collection;
-      if (collection.length === 0) {
+      let deckCollection = [];
+      
+      if (buildMode === 'collection') {
+        // Use collection mode - only cards from user's collection
+        deckCollection = collection.length > 0 ? collection : [];
+        if (deckCollection.length === 0) {
+          setBuildProgress(20);
+          const { data: userCollection } = await supabase
+            .from('user_collections')
+            .select('*');
+          deckCollection = userCollection || [];
+        }
+      } else {
+        // Use set mode - get cards from selected set
         setBuildProgress(20);
-        const { data: userCollection } = await supabase
-          .from('user_collections')
-          .select('*');
-        deckCollection = userCollection || [];
+        const colorQuery = selectedColors.length > 0 ? 
+          selectedColors.map(c => `color:${c}`).join(' OR ') : '';
+        const searchQuery = `set:${selectedSet}${colorQuery ? ` (${colorQuery})` : ''}`;
+        
+        const response = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&unique=cards&order=cmc&dir=asc`);
+        if (response.ok) {
+          const data = await response.json();
+          deckCollection = data.data || [];
+        }
       }
 
       setBuildProgress(40);
@@ -118,7 +158,10 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
           powerLevel: powerLevel[0],
           themes: selectedThemes,
           budget,
-          deckSize: format === 'commander' ? 100 : 60
+          deckSize: format === 'commander' ? 100 : 60,
+          buildMode,
+          selectedSet: buildMode === 'set' ? selectedSet : undefined,
+          selectedColors: buildMode === 'set' ? selectedColors : undefined
         }
       });
 
@@ -223,6 +266,20 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
             <Badge variant="secondary" className="ml-2">Beta</Badge>
           </CardTitle>
         </CardHeader>
+        <CardContent>
+          <Tabs value={buildMode} onValueChange={(value) => setBuildMode(value as 'collection' | 'set')}>
+            <TabsList className="w-full">
+              <TabsTrigger value="collection" className="flex-1">
+                <Users className="h-4 w-4 mr-2" />
+                From Collection
+              </TabsTrigger>
+              <TabsTrigger value="set" className="flex-1">
+                <Scroll className="h-4 w-4 mr-2" />
+                From Set
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -270,6 +327,48 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
                   </Select>
                 </div>
               </div>
+
+              {/* Set Selection for Set Mode */}
+              {buildMode === 'set' && (
+                <div>
+                  <Label>MTG Set</Label>
+                  <Select value={selectedSet} onValueChange={setSelectedSet}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a set..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sets.slice(0, 50).map(set => (
+                        <SelectItem key={set.code} value={set.code}>
+                          {set.name} ({set.code.toUpperCase()})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Color Selection for Set Mode */}
+              {buildMode === 'set' && (
+                <div>
+                  <Label>Colors (optional)</Label>
+                  <div className="flex space-x-2 mt-2">
+                    {['W', 'U', 'B', 'R', 'G'].map((color) => (
+                      <Button
+                        key={color}
+                        variant={selectedColors.includes(color) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleColorToggle(color)}
+                        className="w-10 h-10 p-0"
+                      >
+                        {color}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty for all colors
+                  </p>
+                </div>
+              )}
 
               {/* Power Level */}
               <div>
@@ -422,7 +521,7 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
             <CardContent className="p-6">
               <Button 
                 onClick={buildDeck} 
-                disabled={isBuilding || (format === 'commander' && !commander)}
+                disabled={isBuilding || (format === 'commander' && !commander) || (buildMode === 'set' && !selectedSet)}
                 className="w-full h-12 text-lg"
                 size="lg"
               >

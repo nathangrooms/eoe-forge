@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,9 @@ import {
   TrendingUp,
   Users,
   Scroll,
-  Shield
+  Shield,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +34,7 @@ import { useCardSearch } from '@/hooks/useCardSearch';
 import { useDeckStore } from '@/stores/deckStore';
 import { useMTGSets } from '@/hooks/useMTGSets';
 import { useAuth } from '@/components/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 interface AIBuilderProps {
   collection?: any[];
@@ -38,10 +42,10 @@ interface AIBuilderProps {
 }
 
 const FORMATS = [
-  { value: 'commander', label: 'Commander (EDH)' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'modern', label: 'Modern' },
-  { value: 'legacy', label: 'Legacy' }
+  { value: 'standard', label: 'Standard (60 cards)' },
+  { value: 'commander', label: 'Commander (100 cards)' },
+  { value: 'modern', label: 'Modern (60 cards)' },
+  { value: 'legacy', label: 'Legacy (60 cards)' }
 ];
 
 const THEMES = [
@@ -57,9 +61,9 @@ const BUDGET_OPTIONS = [
 ];
 
 export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
-  const [buildMode, setBuildMode] = useState<'collection' | 'set'>('collection');
+  const [buildMode, setBuildMode] = useState<'collection' | 'set'>('set');
   const [commander, setCommander] = useState<any>(null);
-  const [format, setFormat] = useState('commander');
+  const [format, setFormat] = useState('standard');
   const [powerLevel, setPowerLevel] = useState([6]);
   const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
   const [budget, setBudget] = useState('medium');
@@ -68,6 +72,7 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
   const [builtDeck, setBuiltDeck] = useState<any>(null);
   const [commanderSearch, setCommanderSearch] = useState('');
   const [showCommanderPicker, setShowCommanderPicker] = useState(false);
+  const [deckSaved, setDeckSaved] = useState(false);
   
   // Set-based building options
   const [selectedSet, setSelectedSet] = useState<string>('');
@@ -77,10 +82,18 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
   const deckStore = useDeckStore();
   const { sets, loading: setsLoading } = useMTGSets();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  // Set default set to a recent one
+  useEffect(() => {
+    if (sets.length > 0 && !selectedSet) {
+      setSelectedSet(sets[0].code); // Set to the most recent set
+    }
+  }, [sets, selectedSet]);
   
   // Search for potential commanders
   const { cards: commanderCards, loading: searchingCommanders } = useCardSearch(
-    commanderSearch ? `${commanderSearch} type:legendary type:creature` : '',
+    commanderSearch && format === 'commander' ? `${commanderSearch} type:legendary type:creature` : '',
     buildMode === 'set' && selectedSet ? { sets: [selectedSet] } : { sets: [] }
   );
 
@@ -101,7 +114,7 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
   };
 
   const buildDeck = async () => {
-    if (!commander && format === 'commander') {
+    if (format === 'commander' && !commander) {
       toast({
         title: "Commander Required",
         description: "Please select a commander for your deck",
@@ -121,6 +134,7 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
 
     setIsBuilding(true);
     setBuildProgress(10);
+    setDeckSaved(false);
 
     try {
       let deckCollection = [];
@@ -139,17 +153,35 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
         // Use set mode - get cards from selected set
         setBuildProgress(20);
         const colorQuery = selectedColors.length > 0 ? 
-          selectedColors.map(c => `color:${c}`).join(' OR ') : '';
-        const searchQuery = `set:${selectedSet}${colorQuery ? ` (${colorQuery})` : ''}`;
+          ` (${selectedColors.map(c => `color:${c}`).join(' OR ')})` : '';
+        const searchQuery = `set:${selectedSet}${colorQuery}`;
+        
+        console.log('Fetching cards with query:', searchQuery);
         
         const response = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&unique=cards&order=cmc&dir=asc`);
         if (response.ok) {
           const data = await response.json();
           deckCollection = data.data || [];
+          console.log(`Fetched ${deckCollection.length} cards from set ${selectedSet}`);
+        } else {
+          console.error('Failed to fetch cards from Scryfall');
+          throw new Error('Failed to fetch cards from selected set');
         }
       }
 
       setBuildProgress(40);
+
+      console.log('Calling AI deck builder with:', {
+        commander,
+        collectionSize: deckCollection.length,
+        format,
+        powerLevel: powerLevel[0],
+        themes: selectedThemes,
+        budget,
+        buildMode,
+        selectedSet,
+        selectedColors
+      });
 
       // Call AI deck builder function
       const { data, error } = await supabase.functions.invoke('ai-deck-builder', {
@@ -160,7 +192,6 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
           powerLevel: powerLevel[0],
           themes: selectedThemes,
           budget,
-          deckSize: format === 'commander' ? 100 : 60,
           buildMode,
           selectedSet: buildMode === 'set' ? selectedSet : undefined,
           selectedColors: buildMode === 'set' ? selectedColors : undefined
@@ -169,7 +200,10 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
 
       setBuildProgress(80);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
 
       if (data?.success) {
         setBuiltDeck(data);
@@ -183,11 +217,8 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
         // Save deck to database
         await saveDeckToDatabase(data, commander, format, powerLevel[0], selectedThemes);
 
-        // Add deck to store
-        if (onDeckBuilt) {
-          onDeckBuilt(data);
-        }
       } else {
+        console.error('AI deck builder failed:', data);
         throw new Error(data?.error || 'Failed to build deck');
       }
 
@@ -204,63 +235,16 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
     }
   };
 
-  const importDeckToBuilder = () => {
-    if (!builtDeck) return;
-
-    // Clear current deck
-    deckStore.clearDeck();
-
-    // Set commander if applicable
-    if (commander && format === 'commander') {
-      deckStore.setCommander(commander);
+  const saveDeckToDatabase = async (deckData: any, commander: any, format: string, powerLevel: number, themes: string[]) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to save your deck",
+        variant: "destructive"
+      });
+      return;
     }
 
-    // Add all cards to deck
-    builtDeck.deck.forEach((card: any) => {
-      deckStore.addCard({
-        id: card.id,
-        name: card.name,
-        cmc: card.cmc,
-        type_line: card.type_line,
-        colors: card.colors || [],
-        color_identity: card.color_identity || [],
-        oracle_text: card.oracle_text,
-        power: card.power,
-        toughness: card.toughness,
-        image_uris: card.image_uris,
-        prices: card.prices,
-        set: card.set || '',
-        set_name: card.set_name || '',
-        collector_number: card.collector_number || '',
-        rarity: card.rarity || 'common',
-        keywords: card.keywords || [],
-        legalities: card.legalities || {},
-        layout: card.layout || 'normal',
-        mana_cost: card.mana_cost,
-        quantity: 1,
-        category: card.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
-                 card.type_line?.toLowerCase().includes('land') ? 'lands' :
-                 card.type_line?.toLowerCase().includes('instant') ? 'instants' :
-                 card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' :
-                 card.type_line?.toLowerCase().includes('enchantment') ? 'enchantments' :
-                 card.type_line?.toLowerCase().includes('artifact') ? 'artifacts' :
-                 card.type_line?.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other',
-        mechanics: card.mechanics || []
-      });
-    });
-
-    // Update deck metadata
-    deckStore.setFormat(format as any);
-    deckStore.setPowerLevel(powerLevel[0]);
-    deckStore.setDeckName(`AI Built - ${commander?.name || 'Deck'}`);
-
-    toast({
-      title: "Deck Imported!",
-      description: "The AI-built deck has been imported to the deck builder",
-    });
-  };
-
-  const saveDeckToDatabase = async (deckData: any, commander: any, format: string, powerLevel: number, themes: string[]) => {
     try {
       const deckName = `AI Built - ${commander?.name || format} Deck`;
       const commanderColors = commander?.color_identity || commander?.colors || [];
@@ -269,22 +253,27 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
       const { data: deck, error: deckError } = await supabase
         .from('user_decks')
         .insert({
-          user_id: user?.id,
+          user_id: user.id,
           name: deckName,
           format: format,
           colors: commanderColors,
-          description: `AI-generated ${format} deck${commander ? ` with ${commander.name} as commander` : ''}. Themes: ${themes.join(', ')}`,
+          description: `AI-generated ${format} deck${commander ? ` with ${commander.name} as commander` : ''}. Themes: ${themes.join(', ')}. Built from ${buildMode === 'set' ? `set ${selectedSet}` : 'collection'}.`,
           power_level: powerLevel,
           is_public: false
         })
         .select()
         .single();
 
-      if (deckError) throw deckError;
+      if (deckError) {
+        console.error('Error creating deck:', deckError);
+        throw deckError;
+      }
+
+      console.log('Created deck:', deck);
 
       // Add commander if present
-      if (commander && deck) {
-        await supabase
+      if (commander && deck && format === 'commander') {
+        const { error: commanderError } = await supabase
           .from('deck_cards')
           .insert({
             deck_id: deck.id,
@@ -294,9 +283,13 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
             is_commander: true,
             is_sideboard: false
           });
+        
+        if (commanderError) {
+          console.error('Error adding commander:', commanderError);
+        }
       }
 
-      // Add deck cards
+      // Add deck cards in batches
       if (deck && deckData.deck.length > 0) {
         const cardInserts = deckData.deck.map((card: any) => ({
           deck_id: deck.id,
@@ -307,11 +300,18 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
           is_sideboard: false
         }));
 
-        await supabase
+        const { error: cardsError } = await supabase
           .from('deck_cards')
           .insert(cardInserts);
+
+        if (cardsError) {
+          console.error('Error adding cards:', cardsError);
+          throw cardsError;
+        }
       }
 
+      setDeckSaved(true);
+      
       toast({
         title: "Deck Saved!",
         description: `"${deckName}" has been saved to your deck collection`,
@@ -321,10 +321,14 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
       console.error('Error saving deck:', error);
       toast({
         title: "Save Failed",
-        description: "Deck was built but couldn't be saved. You can still import it to the deck builder.",
+        description: "Deck was built but couldn't be saved. Please try again.",
         variant: "destructive"
       });
     }
+  };
+
+  const viewSavedDecks = () => {
+    navigate('/decks');
   };
 
   return (
@@ -635,6 +639,7 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
                   <CardTitle className="text-lg flex items-center">
                     <TrendingUp className="h-5 w-5 mr-2" />
                     Deck Analysis
+                    {deckSaved && <CheckCircle className="h-5 w-5 ml-2 text-green-500" />}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -663,20 +668,31 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
                       ))}
                     </div>
                   </div>
+
+                  {deckSaved && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm text-green-800">Deck saved successfully!</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               {/* Deck Actions */}
               <Card>
                 <CardContent className="p-4 space-y-2">
-                  <Button onClick={importDeckToBuilder} className="w-full">
-                    <Download className="h-4 w-4 mr-2" />
-                    Import to Deck Builder
-                  </Button>
+                  {deckSaved && (
+                    <Button onClick={viewSavedDecks} className="w-full">
+                      <Eye className="h-4 w-4 mr-2" />
+                      View in Deck Collection
+                    </Button>
+                  )}
                   
                   <Button variant="outline" className="w-full">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Full Deck
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Deck List
                   </Button>
                 </CardContent>
               </Card>

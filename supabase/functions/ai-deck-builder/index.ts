@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
@@ -18,11 +19,13 @@ serve(async (req) => {
     const { 
       commander, 
       collection, 
-      format = 'commander', 
+      format = 'standard', 
       powerLevel = 6, 
       themes = [], 
       budget = 'medium',
-      deckSize = 100 
+      buildMode = 'collection',
+      selectedSet,
+      selectedColors = []
     } = await req.json();
 
     console.log('AI Deck Builder Request:', { 
@@ -31,11 +34,21 @@ serve(async (req) => {
       format, 
       powerLevel, 
       themes, 
-      budget 
+      budget,
+      buildMode,
+      selectedSet,
+      selectedColors
     });
 
+    // Determine deck size based on format
+    const deckSize = format === 'commander' ? 99 : 60; // 99 + 1 commander = 100 for EDH
+    const landCount = format === 'commander' ? 36 : 24;
+    const nonLandCount = deckSize - landCount;
+
+    console.log(`Building ${format} deck: ${deckSize} total cards (${nonLandCount} non-lands + ${landCount} lands)`);
+
     // Analyze commander and build deck strategy
-    const strategy = await analyzeCommander(commander, themes, powerLevel);
+    const strategy = await analyzeCommander(commander, themes, powerLevel, format);
     console.log('Deck Strategy:', strategy);
 
     // Build the deck based on strategy
@@ -45,8 +58,14 @@ serve(async (req) => {
       commander, 
       format, 
       powerLevel, 
-      deckSize
+      deckSize,
+      landCount,
+      buildMode,
+      selectedSet,
+      selectedColors
     );
+
+    console.log(`Final deck built with ${deckList.length} cards`);
 
     // Analyze final deck for improvements
     const analysis = await analyzeDeck(deckList, commander, powerLevel);
@@ -61,7 +80,9 @@ serve(async (req) => {
         powerLevel,
         totalCards: deckList.length,
         avgCMC: calculateAverageCMC(deckList),
-        colorIdentity: getColorIdentity(deckList, commander)
+        colorIdentity: getColorIdentity(deckList, commander),
+        deckSize: deckSize,
+        landCount: landCount
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,12 +100,12 @@ serve(async (req) => {
   }
 });
 
-async function analyzeCommander(commander: any, themes: string[], powerLevel: number) {
-  if (!openAIApiKey || !commander) {
-    return generateBasicStrategy(commander, themes, powerLevel);
+async function analyzeCommander(commander: any, themes: string[], powerLevel: number, format: string) {
+  if (!openAIApiKey || (!commander && format === 'commander')) {
+    return generateBasicStrategy(commander, themes, powerLevel, format);
   }
 
-  const prompt = `Analyze this Magic: The Gathering commander and create a deck building strategy:
+  const prompt = format === 'commander' ? `Analyze this Magic: The Gathering commander and create a deck building strategy:
 
 Commander: ${commander.name}
 Mana Cost: ${commander.mana_cost || 'Unknown'}
@@ -100,13 +121,13 @@ Please provide a JSON response with this structure:
   "secondaryStrategies": ["backup win conditions"],
   "keyMechanics": ["important mechanics to focus on"],
   "cardTypes": {
-    "creatures": { "count": 30, "description": "creature strategy" },
-    "instants": { "count": 10, "description": "instant strategy" },
+    "creatures": { "count": 25, "description": "creature strategy" },
+    "instants": { "count": 12, "description": "instant strategy" },
     "sorceries": { "count": 8, "description": "sorcery strategy" },
-    "enchantments": { "count": 6, "description": "enchantment strategy" },
-    "artifacts": { "count": 10, "description": "artifact strategy" },
+    "enchantments": { "count": 5, "description": "enchantment strategy" },
+    "artifacts": { "count": 8, "description": "artifact strategy" },
     "planeswalkers": { "count": 2, "description": "planeswalker strategy" },
-    "lands": { "count": 33, "description": "mana base strategy" }
+    "lands": { "count": 36, "description": "mana base strategy" }
   },
   "synergyTags": ["tag1", "tag2", "tag3"],
   "avoidTags": ["tag1", "tag2"],
@@ -115,7 +136,13 @@ Please provide a JSON response with this structure:
   "ramp": 8,
   "draw": 10,
   "protection": 4
-}`;
+}` : `Create a deck building strategy for ${format} format:
+
+Power Level Target: ${powerLevel}/10
+Preferred Themes: ${themes.join(', ') || 'None specified'}
+Colors: ${themes.join(', ') || 'Multi-color'}
+
+Please provide a JSON response optimized for ${format} with appropriate card counts for a 60-card deck.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -149,34 +176,36 @@ Please provide a JSON response with this structure:
     throw new Error('Failed to parse AI response');
   } catch (error) {
     console.error('AI analysis failed, using fallback:', error);
-    return generateBasicStrategy(commander, themes, powerLevel);
+    return generateBasicStrategy(commander, themes, powerLevel, format);
   }
 }
 
-function generateBasicStrategy(commander: any, themes: string[], powerLevel: number) {
+function generateBasicStrategy(commander: any, themes: string[], powerLevel: number, format: string) {
   const colors = commander?.colors || [];
   const isAggressive = commander?.power && parseInt(commander.power) >= 3;
+  
+  const isCommander = format === 'commander';
   
   return {
     primaryStrategy: isAggressive ? "Aggressive creature strategy" : "Value-based control strategy",
     secondaryStrategies: ["Combat damage", "Synergy value"],
     keyMechanics: themes.length > 0 ? themes : ["value", "synergy"],
     cardTypes: {
-      creatures: { count: format === 'commander' ? 25 : 20, description: "Core creatures and synergy pieces" },
-      instants: { count: format === 'commander' ? 12 : 8, description: "Interaction and protection" },
-      sorceries: { count: format === 'commander' ? 8 : 6, description: "Ramp and draw spells" },
-      enchantments: { count: format === 'commander' ? 5 : 3, description: "Permanent value engines" },
-      artifacts: { count: format === 'commander' ? 8 : 6, description: "Utility and ramp" },
-      planeswalkers: { count: format === 'commander' ? 2 : 2, description: "Additional win conditions" },
-      lands: { count: format === 'commander' ? 36 : 24, description: "Consistent mana base" }
+      creatures: { count: isCommander ? 25 : 16, description: "Core creatures and synergy pieces" },
+      instants: { count: isCommander ? 12 : 8, description: "Interaction and protection" },
+      sorceries: { count: isCommander ? 8 : 6, description: "Ramp and draw spells" },
+      enchantments: { count: isCommander ? 5 : 3, description: "Permanent value engines" },
+      artifacts: { count: isCommander ? 8 : 3, description: "Utility and ramp" },
+      planeswalkers: { count: 2, description: "Additional win conditions" },
+      lands: { count: isCommander ? 36 : 24, description: "Consistent mana base" }
     },
     synergyTags: themes,
     avoidTags: [],
     curvePriority: powerLevel >= 7 ? "early" : "mid",
-    removal: { spot: format === 'commander' ? 6 : 4, sweepers: format === 'commander' ? 2 : 1 },
-    ramp: format === 'commander' ? 8 : 4,
-    draw: format === 'commander' ? 10 : 6,
-    protection: format === 'commander' ? 4 : 2
+    removal: { spot: isCommander ? 6 : 4, sweepers: isCommander ? 2 : 1 },
+    ramp: isCommander ? 8 : 4,
+    draw: isCommander ? 10 : 6,
+    protection: isCommander ? 4 : 2
   };
 }
 
@@ -186,7 +215,11 @@ async function buildDeckFromStrategy(
   commander: any, 
   format: string, 
   powerLevel: number, 
-  deckSize: number
+  deckSize: number,
+  landCount: number,
+  buildMode: string,
+  selectedSet?: string,
+  selectedColors: string[] = []
 ) {
   const deck = [];
   const usedCards = new Set();
@@ -195,17 +228,18 @@ async function buildDeckFromStrategy(
   console.log(`Commander: ${commander?.name || 'None'}`);
   console.log(`Format: ${format}, Power Level: ${powerLevel}, Deck Size: ${deckSize}`);
   
-  // Filter collection by commander's color identity
+  // Filter collection by commander's color identity and format legality
   const commanderColors = commander?.color_identity || commander?.colors || [];
   console.log(`Commander colors: ${JSON.stringify(commanderColors)}`);
   
-  const availableCards = collection.filter(card => {
-    const isColorLegal = isLegalInColors(card, commanderColors);
+  let availableCards = collection.filter(card => {
+    const isColorLegal = format === 'commander' ? isLegalInColors(card, commanderColors) : true;
     const isNotCommander = card.name !== commander?.name;
-    return isColorLegal && isNotCommander;
+    const isFormatLegal = isLegalInFormat(card, format);
+    return isColorLegal && isNotCommander && isFormatLegal;
   });
 
-  console.log(`Available cards after color filtering: ${availableCards.length}`);
+  console.log(`Available cards after filtering: ${availableCards.length}`);
   
   if (availableCards.length === 0) {
     console.log('No cards available after filtering - returning empty deck');
@@ -218,38 +252,72 @@ async function buildDeckFromStrategy(
     `${key}: ${categorizedCards[key].length}`
   ).join(', '));
   
-  // Build deck according to strategy
+  // Build deck according to strategy - non-land cards first
+  const nonLandSlots = deckSize - landCount;
   const categories = [
-    { type: 'ramp', target: strategy.ramp || 8 },
-    { type: 'draw', target: strategy.draw || 10 },
-    { type: 'removal', target: (strategy.removal?.spot || 6) + (strategy.removal?.sweepers || 2) },
-    { type: 'creatures', target: strategy.cardTypes?.creatures?.count || 25 },
-    { type: 'lands', target: strategy.cardTypes?.lands?.count || 36 }
+    { type: 'ramp', target: Math.min(strategy.ramp || 4, Math.floor(nonLandSlots * 0.1)) },
+    { type: 'draw', target: Math.min(strategy.draw || 6, Math.floor(nonLandSlots * 0.15)) },
+    { type: 'removal', target: Math.min((strategy.removal?.spot || 4) + (strategy.removal?.sweepers || 1), Math.floor(nonLandSlots * 0.15)) },
+    { type: 'creatures', target: Math.min(strategy.cardTypes?.creatures?.count || 16, Math.floor(nonLandSlots * 0.4)) }
   ];
 
+  let totalAllocated = 0;
   for (const category of categories) {
     const categoryCards = categorizedCards[category.type] || [];
     console.log(`Selecting ${category.target} cards from ${categoryCards.length} ${category.type} cards`);
-    const selected = selectBestCards(categoryCards, category.target, powerLevel, usedCards);
+    const selected = selectBestCards(categoryCards, category.target, powerLevel, usedCards, budget);
     console.log(`Selected ${selected.length} ${category.type} cards`);
+    deck.push(...selected);
+    selected.forEach(card => usedCards.add(card.name));
+    totalAllocated += selected.length;
+  }
+
+  // Fill remaining non-land slots with best available cards
+  const remainingNonLandSlots = nonLandSlots - totalAllocated;
+  console.log(`Remaining non-land slots to fill: ${remainingNonLandSlots}`);
+  
+  if (remainingNonLandSlots > 0) {
+    const remainingCards = availableCards.filter(card => 
+      !usedCards.has(card.name) && 
+      !isLand(card) &&
+      (!strategy.synergyTags?.length || strategy.synergyTags.some(tag => 
+        card.oracle_text?.toLowerCase().includes(tag.toLowerCase()) ||
+        card.type_line?.toLowerCase().includes(tag.toLowerCase())
+      ))
+    );
+    
+    console.log(`Found ${remainingCards.length} remaining non-land cards`);
+    const selected = selectBestCards(remainingCards, remainingNonLandSlots, powerLevel, usedCards, budget);
+    console.log(`Selected ${selected.length} additional non-land cards`);
     deck.push(...selected);
     selected.forEach(card => usedCards.add(card.name));
   }
 
-  // Fill remaining slots with synergy cards
-  const remainingSlots = deckSize - 1 - deck.length; // -1 for commander
-  console.log(`Remaining slots to fill: ${remainingSlots}`);
+  // Add lands
+  const lands = categorizedCards.lands || [];
+  console.log(`Selecting ${landCount} lands from ${lands.length} available lands`);
   
-  if (remainingSlots > 0) {
-    const synergyCards = findSynergyCards(availableCards, strategy.synergyTags || [], usedCards);
-    console.log(`Found ${synergyCards.length} synergy cards`);
-    const selected = selectBestCards(synergyCards, remainingSlots, powerLevel, usedCards);
-    console.log(`Selected ${selected.length} synergy cards`);
-    deck.push(...selected);
+  if (lands.length > 0) {
+    const selectedLands = selectBestLands(lands, landCount, commanderColors, format);
+    console.log(`Selected ${selectedLands.length} lands`);
+    deck.push(...selectedLands);
+  } else {
+    console.log('No lands available in collection - deck will be missing mana base');
   }
 
-  console.log(`Built deck with ${deck.length} cards`);
+  console.log(`Built deck with ${deck.length} cards (target: ${deckSize})`);
   return deck;
+}
+
+function isLegalInFormat(card: any, format: string) {
+  if (!card.legalities) return true;
+  
+  const legality = card.legalities[format.toLowerCase()];
+  return legality === 'legal' || legality === 'restricted';
+}
+
+function isLand(card: any) {
+  return card.type_line?.toLowerCase().includes('land') || false;
 }
 
 function categorizeCards(cards: any[]) {
@@ -280,9 +348,9 @@ function categorizeCards(cards: any[]) {
     else if (type.includes('planeswalker')) categories.planeswalkers.push(card);
 
     // Categorize by function
-    if (text.includes('search') && text.includes('land')) categories.ramp.push(card);
+    if (text.includes('search') && (text.includes('land') || text.includes('basic'))) categories.ramp.push(card);
     if (text.includes('draw') || text.includes('card')) categories.draw.push(card);
-    if (text.includes('destroy') || text.includes('exile') || text.includes('damage')) {
+    if (text.includes('destroy') || text.includes('exile') || text.includes('damage') || text.includes('counter') && text.includes('spell')) {
       categories.removal.push(card);
     }
   }
@@ -290,22 +358,81 @@ function categorizeCards(cards: any[]) {
   return categories;
 }
 
-function selectBestCards(cards: any[], target: number, powerLevel: number, usedCards: Set<string>) {
+function selectBestCards(cards: any[], target: number, powerLevel: number, usedCards: Set<string>, budget: string = 'medium') {
   const available = cards.filter(card => !usedCards.has(card.name));
   
-  // Sort by power level and synergy (simplified scoring)
+  // Sort by power level and price efficiency
   const scored = available.map(card => ({
     ...card,
-    score: calculateCardScore(card, powerLevel)
+    score: calculateCardScore(card, powerLevel, budget)
   })).sort((a, b) => b.score - a.score);
 
   return scored.slice(0, target);
 }
 
-function calculateCardScore(card: any, powerLevel: number) {
+function selectBestLands(lands: any[], target: number, colors: string[], format: string) {
+  const basicLands = lands.filter(land => 
+    land.type_line?.includes('Basic') && 
+    (colors.length === 0 || colors.some(color => 
+      land.oracle_text?.includes(getColorName(color)) ||
+      land.name?.toLowerCase().includes(getColorName(color))
+    ))
+  );
+  
+  const nonBasicLands = lands.filter(land => !land.type_line?.includes('Basic'));
+  
+  // For multi-color decks, prioritize dual lands and fixing
+  const dualLands = nonBasicLands.filter(land => {
+    const text = land.oracle_text?.toLowerCase() || '';
+    return text.includes('add') && (text.includes('or') || colors.length <= 1);
+  });
+  
+  const selected = [];
+  
+  // Add some dual lands for fixing (up to 1/3 of land count)
+  const dualLandCount = Math.min(Math.floor(target / 3), dualLands.length);
+  selected.push(...dualLands.slice(0, dualLandCount));
+  
+  // Fill rest with basic lands
+  const remainingSlots = target - selected.length;
+  const basicsNeeded = Math.min(remainingSlots, basicLands.length);
+  
+  if (colors.length > 0) {
+    // Distribute basics based on color requirements
+    const basicsPerColor = Math.floor(basicsNeeded / colors.length);
+    const remainder = basicsNeeded % colors.length;
+    
+    for (let i = 0; i < colors.length; i++) {
+      const colorBasics = basicLands.filter(land => 
+        land.name?.toLowerCase().includes(getColorName(colors[i]))
+      );
+      const count = basicsPerColor + (i < remainder ? 1 : 0);
+      selected.push(...colorBasics.slice(0, count));
+    }
+  } else {
+    // Colorless or no specific colors - just add available basics
+    selected.push(...basicLands.slice(0, basicsNeeded));
+  }
+  
+  return selected.slice(0, target);
+}
+
+function getColorName(color: string): string {
+  const colorMap: Record<string, string> = {
+    'W': 'plains',
+    'U': 'island', 
+    'B': 'swamp',
+    'R': 'mountain',
+    'G': 'forest'
+  };
+  return colorMap[color] || color.toLowerCase();
+}
+
+function calculateCardScore(card: any, powerLevel: number, budget: string) {
   let score = 0;
   const cmc = card.cmc || 0;
   const text = card.oracle_text?.toLowerCase() || '';
+  const price = parseFloat(card.prices?.usd || '0');
   
   // Prefer lower CMC for higher power levels
   if (powerLevel >= 7) {
@@ -320,21 +447,18 @@ function calculateCardScore(card: any, powerLevel: number) {
   if (text.includes('destroy') || text.includes('exile')) score += 2;
   if (text.includes('counter') && text.includes('spell')) score += 2;
   
+  // Price considerations
+  const budgetMultiplier = budget === 'budget' ? 0.5 : budget === 'high' ? 2.0 : 1.0;
+  if (price > 0) {
+    const maxPrice = budget === 'budget' ? 5 : budget === 'high' ? 50 : 15;
+    if (price <= maxPrice * budgetMultiplier) {
+      score += 1;
+    } else {
+      score -= 2; // Penalize expensive cards if not in high budget
+    }
+  }
+  
   return score;
-}
-
-function findSynergyCards(cards: any[], synergyTags: string[], usedCards: Set<string>) {
-  return cards.filter(card => {
-    if (usedCards.has(card.name)) return false;
-    
-    const text = card.oracle_text?.toLowerCase() || '';
-    const type = card.type_line?.toLowerCase() || '';
-    
-    return synergyTags.some(tag => 
-      text.includes(tag.toLowerCase()) || 
-      type.includes(tag.toLowerCase())
-    );
-  });
 }
 
 function isLegalInColors(card: any, commanderColors: string[]) {
@@ -344,13 +468,9 @@ function isLegalInColors(card: any, commanderColors: string[]) {
   }
   
   const cardColors = card.color_identity || card.colors || [];
-  console.log(`Checking card ${card.name}: card colors [${cardColors}] vs commander colors [${commanderColors}]`);
   
   // Every color in the card must be present in the commander's color identity
-  const isLegal = cardColors.every(color => commanderColors.includes(color));
-  console.log(`Card ${card.name} is ${isLegal ? 'legal' : 'illegal'}`);
-  
-  return isLegal;
+  return cardColors.every((color: string) => commanderColors.includes(color));
 }
 
 async function analyzeDeck(deck: any[], commander: any, powerLevel: number) {
@@ -432,8 +552,9 @@ function estimatePowerLevel(deck: any[]) {
 }
 
 function calculateAverageCMC(deck: any[]) {
-  const totalCMC = deck.reduce((sum, card) => sum + (card.cmc || 0), 0);
-  return deck.length > 0 ? (totalCMC / deck.length).toFixed(2) : 0;
+  const nonLands = deck.filter(card => !card.type_line?.toLowerCase().includes('land'));
+  const totalCMC = nonLands.reduce((sum, card) => sum + (card.cmc || 0), 0);
+  return nonLands.length > 0 ? (totalCMC / nonLands.length).toFixed(2) : 0;
 }
 
 function getColorIdentity(deck: any[], commander: any) {

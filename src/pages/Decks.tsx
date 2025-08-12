@@ -215,13 +215,63 @@ export default function Decks() {
     setDecks(prev => [duplicatedDeck, ...prev]);
   };
 
-  const loadDeck = (deckData: Deck) => {
-    // Load deck into the deck store for editing
-    deck.setDeckName(deckData.name);
-    deck.setFormat(deckData.format);
-    deck.setPowerLevel(deckData.powerLevel);
-    setSelectedDeck(deckData.id);
-    setActiveTab('deck-editor');
+  const loadDeck = async (deckData: Deck) => {
+    try {
+      // Load deck into the deck store for editing
+      deck.setDeckName(deckData.name);
+      deck.setFormat(deckData.format);
+      deck.setPowerLevel(deckData.powerLevel);
+      
+      // Load deck cards from database
+      const { data: deckCards, error } = await supabase
+        .from('deck_cards')
+        .select('*')
+        .eq('deck_id', deckData.id);
+
+      if (error) {
+        console.error('Error loading deck cards:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load deck cards",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Clear current deck and add loaded cards
+      deck.clearDeck();
+      
+      if (deckCards) {
+        for (const dbCard of deckCards) {
+          // Add each card to the deck store
+          deck.addCard({
+            id: dbCard.card_id,
+            name: dbCard.card_name,
+            quantity: dbCard.quantity,
+            cmc: 0, // Will be filled from card data
+            type_line: '', // Will be filled from card data
+            colors: [],
+            category: dbCard.is_commander ? 'commanders' : 'creatures', // Default category
+            mechanics: []
+          });
+        }
+      }
+
+      setSelectedDeck(deckData.id);
+      setActiveTab('deck-editor');
+      
+      toast({
+        title: "Deck Loaded",
+        description: `"${deckData.name}" is ready for editing`,
+      });
+    } catch (error) {
+      console.error('Error loading deck:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load deck",
+        variant: "destructive"
+      });
+    }
   };
 
   const generateAIDeck = async () => {

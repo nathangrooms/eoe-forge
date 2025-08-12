@@ -150,22 +150,54 @@ export const AIBuilder = ({ collection = [], onDeckBuilt }: AIBuilderProps) => {
           deckCollection = userCollection || [];
         }
       } else {
-        // Use set mode - get cards from selected set
+        // Use set mode - get cards from selected set via Scryfall
         setBuildProgress(20);
-        const colorQuery = selectedColors.length > 0 ? 
-          ` (${selectedColors.map(c => `color:${c}`).join(' OR ')})` : '';
-        const searchQuery = `set:${selectedSet}${colorQuery}`;
         
-        console.log('Fetching cards with query:', searchQuery);
-        
-        const response = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&unique=cards&order=cmc&dir=asc`);
-        if (response.ok) {
-          const data = await response.json();
-          deckCollection = data.data || [];
-          console.log(`Fetched ${deckCollection.length} cards from set ${selectedSet}`);
-        } else {
-          console.error('Failed to fetch cards from Scryfall');
-          throw new Error('Failed to fetch cards from selected set');
+        try {
+          let allCards = [];
+          let page = 1;
+          let hasMore = true;
+          
+          // Fetch all cards from the set (Scryfall paginates results)
+          while (hasMore && allCards.length < 500) { // Limit to prevent infinite loops
+            const colorQuery = selectedColors.length > 0 ? 
+              ` (${selectedColors.map(c => `color:${c}`).join(' OR ')})` : '';
+            const searchQuery = `set:${selectedSet}${colorQuery}`;
+            
+            console.log(`Fetching page ${page} for set ${selectedSet}...`);
+            
+            const response = await fetch(
+              `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&unique=cards&order=cmc&dir=asc&page=${page}`
+            );
+            
+            if (!response.ok) {
+              if (response.status === 404) {
+                console.log('No more cards found or no cards match criteria');
+                break;
+              }
+              throw new Error(`Scryfall API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.data && data.data.length > 0) {
+              allCards.push(...data.data);
+              hasMore = data.has_more;
+              page++;
+            } else {
+              hasMore = false;
+            }
+          }
+          
+          deckCollection = allCards;
+          console.log(`Fetched ${deckCollection.length} total cards from set ${selectedSet}`);
+          
+          if (deckCollection.length === 0) {
+            throw new Error(`No cards found for set ${selectedSet}. Please try a different set or check the set code.`);
+          }
+          
+        } catch (error) {
+          console.error('Failed to fetch cards from Scryfall:', error);
+          throw new Error(`Failed to fetch cards from set ${selectedSet}: ${error.message}`);
         }
       }
 

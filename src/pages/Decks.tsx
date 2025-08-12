@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,42 +67,18 @@ export default function Decks() {
   // Available templates for selected format
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   
-  // Mock decks data - in a real app this would come from a store or API
-  const [decks, setDecks] = useState<Deck[]>([
-    {
-      id: '1',
-      name: 'Spacecraft Control',
-      format: 'standard',
-      powerLevel: 7,
-      colors: ['U', 'W'],
-      cardCount: 60,
-      lastModified: new Date('2024-01-15'),
-      description: 'Control deck focused on spacecraft synergies'
-    },
-    {
-      id: '2', 
-      name: 'Void Aggro',
-      format: 'standard',
-      powerLevel: 6,
-      colors: ['B', 'R'],
-      cardCount: 60,
-      lastModified: new Date('2024-01-14'),
-      description: 'Fast aggressive deck with void mechanics'
-    },
-    {
-      id: '3',
-      name: 'Station Commander',
-      format: 'commander',
-      powerLevel: 8,
-      colors: ['U', 'G', 'W'],
-      cardCount: 100,
-      lastModified: new Date('2024-01-13'),
-      description: 'Commander deck built around station mechanics'
-    }
-  ]);
+  // Real decks data from Supabase
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const deck = useDeckStore();
   const collection = useCollectionStore();
+  const { user } = useAuth();
+  
+  // Load decks from database
+  useEffect(() => {
+    loadDecks();
+  }, [user]);
   
   // Load available templates when format changes
   useEffect(() => {
@@ -110,6 +88,53 @@ export default function Decks() {
       setAiArchetype(templates[0].id);
     }
   }, [aiFormat]);
+
+  const loadDecks = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data: userDecks, error } = await supabase
+        .from('user_decks')
+        .select(`
+          id,
+          name,
+          format,
+          power_level,
+          colors,
+          description,
+          created_at,
+          updated_at,
+          deck_cards(count)
+        `)
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading decks:', error);
+        return;
+      }
+
+      const formattedDecks: Deck[] = userDecks?.map(dbDeck => ({
+        id: dbDeck.id,
+        name: dbDeck.name,
+        format: dbDeck.format as any,
+        powerLevel: dbDeck.power_level,
+        colors: dbDeck.colors,
+        cardCount: dbDeck.deck_cards?.[0]?.count || 0,
+        lastModified: new Date(dbDeck.updated_at),
+        description: dbDeck.description || ''
+      })) || [];
+
+      setDecks(formattedDecks);
+    } catch (error) {
+      console.error('Error loading decks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
@@ -130,27 +155,54 @@ export default function Decks() {
     d.colors.some(color => color.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const createDeck = () => {
-    if (!newDeckName.trim()) return;
+  const createDeck = async () => {
+    if (!newDeckName.trim() || !user) return;
     
-    const newDeck: Deck = {
-      id: Date.now().toString(),
-      name: newDeckName,
-      format: newDeckFormat,
-      powerLevel: 5,
-      colors: [],
-      cardCount: 0,
-      lastModified: new Date(),
-      description: ''
-    };
-    
-    setDecks(prev => [newDeck, ...prev]);
-    setNewDeckName('');
-    setShowCreateDialog(false);
+    try {
+      const { data: newDeck, error } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name: newDeckName,
+          format: newDeckFormat,
+          power_level: 5,
+          colors: [],
+          description: ''
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating deck:', error);
+        return;
+      }
+
+      // Refresh deck list
+      await loadDecks();
+      setNewDeckName('');
+      setShowCreateDialog(false);
+    } catch (error) {
+      console.error('Error creating deck:', error);
+    }
   };
 
-  const deleteDeck = (deckId: string) => {
-    setDecks(prev => prev.filter(d => d.id !== deckId));
+  const deleteDeck = async (deckId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_decks')
+        .delete()
+        .eq('id', deckId);
+
+      if (error) {
+        console.error('Error deleting deck:', error);
+        return;
+      }
+
+      // Refresh deck list
+      await loadDecks();
+    } catch (error) {
+      console.error('Error deleting deck:', error);
+    }
   };
 
   const duplicateDeck = (originalDeck: Deck) => {
@@ -378,9 +430,20 @@ export default function Decks() {
             </CardContent>
           </Card>
 
+          {/* Loading state */}
+          {loading && (
+            <Card className="p-12 text-center">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span>Loading decks...</span>
+              </div>
+            </Card>
+          )}
+
           {/* Decks Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDecks.map((deckData) => (
+          {!loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredDecks.map((deckData) => (
               <Card key={deckData.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -447,10 +510,11 @@ export default function Decks() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {filteredDecks.length === 0 && (
+          {!loading && filteredDecks.length === 0 && (
             <Card className="p-12 text-center">
               <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-xl font-medium mb-2">No Decks Found</h3>

@@ -265,7 +265,7 @@ async function buildDeckFromStrategy(
   for (const category of categories) {
     const categoryCards = categorizedCards[category.type] || [];
     console.log(`Selecting ${category.target} cards from ${categoryCards.length} ${category.type} cards`);
-    const selected = selectBestCards(categoryCards, category.target, powerLevel, usedCards, budget);
+    const selected = selectBestCards(categoryCards, category.target, powerLevel, usedCards, buildMode === 'set' ? 'medium' : 'medium');
     console.log(`Selected ${selected.length} ${category.type} cards`);
     deck.push(...selected);
     selected.forEach(card => usedCards.add(card.name));
@@ -287,7 +287,7 @@ async function buildDeckFromStrategy(
     );
     
     console.log(`Found ${remainingCards.length} remaining non-land cards`);
-    const selected = selectBestCards(remainingCards, remainingNonLandSlots, powerLevel, usedCards, budget);
+    const selected = selectBestCards(remainingCards, remainingNonLandSlots, powerLevel, usedCards, 'medium');
     console.log(`Selected ${selected.length} additional non-land cards`);
     deck.push(...selected);
     selected.forEach(card => usedCards.add(card.name));
@@ -302,7 +302,26 @@ async function buildDeckFromStrategy(
     console.log(`Selected ${selectedLands.length} lands`);
     deck.push(...selectedLands);
   } else {
-    console.log('No lands available in collection - deck will be missing mana base');
+    console.log('No lands available - adding basic lands for mana base');
+    // Add basic lands if no lands available in collection
+    const basicLandNames = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+    const colorsNeeded = commanderColors.length > 0 ? commanderColors : ['W'];
+    
+    for (let i = 0; i < landCount; i++) {
+      const colorIndex = i % colorsNeeded.length;
+      const color = colorsNeeded[colorIndex];
+      const landName = getBasicLandName(color);
+      const basicLand = {
+        id: `${landName.toLowerCase()}_${i}`,
+        name: landName,
+        type_line: 'Basic Land',
+        oracle_text: `{T}: Add {${color}}.`,
+        cmc: 0,
+        colors: [],
+        color_identity: [color]
+      };
+      deck.push(basicLand);
+    }
   }
 
   console.log(`Built deck with ${deck.length} cards (target: ${deckSize})`);
@@ -338,19 +357,47 @@ function categorizeCards(cards: any[]) {
     const type = card.type_line?.toLowerCase() || '';
     const text = card.oracle_text?.toLowerCase() || '';
     
-    // Categorize by type
-    if (type.includes('creature')) categories.creatures.push(card);
-    else if (type.includes('land')) categories.lands.push(card);
-    else if (type.includes('artifact')) categories.artifacts.push(card);
-    else if (type.includes('enchantment')) categories.enchantments.push(card);
-    else if (type.includes('instant')) categories.instants.push(card);
-    else if (type.includes('sorcery')) categories.sorceries.push(card);
-    else if (type.includes('planeswalker')) categories.planeswalkers.push(card);
+    // Categorize by type first
+    if (type.includes('creature')) {
+      categories.creatures.push(card);
+    } else if (type.includes('land')) {
+      categories.lands.push(card);
+    } else if (type.includes('artifact')) {
+      categories.artifacts.push(card);
+      // Artifacts can also provide ramp
+      if (text.includes('mana') || text.includes('add') || card.name?.toLowerCase().includes('sol ring')) {
+        categories.ramp.push(card);
+      }
+    } else if (type.includes('enchantment')) {
+      categories.enchantments.push(card);
+    } else if (type.includes('instant')) {
+      categories.instants.push(card);
+    } else if (type.includes('sorcery')) {
+      categories.sorceries.push(card);
+    } else if (type.includes('planeswalker')) {
+      categories.planeswalkers.push(card);
+    }
 
-    // Categorize by function
-    if (text.includes('search') && (text.includes('land') || text.includes('basic'))) categories.ramp.push(card);
-    if (text.includes('draw') || text.includes('card')) categories.draw.push(card);
-    if (text.includes('destroy') || text.includes('exile') || text.includes('damage') || text.includes('counter') && text.includes('spell')) {
+    // Categorize by function (cards can be in multiple categories)
+    if (text.includes('search') && (text.includes('land') || text.includes('basic')) || 
+        text.includes('ramp') || 
+        (text.includes('add') && text.includes('mana'))) {
+      categories.ramp.push(card);
+    }
+    
+    if (text.includes('draw') || 
+        text.includes('card') && (text.includes('draw') || text.includes('hand')) ||
+        card.name?.toLowerCase().includes('divination')) {
+      categories.draw.push(card);
+    }
+    
+    if (text.includes('destroy') || 
+        text.includes('exile') || 
+        text.includes('damage') && text.includes('target') ||
+        (text.includes('counter') && text.includes('spell')) ||
+        text.includes('remove') ||
+        card.name?.toLowerCase().includes('murder') ||
+        card.name?.toLowerCase().includes('lightning bolt')) {
       categories.removal.push(card);
     }
   }
@@ -426,6 +473,17 @@ function getColorName(color: string): string {
     'G': 'forest'
   };
   return colorMap[color] || color.toLowerCase();
+}
+
+function getBasicLandName(color: string): string {
+  const landMap: Record<string, string> = {
+    'W': 'Plains',
+    'U': 'Island', 
+    'B': 'Swamp',
+    'R': 'Mountain',
+    'G': 'Forest'
+  };
+  return landMap[color] || 'Plains';
 }
 
 function calculateCardScore(card: any, powerLevel: number, budget: string) {

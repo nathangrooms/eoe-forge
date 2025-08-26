@@ -224,19 +224,126 @@ async function buildDeckFromStrategy(
   const deck = [];
   const usedCards = new Set();
   
-  console.log(`Starting deck build with collection size: ${collection.length}`);
+  console.log(`Starting deck build with collection size: ${collection?.length || 0}`);
   console.log(`Commander: ${commander?.name || 'None'}`);
   console.log(`Format: ${format}, Power Level: ${powerLevel}, Deck Size: ${deckSize}`);
+  console.log(`Build Mode: ${buildMode}, Selected Set: ${selectedSet}`);
   
   // Filter collection by commander's color identity and format legality
-  const commanderColors = commander?.color_identity || commander?.colors || [];
+  const commanderColors = commander?.color_identity || commander?.colors || selectedColors || [];
   console.log(`Commander colors: ${JSON.stringify(commanderColors)}`);
   
-  let availableCards = collection.filter(card => {
+  let availableCards = [];
+  
+  if (buildMode === 'set' && selectedSet) {
+    // Fetch cards from Scryfall API for the selected set
+    console.log(`Fetching cards from set: ${selectedSet}`);
+    try {
+      let searchQuery = `set:${selectedSet}`;
+      
+      // Add format legality if specified
+      if (format && format !== 'casual') {
+        searchQuery += ` legal:${format}`;
+      }
+      
+      // Add color identity if specified
+      if (selectedColors && selectedColors.length > 0) {
+        const colorQuery = selectedColors.join('');
+        searchQuery += ` c<=${colorQuery}`;
+      }
+      
+      console.log(`Scryfall search query: ${searchQuery}`);
+      
+      let hasMore = true;
+      let page = 1;
+      
+      while (hasMore && availableCards.length < 2000) {
+        const response = await fetch(
+          `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&page=${page}`,
+          {
+            headers: {
+              'User-Agent': 'MTG-Deck-Builder/1.0'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`No cards found for query: ${searchQuery}`);
+            break;
+          }
+          console.error(`Scryfall API error: ${response.status}`);
+          break;
+        }
+        
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          availableCards.push(...data.data);
+        }
+        
+        hasMore = data.has_more;
+        page++;
+        
+        // Rate limiting
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`Fetched ${availableCards.length} cards from Scryfall`);
+      
+      // If no cards found with format restriction, try without format filter
+      if (availableCards.length === 0 && format && format !== 'casual') {
+        console.log('Retrying without format restriction...');
+        searchQuery = `set:${selectedSet}`;
+        
+        if (selectedColors && selectedColors.length > 0) {
+          const colorQuery = selectedColors.join('');
+          searchQuery += ` c<=${colorQuery}`;
+        }
+        
+        const response = await fetch(
+          `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}`,
+          {
+            headers: {
+              'User-Agent': 'MTG-Deck-Builder/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            availableCards = data.data;
+            console.log(`Fetched ${availableCards.length} cards without format restriction`);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error fetching cards from Scryfall:', error);
+      availableCards = [];
+    }
+  } else {
+    // Use collection mode
+    availableCards = collection || [];
+  }
+  
+  // Apply additional filtering
+  availableCards = availableCards.filter(card => {
+    if (!card || !card.name) return false;
+    
     const isColorLegal = format === 'commander' ? isLegalInColors(card, commanderColors) : true;
     const isNotCommander = card.name !== commander?.name;
     const isFormatLegal = isLegalInFormat(card, format);
-    return isColorLegal && isNotCommander && isFormatLegal;
+    
+    // Exclude problematic card types
+    const excludeTypes = ['token', 'emblem', 'scheme', 'plane', 'phenomenon'];
+    const hasExcludedType = excludeTypes.some(type => 
+      card.type_line?.toLowerCase().includes(type)
+    );
+    
+    return isColorLegal && isNotCommander && isFormatLegal && !hasExcludedType;
   });
 
   console.log(`Available cards after filtering: ${availableCards.length}`);

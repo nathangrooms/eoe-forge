@@ -7,13 +7,135 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
+      build_logs: {
+        Row: {
+          changes: Json | null
+          created_at: string | null
+          deck_id: string | null
+          id: string
+          seed: string | null
+          user_id: string
+        }
+        Insert: {
+          changes?: Json | null
+          created_at?: string | null
+          deck_id?: string | null
+          id?: string
+          seed?: string | null
+          user_id: string
+        }
+        Update: {
+          changes?: Json | null
+          created_at?: string | null
+          deck_id?: string | null
+          id?: string
+          seed?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "build_logs_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cards: {
+        Row: {
+          cmc: number | null
+          collector_number: string | null
+          color_identity: string[] | null
+          colors: string[] | null
+          created_at: string | null
+          faces: Json | null
+          id: string
+          image_uris: Json | null
+          is_legendary: boolean | null
+          is_reserved: boolean | null
+          keywords: string[] | null
+          layout: string | null
+          legalities: Json | null
+          loyalty: string | null
+          mana_cost: string | null
+          name: string
+          oracle_id: string
+          oracle_text: string | null
+          power: string | null
+          prices: Json | null
+          rarity: string | null
+          set_code: string
+          tags: string[] | null
+          toughness: string | null
+          type_line: string
+          updated_at: string | null
+        }
+        Insert: {
+          cmc?: number | null
+          collector_number?: string | null
+          color_identity?: string[] | null
+          colors?: string[] | null
+          created_at?: string | null
+          faces?: Json | null
+          id: string
+          image_uris?: Json | null
+          is_legendary?: boolean | null
+          is_reserved?: boolean | null
+          keywords?: string[] | null
+          layout?: string | null
+          legalities?: Json | null
+          loyalty?: string | null
+          mana_cost?: string | null
+          name: string
+          oracle_id: string
+          oracle_text?: string | null
+          power?: string | null
+          prices?: Json | null
+          rarity?: string | null
+          set_code: string
+          tags?: string[] | null
+          toughness?: string | null
+          type_line: string
+          updated_at?: string | null
+        }
+        Update: {
+          cmc?: number | null
+          collector_number?: string | null
+          color_identity?: string[] | null
+          colors?: string[] | null
+          created_at?: string | null
+          faces?: Json | null
+          id?: string
+          image_uris?: Json | null
+          is_legendary?: boolean | null
+          is_reserved?: boolean | null
+          keywords?: string[] | null
+          layout?: string | null
+          legalities?: Json | null
+          loyalty?: string | null
+          mana_cost?: string | null
+          name?: string
+          oracle_id?: string
+          oracle_text?: string | null
+          power?: string | null
+          prices?: Json | null
+          rarity?: string | null
+          set_code?: string
+          tags?: string[] | null
+          toughness?: string | null
+          type_line?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       deck_cards: {
         Row: {
           card_id: string
@@ -55,11 +177,38 @@ export type Database = {
           },
         ]
       }
+      favorite_decks: {
+        Row: {
+          created_at: string | null
+          deck_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deck_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deck_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_decks_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           id: string
+          is_admin: boolean | null
           updated_at: string
           username: string | null
         }
@@ -67,6 +216,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           id: string
+          is_admin?: boolean | null
           updated_at?: string
           username?: string | null
         }
@@ -74,8 +224,57 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           id?: string
+          is_admin?: boolean | null
           updated_at?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      sync_status: {
+        Row: {
+          error_message: string | null
+          id: string
+          last_sync: string | null
+          records_processed: number | null
+          status: string | null
+          total_records: number | null
+        }
+        Insert: {
+          error_message?: string | null
+          id: string
+          last_sync?: string | null
+          records_processed?: number | null
+          status?: string | null
+          total_records?: number | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          last_sync?: string | null
+          records_processed?: number | null
+          status?: string | null
+          total_records?: number | null
+        }
+        Relationships: []
+      }
+      tag_overrides: {
+        Row: {
+          oracle_id: string
+          tags: string[] | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          oracle_id: string
+          tags?: string[] | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          oracle_id?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }

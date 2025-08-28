@@ -257,7 +257,7 @@ function calculateSynergyScore(deck: any[]): number {
     return acc;
   }, {} as Record<string, number>);
   
-  const maxType = Math.max(...Object.values(types));
+  const maxType = Math.max(...Object.values(types).map(Number), 0);
   return Math.min(100, (maxType / deck.length) * 150);
 }
 

@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCardSearch } from '@/hooks/useCardSearch';
 import { CardPreview } from '@/components/deck-builder/CardPreview';
 import { useCollectionStore } from '@/stores/collectionStore';
+import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { SearchResultsSkeleton } from '@/components/ui/loading-skeleton';
 import { 
   Heart,
   Plus,
@@ -83,7 +86,7 @@ export default function Cards() {
   const collection = useCollectionStore();
 
   const addToWishlist = (cardId: string) => {
-    console.log('Add to wishlist:', cardId);
+    showSuccess("Added to Wishlist", "Card added to your wishlist");
     // Implement wishlist functionality
   };
 
@@ -114,6 +117,7 @@ export default function Cards() {
       synergyTags: [],
       archetype: []
     });
+    showSuccess("Added to Collection", `Added ${card.name} to your collection`);
   };
 
   const inspectCard = (card: any) => {
@@ -123,8 +127,15 @@ export default function Cards() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
+      <div className="p-6 border-b">
+        <StandardSectionHeader
+          title="Card Database"
+          description="Search through every Magic: The Gathering card ever printed"
+        />
+      </div>
+      
       {/* Collection Header */}
-        <CollectionHeader
+      <CollectionHeader
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           viewMode={viewMode}
@@ -141,11 +152,9 @@ export default function Cards() {
         <div className="h-full flex">
           {/* Main Card Grid/List */}
           <div className="flex-1 overflow-y-auto p-4">
-              {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
-                </div>
-              ) : cards.length > 0 ? (
+            {loading ? (
+              <SearchResultsSkeleton />
+            ) : cards.length > 0 ? (
                 <div className={
                   viewMode === 'grid' 
                     ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4"

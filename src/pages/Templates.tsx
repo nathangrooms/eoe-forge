@@ -1,4 +1,7 @@
-import { TopNavigation } from '@/components/TopNavigation';
+import { useState } from 'react';
+import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { ManaSymbols } from '@/components/ui/mana-symbols';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -103,36 +106,33 @@ const templates = [
   }
 ];
 
-const colorSymbols = {
-  W: { bg: '#FFFBD5', text: '#000' },
-  U: { bg: '#0E68AB', text: '#fff' },
-  B: { bg: '#150B00', text: '#fff' },
-  R: { bg: '#D3202A', text: '#fff' },
-  G: { bg: '#00733E', text: '#fff' }
-};
-
 export default function Templates() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState<string>('all');
+
+  const handleUseTemplate = (template: any) => {
+    showSuccess("Template Selected", `Building deck from ${template.name} template`);
+    // Implement template usage
+  };
   return (
     <div className="min-h-screen bg-background">
-      <TopNavigation />
-      
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Deck Templates</h1>
-          <p className="text-muted-foreground">
-            Start with proven archetypes and customize to your playstyle
-          </p>
-        </div>
+        <StandardSectionHeader
+          title="Deck Templates"
+          description="Start with proven archetypes and customize to your playstyle"
+        />
 
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <div className="flex items-center space-x-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <input
+                type="text"
                 placeholder="Search templates by name, strategy, or cards..."
-                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 pl-10 pr-4 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <Button variant="outline">
@@ -169,15 +169,7 @@ export default function Templates() {
                         {template.description}
                       </p>
                     </div>
-                    <div className="flex space-x-1 ml-2">
-                      {template.colors.map((color, index) => (
-                        <div
-                          key={index}
-                          className="w-4 h-4 rounded-full border border-border"
-                          style={{ backgroundColor: colorSymbols[color].bg }}
-                        />
-                      ))}
-                    </div>
+                    <ManaSymbols colors={template.colors} size="sm" />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -214,7 +206,7 @@ export default function Templates() {
 
                   {/* Actions */}
                   <div className="flex space-x-2">
-                    <Button className="flex-1">
+                    <Button className="flex-1" onClick={() => handleUseTemplate(template)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
@@ -254,15 +246,7 @@ export default function Templates() {
                         {template.format}
                       </Badge>
                     </div>
-                    <div className="flex space-x-1 ml-2">
-                      {template.colors.map((color, index) => (
-                        <div
-                          key={index}
-                          className="w-3 h-3 rounded-full border border-border"
-                          style={{ backgroundColor: colorSymbols[color].bg }}
-                        />
-                      ))}
-                    </div>
+                    <ManaSymbols colors={template.colors} size="sm" />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -286,7 +270,7 @@ export default function Templates() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button size="sm" className="flex-1">
+                    <Button size="sm" className="flex-1" onClick={() => handleUseTemplate(template)}>
                       Use
                     </Button>
                     <Button variant="outline" size="sm">

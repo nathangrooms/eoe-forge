@@ -1,10 +1,25 @@
 import React from 'react';
 import { AdminPanel } from '@/components/AdminPanel';
+import { EnhancedAdminPanel } from '@/components/EnhancedAdminPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
   return (
     <div className="container mx-auto py-6 px-4">
-      <AdminPanel />
+      <Tabs defaultValue="dashboard" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="management">Management</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard">
+          <AdminPanel />
+        </TabsContent>
+
+        <TabsContent value="management">
+          <EnhancedAdminPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

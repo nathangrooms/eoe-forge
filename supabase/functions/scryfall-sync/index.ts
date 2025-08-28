@@ -155,7 +155,7 @@ async function syncCards(): Promise<void> {
       throw new Error('Default cards bulk data not found');
     }
     
-    console.log(`Found bulk data: ${defaultCards.size} cards, ${(defaultCards.compressed_size / 1024 / 1024).toFixed(1)}MB`);
+    console.log(`Found bulk data: ${defaultCards.size || 'unknown'} cards, ${defaultCards.compressed_size ? (defaultCards.compressed_size / 1024 / 1024).toFixed(1) + 'MB' : 'unknown size'}`);
     
     // Download and process cards
     console.log('Downloading card data...');

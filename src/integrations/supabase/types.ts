@@ -47,6 +47,13 @@ export type Database = {
             referencedRelation: "user_decks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_build_logs_deck_id"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cards: {
@@ -175,6 +182,13 @@ export type Database = {
             referencedRelation: "user_decks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_deck_cards_deck_id"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       favorite_decks: {
@@ -196,6 +210,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "favorite_decks_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_favorite_decks_deck_id"
             columns: ["deck_id"]
             isOneToOne: false
             referencedRelation: "user_decks"

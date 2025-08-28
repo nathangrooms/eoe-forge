@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface Card {
+export interface Card {
   id: string;
   name: string;
   cmc: number;
@@ -59,6 +59,10 @@ interface DeckState {
   setCommander: (card: Card) => void;
   clearDeck: () => void;
   importDeck: (cards: Card[]) => void;
+  
+  // Database operations
+  saveDeck: () => Promise<{ success: boolean; deckId?: string; error?: string }>;
+  loadDeck: (deckId: string) => Promise<{ success: boolean; error?: string }>;
   
   // Analysis
   getCardsByCategory: (category: string) => Card[];
@@ -215,10 +219,71 @@ export const useDeckStore = create<DeckState>()(
         });
         
         return mechanics;
+      },
+
+      // Database operations
+      saveDeck: async () => {
+        const state = get();
+        const { DeckAPI } = await import('@/lib/api/deckAPI');
+        
+        return await DeckAPI.saveDeck({
+          name: state.name,
+          format: state.format,
+          colors: state.colors,
+          power_level: state.powerLevel,
+          cards: state.cards,
+          commander: state.commander
+        });
+      },
+
+      loadDeck: async (deckId: string) => {
+        const { DeckAPI } = await import('@/lib/api/deckAPI');
+        
+        const result = await DeckAPI.loadDeck(deckId);
+        if (result.success && result.deck) {
+          const deck = result.deck;
+          
+          // Convert saved deck cards to local format
+          const cards: Card[] = deck.cards
+            .filter(c => !c.is_commander)
+            .map(c => ({
+              id: c.card_id,
+              name: c.card_name,
+              quantity: c.quantity,
+              cmc: 0, // Will be updated when card details are loaded
+              type_line: '',
+              colors: [],
+              category: 'other',
+              mechanics: []
+            }));
+
+          const commander = deck.cards.find(c => c.is_commander);
+          
+          set({
+            name: deck.name,
+            format: deck.format as any,
+            powerLevel: deck.power_level,
+            colors: deck.colors,
+            cards,
+            commander: commander ? {
+              id: commander.card_id,
+              name: commander.card_name,
+              quantity: 1,
+              cmc: 0,
+              type_line: '',
+              colors: [],
+              category: 'commanders',
+              mechanics: []
+            } : undefined,
+            totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
+          });
+        }
+        
+        return result;
       }
     }),
     {
-      name: 'eoe-deck-storage',
+      name: 'mtg-deck-storage',
       // Only persist essential data
       partialize: (state) => ({
         name: state.name,

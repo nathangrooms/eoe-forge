@@ -35,10 +35,10 @@ import { Link } from 'react-router-dom';
 const DeckBuilder = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState({
-    sets: ['EOE', 'EOC', 'EOS'],
-    types: [],
-    colors: [],
-    mechanics: []
+    sets: [] as string[],
+    types: [] as string[],
+    colors: [] as string[],
+    mechanics: [] as string[]
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
@@ -143,34 +143,35 @@ const DeckBuilder = () => {
                         </div>
                       </div>
 
-                      {/* EOE Quick Filters */}
+                      {/* MTG Quick Filters */}
                       <div className="flex space-x-2">
                         <span className="text-sm font-medium text-muted-foreground flex items-center">
                           Quick filters:
                         </span>
                         {[
-                          { name: 'Spacecraft', icon: Rocket, color: 'text-spacecraft' },
-                          { name: 'Station', icon: Cpu, color: 'text-station' },
-                          { name: 'Warp', icon: Zap, color: 'text-warp' },
-                          { name: 'Void', icon: Activity, color: 'text-void' },
-                          { name: 'Planet', icon: Globe, color: 'text-planet' }
-                        ].map(({ name, icon: Icon, color }) => (
+                          { name: 'Creatures', type: 'creature' },
+                          { name: 'Instants', type: 'instant' },
+                          { name: 'Sorceries', type: 'sorcery' },
+                          { name: 'Artifacts', type: 'artifact' },
+                          { name: 'Enchantments', type: 'enchantment' },
+                          { name: 'Planeswalkers', type: 'planeswalker' },
+                          { name: 'Lands', type: 'land' }
+                        ].map(({ name, type }) => (
                           <Button
                             key={name}
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const isSelected = selectedFilters.mechanics.includes(name);
+                              const isSelected = selectedFilters.types.includes(type);
                               setSelectedFilters(prev => ({
                                 ...prev,
-                                mechanics: isSelected 
-                                  ? prev.mechanics.filter(m => m !== name)
-                                  : [...prev.mechanics, name]
+                                types: isSelected 
+                                  ? prev.types.filter(t => t !== type)
+                                  : [...prev.types, type]
                               }));
                             }}
-                            className={selectedFilters.mechanics.includes(name) ? 'bg-primary text-primary-foreground' : ''}
+                            className={selectedFilters.types.includes(type) ? 'bg-primary text-primary-foreground' : ''}
                           >
-                            <Icon className={`h-4 w-4 mr-1 ${color}`} />
                             {name}
                           </Button>
                         ))}

@@ -16,10 +16,12 @@ interface SearchFiltersProps {
   onFiltersChange: (filters: any) => void;
 }
 
-const SETS = [
-  { code: 'EOE', name: 'Edge of Eternities' },
-  { code: 'EOC', name: 'EOE Commander' },
-  { code: 'EOS', name: 'Stellar Sights' }
+const POPULAR_SETS = [
+  { code: 'BLB', name: 'Bloomburrow' },
+  { code: 'DSK', name: 'Duskmourn: House of Horror' },
+  { code: 'OTJ', name: 'Outlaws of Thunder Junction' },
+  { code: 'MKM', name: 'Murders at Karlov Manor' },
+  { code: 'LCI', name: 'The Lost Caverns of Ixalan' }
 ];
 
 const TYPES = [
@@ -35,8 +37,8 @@ const COLORS = [
   { symbol: 'G', name: 'Green', color: '#00733E' }
 ];
 
-const MECHANICS = [
-  'Spacecraft', 'Station', 'Warp', 'Void', 'Planet', 'Vehicle', 'Crew'
+const MTG_MECHANICS = [
+  'Flying', 'Trample', 'Vigilance', 'Menace', 'Lifelink', 'Deathtouch', 'Haste', 'Reach'
 ];
 
 export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
@@ -54,7 +56,7 @@ export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) 
 
   const clearAllFilters = () => {
     onFiltersChange({
-      sets: ['EOE', 'EOC', 'EOS'],
+      sets: [],
       types: [],
       colors: [],
       mechanics: []
@@ -87,7 +89,7 @@ export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) 
             SETS
           </Label>
           <div className="space-y-2">
-            {SETS.map((set) => (
+            {POPULAR_SETS.map((set) => (
               <div key={set.code} className="flex items-center space-x-2">
                 <Checkbox
                   id={set.code}
@@ -161,7 +163,7 @@ export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) 
             MECHANICS
           </Label>
           <div className="flex flex-wrap gap-1">
-            {MECHANICS.map((mechanic) => (
+            {MTG_MECHANICS.map((mechanic) => (
               <Badge
                 key={mechanic}
                 variant={filters.mechanics.includes(mechanic) ? "default" : "outline"}

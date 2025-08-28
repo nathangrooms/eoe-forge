@@ -308,7 +308,7 @@ export const ModernDeckList = () => {
           <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h3 className="text-xl font-medium mb-2">Start Building Your Deck</h3>
           <p className="text-muted-foreground">
-            Search for cards in the Card Database tab and add them to begin building your Edge of Eternities deck.
+            Search for cards in the Card Database tab and add them to begin building your Magic deck.
           </p>
         </Card>
       )}

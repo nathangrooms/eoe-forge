@@ -252,7 +252,7 @@ export const DeckList = () => {
         <div className="text-center py-12 text-muted-foreground">
           <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-medium mb-2">Start Building Your Deck</h3>
-          <p className="text-sm">Search for cards and add them to begin building your Edge of Eternities deck.</p>
+          <p className="text-sm">Search for cards and add them to begin building your Magic deck.</p>
         </div>
       )}
     </div>

@@ -182,13 +182,6 @@ export type Database = {
             referencedRelation: "user_decks"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_deck_cards_deck_id"
-            columns: ["deck_id"]
-            isOneToOne: false
-            referencedRelation: "user_decks"
-            referencedColumns: ["id"]
-          },
         ]
       }
       favorite_decks: {

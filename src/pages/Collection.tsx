@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionHeader } from '@/components/collection/CollectionHeader';
-import { CardSearch } from '@/features/collection/CardSearch';
+import { EnhancedCardSearch } from '@/features/collection/EnhancedCardSearch';
+import { CollectionInventory } from '@/features/collection/CollectionInventory';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
@@ -211,90 +212,11 @@ export default function Collection() {
             </CardContent>
           </Card>
 
-          {/* Collection Display */}
-          {loading ? (
-            <CardGridSkeleton />
-          ) : (
-            <div className="space-y-4">
-              {filteredCards.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-medium mb-2">No cards found</h3>
-                    <p className="text-muted-foreground">
-                      {snapshot?.items.length === 0 
-                        ? "Your collection is empty. Add some cards using the 'Add Cards' tab."
-                        : "No cards match your current filters. Try adjusting your search criteria."
-                      }
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className={viewMode === 'grid' 
-                  ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4"
-                  : "space-y-2"
-                }>
-                  {filteredCards.map((item) => (
-                    <Card 
-                      key={`${item.card_id}`} 
-                      className="group hover:shadow-lg transition-all duration-200 cursor-pointer"
-                      onClick={() => toggleCardSelection(item.card_id)}
-                    >
-                      <CardContent className="p-3">
-                        {viewMode === 'grid' ? (
-                          <div>
-                            <div className="aspect-[5/7] bg-muted rounded mb-2 flex items-center justify-center overflow-hidden relative">
-                              {item.card?.image_uris?.normal ? (
-                                <img 
-                                  src={item.card.image_uris.normal}
-                                  alt={item.card.name}
-                                  className="w-full h-full object-cover rounded"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="text-xs text-center p-2 text-muted-foreground">
-                                  {item.card_name}
-                                </div>
-                              )}
-                              {(item.quantity > 0 || item.foil > 0) && (
-                                <Badge className="absolute top-1 right-1 text-xs">
-                                  {item.quantity + item.foil}x
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-xs font-medium truncate">{item.card_name}</div>
-                              <div className="text-xs text-muted-foreground">{item.set_code.toUpperCase()}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-3 p-2">
-                            <div className="w-12 h-16 bg-muted rounded flex-shrink-0">
-                              {item.card?.image_uris?.normal && (
-                                <img 
-                                  src={item.card.image_uris.normal}
-                                  alt={item.card.name}
-                                  className="w-full h-full object-cover rounded"
-                                  loading="lazy"
-                                />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{item.card_name}</div>
-                              <div className="text-sm text-muted-foreground">{item.set_code.toUpperCase()}</div>
-                              <div className="text-sm">
-                                Regular: {item.quantity} | Foil: {item.foil}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Collection Display with Enhanced Features */}
+          <CollectionInventory 
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-6">
@@ -305,7 +227,7 @@ export default function Collection() {
         </TabsContent>
 
         <TabsContent value="add-cards" className="space-y-6">
-          <CardSearch />
+          <EnhancedCardSearch />
           
           <BulkOperations 
             onCollectionUpdate={refresh}

@@ -46,6 +46,10 @@ interface CardSearchProps {
 export function CardSearch({ onCardSelect }: CardSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<CardType[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const addCard = useCollectionStore(state => state.addCard);
   
   const { cards, loading } = useCardSearch(searchQuery, selectedFilters);

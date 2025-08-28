@@ -30,6 +30,7 @@ const features = [
   { title: "Card Search", url: "/cards", icon: Search },
   { title: "AI Deck Builder", url: "/deck-builder?tab=ai-builder", icon: Wand2 },
   { title: "Collection Analytics", url: "/collection?tab=analysis", icon: BarChart3 },
+  { title: "Admin Panel", url: "/admin", icon: Settings },
 ];
 
 const formats = [

@@ -216,12 +216,12 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
 
           {/* Filters */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <Select value={filters.color} onValueChange={(value) => setFilters(prev => ({ ...prev, color: value }))}>
+            <Select value={filters.color || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, color: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Color" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Color</SelectItem>
+                <SelectItem value="all">Any Color</SelectItem>
                 <SelectItem value="W">White</SelectItem>
                 <SelectItem value="U">Blue</SelectItem>
                 <SelectItem value="B">Black</SelectItem>
@@ -230,12 +230,12 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
               </SelectContent>
             </Select>
 
-            <Select value={filters.type} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}>
+            <Select value={filters.type || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Type</SelectItem>
+                <SelectItem value="all">Any Type</SelectItem>
                 <SelectItem value="Creature">Creature</SelectItem>
                 <SelectItem value="Instant">Instant</SelectItem>
                 <SelectItem value="Sorcery">Sorcery</SelectItem>
@@ -246,12 +246,12 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
               </SelectContent>
             </Select>
 
-            <Select value={filters.rarity} onValueChange={(value) => setFilters(prev => ({ ...prev, rarity: value }))}>
+            <Select value={filters.rarity || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, rarity: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Rarity" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Rarity</SelectItem>
+                <SelectItem value="all">Any Rarity</SelectItem>
                 <SelectItem value="common">Common</SelectItem>
                 <SelectItem value="uncommon">Uncommon</SelectItem>
                 <SelectItem value="rare">Rare</SelectItem>
@@ -259,12 +259,12 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
               </SelectContent>
             </Select>
 
-            <Select value={filters.format} onValueChange={(value) => setFilters(prev => ({ ...prev, format: value }))}>
+            <Select value={filters.format || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, format: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Format" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Format</SelectItem>
+                <SelectItem value="all">Any Format</SelectItem>
                 <SelectItem value="standard">Standard</SelectItem>
                 <SelectItem value="modern">Modern</SelectItem>
                 <SelectItem value="legacy">Legacy</SelectItem>

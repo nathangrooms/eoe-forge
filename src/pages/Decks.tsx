@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { useCollectionStore } from '@/stores/collectionStore';
+import { StandardDeckTile, StandardSectionHeader } from '@/components/ui/standardized-components';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { EnhancedAnalysisPanel } from '@/components/deck-builder/EnhancedAnalysisPanel';
 import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
@@ -181,6 +183,7 @@ export default function Decks() {
       await loadDecks();
       setNewDeckName('');
       setShowCreateDialog(false);
+      showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
     } catch (error) {
       console.error('Error creating deck:', error);
     }
@@ -398,17 +401,10 @@ export default function Decks() {
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold bg-cosmic bg-clip-text text-transparent">
-            Deck Manager
-          </h1>
-          <p className="text-muted-foreground">
-            Create, analyze, and optimize your Magic: The Gathering decks
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
+      <StandardSectionHeader
+        title="Deck Manager"
+        description="Create, analyze, and optimize your Magic: The Gathering decks"
+        action={
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
@@ -449,8 +445,8 @@ export default function Decks() {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -494,72 +490,20 @@ export default function Decks() {
           {!loading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredDecks.map((deckData) => (
-              <Card key={deckData.id} className="group hover:shadow-lg transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">{deckData.name}</CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge className={getFormatBadgeColor(deckData.format)}>
-                          {deckData.format}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {deckData.cardCount} cards
-                        </span>
-                      </div>
-                    </div>
-                    {deckData.format === 'commander' && (
-                      <Crown className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-muted-foreground">Power Level:</span>
-                      <Badge variant="outline">{deckData.powerLevel}/10</Badge>
-                    </div>
-                    <div className="flex space-x-1">
-                      {getColorIcons(deckData.colors)}
-                    </div>
-                  </div>
-
-                  {deckData.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {deckData.description}
-                    </p>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    Modified {deckData.lastModified.toLocaleDateString()}
-                  </div>
-
-                  <div className="flex space-x-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => loadDeck(deckData)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => duplicateDeck(deckData)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => deleteDeck(deckData.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                <StandardDeckTile
+                  key={deckData.id}
+                  name={deckData.name}
+                  format={deckData.format}
+                  colors={deckData.colors}
+                  cardCount={deckData.cardCount}
+                  powerLevel={deckData.powerLevel}
+                  lastModified={deckData.lastModified}
+                  description={deckData.description}
+                  onEdit={() => loadDeck(deckData)}
+                  onDelete={() => deleteDeck(deckData.id)}
+                  onDuplicate={() => duplicateDeck(deckData)}
+                  onView={() => loadDeck(deckData)}
+                />
               ))}
             </div>
           )}

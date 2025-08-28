@@ -29,6 +29,9 @@ import {
 } from 'lucide-react';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useDeckStore } from '@/stores/deckStore';
+import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
 import { useCardSearch } from '@/hooks/useCardSearch';
 import { useMTGSets } from '@/hooks/useMTGSets';
 
@@ -175,29 +178,24 @@ export default function Collection() {
 
   return (
     <div className="p-6 h-screen overflow-y-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold bg-cosmic bg-clip-text text-transparent">
-            Collection Manager
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your Magic: The Gathering collection with AI-powered insights
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Value</div>
-            <div className="text-lg font-bold text-green-600">
-              ${collection.calculateCollectionValue().toLocaleString()}
+      <StandardSectionHeader
+        title="Collection Manager"
+        description="Manage your Magic: The Gathering collection with AI-powered insights"
+        action={
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Value</div>
+              <div className="text-lg font-bold text-green-600">
+                ${collection.calculateCollectionValue().toLocaleString()}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Cards</div>
+              <div className="text-lg font-bold">{collection.totalCards.toLocaleString()}</div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Cards</div>
-            <div className="text-lg font-bold">{collection.totalCards.toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

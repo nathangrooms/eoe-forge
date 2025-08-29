@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
 import Builder from "./pages/Builder";
@@ -63,7 +64,8 @@ function AppContent() {
           
           <div className="flex-1">
             <Routes>
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/home" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
               <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
               <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />

@@ -246,13 +246,49 @@ serve(async (req) => {
     const { action } = await req.json().catch(() => ({ action: 'sync' }));
     
     if (action === 'sync') {
-      // Run sync in background
-      syncCards().catch(error => {
+      // Check if sync is already running
+      const { data: existingSync } = await supabase
+        .from('sync_status')
+        .select('status, last_sync')
+        .eq('id', 'scryfall_cards')
+        .single();
+      
+      if (existingSync?.status === 'running') {
+        // Check if it's been running for more than 1 hour (likely stuck)
+        const lastSync = new Date(existingSync.last_sync);
+        const now = new Date();
+        const hoursSinceLastSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursSinceLastSync < 1) {
+          return new Response(
+            JSON.stringify({ message: 'Sync already running', status: existingSync.status }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 409 
+            }
+          );
+        } else {
+          console.log('Resetting stuck sync status');
+          await updateSyncStatus('scryfall_cards', 'failed', 'Sync timeout - automatically reset');
+        }
+      }
+      
+      // Use background task to prevent timeout
+      const backgroundSync = syncCards().catch(error => {
         console.error('Background sync failed:', error);
+        updateSyncStatus('scryfall_cards', 'failed', error.message);
       });
       
+      // Start the background task
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        EdgeRuntime.waitUntil(backgroundSync);
+      } else {
+        // Fallback for environments without EdgeRuntime
+        backgroundSync;
+      }
+      
       return new Response(
-        JSON.stringify({ message: 'Card sync started' }),
+        JSON.stringify({ message: 'Card sync started', timestamp: new Date().toISOString() }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 202 

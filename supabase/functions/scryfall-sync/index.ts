@@ -139,31 +139,72 @@ function tagCard(card: ScryfallCard): string[] {
 }
 
 async function syncCards(): Promise<void> {
-  console.log('Starting Scryfall card sync...');
+  console.log('🚀 Starting Scryfall card sync...');
   
   await updateSyncStatus('scryfall_cards', 'running');
   
   try {
-    // Get bulk data info
-    console.log('Fetching bulk data info...');
+    // Get bulk data info with detailed logging
+    console.log('📡 Fetching bulk data info from Scryfall...');
+    console.log('URL: https://api.scryfall.com/bulk-data');
+    
     const bulkResponse = await fetchWithRetry('https://api.scryfall.com/bulk-data');
+    console.log(`✅ Bulk data response status: ${bulkResponse.status}`);
+    
     const bulkData = await bulkResponse.json();
+    console.log(`📦 Bulk data received, found ${bulkData.data?.length || 0} data types`);
     
     // Find default cards bulk data
     const defaultCards = bulkData.data.find((item: any) => item.type === 'default_cards');
     if (!defaultCards) {
+      console.error('❌ Default cards bulk data not found in response:', JSON.stringify(bulkData.data.map((d: any) => d.type)));
       throw new Error('Default cards bulk data not found');
     }
     
-    console.log(`Found bulk data: ${defaultCards.size || 'unknown'} cards, ${defaultCards.compressed_size ? (defaultCards.compressed_size / 1024 / 1024).toFixed(1) + 'MB' : 'unknown size'}`);
+    console.log(`🎯 Found default cards bulk data:`);
+    console.log(`   - Size: ${defaultCards.size || 'unknown'} cards`);
+    console.log(`   - Compressed size: ${defaultCards.compressed_size ? (defaultCards.compressed_size / 1024 / 1024).toFixed(1) + 'MB' : 'unknown'}`);
+    console.log(`   - Download URI: ${defaultCards.download_uri}`);
+    console.log(`   - Updated: ${defaultCards.updated_at}`);
     
-    // Download and process cards
-    console.log('Downloading card data...');
+    // Update status with total count
+    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, defaultCards.size || 0);
+    
+    // Download and process cards with timeout handling
+    console.log('⬇️ Starting download of card data...');
+    const downloadStartTime = Date.now();
+    
     const cardsResponse = await fetchWithRetry(defaultCards.download_uri);
-    const cardsText = await cardsResponse.text();
+    const downloadTime = Date.now() - downloadStartTime;
     
-    console.log('Parsing card data...');
-    const cards = cardsText.trim().split('\n').map(line => JSON.parse(line) as ScryfallCard);
+    console.log(`✅ Download completed in ${(downloadTime / 1000).toFixed(1)}s`);
+    console.log(`📄 Response status: ${cardsResponse.status}`);
+    console.log(`📊 Content length: ${cardsResponse.headers.get('content-length') || 'unknown'}`);
+    
+    const cardsText = await cardsResponse.text();
+    console.log(`📝 Text length: ${cardsText.length} characters`);
+    
+    console.log('🔍 Parsing card data...');
+    const parseStartTime = Date.now();
+    
+    const lines = cardsText.trim().split('\n');
+    const cards: ScryfallCard[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        try {
+          const card = JSON.parse(line) as ScryfallCard;
+          cards.push(card);
+        } catch (parseError) {
+          console.warn(`⚠️ Failed to parse card at line ${i + 1}: ${parseError.message}`);
+        }
+      }
+    }
+    
+    const parseTime = Date.now() - parseStartTime;
+    console.log(`✅ Parsing completed in ${(parseTime / 1000).toFixed(1)}s`);
+    console.log(`🃏 Successfully parsed ${cards.length} cards from ${lines.length} lines`);
     
     await updateSyncStatus('scryfall_cards', 'running', undefined, 0, cards.length);
     

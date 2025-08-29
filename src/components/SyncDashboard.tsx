@@ -32,6 +32,7 @@ const SyncDashboard = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [isTestingAPI, setIsTestingAPI] = useState(false);
   const [cardCount, setCardCount] = useState(0);
   const { toast } = useToast();
 
@@ -94,6 +95,35 @@ const SyncDashboard = () => {
       });
     } finally {
       setIsTriggering(false);
+    }
+  };
+
+  const testScryfallAPI = async () => {
+    setIsTestingAPI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-scryfall');
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        toast({
+          title: "API Test Successful",
+          description: "Scryfall API is accessible and working correctly.",
+        });
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('API test failed:', error);
+      toast({
+        title: "API Test Failed",
+        description: `Scryfall API test failed: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingAPI(false);
     }
   };
 
@@ -432,6 +462,23 @@ const SyncDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={testScryfallAPI}
+              disabled={isTestingAPI}
+            >
+              {isTestingAPI ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Testing API...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Test Scryfall API
+                </>
+              )}
+            </Button>
             <Button
               variant="outline"
               onClick={triggerSync}

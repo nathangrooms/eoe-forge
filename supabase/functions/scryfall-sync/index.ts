@@ -141,6 +141,8 @@ function tagCard(card: ScryfallCard): string[] {
 async function syncCards(): Promise<void> {
   console.log('🚀 Starting Scryfall card sync...');
   console.log('📊 Current time:', new Date().toISOString());
+  console.log('🔧 Supabase URL:', Deno.env.get('SUPABASE_URL'));
+  console.log('🔧 Service key present:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
   
   await updateSyncStatus('scryfall_cards', 'running');
   
@@ -360,58 +362,94 @@ async function processBatch(cards: any[], totalProcessed: number): Promise<void>
 }
 
 serve(async (req) => {
+  console.log('🌟 Edge function invoked:', new Date().toISOString());
+  console.log('📥 Request method:', req.method);
+  console.log('🔗 Request URL:', req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action } = await req.json().catch(() => ({ action: 'sync' }));
+    const requestBody = await req.json().catch(() => ({ action: 'sync' }));
+    console.log('📋 Request body:', JSON.stringify(requestBody));
+    const { action } = requestBody;
     
     if (action === 'sync') {
+      console.log('🔄 Sync action requested');
+      
       // Check if sync is already running
-      const { data: existingSync } = await supabase
+      const { data: existingSync, error: fetchError } = await supabase
         .from('sync_status')
         .select('status, last_sync')
         .eq('id', 'scryfall_cards')
         .single();
       
+      if (fetchError) {
+        console.error('❌ Failed to fetch sync status:', fetchError);
+        throw fetchError;
+      }
+      
+      console.log('📊 Current sync status:', existingSync);
+      
       if (existingSync?.status === 'running') {
-        // Check if it's been running for more than 1 hour (likely stuck)
+        // Check if it's been running for more than 30 minutes (likely stuck)
         const lastSync = new Date(existingSync.last_sync);
         const now = new Date();
-        const hoursSinceLastSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+        const minutesSinceLastSync = (now.getTime() - lastSync.getTime()) / (1000 * 60);
         
-        if (hoursSinceLastSync < 1) {
+        console.log('⏰ Minutes since last sync:', minutesSinceLastSync);
+        
+        if (minutesSinceLastSync < 30) {
+          console.log('⚠️ Sync already running, rejecting request');
           return new Response(
-            JSON.stringify({ message: 'Sync already running', status: existingSync.status }),
+            JSON.stringify({ 
+              message: 'Sync already running', 
+              status: existingSync.status,
+              lastSync: existingSync.last_sync 
+            }),
             { 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               status: 409 
             }
           );
         } else {
-          console.log('Resetting stuck sync status');
+          console.log('🔄 Resetting stuck sync status');
           await updateSyncStatus('scryfall_cards', 'failed', 'Sync timeout - automatically reset');
         }
       }
       
-      // Use background task to prevent timeout
-      const backgroundSync = syncCards().catch(error => {
-        console.error('Background sync failed:', error);
-        updateSyncStatus('scryfall_cards', 'failed', error.message);
+      console.log('🚀 Starting background sync task');
+      
+      // Use background task with timeout
+      const syncPromise = Promise.race([
+        syncCards(),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Sync timeout after 25 minutes')), 25 * 60 * 1000);
+        })
+      ]).catch(error => {
+        console.error('💥 Background sync failed:', error);
+        updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${error.message}`);
       });
       
       // Start the background task
       if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-        EdgeRuntime.waitUntil(backgroundSync);
+        console.log('⏳ Using EdgeRuntime.waitUntil');
+        EdgeRuntime.waitUntil(syncPromise);
       } else {
-        // Fallback for environments without EdgeRuntime
-        backgroundSync;
+        console.log('⏳ Using fallback background task');
+        syncPromise;
       }
       
+      console.log('✅ Sync initiated successfully');
       return new Response(
-        JSON.stringify({ message: 'Card sync started', timestamp: new Date().toISOString() }),
+        JSON.stringify({ 
+          message: 'Card sync started', 
+          timestamp: new Date().toISOString(),
+          status: 'initiated'
+        }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 202 
@@ -420,6 +458,7 @@ serve(async (req) => {
     }
     
     if (action === 'status') {
+      console.log('📊 Status check requested');
       const { data, error } = await supabase
         .from('sync_status')
         .select('*')
@@ -427,15 +466,18 @@ serve(async (req) => {
         .single();
       
       if (error) {
+        console.error('❌ Status fetch error:', error);
         throw error;
       }
       
+      console.log('✅ Status retrieved:', data);
       return new Response(
         JSON.stringify(data),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
+    console.log('❌ Invalid action received:', action);
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { 
@@ -445,9 +487,13 @@ serve(async (req) => {
     );
     
   } catch (error) {
-    console.error('Error:', error);
+    console.error('💥 Edge function error:', error);
+    console.error('📋 Error stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

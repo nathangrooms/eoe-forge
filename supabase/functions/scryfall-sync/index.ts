@@ -155,7 +155,7 @@ async function syncCards(): Promise<void> {
   
   try {
     console.log('📝 Updating initial sync status...');
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 27000);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0);
     console.log('✅ Initial status update complete');
     
     // Get bulk data info from Scryfall
@@ -179,6 +179,49 @@ async function syncCards(): Promise<void> {
     console.log(`   - Size: ${(oracleCards.size / 1024 / 1024).toFixed(1)}MB`);
     console.log(`   - Updated: ${oracleCards.updated_at}`);
     console.log(`   - URI: ${oracleCards.download_uri}`);
+
+    // Pre-calculate total by doing a quick count pass
+    console.log('📊 Pre-calculating total card count...');
+    const countResponse = await fetchWithRetry(oracleCards.download_uri);
+    if (!countResponse.ok || !countResponse.body) {
+      throw new Error(`Count fetch failed: ${countResponse.status}`);
+    }
+    
+    const countReader = countResponse.body.getReader();
+    const countDecoder = new TextDecoder();
+    let countBuffer = '';
+    let estimatedTotal = 0;
+    
+    try {
+      while (true) {
+        const { done, value } = await countReader.read();
+        if (done) break;
+        
+        const chunk = countDecoder.decode(value, { stream: true });
+        countBuffer += chunk;
+        
+        // Count valid card entries (lines with oracle_id and no "token" in type_line)
+        const lines = countBuffer.split('\n');
+        countBuffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const card = JSON.parse(line);
+            if (card.oracle_id && card.type_line && !card.type_line.toLowerCase().includes('token')) {
+              estimatedTotal++;
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
+      }
+    } finally {
+      countReader.releaseLock();
+    }
+    
+    console.log(`🔢 Estimated total cards: ${estimatedTotal}`);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal);
     
     // Start streaming download
     console.log('⬇️ Starting Oracle Cards download...');
@@ -259,8 +302,8 @@ async function syncCards(): Promise<void> {
               console.log(`💾 Batch saved: ${validCardCount} total cards processed`);
               currentBatch = [];
               
-              // Update progress frequently for live updates
-              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, 27000);
+                              // Update progress frequently for live updates
+                              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal);
               
               // Small delay to prevent overwhelming
               await delay(25);

@@ -294,11 +294,10 @@ const SyncDashboard = () => {
 
   const calculateProgress = () => {
     if (!syncStatus) return 0;
-    if (syncStatus.total_records === 0) {
-      // If we're running but don't have total count yet, show indeterminate progress
-      return syncStatus.status === 'running' ? -1 : 0;
+    if (syncStatus.total_records === 0 || syncStatus.status !== 'running') {
+      return syncStatus.status === 'completed' ? 100 : 0;
     }
-    return Math.round((syncStatus.records_processed / syncStatus.total_records) * 100);
+    return Math.min(100, Math.round((syncStatus.records_processed / syncStatus.total_records) * 100));
   };
 
   if (isLoading) {

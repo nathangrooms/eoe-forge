@@ -162,13 +162,13 @@ async function syncCards(): Promise<void> {
     }
     
     console.log(`🎯 Found default cards bulk data:`);
-    console.log(`   - Size: ${defaultCards.size || 'unknown'} cards`);
+    console.log(`   - File size: ${defaultCards.size ? (defaultCards.size / 1024 / 1024).toFixed(1) + 'MB' : 'unknown'}`);
     console.log(`   - Compressed size: ${defaultCards.compressed_size ? (defaultCards.compressed_size / 1024 / 1024).toFixed(1) + 'MB' : 'unknown'}`);
     console.log(`   - Download URI: ${defaultCards.download_uri}`);
     console.log(`   - Updated: ${defaultCards.updated_at}`);
     
-    // Update status with total count
-    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, defaultCards.size || 0);
+    // Don't set total count yet - we'll determine it after filtering
+    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, 0);
     
     // Download and process cards with timeout handling
     console.log('⬇️ Starting download of card data...');
@@ -195,7 +195,10 @@ async function syncCards(): Promise<void> {
       if (line) {
         try {
           const card = JSON.parse(line) as ScryfallCard;
-          cards.push(card);
+          // Filter out tokens and non-paper cards like the original script
+          if (card.type_line && !card.type_line.toLowerCase().includes('token') && card.set) {
+            cards.push(card);
+          }
         } catch (parseError) {
           console.warn(`⚠️ Failed to parse card at line ${i + 1}: ${parseError.message}`);
         }
@@ -204,7 +207,8 @@ async function syncCards(): Promise<void> {
     
     const parseTime = Date.now() - parseStartTime;
     console.log(`✅ Parsing completed in ${(parseTime / 1000).toFixed(1)}s`);
-    console.log(`🃏 Successfully parsed ${cards.length} cards from ${lines.length} lines`);
+    console.log(`🃏 Successfully parsed ${cards.length} valid cards from ${lines.length} total lines`);
+    console.log(`📊 Filtered out ${lines.length - cards.length} tokens/invalid cards`);
     
     await updateSyncStatus('scryfall_cards', 'running', undefined, 0, cards.length);
     

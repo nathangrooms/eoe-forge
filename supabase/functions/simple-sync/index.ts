@@ -31,6 +31,8 @@ serve(async (req) => {
         total_records: 100000,
         last_sync: new Date().toISOString(),
         error_message: null
+      }, { 
+        onConflict: 'id'
       });
     
     if (statusError) {

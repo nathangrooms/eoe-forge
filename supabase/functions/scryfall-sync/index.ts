@@ -50,15 +50,19 @@ async function updateSyncStatus(id: string, status: string, error?: string, proc
     if (processed !== undefined) updateData.records_processed = processed;
     if (total !== undefined) updateData.total_records = total;
 
+    // Use upsert to handle both insert and update cases
     const { error: updateError } = await supabase
       .from('sync_status')
       .upsert({
         id,
         ...updateData
+      }, { 
+        onConflict: 'id'
       });
 
     if (updateError) {
       console.error('❌ Failed to update sync status:', updateError);
+      console.error('Update data was:', { id, ...updateData });
     } else {
       console.log('✅ Sync status updated successfully');
     }

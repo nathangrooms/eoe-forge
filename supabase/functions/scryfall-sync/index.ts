@@ -443,24 +443,35 @@ serve(async (req) => {
       
       console.log('🚀 Starting background sync task');
       
-      // Use background task with timeout
-      const syncPromise = Promise.race([
-        syncCards(),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Sync timeout after 25 minutes')), 25 * 60 * 1000);
-        })
-      ]).catch(error => {
-        console.error('💥 Background sync failed:', error);
-        updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${error.message}`);
-      });
-      
-      // Start the background task
-      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-        console.log('⏳ Using EdgeRuntime.waitUntil');
-        EdgeRuntime.waitUntil(syncPromise);
-      } else {
-        console.log('⏳ Using fallback background task');
-        syncPromise;
+      // Execute sync immediately instead of background task for debugging
+      try {
+        await syncCards();
+        console.log('✅ Sync completed successfully');
+        return new Response(
+          JSON.stringify({ 
+            message: 'Card sync completed successfully', 
+            timestamp: new Date().toISOString(),
+            status: 'completed'
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        );
+      } catch (syncError) {
+        console.error('💥 Sync failed:', syncError);
+        await updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${syncError.message}`);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: syncError.message,
+            timestamp: new Date().toISOString()
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500 
+          }
+        );
       }
       
       console.log('✅ Sync initiated successfully');

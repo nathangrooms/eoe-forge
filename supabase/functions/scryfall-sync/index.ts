@@ -140,6 +140,7 @@ function tagCard(card: ScryfallCard): string[] {
 
 async function syncCards(): Promise<void> {
   console.log('🚀 Starting Scryfall card sync...');
+  console.log('📊 Current time:', new Date().toISOString());
   
   await updateSyncStatus('scryfall_cards', 'running');
   

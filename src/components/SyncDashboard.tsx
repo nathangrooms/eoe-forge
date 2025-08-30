@@ -205,7 +205,11 @@ const SyncDashboard = () => {
   };
 
   const calculateProgress = () => {
-    if (!syncStatus || syncStatus.total_records === 0) return 0;
+    if (!syncStatus) return 0;
+    if (syncStatus.total_records === 0) {
+      // If we're running but don't have total count yet, show indeterminate progress
+      return syncStatus.status === 'running' ? -1 : 0;
+    }
     return Math.round((syncStatus.records_processed / syncStatus.total_records) * 100);
   };
 
@@ -325,7 +329,7 @@ const SyncDashboard = () => {
       </div>
 
       {/* Progress Bar */}
-      {syncStatus && syncStatus.status === 'running' && syncStatus.total_records > 0 && (
+      {syncStatus && syncStatus.status === 'running' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -333,20 +337,40 @@ const SyncDashboard = () => {
               Sync in Progress
             </CardTitle>
             <CardDescription>
-              Downloading and processing cards from Scryfall API
+              {syncStatus.total_records > 0 
+                ? "Downloading and processing cards from Scryfall API"
+                : "Initializing sync and connecting to Scryfall API..."
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progress</span>
-                <span>{calculateProgress()}%</span>
-              </div>
-              <Progress value={calculateProgress()} className="w-full" />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{syncStatus.records_processed.toLocaleString()} processed</span>
-                <span>{syncStatus.total_records.toLocaleString()} total</span>
-              </div>
+              {syncStatus.total_records > 0 ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span>{calculateProgress()}%</span>
+                  </div>
+                  <Progress value={calculateProgress()} className="w-full" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{syncStatus.records_processed.toLocaleString()} processed</span>
+                    <span>{syncStatus.total_records.toLocaleString()} total</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Status</span>
+                    <span>Initializing...</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Setting up streaming download and card processing
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

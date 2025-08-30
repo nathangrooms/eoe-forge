@@ -455,6 +455,24 @@ serve(async (req) => {
       );
     }
     
+    if (action === 'stop') {
+      console.log('🛑 Stop sync requested');
+      
+      await updateSyncStatus('scryfall_cards', 'failed', 'Manually stopped by user');
+      
+      console.log('✅ Sync stopped successfully');
+      return new Response(
+        JSON.stringify({ 
+          message: 'Sync stopped', 
+          timestamp: new Date().toISOString()
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+    
     if (action === 'status') {
       console.log('📊 Status check requested');
       const { data, error } = await supabase

@@ -1,0 +1,1 @@
+UPDATE sync_status SET status = 'failed', error_message = 'Force reset - system audit', records_processed = 0, total_records = 0, last_sync = now() WHERE id = 'scryfall_cards';

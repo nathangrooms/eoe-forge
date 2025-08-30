@@ -39,18 +39,23 @@ const SyncDashboard = () => {
 
   const loadSyncStatus = async () => {
     try {
-      // Get sync status
+      setIsLoading(true);
+      console.log('📊 Loading sync status...');
+      
+      // Get sync status - use maybeSingle to avoid errors when no data
       const { data: statusData, error: statusError } = await supabase
         .from('sync_status')
         .select('*')
         .eq('id', 'scryfall_cards')
-        .single();
+        .maybeSingle(); // Changed from .single() to avoid errors
 
-      if (statusError && statusError.code !== 'PGRST116') {
+      if (statusError) {
         console.error('Error loading sync status:', statusError);
-      } else {
-        setSyncStatus(statusData);
+        throw statusError;
       }
+
+      console.log('📋 Sync status loaded:', statusData);
+      setSyncStatus(statusData);
 
       // Get card count
       const { count, error: countError } = await supabase
@@ -64,6 +69,11 @@ const SyncDashboard = () => {
       }
     } catch (error) {
       console.error('Failed to load data:', error);
+      toast({
+        title: "Failed to Load Status",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -72,21 +82,44 @@ const SyncDashboard = () => {
   const triggerSync = async () => {
     setIsTriggering(true);
     try {
+      console.log('🚀 Triggering sync...');
+      
       const { data, error } = await supabase.functions.invoke('scryfall-sync', {
         body: { action: 'sync' }
       });
 
+      console.log('🔄 Sync response:', data);
+
       if (error) {
+        console.error('Sync invoke error:', error);
         throw error;
       }
 
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       toast({
-        title: "Sync Triggered",
-        description: "Card synchronization has been started. This may take several minutes.",
+        title: "Sync Started",
+        description: "Card synchronization has been started. Monitor progress below.",
       });
+
+      // Start polling for status updates every 3 seconds
+      const pollInterval = setInterval(async () => {
+        await loadSyncStatus();
+        
+        // Stop polling if sync is no longer running
+        if (syncStatus && syncStatus.status !== 'running') {
+          clearInterval(pollInterval);
+        }
+      }, 3000);
+
+      // Stop polling after 30 minutes maximum
+      setTimeout(() => clearInterval(pollInterval), 30 * 60 * 1000);
 
       // Refresh status after a short delay
       setTimeout(loadSyncStatus, 2000);
+      
     } catch (error) {
       console.error('Failed to trigger sync:', error);
       toast({
@@ -130,32 +163,48 @@ const SyncDashboard = () => {
 
   const resetSyncStatus = async () => {
     try {
+      console.log('🔄 Force resetting sync status...');
+      
+      // First try to stop the sync if it's running
+      if (syncStatus?.status === 'running') {
+        const { error: stopError } = await supabase.functions.invoke('scryfall-sync', {
+          body: { action: 'stop' }
+        });
+        
+        if (stopError) {
+          console.warn('Failed to stop sync gracefully:', stopError);
+        }
+      }
+      
+      // Force reset the sync status
       const { error } = await supabase
         .from('sync_status')
         .upsert({
           id: 'scryfall_cards',
           status: 'pending',
-          error_message: null,
+          error_message: 'Manually reset by user',
           records_processed: 0,
           total_records: 0,
-          last_sync: null
+          last_sync: new Date().toISOString()
         });
 
       if (error) {
+        console.error('Reset error:', error);
         throw error;
       }
 
       toast({
-        title: "Status Reset",
-        description: "Sync status has been reset to pending.",
+        title: "Sync Reset",
+        description: "Sync has been stopped and reset. You can now start a new sync.",
       });
 
-      loadSyncStatus();
+      // Refresh status immediately
+      await loadSyncStatus();
     } catch (error) {
-      console.error('Failed to reset status:', error);
+      console.error('Failed to reset sync:', error);
       toast({
-        title: "Reset Failed",
-        description: `Failed to reset status: ${error.message}`,
+        title: "Reset Failed", 
+        description: `Failed to reset sync: ${error.message}`,
         variant: "destructive",
       });
     }

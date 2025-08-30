@@ -132,6 +132,44 @@ const SyncDashboard = () => {
     }
   };
 
+  const testSimpleSync = async () => {
+    setIsTriggering(true);
+    try {
+      console.log('🧪 Testing simple sync...');
+      
+      const { data, error } = await supabase.functions.invoke('simple-sync');
+
+      console.log('🔄 Simple sync response:', data);
+
+      if (error) {
+        console.error('Simple sync invoke error:', error);
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "Test Sync Completed",
+        description: `Successfully synced ${data?.processed || 0} test cards.`,
+      });
+
+      // Refresh status immediately
+      setTimeout(loadSyncStatus, 1000);
+      
+    } catch (error) {
+      console.error('Failed to test simple sync:', error);
+      toast({
+        title: "Test Sync Failed",
+        description: `Failed to run test sync: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTriggering(false);
+    }
+  };
+
   const testScryfallAPI = async () => {
     setIsTestingAPI(true);
     try {
@@ -538,7 +576,7 @@ const SyncDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Actions */}
+      {/* Manual Actions */}
       <Card>
         <CardHeader>
           <CardTitle>Manual Actions</CardTitle>
@@ -546,17 +584,66 @@ const SyncDashboard = () => {
             Use these actions to manually manage the sync process
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Button
+              onClick={triggerSync}
+              disabled={isTriggering || syncStatus?.status === 'running'}
+              className="w-full"
+            >
+              {isTriggering ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Full Sync
+                </>
+              )}
+            </Button>
+            
+            <Button
+              onClick={testSimpleSync}
+              disabled={isTriggering || syncStatus?.status === 'running'}
               variant="outline"
+              className="w-full"
+            >
+              {isTriggering ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Test Sync (10 cards)
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={resetSyncStatus}
+              variant="destructive"
+              className="w-full"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Reset Status
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button
               onClick={testScryfallAPI}
               disabled={isTestingAPI}
+              variant="secondary"
+              className="w-full"
             >
               {isTestingAPI ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Testing API...
+                  Testing...
                 </>
               ) : (
                 <>
@@ -565,25 +652,11 @@ const SyncDashboard = () => {
                 </>
               )}
             </Button>
+            
             <Button
-              variant="outline"
-              onClick={triggerSync}
-              disabled={isTriggering || syncStatus?.status === 'running'}
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Start Full Sync
-            </Button>
-            <Button
-              variant="outline"
-              onClick={resetSyncStatus}
-              disabled={syncStatus?.status === 'running'}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reset Status
-            </Button>
-            <Button
-              variant="outline"
               onClick={loadSyncStatus}
+              variant="outline"
+              className="w-full"
             >
               <Database className="h-4 w-4 mr-2" />
               Refresh Data

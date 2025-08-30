@@ -38,24 +38,32 @@ interface ScryfallCard {
 }
 
 async function updateSyncStatus(id: string, status: string, error?: string, processed?: number, total?: number) {
-  const updateData: any = { 
-    status, 
-    last_sync: new Date().toISOString() 
-  };
+  console.log(`📊 Updating sync status: ${status}, processed: ${processed}, total: ${total}, error: ${error}`);
   
-  if (error) updateData.error_message = error;
-  if (processed !== undefined) updateData.records_processed = processed;
-  if (total !== undefined) updateData.total_records = total;
+  try {
+    const updateData: any = { 
+      status, 
+      last_sync: new Date().toISOString() 
+    };
+    
+    if (error) updateData.error_message = error;
+    if (processed !== undefined) updateData.records_processed = processed;
+    if (total !== undefined) updateData.total_records = total;
 
-  const { error: updateError } = await supabase
-    .from('sync_status')
-    .upsert({
-      id,
-      ...updateData
-    });
+    const { error: updateError } = await supabase
+      .from('sync_status')
+      .upsert({
+        id,
+        ...updateData
+      });
 
-  if (updateError) {
-    console.error('Failed to update sync status:', updateError);
+    if (updateError) {
+      console.error('❌ Failed to update sync status:', updateError);
+    } else {
+      console.log('✅ Sync status updated successfully');
+    }
+  } catch (err) {
+    console.error('💥 Exception updating sync status:', err);
   }
 }
 
@@ -144,15 +152,25 @@ async function syncCards(): Promise<void> {
   console.log('🔧 Supabase URL:', Deno.env.get('SUPABASE_URL'));
   console.log('🔧 Service key present:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
   
-  await updateSyncStatus('scryfall_cards', 'running');
+  try {
+    console.log('📝 Updating initial sync status...');
+    await updateSyncStatus('scryfall_cards', 'running');
+    console.log('✅ Initial status update complete');
+  } catch (error) {
+    console.error('❌ Failed to update initial status:', error);
+    throw error;
+  }
   
   try {
-    // Get bulk data info with detailed logging
-    console.log('📡 Fetching bulk data info from Scryfall...');
-    console.log('URL: https://api.scryfall.com/bulk-data');
+    console.log('🌐 Fetching bulk data info from Scryfall...');
+    console.log('📡 URL: https://api.scryfall.com/bulk-data');
     
     const bulkResponse = await fetchWithRetry('https://api.scryfall.com/bulk-data');
     console.log(`✅ Bulk data response status: ${bulkResponse.status}`);
+    
+    if (!bulkResponse.ok) {
+      throw new Error(`Bulk data fetch failed: ${bulkResponse.status} ${bulkResponse.statusText}`);
+    }
     
     const bulkData = await bulkResponse.json();
     console.log(`📦 Bulk data received, found ${bulkData.data?.length || 0} data types`);
@@ -170,8 +188,9 @@ async function syncCards(): Promise<void> {
     console.log(`   - Download URI: ${defaultCards.download_uri}`);
     console.log(`   - Updated: ${defaultCards.updated_at}`);
     
-    // Don't set total count yet - we'll determine it after filtering
-    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, 0);
+    console.log('📝 Updating status with estimated total...');
+    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, 1000000);
+    console.log('✅ Status updated with estimated total');
     
     // Simplified approach - use smaller chunks and immediate processing
     console.log('⬇️ Starting simplified card download...');

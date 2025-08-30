@@ -1,0 +1,1 @@
+UPDATE sync_status SET status = 'failed', error_message = 'Reset for improved sync - ready to try again', last_sync = now() WHERE id = 'scryfall_cards';

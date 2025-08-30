@@ -14,7 +14,8 @@ import {
   Database,
   Activity,
   Download,
-  Zap
+  Zap,
+  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -257,19 +258,31 @@ const SyncDashboard = () => {
             onClick={triggerSync}
             disabled={isTriggering || syncStatus?.status === 'running'}
             size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isTriggering ? (
               <>
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Starting...
+                Starting Sync...
               </>
             ) : (
               <>
                 <Play className="h-4 w-4 mr-2" />
-                Trigger Sync
+                Start Full Sync
               </>
             )}
           </Button>
+          {syncStatus?.status === 'running' && (
+            <Button
+              onClick={resetSyncStatus}
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Stop Sync
+            </Button>
+          )}
         </div>
       </div>
 

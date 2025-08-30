@@ -265,11 +265,9 @@ async function syncCards(): Promise<void> {
               await processBatch(batchCards, cardCount);
               batchCards = []; // Clear array to free memory
               
-              // Update progress
-              if (cardCount % 5000 === 0) {
-                console.log(`📈 Processed ${cardCount} cards (${(totalBytesProcessed / 1024 / 1024).toFixed(1)}MB)`);
-                await updateSyncStatus('scryfall_cards', 'running', undefined, cardCount, 0);
-              }
+              // Update progress every batch (500 cards)
+              console.log(`📈 Processed batch: ${cardCount} total cards (${(totalBytesProcessed / 1024 / 1024).toFixed(1)}MB)`);
+              await updateSyncStatus('scryfall_cards', 'running', undefined, cardCount, 0);
             }
             
           } catch (parseError) {

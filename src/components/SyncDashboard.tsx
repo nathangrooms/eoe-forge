@@ -251,14 +251,22 @@ const SyncDashboard = () => {
   useEffect(() => {
     loadSyncStatus();
     
-    // Auto-refresh every 30 seconds if sync is running
+    // Auto-refresh every 5 seconds when sync is running (more frequent)
     const interval = setInterval(() => {
       if (syncStatus?.status === 'running') {
         loadSyncStatus();
       }
-    }, 30000);
+    }, 5000); // Reduced from 30 seconds to 5 seconds
 
     return () => clearInterval(interval);
+  }, [syncStatus?.status]);
+
+  // Additional effect for more frequent updates during active sync
+  useEffect(() => {
+    if (syncStatus?.status === 'running') {
+      const fastInterval = setInterval(loadSyncStatus, 2000); // Every 2 seconds
+      return () => clearInterval(fastInterval);
+    }
   }, [syncStatus?.status]);
 
   const getStatusIcon = (status: string) => {

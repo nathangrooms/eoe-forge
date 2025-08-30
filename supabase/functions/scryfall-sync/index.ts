@@ -342,7 +342,7 @@ serve(async (req) => {
         .from('sync_status')
         .select('status, last_sync')
         .eq('id', 'scryfall_cards')
-        .single();
+        .maybeSingle();
       
       if (fetchError) {
         console.error('❌ Failed to fetch sync status:', fetchError);
@@ -436,7 +436,7 @@ serve(async (req) => {
         .from('sync_status')
         .select('*')
         .eq('id', 'scryfall_cards')
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('❌ Status fetch error:', error);

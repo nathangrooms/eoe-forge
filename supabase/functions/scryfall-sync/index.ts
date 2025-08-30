@@ -171,101 +171,168 @@ async function syncCards(): Promise<void> {
     // Don't set total count yet - we'll determine it after filtering
     await updateSyncStatus('scryfall_cards', 'running', undefined, 0, 0);
     
-    // Download and process cards with streaming to avoid memory issues
-    console.log('⬇️ Starting streaming download of card data...');
+    // Use a more memory-efficient approach - process in smaller chunks
+    console.log('⬇️ Starting memory-efficient streaming download...');
     const downloadStartTime = Date.now();
     
     const cardsResponse = await fetchWithRetry(defaultCards.download_uri);
-    const downloadTime = Date.now() - downloadStartTime;
     
-    console.log(`✅ Download connection established in ${(downloadTime / 1000).toFixed(1)}s`);
-    console.log(`📄 Response status: ${cardsResponse.status}`);
-    console.log(`📊 Content length: ${cardsResponse.headers.get('content-length') || 'unknown'}`);
+    if (!cardsResponse.ok) {
+      throw new Error(`Download failed: ${cardsResponse.status} ${cardsResponse.statusText}`);
+    }
     
     if (!cardsResponse.body) {
       throw new Error('No response body received');
     }
     
-    console.log('🔍 Processing card data stream...');
-    const parseStartTime = Date.now();
+    console.log(`✅ Connected to download stream in ${(Date.now() - downloadStartTime / 1000).toFixed(1)}s`);
+    console.log(`📄 Response status: ${cardsResponse.status}`);
     
     const reader = cardsResponse.body.getReader();
     const decoder = new TextDecoder();
-    const cards: ScryfallCard[] = [];
+    
     let buffer = '';
-    let totalProcessed = 0;
     let cardCount = 0;
+    let batchCards: any[] = [];
+    const BATCH_SIZE = 500; // Smaller batches for memory efficiency
+    let totalBytesProcessed = 0;
+    
+    console.log('🔄 Starting card processing stream...');
     
     try {
       while (true) {
         const { done, value } = await reader.read();
         
-        if (done) break;
+        if (done) {
+          console.log('📊 Stream complete, processing final buffer...');
+          break;
+        }
         
-        // Decode chunk and add to buffer
-        buffer += decoder.decode(value, { stream: true });
-        totalProcessed += value.length;
+        // Decode chunk with minimal memory footprint
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        totalBytesProcessed += value.length;
         
-        // Process complete lines from buffer
+        // Process complete lines immediately to keep memory low
         const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || ''; // Keep only incomplete line
         
         for (const line of lines) {
           const trimmedLine = line.trim();
-          if (trimmedLine) {
-            try {
-              const card = JSON.parse(trimmedLine) as ScryfallCard;
-              // Filter out tokens and non-paper cards
-              if (card.type_line && !card.type_line.toLowerCase().includes('token') && card.set) {
-                cards.push(card);
-              }
-              cardCount++;
+          if (!trimmedLine) continue;
+          
+          try {
+            const card = JSON.parse(trimmedLine);
+            
+            // Quick filter - skip tokens and invalid cards
+            if (!card.type_line || card.type_line.toLowerCase().includes('token') || !card.set) {
+              continue;
+            }
+            
+            batchCards.push({
+              id: card.id,
+              oracle_id: card.oracle_id,
+              name: card.name,
+              set_code: card.set,
+              collector_number: card.collector_number,
+              layout: card.layout || 'normal',
+              type_line: card.type_line,
+              cmc: card.cmc || 0,
+              colors: card.colors || [],
+              color_identity: card.color_identity || [],
+              oracle_text: card.oracle_text,
+              mana_cost: card.mana_cost,
+              power: card.power,
+              toughness: card.toughness,
+              loyalty: card.loyalty,
+              keywords: card.keywords || [],
+              legalities: card.legalities || {},
+              image_uris: card.image_uris || {},
+              prices: card.prices || {},
+              is_legendary: card.type_line.toLowerCase().includes('legendary'),
+              is_reserved: card.reserved || false,
+              rarity: card.rarity || 'common',
+              tags: tagCard(card),
+              faces: card.faces
+            });
+            
+            cardCount++;
+            
+            // Process batch when it reaches BATCH_SIZE
+            if (batchCards.length >= BATCH_SIZE) {
+              await processBatch(batchCards, cardCount);
+              batchCards = []; // Clear array to free memory
               
-              // Process in batches to avoid memory buildup
-              if (cards.length >= 1000) {
-                await processBatch(cards.splice(0, 1000), cardCount);
-              }
-              
-              // Log progress every 10k cards
-              if (cardCount % 10000 === 0) {
-                console.log(`📊 Processed ${cardCount} cards, found ${cards.length} valid cards in current batch`);
+              // Update progress
+              if (cardCount % 5000 === 0) {
+                console.log(`📈 Processed ${cardCount} cards (${(totalBytesProcessed / 1024 / 1024).toFixed(1)}MB)`);
                 await updateSyncStatus('scryfall_cards', 'running', undefined, cardCount, 0);
               }
-              
-            } catch (parseError) {
-              console.warn(`⚠️ Failed to parse card: ${parseError.message}`);
             }
+            
+          } catch (parseError) {
+            // Skip invalid JSON lines silently to reduce noise
+            continue;
           }
+        }
+        
+        // Memory management - give other processes a chance
+        if (totalBytesProcessed % (1024 * 1024 * 10) === 0) { // Every 10MB
+          await delay(50); // Small delay to prevent overwhelming
         }
       }
       
-      // Process remaining cards in buffer
+      // Process final buffer content
       if (buffer.trim()) {
         try {
-          const card = JSON.parse(buffer.trim()) as ScryfallCard;
+          const card = JSON.parse(buffer.trim());
           if (card.type_line && !card.type_line.toLowerCase().includes('token') && card.set) {
-            cards.push(card);
+            batchCards.push({
+              id: card.id,
+              oracle_id: card.oracle_id,
+              name: card.name,
+              set_code: card.set,
+              collector_number: card.collector_number,
+              layout: card.layout || 'normal',
+              type_line: card.type_line,
+              cmc: card.cmc || 0,
+              colors: card.colors || [],
+              color_identity: card.color_identity || [],
+              oracle_text: card.oracle_text,
+              mana_cost: card.mana_cost,
+              power: card.power,
+              toughness: card.toughness,
+              loyalty: card.loyalty,
+              keywords: card.keywords || [],
+              legalities: card.legalities || {},
+              image_uris: card.image_uris || {},
+              prices: card.prices || {},
+              is_legendary: card.type_line.toLowerCase().includes('legendary'),
+              is_reserved: card.reserved || false,
+              rarity: card.rarity || 'common',
+              tags: tagCard(card),
+              faces: card.faces
+            });
+            cardCount++;
           }
         } catch (parseError) {
           console.warn(`⚠️ Failed to parse final card: ${parseError.message}`);
         }
       }
       
-      // Process final batch
-      if (cards.length > 0) {
-        await processBatch(cards, cardCount);
+      // Process any remaining cards
+      if (batchCards.length > 0) {
+        await processBatch(batchCards, cardCount);
       }
       
     } finally {
       reader.releaseLock();
     }
     
-    const parseTime = Date.now() - parseStartTime;
+    const parseTime = Date.now() - downloadStartTime;
     console.log(`✅ Streaming completed in ${(parseTime / 1000).toFixed(1)}s`);
-    console.log(`🃏 Successfully processed ${cardCount} total cards`);
-    console.log(`📊 Processed ${(totalProcessed / 1024 / 1024).toFixed(1)}MB of data`);
-    
-    await updateSyncStatus('scryfall_cards', 'running', undefined, cardCount, cardCount);
+    console.log(`🃏 Successfully processed ${cardCount} valid cards`);
+    console.log(`📊 Total data processed: ${(totalBytesProcessed / 1024 / 1024).toFixed(1)}MB`);
     
     console.log(`✅ All cards processed successfully`);
     await updateSyncStatus('scryfall_cards', 'completed', undefined, cardCount, cardCount);
@@ -277,44 +344,19 @@ async function syncCards(): Promise<void> {
   }
 }
 
-async function processBatch(cards: ScryfallCard[], totalProcessed: number): Promise<void> {
-  const cardData = cards.map(card => ({
-    id: card.id,
-    oracle_id: card.oracle_id,
-    name: card.name,
-    set_code: card.set,
-    collector_number: card.collector_number,
-    layout: card.layout,
-    type_line: card.type_line,
-    cmc: card.cmc,
-    colors: card.colors || [],
-    color_identity: card.color_identity || [],
-    oracle_text: card.oracle_text,
-    mana_cost: card.mana_cost,
-    power: card.power,
-    toughness: card.toughness,
-    loyalty: card.loyalty,
-    keywords: card.keywords || [],
-    legalities: card.legalities,
-    image_uris: card.image_uris || {},
-    prices: card.prices || {},
-    is_legendary: card.type_line.toLowerCase().includes('legendary'),
-    is_reserved: card.reserved || false,
-    rarity: card.rarity,
-    tags: tagCard(card),
-    faces: card.faces
-  }));
+async function processBatch(cards: any[], totalProcessed: number): Promise<void> {
+  if (cards.length === 0) return;
   
   const { error } = await supabase
     .from('cards')
-    .upsert(cardData, { onConflict: 'id' });
+    .upsert(cards, { onConflict: 'id' });
   
   if (error) {
     console.error('Batch upsert error:', error);
     throw error;
   }
   
-  console.log(`💾 Processed batch of ${cards.length} cards (total: ${totalProcessed})`);
+  console.log(`💾 Saved batch of ${cards.length} cards (total processed: ${totalProcessed})`);
 }
 
 serve(async (req) => {

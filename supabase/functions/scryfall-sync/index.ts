@@ -410,19 +410,6 @@ serve(async (req) => {
           }
         );
       }
-      
-      console.log('✅ Sync initiated successfully');
-      return new Response(
-        JSON.stringify({ 
-          message: 'Card sync started', 
-          timestamp: new Date().toISOString(),
-          status: 'initiated'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 202 
-        }
-      );
     }
     
     if (action === 'stop') {

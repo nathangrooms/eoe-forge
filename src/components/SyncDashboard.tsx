@@ -200,6 +200,7 @@ const SyncDashboard = () => {
   };
 
   const resetSyncStatus = async () => {
+    setIsTriggering(true); // Show loading state
     try {
       console.log('🔄 Force resetting sync status...');
       
@@ -236,8 +237,18 @@ const SyncDashboard = () => {
         description: "Sync has been stopped and reset. You can now start a new sync.",
       });
 
-      // Refresh status immediately
-      await loadSyncStatus();
+      // Force immediate visual update
+      setSyncStatus({
+        id: 'scryfall_cards',
+        status: 'pending',
+        error_message: 'Manually reset by user',
+        records_processed: 0,
+        total_records: 0,
+        last_sync: new Date().toISOString()
+      });
+
+      // Refresh status after UI update
+      setTimeout(loadSyncStatus, 500);
     } catch (error) {
       console.error('Failed to reset sync:', error);
       toast({
@@ -245,6 +256,8 @@ const SyncDashboard = () => {
         description: `Failed to reset sync: ${error.message}`,
         variant: "destructive",
       });
+    } finally {
+      setIsTriggering(false);
     }
   };
 
@@ -366,15 +379,25 @@ const SyncDashboard = () => {
               </>
             )}
           </Button>
-          {syncStatus?.status === 'running' && (
+           {(syncStatus?.status === 'running' || syncStatus?.status === 'failed') && (
             <Button
               onClick={resetSyncStatus}
               variant="outline"
               size="sm"
+              disabled={isTriggering}
               className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
             >
-              <X className="h-4 w-4 mr-2" />
-              Stop Sync
+              {isTriggering ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  {syncStatus?.status === 'running' ? 'Stop Sync' : 'Reset Status'}
+                </>
+              )}
             </Button>
           )}
         </div>

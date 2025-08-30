@@ -320,7 +320,16 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json().catch(() => ({ action: 'sync' }));
+    // Parse request body with better error handling
+    let requestBody;
+    try {
+      const text = await req.text();
+      requestBody = text ? JSON.parse(text) : { action: 'sync' };
+    } catch (parseError) {
+      console.log('📋 No JSON body, defaulting to sync action');
+      requestBody = { action: 'sync' };
+    }
+    
     console.log('📋 Request body:', JSON.stringify(requestBody));
     const { action } = requestBody;
     
@@ -370,36 +379,24 @@ serve(async (req) => {
       
       console.log('🚀 Starting background sync task');
       
-      // Execute sync immediately instead of background task for debugging
-      try {
-        await syncCards();
-        console.log('✅ Sync completed successfully');
-        return new Response(
-          JSON.stringify({ 
-            message: 'Card sync completed successfully', 
-            timestamp: new Date().toISOString(),
-            status: 'completed'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        );
-      } catch (syncError) {
-        console.error('💥 Sync failed:', syncError);
+      // Start sync as background task to avoid timeout
+      syncCards().catch(async (syncError) => {
+        console.error('💥 Background sync failed:', syncError);
         await updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${syncError.message}`);
-        
-        return new Response(
-          JSON.stringify({ 
-            error: syncError.message,
-            timestamp: new Date().toISOString()
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500 
-          }
-        );
-      }
+      });
+      
+      console.log('✅ Sync task started in background');
+      return new Response(
+        JSON.stringify({ 
+          message: 'Card sync started successfully', 
+          timestamp: new Date().toISOString(),
+          status: 'started'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
     }
     
     if (action === 'stop') {

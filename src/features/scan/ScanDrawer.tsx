@@ -61,6 +61,7 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
   const [currentFrame, setCurrentFrame] = useState<ImageData | null>(null);
   const [manualSearch, setManualSearch] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [lastErrorTime, setLastErrorTime] = useState(0);
 
   const handleCapture = async (imageData?: ImageData) => {
     if (processing) return;
@@ -82,7 +83,15 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
       setLastOCR(text, confidence);
 
       if (confidence < 0.45) {
-        showError('OCR Failed', 'Could not read card name clearly. Try adjusting lighting or angle.');
+        // Only show error if more than 3 seconds since last error to reduce spam
+        const now = Date.now();
+        if (now - lastErrorTime > 3000) {
+          setLastErrorTime(now);
+          // Don't show error during auto-capture to reduce spam
+          if (!settings.autoCapture) {
+            showError('OCR Failed', 'Could not read card name clearly. Try adjusting lighting or angle.');
+          }
+        }
         return;
       }
 

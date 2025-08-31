@@ -67,8 +67,14 @@ export default function Wishlist() {
 
     try {
       setLoading(true);
-      // For now, return empty array until wishlist table types are updated
-      setWishlistItems([]);
+      const { data, error } = await (supabase as any)
+        .from('wishlist')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setWishlistItems(data || []);
     } catch (error) {
       console.error('Error loading wishlist:', error);
       showError('Failed to load wishlist');
@@ -81,12 +87,39 @@ export default function Wishlist() {
     if (!user) return;
 
     try {
-      // For now, just show success - the database table exists but isn't in types
-      // This will be properly implemented when database types are updated
-      showSuccess('Added to Wishlist', `${card.name} added to your wishlist`);
+      // Check if card already exists in wishlist
+      const { data: existing } = await (supabase as any)
+        .from('wishlist')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('card_id', card.id)
+        .maybeSingle();
+
+      if (existing) {
+        // Update quantity if already exists
+        const { error } = await (supabase as any)
+          .from('wishlist')
+          .update({ quantity: existing.quantity + 1 })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+        showSuccess('Updated Wishlist', `Increased quantity of ${card.name}`);
+      } else {
+        // Add new item
+        const { error } = await (supabase as any)
+          .from('wishlist')
+          .insert({
+            user_id: user.id,
+            card_id: card.id,
+            card_name: card.name,
+            quantity: 1,
+            priority: 'medium'
+          });
+
+        if (error) throw error;
+        showSuccess('Added to Wishlist', `${card.name} added to your wishlist`);
+      }
       
-      // TODO: Implement actual database insertion when types are available
-      console.log('Adding to wishlist:', { cardId: card.id, cardName: card.name, userId: user.id });
       loadWishlist();
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -98,6 +131,16 @@ export default function Wishlist() {
     if (!selectedItem) return;
 
     try {
+      const { error } = await (supabase as any)
+        .from('wishlist')
+        .update({
+          quantity: editForm.quantity,
+          priority: editForm.priority,
+          note: editForm.note || null
+        })
+        .eq('id', selectedItem.id);
+
+      if (error) throw error;
       showSuccess('Updated', 'Wishlist item updated');
       setShowEditDialog(false);
       loadWishlist();
@@ -109,6 +152,12 @@ export default function Wishlist() {
 
   const removeFromWishlist = async (itemId: string) => {
     try {
+      const { error } = await (supabase as any)
+        .from('wishlist')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
       showSuccess('Removed', 'Item removed from wishlist');
       loadWishlist();
     } catch (error) {

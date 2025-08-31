@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
@@ -58,6 +59,8 @@ export default function Decks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
   const [newDeckName, setNewDeckName] = useState('');
   const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('standard');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
@@ -209,22 +212,46 @@ export default function Decks() {
     }
   };
 
-  const deleteDeck = async (deckId: string) => {
-    try {
-      const { error } = await supabase
-        .from('user_decks')
-        .delete()
-        .eq('id', deckId);
+  const handleDeleteRequest = (deck: Deck) => {
+    setDeckToDelete(deck);
+    setShowDeleteDialog(true);
+  };
 
-      if (error) {
-        console.error('Error deleting deck:', error);
-        return;
+  const confirmDeleteDeck = async () => {
+    if (!deckToDelete) return;
+
+    try {
+      const isLocalDeck = deckToDelete.name.includes('(Local)');
+      
+      if (isLocalDeck) {
+        // Handle local deck deletion
+        const deckManagementStore = useDeckManagementStore.getState();
+        deckManagementStore.deleteDeck(deckToDelete.id);
+        showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
+      } else {
+        // Handle Supabase deck deletion
+        const { error } = await supabase
+          .from('user_decks')
+          .delete()
+          .eq('id', deckToDelete.id);
+
+        if (error) {
+          console.error('Error deleting deck:', error);
+          showError("Delete Failed", "Failed to delete deck. Please try again.");
+          return;
+        }
+
+        showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
       }
 
       // Refresh deck list
       await loadDecks();
     } catch (error) {
       console.error('Error deleting deck:', error);
+      showError("Delete Failed", "Failed to delete deck. Please try again.");
+    } finally {
+      setShowDeleteDialog(false);
+      setDeckToDelete(null);
     }
   };
 
@@ -556,12 +583,36 @@ export default function Decks() {
                   navigate(`/deck-builder?deck=${deck.id}`);
                 }}
                 onDuplicate={() => duplicateDeck(deck)}
-                onDelete={() => deleteDeck(deck.id)}
+                onDelete={() => handleDeleteRequest(deck)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Deck</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deckToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteDeck}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Deck
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </StandardPageLayout>
   );
 }

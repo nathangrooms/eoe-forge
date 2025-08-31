@@ -1,11 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Search, X } from 'lucide-react';
-import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import { Crown, Search, X, Star, TrendingUp } from 'lucide-react';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
 import { showSuccess } from '@/components/ui/toast-helpers';
 
@@ -14,17 +12,63 @@ interface CommanderSelectorProps {
   currentCommander?: DeckCard;
 }
 
+const POPULAR_COMMANDERS = [
+  { name: 'Atraxa, Praetors\' Voice', colors: ['W', 'U', 'B', 'G'], popularity: 95 },
+  { name: 'Edgar Markov', colors: ['W', 'B', 'R'], popularity: 88 },
+  { name: 'The Ur-Dragon', colors: ['W', 'U', 'B', 'R', 'G'], popularity: 85 },
+  { name: 'Korvold, Fae-Cursed King', colors: ['B', 'R', 'G'], popularity: 82 },
+  { name: 'Muldrotha, the Gravetide', colors: ['B', 'G', 'U'], popularity: 80 },
+  { name: 'Aesi, Tyrant of Gyre Strait', colors: ['U', 'G'], popularity: 78 },
+  { name: 'Kaalia of the Vast', colors: ['W', 'B', 'R'], popularity: 76 },
+  { name: 'Yuriko, the Tiger\'s Shadow', colors: ['U', 'B'], popularity: 74 },
+];
+
 export function CommanderSelector({ deckId, currentCommander }: CommanderSelectorProps) {
   const { setCommander } = useDeckManagementStore();
-  const [showDialog, setShowDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
-  const handleCommanderSelect = (card: any) => {
-    // Verify it's a legendary creature
-    if (!card.type_line?.toLowerCase().includes('legendary') || 
-        !card.type_line?.toLowerCase().includes('creature')) {
-      return; // Could show an error toast here
+  const searchCommanders = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
     }
 
+    setLoading(true);
+    try {
+      // Search specifically for legendary creatures
+      const searchString = `t:legendary t:creature ${query}`;
+      const response = await fetch(
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchString)}&order=edhrec`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.data || []);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching commanders:', error);
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchQuery) {
+        searchCommanders(searchQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+  const handleCommanderSelect = (card: any) => {
     const commanderCard: DeckCard = {
       id: card.id,
       name: card.name,
@@ -40,13 +84,25 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
     };
 
     setCommander(deckId, commanderCard);
-    setShowDialog(false);
-    showSuccess('Commander Set', `${card.name} is now your commander`);
+    setShowSearch(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    showSuccess('Commander Set', `${card.name} is now your commander!`);
   };
 
-  const handleRemoveCommander = () => {
-    // You might want to add a removeCommander method to the store
-    showSuccess('Commander Removed', 'Commander has been removed from your deck');
+  const searchPopularCommander = async (commanderName: string) => {
+    try {
+      const response = await fetch(
+        `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(commanderName)}`
+      );
+      
+      if (response.ok) {
+        const card = await response.json();
+        handleCommanderSelect(card);
+      }
+    } catch (error) {
+      console.error('Error fetching popular commander:', error);
+    }
   };
 
   const getColorIndicator = (colors: string[]) => {
@@ -63,7 +119,7 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
         {colors.map(color => (
           <div 
             key={color}
-            className={`w-4 h-4 rounded-full border ${colorMap[color] || 'bg-gray-200 border-gray-300'}`}
+            className={`w-3 h-3 rounded-full border ${colorMap[color] || 'bg-gray-200 border-gray-300'}`}
           />
         ))}
       </div>
@@ -71,107 +127,221 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <Crown className="h-5 w-5 text-yellow-500" />
-          Commander
-        </h3>
-        
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Search className="h-4 w-4 mr-2" />
-              {currentCommander ? 'Change Commander' : 'Select Commander'}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Choose Your Commander</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Search for legendary creatures to use as your commander
-              </p>
-            </DialogHeader>
-            <div className="flex-1 overflow-auto">
-              <EnhancedUniversalCardSearch
-                onCardAdd={handleCommanderSelect}
-                onCardSelect={handleCommanderSelect}
-                placeholder="Search for legendary creatures (t:legendary t:creature)..."
-                showFilters={true}
-                showAddButton={false}
-                showWishlistButton={false}
-                showViewModes={true}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
+    <div className="space-y-6">
+      {/* Current Commander Display */}
       {currentCommander ? (
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-2 right-2">
+        <Card className="relative overflow-hidden bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+          <div className="absolute top-4 right-4">
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRemoveCommander}
+              onClick={() => setCommander(deckId, undefined as any)}
               className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
           
-          <CardContent className="p-4">
-            <div className="flex items-start gap-4">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-6">
               {currentCommander.image_uris?.normal && (
                 <div className="relative">
                   <img 
                     src={currentCommander.image_uris.normal} 
                     alt={currentCommander.name}
-                    className="w-24 h-auto rounded-lg shadow-md"
+                    className="w-32 h-auto rounded-lg shadow-lg border-2 border-yellow-200"
                   />
-                  <div className="absolute -top-2 -right-2">
-                    <Crown className="h-6 w-6 text-yellow-500 drop-shadow-md" />
+                  <div className="absolute -top-3 -right-3 bg-yellow-500 rounded-full p-2 shadow-lg">
+                    <Crown className="h-5 w-5 text-white" />
                   </div>
                 </div>
               )}
               
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-3">
                 <div>
-                  <h4 className="font-bold text-lg">{currentCommander.name}</h4>
-                  <p className="text-sm text-muted-foreground">{currentCommander.type_line}</p>
+                  <h3 className="font-bold text-2xl text-yellow-800 mb-1">
+                    {currentCommander.name}
+                  </h3>
+                  <p className="text-lg text-muted-foreground">{currentCommander.type_line}</p>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
                   {currentCommander.mana_cost && (
-                    <Badge variant="outline" className="font-mono text-xs">
+                    <Badge variant="outline" className="font-mono text-sm border-yellow-300">
                       {currentCommander.mana_cost}
                     </Badge>
                   )}
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
                     CMC {currentCommander.cmc}
                   </Badge>
                   {currentCommander.colors.length > 0 && getColorIndicator(currentCommander.colors)}
                 </div>
                 
-                {currentCommander.prices?.usd && (
-                  <p className="text-sm text-muted-foreground">
-                    Price: ${currentCommander.prices.usd}
-                  </p>
-                )}
+                <div className="flex items-center justify-between">
+                  {currentCommander.prices?.usd && (
+                    <p className="text-lg font-semibold text-green-600">
+                      ${currentCommander.prices.usd}
+                    </p>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowSearch(true)}
+                    className="border-yellow-300 hover:bg-yellow-50"
+                  >
+                    <Crown className="h-4 w-4 mr-2" />
+                    Change Commander
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <Card className="p-8 text-center border-dashed">
-          <Crown className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4">
-            No commander selected for this deck.
-          </p>
-          <Button onClick={() => setShowDialog(true)}>
-            <Crown className="h-4 w-4 mr-2" />
-            Choose Commander
-          </Button>
+        <Card className="border-dashed border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50">
+          <CardContent className="p-8 text-center">
+            <Crown className="h-16 w-16 mx-auto mb-4 text-yellow-500" />
+            <h3 className="text-xl font-bold mb-2 text-yellow-800">Choose Your Commander</h3>
+            <p className="text-muted-foreground mb-6">
+              Select a legendary creature to lead your deck into battle
+            </p>
+            <Button 
+              onClick={() => setShowSearch(true)}
+              size="lg"
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              <Crown className="h-5 w-5 mr-2" />
+              Find Your Commander
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Popular Commanders */}
+      {!showSearch && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-orange-500" />
+              Popular Commanders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {POPULAR_COMMANDERS.map((commander, index) => (
+                <button
+                  key={commander.name}
+                  onClick={() => searchPopularCommander(commander.name)}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent hover:border-primary transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm font-medium">#{index + 1}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{commander.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {getColorIndicator(commander.colors)}
+                        <span className="text-xs text-muted-foreground">
+                          {commander.popularity}% popularity
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Commander Search */}
+      {showSearch && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Search Commanders
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setShowSearch(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search for legendary creatures..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {loading && (
+              <div className="text-center py-8">
+                <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+                <p className="mt-2 text-muted-foreground">Searching commanders...</p>
+              </div>
+            )}
+
+            {searchResults.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                {searchResults.slice(0, 12).map((card) => (
+                  <button
+                    key={card.id}
+                    onClick={() => handleCommanderSelect(card)}
+                    className="group bg-card border rounded-lg p-3 hover:border-primary hover:shadow-md transition-all text-left"
+                  >
+                    <div className="flex gap-3">
+                      {card.image_uris?.small && (
+                        <img 
+                          src={card.image_uris.small} 
+                          alt={card.name}
+                          className="w-16 h-auto rounded border group-hover:shadow-sm"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm group-hover:text-primary truncate">
+                          {card.name}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                          {card.type_line}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {card.mana_cost && (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              {card.cmc}
+                            </Badge>
+                          )}
+                          {card.color_identity && getColorIndicator(card.color_identity)}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {searchQuery && !loading && searchResults.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No commanders found matching "{searchQuery}"</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Try searching for legendary creatures like "Atraxa" or "Edgar Markov"
+                </p>
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
     </div>

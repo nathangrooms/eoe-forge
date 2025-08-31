@@ -66,7 +66,7 @@ export function TopNavigation() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="w-full flex h-16 items-center justify-between px-6">
+      <div className="w-full flex h-20 items-center justify-between px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div 
@@ -76,7 +76,7 @@ export function TopNavigation() {
             <img 
               src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
               alt="DECKMATRIX"
-              className="h-20 w-auto"
+              className="h-16 w-auto py-2"
             />
           </div>
         </div>

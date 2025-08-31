@@ -177,8 +177,8 @@ async function syncCards(): Promise<void> {
       try {
         console.log(`📦 Fetching page ${page} (processed: ${totalProcessed} cards)...`);
         
-        // Use a broad search that returns many cards
-        const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=is%3Apaper+-is%3Adigital&unique=cards&page=${page}`);
+        // Use a comprehensive search to get all legal cards
+        const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=legal%3Acommander&unique=cards&page=${page}`);
         
         if (!response.ok) {
           if (response.status === 404 || response.status === 422) {

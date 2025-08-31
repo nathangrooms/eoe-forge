@@ -108,9 +108,15 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
 
   const matchCardName = async (text: string, confidence: number) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('https://udnaflcohfyljrsgqggy.supabase.co/functions/v1/scan-match', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkbmFmbGNvaGZ5bGpyc2dxZ2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NjAyMDAsImV4cCI6MjA3MDQzNjIwMH0.SrKLHsJmBfXHmPlVirfglxJXkUMly4bKhjzFkx7ew5g'
+        },
         body: JSON.stringify({ 
           text: text.trim(), 
           prefer: settings.preferPrinting 

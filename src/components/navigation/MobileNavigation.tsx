@@ -150,8 +150,9 @@ export function MobileNavigation() {
     <div className="md:hidden">
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" className="fixed top-3 left-3 z-50 md:hidden bg-background/80 backdrop-blur-sm">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
             <Menu className="h-5 w-5" />
+            <span className="sr-only">Open navigation menu</span>
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">

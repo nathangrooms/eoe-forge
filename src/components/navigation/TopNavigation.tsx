@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, Plus, Upload, User, Settings, Shield, LogOut } from 'lucide-react';
+import { MobileNavigation } from './MobileNavigation';
 
 const FORMATS = [
   { value: 'standard', label: 'Standard' },
@@ -67,9 +68,11 @@ export function TopNavigation() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="w-full flex h-16 md:h-20 items-center justify-between px-3 md:px-6">
-        {/* Mobile: Left spacer for burger menu, Desktop: Logo */}
+        {/* Mobile: Burger menu, Desktop: Logo */}
         <div className="flex items-center gap-3 md:flex-none flex-1 md:flex-initial">
-          <div className="w-10 md:hidden"></div> {/* Spacer for burger menu */}
+          <div className="md:hidden">
+            <MobileNavigation />
+          </div>
           <div 
             className="hidden md:flex items-center gap-2 cursor-pointer" 
             onClick={() => navigate('/')}

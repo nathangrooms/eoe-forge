@@ -130,7 +130,7 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
     <div className="space-y-6">
       {/* Current Commander Display */}
       {currentCommander ? (
-        <Card className="relative overflow-hidden bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+        <Card className="relative overflow-hidden bg-muted/30 border-primary/30">
           <div className="absolute top-4 right-4">
             <Button
               variant="ghost"
@@ -149,17 +149,17 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
                   <img 
                     src={currentCommander.image_uris.normal} 
                     alt={currentCommander.name}
-                    className="w-32 h-auto rounded-lg shadow-lg border-2 border-yellow-200"
+                    className="w-32 h-auto rounded-lg shadow-lg border-2 border-primary/30"
                   />
-                  <div className="absolute -top-3 -right-3 bg-yellow-500 rounded-full p-2 shadow-lg">
-                    <Crown className="h-5 w-5 text-white" />
+                  <div className="absolute -top-3 -right-3 bg-primary rounded-full p-2 shadow-lg">
+                    <Crown className="h-5 w-5 text-primary-foreground" />
                   </div>
                 </div>
               )}
               
               <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className="font-bold text-2xl text-yellow-800 mb-1">
+                  <h3 className="font-bold text-2xl mb-1">
                     {currentCommander.name}
                   </h3>
                   <p className="text-lg text-muted-foreground">{currentCommander.type_line}</p>
@@ -167,11 +167,11 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
                 
                 <div className="flex items-center gap-3 flex-wrap">
                   {currentCommander.mana_cost && (
-                    <Badge variant="outline" className="font-mono text-sm border-yellow-300">
+                    <Badge variant="outline" className="font-mono text-sm">
                       {currentCommander.mana_cost}
                     </Badge>
                   )}
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                  <Badge variant="secondary">
                     CMC {currentCommander.cmc}
                   </Badge>
                   {currentCommander.colors.length > 0 && getColorIndicator(currentCommander.colors)}
@@ -186,7 +186,6 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
                   <Button 
                     variant="outline" 
                     onClick={() => setShowSearch(true)}
-                    className="border-yellow-300 hover:bg-yellow-50"
                   >
                     <Crown className="h-4 w-4 mr-2" />
                     Change Commander
@@ -197,17 +196,16 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-dashed border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50">
+        <Card className="border-dashed border-2 border-primary/30 bg-muted/30">
           <CardContent className="p-8 text-center">
-            <Crown className="h-16 w-16 mx-auto mb-4 text-yellow-500" />
-            <h3 className="text-xl font-bold mb-2 text-yellow-800">Choose Your Commander</h3>
+            <Crown className="h-16 w-16 mx-auto mb-4 text-primary" />
+            <h3 className="text-xl font-bold mb-2">Choose Your Commander</h3>
             <p className="text-muted-foreground mb-6">
               Select a legendary creature to lead your deck into battle
             </p>
             <Button 
               onClick={() => setShowSearch(true)}
               size="lg"
-              className="bg-yellow-500 hover:bg-yellow-600"
             >
               <Crown className="h-5 w-5 mr-2" />
               Find Your Commander

@@ -281,25 +281,35 @@ export default function Wishlist() {
     if (!user || !item.card) return;
 
     try {
-      const { error } = await supabase
+      // Add to collection using the collection API
+      const { error: collectionError } = await supabase
         .from('user_collections')
         .insert({
           user_id: user.id,
           card_id: item.card_id,
           card_name: item.card_name,
-          set_code: item.card.set_code,
+          set_code: item.card.set_code || 'UNK',
           quantity: item.quantity,
           condition: 'near_mint'
         });
 
-      if (error) throw error;
-      showSuccess('Added to Collection', `${item.card_name} added to your collection`);
+      if (collectionError) throw collectionError;
+
+      // Remove from wishlist after successful collection addition
+      const { error: wishlistError } = await (supabase as any)
+        .from('wishlist')
+        .delete()
+        .eq('id', item.id);
+
+      if (wishlistError) throw wishlistError;
+
+      showSuccess('Moved to Collection', `${item.card_name} moved from wishlist to collection`);
       
-      // Remove from wishlist
-      await removeFromWishlist(item.id);
+      // Reload wishlist to reflect changes
+      loadWishlist();
     } catch (error) {
-      console.error('Error adding to collection:', error);
-      showError('Failed to add to collection');
+      console.error('Error moving to collection:', error);
+      showError('Failed to move to collection');
     }
   };
 
@@ -440,6 +450,14 @@ export default function Wishlist() {
     }));
   };
 
+  const handleCardAdd = (card: any) => {
+    // Find the original wishlist item
+    const wishlistItem = wishlistItems.find(item => item.id === card.wishlistId);
+    if (wishlistItem) {
+      addToCollection(wishlistItem);
+    }
+  };
+
   const handleCardClick = (card: any) => {
     // Find the original wishlist item
     const wishlistItem = wishlistItems.find(item => item.id === card.wishlistId);
@@ -522,6 +540,7 @@ export default function Wishlist() {
               cards={formatWishlistItemsAsCards(wishlistItems)}
               viewMode={viewMode}
               onCardClick={handleCardClick}
+              onCardAdd={handleCardAdd}
               showWishlistButton={false}
             />
           )}
@@ -647,6 +666,7 @@ export default function Wishlist() {
                             cards={formatWishlistItemsAsCards(deckWishlist)}
                             viewMode="compact"
                             onCardClick={handleCardClick}
+                            onCardAdd={handleCardAdd}
                             compact={true}
                             showWishlistButton={false}
                           />

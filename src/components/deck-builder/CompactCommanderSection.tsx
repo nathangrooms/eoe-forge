@@ -22,19 +22,19 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
 
   if (!currentCommander) {
     return (
-      <Card className="border-dashed border-2 border-yellow-300/50 bg-yellow-50/30">
+      <Card className="border-dashed border-2 border-primary/30 bg-muted/30">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Crown className="h-8 w-8 text-yellow-500" />
+              <Crown className="h-8 w-8 text-primary" />
               <div>
-                <h3 className="font-semibold text-yellow-800">No Commander Selected</h3>
+                <h3 className="font-semibold">No Commander Selected</h3>
                 <p className="text-sm text-muted-foreground">Choose a legendary creature to lead your deck</p>
               </div>
             </div>
             <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600">
+                <Button size="sm" className="bg-primary hover:bg-primary/90">
                   <Crown className="h-4 w-4 mr-2" />
                   Select Commander
                 </Button>
@@ -42,7 +42,7 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Crown className="h-5 w-5 text-yellow-500" />
+                    <Crown className="h-5 w-5 text-primary" />
                     Choose Your Commander
                   </DialogTitle>
                 </DialogHeader>
@@ -59,7 +59,7 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
   }
 
   return (
-    <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+    <Card className="bg-muted/30 border-primary/30">
       <CardContent className="p-4">
         <div className="flex items-center gap-4">
           {/* Commander Image */}
@@ -68,29 +68,29 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
               <img 
                 src={currentCommander.image_uris.normal} 
                 alt={currentCommander.name}
-                className="w-16 h-auto rounded border-2 border-yellow-200"
+                className="w-16 h-auto rounded border-2 border-primary/30"
               />
             ) : (
-              <div className="w-16 h-20 bg-muted rounded border-2 border-yellow-200 flex items-center justify-center">
-                <Crown className="h-6 w-6 text-yellow-500" />
+              <div className="w-16 h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">
+                <Crown className="h-6 w-6 text-primary" />
               </div>
             )}
-            <div className="absolute -top-2 -right-2 bg-yellow-500 rounded-full p-1">
-              <Crown className="h-3 w-3 text-white" />
+            <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
+              <Crown className="h-3 w-3 text-primary-foreground" />
             </div>
           </div>
 
           {/* Commander Info */}
           <div className="flex-1">
-            <h3 className="font-bold text-lg text-yellow-800">{currentCommander.name}</h3>
+            <h3 className="font-bold text-lg">{currentCommander.name}</h3>
             <p className="text-sm text-muted-foreground mb-2">{currentCommander.type_line}</p>
             <div className="flex items-center gap-2 flex-wrap">
               {currentCommander.mana_cost && (
-                <Badge variant="outline" className="font-mono text-xs border-yellow-300">
+                <Badge variant="outline" className="font-mono text-xs">
                   {currentCommander.mana_cost}
                 </Badge>
               )}
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">
+              <Badge variant="secondary" className="text-xs">
                 CMC {currentCommander.cmc}
               </Badge>
               {currentCommander.colors.length > 0 && (
@@ -110,7 +110,7 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
           <div className="flex gap-2">
             <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="border-yellow-300 hover:bg-yellow-50">
+                <Button variant="outline" size="sm">
                   <Edit className="h-4 w-4 mr-1" />
                   Change
                 </Button>
@@ -118,7 +118,7 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Crown className="h-5 w-5 text-yellow-500" />
+                    <Crown className="h-5 w-5 text-primary" />
                     Choose Your Commander
                   </DialogTitle>
                 </DialogHeader>

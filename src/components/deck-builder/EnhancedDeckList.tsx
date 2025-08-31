@@ -59,10 +59,11 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   const [selectedCard, setSelectedCard] = useState<any>(null);
   
   const deck = useDeckStore();
-  const { activeDeck, updateCardQuantity, removeCardFromDeck } = useDeckManagementStore();
+  const { activeDeck, updateCardQuantity, removeCardFromDeck, decks } = useDeckManagementStore();
 
-  const currentDeck = deckId ? null : activeDeck; // Use local deck if no deckId provided
-  const cards = currentDeck?.cards || deck.cards || [];
+  // Get the correct deck - prioritize local deck if deckId matches a local deck
+  const localDeck = deckId ? decks.find(d => d.id === deckId) : activeDeck;
+  const cards = localDeck?.cards || deck.cards || [];
 
   const toggleCategory = (category: Category) => {
     const newExpanded = new Set(expandedCategories);
@@ -84,14 +85,14 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   }, {} as Record<string, any[]>);
 
   const updateQuantity = (cardId: string, change: number) => {
-    if (currentDeck) {
+    if (localDeck) {
       const card = cards.find(c => c.id === cardId);
       if (card) {
         const newQuantity = Math.max(0, card.quantity + change);
         if (newQuantity === 0) {
-          removeCardFromDeck(currentDeck.id, cardId);
+          removeCardFromDeck(localDeck.id, cardId);
         } else {
-          updateCardQuantity(currentDeck.id, cardId, newQuantity);
+          updateCardQuantity(localDeck.id, cardId, newQuantity);
         }
       }
     } else {
@@ -113,8 +114,23 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
     const isExpanded = expandedCategories.has(category);
     const totalCards = categoryCards.reduce((sum, card) => sum + card.quantity, 0);
 
+    // Category-specific colors using app theme
+    const getCategoryColor = (category: Category) => {
+      const colors = {
+        creatures: 'border-l-green-500 bg-green-50/50 dark:bg-green-950/20',
+        lands: 'border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20', 
+        instants: 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20',
+        sorceries: 'border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20',
+        enchantments: 'border-l-pink-500 bg-pink-50/50 dark:bg-pink-950/20',
+        artifacts: 'border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/20',
+        planeswalkers: 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20',
+        battles: 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20'
+      };
+      return colors[category] || 'border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/20';
+    };
+
     return (
-      <Card className="mb-4">
+      <Card className={`mb-4 border-l-4 ${getCategoryColor(category)}`}>
         <CardHeader 
           className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => toggleCategory(category)}

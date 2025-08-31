@@ -24,6 +24,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { WishlistCardModal } from '@/components/wishlist/WishlistCardModal';
+import { WishlistCardDisplay } from '@/components/wishlist/WishlistCardDisplay';
 
 interface WishlistItem {
   id: string;
@@ -524,12 +525,11 @@ export default function Wishlist() {
               </Button>
             </Card>
           ) : (
-            <UniversalCardDisplay
-              cards={formatWishlistItemsAsCards(wishlistItems)}
+            <WishlistCardDisplay
+              items={wishlistItems}
               viewMode={viewMode}
-              onCardClick={handleCardClick}
-              onCardAdd={handleCardAdd}
-              showWishlistButton={false}
+              onCardClick={openEditDialog}
+              onAddToCollection={addToCollection}
             />
           )}
         </TabsContent>

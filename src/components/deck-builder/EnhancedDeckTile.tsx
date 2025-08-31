@@ -274,7 +274,7 @@ export function EnhancedDeckTile({
             {/* Last Modified */}
             {lastModified && (
               <p className="text-xs text-muted-foreground">
-                Modified {lastModified.toLocaleDateString()}
+                Modified {new Date(lastModified).toLocaleDateString()}
               </p>
             )}
             

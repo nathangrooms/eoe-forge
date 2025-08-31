@@ -144,7 +144,7 @@ export default function Decks() {
         powerLevel: localDeck.powerLevel,
         colors: localDeck.colors,
         cardCount: localDeck.totalCards,
-        lastModified: localDeck.updatedAt,
+        lastModified: new Date(localDeck.updatedAt),
         description: localDeck.description || ''
       }));
 

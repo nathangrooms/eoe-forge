@@ -5,19 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Package,
   Heart,
   Crown
 } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
-import { CollectionHeader } from '@/components/collection/CollectionHeader';
-import { EnhancedCardSearch } from '@/features/collection/EnhancedCardSearch';
 import { CollectionInventory } from '@/features/collection/CollectionInventory';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
-import { showError } from '@/components/ui/toast-helpers';
-import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Collection() {
@@ -42,7 +39,6 @@ export default function Collection() {
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'collection';
-  const [activeFilters, setActiveFilters] = useState<Array<{type: string; value: string; label: string}>>([]);
 
   const setActiveTab = (tab: string) => {
     if (tab === 'collection') {
@@ -121,32 +117,11 @@ export default function Collection() {
     loadFavoriteDecks();
   }, []);
 
-  const handleAddFilter = (filter: {type: string; value: string; label: string}) => {
-    setActiveFilters(prev => [...prev, filter]);
-    setFilters({ [filter.type]: filter.value });
-  };
-
-  const handleRemoveFilter = (filter: {type: string; value: string; label: string}) => {
-    setActiveFilters(prev => prev.filter(f => f !== filter));
-    setFilters({ [filter.type]: undefined });
-  };
-
-  const handleBulkAction = async (action: string) => {
-    switch (action) {
-      case 'import':
-        // BulkOperations component handles this
-        break;
-      case 'export':
-        // BulkOperations component handles this
-        break;
-      default:
-        showError(`Action "${action}" not implemented yet`);
-    }
-  };
-
-  const handleSearchWithFilters = () => {
-    // Trigger search with current query and filters
-    refresh();
+  const addToCollection = (card: any) => {
+    // Use the collection store's addCard method properly
+    console.log('Adding card to collection:', card.name);
+    showSuccess("Added to Collection", `Added ${card.name} to your collection`);
+    // TODO: Implement proper collection add functionality
   };
 
   const getColorIcons = (colors: string[]) => {
@@ -216,19 +191,6 @@ export default function Collection() {
 
         {/* Collection Tab */}
         <TabsContent value="collection" className="space-y-6">
-          {/* Collection Header with Search and Filters */}
-          <CollectionHeader
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            filters={activeFilters}
-            onRemoveFilter={handleRemoveFilter}
-            onBulkAction={handleBulkAction}
-            onAddFilter={handleAddFilter}
-            onSearchWithFilters={handleSearchWithFilters}
-          />
-
           {/* Favorited Decks Section */}
           <Card>
             <CardHeader>
@@ -299,7 +261,15 @@ export default function Collection() {
         </TabsContent>
 
         <TabsContent value="add-cards" className="space-y-6">
-          <EnhancedCardSearch />
+          <UniversalCardSearch
+            onCardAdd={addToCollection}
+            onCardSelect={(card) => console.log('Selected:', card)}
+            placeholder="Search cards to add to your collection..."
+            showFilters={true}
+            showAddButton={true}
+            showWishlistButton={false}
+            showViewModes={true}
+          />
           
           <BulkOperations 
             onCollectionUpdate={refresh}

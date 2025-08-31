@@ -1,36 +1,23 @@
 import { useState } from 'react';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { SearchResultsSkeleton, AnalysisSkeleton } from '@/components/ui/loading-skeleton';
-import { useCardSearch } from '@/hooks/useCardSearch';
+import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
-  Search,
   Plus,
   BarChart3,
-  Target,
-  Zap,
-  Shield,
-  Trash2,
-  Settings,
   History,
   Share,
   Download,
-  Upload,
   Play
 } from 'lucide-react';
 
 export default function Builder() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState({});
   const [viewMode, setViewMode] = useState<'build' | 'analysis'>('build');
-  
   const deck = useDeckStore();
-  const { cards: searchResults, loading } = useCardSearch(searchQuery, selectedFilters);
 
   const addCardToDeck = (card: any) => {
     deck.addCard({
@@ -74,107 +61,19 @@ export default function Builder() {
         <div className="w-80 border-r bg-background/95 flex flex-col">
           <div className="p-4 border-b">
             <h2 className="font-semibold mb-4">Card Search</h2>
-            
-            {/* Search */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search cards..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            {/* Quick Role Filters */}
-            <div className="space-y-2 mb-4">
-              <div className="text-sm font-medium">Quick Roles</div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { name: 'Ramp', icon: Zap },
-                  { name: 'Draw', icon: Target },
-                  { name: 'Removal', icon: Trash2 },
-                  { name: 'Sweepers', icon: Shield },
-                ].map((role) => {
-                  const Icon = role.icon;
-                  return (
-                    <Button key={role.name} variant="outline" size="sm" className="justify-start">
-                      <Icon className="h-3 w-3 mr-2" />
-                      {role.name}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Format & Set Filters */}
-            <div className="space-y-3">
-              <select className="w-full p-2 border border-input bg-background rounded-md text-sm">
-                <option>All Formats</option>
-                <option>Standard</option>
-                <option>Modern</option>
-                <option>Commander</option>
-                <option>Legacy</option>
-              </select>
-              
-              <select className="w-full p-2 border border-input bg-background rounded-md text-sm">
-                <option>All Sets</option>
-                <option>Latest Sets Only</option>
-                <option>Standard Legal</option>
-              </select>
-            </div>
           </div>
-
-          {/* Search Results */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {loading ? (
-              <SearchResultsSkeleton />
-            ) : searchResults.length > 0 ? (
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground mb-2">
-                  Found {searchResults.length} cards
-                </div>
-                {searchResults.slice(0, 20).map((card) => (
-                  <Card key={card.id} className="group hover:shadow-md transition-all duration-200 cursor-pointer">
-                    <CardContent className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                          {card.image_uris?.small && (
-                            <img 
-                              src={card.image_uris.small}
-                              alt={card.name}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{card.name}</div>
-                          <div className="text-sm text-muted-foreground">{card.type_line}</div>
-                          <div className="text-sm text-muted-foreground">CMC: {card.cmc}</div>
-                        </div>
-                        <Button 
-                          size="sm"
-                          onClick={() => addCardToDeck(card)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : searchQuery ? (
-              <div className="text-center text-muted-foreground py-8">
-                No cards found for "{searchQuery}"
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                Enter a search term to find cards
-              </div>
-            )}
+          
+          <div className="flex-1 p-4">
+            <UniversalCardSearch
+              onCardAdd={addCardToDeck}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards for your deck..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={false}
+              showViewModes={false}
+              compact={true}
+            />
           </div>
         </div>
 
@@ -529,7 +428,9 @@ export default function Builder() {
                 </Card>
               </div>
             ) : (
-              <AnalysisSkeleton />
+              <div className="text-center text-muted-foreground py-8">
+                Add cards to see analysis
+              </div>
             )}
           </div>
 
@@ -540,7 +441,7 @@ export default function Builder() {
               Auto-Build
             </Button>
             <Button variant="outline" className="w-full" disabled>
-              <Target className="h-4 w-4 mr-2" />
+              <BarChart3 className="h-4 w-4 mr-2" />
               Optimize Lands
             </Button>
           </div>

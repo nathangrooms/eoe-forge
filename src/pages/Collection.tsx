@@ -13,6 +13,7 @@ import { CollectionImport } from '@/components/collection/CollectionImport';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
+import { SellCardModal } from '@/components/collection/SellCardModal';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
@@ -20,6 +21,7 @@ import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
+import { ListingFormData } from '@/types/listing';
 
 export default function Collection() {
   const {
@@ -51,6 +53,8 @@ export default function Collection() {
   const [addToDeckState, setAddToDeckState] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellCard, setSellCard] = useState<any>(null);
 
   // Sync currentTab with URL changes, but preserve tab during searches
   useEffect(() => {
@@ -155,8 +159,16 @@ export default function Collection() {
   };
 
   const handleMarkForSale = (item: any) => {
-    showSuccess('Mark for Sale', `${item.card_name} marked for sale (${item.tempQuantity || 1} copies)`);
-    // TODO: Implement mark for sale functionality
+    setSellCard(item);
+    setShowSellModal(true);
+  };
+
+  const handleSellSubmit = async (data: ListingFormData) => {
+    // TODO: Implement actual listing creation API call
+    console.log('Creating listing:', data);
+    showSuccess('Listing Created', `${sellCard?.card_name} listed for sale`);
+    setShowSellModal(false);
+    setSellCard(null);
   };
 
   const handleAddToDeck = (item: any) => {
@@ -382,6 +394,20 @@ export default function Collection() {
           }}
         />
         
+        {/* Sell Card Modal */}
+        <SellCardModal
+          isOpen={showSellModal}
+          onClose={() => {
+            setShowSellModal(false);
+            setSellCard(null);
+          }}
+          card={sellCard?.card}
+          ownedQuantity={sellCard?.quantity || 0}
+          ownedFoil={sellCard?.foil || 0}
+          defaultPrice={sellCard?.card?.prices?.usd ? parseFloat(sellCard.card.prices.usd) : 0}
+          onSubmit={handleSellSubmit}
+        />
+
         {/* Import Dialog */}
         <CollectionImport
           isOpen={showImportDialog}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { showSuccess } from '@/components/ui/toast-helpers';
 
@@ -50,7 +50,7 @@ export default function Cards() {
       title="Card Database"
       description="Search through every Magic: The Gathering card ever printed with universal MTG search"
     >
-      <UniversalCardSearch
+      <EnhancedUniversalCardSearch
         onCardAdd={addToCollection}
         onCardSelect={(card) => console.log('Selected:', card)}
         placeholder="Search Magic: The Gathering cards..."

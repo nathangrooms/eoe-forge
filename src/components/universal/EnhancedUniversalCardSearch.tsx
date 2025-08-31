@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { UniversalCardDisplay } from './UniversalCardDisplay';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { AdvancedFilterPanel } from '@/components/filters/AdvancedFilterPanel';
+import { AutocompleteSearchInput } from '@/components/search/AutocompleteSearchInput';
 import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SearchResultsSkeleton } from '@/components/ui/loading-skeleton';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { 
@@ -29,7 +31,9 @@ import {
   ExternalLink,
   SlidersHorizontal,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Keyboard,
+  Info
 } from 'lucide-react';
 
 interface EnhancedUniversalCardSearchProps {
@@ -75,7 +79,9 @@ export function EnhancedUniversalCardSearch({
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showCardModal, setShowCardModal] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Search state for advanced mode
   const [searchState, setSearchState] = useState<CardSearchState>({
@@ -97,12 +103,6 @@ export function EnhancedUniversalCardSearch({
     currentState
   } = useAdvancedCardSearch();
 
-  useEffect(() => {
-    if (searchState.text || Object.keys(searchState).length > 4) {
-      handleSearch();
-    }
-  }, [searchState]);
-
   const handleSearch = async () => {
     if (!searchState || Object.keys(searchState).length === 0) return;
     
@@ -111,17 +111,6 @@ export function EnhancedUniversalCardSearch({
       setSearchParams({ q });
     }
     await searchWithState(searchState);
-  };
-
-  const handleQuickSearch = (query: string) => {
-    setSearchState(prev => ({ ...prev, text: query }));
-  };
-
-  const applyPreset = (presetKey: string) => {
-    const preset = PRESET_QUERIES[presetKey];
-    if (preset) {
-      setSearchState({ ...preset, unique: 'cards', order: 'name', dir: 'asc' });
-    }
   };
 
   const clearAllFilters = () => {
@@ -133,6 +122,44 @@ export function EnhancedUniversalCardSearch({
     });
     clearResults();
     setSearchParams({});
+  };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: handleSearch,
+    onAdvancedSearch: () => {
+      setMode('advanced');
+      handleSearch();
+    },
+    onFocusSearch: () => {
+      searchInputRef.current?.focus();
+    },
+    onClearSearch: clearAllFilters,
+    onToggleMode: () => {
+      setMode(prev => prev === 'simple' ? 'advanced' : 'simple');
+    },
+    onEscape: () => {
+      setShowCardModal(false);
+      setShowSyntaxHelp(false);
+      setShowKeyboardHelp(false);
+    }
+  });
+
+  useEffect(() => {
+    if (searchState.text || Object.keys(searchState).length > 4) {
+      handleSearch();
+    }
+  }, [searchState]);
+
+  const handleQuickSearch = (query: string) => {
+    setSearchState(prev => ({ ...prev, text: query }));
+  };
+
+  const applyPreset = (presetKey: string) => {
+    const preset = PRESET_QUERIES[presetKey];
+    if (preset) {
+      setSearchState({ ...preset, unique: 'cards', order: 'name', dir: 'asc' });
+    }
   };
 
   const handleCardClick = (card: any) => {
@@ -203,26 +230,15 @@ export function EnhancedUniversalCardSearch({
         </div>
 
         <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={mode === 'simple' ? "Search by name, type, or text..." : placeholder}
-              value={searchState.text || ''}
-              onChange={(e) => setSearchState(prev => ({ ...prev, text: e.target.value }))}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10 pr-10"
-            />
-            {searchState.text && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchState(prev => ({ ...prev, text: '' }))}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
+          <AutocompleteSearchInput
+            value={searchState.text || ''}
+            onChange={(value) => setSearchState(prev => ({ ...prev, text: value }))}
+            onSubmit={handleSearch}
+            placeholder={mode === 'simple' ? "Search by name, type, or text..." : placeholder}
+            className="flex-1"
+            autoFocus={false}
+            mode="general"
+          />
           
           <Button onClick={handleSearch} disabled={!currentQuery}>
             Search
@@ -232,6 +248,61 @@ export function EnhancedUniversalCardSearch({
             <RotateCcw className="h-4 w-4 mr-1" />
             Reset
           </Button>
+          
+          <Drawer open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Keyboard className="h-4 w-4" />
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Keyboard Shortcuts</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Global Shortcuts</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span><code>/</code></span>
+                        <span className="text-muted-foreground">Focus search</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span><code>Esc</code></span>
+                        <span className="text-muted-foreground">Close dialogs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span><code>Ctrl/⌘ + M</code></span>
+                        <span className="text-muted-foreground">Toggle mode</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Search Shortcuts</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span><code>Enter</code></span>
+                        <span className="text-muted-foreground">Search</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span><code>Ctrl/⌘ + Enter</code></span>
+                        <span className="text-muted-foreground">Advanced search</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span><code>Ctrl/⌘ + K</code></span>
+                        <span className="text-muted-foreground">Clear search</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span><code>↑/↓</code></span>
+                        <span className="text-muted-foreground">Navigate suggestions</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
           
           <Drawer open={showSyntaxHelp} onOpenChange={setShowSyntaxHelp}>
             <DrawerTrigger asChild>
@@ -244,6 +315,16 @@ export function EnhancedUniversalCardSearch({
                 <DrawerTitle>Scryfall Search Syntax</DrawerTitle>
               </DrawerHeader>
               <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+                <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">Pro Tip:</p>
+                    <p className="text-blue-700 dark:text-blue-200">
+                      Use keyboard shortcuts! Press <code className="bg-white/50 px-1 rounded">/</code> to focus search, 
+                      <code className="bg-white/50 px-1 rounded">Ctrl+Enter</code> for advanced search.
+                    </p>
+                  </div>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Use these operators to build powerful search queries:
                 </p>

@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ShoppingCart, Plus, Minus, Heart, Edit2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus } from 'lucide-react';
 import { ManaSymbols } from '@/components/ui/mana-symbols';
 
 interface WishlistItem {
@@ -58,28 +54,17 @@ export function WishlistCardModal({
   onUpdateItem,
   onAddToCollection
 }: WishlistCardModalProps) {
-  const [quantity, setQuantity] = useState(1);
-  const [priority, setPriority] = useState('medium');
-  const [note, setNote] = useState('');
-
-  // Update local state when item changes
-  React.useEffect(() => {
-    if (item) {
-      setQuantity(item.quantity);
-      setPriority(item.priority);
-      setNote(item.note || '');
-    }
-  }, [item]);
+  const [collectionQuantity, setCollectionQuantity] = useState(1);
 
   if (!item || !item.card) return null;
 
-  const handleSave = () => {
-    onUpdateItem(item.id, quantity, priority, note);
-    onClose();
-  };
-
   const handleAddToCollection = () => {
-    onAddToCollection(item);
+    // Create a modified item with the selected quantity
+    const modifiedItem = {
+      ...item,
+      quantity: collectionQuantity
+    };
+    onAddToCollection(modifiedItem);
     onClose();
   };
 
@@ -93,23 +78,11 @@ export function WishlistCardModal({
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'high': return '🔥';
-      case 'medium': return '⭐';
-      case 'low': return '💭';
-      default: return '';
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5 text-red-500" />
-            Wishlist Card Details
-          </DialogTitle>
+          <DialogTitle>{item.card.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -130,20 +103,16 @@ export function WishlistCardModal({
             </div>
 
             <div className="flex-1 space-y-4">
-              {/* Card Name and Mana Cost */}
-              <div>
-                <h2 className="text-2xl font-bold mb-2">{item.card.name}</h2>
-                <div className="flex items-center gap-3 mb-3">
-                  {item.card.mana_cost && (
-                    <div className="flex items-center gap-1">
-                      {/* Show mana cost as text for now - ManaSymbols component is different */}
-                      <span className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                        {item.card.mana_cost}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-lg font-medium">CMC {item.card.cmc || 0}</span>
-                </div>
+              {/* Mana Cost and CMC */}
+              <div className="flex items-center gap-3">
+                {item.card.mana_cost && (
+                  <div className="flex items-center gap-1">
+                    <span className="px-2 py-1 bg-muted rounded text-sm font-mono">
+                      {item.card.mana_cost}
+                    </span>
+                  </div>
+                )}
+                <span className="text-lg font-medium">CMC {item.card.cmc || 0}</span>
               </div>
 
               {/* Type Line */}
@@ -193,7 +162,7 @@ export function WishlistCardModal({
                       ${item.card.prices.usd}
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      Total: ${(parseFloat(item.card.prices.usd) * quantity).toFixed(2)}
+                      Total: ${(parseFloat(item.card.prices.usd) * collectionQuantity).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -231,85 +200,33 @@ export function WishlistCardModal({
 
           <Separator />
 
-          {/* Wishlist Controls */}
+          {/* Quantity Controls and Add to Collection Button */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-              <Edit2 className="h-5 w-5" />
-              Wishlist Settings
-            </h3>
-
             {/* Quantity Control */}
-            <div>
-              <Label htmlFor="quantity" className="text-sm font-medium">
-                Quantity Wanted
-              </Label>
-              <div className="flex items-center gap-3 mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  max="99"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  className="w-20 text-center"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQuantity(Math.min(99, quantity + 1))}
-                  disabled={quantity >= 99}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCollectionQuantity(Math.max(1, collectionQuantity - 1))}
+                disabled={collectionQuantity <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-12 text-center font-medium">{collectionQuantity}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCollectionQuantity(Math.min(99, collectionQuantity + 1))}
+                disabled={collectionQuantity >= 99}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
 
-            {/* Priority */}
-            <div>
-              <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">💭 Low Priority</SelectItem>
-                  <SelectItem value="medium">⭐ Medium Priority</SelectItem>
-                  <SelectItem value="high">🔥 High Priority</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Note */}
-            <div>
-              <Label htmlFor="note" className="text-sm font-medium">Personal Notes</Label>
-              <Textarea
-                id="note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Add a note about why you want this card..."
-                rows={3}
-                className="mt-2"
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button onClick={handleAddToCollection} className="flex-1">
+            {/* Add to Collection Button */}
+            <Button onClick={handleAddToCollection} className="w-full" size="lg">
               <ShoppingCart className="h-4 w-4 mr-2" />
               Add to Collection
-            </Button>
-            <Button onClick={handleSave} variant="outline" className="flex-1">
-              <Edit2 className="h-4 w-4 mr-2" />
-              Update Wishlist
             </Button>
           </div>
         </div>

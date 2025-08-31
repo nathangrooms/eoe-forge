@@ -12,7 +12,8 @@ import {
   Heart,
   Shield,
   Settings,
-  Plus
+  Plus,
+  Camera
 } from 'lucide-react';
 
 interface NavItem {
@@ -53,6 +54,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/cards',
     icon: Search,
     section: 'main'
+  },
+  {
+    title: 'Fast Scan',
+    href: '/scan',
+    icon: Camera,
+    section: 'tools'
   },
   {
     title: 'AI Builder',

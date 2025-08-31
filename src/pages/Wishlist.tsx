@@ -562,8 +562,8 @@ export default function Wishlist() {
               </Button>
             </Card>
           ) : (
-            <div className="space-y-6">
-              {userDecks.map((deck) => {
+            <div className="space-y-4">
+              {userDecks.filter(deck => getWishlistForDeck(deck).length > 0).map((deck) => {
                 const deckWishlist = getWishlistForDeck(deck);
                 const deckValue = getDeckWishlistValue(deck);
                 
@@ -595,85 +595,48 @@ export default function Wishlist() {
                                   <div className="text-xs text-muted-foreground">Colorless</div>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                (Colors: {deck.colors.length > 0 ? deck.colors.join(', ') : 'None'})
-                              </div>
                             </div>
                           </div>
                         </div>
                         
                         <div className="text-right">
-                          <div className="text-sm text-muted-foreground">Wishlist Value</div>
-                          <div className="text-lg font-bold text-green-600">
+                          <div className="text-sm text-muted-foreground">Total Value to Buy</div>
+                          <div className="text-2xl font-bold text-green-600">
                             ${deckValue.toFixed(2)}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {deckWishlist.length} cards
+                            {deckWishlist.length} cards needed
                           </div>
                         </div>
                       </div>
                       
-                      <div className="mb-4 p-3 bg-muted/30 rounded-lg">
-                        <h4 className="text-sm font-medium mb-2">Debug Info:</h4>
-                        <div className="text-xs space-y-1">
-                          <div>Total Wishlist Items: {wishlistItems.length}</div>
-                          <div>Deck Colors: [{deck.colors.join(', ')}]</div>
-                          <div>Compatible Cards Found: {deckWishlist.length}</div>
-                          <div>Compatible Card Names: {deckWishlist.map(item => item.card_name).join(', ') || 'None'}</div>
-                        </div>
-                      </div>
-                      
-                      {deckWishlist.length > 0 ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">Compatible Wishlist Cards</h4>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                const cardNames = deckWishlist.map(item => 
-                                  `${item.quantity} ${item.card_name}`
-                                ).join('\n');
-                                
-                                const blob = new Blob([cardNames], { type: 'text/plain' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `${deck.name}_wishlist.txt`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                                showSuccess('Export Complete', `${deck.name} wishlist exported`);
-                              }}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Export
-                            </Button>
-                          </div>
-                          
-                          <UniversalCardDisplay
-                            cards={formatWishlistItemsAsCards(deckWishlist)}
-                            viewMode="compact"
-                            onCardClick={handleCardClick}
-                            onCardAdd={handleCardAdd}
-                            compact={true}
-                            showWishlistButton={false}
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No wishlist cards are compatible with this deck's colors</p>
-                          <p className="text-sm mt-1">
-                            This deck uses colors: {deck.colors.length > 0 ? deck.colors.join(', ') : 'None (Colorless)'}
-                          </p>
-                          <p className="text-xs mt-2">
-                            Add cards to your wishlist that match or are colorless!
-                          </p>
-                        </div>
-                      )}
+                      <UniversalCardDisplay
+                        cards={formatWishlistItemsAsCards(deckWishlist)}
+                        viewMode={viewMode}
+                        onCardAdd={handleCardAdd}
+                        onCardClick={handleCardClick}
+                        showWishlistButton={false}
+                      />
                     </CardContent>
                   </Card>
                 );
               })}
+              
+              {userDecks.filter(deck => getWishlistForDeck(deck).length > 0).length === 0 && (
+                <Card className="p-12 text-center">
+                  <h3 className="text-lg font-medium mb-2">No wishlist items for any deck</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Add cards to your wishlist that match your deck colors
+                  </p>
+                  <Button onClick={() => {
+                    const searchTab = document.querySelector('[value="search"]') as HTMLElement;
+                    searchTab?.click();
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Cards to Wishlist
+                  </Button>
+                </Card>
+              )}
             </div>
           )}
         </TabsContent>

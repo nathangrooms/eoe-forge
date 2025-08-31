@@ -200,10 +200,6 @@ export function CollectionCardDisplay({
               </div>
             )}
 
-            {/* Owned quantity badge */}
-            <Badge className="absolute top-2 right-2">
-              Owned: {item.quantity + item.foil}
-            </Badge>
           </div>
           
           <CardContent className="p-3 space-y-3">

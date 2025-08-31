@@ -12,6 +12,8 @@ import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedColle
 import { CollectionImport } from '@/components/collection/CollectionImport';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
+import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
+import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
@@ -47,6 +49,8 @@ export default function Collection() {
   const [selectedDeckId, setSelectedDeckId] = useState<string>('');
   const [addToCollectionState, setAddToCollectionState] = useState(true);
   const [addToDeckState, setAddToDeckState] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   // Sync currentTab with URL changes, but preserve tab during searches
   useEffect(() => {
@@ -142,6 +146,48 @@ export default function Collection() {
         'Card Added', 
         `Added ${card.name} to ${locations.join(' and ')}`
       );
+    }
+  };
+
+  const handleCardClick = (item: any) => {
+    setSelectedCard(item.card);
+    setShowCardModal(true);
+  };
+
+  const handleMarkForSale = (item: any) => {
+    showSuccess('Mark for Sale', `${item.card_name} marked for sale (${item.tempQuantity || 1} copies)`);
+    // TODO: Implement mark for sale functionality
+  };
+
+  const handleAddToDeck = (item: any) => {
+    if (!selectedDeckId) {
+      showError('No Deck Selected', 'Please select a deck first');
+      return;
+    }
+
+    try {
+      const deckCard = {
+        id: item.card_id,
+        name: item.card_name,
+        cmc: item.card?.cmc || 0,
+        type_line: item.card?.type_line || '',
+        colors: item.card?.colors || [],
+        mana_cost: item.card?.mana_cost,
+        quantity: item.tempQuantity || 1,
+        category: item.card?.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
+                 item.card?.type_line?.toLowerCase().includes('land') ? 'lands' :
+                 item.card?.type_line?.toLowerCase().includes('instant') ? 'instants' :
+                 item.card?.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' : 'other',
+        mechanics: item.card?.keywords || [],
+        image_uris: item.card?.image_uris,
+        prices: item.card?.prices
+      } as const;
+
+      addCardToDeck(selectedDeckId, deckCard);
+      showSuccess('Added to Deck', `Added ${item.tempQuantity || 1}x ${item.card_name} to deck`);
+    } catch (error) {
+      console.error('Error adding to deck:', error);
+      showError('Deck Error', 'Failed to add card to deck');
     }
   };
 
@@ -241,10 +287,24 @@ export default function Collection() {
             </div>
 
             {/* Collection Display with Enhanced Features */}
-            <CollectionInventory 
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
+            <div className="space-y-4">
+              <DeckAdditionPanel
+                selectedDeckId={selectedDeckId}
+                addToCollection={false}
+                addToDeck={true}
+                onSelectionChange={(config) => {
+                  setSelectedDeckId(config.selectedDeckId);
+                }}
+              />
+              
+              <CollectionCardDisplay
+                items={filteredCards || []}
+                viewMode={viewMode as any}
+                onCardClick={handleCardClick}
+                onMarkForSale={handleMarkForSale}
+                onAddToDeck={handleAddToDeck}
+              />
+            </div>
           </TabsContent>
 
           {/* Add Cards Tab */}
@@ -301,6 +361,26 @@ export default function Collection() {
         </TabsContent>
 
         </Tabs>
+        
+        {/* Universal Card Modal */}
+        <UniversalCardModal
+          card={selectedCard}
+          isOpen={showCardModal}
+          onClose={() => {
+            setShowCardModal(false);
+            setSelectedCard(null);
+          }}
+          onAddToCollection={() => {
+            if (selectedCard) {
+              const cardData = {
+                name: selectedCard.name,
+                set: selectedCard.set,
+                id: selectedCard.id
+              };
+              addToCollectionAndDeck(cardData);
+            }
+          }}
+        />
         
         {/* Import Dialog */}
         <CollectionImport

@@ -33,16 +33,16 @@ export function UniversalCardDisplay({
   compact = false
 }: UniversalCardDisplayProps) {
   const getGridClasses = () => {
-    if (compact) return "grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-1";
+    if (compact) return "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3";
     
     switch (viewMode) {
       case 'grid':
-        return "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4";
+        return "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6";
       case 'compact':
-        return "grid grid-cols-3 md:grid-cols-9 gap-1";
+        return "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3";
       case 'list':
       default:
-        return "space-y-2";
+        return "space-y-3";
     }
   };
 
@@ -93,10 +93,10 @@ export function UniversalCardDisplay({
             className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] group"
             onClick={() => onCardClick(card)}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-4">
               <div className="flex items-center space-x-4">
                 {/* Card Image */}
-                <div className="w-12 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
+                <div className="w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
                   {card.image_uris?.small && (
                     <img 
                       src={card.image_uris.small}
@@ -213,19 +213,19 @@ export function UniversalCardDisplay({
             </div>
 
             {!compact && (
-              <CardContent className="p-2">
-                <div className="space-y-1">
+              <CardContent className="p-3">
+                <div className="space-y-2">
                   <h3 className="font-medium text-sm truncate">{card.name}</h3>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       {getColorIndicator(card.colors)}
                     </div>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {card.cmc}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs capitalize">
                       {card.rarity}
                     </Badge>
                     <span className="text-xs font-medium">

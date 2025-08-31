@@ -59,9 +59,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Navigation */}
-      <MobileNavigation />
-      
       {/* Top Navigation - Always Visible */}
       <TopNavigation />
       

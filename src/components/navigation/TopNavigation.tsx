@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Plus, Upload, User, Settings, Shield, LogOut } from 'lucide-react';
+import { Search, Plus, Upload, User, Settings, Shield, LogOut, Camera } from 'lucide-react';
 import { MobileNavigation } from './MobileNavigation';
 
 const FORMATS = [
@@ -68,10 +68,19 @@ export function TopNavigation() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="w-full flex h-16 md:h-20 items-center justify-between px-3 md:px-6">
-        {/* Mobile: Burger menu, Desktop: Logo */}
+        {/* Mobile: Burger menu and camera, Desktop: Logo */}
         <div className="flex items-center gap-3 md:flex-none flex-1 md:flex-initial">
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-2">
             <MobileNavigation />
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => navigate('/scan')}
+            >
+              <Camera className="h-5 w-5" />
+              <span className="sr-only">Fast Scan</span>
+            </Button>
           </div>
           <div 
             className="hidden md:flex items-center gap-2 cursor-pointer" 

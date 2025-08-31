@@ -11,9 +11,11 @@ import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedCollectionAnalytics';
 import { CollectionImport } from '@/components/collection/CollectionImport';
 import { BulkOperations } from '@/components/collection/BulkOperations';
+import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
+import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Collection() {
@@ -35,13 +37,20 @@ export default function Collection() {
     getFilteredCards
   } = useCollectionStore();
 
+  const { addCardToDeck } = useDeckManagementStore();
+
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'collection';
+  const activeTab = searchParams.get('tab') || 'add-cards';
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [selectedDeckId, setSelectedDeckId] = useState<string>('');
+  const [addToCollectionState, setAddToCollectionState] = useState(true);
+  const [addToDeckState, setAddToDeckState] = useState(false);
 
   const setActiveTab = (tab: string) => {
-    if (tab === 'collection') {
+    if (tab === 'add-cards') {
+      setSearchParams({ tab: 'add-cards' });
+    } else if (tab === 'collection') {
       setSearchParams({});
     } else {
       setSearchParams({ tab });
@@ -117,11 +126,61 @@ export default function Collection() {
     loadFavoriteDecks();
   }, []);
 
-  const addToCollection = (card: any) => {
-    // Use the collection store's addCard method properly
-    console.log('Adding card to collection:', card.name);
-    showSuccess("Added to Collection", `Added ${card.name} to your collection`);
-    // TODO: Implement proper collection add functionality
+  const addToCollectionAndDeck = async (card: any) => {
+    let addedToCollection = false;
+    let addedToDeck = false;
+
+    // Add to collection if enabled
+    if (addToCollectionState) {
+      try {
+        // Use the collection store's addCard method (expects cardId)
+        await addCard(card.id, 1); // Add 1 copy
+        addedToCollection = true;
+      } catch (error) {
+        console.error('Error adding to collection:', error);
+        showError('Collection Error', 'Failed to add card to collection');
+      }
+    }
+
+    // Add to deck if enabled and deck selected
+    if (addToDeckState && selectedDeckId) {
+      try {
+        const deckCard = {
+          id: card.id,
+          name: card.name,
+          cmc: card.cmc || 0,
+          type_line: card.type_line || '',
+          colors: card.colors || [],
+          mana_cost: card.mana_cost,
+          quantity: 1,
+          category: card.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
+                   card.type_line?.toLowerCase().includes('land') ? 'lands' :
+                   card.type_line?.toLowerCase().includes('instant') ? 'instants' :
+                   card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' : 'other',
+          mechanics: card.keywords || [],
+          image_uris: card.image_uris,
+          prices: card.prices
+        } as const;
+
+        addCardToDeck(selectedDeckId, deckCard);
+        addedToDeck = true;
+      } catch (error) {
+        console.error('Error adding to deck:', error);
+        showError('Deck Error', 'Failed to add card to deck');
+      }
+    }
+
+    // Show success message
+    const locations = [];
+    if (addedToCollection) locations.push('collection');
+    if (addedToDeck) locations.push('deck');
+    
+    if (locations.length > 0) {
+      showSuccess(
+        'Card Added', 
+        `Added ${card.name} to ${locations.join(' and ')}`
+      );
+    }
   };
 
   const getColorIcons = (colors: string[]) => {
@@ -178,15 +237,40 @@ export default function Collection() {
         </div>
       }
     >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="collection">Collection</TabsTrigger>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="add-cards">Add Cards</TabsTrigger>
+            <TabsTrigger value="collection">My Collection</TabsTrigger>
+            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            <TabsTrigger value="import">Import</TabsTrigger>
           </TabsList>
 
-        {/* Collection Tab */}
-        <TabsContent value="collection" className="space-y-6">
+          {/* Add Cards Tab */}
+          <TabsContent value="add-cards" className="space-y-6">
+            <DeckAdditionPanel
+              selectedDeckId={selectedDeckId}
+              addToCollection={addToCollectionState}
+              addToDeck={addToDeckState}
+              onSelectionChange={(config) => {
+                setSelectedDeckId(config.selectedDeckId);
+                setAddToCollectionState(config.addToCollection);
+                setAddToDeckState(config.addToDeck);
+              }}
+            />
+            
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToCollectionAndDeck}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards to add to your collection..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={false}
+              showViewModes={true}
+            />
+          </TabsContent>
+
+          {/* Collection Tab */}
+          <TabsContent value="collection" className="space-y-6">
           {/* Favorited Decks Section */}
           <Card>
             <CardHeader>
@@ -256,8 +340,7 @@ export default function Collection() {
           />
         </TabsContent>
 
-        <TabsContent value="add-cards" className="space-y-6">
-          {/* Import Button */}
+        <TabsContent value="import" className="space-y-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -273,23 +356,12 @@ export default function Collection() {
               </div>
             </CardContent>
           </Card>
-
-          {activeTab === 'add-cards' && (
-            <EnhancedUniversalCardSearch
-              onCardAdd={addToCollection}
-              onCardSelect={(card) => console.log('Selected:', card)}
-              placeholder="Search cards to add to your collection..."
-              showFilters={true}
-              showAddButton={true}
-              showWishlistButton={false}
-              showViewModes={true}
-            />
-          )}
           
           <BulkOperations 
             onCollectionUpdate={refresh}
           />
         </TabsContent>
+
         </Tabs>
         
         {/* Import Dialog */}

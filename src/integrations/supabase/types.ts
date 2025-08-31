@@ -246,27 +246,33 @@ export type Database = {
       }
       sync_status: {
         Row: {
+          current_step: string | null
           error_message: string | null
           id: string
           last_sync: string | null
           records_processed: number | null
           status: string | null
+          step_progress: number | null
           total_records: number | null
         }
         Insert: {
+          current_step?: string | null
           error_message?: string | null
           id: string
           last_sync?: string | null
           records_processed?: number | null
           status?: string | null
+          step_progress?: number | null
           total_records?: number | null
         }
         Update: {
+          current_step?: string | null
           error_message?: string | null
           id?: string
           last_sync?: string | null
           records_processed?: number | null
           status?: string | null
+          step_progress?: number | null
           total_records?: number | null
         }
         Relationships: []

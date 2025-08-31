@@ -170,27 +170,56 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
 
   const addCardToCollection = async (candidate: CardCandidate, quantity = 1) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session?.access_token) {
-        showError('Authentication Required', 'Please log in to add cards to your collection');
+      if (sessionError || !session?.access_token) {
+        console.error('Auth session error:', sessionError);
+        setErrorMessage('Please log in to add cards to your collection');
+        setTimeout(() => setErrorMessage(null), 3000);
         return;
       }
 
-      // Add to collection via Supabase client directly
-      const { error } = await supabase
-        .from('user_collections')
-        .insert({
-          card_id: candidate.cardId,
-          card_name: candidate.name,
-          set_code: candidate.setCode,
-          quantity,
-          user_id: session.user.id
-        });
+      console.log('Adding card to collection:', candidate.name);
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        throw new Error(error.message || 'Failed to add to collection');
+      // First check if card exists in collection
+      const { data: existingCard, error: checkError } = await supabase
+        .from('user_collections')
+        .select('id, quantity')
+        .eq('card_id', candidate.cardId)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing card:', checkError);
+        throw new Error('Failed to check existing collection');
+      }
+
+      let result;
+      if (existingCard) {
+        // Update existing card quantity
+        result = await supabase
+          .from('user_collections')
+          .update({ 
+            quantity: existingCard.quantity + quantity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingCard.id);
+      } else {
+        // Insert new card
+        result = await supabase
+          .from('user_collections')
+          .insert({
+            card_id: candidate.cardId,
+            card_name: candidate.name,
+            set_code: candidate.setCode,
+            quantity,
+            user_id: session.user.id
+          });
+      }
+
+      if (result.error) {
+        console.error('Supabase operation error:', result.error);
+        throw new Error(result.error.message || 'Failed to add to collection');
       }
 
       // Create scanned card record

@@ -1,12 +1,12 @@
-// Crop the title band area (focused on card name only)
+// Crop the title band area (very top where card name is isolated)
 export function cropTitleBand(imageData: ImageData): ImageData {
   const { width, height, data } = imageData;
   
-  // Much more focused crop - just the top title area where card names appear
-  const cropHeight = Math.floor(height * 0.12); // Only top 12% for title
-  const cropY = Math.floor(height * 0.08); // Start a bit lower to avoid border
-  const cropX = Math.floor(width * 0.05); // Crop sides to avoid border
-  const cropWidth = Math.floor(width * 0.9); // 90% width to avoid edges
+  // Very focused crop - just the card name at the very top
+  const cropHeight = Math.floor(height * 0.08); // Only top 8% - card names are at very top
+  const cropY = Math.floor(height * 0.02); // Start very close to top edge
+  const cropX = Math.floor(width * 0.08); // Remove more edge noise
+  const cropWidth = Math.floor(width * 0.84); // 84% width to remove border artifacts
   
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');

@@ -32,7 +32,7 @@ export function DeckTileSkeleton() {
 
 export function CardGridSkeleton() {
   return (
-    <div className="grid grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4">
       {Array.from({ length: 20 }).map((_, i) => (
         <Card key={i} className="animate-pulse">
           <CardContent className="p-3">

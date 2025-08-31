@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { LeftNavigation } from "@/components/navigation/LeftNavigation";
+import { MobileNavigation } from "@/components/navigation/MobileNavigation";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -58,6 +59,9 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Mobile Navigation */}
+      <MobileNavigation />
+      
       {/* Top Navigation - Always Visible */}
       <TopNavigation />
       
@@ -69,7 +73,7 @@ function AppContent() {
         </div>
         
         {/* Main Content Area */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4rem)] w-full md:w-auto overflow-x-hidden">
+        <main className="flex-1 min-h-[calc(100vh-8rem)] md:min-h-[calc(100vh-4rem)] w-full md:w-auto overflow-x-hidden">
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

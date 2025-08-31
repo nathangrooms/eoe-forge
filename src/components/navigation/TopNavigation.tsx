@@ -67,8 +67,23 @@ export function TopNavigation() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="w-full flex h-16 md:h-20 items-center justify-between px-3 md:px-6">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
+        {/* Mobile: Left spacer for burger menu, Desktop: Logo */}
+        <div className="flex items-center gap-3 md:flex-none flex-1 md:flex-initial">
+          <div className="w-10 md:hidden"></div> {/* Spacer for burger menu */}
+          <div 
+            className="hidden md:flex items-center gap-2 cursor-pointer" 
+            onClick={() => navigate('/')}
+          >
+            <img 
+              src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
+              alt="DECKMATRIX"
+              className="h-12 md:h-20 w-auto py-1"
+            />
+          </div>
+        </div>
+
+        {/* Mobile: Centered Logo */}
+        <div className="md:hidden flex justify-center flex-1">
           <div 
             className="flex items-center gap-2 cursor-pointer" 
             onClick={() => navigate('/')}
@@ -76,7 +91,7 @@ export function TopNavigation() {
             <img 
               src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
               alt="DECKMATRIX"
-              className="h-12 md:h-20 w-auto py-1"
+              className="h-12 w-auto py-1"
             />
           </div>
         </div>
@@ -110,8 +125,8 @@ export function TopNavigation() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex items-center gap-1 md:gap-2">
+        {/* Quick Actions - Right side */}
+        <div className="flex items-center gap-1 md:gap-2 flex-1 md:flex-initial justify-end">
           {/* Mobile: Only essential buttons */}
           <div className="md:hidden flex items-center gap-1">
             <Button 

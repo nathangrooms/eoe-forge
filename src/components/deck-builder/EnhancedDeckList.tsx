@@ -110,7 +110,7 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   };
 
   const CategoryCard = ({ category, cards: categoryCards }: { category: Category, cards: any[] }) => {
-    const Icon = CATEGORY_ICONS[category];
+    const Icon = CATEGORY_ICONS[category] || Users; // Fallback to Users icon if undefined
     const isExpanded = expandedCategories.has(category);
     const totalCards = categoryCards.reduce((sum, card) => sum + card.quantity, 0);
 

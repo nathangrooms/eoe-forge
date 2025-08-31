@@ -41,16 +41,14 @@ export default function Collection() {
 
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'add-cards';
+  const activeTab = searchParams.get('tab') || 'collection';
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedDeckId, setSelectedDeckId] = useState<string>('');
   const [addToCollectionState, setAddToCollectionState] = useState(true);
   const [addToDeckState, setAddToDeckState] = useState(false);
 
   const setActiveTab = (tab: string) => {
-    if (tab === 'add-cards') {
-      setSearchParams({ tab: 'add-cards' });
-    } else if (tab === 'collection') {
+    if (tab === 'collection') {
       setSearchParams({});
     } else {
       setSearchParams({ tab });
@@ -169,11 +167,17 @@ export default function Collection() {
     >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="add-cards" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Add Cards
-            </TabsTrigger>
-            <TabsTrigger value="collection" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger 
+              value="collection" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               My Collection
+            </TabsTrigger>
+            <TabsTrigger 
+              value="add-cards" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              Add Cards
             </TabsTrigger>
             <TabsTrigger value="analysis" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Analysis
@@ -183,31 +187,7 @@ export default function Collection() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Add Cards Tab */}
-          <TabsContent value="add-cards" className="space-y-6">
-            <DeckAdditionPanel
-              selectedDeckId={selectedDeckId}
-              addToCollection={addToCollectionState}
-              addToDeck={addToDeckState}
-              onSelectionChange={(config) => {
-                setSelectedDeckId(config.selectedDeckId);
-                setAddToCollectionState(config.addToCollection);
-                setAddToDeckState(config.addToDeck);
-              }}
-            />
-            
-            <EnhancedUniversalCardSearch
-              onCardAdd={addToCollectionAndDeck}
-              onCardSelect={(card) => console.log('Selected:', card)}
-              placeholder="Search cards to add to your collection..."
-              showFilters={true}
-              showAddButton={true}
-              showWishlistButton={false}
-              showViewModes={true}
-            />
-          </TabsContent>
-
-          {/* Collection Tab */}
+          {/* Collection Tab - Now First */}
           <TabsContent value="collection" className="space-y-6">
             {/* Collection Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -252,7 +232,31 @@ export default function Collection() {
             />
           </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-6">
+          {/* Add Cards Tab */}
+          <TabsContent value="add-cards" className="space-y-6">
+            <DeckAdditionPanel
+              selectedDeckId={selectedDeckId}
+              addToCollection={addToCollectionState}
+              addToDeck={addToDeckState}
+              onSelectionChange={(config) => {
+                setSelectedDeckId(config.selectedDeckId);
+                setAddToCollectionState(config.addToCollection);
+                setAddToDeckState(config.addToDeck);
+              }}
+            />
+            
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToCollectionAndDeck}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards to add to your collection..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={false}
+              showViewModes={true}
+            />
+          </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-6">
           <EnhancedCollectionAnalytics 
             stats={stats}
             loading={loading}

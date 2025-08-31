@@ -503,7 +503,7 @@ export default function Decks() {
 
         {/* Deck Grid */}
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-4">
             {[...Array(6)].map((_, i) => (
               <EnhancedDeckTile
                 key={i}
@@ -534,7 +534,7 @@ export default function Decks() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+          <div className="space-y-4">
             {filteredDecks.map((deck) => (
               <EnhancedDeckTile
                 key={deck.id}

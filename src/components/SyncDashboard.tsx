@@ -27,6 +27,8 @@ interface SyncStatus {
   records_processed: number;
   total_records: number;
   last_sync?: string;
+  current_step?: string;
+  step_progress?: number;
 }
 
 const SyncDashboard = () => {
@@ -265,18 +267,14 @@ const SyncDashboard = () => {
     loadSyncStatus();
   }, []);
 
-  // Single effect for auto-refresh with proper cleanup
+  // Fixed polling effect - no dependency on syncStatus to prevent refresh loops
   useEffect(() => {
-    if (!syncStatus) return;
-    
-    const refreshInterval = syncStatus.status === 'running' ? 3000 : 10000; // 3s when running, 10s otherwise
-    
     const interval = setInterval(() => {
       loadSyncStatus();
-    }, refreshInterval);
+    }, 3000); // 3 second polls
 
     return () => clearInterval(interval);
-  }, [syncStatus?.status]);
+  }, []); // Empty dependency array - no infinite loops!
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -315,6 +313,30 @@ const SyncDashboard = () => {
       return syncStatus.status === 'completed' ? 100 : 0;
     }
     return Math.min(100, Math.round((syncStatus.records_processed / syncStatus.total_records) * 100));
+  };
+
+  const getSyncSteps = () => {
+    return [
+      { id: 'init', name: 'Initialize Sync', status: 'completed' },
+      { id: 'fetch', name: 'Fetch Bulk Data Info', status: syncStatus?.current_step === 'fetch' ? 'current' : syncStatus?.step_progress >= 1 ? 'completed' : 'pending' },
+      { id: 'count', name: 'Calculate Total Cards', status: syncStatus?.current_step === 'count' ? 'current' : syncStatus?.step_progress >= 2 ? 'completed' : 'pending' },
+      { id: 'download', name: 'Download & Process Cards', status: syncStatus?.current_step === 'download' ? 'current' : syncStatus?.step_progress >= 3 ? 'completed' : 'pending' },
+      { id: 'complete', name: 'Sync Complete', status: syncStatus?.status === 'completed' ? 'completed' : 'pending' }
+    ];
+  };
+
+  const getEstimatedTimeRemaining = () => {
+    if (!syncStatus || syncStatus.total_records === 0 || syncStatus.records_processed === 0) return null;
+    
+    const progress = syncStatus.records_processed / syncStatus.total_records;
+    const elapsed = syncStatus.last_sync ? Date.now() - new Date(syncStatus.last_sync).getTime() : 0;
+    const rate = syncStatus.records_processed / (elapsed / 1000); // cards per second
+    const remaining = syncStatus.total_records - syncStatus.records_processed;
+    const estimatedSeconds = remaining / rate;
+    
+    if (estimatedSeconds < 60) return `${Math.round(estimatedSeconds)}s`;
+    if (estimatedSeconds < 3600) return `${Math.round(estimatedSeconds / 60)}m`;
+    return `${Math.round(estimatedSeconds / 3600)}h`;
   };
 
   if (isLoading) {
@@ -453,6 +475,59 @@ const SyncDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Step Progress Indicator */}
+      {syncStatus && (syncStatus.status === 'running' || syncStatus.status === 'completed') && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="h-5 w-5 mr-2 text-blue-500" />
+              Sync Process Steps
+            </CardTitle>
+            <CardDescription>
+              Track the progress of each sync stage
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {getSyncSteps().map((step, index) => (
+                <div key={step.id} className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    step.status === 'completed' ? 'bg-green-100 text-green-600' :
+                    step.status === 'current' ? 'bg-blue-100 text-blue-600' :
+                    'bg-gray-100 text-gray-400'
+                  }`}>
+                    {step.status === 'completed' ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : step.status === 'current' ? (
+                      <Activity className="h-4 w-4 animate-pulse" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium ${step.status === 'current' ? 'text-blue-600' : ''}`}>
+                      {step.name}
+                    </p>
+                    {step.status === 'current' && step.id === 'download' && syncStatus.total_records > 0 && (
+                      <div className="mt-1">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>{syncStatus.records_processed.toLocaleString()} / {syncStatus.total_records.toLocaleString()}</span>
+                          <span>{getEstimatedTimeRemaining() && `~${getEstimatedTimeRemaining()} remaining`}</span>
+                        </div>
+                        <Progress value={calculateProgress()} className="h-2" />
+                      </div>
+                    )}
+                  </div>
+                  {index < getSyncSteps().length - 1 && (
+                    <div className={`w-px h-8 ${step.status === 'completed' ? 'bg-green-200' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Progress Bar */}
       {syncStatus && syncStatus.status === 'running' && (

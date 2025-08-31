@@ -37,8 +37,8 @@ interface ScryfallCard {
   faces?: any[];
 }
 
-async function updateSyncStatus(id: string, status: string, error?: string, processed?: number, total?: number) {
-  console.log(`📊 Updating sync status: ${status}, processed: ${processed}, total: ${total}, error: ${error}`);
+async function updateSyncStatus(id: string, status: string, error?: string, processed?: number, total?: number, currentStep?: string, stepProgress?: number) {
+  console.log(`📊 Updating sync status: ${status}, processed: ${processed}, total: ${total}, step: ${currentStep}, error: ${error}`);
   
   try {
     const updateData: any = { 
@@ -49,6 +49,8 @@ async function updateSyncStatus(id: string, status: string, error?: string, proc
     if (error) updateData.error_message = error;
     if (processed !== undefined) updateData.records_processed = processed;
     if (total !== undefined) updateData.total_records = total;
+    if (currentStep) updateData.current_step = currentStep;
+    if (stepProgress !== undefined) updateData.step_progress = stepProgress;
 
     // Use upsert to handle both insert and update cases
     const { error: updateError } = await supabase
@@ -155,11 +157,11 @@ async function syncCards(): Promise<void> {
   
   try {
     console.log('📝 Updating initial sync status...');
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'init', 0);
     console.log('✅ Initial status update complete');
     
-    // Get bulk data info from Scryfall
     console.log('🌐 Fetching bulk data info from Scryfall...');
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'fetch', 1);
     const bulkResponse = await fetchWithRetry('https://api.scryfall.com/bulk-data');
     
     if (!bulkResponse.ok) {
@@ -182,6 +184,7 @@ async function syncCards(): Promise<void> {
 
     // Pre-calculate total by doing a quick count pass
     console.log('📊 Pre-calculating total card count...');
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'count', 2);
     const countResponse = await fetchWithRetry(oracleCards.download_uri);
     if (!countResponse.ok || !countResponse.body) {
       throw new Error(`Count fetch failed: ${countResponse.status}`);
@@ -221,7 +224,7 @@ async function syncCards(): Promise<void> {
     }
     
     console.log(`🔢 Estimated total cards: ${estimatedTotal}`);
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal, 'download', 3);
     
     // Start streaming download
     console.log('⬇️ Starting Oracle Cards download...');
@@ -303,7 +306,7 @@ async function syncCards(): Promise<void> {
               currentBatch = [];
               
                               // Update progress frequently for live updates
-                              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal);
+                              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal, 'download', 3);
               
               // Small delay to prevent overwhelming
               await delay(25);
@@ -327,7 +330,7 @@ async function syncCards(): Promise<void> {
     }
     
     console.log(`✅ Oracle Cards sync completed: ${validCardCount} cards processed`);
-    await updateSyncStatus('scryfall_cards', 'completed', null, validCardCount, validCardCount);
+    await updateSyncStatus('scryfall_cards', 'completed', null, validCardCount, validCardCount, 'complete', 4);
     
   } catch (error) {
     console.error('❌ Sync failed:', error);

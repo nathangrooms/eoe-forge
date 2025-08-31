@@ -23,7 +23,6 @@ import { useAutoCapture } from './useAutoCapture';
 import { useScanStore, type ScannedCard } from './store';
 import { cropTitleBand, preprocessForOCR, resizeForOCR } from './image';
 import { recognizeCardName } from './ocrWorker';
-import { enhancedOCR } from './enhancedOCR';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { logActivity } from '@/features/dashboard/hooks';
 
@@ -80,33 +79,19 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
       const processedData = preprocessForOCR(croppedData);
       const resizedData = resizeForOCR(processedData);
 
-      // Try enhanced OCR first, fall back to tesseract if needed
-      let ocrResult;
-      try {
-        console.log('Attempting enhanced OCR...');
-        ocrResult = await enhancedOCR(resizedData);
-        console.log('Enhanced OCR result:', ocrResult);
-      } catch (error) {
-        console.log('Enhanced OCR failed, falling back to Tesseract...');
-        ocrResult = await recognizeCardName(resizedData);
-      }
-      
-      const { text, confidence } = ocrResult;
+      // Perform OCR with improved settings
+      const { text, confidence } = await recognizeCardName(resizedData);
       setLastOCR(text, confidence);
 
       console.log('OCR Result:', { text, confidence });
 
-      if (confidence < 0.4) { // Adjusted threshold for enhanced OCR
+      if (confidence < 0.3) { // Back to original threshold
         // Only show error if more than 3 seconds since last error to reduce spam
         const now = Date.now();
         if (now - lastErrorTime > 3000) {
           setLastErrorTime(now);
-          // Show more helpful error messages
           if (!settings.autoCapture) {
-            const errorMsg = confidence === 0 
-              ? 'Could not read any text. Try better lighting or manual search below.'
-              : 'Text unclear. Try adjusting angle or use manual search below.';
-            setErrorMessage(errorMsg);
+            setErrorMessage('Could not read card name clearly. Try adjusting lighting or angle.');
             setTimeout(() => setErrorMessage(null), 3000);
           }
         }

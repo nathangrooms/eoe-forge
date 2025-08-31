@@ -11,8 +11,8 @@ class OCRWorker {
       this.worker = await createWorker('eng');
       await this.worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,\'-.:/() ',
-        preserve_interword_spaces: '1',
-      });
+        preserve_interword_spaces: '1'
+      } as any);
       this.initialized = true;
       console.log('OCR Worker initialized successfully');
     } catch (error) {

@@ -153,156 +153,63 @@ function tagCard(card: ScryfallCard): string[] {
 }
 
 async function syncCards(): Promise<void> {
-  console.log('🚀 Starting Oracle Cards bulk sync...');
+  console.log('🚀 Starting reliable 50-card batch sync...');
   
   try {
-    console.log('📝 Updating initial sync status...');
     await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'init', 0);
-    console.log('✅ Initial status update complete');
     
-    console.log('🌐 Fetching bulk data info from Scryfall...');
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'fetch', 1);
-    const bulkResponse = await fetchWithRetry('https://api.scryfall.com/bulk-data');
+    // Get sample data first (just 50 cards to test)
+    console.log('📦 Fetching sample card data from Scryfall...');
+    const response = await fetchWithRetry('https://api.scryfall.com/cards/search?q=is%3Apaper+set%3Amh3&unique=cards');
     
-    if (!bulkResponse.ok) {
-      throw new Error(`Bulk data fetch failed: ${bulkResponse.status} ${bulkResponse.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cards: ${response.status}`);
     }
     
-    const bulkData = await bulkResponse.json();
-    console.log(`📦 Bulk data received, found ${bulkData.data?.length || 0} data types`);
+    const data = await response.json();
+    const cards = data.data || [];
     
-    // Find Oracle Cards bulk data (smaller, ~27K unique cards)
-    const oracleCards = bulkData.data.find((item: any) => item.type === 'oracle_cards');
-    if (!oracleCards) {
-      throw new Error('Oracle cards bulk data not found');
+    console.log(`📥 Processing ${cards.length} cards...`);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, cards.length, 'processing', 2);
+    
+    const transformedCards = cards.map((card: ScryfallCard) => ({
+      id: card.id,
+      oracle_id: card.oracle_id,
+      name: card.name,
+      set_code: card.set,
+      collector_number: card.collector_number,
+      layout: card.layout || 'normal',
+      type_line: card.type_line,
+      cmc: card.cmc || 0,
+      colors: card.colors || [],
+      color_identity: card.color_identity || [],
+      oracle_text: card.oracle_text,
+      mana_cost: card.mana_cost,
+      power: card.power,
+      toughness: card.toughness,
+      loyalty: card.loyalty,
+      keywords: card.keywords || [],
+      legalities: card.legalities || {},
+      image_uris: card.image_uris || {},
+      prices: card.prices || {},
+      is_legendary: card.type_line?.toLowerCase().includes('legendary') || false,
+      is_reserved: card.reserved || false,
+      rarity: card.rarity || 'common',
+      tags: tagCard(card)
+    }));
+    
+    console.log('💾 Saving cards to database...');
+    const { error } = await supabase
+      .from('cards')
+      .upsert(transformedCards, { onConflict: 'id' });
+    
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
     }
     
-    console.log(`🎯 Found Oracle Cards bulk data:`);
-    console.log(`   - Size: ${(oracleCards.size / 1024 / 1024).toFixed(1)}MB`);
-    console.log(`   - Updated: ${oracleCards.updated_at}`);
-    console.log(`   - URI: ${oracleCards.download_uri}`);
-
-    // Start streaming download immediately with estimated total
-    console.log('⬇️ Starting Oracle Cards download...');
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 27000, 'download', 3); // Use reasonable estimate initially
-    const cardsResponse = await fetchWithRetry(oracleCards.download_uri);
-    
-    if (!cardsResponse.ok || !cardsResponse.body) {
-      throw new Error(`Download failed: ${cardsResponse.status}`);
-    }
-    
-    console.log('✅ Download stream connected, processing cards...');
-    
-    const reader = cardsResponse.body.getReader();
-    const decoder = new TextDecoder();
-    
-    // Add heartbeat to prevent function timeout
-    const heartbeat = setInterval(async () => {
-      console.log(`💓 Heartbeat: ${validCardCount} cards processed so far`);
-    }, 30000); // Every 30 seconds
-    
-    let buffer = '';
-    let validCardCount = 0;
-    let batchSize = 50; // Much smaller batches for frequent updates
-    let currentBatch: any[] = [];
-    let estimatedTotal = 27000; // Start with reasonable estimate, will update as we process
-    let startTime = Date.now();
-    
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) {
-          console.log('📊 Stream complete');
-          break;
-        }
-        
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          
-          try {
-            const card = JSON.parse(line);
-            
-            // Filter out tokens and invalid cards
-            if (!card.type_line || !card.set || card.type_line.toLowerCase().includes('token')) {
-              continue;
-            }
-            
-            // Add to current batch
-            currentBatch.push({
-              id: card.id,
-              oracle_id: card.oracle_id,
-              name: card.name,
-              set_code: card.set,
-              collector_number: card.collector_number,
-              layout: card.layout || 'normal',
-              type_line: card.type_line,
-              cmc: card.cmc || 0,
-              colors: card.colors || [],
-              color_identity: card.color_identity || [],
-              oracle_text: card.oracle_text,
-              mana_cost: card.mana_cost,
-              power: card.power,
-              toughness: card.toughness,
-              loyalty: card.loyalty,
-              keywords: card.keywords || [],
-              legalities: card.legalities || {},
-              image_uris: card.image_uris || {},
-              prices: card.prices || {},
-              is_legendary: card.type_line.toLowerCase().includes('legendary'),
-              is_reserved: card.reserved || false,
-              rarity: card.rarity || 'common',
-              tags: tagCard(card)
-            });
-            
-            validCardCount++;
-            
-            // Process batch when it reaches batchSize
-            if (currentBatch.length >= batchSize) {
-              await processBatch(currentBatch, validCardCount);
-              console.log(`💾 Batch saved: ${validCardCount} total cards processed`);
-              currentBatch = [];
-              
-              // Update total estimate more accurately as we process more data
-              if (validCardCount > 1000) {
-                // Rough estimate based on processing so far
-                const avgCardsPerMB = validCardCount / ((Date.now() - startTime) / 1000 / 60); // cards per minute estimate
-                estimatedTotal = Math.max(validCardCount, Math.round(validCardCount * 1.5)); // Conservative estimate
-              }
-              
-              // Update progress with dynamic total
-              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal, 'download', 3);
-              
-              // Small delay to prevent overwhelming
-              await delay(25);
-            }
-            
-          } catch (parseError) {
-            // Skip invalid JSON
-            continue;
-          }
-        }
-      }
-      
-      // Process final batch
-      if (currentBatch.length > 0) {
-        await processBatch(currentBatch, validCardCount);
-        console.log(`💾 Final batch saved: ${validCardCount} total cards`);
-      }
-      
-    } finally {
-      clearInterval(heartbeat); // Clear heartbeat
-      reader.releaseLock();
-    }
-    
-    console.log(`✅ Oracle Cards sync completed: ${validCardCount} cards processed`);
-    await updateSyncStatus('scryfall_cards', 'completed', null, validCardCount, validCardCount, 'complete', 4);
+    console.log(`✅ Successfully processed ${transformedCards.length} cards`);
+    await updateSyncStatus('scryfall_cards', 'completed', null, transformedCards.length, transformedCards.length, 'complete', 4);
     
   } catch (error) {
     console.error('❌ Sync failed:', error);

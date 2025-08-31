@@ -38,8 +38,14 @@ interface WishlistItem {
     set_code: string;
     type_line: string;
     colors: string[];
+    color_identity?: string[];
     rarity: string;
     cmc?: number;
+    mana_cost?: string;
+    oracle_text?: string;
+    power?: string;
+    toughness?: string;
+    keywords?: string[];
     prices?: {
       usd?: string;
       usd_foil?: string;
@@ -85,14 +91,41 @@ export default function Wishlist() {
 
     try {
       setLoading(true);
+      // Join wishlist with cards table to get complete card information
       const { data, error } = await (supabase as any)
         .from('wishlist')
-        .select('*')
+        .select(`
+          *,
+          card:cards!inner(
+            id,
+            name,
+            type_line,
+            colors,
+            color_identity,
+            rarity,
+            cmc,
+            mana_cost,
+            oracle_text,
+            power,
+            toughness,
+            image_uris,
+            prices,
+            set_code,
+            keywords
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setWishlistItems(data || []);
+      
+      // Transform the data to flatten the card information
+      const transformedData = (data || []).map((item: any) => ({
+        ...item,
+        card: item.card
+      }));
+      
+      setWishlistItems(transformedData);
     } catch (error) {
       console.error('Error loading wishlist:', error);
       showError('Failed to load wishlist');
@@ -298,10 +331,16 @@ export default function Wishlist() {
 
   const getWishlistForDeck = (deck: UserDeck) => {
     return wishlistItems.filter(item => {
-      if (!item.card?.colors) return deck.colors.length === 0;
+      // Use color_identity from the card data for better deck compatibility
+      const cardColors = item.card?.color_identity || item.card?.colors || [];
       
-      // Check if card colors are compatible with deck colors
-      return item.card.colors.every(color => deck.colors.includes(color));
+      // If deck has no colors (colorless), only include colorless cards
+      if (deck.colors.length === 0) {
+        return cardColors.length === 0;
+      }
+      
+      // Check if all card colors are contained within the deck's color identity
+      return cardColors.every(color => deck.colors.includes(color));
     });
   };
 
@@ -316,14 +355,21 @@ export default function Wishlist() {
   // Convert wishlist items to card format for UniversalCardDisplay
   const formatWishlistItemsAsCards = (items: WishlistItem[]) => {
     return items.map(item => ({
-      id: item.card_id,
-      name: item.card_name,
+      // Use the full card data from the join
       ...item.card,
+      id: item.card?.id || item.card_id,
+      name: item.card?.name || item.card_name,
       // Add wishlist-specific metadata
       wishlistQuantity: item.quantity,
       wishlistPriority: item.priority,
       wishlistNote: item.note,
-      wishlistId: item.id
+      wishlistId: item.id,
+      // Ensure we have the required fields
+      type_line: item.card?.type_line || 'Unknown',
+      colors: item.card?.colors || [],
+      rarity: item.card?.rarity || 'common',
+      image_uris: item.card?.image_uris || {},
+      prices: item.card?.prices || {}
     }));
   };
 

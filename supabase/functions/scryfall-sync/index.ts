@@ -395,29 +395,27 @@ serve(async (req) => {
         }
       }
       
-      console.log('🚀 Starting background sync task');
+      console.log('🚀 Starting sync in foreground for better reliability');
       
-      // Use proper background task management
-      const syncPromise = syncCards();
-      
-      // Handle background task completion/failure
-      syncPromise.catch(async (syncError) => {
-        console.error('💥 Background sync failed:', syncError);
+      // Run sync in foreground to ensure it completes
+      try {
+        await syncCards();
+        return new Response(
+          JSON.stringify({ 
+            message: 'Card sync completed successfully', 
+            timestamp: new Date().toISOString(),
+            status: 'completed'
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200 
+          }
+        );
+      } catch (syncError) {
+        console.error('💥 Sync failed:', syncError);
         await updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${syncError.message}`);
-      });
-      
-      console.log('✅ Sync task started in background');
-      return new Response(
-        JSON.stringify({ 
-          message: 'Card sync started successfully', 
-          timestamp: new Date().toISOString(),
-          status: 'started'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
+        throw syncError;
+      }
     }
     
     if (action === 'stop') {

@@ -196,6 +196,11 @@ async function syncCards(): Promise<void> {
     const reader = cardsResponse.body.getReader();
     const decoder = new TextDecoder();
     
+    // Add heartbeat to prevent function timeout
+    const heartbeat = setInterval(async () => {
+      console.log(`💓 Heartbeat: ${validCardCount} cards processed so far`);
+    }, 30000); // Every 30 seconds
+    
     let buffer = '';
     let validCardCount = 0;
     let batchSize = 50; // Much smaller batches for frequent updates
@@ -292,6 +297,7 @@ async function syncCards(): Promise<void> {
       }
       
     } finally {
+      clearInterval(heartbeat); // Clear heartbeat
       reader.releaseLock();
     }
     
@@ -391,8 +397,11 @@ serve(async (req) => {
       
       console.log('🚀 Starting background sync task');
       
-      // Start sync as background task to avoid timeout
-      syncCards().catch(async (syncError) => {
+      // Use proper background task management
+      const syncPromise = syncCards();
+      
+      // Handle background task completion/failure
+      syncPromise.catch(async (syncError) => {
         console.error('💥 Background sync failed:', syncError);
         await updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${syncError.message}`);
       });

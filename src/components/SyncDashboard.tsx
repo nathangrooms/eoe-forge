@@ -267,14 +267,16 @@ const SyncDashboard = () => {
     loadSyncStatus();
   }, []);
 
-  // Fixed polling effect - no dependency on syncStatus to prevent refresh loops
+  // Smart polling that only runs when needed and stops refresh loops
   useEffect(() => {
+    if (!syncStatus || syncStatus.status !== 'running') return;
+    
     const interval = setInterval(() => {
       loadSyncStatus();
-    }, 3000); // 3 second polls
+    }, 5000); // 5 second polls only when running
 
     return () => clearInterval(interval);
-  }, []); // Empty dependency array - no infinite loops!
+  }, [syncStatus?.status]); // Only depend on status change, not the whole object
 
   const getStatusIcon = (status: string) => {
     switch (status) {

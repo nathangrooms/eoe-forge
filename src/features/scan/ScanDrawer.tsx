@@ -97,21 +97,29 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
         return;
       }
 
-      // Clean up the OCR text for better matching
+      // Clean up the OCR text more aggressively for card names
       const cleanedText = text
         .replace(/[^\w\s,'-]/g, ' ') // Remove special chars except common ones
         .replace(/\s+/g, ' ') // Normalize spaces
+        .replace(/\b(the|a|an|of|and|or)\b/gi, ' ') // Remove common words that OCR adds
+        .replace(/\b\d+\b/g, ' ') // Remove standalone numbers (often mana costs)
         .trim();
 
-      console.log('Cleaned text:', cleanedText); // Debug logging
+      console.log('OCR Result:', { text, confidence, cleanedText }); // Debug logging
       
-      if (cleanedText.length < 2) {
-        console.log('Text too short, skipping match');
+      if (cleanedText.length < 3) {
+        console.log('Cleaned text too short, skipping match');
         return;
       }
 
+      // Split into words and try the longest meaningful combination
+      const words = cleanedText.split(/\s+/).filter(word => word.length > 2);
+      const searchText = words.slice(0, 4).join(' '); // Use first 4 meaningful words
+
+      console.log('Final search text:', searchText); // Debug logging
+
       // Match against database
-      await matchCardName(cleanedText, confidence);
+      await matchCardName(searchText, confidence);
 
     } catch (error) {
       console.error('Scan error:', error);

@@ -44,11 +44,14 @@ serve(async (req) => {
 
     console.log('Searching for card:', normalizedText);
 
-    // Search cards using ILIKE for pattern matching
+    // Search cards using escaped ILIKE for pattern matching
+    const escapedText = normalizedText.replace(/[%_\\]/g, '\\$&');
+    const originalEscaped = text.trim().replace(/[%_\\]/g, '\\$&');
+    
     const { data: cards, error } = await supabase
       .from('cards')
       .select('id, oracle_id, name, set_code, image_uris, prices, rarity')
-      .or(`name.ilike.%${normalizedText}%,name.ilike.%${text.trim()}%`)
+      .or(`name.ilike.%${escapedText}%,name.ilike.%${originalEscaped}%`)
       .limit(20);
 
     if (error) {

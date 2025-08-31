@@ -1,29 +1,36 @@
-// Crop the title band area (top 20% of frame)
+// Crop the title band area (focused on card name only)
 export function cropTitleBand(imageData: ImageData): ImageData {
   const { width, height, data } = imageData;
-  const cropHeight = Math.floor(height * 0.22); // Top 22% for title band
-  const cropY = Math.floor(height * 0.05); // Start slightly below top to avoid borders
+  
+  // Much more focused crop - just the top title area where card names appear
+  const cropHeight = Math.floor(height * 0.12); // Only top 12% for title
+  const cropY = Math.floor(height * 0.08); // Start a bit lower to avoid border
+  const cropX = Math.floor(width * 0.05); // Crop sides to avoid border
+  const cropWidth = Math.floor(width * 0.9); // 90% width to avoid edges
   
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
   if (!ctx) throw new Error('Could not get canvas context');
   
-  canvas.width = width;
+  canvas.width = cropWidth;
   canvas.height = cropHeight;
   
   // Create new ImageData for cropped region
-  const croppedData = ctx.createImageData(width, cropHeight);
+  const croppedData = ctx.createImageData(cropWidth, cropHeight);
   
   for (let y = 0; y < cropHeight; y++) {
-    for (let x = 0; x < width; x++) {
-      const sourceIndex = ((y + cropY) * width + x) * 4;
-      const targetIndex = (y * width + x) * 4;
+    for (let x = 0; x < cropWidth; x++) {
+      const sourceIndex = ((y + cropY) * width + (x + cropX)) * 4;
+      const targetIndex = (y * cropWidth + x) * 4;
       
-      croppedData.data[targetIndex] = data[sourceIndex];     // R
-      croppedData.data[targetIndex + 1] = data[sourceIndex + 1]; // G
-      croppedData.data[targetIndex + 2] = data[sourceIndex + 2]; // B
-      croppedData.data[targetIndex + 3] = data[sourceIndex + 3]; // A
+      // Ensure we don't go out of bounds
+      if (sourceIndex + 3 < data.length) {
+        croppedData.data[targetIndex] = data[sourceIndex];     // R
+        croppedData.data[targetIndex + 1] = data[sourceIndex + 1]; // G
+        croppedData.data[targetIndex + 2] = data[sourceIndex + 2]; // B
+        croppedData.data[targetIndex + 3] = data[sourceIndex + 3]; // A
+      }
     }
   }
   

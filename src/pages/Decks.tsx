@@ -490,12 +490,9 @@ export default function Decks() {
       }
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="my-decks">My Decks</TabsTrigger>
-          <TabsTrigger value="deck-editor">Editor</TabsTrigger>
           <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="import-export">Import/Export</TabsTrigger>
           <TabsTrigger value="ai-builder">AI Builder</TabsTrigger>
         </TabsList>
 
@@ -540,7 +537,7 @@ export default function Decks() {
                   powerLevel={deckData.powerLevel}
                   lastModified={deckData.lastModified}
                   description={deckData.description}
-                  onEdit={() => loadDeck(deckData)}
+                  onEdit={() => window.location.href = '/deck-builder'}
                   onDelete={() => deleteDeck(deckData.id)}
                   onDuplicate={() => duplicateDeck(deckData)}
                   onView={() => {
@@ -570,61 +567,9 @@ export default function Decks() {
           )}
         </TabsContent>
 
-        {/* Deck Editor Tab */}
-        <TabsContent value="deck-editor" className="space-y-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-              <ModernDeckList />
-            </div>
-            <div className="space-y-6">
-              <PowerSliderCoaching
-                currentPower={deck.powerLevel}
-                onPowerChange={(power) => deck.setPowerLevel(power)}
-                onApplyChanges={(power) => {
-                  deck.setPowerLevel(power);
-                  toast({
-                    title: "Power Level Updated",
-                    description: `Deck power level set to ${power.toFixed(1)}`,
-                  });
-                }}
-              />
-              <LandEnhancerUX />
-            </div>
-          </div>
-        </TabsContent>
-
         {/* Analysis Tab */}
         <TabsContent value="analysis" className="space-y-6">
           <EnhancedAnalysisPanel />
-        </TabsContent>
-
-        {/* Templates Tab */}
-        <TabsContent value="templates" className="space-y-6">
-          <ArchetypeLibrary
-            currentFormat={deck.format || 'standard'}
-            currentDeck={deck.cards}
-            onApplyTemplate={(template) => {
-              toast({
-                title: "Template Applied",
-                description: `Applied ${template.name} archetype template`,
-              });
-            }}
-          />
-        </TabsContent>
-
-        {/* Import/Export Tab */}
-        <TabsContent value="import-export" className="space-y-6">
-          <DeckImportExport
-            currentDeck={deck.cards}
-            onImportDeck={(cards) => {
-              deck.clearDeck();
-              cards.forEach(card => deck.addCard(card));
-              toast({
-                title: "Deck Imported",
-                description: `Imported ${cards.length} cards`,
-              });
-            }}
-          />
         </TabsContent>
 
         {/* AI Builder Tab */}

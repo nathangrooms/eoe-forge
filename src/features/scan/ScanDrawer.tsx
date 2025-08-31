@@ -68,18 +68,30 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
     if (processing) return;
 
     const frameData = imageData || captureFrame();
-    if (!frameData) return;
+    if (!frameData) {
+      console.log('No frame data captured');
+      return;
+    }
 
+    console.log('Starting scan process with frame data:', frameData.width, 'x', frameData.height);
     setProcessing(true);
     setCurrentFrame(frameData);
 
     try {
       // Crop and preprocess the image
+      console.log('Cropping title band...');
       const croppedData = cropTitleBand(frameData);
+      console.log('Cropped data:', croppedData.width, 'x', croppedData.height);
+      
+      console.log('Preprocessing for OCR...');
       const processedData = preprocessForOCR(croppedData);
+      
+      console.log('Resizing for OCR...');
       const resizedData = resizeForOCR(processedData);
+      console.log('Resized data:', resizedData.width, 'x', resizedData.height);
 
       // Perform OCR with improved settings
+      console.log('Starting OCR recognition...');
       const { text, confidence } = await recognizeCardName(resizedData);
       setLastOCR(text, confidence);
 

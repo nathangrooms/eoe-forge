@@ -153,25 +153,24 @@ function tagCard(card: ScryfallCard): string[] {
 }
 
 async function syncCards(): Promise<void> {
-  console.log('🚀 Starting 50-card batch sync (proven working method)...');
+  console.log('🚀 Starting full card sync - fetching all available cards...');
   
   try {
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 5000, 'init', 1);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'init', 1);
     
     let totalProcessed = 0;
     let page = 1;
-    const maxCards = 5000; // Hard cap like before
     const batchSize = 50;
     
-    while (totalProcessed < maxCards) {
-      console.log(`📦 Fetching page ${page} (processed: ${totalProcessed}/${maxCards})...`);
+    while (true) {
+      console.log(`📦 Fetching page ${page} (processed: ${totalProcessed} cards)...`);
       
       // Use a broad search that returns many cards
       const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=is%3Apaper+-is%3Adigital&unique=cards&page=${page}`);
       
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('📊 No more pages available');
+          console.log('📊 No more pages available - sync complete');
           break;
         }
         throw new Error(`Failed to fetch page ${page}: ${response.status}`);
@@ -181,7 +180,7 @@ async function syncCards(): Promise<void> {
       const cards = data.data || [];
       
       if (cards.length === 0) {
-        console.log('📊 No more cards to process');
+        console.log('📊 No more cards to process - sync complete');
         break;
       }
       
@@ -227,15 +226,9 @@ async function syncCards(): Promise<void> {
       
       totalProcessed += transformedCards.length;
       
-      // Update progress
-      await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, maxCards, 'processing', 2);
-      console.log(`✅ Processed ${totalProcessed}/${maxCards} cards`);
-      
-      // Check if we've hit our limit
-      if (totalProcessed >= maxCards) {
-        console.log(`🎯 Reached maximum card limit of ${maxCards}`);
-        break;
-      }
+      // Update progress (no total limit now)
+      await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, null, 'processing', 2);
+      console.log(`✅ Processed ${totalProcessed} cards so far`);
       
       page++;
       

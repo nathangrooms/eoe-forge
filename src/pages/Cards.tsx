@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { showSuccess } from '@/components/ui/toast-helpers';
@@ -46,26 +46,20 @@ export default function Cards() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6">
-        <StandardSectionHeader
-          title="Card Database"
-          description="Search through every Magic: The Gathering card ever printed with universal MTG search"
-        />
-        
-        <div className="mt-6">
-          <UniversalCardSearch
-            onCardAdd={addToCollection}
-            onCardSelect={(card) => console.log('Selected:', card)}
-            placeholder="Search Magic: The Gathering cards..."
-            showFilters={true}
-            showAddButton={true}
-            showWishlistButton={true}
-            showViewModes={true}
-            initialQuery={initialQuery}
-          />
-        </div>
-      </div>
-    </div>
+    <StandardPageLayout
+      title="Card Database"
+      description="Search through every Magic: The Gathering card ever printed with universal MTG search"
+    >
+      <UniversalCardSearch
+        onCardAdd={addToCollection}
+        onCardSelect={(card) => console.log('Selected:', card)}
+        placeholder="Search Magic: The Gathering cards..."
+        showFilters={true}
+        showAddButton={true}
+        showWishlistButton={true}
+        showViewModes={true}
+        initialQuery={initialQuery}
+      />
+    </StandardPageLayout>
   );
 }

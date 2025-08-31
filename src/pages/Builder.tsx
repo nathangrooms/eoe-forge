@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -9,8 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Plus,
   BarChart3,
-  History,
-  Share,
   Download,
   Play
 } from 'lucide-react';
@@ -37,26 +35,22 @@ export default function Builder() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6">
-        <StandardSectionHeader
-          title="Deck Builder"
-          description="Build and optimize your Magic: The Gathering decks"
-          action={
-            <div className="flex items-center space-x-4">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button>
-                <Play className="h-4 w-4 mr-2" />
-                Playtest
-              </Button>
-            </div>
-          }
-        />
-      
-        <div className="flex h-[calc(100vh-10rem)] gap-6">
+    <StandardPageLayout
+      title="Deck Builder"
+      description="Build and optimize your Magic: The Gathering decks"
+      action={
+        <div className="flex items-center space-x-4">
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button>
+            <Play className="h-4 w-4 mr-2" />
+            Playtest
+          </Button>
+        </div>
+      }
+    >
         {/* Left Panel - Card Search & Filters */}
         <div className="w-80 border-r bg-background/95 flex flex-col">
           <div className="p-4 border-b">
@@ -93,11 +87,11 @@ export default function Builder() {
               
               <div className="flex items-center space-x-2">
                 <Button variant="outline" size="sm">
-                  <History className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-2" />
                   History
                 </Button>
                 <Button variant="outline" size="sm">
-                  <Share className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-2" />
                   Share
                 </Button>
                 <Button variant="outline" size="sm">
@@ -446,8 +440,6 @@ export default function Builder() {
             </Button>
           </div>
         </div>
-        </div>
-      </div>
-    </div>
+    </StandardPageLayout>
   );
 }

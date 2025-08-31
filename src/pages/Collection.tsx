@@ -4,15 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Heart,
-  Crown
-} from 'lucide-react';
+import { Heart, Crown } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionInventory } from '@/features/collection/CollectionInventory';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import { BulkOperations } from '@/components/collection/BulkOperations';
-import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -156,32 +153,28 @@ export default function Collection() {
   }
 
   return (
-    <div className="min-h-screen">
-      <StandardSectionHeader
-        title="Collection Manager"
-        description="Manage your Magic: The Gathering collection with universal MTG card support"
-        action={
-          <div className="flex items-center space-x-6">
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Total Value</div>
-              <div className="text-lg font-bold text-green-600">
-                ${stats.totalValue.toLocaleString()}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Total Cards</div>
-              <div className="text-lg font-bold">{stats.totalCards.toLocaleString()}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Unique Cards</div>
-              <div className="text-lg font-bold">{stats.uniqueCards.toLocaleString()}</div>
+    <StandardPageLayout
+      title="Collection Manager"
+      description="Manage your Magic: The Gathering collection with universal MTG card support"
+      action={
+        <div className="flex items-center space-x-6">
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">Total Value</div>
+            <div className="text-lg font-bold text-green-600">
+              ${stats.totalValue.toLocaleString()}
             </div>
           </div>
-        }
-      />
-
-      {/* Main Content */}
-      <div className="p-6">
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">Total Cards</div>
+            <div className="text-lg font-bold">{stats.totalCards.toLocaleString()}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">Unique Cards</div>
+            <div className="text-lg font-bold">{stats.uniqueCards.toLocaleString()}</div>
+          </div>
+        </div>
+      }
+    >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="collection">Collection</TabsTrigger>
@@ -276,7 +269,6 @@ export default function Collection() {
           />
         </TabsContent>
         </Tabs>
-      </div>
-    </div>
+    </StandardPageLayout>
   );
 }

@@ -30,7 +30,8 @@ import {
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { useCollectionStore } from '@/stores/collectionStore';
-import { StandardDeckTile, StandardSectionHeader } from '@/components/ui/standardized-components';
+import { StandardDeckTile } from '@/components/ui/standardized-components';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { EnhancedAnalysisPanel } from '@/components/deck-builder/EnhancedAnalysisPanel';
@@ -400,55 +401,52 @@ export default function Decks() {
   };
 
   return (
-    <div className="p-6">
-      <StandardSectionHeader
-        title="Deck Manager"
-        description="Create, analyze, and optimize your Magic: The Gathering decks"
-        action={
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Deck
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Deck</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="deck-name">Deck Name</Label>
-                  <Input
-                    id="deck-name"
-                    value={newDeckName}
-                    onChange={(e) => setNewDeckName(e.target.value)}
-                    placeholder="Enter deck name..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="deck-format">Format</Label>
-                  <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="commander">Commander</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={createDeck} className="w-full">
-                  Create Deck
-                </Button>
+    <StandardPageLayout
+      title="Deck Manager"
+      description="Create, analyze, and optimize your Magic: The Gathering decks"
+      action={
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Deck
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Deck</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="deck-name">Deck Name</Label>
+                <Input
+                  id="deck-name"
+                  value={newDeckName}
+                  onChange={(e) => setNewDeckName(e.target.value)}
+                  placeholder="Enter deck name..."
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-        }
-      />
-
-      {/* Main Content */}
+              <div>
+                <Label htmlFor="deck-format">Format</Label>
+                <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="commander">Commander</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={createDeck} className="w-full">
+                Create Deck
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      }
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="my-decks">My Decks</TabsTrigger>
@@ -730,6 +728,6 @@ export default function Decks() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </StandardPageLayout>
   );
 }

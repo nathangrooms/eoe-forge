@@ -63,11 +63,13 @@ function AppContent() {
       
       {/* Main Layout with Left Nav + Content */}
       <div className="flex">
-        {/* Left Navigation */}
-        <LeftNavigation />
+        {/* Left Navigation - Hidden on mobile, overlay on tablet */}
+        <div className="hidden md:block">
+          <LeftNavigation />
+        </div>
         
         {/* Main Content Area */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)]">
+        <main className="flex-1 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-4rem)] w-full md:w-auto overflow-x-hidden">
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

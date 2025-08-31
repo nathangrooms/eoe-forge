@@ -220,26 +220,28 @@ export default function Collection() {
       title="Collection Manager"
       description="Manage your Magic: The Gathering collection with universal MTG card support"
       action={
-        <div className="flex items-center space-x-6">
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Value</div>
-            <div className="text-lg font-bold text-green-600">
-              ${stats.totalValue.toLocaleString()}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-6">
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:space-x-6 w-full sm:w-auto">
+            <div className="text-center sm:text-right">
+              <div className="text-xs sm:text-sm text-muted-foreground">Total Value</div>
+              <div className="text-sm sm:text-lg font-bold text-green-600">
+                ${stats.totalValue.toLocaleString()}
+              </div>
             </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Cards</div>
-            <div className="text-lg font-bold">{stats.totalCards.toLocaleString()}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">Unique Cards</div>
-            <div className="text-lg font-bold">{stats.uniqueCards.toLocaleString()}</div>
+            <div className="text-center sm:text-right">
+              <div className="text-xs sm:text-sm text-muted-foreground">Total Cards</div>
+              <div className="text-sm sm:text-lg font-bold">{stats.totalCards.toLocaleString()}</div>
+            </div>
+            <div className="text-center sm:text-right">
+              <div className="text-xs sm:text-sm text-muted-foreground">Unique Cards</div>
+              <div className="text-sm sm:text-lg font-bold">{stats.uniqueCards.toLocaleString()}</div>
+            </div>
           </div>
         </div>
       }
     >
-        <Tabs value={currentTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs value={currentTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger 
               value="collection" 
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"

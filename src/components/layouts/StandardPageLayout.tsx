@@ -18,14 +18,14 @@ export function StandardPageLayout({
 }: StandardPageLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
+      <div className="container mx-auto px-3 md:px-6 py-4 md:py-8 max-w-7xl">
         <StandardSectionHeader
           title={title}
           description={description}
           action={action}
         />
         
-        <div className={`mt-8 ${className}`}>
+        <div className={`mt-4 md:mt-8 ${className}`}>
           {children}
         </div>
       </div>

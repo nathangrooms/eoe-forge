@@ -66,7 +66,7 @@ export function TopNavigation() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="w-full flex h-20 items-center justify-between px-6">
+      <div className="w-full flex h-16 md:h-20 items-center justify-between px-3 md:px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div 
@@ -76,13 +76,13 @@ export function TopNavigation() {
             <img 
               src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
               alt="DECKMATRIX"
-              className="h-20 w-auto py-1"
+              className="h-12 md:h-20 w-auto py-1"
             />
           </div>
         </div>
 
-        {/* Search - Center */}
-        <div className="flex-1 flex justify-center">
+        {/* Search - Center (Hidden on mobile) */}
+        <div className="hidden md:flex flex-1 justify-center">
           <div className="w-full max-w-2xl">
           <form onSubmit={handleSearch} className="flex gap-2">
             <div className="relative flex-1">
@@ -111,33 +111,55 @@ export function TopNavigation() {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleNewDeck}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Deck
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleImportCollection}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
+        <div className="flex items-center gap-1 md:gap-2">
+          {/* Mobile: Only essential buttons */}
+          <div className="md:hidden flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/cards')}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleNewDeck}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
 
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate('/cards')}
-          >
-            <Search className="h-4 w-4 mr-2" />
-            Card Search
-          </Button>
+          {/* Desktop: Full buttons */}
+          <div className="hidden md:flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleNewDeck}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Deck
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleImportCollection}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/cards')}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Card Search
+            </Button>
+          </div>
 
           {/* User Menu */}
           {user ? (
@@ -162,6 +184,18 @@ export function TopNavigation() {
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                {/* Mobile-specific menu items */}
+                <div className="md:hidden">
+                  <DropdownMenuItem onClick={() => navigate('/cards')}>
+                    <Search className="mr-2 h-4 w-4" />
+                    Card Search
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleImportCollection}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Collection
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </div>
                 <DropdownMenuItem onClick={() => navigate('/wishlist')}>
                   Wishlist
                 </DropdownMenuItem>
@@ -188,6 +222,33 @@ export function TopNavigation() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Mobile Search Bar - Below header */}
+      <div className="md:hidden border-t bg-background/95 px-3 py-2">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search cards..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 text-sm"
+            />
+          </div>
+          <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+            <SelectTrigger className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMATS.map((format) => (
+                <SelectItem key={format.value} value={format.value}>
+                  {format.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </form>
       </div>
     </header>
   );

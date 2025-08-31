@@ -133,16 +133,16 @@ const Dashboard = () => {
 
   if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-3 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-8">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <Skeleton className="h-10 w-96" />
-              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-8 md:h-10 w-64 md:w-96" />
+              <Skeleton className="h-4 md:h-6 w-48 md:w-64" />
             </div>
-            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-10 w-10 md:h-12 md:w-12 rounded-full" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {[1, 2, 3, 4].map(i => (
               <Card key={i}>
                 <CardHeader>
@@ -161,19 +161,19 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-3 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-8">
         {/* Welcome Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-purple-500 to-blue-500 bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-primary via-purple-500 to-blue-500 bg-clip-text text-transparent">
               Welcome back, Planeswalker! 🔥
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-sm md:text-lg">
               Ready to dominate the battlefield? Your MTG command center awaits.
             </p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 md:space-x-4">
             <Button
               variant="outline"
               size="sm"
@@ -183,7 +183,7 @@ const Dashboard = () => {
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Avatar className="h-12 w-12 ring-2 ring-primary/20">
+            <Avatar className="h-10 w-10 md:h-12 md:w-12 ring-2 ring-primary/20">
               <AvatarImage src={user?.user_metadata?.avatar_url} />
               <AvatarFallback className="bg-gradient-to-br from-primary to-purple-500 text-white">
                 {user?.email?.charAt(0).toUpperCase()}
@@ -193,7 +193,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 hover:shadow-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
@@ -265,11 +265,11 @@ const Dashboard = () => {
 
         {/* Quick Actions */}
         <div>
-          <h2 className="text-2xl font-bold mb-6 flex items-center">
-            <Zap className="h-6 w-6 mr-2 text-yellow-500" />
+          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 flex items-center">
+            <Zap className="h-5 w-5 md:h-6 md:w-6 mr-2 text-yellow-500" />
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
             {quickActions.map((action, index) => (
               <Link key={index} to={action.link}>
                 <Card className="group hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer overflow-hidden">
@@ -299,7 +299,7 @@ const Dashboard = () => {
         </div>
 
         {/* New Power Widgets Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           {/* Build Queue */}
           <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
             <CardHeader className="pb-3">
@@ -384,7 +384,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           {/* Favorite Decks */}
           <div className="lg:col-span-2">
             <Card className="h-full">
@@ -399,7 +399,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 {favoritesLoading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {[1, 2, 3, 4].map(i => (
                       <Card key={i} className="bg-muted/30">
                         <CardHeader className="pb-3">
@@ -410,7 +410,7 @@ const Dashboard = () => {
                     ))}
                   </div>
                 ) : favorites.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {favorites.map((deck, index) => (
                       <Card key={index} className="bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group">
                         <CardHeader className="pb-3">
@@ -549,7 +549,7 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               <div className="text-center p-6 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20">
                 <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                 <div className="text-2xl font-bold text-yellow-600">Deck Master</div>

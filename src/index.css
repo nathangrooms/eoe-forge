@@ -218,3 +218,44 @@ All colors MUST be HSL.
     background: hsl(var(--accent));
   }
 }
+
+/* Mobile Optimization Styles */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Ensure cards are properly sized on mobile */
+  .card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  
+  /* Touch-friendly buttons on mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve readability on mobile */
+  .mobile-text {
+    line-height: 1.6;
+  }
+  
+  /* Stack content vertically on mobile */
+  .mobile-stack {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Mobile-specific navigation spacing */
+  .mobile-nav {
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Optimize modal sizes for mobile */
+  .mobile-modal {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+}

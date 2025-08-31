@@ -168,112 +168,113 @@ async function syncCards(): Promise<void> {
     await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'fetching_bulk_data', 1);
     
     // Get bulk data information for default cards
+    console.log('📡 Fetching bulk data information...');
     const bulkDataResponse = await fetchWithRetry('https://api.scryfall.com/bulk-data');
     if (!bulkDataResponse.ok) {
       throw new Error(`Failed to fetch bulk data info: ${bulkDataResponse.statusText}`);
     }
     
     const bulkData = await bulkDataResponse.json();
+    console.log('📋 Bulk data response received:', bulkData.data?.length, 'items');
+    
     const defaultCards = bulkData.data.find((item: any) => item.type === 'default_cards');
     
     if (!defaultCards) {
+      console.error('❌ Available bulk data types:', bulkData.data.map((item: any) => item.type));
       throw new Error('Default cards bulk data not found');
     }
     
     console.log(`📦 Found bulk data: ${defaultCards.name} (${Math.round(defaultCards.size / 1024 / 1024)}MB)`);
+    console.log(`🔗 Download URL: ${defaultCards.download_uri}`);
+    
     await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'downloading_bulk_data', 1);
     
-    // Download bulk data
-    console.log('⬇️ Downloading bulk data...');
+    // Download bulk data with progress
+    console.log('⬇️ Starting bulk data download...');
     const dataResponse = await fetchWithRetry(defaultCards.download_uri);
     if (!dataResponse.ok) {
       throw new Error(`Failed to download bulk data: ${dataResponse.statusText}`);
     }
     
+    console.log('📥 Bulk data download complete, reading response...');
     const text = await dataResponse.text();
-    console.log(`📥 Downloaded ${Math.round(text.length / 1024 / 1024)}MB of data`);
+    console.log(`📄 Data size: ${Math.round(text.length / 1024 / 1024)}MB, processing...`);
     
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'processing_cards', 2);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'parsing_data', 2);
     
-    // Parse JSON objects line by line
-    const lines = text.trim().split('\n');
+    // Parse JSON - the bulk data is a JSON array, not newline-delimited
+    let cards: any[];
+    try {
+      console.log('🔄 Parsing JSON data...');
+      cards = JSON.parse(text);
+      console.log(`✅ Parsed ${cards.length} card records`);
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError);
+      throw new Error(`Failed to parse bulk data: ${parseError.message}`);
+    }
+    
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, cards.length, 'processing_cards', 2);
+    
     let totalProcessed = 0;
-    const batchSize = 100; // Process in smaller batches for better progress updates
-    let batch: any[] = [];
+    const batchSize = 100;
     
-    console.log(`🔄 Processing ${lines.length} card records...`);
+    console.log(`🔄 Processing ${cards.length} cards in batches of ${batchSize}...`);
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    // Process cards in batches
+    for (let i = 0; i < cards.length; i += batchSize) {
+      const batch = cards.slice(i, i + batchSize);
       
-      try {
-        const card = JSON.parse(line) as ScryfallCard;
-        
-        // Transform card data to match our schema
-        const transformedCard = {
-          id: card.id,
-          oracle_id: card.oracle_id,
-          name: card.name,
-          set_code: card.set,
-          collector_number: card.collector_number,
-          layout: card.layout || 'normal',
-          type_line: card.type_line,
-          cmc: card.cmc || 0,
-          colors: card.colors || [],
-          color_identity: card.color_identity || [],
-          oracle_text: card.oracle_text,
-          mana_cost: card.mana_cost,
-          power: card.power,
-          toughness: card.toughness,
-          loyalty: card.loyalty,
-          keywords: card.keywords || [],
-          legalities: card.legalities || {},
-          image_uris: card.image_uris || {},
-          prices: card.prices || {},
-          is_legendary: card.type_line?.toLowerCase().includes('legendary') || false,
-          is_reserved: card.reserved || false,
-          rarity: card.rarity || 'common',
-          tags: tagCard(card),
-          faces: card.faces || null
-        };
-        
-        batch.push(transformedCard);
-        
-        // Process batch when it reaches batchSize or we're at the end
-        if (batch.length >= batchSize || i === lines.length - 1) {
-          console.log(`💾 Saving batch of ${batch.length} cards (${totalProcessed + batch.length}/${lines.length})...`);
-          
-          const { error } = await supabase
-            .from('cards')
-            .upsert(batch, { 
-              onConflict: 'id',
-              ignoreDuplicates: false 
-            });
-          
-          if (error) {
-            console.error('Database error:', error);
-            throw new Error(`Database error: ${error.message}`);
-          }
-          
-          totalProcessed += batch.length;
-          batch = []; // Reset batch
-          
-          // Update progress every 100 cards
-          if (totalProcessed % 100 === 0) {
-            const progress = (totalProcessed / lines.length * 100).toFixed(1);
-            await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, lines.length, 'processing_cards', 2);
-            console.log(`✅ Progress: ${progress}% (${totalProcessed}/${lines.length})`);
-          }
-          
-          // Add a small delay to prevent overwhelming the database
-          await delay(50);
-        }
-        
-      } catch (parseError) {
-        console.warn(`⚠️ Failed to parse card: ${line.substring(0, 100)}...`);
-        continue;
+      const transformedBatch = batch.map((card: any) => ({
+        id: card.id,
+        oracle_id: card.oracle_id,
+        name: card.name,
+        set_code: card.set,
+        collector_number: card.collector_number,
+        layout: card.layout || 'normal',
+        type_line: card.type_line,
+        cmc: card.cmc || 0,
+        colors: card.colors || [],
+        color_identity: card.color_identity || [],
+        oracle_text: card.oracle_text,
+        mana_cost: card.mana_cost,
+        power: card.power,
+        toughness: card.toughness,
+        loyalty: card.loyalty,
+        keywords: card.keywords || [],
+        legalities: card.legalities || {},
+        image_uris: card.image_uris || {},
+        prices: card.prices || {},
+        is_legendary: card.type_line?.toLowerCase().includes('legendary') || false,
+        is_reserved: card.reserved || false,
+        rarity: card.rarity || 'common',
+        tags: tagCard(card),
+        faces: card.faces || null
+      }));
+      
+      // Insert batch into database
+      const { error } = await supabase
+        .from('cards')
+        .upsert(transformedBatch, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('❌ Database error:', error);
+        throw new Error(`Database error: ${error.message}`);
       }
+      
+      totalProcessed += transformedBatch.length;
+      
+      // Update progress every 100 cards
+      if (totalProcessed % 100 === 0) {
+        const progress = (totalProcessed / cards.length * 100).toFixed(1);
+        await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, cards.length, 'processing_cards', 2);
+        console.log(`✅ Progress: ${progress}% (${totalProcessed}/${cards.length})`);
+      }
+      
+      // Small delay to prevent overwhelming the database
+      await delay(25);
     }
     
     console.log(`✅ Sync completed: ${totalProcessed} cards processed from bulk data`);
@@ -281,6 +282,7 @@ async function syncCards(): Promise<void> {
     
   } catch (error) {
     console.error('❌ Sync failed:', error);
+    console.error('❌ Error stack:', error.stack);
     await updateSyncStatus('scryfall_cards', 'failed', error.message);
     throw error;
   }

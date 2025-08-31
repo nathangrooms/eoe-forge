@@ -489,236 +489,75 @@ export default function Decks() {
         </Dialog>
       }
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="my-decks">My Decks</TabsTrigger>
-          <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="ai-builder">AI Builder</TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search decks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
-        {/* My Decks Tab */}
-        <TabsContent value="my-decks" className="space-y-6">
-          {/* Search */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search decks by name, format, or colors..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+        {/* Deck Grid */}
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <EnhancedDeckTile
+                key={i}
+                id=""
+                name=""
+                format=""
+                colors={[]}
+                cardCount={0}
+                powerLevel={0}
+                isLoading={true}
+              />
+            ))}
+          </div>
+        ) : filteredDecks.length === 0 ? (
+          <Card className="p-8 text-center">
+            <CardContent>
+              <div className="flex flex-col items-center space-y-3">
+                <div className="rounded-full bg-muted p-3">
+                  <Crown className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold">No decks found</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery ? 'Try adjusting your search terms' : 'Create your first deck to get started'}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Loading state */}
-          {loading && (
-            <Card className="p-12 text-center">
-              <div className="flex items-center justify-center space-x-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <span>Loading decks...</span>
-              </div>
-            </Card>
-          )}
-
-          {/* Decks Grid */}
-          {!loading && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredDecks.map((deckData) => (
-                <EnhancedDeckTile
-                  key={deckData.id}
-                  id={deckData.id}
-                  name={deckData.name}
-                  format={deckData.format}
-                  colors={deckData.colors}
-                  cardCount={deckData.cardCount}
-                  powerLevel={deckData.powerLevel}
-                  lastModified={deckData.lastModified}
-                  description={deckData.description}
-                  onEdit={() => window.location.href = '/deck-builder'}
-                  onDelete={() => deleteDeck(deckData.id)}
-                  onDuplicate={() => duplicateDeck(deckData)}
-                  onView={() => {
-                    setSelectedDeck(deckData.id);
-                    setActiveTab('analysis');
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          {!loading && filteredDecks.length === 0 && (
-            <Card className="p-12 text-center">
-              <Crown className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-xl font-medium mb-2">No Decks Found</h3>
-              <p className="text-muted-foreground mb-4">
-                {decks.length === 0 
-                  ? "Create your first deck to get started!"
-                  : "Try adjusting your search terms."
-                }
-              </p>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Deck
-              </Button>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Analysis Tab */}
-        <TabsContent value="analysis" className="space-y-6">
-          <EnhancedAnalysisPanel />
-        </TabsContent>
-
-        {/* AI Builder Tab */}
-        <TabsContent value="ai-builder" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Wand2 className="h-5 w-5 mr-2" />
-                AI Deck Builder
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="ai-format">Format</Label>
-                    <Select value={aiFormat} onValueChange={setAiFormat}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="pioneer">Pioneer</SelectItem>
-                        <SelectItem value="modern">Modern</SelectItem>
-                        <SelectItem value="legacy">Legacy</SelectItem>
-                        <SelectItem value="commander">Commander</SelectItem>
-                        <SelectItem value="pauper">Pauper</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ai-archetype">Archetype</Label>
-                    <Select value={aiArchetype} onValueChange={setAiArchetype}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select archetype..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTemplates.map(template => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ai-power">Power Level: {aiPowerLevel}</Label>
-                    <input
-                      id="ai-power"
-                      type="range"
-                      min="1"
-                      max="10"
-                      value={aiPowerLevel}
-                      onChange={(e) => setAiPowerLevel(Number(e.target.value))}
-                      className="w-full mt-2"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>Casual</span>
-                      <span>Competitive</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label>Colors (Optional)</Label>
-                    <div className="flex space-x-2 mt-2">
-                      {[
-                        { symbol: 'W', name: 'White', color: '#FFFBD5' },
-                        { symbol: 'U', name: 'Blue', color: '#0E68AB' },
-                        { symbol: 'B', name: 'Black', color: '#150B00' },
-                        { symbol: 'R', name: 'Red', color: '#D3202A' },
-                        { symbol: 'G', name: 'Green', color: '#00733E' }
-                      ].map(color => (
-                        <button
-                          key={color.symbol}
-                          onClick={() => {
-                            if (aiColors.includes(color.symbol)) {
-                              setAiColors(aiColors.filter(c => c !== color.symbol));
-                            } else {
-                              setAiColors([...aiColors, color.symbol]);
-                            }
-                          }}
-                          className={`
-                            w-8 h-8 rounded-full border-2 text-xs font-bold
-                            ${aiColors.includes(color.symbol)
-                              ? 'border-primary ring-2 ring-primary/50' 
-                              : 'border-border hover:border-primary/50'
-                            }
-                          `}
-                          style={{ 
-                            backgroundColor: color.color,
-                            color: color.symbol === 'W' ? '#000' : '#fff'
-                          }}
-                        >
-                          {color.symbol}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/30 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Collection Stats</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>Total Cards: {collection.totalCards}</div>
-                      <div>Unique Cards: {collection.cards.length}</div>
-                      <div>Collection Value: ${collection.totalValue.toFixed(2)}</div>
-                      <div>Average Power: 6.5</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-4">
-                <Button 
-                  onClick={generateAIDeck}
-                  disabled={buildingDeck || !aiArchetype}
-                  className="flex-1"
-                >
-                  {buildingDeck ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate Deck
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" disabled={buildingDeck}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Advanced
-                </Button>
-              </div>
-
-              {availableTemplates.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Wand2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No archetypes available for {aiFormat}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredDecks.map((deck) => (
+              <EnhancedDeckTile
+                key={deck.id}
+                id={deck.id}
+                name={deck.name}
+                format={deck.format}
+                colors={deck.colors}
+                cardCount={deck.cardCount}
+                powerLevel={deck.powerLevel}
+                lastModified={deck.lastModified}
+                description={deck.description}
+                onEdit={() => {
+                  // Navigate to deck builder with this deck loaded
+                  window.location.href = `/deckbuilder?deck=${deck.id}`;
+                }}
+                onView={() => loadDeck(deck)}
+                onDuplicate={() => duplicateDeck(deck)}
+                onDelete={() => deleteDeck(deck.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </StandardPageLayout>
   );
 }

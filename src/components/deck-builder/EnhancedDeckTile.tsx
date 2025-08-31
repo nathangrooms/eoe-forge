@@ -156,6 +156,16 @@ export function EnhancedDeckTile({
           }
         } catch (error) {
           console.error('Error fetching card image:', error);
+          // Fallback: try to get any card from the deck if commander fetch fails
+          if (!commanderCard && deckCards.length > 0) {
+            const fallbackCard = deckCards[0];
+            cardWithImage = {
+              name: fallbackCard.card_name,
+              image_url: undefined, // Will show placeholder
+              colors: [],
+              cmc: 0
+            };
+          }
         }
       }
 
@@ -207,22 +217,28 @@ export function EnhancedDeckTile({
   return (
     <Card className={cn("group hover:shadow-lg transition-all duration-200 overflow-hidden", className)}>
       <div className="flex">
-        {/* Commander/Preview Card Image */}
-        <div className="w-24 bg-muted flex-shrink-0 relative">
+        {/* Commander/Preview Card Image - Made larger and more prominent */}
+        <div className="w-32 h-44 bg-muted flex-shrink-0 relative rounded-l-lg overflow-hidden">
           {commanderOrPreview?.image_url ? (
             <img 
               src={commanderOrPreview.image_url} 
               alt={commanderOrPreview.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform group-hover:scale-105"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-muted to-muted-foreground/20">
-              <Crown className="h-8 w-8 text-muted-foreground" />
+              <Crown className="h-12 w-12 text-muted-foreground" />
             </div>
           )}
+          {/* Badge positioned at top instead of bottom for better visibility */}
           {metrics?.commanderCard && (
-            <Badge variant="secondary" className="absolute bottom-1 left-1 text-xs px-1 py-0">
-              CMD
+            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-purple-600/90 text-white">
+              Commander
+            </Badge>
+          )}
+          {metrics?.previewCard && !metrics?.commanderCard && (
+            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-blue-600/90 text-white">
+              Preview
             </Badge>
           )}
         </div>

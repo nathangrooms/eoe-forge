@@ -550,7 +550,10 @@ export default function Decks() {
                   // Navigate to deck builder with this deck loaded
                   window.location.href = `/deckbuilder?deck=${deck.id}`;
                 }}
-                onView={() => loadDeck(deck)}
+                onView={() => {
+                  // Navigate to deck builder with this deck loaded
+                  window.location.href = `/deckbuilder?deck=${deck.id}`;
+                }}
                 onDuplicate={() => duplicateDeck(deck)}
                 onDelete={() => deleteDeck(deck.id)}
               />

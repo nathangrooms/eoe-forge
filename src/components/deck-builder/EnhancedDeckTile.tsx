@@ -95,9 +95,38 @@ export function EnhancedDeckTile({
   const loadDeckMetrics = async () => {
     setLoadingMetrics(true);
     try {
-      // Skip loading metrics for local decks or if no user
       const isLocalDeck = name.includes('(Local)');
-      if (isLocalDeck || !supabase) {
+      
+      if (isLocalDeck) {
+        // For local decks, get commander info from the store
+        const deckManagementStore = (window as any).__deckManagementStore?.getState?.();
+        const localDeckId = id;
+        const localDeckData = deckManagementStore?.decks?.find((d: any) => d.id === localDeckId);
+        
+        let commanderCard = null;
+        if (localDeckData?.commander) {
+          commanderCard = {
+            name: localDeckData.commander.name,
+            image_url: localDeckData.commander.image_uris?.normal || localDeckData.commander.image_uris?.large,
+            colors: localDeckData.commander.colors || [],
+            cmc: localDeckData.commander.cmc || 0
+          };
+        }
+        
+        setMetrics({
+          totalCards: cardCount,
+          uniqueCards: cardCount,
+          totalValue: 0,
+          avgCmc: 0,
+          duplicates: 0,
+          commanderCard: commanderCard,
+          colorDistribution: {},
+          typeDistribution: {}
+        });
+        return;
+      }
+
+      if (!supabase) {
         setMetrics({
           totalCards: cardCount,
           uniqueCards: cardCount,
@@ -232,12 +261,12 @@ export function EnhancedDeckTile({
           )}
           {/* Badge positioned at top instead of bottom for better visibility */}
           {metrics?.commanderCard && (
-            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-purple-600/90 text-white">
+            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-muted text-muted-foreground">
               Commander
             </Badge>
           )}
           {metrics?.previewCard && !metrics?.commanderCard && (
-            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-blue-600/90 text-white">
+            <Badge variant="secondary" className="absolute top-2 left-2 text-xs px-2 py-1 bg-muted text-muted-foreground">
               Preview
             </Badge>
           )}
@@ -317,7 +346,7 @@ export function EnhancedDeckTile({
             {/* Last Modified */}
             {lastModified && (
               <p className="text-xs text-muted-foreground">
-                Modified {new Date(lastModified).toLocaleDateString()}
+                Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}
               </p>
             )}
             

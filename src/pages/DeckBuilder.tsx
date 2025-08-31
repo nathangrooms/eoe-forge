@@ -72,11 +72,25 @@ const DeckBuilder = () => {
   const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('standard');
   const [newDeckDescription, setNewDeckDescription] = useState('');
 
+  // Get URL parameters for deck loading
+  const [searchParams] = useSearchParams();
   
   // Load all decks (Supabase + Local)
   useEffect(() => {
     loadAllDecks();
   }, [user, localDecks]);
+
+  // Handle URL parameters for deck loading
+  useEffect(() => {
+    const deckParam = searchParams.get('deck');
+    if (deckParam && allDecks.length > 0) {
+      const deckToLoad = allDecks.find(d => d.id === deckParam);
+      if (deckToLoad) {
+        loadDeck(deckToLoad);
+        setSelectedDeckId(deckParam);
+      }
+    }
+  }, [searchParams, allDecks]);
 
   const loadAllDecks = async () => {
     try {
@@ -254,83 +268,109 @@ const DeckBuilder = () => {
           .select()
           .single();
 
-        if (error) {
-          console.error('Error creating deck:', error);
-          return;
-        }
-
-        await loadAllDecks();
+        if (error) throw error;
         
-        // Load the new deck
-        const newDeckData: Deck = {
-          id: newDeck.id,
-          name: newDeck.name,
-          format: newDeck.format as any,
-          powerLevel: newDeck.power_level,
-          colors: newDeck.colors,
-          cardCount: 0,
-          lastModified: new Date(newDeck.updated_at),
-          description: newDeck.description || ''
-        };
-        
-        await loadDeck(newDeckData);
+        showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
       } else {
-        // Create local deck
-        const newDeck = createDeck(newDeckName, newDeckFormat, newDeckDescription);
-        setActiveDeck(newDeck.id);
-        
-        deck.setDeckName(newDeck.name);
-        deck.setFormat(newDeck.format as any);
-        deck.setPowerLevel(newDeck.powerLevel);
-        deck.clearDeck();
-        
-        setSelectedDeckId(newDeck.id);
+        // Create locally
+        const localDeck = createDeck(newDeckName, newDeckFormat, newDeckDescription);
+        showSuccess("Deck Created", `"${newDeckName}" has been created locally`);
       }
       
       setNewDeckName('');
       setNewDeckDescription('');
       setShowCreateDialog(false);
-      showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
+      await loadAllDecks();
     } catch (error) {
       console.error('Error creating deck:', error);
       showError("Error", "Failed to create deck");
     }
   };
+
   return (
     <StandardPageLayout
       title="Deck Builder"
-      description="Build and optimize your Magic: The Gathering decks with advanced AI assistance"
+      description="Build and optimize your Magic: The Gathering decks"
       action={
-        <div className="flex items-center space-x-4">
-          <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-            {deck.format || 'No Deck'} • {deck.totalCards} cards
-          </Badge>
-          {deck.format === 'commander' && (
-            <Badge variant="outline" className="text-yellow-500 border-yellow-500/30">
-              <Crown className="h-3 w-3 mr-1" />
-              Commander
-            </Badge>
-          )}
-          <Badge variant="outline">
-            Power: {deck.powerLevel.toFixed(1)}
-          </Badge>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button size="sm">
-            <Play className="h-4 w-4 mr-2" />
-            Playtest
-          </Button>
+        <div className="flex gap-2">
+          <Select value={selectedDeckId || ''} onValueChange={(value) => {
+            setSelectedDeckId(value);
+            const selectedDeck = allDecks.find(d => d.id === value);
+            if (selectedDeck) {
+              loadDeck(selectedDeck);
+            }
+          }}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Select a deck..." />
+            </SelectTrigger>
+            <SelectContent>
+              {allDecks.map((deck) => (
+                <SelectItem key={deck.id} value={deck.id}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>{deck.name}</span>
+                    <Badge variant="outline" className="ml-2">
+                      {deck.format}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Deck
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Deck</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="deck-name">Deck Name</Label>
+                  <Input
+                    id="deck-name"
+                    value={newDeckName}
+                    onChange={(e) => setNewDeckName(e.target.value)}
+                    placeholder="Enter deck name..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="deck-format">Format</Label>
+                  <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="commander">Commander</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="deck-description">Description (Optional)</Label>
+                  <Input
+                    id="deck-description"
+                    value={newDeckDescription}
+                    onChange={(e) => setNewDeckDescription(e.target.value)}
+                    placeholder="Enter deck description..."
+                  />
+                </div>
+                <Button onClick={createNewDeck} className="w-full">
+                  Create Deck
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       }
     >
-      <Tabs defaultValue="select-deck" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="select-deck" className="flex items-center space-x-2">
-            <Crown className="h-4 w-4" />
-            <span>Select Deck</span>
-          </TabsTrigger>
+      <Tabs defaultValue="deck" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="deck" className="flex items-center space-x-2">
             <Sparkles className="h-4 w-4" />
             <span>Deck ({deck.totalCards || 0})</span>
@@ -361,148 +401,6 @@ const DeckBuilder = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Deck Selection Tab */}
-        <TabsContent value="select-deck" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Select or Create Deck</h3>
-            
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Deck
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Deck</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="deck-name">Deck Name</Label>
-                    <Input
-                      id="deck-name"
-                      value={newDeckName}
-                      onChange={(e) => setNewDeckName(e.target.value)}
-                      placeholder="Enter deck name..."
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="deck-format">Format</Label>
-                    <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="commander">Commander</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="deck-description">Description (Optional)</Label>
-                    <Input
-                      id="deck-description"
-                      value={newDeckDescription}
-                      onChange={(e) => setNewDeckDescription(e.target.value)}
-                      placeholder="Describe your deck strategy..."
-                    />
-                  </div>
-                  <Button onClick={createNewDeck} className="w-full" disabled={!newDeckName.trim()}>
-                    Create Deck
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {loading ? (
-            <Card className="p-12 text-center">
-              <div className="flex items-center justify-center space-x-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <span>Loading decks...</span>
-              </div>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allDecks.map(deckData => (
-                <Card 
-                  key={deckData.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    selectedDeckId === deckData.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => loadDeck(deckData)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          {deckData.name}
-                          {deckData.format === 'commander' && (
-                            <Crown className="h-4 w-4 text-yellow-500" />
-                          )}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {deckData.format}
-                          </Badge>
-                          {deckData.colors.length > 0 && (
-                            <div className="flex gap-1">
-                              {deckData.colors.map(color => (
-                                <div
-                                  key={color}
-                                  className="w-3 h-3 rounded-full text-xs font-bold flex items-center justify-center"
-                                  style={{
-                                    backgroundColor: {
-                                      W: '#FFFBD5',
-                                      U: '#0E68AB', 
-                                      B: '#150B00',
-                                      R: '#D3202A',
-                                      G: '#00733E'
-                                    }[color],
-                                    color: color === 'W' ? '#000' : '#fff'
-                                  }}
-                                >
-                                  {color}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="pt-0">
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{deckData.cardCount} cards</span>
-                      <span>Power: {deckData.powerLevel}/10</span>
-                    </div>
-                    
-                    {deckData.description && (
-                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                        {deckData.description}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {deck.format === 'commander' && deck.name && (
-            <CommanderSelector 
-              deckId={selectedDeckId || ''}
-              currentCommander={deck.commander ? {
-                ...deck.commander,
-                colors: deck.commander.colors || [],
-                category: 'creatures' as const
-              } : undefined}
-            />
-          )}
-        </TabsContent>
-
         {/* Deck Canvas Tab */}
         <TabsContent value="deck">
           {deck.name ? (
@@ -510,7 +408,7 @@ const DeckBuilder = () => {
           ) : (
             <div className="text-center p-8">
               <p className="text-muted-foreground mb-4">No deck selected</p>
-              <p className="text-sm text-muted-foreground mb-4">Select a deck from the first tab to start building</p>
+              <p className="text-sm text-muted-foreground mb-4">Select a deck from the dropdown above to start building</p>
             </div>
           )}
         </TabsContent>

@@ -61,7 +61,11 @@ interface DeckManagementState {
 
 export const useDeckManagementStore = create<DeckManagementState>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      // Make store accessible globally for deck tiles
+      (window as any).__deckManagementStore = { getState: get };
+      
+      return {
       decks: [
         // Create a default deck for each format
         {
@@ -270,7 +274,8 @@ export const useDeckManagementStore = create<DeckManagementState>()(
       getStandardDecks: () => get().decks.filter(deck => deck.format === 'standard'),
       getCommanderDecks: () => get().decks.filter(deck => deck.format === 'commander'),
       getDecksByFormat: (format: string) => get().decks.filter(deck => deck.format === format),
-    }),
+    };
+    },
     {
       name: 'deck-management-storage',
       partialize: (state) => ({

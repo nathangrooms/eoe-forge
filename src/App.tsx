@@ -10,6 +10,7 @@ import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
+import Scan from "./pages/Scan";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
 import Builder from "./pages/Builder";
@@ -72,6 +73,7 @@ function AppContent() {
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/landing" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+            <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />

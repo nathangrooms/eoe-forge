@@ -1,4 +1,4 @@
-import { Home, Package, Hammer, BarChart3, Search, Wand2, User, Settings, LogOut, Sparkles } from "lucide-react";
+import { Home, Package, Hammer, BarChart3, Search, Wand2, User, Settings, LogOut, Sparkles, Camera } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { useDeckStore } from "@/stores/deckStore";
@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Collection", url: "/collection", icon: Package },
+  { title: "Fast Scan", url: "/scan", icon: Camera },
   { title: "Deck Builder", url: "/deck-builder", icon: Hammer },
   { title: "Decks", url: "/decks", icon: BarChart3 },
 ];

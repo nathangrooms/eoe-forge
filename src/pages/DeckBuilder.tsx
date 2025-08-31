@@ -221,16 +221,75 @@ const DeckBuilder = () => {
         
         if (deckCards) {
           for (const dbCard of deckCards) {
-            deck.addCard({
-              id: dbCard.card_id,
-              name: dbCard.card_name,
-              quantity: dbCard.quantity,
-              cmc: 0,
-              type_line: '',
-              colors: [],
-              category: dbCard.is_commander ? 'commanders' as const : 'creatures' as const,
-              mechanics: []
-            });
+            try {
+              // Fetch full card data from Scryfall for proper card information
+              const response = await fetch(`https://api.scryfall.com/cards/${dbCard.card_id}`);
+              if (response.ok) {
+                const cardData = await response.json();
+                const fullCard = {
+                  id: dbCard.card_id,
+                  name: dbCard.card_name,
+                  quantity: dbCard.quantity,
+                  cmc: cardData.cmc || 0,
+                  type_line: cardData.type_line || '',
+                  colors: cardData.colors || [],
+                  color_identity: cardData.color_identity || [],
+                  oracle_text: cardData.oracle_text || '',
+                  power: cardData.power,
+                  toughness: cardData.toughness,
+                  image_uris: cardData.image_uris || {},
+                  prices: cardData.prices || {},
+                  set: cardData.set,
+                  set_name: cardData.set_name,
+                  collector_number: cardData.collector_number,
+                  rarity: cardData.rarity,
+                  keywords: cardData.keywords || [],
+                  legalities: cardData.legalities || {},
+                  layout: cardData.layout,
+                  mana_cost: cardData.mana_cost,
+                  category: dbCard.is_commander ? 'commanders' as const : 
+                           cardData.type_line?.toLowerCase().includes('creature') ? 'creatures' as const : 
+                           cardData.type_line?.toLowerCase().includes('land') ? 'lands' as const :
+                           cardData.type_line?.toLowerCase().includes('instant') ? 'instants' as const :
+                           cardData.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' as const :
+                           cardData.type_line?.toLowerCase().includes('artifact') ? 'artifacts' as const :
+                           cardData.type_line?.toLowerCase().includes('enchantment') ? 'enchantments' as const :
+                           cardData.type_line?.toLowerCase().includes('planeswalker') ? 'planeswalkers' as const : 'other' as const,
+                  mechanics: cardData.keywords || []
+                };
+
+                if (dbCard.is_commander) {
+                  deck.setCommander(fullCard);
+                } else {
+                  deck.addCard(fullCard);
+                }
+              } else {
+                // Fallback to basic card data if Scryfall fetch fails
+                deck.addCard({
+                  id: dbCard.card_id,
+                  name: dbCard.card_name,
+                  quantity: dbCard.quantity,
+                  cmc: 0,
+                  type_line: '',
+                  colors: [],
+                  category: dbCard.is_commander ? 'commanders' as const : 'other' as const,
+                  mechanics: []
+                });
+              }
+            } catch (error) {
+              console.error(`Error fetching card data for ${dbCard.card_name}:`, error);
+              // Fallback to basic card data
+              deck.addCard({
+                id: dbCard.card_id,
+                name: dbCard.card_name,
+                quantity: dbCard.quantity,
+                cmc: 0,
+                type_line: '',
+                colors: [],
+                category: 'other' as const,
+                mechanics: []
+              });
+            }
           }
         }
       }

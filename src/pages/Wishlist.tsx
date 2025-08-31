@@ -23,7 +23,7 @@ import {
   Download,
   ExternalLink
 } from 'lucide-react';
-import { WishlistCardModal } from '@/components/wishlist/WishlistCardModal';
+import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { WishlistCardDisplay } from '@/components/wishlist/WishlistCardDisplay';
 
 interface WishlistItem {
@@ -656,16 +656,20 @@ export default function Wishlist() {
         </TabsContent>
         </Tabs>
 
-        {/* Wishlist Card Modal */}
-        <WishlistCardModal
-          item={selectedItem}
+        {/* Universal Card Modal */}
+        <UniversalCardModal
+          card={selectedItem?.card}
           isOpen={showCardModal}
           onClose={() => {
             setShowCardModal(false);
             setSelectedItem(null);
           }}
-          onUpdateItem={updateWishlistItem}
-          onAddToCollection={addToCollection}
+          onAddToCollection={() => {
+            if (selectedItem) {
+              addToCollection(selectedItem);
+            }
+          }}
+          onAddToWishlist={addToWishlist}
         />
       </StandardPageLayout>
     );

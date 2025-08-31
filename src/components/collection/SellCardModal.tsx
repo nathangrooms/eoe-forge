@@ -20,6 +20,11 @@ interface SellCardModalProps {
   onSubmit: (data: ListingFormData) => Promise<void>;
 }
 
+// Get the card_id from either the collection item or the card data
+const getCardId = (card: any) => {
+  return card?.card_id || card?.id || '';
+};
+
 export function SellCardModal({
   isOpen,
   onClose,
@@ -30,7 +35,7 @@ export function SellCardModal({
   onSubmit
 }: SellCardModalProps) {
   const [formData, setFormData] = useState<ListingFormData>({
-    card_id: card?.id || '',
+    card_id: getCardId(card),
     qty: 1,
     foil: false,
     condition: 'NM',

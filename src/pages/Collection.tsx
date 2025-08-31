@@ -164,11 +164,31 @@ export default function Collection() {
   };
 
   const handleSellSubmit = async (data: ListingFormData) => {
-    // TODO: Implement actual listing creation API call
-    console.log('Creating listing:', data);
-    showSuccess('Listing Created', `${sellCard?.card_name} listed for sale`);
-    setShowSellModal(false);
-    setSellCard(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showError('Authentication Error', 'Please log in to create a listing');
+        return;
+      }
+
+      console.log('Creating listing:', data);
+      
+      const { error } = await supabase
+        .from('listings')
+        .insert({
+          ...data,
+          user_id: session.user.id
+        });
+
+      if (error) throw error;
+      
+      showSuccess('Listing Created', `${sellCard?.card_name} listed for sale`);
+      setShowSellModal(false);
+      setSellCard(null);
+    } catch (error) {
+      console.error('Error creating listing:', error);
+      showError('Error', 'Failed to create listing');
+    }
   };
 
   const handleAddToDeck = (item: any) => {
@@ -403,7 +423,7 @@ export default function Collection() {
             setShowSellModal(false);
             setSellCard(null);
           }}
-          card={sellCard?.card}
+          card={sellCard}
           ownedQuantity={sellCard?.quantity || 0}
           ownedFoil={sellCard?.foil || 0}
           defaultPrice={sellCard?.card?.prices?.usd ? parseFloat(sellCard.card.prices.usd) : 0}

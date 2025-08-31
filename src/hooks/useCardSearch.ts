@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { SearchSyntaxParser, SearchQuery } from '@/lib/magic/search';
+import { ColorSearch } from '@/lib/magic/colors';
 
 // Card interface matching Scryfall API response
 interface Card {
@@ -53,7 +55,7 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Memoize the search function to prevent recreating on every render
+  // Enhanced search function with Magic syntax parsing
   const searchCards = useCallback(async (searchQuery: string, searchFilters: SearchFilters) => {
     if (!searchQuery || searchQuery.length < 2) {
       setCards([]);
@@ -65,77 +67,32 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
     setError(null);
 
     try {
-      // Build Scryfall search query using Magic syntax helpers
-      let scryfallQuery = searchQuery;
-      const queryParts: string[] = [];
+      // Parse the search query using Magic syntax
+      const parsedQuery = SearchSyntaxParser.parse(searchQuery);
       
-      // Add filters to the search query
-      if (searchFilters.sets && searchFilters.sets.length > 0) {
-        const setQuery = searchFilters.sets.map(set => `set:${set}`).join(' OR ');
-        queryParts.push(`(${setQuery})`);
-      }
+      // Merge parsed query with filters
+      const mergedQuery: SearchQuery = {
+        ...parsedQuery,
+        ...(searchFilters.sets?.length && { set: searchFilters.sets }),
+        ...(searchFilters.types?.length && { type: searchFilters.types.join(' OR ') }),
+        ...(searchFilters.colors?.length && { colors: searchFilters.colors }),
+        ...(searchFilters.colorIdentity?.length && { identity: searchFilters.colorIdentity }),
+        ...(searchFilters.colorOperator && { colorOperator: searchFilters.colorOperator }),
+        ...(searchFilters.format && searchFilters.format !== 'all' && { format: [searchFilters.format] }),
+        ...(searchFilters.rarity && searchFilters.rarity !== 'all' && { rarity: searchFilters.rarity }),
+        ...(searchFilters.cmc && { manaValue: searchFilters.cmc === '6' ? { min: 6 } : parseInt(searchFilters.cmc) }),
+      };
+
+      // Convert to Scryfall query string
+      let scryfallQuery = SearchSyntaxParser.toScryfallQuery(mergedQuery);
       
-      if (searchFilters.format && searchFilters.format !== 'all') {
-        queryParts.push(`legal:${searchFilters.format}`);
-      }
-      
-      if (searchFilters.rarity && searchFilters.rarity !== 'all') {
-        queryParts.push(`rarity:${searchFilters.rarity}`);
-      }
-      
-      // Enhanced type filtering
-      if (searchFilters.types && searchFilters.types.length > 0) {
-        const typeQueries = searchFilters.types.map(type => `t:${type.toLowerCase()}`);
-        queryParts.push(`(${typeQueries.join(' OR ')})`);
-      }
-      
-      // Enhanced color filtering with operators
-      if (searchFilters.colors && searchFilters.colors.length > 0) {
-        const operator = searchFilters.colorOperator || 'exact';
-        const colorString = searchFilters.colors.join('');
-        let colorQuery = '';
-        
-        switch (operator) {
-          case 'exact': colorQuery = `c:${colorString}`; break;
-          case 'contains': colorQuery = `c>=${colorString}`; break;
-          case 'subset': colorQuery = `c<=${colorString}`; break;
-          case 'superset': colorQuery = `c>=${colorString}`; break;
-          default: colorQuery = `c:${colorString}`;
-        }
-        queryParts.push(colorQuery);
+      // Fallback to original query if parsing didn't produce a result
+      if (!scryfallQuery.trim()) {
+        scryfallQuery = searchQuery;
       }
 
-      // Color identity filtering
-      if (searchFilters.colorIdentity && searchFilters.colorIdentity.length > 0) {
-        const operator = searchFilters.colorOperator || 'exact';
-        const identityString = searchFilters.colorIdentity.join('');
-        let identityQuery = '';
-        
-        switch (operator) {
-          case 'exact': identityQuery = `id:${identityString}`; break;
-          case 'contains': identityQuery = `id>=${identityString}`; break;
-          case 'subset': identityQuery = `id<=${identityString}`; break;
-          case 'superset': identityQuery = `id>=${identityString}`; break;
-          default: identityQuery = `id:${identityString}`;
-        }
-        queryParts.push(identityQuery);
-      }
-
-      // Legacy CMC support
-      if (searchFilters.cmc) {
-        if (searchFilters.cmc === '6') {
-          queryParts.push('mv>=6');
-        } else {
-          queryParts.push(`mv:${searchFilters.cmc}`);
-        }
-      }
-
-      // Combine query parts
-      if (queryParts.length > 0) {
-        scryfallQuery += ' ' + queryParts.join(' ');
-      }
-
-      console.log('Searching with query:', scryfallQuery);
+      console.log('Parsed query:', mergedQuery);
+      console.log('Scryfall query:', scryfallQuery);
 
       // Encode the search query
       const encodedQuery = encodeURIComponent(scryfallQuery);

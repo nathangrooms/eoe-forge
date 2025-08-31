@@ -22,6 +22,7 @@ import { Card as CardType } from '@/types/collection';
 import { formatPrice } from '@/features/collection/value';
 import { useCollectionStore } from '@/features/collection/store';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { AdvancedSearchFilters } from '@/components/deck-builder/AdvancedSearchFilters';
 
 interface EnhancedCardSearchProps {
   onCardSelect?: (card: CardType) => void;
@@ -43,6 +44,8 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
     cmcMin: '',
     cmcMax: ''
   });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({});
   
   const addCard = useCollectionStore(state => state.addCard);
   
@@ -214,79 +217,16 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
             ))}
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <Select value={filters.color || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, color: value === "all" ? "" : value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Color" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Color</SelectItem>
-                <SelectItem value="W">White</SelectItem>
-                <SelectItem value="U">Blue</SelectItem>
-                <SelectItem value="B">Black</SelectItem>
-                <SelectItem value="R">Red</SelectItem>
-                <SelectItem value="G">Green</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.type || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value === "all" ? "" : value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Type</SelectItem>
-                <SelectItem value="Creature">Creature</SelectItem>
-                <SelectItem value="Instant">Instant</SelectItem>
-                <SelectItem value="Sorcery">Sorcery</SelectItem>
-                <SelectItem value="Artifact">Artifact</SelectItem>
-                <SelectItem value="Enchantment">Enchantment</SelectItem>
-                <SelectItem value="Planeswalker">Planeswalker</SelectItem>
-                <SelectItem value="Land">Land</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.rarity || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, rarity: value === "all" ? "" : value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Rarity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Rarity</SelectItem>
-                <SelectItem value="common">Common</SelectItem>
-                <SelectItem value="uncommon">Uncommon</SelectItem>
-                <SelectItem value="rare">Rare</SelectItem>
-                <SelectItem value="mythic">Mythic</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.format || "all"} onValueChange={(value) => setFilters(prev => ({ ...prev, format: value === "all" ? "" : value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Format</SelectItem>
-                <SelectItem value="standard">Standard</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
-                <SelectItem value="legacy">Legacy</SelectItem>
-                <SelectItem value="commander">Commander</SelectItem>
-                <SelectItem value="pioneer">Pioneer</SelectItem>
-                <SelectItem value="vintage">Vintage</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input
-              placeholder="Min CMC"
-              value={filters.cmcMin}
-              onChange={(e) => setFilters(prev => ({ ...prev, cmcMin: e.target.value }))}
-              type="number"
-            />
-
-            <Input
-              placeholder="Max CMC"
-              value={filters.cmcMax}
-              onChange={(e) => setFilters(prev => ({ ...prev, cmcMax: e.target.value }))}
-              type="number"
-            />
+          {/* Advanced Filters Toggle */}
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+            </Button>
           </div>
 
           {/* Filter Actions */}
@@ -304,6 +244,15 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advanced Filters Panel */}
+      {showAdvancedFilters && (
+        <AdvancedSearchFilters
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          onAddSyntaxExample={(syntax) => setSearchQuery(searchQuery + ' ' + syntax)}
+        />
+      )}
 
       {/* Search Results */}
       <div className="space-y-4">

@@ -82,7 +82,9 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
       const { text, confidence } = await recognizeCardName(resizedData);
       setLastOCR(text, confidence);
 
-      if (confidence < 0.45) {
+      console.log('OCR Result:', { text, confidence }); // Debug logging
+
+      if (confidence < 0.3) { // Lowered threshold for better results
         // Only show error if more than 3 seconds since last error to reduce spam
         const now = Date.now();
         if (now - lastErrorTime > 3000) {
@@ -95,8 +97,21 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
         return;
       }
 
+      // Clean up the OCR text for better matching
+      const cleanedText = text
+        .replace(/[^\w\s,'-]/g, ' ') // Remove special chars except common ones
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+
+      console.log('Cleaned text:', cleanedText); // Debug logging
+      
+      if (cleanedText.length < 2) {
+        console.log('Text too short, skipping match');
+        return;
+      }
+
       // Match against database
-      await matchCardName(text, confidence);
+      await matchCardName(cleanedText, confidence);
 
     } catch (error) {
       console.error('Scan error:', error);

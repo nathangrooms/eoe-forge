@@ -19,11 +19,11 @@ export function useAutoCapture(
   const animationFrameRef = useRef<number>();
 
   const checkSharpness = () => {
-    if (!options.enabled || isCapturing) return;
+    if (!options.enabled) return;
 
     const now = Date.now();
     
-    // Cooldown check
+    // Cooldown check - prevent rapid processing cycles
     if (now - lastCaptureTime.current < options.cooldownDelay) {
       animationFrameRef.current = requestAnimationFrame(checkSharpness);
       return;

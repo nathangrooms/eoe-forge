@@ -534,7 +534,7 @@ export default function Decks() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
             {filteredDecks.map((deck) => (
               <EnhancedDeckTile
                 key={deck.id}
@@ -548,11 +548,15 @@ export default function Decks() {
                 description={deck.description}
                 onEdit={() => {
                   // Navigate to deck builder with this deck loaded
-                  window.location.href = `/deckbuilder?deck=${deck.id}`;
+                  const url = new URL('/deckbuilder', window.location.origin);
+                  url.searchParams.set('deck', deck.id);
+                  window.location.href = url.toString();
                 }}
                 onView={() => {
                   // Navigate to deck builder with this deck loaded
-                  window.location.href = `/deckbuilder?deck=${deck.id}`;
+                  const url = new URL('/deckbuilder', window.location.origin);
+                  url.searchParams.set('deck', deck.id);
+                  window.location.href = url.toString();
                 }}
                 onDuplicate={() => duplicateDeck(deck)}
                 onDelete={() => deleteDeck(deck.id)}

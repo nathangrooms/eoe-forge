@@ -268,171 +268,179 @@ export function EnhancedDeckTile({
 
   return (
     <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in", className)}>
-      {/* Large Card Image Header */}
-      <div className="relative bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden" style={{ aspectRatio: '488/680' }}>
-        {commanderOrPreview?.image_url ? (
-          <img 
-            src={commanderOrPreview.image_url} 
-            alt={commanderOrPreview.name}
-            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-            style={{ objectPosition: 'center' }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-            <Crown className="h-16 w-16 text-primary/60" />
-          </div>
-        )}
-        
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-          <Badge className={cn("font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
-            {format.toUpperCase()}
-          </Badge>
-          <PowerLevelBadge level={powerLevel} />
+      <div className="flex h-full">
+        {/* Left Column - Card Image */}
+        <div className="w-1/3 relative bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden">
+          {commanderOrPreview?.image_url ? (
+            <img 
+              src={commanderOrPreview.image_url} 
+              alt={commanderOrPreview.name}
+              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+              style={{ objectPosition: 'center' }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <Crown className="h-16 w-16 text-primary/60" />
+            </div>
+          )}
+          
+          {/* Commander Badge */}
+          {metrics?.commanderCard && (
+            <Badge variant="secondary" className="absolute bottom-3 left-3 bg-background/90 text-foreground border">
+              <Crown className="h-3 w-3 mr-1" />
+              Commander
+            </Badge>
+          )}
         </div>
-        
-        {/* Commander Badge */}
-        {metrics?.commanderCard && (
-          <Badge variant="secondary" className="absolute bottom-3 left-3 bg-background/90 text-foreground border">
-            <Crown className="h-3 w-3 mr-1" />
-            Commander
-          </Badge>
-        )}
+
+        {/* Right Column - Deck Information */}
+        <div className="flex-1 flex flex-col">
+          <CardContent className="p-4 flex-1 space-y-4">
+            {/* Header Section */}
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className={cn("font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
+                    {format.toUpperCase()}
+                  </Badge>
+                  <PowerLevelBadge level={powerLevel} />
+                </div>
+                <h3 className="font-bold text-xl mb-2 group-hover:text-primary transition-colors">
+                  {name}
+                </h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <ManaSymbols colors={colors} size="sm" />
+                </div>
+                {description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Main Metrics Row */}
+            {hasValidMetrics && (
+              <div className="grid grid-cols-2 gap-6">
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Total Cards</span>
+                  </div>
+                  <p className="text-3xl font-bold text-primary">{metrics.totalCards}</p>
+                  <p className="text-xs text-muted-foreground">{metrics.uniqueCards} unique</p>
+                </div>
+                
+                <div className="text-center p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                    <TrendingUp className="h-4 w-4" />
+                    <span>Avg CMC</span>
+                  </div>
+                  <p className="text-3xl font-bold text-primary">{metrics.avgCmc.toFixed(1)}</p>
+                  <p className="text-xs text-muted-foreground">mana cost</p>
+                </div>
+              </div>
+            )}
+
+            {/* Card Types Section */}
+            {hasValidMetrics && (
+              <div>
+                <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+                  <Layers className="h-4 w-4" />
+                  Card Types
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                    <span className="text-muted-foreground">Creatures:</span>
+                    <span className="font-semibold">{metrics.creatureCount}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                    <span className="text-muted-foreground">Lands:</span>
+                    <span className="font-semibold">{metrics.landCount}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                    <span className="text-muted-foreground">Spells:</span>
+                    <span className="font-semibold">{metrics.spellCount}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                    <span className="text-muted-foreground">Artifacts:</span>
+                    <span className="font-semibold">{metrics.artifactCount}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Commander Info */}
+            {commanderOrPreview && (
+              <div>
+                <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                  <Crown className="h-4 w-4" />
+                  {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+                </h4>
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="font-semibold">{commanderOrPreview.name}</p>
+                  {metrics?.commanderCard && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Last Modified */}
+            {lastModified && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loadingMetrics && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
+                Loading deck details...
+              </div>
+            )}
+          </CardContent>
+
+          {/* Action Buttons - Always at bottom */}
+          <div className="p-4 pt-0 border-t bg-muted/10">
+            <div className="flex gap-2">
+              {onView && (
+                <Button variant="outline" size="sm" onClick={onView} className="flex-1">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+              )}
+              {onEdit && (
+                <Button size="sm" onClick={onEdit} className="flex-1">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+              <div className="flex gap-1">
+                {onDuplicate && (
+                  <Button variant="outline" size="sm" onClick={onDuplicate}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+                {onPlay && (
+                  <Button variant="outline" size="sm" onClick={onPlay}>
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Content Section */}
-      <CardContent className="p-4 space-y-4">
-        {/* Deck Title and Description */}
-        <div>
-          <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">
-            {name}
-          </h3>
-          <div className="flex items-center gap-2 mb-2">
-            <ManaSymbols colors={colors} size="sm" />
-          </div>
-          {description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {description}
-            </p>
-          )}
-        </div>
-
-        {/* Main Metrics */}
-        {hasValidMetrics && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
-                <BarChart3 className="h-4 w-4" />
-                <span>Total Cards</span>
-              </div>
-              <p className="text-2xl font-bold text-primary">{metrics.totalCards}</p>
-              <p className="text-xs text-muted-foreground">{metrics.uniqueCards} unique</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
-                <TrendingUp className="h-4 w-4" />
-                <span>Avg CMC</span>
-              </div>
-              <p className="text-2xl font-bold text-primary">{metrics.avgCmc.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">mana cost</p>
-            </div>
-          </div>
-        )}
-
-        {/* Card Types */}
-        {hasValidMetrics && (
-          <div>
-            <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-              <Layers className="h-4 w-4" />
-              Card Types
-            </h4>
-            <div className="grid grid-cols-2 gap-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Creatures:</span>
-                <span className="font-medium">{metrics.creatureCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Lands:</span>
-                <span className="font-medium">{metrics.landCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Spells:</span>
-                <span className="font-medium">{metrics.spellCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Artifacts:</span>
-                <span className="font-medium">{metrics.artifactCount}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Commander Info */}
-        {commanderOrPreview && (
-          <div>
-            <h4 className="text-sm font-medium flex items-center gap-2 mb-1">
-              <Crown className="h-4 w-4" />
-              {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
-            </h4>
-            <p className="text-sm font-medium">{commanderOrPreview.name}</p>
-            {metrics?.commanderCard && (
-              <p className="text-xs text-muted-foreground">
-                CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Last Modified */}
-        {lastModified && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
-            <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loadingMetrics && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
-            Loading deck details...
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2 border-t">
-          {onView && (
-            <Button variant="outline" size="sm" onClick={onView} className="flex-1">
-              <Eye className="h-4 w-4 mr-2" />
-              View
-            </Button>
-          )}
-          {onEdit && (
-            <Button size="sm" onClick={onEdit} className="flex-1">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
-          <div className="flex gap-1">
-            {onDuplicate && (
-              <Button variant="outline" size="sm" onClick={onDuplicate}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            )}
-            {onPlay && (
-              <Button variant="outline" size="sm" onClick={onPlay}>
-                <Play className="h-4 w-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
     </Card>
   );
 }

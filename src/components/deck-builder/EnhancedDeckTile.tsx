@@ -249,19 +249,16 @@ export function EnhancedDeckTile({
 
   if (isLoading) {
     return (
-      <Card className={cn("animate-pulse h-80", className)}>
-        <div className="flex h-full">
-          <div className="w-48 bg-muted rounded-l-lg" />
-          <div className="flex-1 p-6 space-y-4">
-            <div className="h-6 bg-muted rounded w-3/4" />
-            <div className="h-4 bg-muted rounded w-1/2" />
-            <div className="space-y-3">
-              <div className="h-3 bg-muted rounded w-full" />
-              <div className="h-3 bg-muted rounded w-2/3" />
-              <div className="h-3 bg-muted rounded w-3/4" />
-            </div>
+      <Card className={cn("animate-pulse", className)}>
+        <div className="aspect-[3/2] bg-muted rounded-t-lg" />
+        <CardContent className="p-4 space-y-3">
+          <div className="h-5 bg-muted rounded w-3/4" />
+          <div className="h-4 bg-muted rounded w-1/2" />
+          <div className="space-y-2">
+            <div className="h-3 bg-muted rounded w-full" />
+            <div className="h-3 bg-muted rounded w-2/3" />
           </div>
-        </div>
+        </CardContent>
       </Card>
     );
   }
@@ -270,180 +267,171 @@ export function EnhancedDeckTile({
   const hasValidMetrics = metrics && !loadingMetrics;
 
   return (
-    <Card className={cn("group hover:shadow-xl transition-all duration-300 overflow-hidden h-80 border-2 hover:border-primary/20", className)}>
-      <div className="flex h-full">
-        {/* Large Commander/Preview Card Image */}
-        <div className="w-48 bg-gradient-to-br from-muted to-muted-foreground/20 flex-shrink-0 relative rounded-l-lg overflow-hidden">
-          {commanderOrPreview?.image_url ? (
-            <img 
-              src={commanderOrPreview.image_url} 
-              alt={commanderOrPreview.name}
-              className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105 group-hover:brightness-110"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-              <Crown className="h-16 w-16 text-primary/60" />
-            </div>
-          )}
-          
-          {/* Format Badge */}
-          <Badge className={cn("absolute top-3 left-3 font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
+    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in", className)}>
+      {/* Large Card Image Header */}
+      <div className="relative aspect-[3/2] bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden">
+        {commanderOrPreview?.image_url ? (
+          <img 
+            src={commanderOrPreview.image_url} 
+            alt={commanderOrPreview.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+            <Crown className="h-16 w-16 text-primary/60" />
+          </div>
+        )}
+        
+        {/* Top Badges */}
+        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+          <Badge className={cn("font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
             {format.toUpperCase()}
           </Badge>
-          
-          {/* Commander Badge */}
-          {metrics?.commanderCard && (
-            <Badge variant="secondary" className="absolute bottom-3 left-3 bg-background/90 text-foreground border">
-              <Crown className="h-3 w-3 mr-1" />
-              Commander
-            </Badge>
-          )}
-          
-          {/* Power Level Badge */}
-          <div className="absolute top-3 right-3">
-            <PowerLevelBadge level={powerLevel} />
-          </div>
+          <PowerLevelBadge level={powerLevel} />
         </div>
-
-        {/* Deck Information Panel */}
-        <div className="flex-1 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-xl font-bold truncate mb-2 group-hover:text-primary transition-colors">
-                  {name}
-                </CardTitle>
-                <div className="flex items-center gap-2 mb-2">
-                  <ManaSymbols colors={colors} size="sm" />
-                  {description && (
-                    <p className="text-sm text-muted-foreground line-clamp-1">
-                      {description}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="flex-1 space-y-4">
-            {/* Primary Metrics */}
-            {hasValidMetrics && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    <span className="font-medium">Total Cards</span>
-                  </div>
-                  <p className="text-2xl font-bold text-primary">{metrics.totalCards}</p>
-                  <p className="text-xs text-muted-foreground">{metrics.uniqueCards} unique</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="font-medium">Avg CMC</span>
-                  </div>
-                  <p className="text-2xl font-bold text-primary">{metrics.avgCmc.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground">mana cost</p>
-                </div>
-              </div>
-            )}
-
-            {/* Type Distribution */}
-            {hasValidMetrics && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Layers className="h-4 w-4" />
-                  Card Types
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Creatures:</span>
-                    <span className="font-medium">{metrics.creatureCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lands:</span>
-                    <span className="font-medium">{metrics.landCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Spells:</span>
-                    <span className="font-medium">{metrics.spellCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Artifacts:</span>
-                    <span className="font-medium">{metrics.artifactCount}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Commander Info */}
-            {commanderOrPreview && (
-              <div className="space-y-1">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Crown className="h-4 w-4" />
-                  {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
-                </h4>
-                <p className="text-sm font-medium truncate">{commanderOrPreview.name}</p>
-                {metrics?.commanderCard && (
-                  <p className="text-xs text-muted-foreground">
-                    CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Last Modified */}
-            {lastModified && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {loadingMetrics && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
-                Loading deck details...
-              </div>
-            )}
-          </CardContent>
-
-          {/* Action Buttons */}
-          <div className="p-4 pt-0">
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
-              {onView && (
-                <Button variant="outline" size="sm" onClick={onView} className="flex-1">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Button>
-              )}
-              {onEdit && (
-                <Button size="sm" onClick={onEdit} className="flex-1">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-              {onDuplicate && (
-                <Button variant="outline" size="sm" onClick={onDuplicate}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              )}
-              {onPlay && (
-                <Button variant="outline" size="sm" onClick={onPlay}>
-                  <Play className="h-4 w-4" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        
+        {/* Commander Badge */}
+        {metrics?.commanderCard && (
+          <Badge variant="secondary" className="absolute bottom-3 left-3 bg-background/90 text-foreground border">
+            <Crown className="h-3 w-3 mr-1" />
+            Commander
+          </Badge>
+        )}
       </div>
+
+      {/* Content Section */}
+      <CardContent className="p-4 space-y-4">
+        {/* Deck Title and Description */}
+        <div>
+          <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">
+            {name}
+          </h3>
+          <div className="flex items-center gap-2 mb-2">
+            <ManaSymbols colors={colors} size="sm" />
+          </div>
+          {description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {description}
+            </p>
+          )}
+        </div>
+
+        {/* Main Metrics */}
+        {hasValidMetrics && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                <BarChart3 className="h-4 w-4" />
+                <span>Total Cards</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">{metrics.totalCards}</p>
+              <p className="text-xs text-muted-foreground">{metrics.uniqueCards} unique</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                <TrendingUp className="h-4 w-4" />
+                <span>Avg CMC</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">{metrics.avgCmc.toFixed(1)}</p>
+              <p className="text-xs text-muted-foreground">mana cost</p>
+            </div>
+          </div>
+        )}
+
+        {/* Card Types */}
+        {hasValidMetrics && (
+          <div>
+            <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+              <Layers className="h-4 w-4" />
+              Card Types
+            </h4>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Creatures:</span>
+                <span className="font-medium">{metrics.creatureCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Lands:</span>
+                <span className="font-medium">{metrics.landCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spells:</span>
+                <span className="font-medium">{metrics.spellCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Artifacts:</span>
+                <span className="font-medium">{metrics.artifactCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Commander Info */}
+        {commanderOrPreview && (
+          <div>
+            <h4 className="text-sm font-medium flex items-center gap-2 mb-1">
+              <Crown className="h-4 w-4" />
+              {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+            </h4>
+            <p className="text-sm font-medium">{commanderOrPreview.name}</p>
+            {metrics?.commanderCard && (
+              <p className="text-xs text-muted-foreground">
+                CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Last Modified */}
+        {lastModified && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loadingMetrics && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
+            Loading deck details...
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2 border-t">
+          {onView && (
+            <Button variant="outline" size="sm" onClick={onView} className="flex-1">
+              <Eye className="h-4 w-4 mr-2" />
+              View
+            </Button>
+          )}
+          {onEdit && (
+            <Button size="sm" onClick={onEdit} className="flex-1">
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+          <div className="flex gap-1">
+            {onDuplicate && (
+              <Button variant="outline" size="sm" onClick={onDuplicate}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
+            {onPlay && (
+              <Button variant="outline" size="sm" onClick={onPlay}>
+                <Play className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
     </Card>
   );
 }

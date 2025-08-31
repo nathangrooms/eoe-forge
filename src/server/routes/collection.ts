@@ -199,8 +199,11 @@ export class CollectionAPI {
       }
 
       if (!cards || cards.length === 0) {
-        console.error('Card not found for name:', cardName);
-        return { error: `Card "${cardName}" not found in database` };
+        // Card not found in local database - inform user about sync issue
+        console.error('Card not found in local database:', cardName);
+        return { 
+          error: `"${cardName}" is not currently in our database. The card database may need to be updated. Please try searching for a different card or contact support.` 
+        };
       }
 
       const card = cards[0];

@@ -23,6 +23,7 @@ import {
   Download,
   ExternalLink
 } from 'lucide-react';
+import { WishlistCardModal } from '@/components/wishlist/WishlistCardModal';
 
 interface WishlistItem {
   id: string;
@@ -71,13 +72,8 @@ export default function Wishlist() {
   const [loading, setLoading] = useState(true);
   const [decksLoading, setDecksLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<WishlistItem | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
-  const [editForm, setEditForm] = useState({
-    quantity: 1,
-    priority: 'medium',
-    note: ''
-  });
 
   useEffect(() => {
     if (user) {
@@ -238,22 +234,19 @@ export default function Wishlist() {
     }
   };
 
-  const updateWishlistItem = async () => {
-    if (!selectedItem) return;
-
+  const updateWishlistItem = async (id: string, quantity: number, priority: string, note: string) => {
     try {
       const { error } = await (supabase as any)
         .from('wishlist')
         .update({
-          quantity: editForm.quantity,
-          priority: editForm.priority,
-          note: editForm.note || null
+          quantity,
+          priority,
+          note: note || null
         })
-        .eq('id', selectedItem.id);
+        .eq('id', id);
 
       if (error) throw error;
       showSuccess('Updated', 'Wishlist item updated');
-      setShowEditDialog(false);
       loadWishlist();
     } catch (error) {
       console.error('Error updating wishlist item:', error);
@@ -315,12 +308,7 @@ export default function Wishlist() {
 
   const openEditDialog = (item: WishlistItem) => {
     setSelectedItem(item);
-    setEditForm({
-      quantity: item.quantity,
-      priority: item.priority,
-      note: item.note || ''
-    });
-    setShowEditDialog(true);
+    setShowCardModal(true);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -703,59 +691,19 @@ export default function Wishlist() {
             showViewModes={true}
           />
         </TabsContent>
-      </Tabs>
+        </Tabs>
 
-      {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Wishlist Item</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                max="99"
-                value={editForm.quantity}
-                onChange={(e) => setEditForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={editForm.priority} onValueChange={(value: string) => setEditForm(prev => ({ ...prev, priority: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">🤔 Low</SelectItem>
-                  <SelectItem value="medium">⭐ Medium</SelectItem>
-                  <SelectItem value="high">🔥 High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="note">Note (optional)</Label>
-              <Textarea
-                id="note"
-                value={editForm.note}
-                onChange={(e) => setEditForm(prev => ({ ...prev, note: e.target.value }))}
-                placeholder="Add a note about this card..."
-                rows={3}
-              />
-            </div>
-            
-            <Button onClick={updateWishlistItem} className="w-full">
-              Update Item
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </StandardPageLayout>
-  );
-}
+        {/* Wishlist Card Modal */}
+        <WishlistCardModal
+          item={selectedItem}
+          isOpen={showCardModal}
+          onClose={() => {
+            setShowCardModal(false);
+            setSelectedItem(null);
+          }}
+          onUpdateItem={updateWishlistItem}
+          onAddToCollection={addToCollection}
+        />
+      </StandardPageLayout>
+    );
+  }

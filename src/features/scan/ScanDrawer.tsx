@@ -168,23 +168,28 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
 
   const addCardToCollection = async (candidate: CardCandidate, quantity = 1) => {
     try {
-      // Add to collection via existing API
-      const response = await fetch('https://udnaflcohfyljrsgqggy.supabase.co/rest/v1/user_collections', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkbmFmbGNvaGZ5bGpyc2dxZ2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NjAyMDAsImV4cCI6MjA3MDQzNjIwMH0.SrKLHsJmBfXHmPlVirfglxJXkUMly4bKhjzFkx7ew5g'
-        },
-        body: JSON.stringify({
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        showError('Authentication Required', 'Please log in to add cards to your collection');
+        return;
+      }
+
+      // Add to collection via Supabase client directly
+      const { error } = await supabase
+        .from('user_collections')
+        .insert({
           card_id: candidate.cardId,
           card_name: candidate.name,
           set_code: candidate.setCode,
-          quantity
-        })
-      });
+          quantity,
+          user_id: session.user.id
+        });
 
-      if (!response.ok) throw new Error('Failed to add to collection');
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw new Error(error.message || 'Failed to add to collection');
+      }
 
       // Create scanned card record
       const scannedCard: ScannedCard = {
@@ -457,9 +462,9 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
           )}
         </div>
 
-        {/* Candidates Modal - Dark Theme */}
+        {/* Candidates Modal - Dark Theme at Top */}
         {showCandidates && (
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-20 flex items-end touch-pan-y">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-20 flex items-start pt-4 touch-pan-y">
             <Card className="w-full bg-gray-900 border-gray-700 m-4 max-h-[70vh] overflow-hidden rounded-t-2xl">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">

@@ -267,180 +267,117 @@ export function EnhancedDeckTile({
   const hasValidMetrics = metrics && !loadingMetrics;
 
   return (
-    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full", className)}>
-      <div className="flex w-full h-48">
-        {/* Left - Large Card Image + Name */}
-        <div className="w-80 flex-shrink-0 relative bg-background overflow-hidden flex flex-col">
-          <div className="flex-1 relative">
-            {commanderOrPreview?.image_url ? (
-              <img 
-                src={commanderOrPreview.image_url} 
-                alt={commanderOrPreview.name}
-                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <Crown className="h-16 w-16 text-muted-foreground" />
-              </div>
-            )}
-            
-            {/* Commander Badge */}
-            {metrics?.commanderCard && (
-              <Badge variant="secondary" className="absolute top-3 left-3 bg-background/90 text-foreground border">
-                <Crown className="h-3 w-3 mr-1" />
-                Commander
-              </Badge>
-            )}
-          </div>
-          
-          {/* Deck Name Under Image */}
-          <div className="p-3 bg-card border-t">
-            <h3 className="font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">
-              {name}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge className={cn("text-xs", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
-                {format.toUpperCase()}
-              </Badge>
-              <PowerLevelBadge level={powerLevel} />
-              <ManaSymbols colors={colors} size="sm" />
+    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full mb-4", className)}>
+      <div className="flex w-full h-40">
+        {/* Left - Card Image */}
+        <div className="w-32 h-40 flex-shrink-0 relative bg-background">
+          {commanderOrPreview?.image_url ? (
+            <img 
+              src={commanderOrPreview.image_url} 
+              alt={commanderOrPreview.name}
+              className="w-full h-full object-cover rounded-l-lg"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted rounded-l-lg">
+              <Crown className="h-12 w-12 text-muted-foreground" />
             </div>
-          </div>
+          )}
+          
+          {/* Commander Badge */}
+          {metrics?.commanderCard && (
+            <Badge variant="secondary" className="absolute top-2 left-2 text-xs">
+              <Crown className="h-3 w-3 mr-1" />
+              CMD
+            </Badge>
+          )}
         </div>
 
-        {/* Right - Deck Information */}
-        <div className="flex-1 flex">
-          {/* Main Content Area */}
-          <div className="flex-1 p-6">
-            {/* Description */}
-            {description && (
-              <p className="text-muted-foreground mb-4 line-clamp-2">
-                {description}
-              </p>
+        {/* Middle - Main Info */}
+        <div className="flex-1 p-4">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <Badge className={cn("text-xs", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
+              {format.toUpperCase()}
+            </Badge>
+            <PowerLevelBadge level={powerLevel} />
+            <ManaSymbols colors={colors} size="sm" />
+          </div>
+          
+          <h3 className="font-bold text-xl mb-2 group-hover:text-primary transition-colors">
+            {name}
+          </h3>
+          
+          {description && (
+            <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
+              {description}
+            </p>
+          )}
+
+          {/* Stats */}
+          <div className="flex gap-6 text-sm">
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Cards</div>
+              <div className="font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">CMC</div>
+              <div className="font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Creatures</div>
+              <div className="font-bold">{hasValidMetrics ? metrics.creatureCount : 0}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-muted-foreground">Lands</div>
+              <div className="font-bold">{hasValidMetrics ? metrics.landCount : 0}</div>
+            </div>
+          </div>
+
+          {/* Commander Info */}
+          {commanderOrPreview && (
+            <div className="mt-3">
+              <div className="text-xs text-muted-foreground mb-1">
+                {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+              </div>
+              <div className="text-sm font-medium">{commanderOrPreview.name}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Right - Actions */}
+        <div className="w-40 flex flex-col justify-center p-4 border-l bg-card/50">
+          <div className="space-y-2">
+            {onView && (
+              <Button variant="outline" size="sm" onClick={onView} className="w-full text-xs">
+                <Eye className="h-3 w-3 mr-1" />
+                View
+              </Button>
             )}
-
-            {/* Metrics Row */}
-            <div className="grid grid-cols-6 gap-4 mb-4">
-              {/* Total Cards */}
-              <div className="col-span-2 text-center p-3 bg-card border rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span>Total Cards</span>
-                </div>
-                <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</p>
-                <p className="text-xs text-muted-foreground">{hasValidMetrics ? metrics.uniqueCards : cardCount} unique</p>
-              </div>
-              
-              {/* Avg CMC */}
-              <div className="col-span-2 text-center p-3 bg-card border rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>Avg CMC</span>
-                </div>
-                <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</p>
-                <p className="text-xs text-muted-foreground">mana cost</p>
-              </div>
-
-              {/* Card Types Compact */}
-              <div className="col-span-2 p-3 bg-card border rounded-lg">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                  <Layers className="h-3 w-3" />
-                  <span>Types</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Creatures:</span>
-                    <span className="font-semibold">{hasValidMetrics ? metrics.creatureCount : 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lands:</span>
-                    <span className="font-semibold">{hasValidMetrics ? metrics.landCount : 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Spells:</span>
-                    <span className="font-semibold">{hasValidMetrics ? metrics.spellCount : 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Artifacts:</span>
-                    <span className="font-semibold">{hasValidMetrics ? metrics.artifactCount : 0}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Commander Info Row */}
-            <div className="flex justify-between items-center">
-              <div className="flex-1">
-                {commanderOrPreview && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Crown className="h-4 w-4" />
-                      <span>{metrics?.commanderCard ? 'Commander:' : 'Featured:'}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">{commanderOrPreview.name}</span>
-                      {metrics?.commanderCard && (
-                        <span className="text-sm text-muted-foreground ml-2">
-                          CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Last Modified */}
-                {lastModified && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
-                  </div>
-                )}
-
-                {/* Loading State */}
-                {loadingMetrics && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
-                    Loading deck details...
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons - Right Side */}
-          <div className="w-48 flex flex-col justify-center p-4 border-l bg-muted/5">
-            <div className="space-y-2">
-              {onView && (
-                <Button variant="outline" size="sm" onClick={onView} className="w-full">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
+            {onEdit && (
+              <Button size="sm" onClick={onEdit} className="w-full text-xs">
+                <Edit className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            )}
+            <div className="flex gap-1">
+              {onDuplicate && (
+                <Button variant="outline" size="sm" onClick={onDuplicate} className="flex-1 p-1">
+                  <Copy className="h-3 w-3" />
                 </Button>
               )}
-              {onEdit && (
-                <Button size="sm" onClick={onEdit} className="w-full">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
+              {onDelete && (
+                <Button variant="outline" size="sm" onClick={onDelete} className="flex-1 p-1 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               )}
-              <div className="flex gap-1">
-                {onDuplicate && (
-                  <Button variant="outline" size="sm" onClick={onDuplicate} className="flex-1">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                )}
-                {onPlay && (
-                  <Button variant="outline" size="sm" onClick={onPlay} className="flex-1">
-                    <Play className="h-4 w-4" />
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button variant="outline" size="sm" onClick={onDelete} className="flex-1 text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
             </div>
           </div>
+          
+          {lastModified && (
+            <div className="text-xs text-muted-foreground mt-3 text-center">
+              {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}
+            </div>
+          )}
         </div>
       </div>
     </Card>

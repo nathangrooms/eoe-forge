@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Wand2, 
   Package, 
@@ -21,93 +22,34 @@ import {
   Plus,
   ArrowRight,
   Star,
-  Activity
+  Activity,
+  Heart,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  PlayCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
-import { useCollectionStore } from '@/stores/collectionStore';
-import { useDeckStore } from '@/stores/deckStore';
-
-interface DashboardStats {
-  collectionValue: number;
-  totalCards: number;
-  totalDecks: number;
-  favoriteDecks: any[];
-  recentActivity: any[];
-  weeklyProgress: number;
-}
+import { useDashboardSummary, useFavoriteDecks, trackDeckOpen } from '@/features/dashboard/hooks';
+import { asUSD, formatTimeAgo } from '@/features/dashboard/value';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { calculateCollectionValue, totalCards, getTopValueCards } = useCollectionStore();
-  const { name: currentDeckName, totalCards: deckCards } = useDeckStore();
-  
-  const [stats, setStats] = useState<DashboardStats>({
-    collectionValue: 0,
-    totalCards: 0,
-    totalDecks: 0,
-    favoriteDecks: [],
-    recentActivity: [],
-    weeklyProgress: 0
-  });
-  const [loading, setLoading] = useState(true);
+  const { data: dashboardData, loading: dashboardLoading, error, refetch } = useDashboardSummary();
+  const { favorites, loading: favoritesLoading, toggleFavorite } = useFavoriteDecks();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [user]);
+  const handleDeckClick = (deckId: string, name: string) => {
+    trackDeckOpen(deckId, name);
+  };
 
-  const loadDashboardData = async () => {
-    if (!user) return;
-    
+  const handleFavoriteToggle = async (deckId: string, deckName: string) => {
     try {
-      // Load collection stats
-      const collectionValue = calculateCollectionValue();
-      const collectionCards = totalCards;
-      
-      // Load user decks
-      const { data: userDecks } = await supabase
-        .from('user_decks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      // Load favorite decks
-      const { data: favorites } = await supabase
-        .from('favorite_decks')
-        .select(`
-          deck_id,
-          user_decks (
-            id,
-            name,
-            format,
-            colors,
-            power_level,
-            updated_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .limit(6);
-
-      // Calculate weekly progress (mock data for now)
-      const weeklyProgress = Math.floor(Math.random() * 40) + 20;
-
-      setStats({
-        collectionValue,
-        totalCards: collectionCards,
-        totalDecks: userDecks?.length || 0,
-        favoriteDecks: favorites?.map(f => f.user_decks).filter(Boolean) || [],
-        recentActivity: [
-          { type: 'deck_created', name: 'Simic Ramp', time: '2 hours ago' },
-          { type: 'cards_added', count: 12, time: '1 day ago' },
-          { type: 'deck_updated', name: 'Aggro Red', time: '3 days ago' }
-        ],
-        weeklyProgress
-      });
+      await toggleFavorite(deckId);
+      showSuccess('Favorite Updated', `${deckName} has been updated`);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
+      showError('Failed to Update', 'Could not update favorite status');
     }
   };
 
@@ -169,10 +111,31 @@ const Dashboard = () => {
     }).join('');
   };
 
-  if (loading) {
+  if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-96" />
+              <Skeleton className="h-6 w-64" />
+            </div>
+            <Skeleton className="h-12 w-12 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-4 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-3 w-32 mt-2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -211,10 +174,10 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(stats.collectionValue)}
+                {asUSD(dashboardData?.collection.totalValueUSD)}
               </div>
               <p className="text-xs text-muted-foreground">
-                +12% from last month 📈
+                {dashboardData?.collection.uniqueCards} unique cards 🃏
               </p>
             </CardContent>
           </Card>
@@ -228,10 +191,10 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {stats.totalCards.toLocaleString()}
+                {dashboardData?.collection.totalCards.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                Across {stats.totalDecks} decks 🃏
+                {dashboardData?.collection.uniqueCards} unique cards 🃏
               </p>
             </CardContent>
           </Card>
@@ -245,26 +208,28 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-600">
-                {stats.totalDecks}
+                {dashboardData?.decks.count}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats.favoriteDecks.length} favorites ⭐
+                {dashboardData?.decks.favoritesCount} favorites ⭐
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20 hover:shadow-lg transition-all duration-300">
+          <Card className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border-pink-500/20 hover:shadow-lg transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-                Weekly Progress
+              <CardTitle className="text-sm font-medium text-pink-700 dark:text-pink-300">
+                Wishlist Value
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-orange-600" />
+              <Heart className="h-4 w-4 text-pink-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {stats.weeklyProgress}%
+              <div className="text-2xl font-bold text-pink-600">
+                {asUSD(dashboardData?.wishlist.valueUSD)}
               </div>
-              <Progress value={stats.weeklyProgress} className="mt-2" />
+              <p className="text-xs text-muted-foreground">
+                {dashboardData?.wishlist.totalItems} items • {dashboardData?.wishlist.totalDesired} desired 💫
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -304,6 +269,78 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* New Power Widgets Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Build Queue */}
+          <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg">
+                <PlayCircle className="h-5 w-5 mr-2 text-indigo-500" />
+                Build Queue
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-sm">
+                  <div className="font-medium">Last AI Build: Simic Ramp</div>
+                  <div className="text-muted-foreground">Power 6.8 • 2 mins ago</div>
+                </div>
+                <Button size="sm" className="w-full">
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Run AI Builder
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Last Opened */}
+          <Card className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-500/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg">
+                <Clock className="h-5 w-5 mr-2 text-emerald-500" />
+                Last Opened
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {dashboardData?.lastOpened.slice(0, 3).map((deck, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="font-medium truncate">{deck.name}</div>
+                    <div className="text-muted-foreground">{formatTimeAgo(deck.at)}</div>
+                  </div>
+                )) || (
+                  <div className="text-sm text-muted-foreground">No recent decks</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Health Status */}
+          <Card className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border-amber-500/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg">
+                <BarChart3 className="h-5 w-5 mr-2 text-amber-500" />
+                Health Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  Database ✅
+                </div>
+                <div className="flex items-center text-sm">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  API ✅
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Scryfall sync: {dashboardData?.status.scryfallSyncAt ? formatTimeAgo(dashboardData.status.scryfallSyncAt) : 'Never'}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Favorite Decks */}
@@ -319,26 +356,60 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {stats.favoriteDecks.length > 0 ? (
+                {favoritesLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {stats.favoriteDecks.map((deck, index) => (
-                      <Card key={index} className="bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                    {[1, 2, 3, 4].map(i => (
+                      <Card key={i} className="bg-muted/30">
                         <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">
-                              {deck.name}
-                            </CardTitle>
-                            <Badge variant="outline">
-                              {getColorIndicator(deck.colors)}
-                            </Badge>
+                          <Skeleton className="h-6 w-32" />
+                          <Skeleton className="h-4 w-24" />
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                ) : favorites.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {favorites.map((deck, index) => (
+                      <Card key={index} className="bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <Link 
+                                to={`/deck-builder?deck=${deck.id}`}
+                                onClick={() => handleDeckClick(deck.id, deck.name)}
+                              >
+                                <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                                  {deck.name}
+                                </CardTitle>
+                              </Link>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {deck.format?.toUpperCase()}
+                                </Badge>
+                                <span>•</span>
+                                <span>Power {deck.power_level}/10</span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleFavoriteToggle(deck.id, deck.name);
+                              }}
+                            >
+                              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                            </Button>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                            <Badge variant="secondary" className="text-xs">
-                              {deck.format?.toUpperCase()}
-                            </Badge>
-                            <span>•</span>
-                            <span>Power {deck.power_level}/10</span>
-                          </div>
+                          {deck.commanderArt && (
+                            <div className="mt-2">
+                              <img 
+                                src={deck.commanderArt} 
+                                alt="Commander"
+                                className="w-full h-24 object-cover rounded"
+                              />
+                            </div>
+                          )}
                         </CardHeader>
                       </Card>
                     ))}
@@ -375,26 +446,38 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats.recentActivity.map((activity, index) => (
+                  {dashboardData?.recent.length ? dashboardData.recent.map((activity, index) => (
                     <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30">
                       <div className="p-2 rounded-full bg-primary/10">
                         {activity.type === 'deck_created' && <Wand2 className="h-4 w-4 text-primary" />}
-                        {activity.type === 'cards_added' && <Package className="h-4 w-4 text-green-500" />}
+                        {activity.type === 'card_added' && <Package className="h-4 w-4 text-green-500" />}
                         {activity.type === 'deck_updated' && <Sparkles className="h-4 w-4 text-blue-500" />}
+                        {activity.type === 'deck_favorited' && <Star className="h-4 w-4 text-yellow-500" />}
+                        {activity.type === 'wishlist_added' && <Heart className="h-4 w-4 text-pink-500" />}
+                        {activity.type === 'listing_created' && <DollarSign className="h-4 w-4 text-green-500" />}
+                        {activity.type === 'ai_build_run' && <Zap className="h-4 w-4 text-purple-500" />}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium">
-                          {activity.type === 'deck_created' && `Created "${activity.name}"`}
-                          {activity.type === 'cards_added' && `Added ${activity.count} cards`}
-                          {activity.type === 'deck_updated' && `Updated "${activity.name}"`}
+                          {activity.title}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center">
                           <Clock className="h-3 w-3 mr-1" />
-                          {activity.time}
+                          {formatTimeAgo(activity.at)}
                         </p>
+                        {activity.subtitle && (
+                          <p className="text-xs text-muted-foreground">
+                            {activity.subtitle}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-center py-4">
+                      <Activity className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">No recent activity</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6 pt-4 border-t">
@@ -426,17 +509,17 @@ const Dashboard = () => {
               <div className="text-center p-6 rounded-lg bg-gradient-to-br from-yellow-500/20 to-orange-500/20">
                 <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                 <div className="text-2xl font-bold text-yellow-600">Deck Master</div>
-                <p className="text-sm text-muted-foreground">Built {stats.totalDecks} powerful decks</p>
+                <p className="text-sm text-muted-foreground">Built {dashboardData?.decks.count || 0} powerful decks</p>
               </div>
               <div className="text-center p-6 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20">
                 <Package className="h-8 w-8 mx-auto mb-2 text-blue-500" />
                 <div className="text-2xl font-bold text-blue-600">Collector</div>
-                <p className="text-sm text-muted-foreground">{stats.totalCards} cards collected</p>
+                <p className="text-sm text-muted-foreground">{dashboardData?.collection.totalCards || 0} cards collected</p>
               </div>
               <div className="text-center p-6 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
                 <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-500" />
                 <div className="text-2xl font-bold text-green-600">Investor</div>
-                <p className="text-sm text-muted-foreground">{formatCurrency(stats.collectionValue)} portfolio</p>
+                <p className="text-sm text-muted-foreground">{asUSD(dashboardData?.collection.totalValueUSD)} portfolio</p>
               </div>
             </div>
           </CardContent>

@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          created_at: string | null
+          entity: string
+          entity_id: string
+          id: string
+          meta: Json | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity: string
+          entity_id: string
+          id?: string
+          meta?: Json | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity?: string
+          entity_id?: string
+          id?: string
+          meta?: Json | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       build_logs: {
         Row: {
           changes: Json | null
@@ -217,6 +247,54 @@ export type Database = {
           },
         ]
       }
+      listings: {
+        Row: {
+          card_id: string
+          condition: string | null
+          created_at: string | null
+          currency: string | null
+          foil: boolean | null
+          id: string
+          note: string | null
+          price_usd: number
+          qty: number
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          visibility: string | null
+        }
+        Insert: {
+          card_id: string
+          condition?: string | null
+          created_at?: string | null
+          currency?: string | null
+          foil?: boolean | null
+          id?: string
+          note?: string | null
+          price_usd: number
+          qty: number
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          visibility?: string | null
+        }
+        Update: {
+          card_id?: string
+          condition?: string | null
+          created_at?: string | null
+          currency?: string | null
+          foil?: boolean | null
+          id?: string
+          note?: string | null
+          price_usd?: number
+          qty?: number
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          visibility?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -243,6 +321,71 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      sales: {
+        Row: {
+          buyer_info: string | null
+          card_id: string
+          condition: string
+          created_at: string | null
+          foil: boolean | null
+          id: string
+          listing_id: string
+          notes: string | null
+          platform: string | null
+          qty: number
+          sale_price_usd: number
+          shipped: boolean | null
+          shipped_at: string | null
+          tracking_number: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          buyer_info?: string | null
+          card_id: string
+          condition: string
+          created_at?: string | null
+          foil?: boolean | null
+          id?: string
+          listing_id: string
+          notes?: string | null
+          platform?: string | null
+          qty: number
+          sale_price_usd: number
+          shipped?: boolean | null
+          shipped_at?: string | null
+          tracking_number?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          buyer_info?: string | null
+          card_id?: string
+          condition?: string
+          created_at?: string | null
+          foil?: boolean | null
+          id?: string
+          listing_id?: string
+          notes?: string | null
+          platform?: string | null
+          qty?: number
+          sale_price_usd?: number
+          shipped?: boolean | null
+          shipped_at?: string | null
+          tracking_number?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_status: {
         Row: {
@@ -382,6 +525,42 @@ export type Database = {
           is_public?: boolean
           name?: string
           power_level?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wishlist: {
+        Row: {
+          card_id: string
+          card_name: string
+          created_at: string
+          id: string
+          note: string | null
+          priority: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          card_name: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          priority?: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          priority?: string
+          quantity?: number
           updated_at?: string
           user_id?: string
         }

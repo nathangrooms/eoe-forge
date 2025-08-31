@@ -1,54 +1,48 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Search, 
-  Plus, 
-  Settings, 
-  Zap, 
-  Activity,
-  Globe,
-  Rocket,
-  Cpu,
-  Sparkles,
-  BarChart3,
-  Filter,
-  Grid3X3,
-  List,
-  Home
-} from 'lucide-react';
-import { SearchFilters } from '@/components/deck-builder/SearchFilters';
+import { useState } from 'react';
+import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { AnalysisPanel } from '@/components/deck-builder/AnalysisPanel';
 import { AIBuilder } from '@/components/deck-builder/AIBuilder';
-import { PowerSlider } from '@/components/deck-builder/PowerSlider';
-import { CardPreview } from '@/components/deck-builder/CardPreview';
-import { useCardSearch } from '@/hooks/useCardSearch';
+import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
+import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
-import { Link } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Search,
+  Plus,
+  BarChart3,
+  Sparkles,
+  Activity,
+  Download,
+  Play,
+  Settings,
+  Rocket,
+  Crown
+} from 'lucide-react';
 
 const DeckBuilder = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState({
-    sets: [] as string[],
-    types: [] as string[],
-    colors: [] as string[],
-    mechanics: [] as string[],
-    colorIdentity: [] as string[],
-    colorOperator: 'exact' as const
-  });
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Use a default search when no query is provided to show some cards
-  const effectiveQuery = searchQuery || 'creature OR land OR instant OR sorcery';
-  const { cards, loading, error } = useCardSearch(effectiveQuery, selectedFilters);
   const deck = useDeckStore();
+
+  const addCardToDeck = (card: any) => {
+    deck.addCard({
+      id: card.id,
+      name: card.name,
+      cmc: card.cmc || 0,
+      type_line: card.type_line || '',
+      colors: card.colors || [],
+      quantity: 1,
+      category: card.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
+               card.type_line?.toLowerCase().includes('land') ? 'lands' :
+               card.type_line?.toLowerCase().includes('instant') ? 'instants' :
+               card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' : 'other',
+      mechanics: card.keywords || []
+    });
+    showSuccess("Card Added", `Added ${card.name} to deck`);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,20 +53,32 @@ const DeckBuilder = () => {
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-3">
                 <Rocket className="h-7 w-7 text-primary animate-pulse" />
-                <h1 className="text-2xl font-bold bg-cosmic bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                   AI Deck Builder
                 </h1>
               </div>
-              <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft border-spacecraft/30">
-                {deck.format || 'Standard'}
+              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                {deck.format || 'Standard'} • {deck.totalCards} cards
               </Badge>
+              {deck.format === 'commander' && (
+                <Badge variant="outline" className="text-yellow-500 border-yellow-500/30">
+                  <Crown className="h-3 w-3 mr-1" />
+                  Commander
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center space-x-4">
-              <PowerSlider />
+              <Badge variant="outline">
+                Power: {deck.powerLevel.toFixed(1)}
+              </Badge>
               <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+              <Button size="sm">
+                <Play className="h-4 w-4 mr-2" />
+                Playtest
               </Button>
             </div>
           </div>
@@ -102,153 +108,15 @@ const DeckBuilder = () => {
 
           {/* Card Search Tab */}
           <TabsContent value="search" className="space-y-6">
-            <div className="grid grid-cols-12 gap-6">
-              {/* Search Controls */}
-              <div className="col-span-12">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      {/* Main Search */}
-                      <div className="flex space-x-4">
-                        <div className="flex-1 relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search for cards by name, type, or ability... (leave empty to browse all)"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 text-lg h-12"
-                          />
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowFilters(!showFilters)}
-                          className="h-12"
-                        >
-                          <Filter className="h-4 w-4 mr-2" />
-                          Filters
-                        </Button>
-                        <div className="flex border rounded-lg">
-                          <Button
-                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('grid')}
-                          >
-                            <Grid3X3 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('list')}
-                          >
-                            <List className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* MTG Quick Filters */}
-                      <div className="flex space-x-2">
-                        <span className="text-sm font-medium text-muted-foreground flex items-center">
-                          Quick filters:
-                        </span>
-                        {[
-                          { name: 'Creatures', type: 'creature' },
-                          { name: 'Instants', type: 'instant' },
-                          { name: 'Sorceries', type: 'sorcery' },
-                          { name: 'Artifacts', type: 'artifact' },
-                          { name: 'Enchantments', type: 'enchantment' },
-                          { name: 'Planeswalkers', type: 'planeswalker' },
-                          { name: 'Lands', type: 'land' }
-                        ].map(({ name, type }) => (
-                          <Button
-                            key={name}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const isSelected = selectedFilters.types.includes(type);
-                              setSelectedFilters(prev => ({
-                                ...prev,
-                                types: isSelected 
-                                  ? prev.types.filter(t => t !== type)
-                                  : [...prev.types, type]
-                              }));
-                            }}
-                            className={selectedFilters.types.includes(type) ? 'bg-primary text-primary-foreground' : ''}
-                          >
-                            {name}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Filters Sidebar */}
-              {showFilters && (
-                <div className="col-span-3">
-                  <SearchFilters 
-                    filters={selectedFilters}
-                    onFiltersChange={setSelectedFilters}
-                  />
-                </div>
-              )}
-
-              {/* Search Results */}
-              <div className={showFilters ? "col-span-9" : "col-span-12"}>
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center">
-                        {searchQuery ? 'Search Results' : 'Browse Cards'}
-                        {loading && <div className="ml-3 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
-                      </CardTitle>
-                      <span className="text-sm text-muted-foreground">
-                        {cards.length} cards found
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {error && (
-                      <div className="text-destructive text-sm mb-4 p-3 bg-destructive/10 rounded-lg">
-                        {error}
-                      </div>
-                    )}
-                    
-                    {!loading && !error && cards.length === 0 && searchQuery && (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Search className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No cards found</h3>
-                        <p>Try adjusting your search terms or filters</p>
-                      </div>
-                    )}
-
-                    {!loading && !error && cards.length === 0 && !searchQuery && (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No cards available</h3>
-                        <p>Try adjusting your filters or check your internet connection</p>
-                      </div>
-                    )}
-
-                    {cards.length > 0 && (
-                      <div className={viewMode === 'grid' 
-                        ? "grid grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4"
-                        : "space-y-2"
-                      }>
-                        {cards.map((card) => (
-                          <CardPreview 
-                            key={card.id} 
-                            card={card} 
-                            variant={viewMode}
-                            showAddButton
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <UniversalCardSearch
+              onCardAdd={addCardToDeck}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards for your deck..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={false}
+              showViewModes={true}
+            />
           </TabsContent>
 
           {/* Deck Tab */}
@@ -263,7 +131,7 @@ const DeckBuilder = () => {
 
           {/* Analysis Tab */}
           <TabsContent value="analysis">
-            <AnalysisPanel />
+            <EnhancedDeckAnalysisPanel deck={deck.cards} format={deck.format || 'standard'} />
           </TabsContent>
         </Tabs>
       </div>

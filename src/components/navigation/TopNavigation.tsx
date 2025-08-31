@@ -73,10 +73,11 @@ export function TopNavigation() {
             className="flex items-center gap-2 cursor-pointer" 
             onClick={() => navigate('/')}
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
-            </div>
-            <span className="font-bold text-xl">MTG Manager</span>
+            <img 
+              src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
+              alt="DECKMATRIX"
+              className="h-8 w-auto"
+            />
           </div>
         </div>
 

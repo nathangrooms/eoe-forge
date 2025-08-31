@@ -7,6 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Scryfall API best practices
+const RATE_LIMIT_DELAY = 100; // 100ms between requests (10 req/sec as recommended)
+const USER_AGENT = 'MTGDeckBuilder/1.0';
+const ACCEPT_HEADER = 'application/json;q=0.9,*/*;q=0.8';
+
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -80,20 +85,25 @@ async function delay(ms: number) {
 async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': ACCEPT_HEADER,
+        }
+      });
       
       if (response.status === 429) {
         // Rate limited, wait and retry
         const retryAfter = response.headers.get('retry-after');
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 1000 * (i + 1);
-        console.log(`Rate limited, waiting ${waitTime}ms before retry ${i + 1}`);
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 2000 * (i + 1);
+        console.log(`🔄 Rate limited, waiting ${waitTime}ms before retry ${i + 1}`);
         await delay(waitTime);
         continue;
       }
       
       if (response.status === 422) {
         // Unprocessable Entity - likely hit end of results or invalid page
-        console.log(`HTTP 422 on URL: ${url} - likely end of results`);
+        console.log(`✅ HTTP 422 on URL: ${url} - reached end of results`);
         return response; // Return the 422 response to handle it properly
       }
       
@@ -103,10 +113,10 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
       
       // Log the response for debugging
       const responseText = await response.text();
-      console.error(`HTTP ${response.status} for ${url}: ${responseText.substring(0, 500)}`);
+      console.error(`❌ HTTP ${response.status} for ${url}: ${responseText.substring(0, 200)}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error) {
-      console.error(`Attempt ${i + 1} failed:`, error);
+      console.error(`💥 Attempt ${i + 1} failed:`, error);
       if (i === retries - 1) throw error;
       await delay(1000 * (i + 1));
     }
@@ -162,45 +172,53 @@ function tagCard(card: ScryfallCard): string[] {
 }
 
 async function syncCards(): Promise<void> {
-  console.log('🚀 Starting incremental card sync from Scryfall API...');
+  console.log('🚀 Starting comprehensive card sync from Scryfall API...');
   
   try {
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'starting', 1);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'initializing', 0);
     
     let totalProcessed = 0;
     let page = 1;
-    const batchSize = 100;
     let consecutiveErrors = 0;
-    const maxConsecutiveErrors = 3;
+    const maxConsecutiveErrors = 5;
+    let estimatedTotal = null;
     
-    console.log('📡 Starting pagination-based sync for reliability...');
+    console.log('📡 Using Scryfall pagination with proper headers and rate limiting...');
     
     while (true) {
       try {
-        console.log(`📦 Fetching page ${page} (processed: ${totalProcessed} cards)...`);
+        console.log(`📦 Fetching page ${page} (${totalProcessed} cards processed so far)...`);
         
-        // Use a broad search to get all cards - removed the legal:commander restriction
-        const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=-is%3Adigital&unique=cards&page=${page}`);
+        // Use comprehensive search to get all physical cards
+        const searchUrl = `https://api.scryfall.com/cards/search?q=-is%3Adigital&unique=cards&page=${page}`;
+        const response = await fetchWithRetry(searchUrl);
         
         if (!response.ok) {
           if (response.status === 404 || response.status === 422) {
-            console.log(`📊 No more pages available (HTTP ${response.status}) - sync complete`);
+            console.log(`✅ Reached end of results (HTTP ${response.status}) - sync complete`);
             break;
           }
-          throw new Error(`Failed to fetch page ${page}: ${response.status}`);
+          throw new Error(`Failed to fetch page ${page}: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
         const cards = data.data || [];
+        
+        // Get total count from first page if available
+        if (page === 1 && data.total_cards) {
+          estimatedTotal = data.total_cards;
+          console.log(`📊 Estimated total cards: ${estimatedTotal}`);
+          await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal, 'processing', 1);
+        }
         
         if (cards.length === 0) {
           console.log('📊 No more cards to process - sync complete');
           break;
         }
         
-        console.log(`📋 Got ${cards.length} cards from page ${page}`);
+        console.log(`📋 Processing ${cards.length} cards from page ${page}...`);
         
-        // Process all cards from this page
+        // Transform cards with all available data
         const transformedCards = cards.map((card: ScryfallCard) => ({
           id: card.id,
           oracle_id: card.oracle_id,
@@ -228,7 +246,7 @@ async function syncCards(): Promise<void> {
           faces: card.faces || null
         }));
         
-        console.log(`💾 Saving ${transformedCards.length} cards to database...`);
+        console.log(`💾 Upserting ${transformedCards.length} cards to database...`);
         const { error } = await supabase
           .from('cards')
           .upsert(transformedCards, { 
@@ -242,8 +260,9 @@ async function syncCards(): Promise<void> {
           if (consecutiveErrors >= maxConsecutiveErrors) {
             throw new Error(`Too many consecutive database errors: ${error.message}`);
           }
-          console.log(`⚠️ Database error ${consecutiveErrors}/${maxConsecutiveErrors}, continuing...`);
-          await delay(2000);
+          console.log(`⚠️ Database error ${consecutiveErrors}/${maxConsecutiveErrors}, retrying...`);
+          await delay(3000);
+          continue; // Retry the same page
         } else {
           consecutiveErrors = 0;
           console.log(`✅ Successfully saved ${transformedCards.length} cards`);
@@ -251,38 +270,39 @@ async function syncCards(): Promise<void> {
         
         totalProcessed += transformedCards.length;
         
-        // Update progress every 100 cards processed
+        // Update progress every 100 cards processed for better UX
         if (totalProcessed % 100 === 0) {
-          await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, null, 'processing', 2);
-          console.log(`🎯 Progress update: ${totalProcessed} cards processed`);
+          const progressPercent = estimatedTotal ? Math.min(95, (totalProcessed / estimatedTotal) * 100) : null;
+          await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, estimatedTotal, 'processing', 2);
+          console.log(`🎯 Progress: ${totalProcessed} cards processed${progressPercent ? ` (${progressPercent.toFixed(1)}%)` : ''}`);
         }
         
         page++;
         
-        // Rate limiting delay - be gentle with Scryfall
-        await delay(150);
+        // Rate limit compliance - Scryfall recommends 50-100ms delay
+        await delay(RATE_LIMIT_DELAY);
         
       } catch (pageError) {
-        console.error(`❌ Error processing page ${page}:`, pageError);
+        console.error(`❌ Error on page ${page}:`, pageError);
         consecutiveErrors++;
         
         if (consecutiveErrors >= maxConsecutiveErrors) {
           throw new Error(`Too many consecutive errors on page ${page}: ${pageError.message}`);
         }
         
-        console.log(`⚠️ Page error ${consecutiveErrors}/${maxConsecutiveErrors}, retrying in 3 seconds...`);
-        await delay(3000);
-        // Don't increment page on error, retry the same page
+        console.log(`⚠️ Error ${consecutiveErrors}/${maxConsecutiveErrors}, retrying in 5 seconds...`);
+        await delay(5000);
+        // Don't increment page, retry the same one
       }
     }
     
-    console.log(`🎉 Sync completed successfully: ${totalProcessed} cards processed`);
+    console.log(`🎉 Sync completed successfully! Total cards processed: ${totalProcessed}`);
     await updateSyncStatus('scryfall_cards', 'completed', null, totalProcessed, totalProcessed, 'complete', 4);
     
   } catch (error) {
-    console.error('💥 Sync failed with error:', error);
+    console.error('💥 Sync failed:', error);
     console.error('📋 Error details:', error.message);
-    console.error('🔍 Error stack:', error.stack);
+    console.error('🔍 Stack trace:', error.stack);
     await updateSyncStatus('scryfall_cards', 'failed', error.message);
     throw error;
   }
@@ -353,13 +373,14 @@ serve(async (req) => {
         
         console.log('⏰ Minutes since last sync:', minutesSinceLastSync);
         
-        if (minutesSinceLastSync < 5) {
+        if (minutesSinceLastSync < 10) {
           console.log('⚠️ Sync already running, rejecting request');
           return new Response(
             JSON.stringify({ 
-              message: 'Sync already running', 
+              message: 'Sync already running - please wait for current sync to complete', 
               status: existingSync.status,
-              lastSync: existingSync.last_sync 
+              lastSync: existingSync.last_sync,
+              recordsProcessed: existingSync.records_processed || 0
             }),
             { 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -367,8 +388,8 @@ serve(async (req) => {
             }
           );
         } else {
-          console.log('🔄 Resetting stuck sync status');
-          await updateSyncStatus('scryfall_cards', 'failed', 'Sync timeout - automatically reset');
+          console.log('🔄 Detected stuck sync, resetting status');
+          await updateSyncStatus('scryfall_cards', 'failed', 'Sync appears stuck - automatically reset after 10 minutes');
         }
       }
       

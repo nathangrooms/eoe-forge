@@ -269,12 +269,13 @@ export function EnhancedDeckTile({
   return (
     <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in", className)}>
       {/* Large Card Image Header */}
-      <div className="relative aspect-[3/2] bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden" style={{ aspectRatio: '488/680' }}>
         {commanderOrPreview?.image_url ? (
           <img 
             src={commanderOrPreview.image_url} 
             alt={commanderOrPreview.name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+            style={{ objectPosition: 'center' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">

@@ -1,0 +1,322 @@
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  LayoutGrid, 
+  List, 
+  ChevronDown, 
+  ChevronRight, 
+  Plus, 
+  Minus,
+  Crown,
+  Swords,
+  Shield,
+  Scroll,
+  Gem,
+  Sparkles,
+  Mountain,
+  Users,
+  Skull,
+  Eye
+} from 'lucide-react';
+import { useDeckStore } from '@/stores/deckStore';
+import { useDeckManagementStore } from '@/stores/deckManagementStore';
+
+type ViewMode = 'list' | 'visual';
+type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles';
+
+const CATEGORY_ICONS = {
+  creatures: Users,
+  lands: Mountain,
+  instants: Sparkles,
+  sorceries: Scroll,
+  enchantments: Gem,
+  artifacts: Shield,
+  planeswalkers: Swords,
+  battles: Skull
+};
+
+const CATEGORY_LABELS = {
+  creatures: 'Creatures',
+  lands: 'Lands',
+  instants: 'Instants',
+  sorceries: 'Sorceries',
+  enchantments: 'Enchantments',
+  artifacts: 'Artifacts',
+  planeswalkers: 'Planeswalkers',
+  battles: 'Battles'
+};
+
+interface EnhancedDeckListProps {
+  deckId?: string;
+}
+
+export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set(['creatures', 'lands']));
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  
+  const deck = useDeckStore();
+  const { activeDeck, updateCardQuantity, removeCardFromDeck } = useDeckManagementStore();
+
+  const currentDeck = deckId ? null : activeDeck; // Use local deck if no deckId provided
+  const cards = currentDeck?.cards || deck.cards || [];
+
+  const toggleCategory = (category: Category) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const groupedCards = cards.reduce((acc, card) => {
+    const category = card.category || 'creatures';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(card);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  const updateQuantity = (cardId: string, change: number) => {
+    if (currentDeck) {
+      const card = cards.find(c => c.id === cardId);
+      if (card) {
+        const newQuantity = Math.max(0, card.quantity + change);
+        if (newQuantity === 0) {
+          removeCardFromDeck(currentDeck.id, cardId);
+        } else {
+          updateCardQuantity(currentDeck.id, cardId, newQuantity);
+        }
+      }
+    } else {
+      // Handle Supabase deck
+      const card = cards.find(c => c.id === cardId);
+      if (card) {
+        const newQuantity = Math.max(0, card.quantity + change);
+        if (newQuantity === 0) {
+          deck.removeCard(cardId);
+        } else {
+          deck.updateCardQuantity(cardId, newQuantity);
+        }
+      }
+    }
+  };
+
+  const CategoryCard = ({ category, cards: categoryCards }: { category: Category, cards: any[] }) => {
+    const Icon = CATEGORY_ICONS[category];
+    const isExpanded = expandedCategories.has(category);
+    const totalCards = categoryCards.reduce((sum, card) => sum + card.quantity, 0);
+
+    return (
+      <Card className="mb-4">
+        <CardHeader 
+          className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => toggleCategory(category)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              <Icon className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">{CATEGORY_LABELS[category]}</CardTitle>
+              <Badge variant="secondary">{totalCards}</Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setViewMode(viewMode === 'list' ? 'visual' : 'list');
+                }}
+              >
+                {viewMode === 'list' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        
+        {isExpanded && (
+          <CardContent className="pt-0">
+            {viewMode === 'list' ? (
+              <div className="space-y-2">
+                {categoryCards.map((card) => (
+                  <div key={card.id} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex items-center gap-2 min-w-[80px]">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(card.id, -1)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="font-mono text-sm w-8 text-center">{card.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(card.id, 1)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="font-medium">{card.name}</div>
+                        <div className="text-sm text-muted-foreground">{card.type_line}</div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {card.mana_cost && (
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {card.cmc}
+                          </Badge>
+                        )}
+                        {card.colors?.length > 0 && (
+                          <div className="flex gap-1">
+                            {card.colors.map((color: string) => (
+                              <div 
+                                key={color}
+                                className={`w-3 h-3 rounded-full border ${getColorClass(color)}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                {categoryCards.map((card) => (
+                  <div key={card.id} className="relative group">
+                    <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-colors">
+                      {card.image_uris?.normal ? (
+                        <img 
+                          src={card.image_uris.normal} 
+                          alt={card.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Icon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      
+                      {/* Quantity Badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-background/90 text-foreground border">
+                          {card.quantity}
+                        </Badge>
+                      </div>
+                      
+                      {/* Quantity Controls */}
+                      <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 bg-background/90 rounded p-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(card.id, -1)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="font-mono text-sm flex-1 text-center">{card.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(card.id, 1)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2 text-center">
+                      <div className="font-medium text-sm line-clamp-1">{card.name}</div>
+                      <div className="text-xs text-muted-foreground">CMC {card.cmc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    );
+  };
+
+  const totalCards = cards.reduce((sum, card) => sum + card.quantity, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Deck List</h2>
+          <p className="text-sm text-muted-foreground">{totalCards} cards total</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+          >
+            <List className="h-4 w-4 mr-2" />
+            List
+          </Button>
+          <Button
+            variant={viewMode === 'visual' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('visual')}
+          >
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Visual
+          </Button>
+        </div>
+      </div>
+
+      {/* Categories */}
+      {Object.entries(groupedCards).map(([category, categoryCards]) => (
+        <CategoryCard
+          key={category}
+          category={category as Category}
+          cards={categoryCards}
+        />
+      ))}
+
+      {cards.length === 0 && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">No Cards in Deck</h3>
+            <p className="text-muted-foreground">
+              Add cards from the search tab to build your deck
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function getColorClass(color: string): string {
+  const colorMap: Record<string, string> = {
+    W: 'bg-yellow-100 border-yellow-300',
+    U: 'bg-blue-100 border-blue-300',
+    B: 'bg-gray-100 border-gray-300',
+    R: 'bg-red-100 border-red-300',
+    G: 'bg-green-100 border-green-300'
+  };
+  return colorMap[color] || 'bg-gray-200 border-gray-300';
+}

@@ -16,6 +16,8 @@ import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { DeckSelector } from '@/components/deck-builder/DeckSelector';
 import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
+import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
+import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
@@ -58,7 +60,7 @@ interface Deck {
 
 const DeckBuilder = () => {
   const deck = useDeckStore();
-  const { decks: localDecks, addCardToDeck, createDeck, setActiveDeck } = useDeckManagementStore();
+  const { decks: localDecks, addCardToDeck, createDeck, setActiveDeck, activeDeck } = useDeckManagementStore();
   const { user } = useAuth();
   
   // State for deck management
@@ -404,7 +406,21 @@ const DeckBuilder = () => {
         {/* Deck Canvas Tab */}
         <TabsContent value="deck">
           {deck.name ? (
-            <EnhancedDeckCanvas format={deck.format || 'standard'} />
+            <div className="space-y-6">
+              {/* Commander Section - Only for Commander format */}
+              {deck.format === 'commander' && (
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold mb-3">Commander</h2>
+                  <CompactCommanderSection 
+                    deckId={selectedDeckId || ''} 
+                    currentCommander={activeDeck?.commander}
+                  />
+                </div>
+              )}
+              
+              {/* Enhanced Deck List */}
+              <EnhancedDeckList deckId={selectedDeckId || undefined} />
+            </div>
           ) : (
             <div className="text-center p-8">
               <p className="text-muted-foreground mb-4">No deck selected</p>

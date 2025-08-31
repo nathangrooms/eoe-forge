@@ -5,6 +5,8 @@ import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { AnalysisPanel } from '@/components/deck-builder/AnalysisPanel';
 import { AIBuilder } from '@/components/deck-builder/AIBuilder';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
+import { EnhancedDeckCanvas } from '@/components/deck-builder/EnhancedDeckCanvas';
+import { LandEnhancer } from '@/components/deck-builder/LandEnhancer';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { Button } from '@/components/ui/button';
@@ -69,15 +71,15 @@ const DeckBuilder = () => {
         </div>
       }
     >
-        <Tabs defaultValue="search" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="search" className="flex items-center space-x-2">
-              <Search className="h-4 w-4" />
-              <span>Card Database</span>
-            </TabsTrigger>
+        <Tabs defaultValue="deck" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="deck" className="flex items-center space-x-2">
               <Sparkles className="h-4 w-4" />
-              <span>Your Deck ({deck.totalCards})</span>
+              <span>Deck ({deck.totalCards})</span>
+            </TabsTrigger>
+            <TabsTrigger value="search" className="flex items-center space-x-2">
+              <Search className="h-4 w-4" />
+              <span>Card Search</span>
             </TabsTrigger>
             <TabsTrigger value="ai-builder" className="flex items-center space-x-2">
               <Activity className="h-4 w-4" />
@@ -87,7 +89,16 @@ const DeckBuilder = () => {
               <BarChart3 className="h-4 w-4" />
               <span>Analysis</span>
             </TabsTrigger>
+            <TabsTrigger value="lands" className="flex items-center space-x-2">
+              <Crown className="h-4 w-4" />
+              <span>Lands</span>
+            </TabsTrigger>
           </TabsList>
+
+          {/* Deck Canvas Tab */}
+          <TabsContent value="deck">
+            <EnhancedDeckCanvas format={deck.format || 'standard'} />
+          </TabsContent>
 
           {/* Card Search Tab */}
           <TabsContent value="search" className="space-y-6">
@@ -102,19 +113,38 @@ const DeckBuilder = () => {
             />
           </TabsContent>
 
-          {/* Deck Tab */}
-          <TabsContent value="deck">
-            <ModernDeckList />
-          </TabsContent>
-
           {/* AI Builder Tab */}
           <TabsContent value="ai-builder">
             <AIBuilder />
           </TabsContent>
 
+          
           {/* Analysis Tab */}
           <TabsContent value="analysis">
             <EnhancedDeckAnalysisPanel deck={deck.cards} format={deck.format || 'standard'} />
+          </TabsContent>
+
+          {/* Land Enhancer Tab */}
+          <TabsContent value="lands">
+            <LandEnhancer 
+              deck={deck.cards}
+              format={deck.format || 'standard'}
+              onAddLand={(landName) => {
+                // Create a basic land card object
+                const landCard = {
+                  id: Math.random().toString(),
+                  name: landName,
+                  type_line: 'Land',
+                  cmc: 0,
+                  colors: [],
+                  quantity: 1,
+                  category: 'lands',
+                  mechanics: []
+                };
+                deck.addCard(landCard);
+                showSuccess("Land Added", `Added ${landName} to deck`);
+              }}
+            />
           </TabsContent>
         </Tabs>
     </StandardPageLayout>

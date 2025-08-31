@@ -274,15 +274,17 @@ export default function Collection() {
             </CardContent>
           </Card>
 
-          <EnhancedUniversalCardSearch
-            onCardAdd={addToCollection}
-            onCardSelect={(card) => console.log('Selected:', card)}
-            placeholder="Search cards to add to your collection..."
-            showFilters={true}
-            showAddButton={true}
-            showWishlistButton={false}
-            showViewModes={true}
-          />
+          {activeTab === 'add-cards' && (
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToCollection}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards to add to your collection..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={false}
+              showViewModes={true}
+            />
+          )}
           
           <BulkOperations 
             onCollectionUpdate={refresh}

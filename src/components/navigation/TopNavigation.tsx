@@ -66,7 +66,7 @@ export function TopNavigation() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-6">
+      <div className="w-full flex h-16 items-center justify-between px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div 
@@ -80,8 +80,9 @@ export function TopNavigation() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="flex-1 max-w-md mx-8">
+        {/* Search - Center */}
+        <div className="flex-1 flex justify-center">
+          <div className="w-full max-w-2xl">
           <form onSubmit={handleSearch} className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -105,6 +106,7 @@ export function TopNavigation() {
               </SelectContent>
             </Select>
           </form>
+          </div>
         </div>
 
         {/* Quick Actions */}

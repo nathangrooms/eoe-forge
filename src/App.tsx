@@ -68,8 +68,9 @@ function AppContent() {
         {/* Main Content Area */}
         <main className="flex-1 min-h-[calc(100vh-4rem)]">
           <Routes>
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/landing" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />

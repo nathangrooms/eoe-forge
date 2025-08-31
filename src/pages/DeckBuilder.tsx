@@ -7,8 +7,11 @@ import { AIBuilder } from '@/components/deck-builder/AIBuilder';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import { EnhancedDeckCanvas } from '@/components/deck-builder/EnhancedDeckCanvas';
 import { LandEnhancer } from '@/components/deck-builder/LandEnhancer';
+import { DeckSelector } from '@/components/deck-builder/DeckSelector';
+import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
+import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,22 +27,33 @@ import {
 
 const DeckBuilder = () => {
   const deck = useDeckStore();
+  const { activeDeck, addCardToDeck } = useDeckManagementStore();
 
-  const addCardToDeck = (card: any) => {
-    deck.addCard({
+  const handleAddCardToDeck = (card: any) => {
+    if (!activeDeck) {
+      showSuccess("No Active Deck", "Please select a deck first");
+      return;
+    }
+
+    const deckCard = {
       id: card.id,
       name: card.name,
       cmc: card.cmc || 0,
       type_line: card.type_line || '',
       colors: card.colors || [],
+      mana_cost: card.mana_cost,
       quantity: 1,
       category: card.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
                card.type_line?.toLowerCase().includes('land') ? 'lands' :
                card.type_line?.toLowerCase().includes('instant') ? 'instants' :
                card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' : 'other',
-      mechanics: card.keywords || []
-    });
-    showSuccess("Card Added", `Added ${card.name} to deck`);
+      mechanics: card.keywords || [],
+      image_uris: card.image_uris,
+      prices: card.prices
+    } as const;
+
+    addCardToDeck(activeDeck.id, deckCard);
+    showSuccess("Card Added", `Added ${card.name} to ${activeDeck.name}`);
   };
 
   return (
@@ -71,11 +85,15 @@ const DeckBuilder = () => {
         </div>
       }
     >
-        <Tabs defaultValue="deck" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue="select-deck" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="select-deck" className="flex items-center space-x-2">
+              <Crown className="h-4 w-4" />
+              <span>Select Deck</span>
+            </TabsTrigger>
             <TabsTrigger value="deck" className="flex items-center space-x-2">
               <Sparkles className="h-4 w-4" />
-              <span>Deck ({deck.totalCards})</span>
+              <span>Deck ({activeDeck?.totalCards || 0})</span>
             </TabsTrigger>
             <TabsTrigger value="search" className="flex items-center space-x-2">
               <Search className="h-4 w-4" />
@@ -95,22 +113,69 @@ const DeckBuilder = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Deck Selection Tab */}
+          <TabsContent value="select-deck" className="space-y-6">
+            <DeckSelector 
+              onDeckSelect={(selectedDeck) => {
+                showSuccess("Deck Selected", `Now building ${selectedDeck.name}`);
+              }}
+              selectedDeckId={activeDeck?.id}
+            />
+            
+            {activeDeck && activeDeck.format === 'commander' && (
+              <CommanderSelector 
+                deckId={activeDeck.id}
+                currentCommander={activeDeck.commander}
+              />
+            )}
+          </TabsContent>
+
           {/* Deck Canvas Tab */}
           <TabsContent value="deck">
-            <EnhancedDeckCanvas format={deck.format || 'standard'} />
+            {activeDeck ? (
+              <EnhancedDeckCanvas format={activeDeck.format || 'standard'} />
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">No deck selected</p>
+                <Button onClick={() => {
+                  const element = document.querySelector('[value="select-deck"]') as HTMLElement;
+                  element?.click();
+                }}>
+                  Select a Deck
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Card Search Tab */}
           <TabsContent value="search" className="space-y-6">
-            <EnhancedUniversalCardSearch
-              onCardAdd={addCardToDeck}
-              onCardSelect={(card) => console.log('Selected:', card)}
-              placeholder="Search cards for your deck..."
-              showFilters={true}
-              showAddButton={true}
-              showWishlistButton={false}
-              showViewModes={true}
-            />
+            {activeDeck ? (
+              <>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <p className="text-sm font-medium">Adding cards to: {activeDeck.name}</p>
+                  <p className="text-xs text-muted-foreground">Format: {activeDeck.format} • Cards: {activeDeck.totalCards}</p>
+                </div>
+                <EnhancedUniversalCardSearch
+                  onCardAdd={handleAddCardToDeck}
+                  onCardSelect={(card) => console.log('Selected:', card)}
+                  placeholder={`Search cards for your ${activeDeck.format} deck...`}
+                  showFilters={true}
+                  showAddButton={true}
+                  showWishlistButton={false}
+                  showViewModes={true}
+                />
+              </>
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">Select a deck first to add cards</p>
+                <Button onClick={() => {
+                  const element = document.querySelector('[value="select-deck"]') as HTMLElement;
+                  element?.click();
+                }}>
+                  Select a Deck
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* AI Builder Tab */}

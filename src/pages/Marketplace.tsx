@@ -29,7 +29,7 @@ interface Listing {
   note: string | null;
   updated_at: string | null;
   visibility: string | null;
-  card?: {
+  cards?: {
     id: string;
     name: string;
     image_uris: any;
@@ -59,7 +59,7 @@ export default function Marketplace() {
         .from('listings')
         .select(`
           *,
-          card:cards!listings_card_id_fkey(
+          cards(
             id,
             name,
             image_uris,
@@ -154,7 +154,7 @@ export default function Marketplace() {
         console.warn('Could not remove from collection:', collectionError);
       }
 
-      showSuccess('Card Sold!', `${listing.card?.name || listing.card_id} marked as sold and removed from collection`);
+      showSuccess('Card Sold!', `${listing.cards?.name || listing.card_id} marked as sold and removed from collection`);
       loadMyListings();
     } catch (error) {
       console.error('Error marking as sold:', error);
@@ -172,7 +172,7 @@ export default function Marketplace() {
   );
 
   const getCardImage = (listing: Listing) => {
-    return listing.card?.image_uris?.normal || listing.card?.image_uris?.small;
+    return listing.cards?.image_uris?.normal || listing.cards?.image_uris?.small;
   };
 
   if (loading) {
@@ -230,7 +230,7 @@ export default function Marketplace() {
                   {getCardImage(listing) ? (
                     <img 
                       src={getCardImage(listing)} 
-                      alt={listing.card?.name || listing.card_id}
+                      alt={listing.cards?.name || listing.card_id}
                       className="w-full h-48 object-cover"
                     />
                   ) : (
@@ -253,10 +253,10 @@ export default function Marketplace() {
                 
                 <CardContent className="p-4">
                   <h3 className="font-medium text-sm mb-1 truncate">
-                    {listing.card?.name || listing.card_id}
+                    {listing.cards?.name || listing.card_id}
                   </h3>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {listing.card?.set_code?.toUpperCase()} • {listing.card?.rarity}
+                    {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
                   </p>
                   
                   <div className="flex items-center justify-between mb-2">
@@ -268,9 +268,9 @@ export default function Marketplace() {
                     <span className="text-lg font-bold text-green-600">
                       ${listing.price_usd.toFixed(2)}
                     </span>
-                    {listing.card?.prices?.usd && (
+                    {listing.cards?.prices?.usd && (
                       <span className="text-xs text-muted-foreground">
-                        Market: ${parseFloat(listing.card.prices.usd).toFixed(2)}
+                        Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
                       </span>
                     )}
                   </div>

@@ -27,9 +27,11 @@ const getCardId = (card: any) => {
 
 // Get the current market price for the card
 const getCardPrice = (card: any, foil: boolean = false): number => {
-  if (!card?.card?.prices && !card?.prices) return 0;
+  if (!card) return 0;
   
-  const prices = card?.card?.prices || card?.prices;
+  // Try multiple possible paths for prices
+  const prices = card?.card?.prices || card?.prices || card?.card?.card?.prices;
+  if (!prices) return 0;
   
   if (foil) {
     return parseFloat(prices?.usd_foil || '0');

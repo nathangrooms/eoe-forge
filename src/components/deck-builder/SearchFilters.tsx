@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Filter, X } from 'lucide-react';
+import { BASIC_COLORS, GUILDS, SHARDS, WEDGES } from '@/lib/magic/colors';
+import { CARD_TYPES as TYPES_LIST } from '@/lib/magic/types';
 
 interface SearchFiltersProps {
   filters: {
@@ -12,6 +15,8 @@ interface SearchFiltersProps {
     types: string[];
     colors: string[];
     mechanics: string[];
+    colorIdentity: string[];
+    colorOperator: 'exact' | 'contains' | 'subset' | 'superset';
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -24,33 +29,67 @@ const POPULAR_SETS = [
   { code: 'LCI', name: 'The Lost Caverns of Ixalan' }
 ];
 
-const TYPES = [
-  'Creature', 'Instant', 'Sorcery', 'Enchantment', 
-  'Artifact', 'Planeswalker', 'Land', 'Battle'
-];
+const TYPES = Array.from(TYPES_LIST);
 
-const COLORS = [
-  { symbol: 'W', name: 'White', color: '#FFFBD5' },
-  { symbol: 'U', name: 'Blue', color: '#0E68AB' },
-  { symbol: 'B', name: 'Black', color: '#150B00' },
-  { symbol: 'R', name: 'Red', color: '#D3202A' },
-  { symbol: 'G', name: 'Green', color: '#00733E' }
+const COLORS = Object.entries(BASIC_COLORS).map(([symbol, data]) => ({
+  symbol,
+  name: data.name,
+  color: data.hex
+}));
+
+// Color combinations for quick selection
+const COLOR_COMBINATIONS = [
+  { name: 'Guilds', items: Object.entries(GUILDS).map(([key, guild]) => ({ 
+    key, 
+    name: guild.name, 
+    colors: guild.colors,
+    description: guild.description 
+  })) },
+  { name: 'Shards', items: Object.entries(SHARDS).map(([key, shard]) => ({ 
+    key, 
+    name: shard.name, 
+    colors: shard.colors,
+    description: shard.description 
+  })) },
+  { name: 'Wedges', items: Object.entries(WEDGES).map(([key, wedge]) => ({ 
+    key, 
+    name: wedge.name, 
+    colors: wedge.colors,
+    description: wedge.description 
+  })) }
 ];
 
 const MTG_MECHANICS = [
-  'Flying', 'Trample', 'Vigilance', 'Menace', 'Lifelink', 'Deathtouch', 'Haste', 'Reach'
+  'Flying', 'Trample', 'Vigilance', 'Menace', 'Lifelink', 'Deathtouch', 'Haste', 'Reach',
+  'First Strike', 'Double Strike', 'Hexproof', 'Indestructible', 'Flash', 'Defender'
 ];
 
 export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
   const toggleFilter = (category: string, value: string) => {
     const currentValues = filters[category as keyof typeof filters];
-    const newValues = currentValues.includes(value)
-      ? currentValues.filter(v => v !== value)
-      : [...currentValues, value];
-    
+    if (Array.isArray(currentValues)) {
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+      
+      onFiltersChange({
+        ...filters,
+        [category]: newValues
+      });
+    }
+  };
+
+  const setColorCombination = (colors: string[]) => {
     onFiltersChange({
       ...filters,
-      [category]: newValues
+      colors: colors
+    });
+  };
+
+  const clearCategory = (category: string) => {
+    onFiltersChange({
+      ...filters,
+      [category]: []
     });
   };
 
@@ -59,7 +98,9 @@ export const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) 
       sets: [],
       types: [],
       colors: [],
-      mechanics: []
+      mechanics: [],
+      colorIdentity: [],
+      colorOperator: 'exact' as const
     });
   };
 

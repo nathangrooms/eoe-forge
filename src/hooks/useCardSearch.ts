@@ -36,10 +36,16 @@ interface SearchFilters {
   sets?: string[];
   types?: string[];
   colors?: string[];
+  colorIdentity?: string[];
+  colorOperator?: 'exact' | 'contains' | 'subset' | 'superset';
   mechanics?: string[];
   format?: string;
   rarity?: string;
   cmc?: string;
+  manaValue?: number | string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
 }
 
 export function useCardSearch(query: string, filters: SearchFilters = {}) {
@@ -59,39 +65,74 @@ export function useCardSearch(query: string, filters: SearchFilters = {}) {
     setError(null);
 
     try {
-      // Build Scryfall search query
+      // Build Scryfall search query using Magic syntax helpers
       let scryfallQuery = searchQuery;
+      const queryParts: string[] = [];
       
       // Add filters to the search query
       if (searchFilters.sets && searchFilters.sets.length > 0) {
         const setQuery = searchFilters.sets.map(set => `set:${set}`).join(' OR ');
-        scryfallQuery += ` (${setQuery})`;
+        queryParts.push(`(${setQuery})`);
       }
       
       if (searchFilters.format && searchFilters.format !== 'all') {
-        scryfallQuery += ` legal:${searchFilters.format}`;
+        queryParts.push(`legal:${searchFilters.format}`);
       }
       
       if (searchFilters.rarity && searchFilters.rarity !== 'all') {
-        scryfallQuery += ` rarity:${searchFilters.rarity}`;
+        queryParts.push(`rarity:${searchFilters.rarity}`);
       }
       
+      // Enhanced type filtering
       if (searchFilters.types && searchFilters.types.length > 0) {
-        const typeQuery = searchFilters.types.map(type => `type:${type}`).join(' OR ');
-        scryfallQuery += ` (${typeQuery})`;
+        const typeQueries = searchFilters.types.map(type => `t:${type.toLowerCase()}`);
+        queryParts.push(`(${typeQueries.join(' OR ')})`);
       }
       
+      // Enhanced color filtering with operators
       if (searchFilters.colors && searchFilters.colors.length > 0) {
-        const colorQuery = searchFilters.colors.map(color => `color:${color}`).join(' OR ');
-        scryfallQuery += ` (${colorQuery})`;
+        const operator = searchFilters.colorOperator || 'exact';
+        const colorString = searchFilters.colors.join('');
+        let colorQuery = '';
+        
+        switch (operator) {
+          case 'exact': colorQuery = `c:${colorString}`; break;
+          case 'contains': colorQuery = `c>=${colorString}`; break;
+          case 'subset': colorQuery = `c<=${colorString}`; break;
+          case 'superset': colorQuery = `c>=${colorString}`; break;
+          default: colorQuery = `c:${colorString}`;
+        }
+        queryParts.push(colorQuery);
       }
 
+      // Color identity filtering
+      if (searchFilters.colorIdentity && searchFilters.colorIdentity.length > 0) {
+        const operator = searchFilters.colorOperator || 'exact';
+        const identityString = searchFilters.colorIdentity.join('');
+        let identityQuery = '';
+        
+        switch (operator) {
+          case 'exact': identityQuery = `id:${identityString}`; break;
+          case 'contains': identityQuery = `id>=${identityString}`; break;
+          case 'subset': identityQuery = `id<=${identityString}`; break;
+          case 'superset': identityQuery = `id>=${identityString}`; break;
+          default: identityQuery = `id:${identityString}`;
+        }
+        queryParts.push(identityQuery);
+      }
+
+      // Legacy CMC support
       if (searchFilters.cmc) {
         if (searchFilters.cmc === '6') {
-          scryfallQuery += ` cmc>=6`;
+          queryParts.push('mv>=6');
         } else {
-          scryfallQuery += ` cmc:${searchFilters.cmc}`;
+          queryParts.push(`mv:${searchFilters.cmc}`);
         }
+      }
+
+      // Combine query parts
+      if (queryParts.length > 0) {
+        scryfallQuery += ' ' + queryParts.join(' ');
       }
 
       console.log('Searching with query:', scryfallQuery);

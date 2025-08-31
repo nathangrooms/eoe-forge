@@ -38,7 +38,9 @@ const DeckBuilder = () => {
     sets: [] as string[],
     types: [] as string[],
     colors: [] as string[],
-    mechanics: [] as string[]
+    mechanics: [] as string[],
+    colorIdentity: [] as string[],
+    colorOperator: 'exact' as const
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);

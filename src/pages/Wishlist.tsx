@@ -371,16 +371,43 @@ export default function Wishlist() {
 
   const getWishlistForDeck = (deck: UserDeck) => {
     return wishlistItems.filter(item => {
-      // Use color_identity from the card data for better deck compatibility
-      const cardColors = item.card?.color_identity || item.card?.colors || [];
+      // Get the card's color identity - try multiple sources
+      let cardColors: string[] = [];
       
-      // If deck has no colors (colorless), only include colorless cards
+      if (item.card?.color_identity && Array.isArray(item.card.color_identity)) {
+        cardColors = item.card.color_identity;
+      } else if (item.card?.colors && Array.isArray(item.card.colors)) {
+        cardColors = item.card.colors;
+      }
+      
+      // Debug logging to see what we're working with
+      console.log(`Checking card "${item.card_name}" for deck "${deck.name}":`, {
+        cardColors,
+        deckColors: deck.colors,
+        cardData: item.card
+      });
+      
+      // If deck has no colors (colorless), include all colorless cards and artifacts
       if (deck.colors.length === 0) {
-        return cardColors.length === 0;
+        return cardColors.length === 0 || 
+               (item.card?.type_line && item.card.type_line.toLowerCase().includes('artifact'));
+      }
+      
+      // If card has no colors, it can go in any deck (colorless/artifact cards)
+      if (cardColors.length === 0) {
+        return true;
       }
       
       // Check if all card colors are contained within the deck's color identity
-      return cardColors.every(color => deck.colors.includes(color));
+      const isCompatible = cardColors.every(color => deck.colors.includes(color));
+      
+      console.log(`Card "${item.card_name}" compatibility:`, {
+        cardColors,
+        deckColors: deck.colors,
+        isCompatible
+      });
+      
+      return isCompatible;
     });
   };
 
@@ -545,7 +572,7 @@ export default function Wishlist() {
                                 {deck.format}
                               </Badge>
                               <div className="flex gap-1">
-                                {deck.colors.map((color, index) => (
+                                {deck.colors.length > 0 ? deck.colors.map((color, index) => (
                                   <div
                                     key={index}
                                     className={`w-4 h-4 rounded-full border ${
@@ -557,7 +584,12 @@ export default function Wishlist() {
                                       'bg-gray-400 border-gray-500'
                                     }`}
                                   />
-                                ))}
+                                )) : (
+                                  <div className="text-xs text-muted-foreground">Colorless</div>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                (Colors: {deck.colors.length > 0 ? deck.colors.join(', ') : 'None'})
                               </div>
                             </div>
                           </div>
@@ -571,6 +603,16 @@ export default function Wishlist() {
                           <div className="text-xs text-muted-foreground">
                             {deckWishlist.length} cards
                           </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+                        <h4 className="text-sm font-medium mb-2">Debug Info:</h4>
+                        <div className="text-xs space-y-1">
+                          <div>Total Wishlist Items: {wishlistItems.length}</div>
+                          <div>Deck Colors: [{deck.colors.join(', ')}]</div>
+                          <div>Compatible Cards Found: {deckWishlist.length}</div>
+                          <div>Compatible Card Names: {deckWishlist.map(item => item.card_name).join(', ') || 'None'}</div>
                         </div>
                       </div>
                       
@@ -612,7 +654,12 @@ export default function Wishlist() {
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
                           <p>No wishlist cards are compatible with this deck's colors</p>
-                          <p className="text-sm mt-1">Add some cards to your wishlist that match this deck!</p>
+                          <p className="text-sm mt-1">
+                            This deck uses colors: {deck.colors.length > 0 ? deck.colors.join(', ') : 'None (Colorless)'}
+                          </p>
+                          <p className="text-xs mt-2">
+                            Add cards to your wishlist that match or are colorless!
+                          </p>
                         </div>
                       )}
                     </CardContent>

@@ -267,20 +267,19 @@ export function EnhancedDeckTile({
   const hasValidMetrics = metrics && !loadingMetrics;
 
   return (
-    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in", className)}>
-      <div className="flex h-full">
-        {/* Left Column - Card Image */}
-        <div className="w-1/3 relative bg-gradient-to-br from-muted to-muted-foreground/20 overflow-hidden">
+    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full", className)}>
+      <div className="flex w-full min-h-[200px]">
+        {/* Left - Large Card Image */}
+        <div className="w-64 h-64 flex-shrink-0 relative bg-background overflow-hidden">
           {commanderOrPreview?.image_url ? (
             <img 
               src={commanderOrPreview.image_url} 
               alt={commanderOrPreview.name}
               className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-              style={{ objectPosition: 'center' }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-              <Crown className="h-16 w-16 text-primary/60" />
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <Crown className="h-20 w-20 text-muted-foreground" />
             </div>
           )}
           
@@ -293,134 +292,131 @@ export function EnhancedDeckTile({
           )}
         </div>
 
-        {/* Right Column - Deck Information */}
-        <div className="flex-1 flex flex-col">
-          <CardContent className="p-4 flex-1 space-y-4">
-            {/* Header Section */}
-            <div className="flex justify-between items-start">
+        {/* Right - Deck Information */}
+        <div className="flex-1 flex flex-col min-h-[200px]">
+          <div className="p-6 flex-1">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-6">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-3 mb-3">
                   <Badge className={cn("font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
                     {format.toUpperCase()}
                   </Badge>
                   <PowerLevelBadge level={powerLevel} />
-                </div>
-                <h3 className="font-bold text-xl mb-2 group-hover:text-primary transition-colors">
-                  {name}
-                </h3>
-                <div className="flex items-center gap-2 mb-2">
                   <ManaSymbols colors={colors} size="sm" />
                 </div>
+                <h3 className="font-bold text-2xl mb-2 group-hover:text-primary transition-colors">
+                  {name}
+                </h3>
                 {description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-muted-foreground line-clamp-2 max-w-md">
                     {description}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Main Metrics Row */}
-            {hasValidMetrics && (
-              <div className="grid grid-cols-2 gap-6">
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Total Cards</span>
-                  </div>
-                  <p className="text-3xl font-bold text-primary">{metrics.totalCards}</p>
-                  <p className="text-xs text-muted-foreground">{metrics.uniqueCards} unique</p>
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-12 gap-4 mb-6">
+              {/* Total Cards */}
+              <div className="col-span-3 text-center p-4 bg-card border rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-2">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Total Cards</span>
                 </div>
-                
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>Avg CMC</span>
-                  </div>
-                  <p className="text-3xl font-bold text-primary">{metrics.avgCmc.toFixed(1)}</p>
-                  <p className="text-xs text-muted-foreground">mana cost</p>
-                </div>
+                <p className="text-3xl font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</p>
+                <p className="text-xs text-muted-foreground">{hasValidMetrics ? metrics.uniqueCards : cardCount} unique</p>
               </div>
-            )}
+              
+              {/* Avg CMC */}
+              <div className="col-span-3 text-center p-4 bg-card border rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Avg CMC</span>
+                </div>
+                <p className="text-3xl font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</p>
+                <p className="text-xs text-muted-foreground">mana cost</p>
+              </div>
 
-            {/* Card Types Section */}
-            {hasValidMetrics && (
-              <div>
+              {/* Card Types */}
+              <div className="col-span-6 p-4 bg-card border rounded-lg">
                 <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
                   <Layers className="h-4 w-4" />
                   Card Types
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Creatures:</span>
-                    <span className="font-semibold">{metrics.creatureCount}</span>
+                    <span className="font-semibold">{hasValidMetrics ? metrics.creatureCount : 0}</span>
                   </div>
-                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Lands:</span>
-                    <span className="font-semibold">{metrics.landCount}</span>
+                    <span className="font-semibold">{hasValidMetrics ? metrics.landCount : 0}</span>
                   </div>
-                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Spells:</span>
-                    <span className="font-semibold">{metrics.spellCount}</span>
+                    <span className="font-semibold">{hasValidMetrics ? metrics.spellCount : 0}</span>
                   </div>
-                  <div className="flex justify-between p-2 bg-muted/20 rounded">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Artifacts:</span>
-                    <span className="font-semibold">{metrics.artifactCount}</span>
+                    <span className="font-semibold">{hasValidMetrics ? metrics.artifactCount : 0}</span>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Commander Info */}
-            {commanderOrPreview && (
-              <div>
-                <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                  <Crown className="h-4 w-4" />
-                  {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
-                </h4>
-                <div className="p-3 bg-muted/30 rounded-lg">
-                  <p className="font-semibold">{commanderOrPreview.name}</p>
-                  {metrics?.commanderCard && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
-                    </p>
-                  )}
-                </div>
+            {/* Commander Info & Actions Row */}
+            <div className="flex justify-between items-end">
+              <div className="flex-1">
+                {/* Commander Info */}
+                {commanderOrPreview && (
+                  <div className="max-w-sm">
+                    <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                      <Crown className="h-4 w-4" />
+                      {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+                    </h4>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="font-semibold">{commanderOrPreview.name}</p>
+                      {metrics?.commanderCard && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Last Modified */}
+                {lastModified && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-3">
+                    <Calendar className="h-4 w-4" />
+                    <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {loadingMetrics && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-3">
+                    <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
+                    Loading deck details...
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Last Modified */}
-            {lastModified && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {loadingMetrics && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
-                Loading deck details...
-              </div>
-            )}
-          </CardContent>
-
-          {/* Action Buttons - Always at bottom */}
-          <div className="p-4 pt-0 border-t bg-muted/10">
-            <div className="flex gap-2">
-              {onView && (
-                <Button variant="outline" size="sm" onClick={onView} className="flex-1">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Button>
-              )}
-              {onEdit && (
-                <Button size="sm" onClick={onEdit} className="flex-1">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-              <div className="flex gap-1">
+              {/* Action Buttons */}
+              <div className="flex gap-2 ml-4">
+                {onView && (
+                  <Button variant="outline" size="sm" onClick={onView}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View
+                  </Button>
+                )}
+                {onEdit && (
+                  <Button size="sm" onClick={onEdit}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                )}
                 {onDuplicate && (
                   <Button variant="outline" size="sm" onClick={onDuplicate}>
                     <Copy className="h-4 w-4" />

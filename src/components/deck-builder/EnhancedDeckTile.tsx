@@ -267,32 +267,45 @@ export function EnhancedDeckTile({
   const hasValidMetrics = metrics && !loadingMetrics;
 
   return (
-    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full max-w-6xl mx-auto mb-6", className)}>
-      <div className="flex w-full min-h-[220px]">
+    <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full max-w-7xl mx-auto mb-6", className)}>
+      <div className="flex w-full min-h-[280px]">
         {/* Left - Large Card Image */}
-        <div className="w-64 h-56 flex-shrink-0 relative p-4">
-          {/* Commander Badge Above Image */}
+        <div className="w-80 flex-shrink-0 relative p-6">
+          {/* Commander Badge Above Image - Centered */}
           {metrics?.commanderCard && (
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-center gap-2 mb-3">
               <Crown className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-primary">Commander</span>
             </div>
           )}
           
+          {/* Large Card Image */}
           {commanderOrPreview?.image_url ? (
             <img 
               src={commanderOrPreview.image_url} 
               alt={commanderOrPreview.name}
-              className="w-full h-48 object-contain rounded-lg transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-64 object-contain rounded-lg transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            <div className="w-full h-48 flex items-center justify-center bg-muted rounded-lg">
-              <Crown className="h-20 w-20 text-muted-foreground" />
+            <div className="w-full h-64 flex items-center justify-center bg-muted rounded-lg">
+              <Crown className="h-24 w-24 text-muted-foreground" />
+            </div>
+          )}
+          
+          {/* Commander Name Below Image - Centered */}
+          {commanderOrPreview && (
+            <div className="mt-3 text-center">
+              <div className="font-semibold text-lg">{commanderOrPreview.name}</div>
+              {metrics?.commanderCard && (
+                <div className="text-sm text-muted-foreground mt-1">
+                  CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Middle - Main Content */}
+        {/* Right - Main Content */}
         <div className="flex-1 p-6">
           {/* Header Row */}
           <div className="flex items-start justify-between mb-6">
@@ -305,82 +318,98 @@ export function EnhancedDeckTile({
                 <ManaSymbols colors={colors} size="sm" />
               </div>
               
-              <h3 className="font-bold text-2xl mb-3 group-hover:text-primary transition-colors">
+              <h3 className="font-bold text-3xl mb-3 group-hover:text-primary transition-colors">
                 {name}
               </h3>
               
               {description && (
-                <p className="text-muted-foreground line-clamp-2 max-w-2xl">
+                <p className="text-muted-foreground line-clamp-2 max-w-3xl text-lg">
                   {description}
                 </p>
+              )}
+            </div>
+
+            {/* Integrated Action Buttons */}
+            <div className="flex flex-col gap-3 ml-6">
+              {onEdit && (
+                <Button size="lg" onClick={onEdit} className="whitespace-nowrap px-6 py-3">
+                  <Edit className="h-5 w-5 mr-2" />
+                  Open in Deck Builder
+                </Button>
+              )}
+              
+              <div className="flex gap-2">
+                {onDuplicate && (
+                  <Button variant="outline" size="sm" onClick={onDuplicate} className="px-4">
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button variant="outline" size="sm" onClick={onDelete} className="px-4 text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+              
+              {onPlay && (
+                <Button variant="outline" size="sm" onClick={onPlay} className="whitespace-nowrap px-4">
+                  <Play className="h-4 w-4 mr-2" />
+                  Export/Play
+                </Button>
               )}
             </div>
           </div>
 
           {/* Metrics Grid */}
-          <div className="grid grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-6 gap-6 mb-6">
             {/* Total Cards */}
-            <div className="col-span-2 text-center p-4 bg-card border rounded-lg">
+            <div className="col-span-2 text-center p-5 bg-card border rounded-lg">
               <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Total Cards</span>
               </div>
-              <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</p>
-              <p className="text-xs text-muted-foreground">{hasValidMetrics ? metrics.uniqueCards : cardCount} unique</p>
+              <p className="text-3xl font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</p>
+              <p className="text-sm text-muted-foreground">{hasValidMetrics ? metrics.uniqueCards : cardCount} unique</p>
             </div>
             
             {/* Avg CMC */}
-            <div className="col-span-2 text-center p-4 bg-card border rounded-lg">
+            <div className="col-span-2 text-center p-5 bg-card border rounded-lg">
               <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-2">
                 <TrendingUp className="h-4 w-4" />
                 <span>Avg CMC</span>
               </div>
-              <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</p>
-              <p className="text-xs text-muted-foreground">mana cost</p>
+              <p className="text-3xl font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</p>
+              <p className="text-sm text-muted-foreground">mana cost</p>
             </div>
 
             {/* Card Types */}
-            <div className="col-span-2 p-4 bg-card border rounded-lg">
-              <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+            <div className="col-span-2 p-5 bg-card border rounded-lg">
+              <h4 className="text-sm font-medium flex items-center gap-2 mb-4">
                 <Layers className="h-4 w-4" />
                 Card Type Distribution
               </h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="text-center">
                   <div className="text-muted-foreground">Creatures</div>
-                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.creatureCount : 0}</div>
+                  <div className="font-bold text-xl">{hasValidMetrics ? metrics.creatureCount : 0}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground">Lands</div>
-                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.landCount : 0}</div>
+                  <div className="font-bold text-xl">{hasValidMetrics ? metrics.landCount : 0}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground">Spells</div>
-                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.spellCount : 0}</div>
+                  <div className="font-bold text-xl">{hasValidMetrics ? metrics.spellCount : 0}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground">Artifacts</div>
-                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.artifactCount : 0}</div>
+                  <div className="font-bold text-xl">{hasValidMetrics ? metrics.artifactCount : 0}</div>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Commander Info Under Metrics */}
-          {commanderOrPreview && (
-            <div className="mb-4">
-              <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg">
-                <div>
-                  <span className="font-semibold text-lg">{commanderOrPreview.name}</span>
-                  {metrics?.commanderCard && (
-                    <span className="text-muted-foreground ml-3">
-                      CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Bottom Meta Info */}
           <div className="flex items-center justify-between">
@@ -401,40 +430,6 @@ export function EnhancedDeckTile({
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Right - Actions */}
-        <div className="w-56 flex flex-col justify-center p-6 border-l bg-card/30">
-          <div className="space-y-4">
-            {onEdit && (
-              <Button size="lg" onClick={onEdit} className="w-full h-12 text-base">
-                <Edit className="h-5 w-5 mr-3" />
-                Open in Deck Builder
-              </Button>
-            )}
-            
-            <div className="flex gap-2">
-              {onDuplicate && (
-                <Button variant="outline" size="sm" onClick={onDuplicate} className="flex-1 h-10">
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy
-                </Button>
-              )}
-              {onDelete && (
-                <Button variant="outline" size="sm" onClick={onDelete} className="flex-1 h-10 text-destructive hover:text-destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              )}
-            </div>
-            
-            {onPlay && (
-              <Button variant="outline" size="sm" onClick={onPlay} className="w-full h-10">
-                <Play className="h-4 w-4 mr-2" />
-                Export/Play
-              </Button>
-            )}
           </div>
         </div>
       </div>

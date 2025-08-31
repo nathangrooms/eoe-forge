@@ -182,52 +182,9 @@ async function syncCards(): Promise<void> {
     console.log(`   - Updated: ${oracleCards.updated_at}`);
     console.log(`   - URI: ${oracleCards.download_uri}`);
 
-    // Pre-calculate total by doing a quick count pass
-    console.log('📊 Pre-calculating total card count...');
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'count', 2);
-    const countResponse = await fetchWithRetry(oracleCards.download_uri);
-    if (!countResponse.ok || !countResponse.body) {
-      throw new Error(`Count fetch failed: ${countResponse.status}`);
-    }
-    
-    const countReader = countResponse.body.getReader();
-    const countDecoder = new TextDecoder();
-    let countBuffer = '';
-    let estimatedTotal = 0;
-    
-    try {
-      while (true) {
-        const { done, value } = await countReader.read();
-        if (done) break;
-        
-        const chunk = countDecoder.decode(value, { stream: true });
-        countBuffer += chunk;
-        
-        // Count valid card entries (lines with oracle_id and no "token" in type_line)
-        const lines = countBuffer.split('\n');
-        countBuffer = lines.pop() || '';
-        
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const card = JSON.parse(line);
-            if (card.oracle_id && card.type_line && !card.type_line.toLowerCase().includes('token')) {
-              estimatedTotal++;
-            }
-          } catch {
-            // Skip invalid JSON
-          }
-        }
-      }
-    } finally {
-      countReader.releaseLock();
-    }
-    
-    console.log(`🔢 Estimated total cards: ${estimatedTotal}`);
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal, 'download', 3);
-    
-    // Start streaming download
+    // Start streaming download immediately with estimated total
     console.log('⬇️ Starting Oracle Cards download...');
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 27000, 'download', 3); // Use reasonable estimate initially
     const cardsResponse = await fetchWithRetry(oracleCards.download_uri);
     
     if (!cardsResponse.ok || !cardsResponse.body) {
@@ -243,6 +200,8 @@ async function syncCards(): Promise<void> {
     let validCardCount = 0;
     let batchSize = 50; // Much smaller batches for frequent updates
     let currentBatch: any[] = [];
+    let estimatedTotal = 27000; // Start with reasonable estimate, will update as we process
+    let startTime = Date.now();
     
     try {
       while (true) {
@@ -305,8 +264,15 @@ async function syncCards(): Promise<void> {
               console.log(`💾 Batch saved: ${validCardCount} total cards processed`);
               currentBatch = [];
               
-                              // Update progress frequently for live updates
-                              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal, 'download', 3);
+              // Update total estimate more accurately as we process more data
+              if (validCardCount > 1000) {
+                // Rough estimate based on processing so far
+                const avgCardsPerMB = validCardCount / ((Date.now() - startTime) / 1000 / 60); // cards per minute estimate
+                estimatedTotal = Math.max(validCardCount, Math.round(validCardCount * 1.5)); // Conservative estimate
+              }
+              
+              // Update progress with dynamic total
+              await updateSyncStatus('scryfall_cards', 'running', null, validCardCount, estimatedTotal, 'download', 3);
               
               // Small delay to prevent overwhelming
               await delay(25);

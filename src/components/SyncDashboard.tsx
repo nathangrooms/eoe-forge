@@ -319,7 +319,6 @@ const SyncDashboard = () => {
     return [
       { id: 'init', name: 'Initialize Sync', status: 'completed' },
       { id: 'fetch', name: 'Fetch Bulk Data Info', status: syncStatus?.current_step === 'fetch' ? 'current' : syncStatus?.step_progress >= 1 ? 'completed' : 'pending' },
-      { id: 'count', name: 'Calculate Total Cards', status: syncStatus?.current_step === 'count' ? 'current' : syncStatus?.step_progress >= 2 ? 'completed' : 'pending' },
       { id: 'download', name: 'Download & Process Cards', status: syncStatus?.current_step === 'download' ? 'current' : syncStatus?.step_progress >= 3 ? 'completed' : 'pending' },
       { id: 'complete', name: 'Sync Complete', status: syncStatus?.status === 'completed' ? 'completed' : 'pending' }
     ];

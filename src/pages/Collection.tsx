@@ -39,15 +39,25 @@ export default function Collection() {
 
   const { addCardToDeck } = useDeckManagementStore();
 
-  // Get active tab from URL params  
+  // Get active tab from URL params with stable state management
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'collection';
+  const [currentTab, setCurrentTab] = useState(() => searchParams.get('tab') || 'collection');
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedDeckId, setSelectedDeckId] = useState<string>('');
   const [addToCollectionState, setAddToCollectionState] = useState(true);
   const [addToDeckState, setAddToDeckState] = useState(false);
 
+  // Sync currentTab with URL changes, but preserve tab during searches
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'collection';
+    // Only update if it's actually a different tab (not just search params changing)
+    if (tabFromUrl !== currentTab && ['collection', 'add-cards', 'analysis', 'import'].includes(tabFromUrl)) {
+      setCurrentTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
   const setActiveTab = (tab: string) => {
+    setCurrentTab(tab);
     if (tab === 'collection') {
       setSearchParams({});
     } else {
@@ -60,14 +70,14 @@ export default function Collection() {
   }, [load]);
 
   useEffect(() => {
-    if (activeTab === 'add-cards') {
+    if (currentTab === 'add-cards') {
       // Focus search when on add-cards tab
       setTimeout(() => {
         const searchInput = document.querySelector('input[placeholder*="Search cards"]') as HTMLInputElement;
         searchInput?.focus();
       }, 100);
     }
-  }, [activeTab]);
+  }, [currentTab]);
 
   // Get current stats
   const stats = getStats();
@@ -165,7 +175,7 @@ export default function Collection() {
         </div>
       }
     >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={currentTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger 
               value="collection" 

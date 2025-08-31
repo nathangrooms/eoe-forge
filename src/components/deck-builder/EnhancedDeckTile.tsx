@@ -268,116 +268,176 @@ export function EnhancedDeckTile({
 
   return (
     <Card className={cn("group hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in w-full mb-4", className)}>
-      <div className="flex w-full h-40">
+      <div className="flex w-full min-h-[180px]">
         {/* Left - Card Image */}
-        <div className="w-32 h-40 flex-shrink-0 relative bg-background">
+        <div className="w-48 h-44 flex-shrink-0 relative bg-background p-3">
           {commanderOrPreview?.image_url ? (
             <img 
               src={commanderOrPreview.image_url} 
               alt={commanderOrPreview.name}
-              className="w-full h-full object-cover rounded-l-lg"
+              className="w-full h-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted rounded-l-lg">
-              <Crown className="h-12 w-12 text-muted-foreground" />
+            <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+              <Crown className="h-16 w-16 text-muted-foreground" />
             </div>
           )}
           
           {/* Commander Badge */}
           {metrics?.commanderCard && (
-            <Badge variant="secondary" className="absolute top-2 left-2 text-xs">
+            <Badge variant="secondary" className="absolute top-5 left-5 text-xs">
               <Crown className="h-3 w-3 mr-1" />
               CMD
             </Badge>
           )}
         </div>
 
-        {/* Middle - Main Info */}
-        <div className="flex-1 p-4">
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-2">
-            <Badge className={cn("text-xs", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
-              {format.toUpperCase()}
-            </Badge>
-            <PowerLevelBadge level={powerLevel} />
-            <ManaSymbols colors={colors} size="sm" />
-          </div>
-          
-          <h3 className="font-bold text-xl mb-2 group-hover:text-primary transition-colors">
-            {name}
-          </h3>
-          
-          {description && (
-            <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
-              {description}
-            </p>
-          )}
-
-          {/* Stats */}
-          <div className="flex gap-6 text-sm">
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground">Cards</div>
-              <div className="font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground">CMC</div>
-              <div className="font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground">Creatures</div>
-              <div className="font-bold">{hasValidMetrics ? metrics.creatureCount : 0}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground">Lands</div>
-              <div className="font-bold">{hasValidMetrics ? metrics.landCount : 0}</div>
-            </div>
-          </div>
-
-          {/* Commander Info */}
-          {commanderOrPreview && (
-            <div className="mt-3">
-              <div className="text-xs text-muted-foreground mb-1">
-                {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+        {/* Middle - Main Content */}
+        <div className="flex-1 p-6">
+          {/* Header Row */}
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Badge className={cn("font-medium", formatColors[format as keyof typeof formatColors] || formatColors.custom)}>
+                  {format.toUpperCase()}
+                </Badge>
+                <PowerLevelBadge level={powerLevel} />
+                <ManaSymbols colors={colors} size="sm" />
               </div>
-              <div className="text-sm font-medium">{commanderOrPreview.name}</div>
+              
+              <h3 className="font-bold text-2xl mb-2 group-hover:text-primary transition-colors">
+                {name}
+              </h3>
+              
+              {description && (
+                <p className="text-muted-foreground line-clamp-2 max-w-2xl">
+                  {description}
+                </p>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-8 gap-4 mb-4">
+            {/* Total Cards */}
+            <div className="col-span-2 text-center p-3 bg-card border rounded-lg">
+              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                <BarChart3 className="h-4 w-4" />
+                <span>Total Cards</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.totalCards : cardCount}</p>
+              <p className="text-xs text-muted-foreground">{hasValidMetrics ? metrics.uniqueCards : cardCount} unique</p>
+            </div>
+            
+            {/* Avg CMC */}
+            <div className="col-span-2 text-center p-3 bg-card border rounded-lg">
+              <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                <TrendingUp className="h-4 w-4" />
+                <span>Avg CMC</span>
+              </div>
+              <p className="text-2xl font-bold text-primary">{hasValidMetrics ? metrics.avgCmc.toFixed(1) : '0.0'}</p>
+              <p className="text-xs text-muted-foreground">mana cost</p>
+            </div>
+
+            {/* Card Types */}
+            <div className="col-span-4 p-3 bg-card border rounded-lg">
+              <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+                <Layers className="h-4 w-4" />
+                Card Type Distribution
+              </h4>
+              <div className="grid grid-cols-4 gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground">Creatures</div>
+                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.creatureCount : 0}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground">Lands</div>
+                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.landCount : 0}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground">Spells</div>
+                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.spellCount : 0}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-muted-foreground">Artifacts</div>
+                  <div className="font-bold text-lg">{hasValidMetrics ? metrics.artifactCount : 0}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Row - Commander & Meta Info */}
+          <div className="flex justify-between items-end">
+            <div className="flex-1">
+              {/* Commander Info */}
+              {commanderOrPreview && (
+                <div className="mb-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <Crown className="h-4 w-4" />
+                    {metrics?.commanderCard ? 'Commander' : 'Featured Card'}
+                  </h4>
+                  <div className="flex items-center gap-4">
+                    <span className="font-semibold text-lg">{commanderOrPreview.name}</span>
+                    {metrics?.commanderCard && (
+                      <span className="text-muted-foreground">
+                        CMC {metrics.commanderCard.cmc} • {metrics.commanderCard.colors.join('')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Last Modified */}
+              {lastModified && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>Modified {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}</span>
+                </div>
+              )}
+
+              {/* Loading State */}
+              {loadingMetrics && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="animate-spin rounded-full h-4 w-4 border border-muted-foreground border-t-transparent" />
+                  Loading deck details...
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Right - Actions */}
-        <div className="w-40 flex flex-col justify-center p-4 border-l bg-card/50">
-          <div className="space-y-2">
-            {onView && (
-              <Button variant="outline" size="sm" onClick={onView} className="w-full text-xs">
-                <Eye className="h-3 w-3 mr-1" />
-                View
-              </Button>
-            )}
+        <div className="w-52 flex flex-col justify-center p-6 border-l bg-card/30">
+          <div className="space-y-3">
             {onEdit && (
-              <Button size="sm" onClick={onEdit} className="w-full text-xs">
-                <Edit className="h-3 w-3 mr-1" />
-                Edit
+              <Button size="lg" onClick={onEdit} className="w-full">
+                <Edit className="h-4 w-4 mr-2" />
+                Open in Deck Builder
               </Button>
             )}
-            <div className="flex gap-1">
+            
+            <div className="flex gap-2">
               {onDuplicate && (
-                <Button variant="outline" size="sm" onClick={onDuplicate} className="flex-1 p-1">
-                  <Copy className="h-3 w-3" />
+                <Button variant="outline" size="sm" onClick={onDuplicate} className="flex-1">
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copy
                 </Button>
               )}
               {onDelete && (
-                <Button variant="outline" size="sm" onClick={onDelete} className="flex-1 p-1 text-destructive hover:text-destructive">
-                  <Trash2 className="h-3 w-3" />
+                <Button variant="outline" size="sm" onClick={onDelete} className="flex-1 text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
                 </Button>
               )}
             </div>
+            
+            {onPlay && (
+              <Button variant="outline" size="sm" onClick={onPlay} className="w-full">
+                <Play className="h-4 w-4 mr-2" />
+                Export/Play
+              </Button>
+            )}
           </div>
-          
-          {lastModified && (
-            <div className="text-xs text-muted-foreground mt-3 text-center">
-              {lastModified instanceof Date ? lastModified.toLocaleDateString() : new Date(lastModified).toLocaleDateString()}
-            </div>
-          )}
         </div>
       </div>
     </Card>

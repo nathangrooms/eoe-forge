@@ -457,18 +457,18 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
           )}
         </div>
 
-        {/* Candidates Modal - Mobile Optimized */}
+        {/* Candidates Modal - Dark Theme */}
         {showCandidates && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 flex items-end touch-pan-y">
-            <Card className="w-full bg-white m-4 max-h-[70vh] overflow-hidden rounded-t-2xl">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-20 flex items-end touch-pan-y">
+            <Card className="w-full bg-gray-900 border-gray-700 m-4 max-h-[70vh] overflow-hidden rounded-t-2xl">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Select Card</h3>
+                  <h3 className="text-lg font-semibold text-white">Select Card</h3>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowCandidates(false)}
-                    className="touch-target"
+                    className="touch-target text-gray-400 hover:text-white hover:bg-gray-700"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -477,7 +477,7 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
                   {candidates.map((candidate, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 active:bg-gray-100 cursor-pointer touch-friendly transition-colors"
+                      className="flex items-center gap-3 p-3 border border-gray-700 rounded-lg hover:bg-gray-800 active:bg-gray-700 cursor-pointer touch-friendly transition-colors"
                       onClick={() => addCardToCollection(candidate)}
                     >
                       <img
@@ -486,13 +486,15 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
                         className="w-12 h-16 object-cover rounded"
                       />
                       <div className="flex-1">
-                        <p className="font-medium">{candidate.name}</p>
-                        <p className="text-sm text-muted-foreground">{candidate.setCode.toUpperCase()}</p>
+                        <p className="font-medium text-white">{candidate.name}</p>
+                        <p className="text-sm text-gray-400">{candidate.setCode.toUpperCase()}</p>
                         {candidate.priceUsd && (
-                          <p className="text-sm text-green-600">${candidate.priceUsd}</p>
+                          <p className="text-sm text-green-400">${candidate.priceUsd}</p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline">Score: {(candidate.score * 100).toFixed(0)}%</Badge>
+                          <Badge variant="outline" className="border-gray-600 text-gray-300">
+                            Score: {(candidate.score * 100).toFixed(0)}%
+                          </Badge>
                         </div>
                       </div>
                     </div>

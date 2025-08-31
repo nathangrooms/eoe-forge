@@ -37,7 +37,7 @@ export function cropTitleBand(imageData: ImageData): ImageData {
   return croppedData;
 }
 
-// Convert to grayscale and enhance contrast
+// Convert to grayscale and enhance contrast specifically for card text
 export function preprocessForOCR(imageData: ImageData): ImageData {
   const { width, height, data } = imageData;
   const canvas = document.createElement('canvas');
@@ -50,22 +50,23 @@ export function preprocessForOCR(imageData: ImageData): ImageData {
   
   const processedData = ctx.createImageData(width, height);
   
-  // Convert to grayscale with enhanced contrast
+  // More aggressive preprocessing for text detection
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
     
-    // Grayscale conversion with slight blue bias (card names often have blue)
-    const gray = Math.floor(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    // Weighted grayscale conversion
+    const gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
     
-    // Simple contrast enhancement
-    const enhanced = gray < 128 ? Math.max(0, gray - 20) : Math.min(255, gray + 20);
+    // High contrast binary threshold for text
+    const threshold = 120;
+    const binary = gray > threshold ? 255 : 0;
     
-    processedData.data[i] = enhanced;     // R
-    processedData.data[i + 1] = enhanced; // G
-    processedData.data[i + 2] = enhanced; // B
-    processedData.data[i + 3] = 255;      // A
+    processedData.data[i] = binary;     // R
+    processedData.data[i + 1] = binary; // G
+    processedData.data[i + 2] = binary; // B
+    processedData.data[i + 3] = 255;    // A
   }
   
   return processedData;

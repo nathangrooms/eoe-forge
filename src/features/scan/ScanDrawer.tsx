@@ -62,6 +62,7 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
   const [manualSearch, setManualSearch] = useState('');
   const [processing, setProcessing] = useState(false);
   const [lastErrorTime, setLastErrorTime] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCapture = async (imageData?: ImageData) => {
     if (processing) return;
@@ -91,7 +92,8 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
           setLastErrorTime(now);
           // Don't show error during auto-capture to reduce spam
           if (!settings.autoCapture) {
-            showError('OCR Failed', 'Could not read card name clearly. Try adjusting lighting or angle.');
+            setErrorMessage('Could not read card name clearly. Try adjusting lighting or angle.');
+            setTimeout(() => setErrorMessage(null), 3000);
           }
         }
         return;
@@ -378,8 +380,15 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
                   </div>
                 </div>
 
-                {/* Capture Button - Mobile Optimized */}
+                {/* Capture Button & Error Message - Mobile Optimized */}
                 <div className="absolute bottom-6 sm:bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-3">
+                  {/* Error Message at Bottom */}
+                  {errorMessage && (
+                    <div className="bg-red-600/90 text-white px-4 py-2 rounded-lg text-sm text-center max-w-xs">
+                      {errorMessage}
+                    </div>
+                  )}
+                  
                   <Button
                     onClick={() => handleCapture()}
                     disabled={processing || isLoading}

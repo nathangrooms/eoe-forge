@@ -12,7 +12,7 @@ import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedColle
 import { CollectionImport } from '@/components/collection/CollectionImport';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -274,7 +274,7 @@ export default function Collection() {
             </CardContent>
           </Card>
 
-          <UniversalCardSearch
+          <EnhancedUniversalCardSearch
             onCardAdd={addToCollection}
             onCardSelect={(card) => console.log('Selected:', card)}
             placeholder="Search cards to add to your collection..."

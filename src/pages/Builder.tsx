@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +58,7 @@ export default function Builder() {
           </div>
           
           <div className="flex-1 p-4">
-            <UniversalCardSearch
+            <EnhancedUniversalCardSearch
               onCardAdd={addCardToDeck}
               onCardSelect={(card) => console.log('Selected:', card)}
               placeholder="Search cards for your deck..."

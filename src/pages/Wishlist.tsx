@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -318,7 +318,7 @@ export default function Wishlist() {
         </TabsContent>
 
         <TabsContent value="search" className="space-y-6">
-          <UniversalCardSearch
+          <EnhancedUniversalCardSearch
             onCardAdd={addToWishlist}
             onCardSelect={(card) => console.log('Selected:', card)}
             placeholder="Search cards to add to your wishlist..."

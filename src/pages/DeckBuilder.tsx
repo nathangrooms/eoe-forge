@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
+import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { AnalysisPanel } from '@/components/deck-builder/AnalysisPanel';
 import { AIBuilder } from '@/components/deck-builder/AIBuilder';
@@ -102,7 +102,7 @@ const DeckBuilder = () => {
 
           {/* Card Search Tab */}
           <TabsContent value="search" className="space-y-6">
-            <UniversalCardSearch
+            <EnhancedUniversalCardSearch
               onCardAdd={addCardToDeck}
               onCardSelect={(card) => console.log('Selected:', card)}
               placeholder="Search cards for your deck..."

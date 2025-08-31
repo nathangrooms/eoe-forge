@@ -539,7 +539,7 @@ const SyncDashboard = () => {
               Sync in Progress
             </CardTitle>
             <CardDescription>
-              {syncStatus.total_records > 0 
+              {syncStatus.records_processed > 0 
                 ? "Downloading and processing cards from Scryfall API"
                 : "Initializing sync and connecting to Scryfall API..."
               }
@@ -547,7 +547,7 @@ const SyncDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {syncStatus.total_records > 0 ? (
+              {syncStatus.records_processed > 0 ? (
                 <>
                   <div className="flex justify-between text-sm">
                     <span>Progress</span>

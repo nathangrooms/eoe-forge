@@ -11,6 +11,7 @@ import { DeckSelector } from '@/components/deck-builder/DeckSelector';
 import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
+import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,6 +27,7 @@ import {
 
 const DeckBuilder = () => {
   const deck = useDeckStore();
+  const { addCardToDeck } = useDeckManagementStore();
 
   const handleAddCardToDeck = (card: any) => {
     if (!deck.name) {

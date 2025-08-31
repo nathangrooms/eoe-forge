@@ -29,6 +29,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
+import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { StandardDeckTile } from '@/components/ui/standardized-components';
 import { EnhancedDeckTile } from '@/components/deck-builder/EnhancedDeckTile';
@@ -71,18 +72,21 @@ export default function Decks() {
   // Available templates for selected format
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   
-  // Real decks data from Supabase
+  // Real decks data from Supabase + Local store
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Get local decks from store
+  const { decks: localDecks } = useDeckManagementStore();
 
   const deck = useDeckStore();
   const collection = useCollectionStore();
   const { user } = useAuth();
   
-  // Load decks from database
+  // Load decks from database AND local store
   useEffect(() => {
     loadDecks();
-  }, [user]);
+  }, [user, localDecks]);
   
   // Load available templates when format changes
   useEffect(() => {
@@ -118,10 +122,10 @@ export default function Decks() {
 
       if (error) {
         console.error('Error loading decks:', error);
-        return;
       }
 
-      const formattedDecks: Deck[] = userDecks?.map(dbDeck => ({
+      // Convert Supabase decks to our format
+      const supabaseDecks: Deck[] = userDecks?.map(dbDeck => ({
         id: dbDeck.id,
         name: dbDeck.name,
         format: dbDeck.format as any,
@@ -132,7 +136,20 @@ export default function Decks() {
         description: dbDeck.description || ''
       })) || [];
 
-      setDecks(formattedDecks);
+      // Convert local decks to our format  
+      const localDecksFormatted: Deck[] = localDecks.map(localDeck => ({
+        id: localDeck.id,
+        name: `${localDeck.name} (Local)`,
+        format: localDeck.format as any,
+        powerLevel: localDeck.powerLevel,
+        colors: localDeck.colors,
+        cardCount: localDeck.totalCards,
+        lastModified: localDeck.updatedAt,
+        description: localDeck.description || ''
+      }));
+
+      // Combine both sources
+      setDecks([...supabaseDecks, ...localDecksFormatted]);
     } catch (error) {
       console.error('Error loading decks:', error);
     } finally {
@@ -222,43 +239,67 @@ export default function Decks() {
 
   const loadDeck = async (deckData: Deck) => {
     try {
-      // Load deck into the deck store for editing
-      deck.setDeckName(deckData.name);
-      deck.setFormat(deckData.format);
-      deck.setPowerLevel(deckData.powerLevel);
+      // Check if this is a local deck (has "(Local)" in name)
+      const isLocalDeck = deckData.name.includes('(Local)');
       
-      // Load deck cards from database
-      const { data: deckCards, error } = await supabase
-        .from('deck_cards')
-        .select('*')
-        .eq('deck_id', deckData.id);
-
-      if (error) {
-        console.error('Error loading deck cards:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load deck cards",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Clear current deck and add loaded cards
-      deck.clearDeck();
-      
-      if (deckCards) {
-        for (const dbCard of deckCards) {
-          // Add each card to the deck store
-          deck.addCard({
-            id: dbCard.card_id,
-            name: dbCard.card_name,
-            quantity: dbCard.quantity,
-            cmc: 0, // Will be filled from card data
-            type_line: '', // Will be filled from card data
-            colors: [],
-            category: dbCard.is_commander ? 'commanders' : 'creatures', // Default category
-            mechanics: []
+      if (isLocalDeck) {
+        // Load from local store
+        const originalId = deckData.id;
+        const localDeck = localDecks.find(d => d.id === originalId);
+        
+        if (localDeck) {
+          deck.setDeckName(localDeck.name);
+          deck.setFormat(localDeck.format as any);
+          deck.setPowerLevel(localDeck.powerLevel);
+          deck.clearDeck();
+          
+          // Add cards from local deck
+          localDeck.cards.forEach(card => {
+            deck.addCard(card);
           });
+          
+          if (localDeck.commander) {
+            deck.setCommander(localDeck.commander);
+          }
+        }
+      } else {
+        // Load from database
+        deck.setDeckName(deckData.name);
+        deck.setFormat(deckData.format);
+        deck.setPowerLevel(deckData.powerLevel);
+        
+        // Load deck cards from database without join
+        const { data: deckCards, error } = await supabase
+          .from('deck_cards')
+          .select('*')
+          .eq('deck_id', deckData.id);
+
+        if (error) {
+          console.error('Error loading deck cards:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load deck cards",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Clear current deck and add loaded cards
+        deck.clearDeck();
+        
+        if (deckCards) {
+          for (const dbCard of deckCards) {
+            deck.addCard({
+              id: dbCard.card_id,
+              name: dbCard.card_name,
+              quantity: dbCard.quantity,
+              cmc: 0,
+              type_line: '',
+              colors: [],
+              category: dbCard.is_commander ? 'commanders' : 'creatures',
+              mechanics: []
+            });
+          }
         }
       }
 
@@ -267,7 +308,7 @@ export default function Decks() {
       
       toast({
         title: "Deck Loaded",
-        description: `"${deckData.name}" is ready for editing`,
+        description: `"${deckData.name.replace(' (Local)', '')}" is ready for editing`,
       });
     } catch (error) {
       console.error('Error loading deck:', error);

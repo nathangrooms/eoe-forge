@@ -95,17 +95,29 @@ export function EnhancedDeckTile({
   const loadDeckMetrics = async () => {
     setLoadingMetrics(true);
     try {
-      // Get deck cards with card data
+      // Skip loading metrics for local decks or if no user
+      const isLocalDeck = name.includes('(Local)');
+      if (isLocalDeck || !supabase) {
+        setMetrics({
+          totalCards: cardCount,
+          uniqueCards: cardCount,
+          totalValue: 0,
+          avgCmc: 0,
+          duplicates: 0,
+          colorDistribution: {},
+          typeDistribution: {}
+        });
+        return;
+      }
+
+      // Load deck cards without join to avoid foreign key issues  
       const { data: deckCards, error } = await supabase
         .from('deck_cards')
-        .select(`
-          *,
-          cards!inner(*)
-        `)
+        .select('*')
         .eq('deck_id', id);
 
       if (error) {
-        console.error('Error loading deck metrics:', error);
+        console.error('Error loading deck cards:', error);
         return;
       }
 
@@ -122,79 +134,19 @@ export function EnhancedDeckTile({
         return;
       }
 
-      // Calculate metrics
+      // Calculate basic metrics from deck cards
       const totalCards = deckCards.reduce((sum, card) => sum + card.quantity, 0);
       const uniqueCards = deckCards.length;
-      
-      // Find commander
-      const commanderCard = deckCards.find(card => card.is_commander);
-      
-      // Find preview card (highest CMC non-land or commander)
-      const previewCard = commanderCard || deckCards
-        .filter(card => !(card as any).cards?.type_line?.toLowerCase().includes('land'))
-        .sort((a, b) => ((b as any).cards?.cmc || 0) - ((a as any).cards?.cmc || 0))[0];
-
-      // Calculate value
-      const totalValue = deckCards.reduce((sum, card) => {
-        const cardData = (card as any).cards;
-        const price = cardData?.prices?.usd ? parseFloat(cardData.prices.usd) : 0;
-        return sum + (price * card.quantity);
-      }, 0);
-
-      // Calculate average CMC
-      const totalCmc = deckCards.reduce((sum, card) => {
-        const cardData = (card as any).cards;
-        return sum + ((cardData?.cmc || 0) * card.quantity);
-      }, 0);
-      const avgCmc = totalCards > 0 ? totalCmc / totalCards : 0;
-
-      // Find duplicates (cards with quantity > 1, excluding basic lands)
-      const duplicates = deckCards.filter(card => {
-        const cardData = (card as any).cards;
-        const isBasicLand = cardData?.type_line?.toLowerCase().includes('basic') && 
-                           cardData?.type_line?.toLowerCase().includes('land');
-        return card.quantity > 1 && !isBasicLand;
-      }).length;
-
-      // Color distribution
-      const colorDistribution: Record<string, number> = {};
-      deckCards.forEach(card => {
-        const cardData = (card as any).cards;
-        if (cardData?.colors) {
-          cardData.colors.forEach((color: string) => {
-            colorDistribution[color] = (colorDistribution[color] || 0) + card.quantity;
-          });
-        }
-      });
-
-      // Type distribution
-      const typeDistribution: Record<string, number> = {};
-      deckCards.forEach(card => {
-        const cardData = (card as any).cards;
-        if (cardData?.type_line) {
-          const mainType = cardData.type_line.split(' — ')[0].split(' ')[0];
-          typeDistribution[mainType] = (typeDistribution[mainType] || 0) + card.quantity;
-        }
-      });
+      const duplicates = deckCards.filter(card => card.quantity > 1).length;
 
       setMetrics({
         totalCards,
         uniqueCards,
-        totalValue,
-        avgCmc,
+        totalValue: 0, // Would need card price lookup
+        avgCmc: 0, // Would need card CMC lookup
         duplicates,
-        commanderCard: commanderCard ? {
-          name: (commanderCard as any).cards?.name || commanderCard.card_name,
-          image_url: (commanderCard as any).cards?.image_uris?.normal,
-          colors: (commanderCard as any).cards?.colors || [],
-          cmc: (commanderCard as any).cards?.cmc || 0
-        } : undefined,
-        previewCard: previewCard ? {
-          name: (previewCard as any).cards?.name || previewCard.card_name,
-          image_url: (previewCard as any).cards?.image_uris?.normal
-        } : undefined,
-        colorDistribution,
-        typeDistribution
+        colorDistribution: {},
+        typeDistribution: {}
       });
 
     } catch (error) {

@@ -215,7 +215,10 @@ async function syncCards(): Promise<void> {
       console.log(`💾 Saving batch of ${transformedCards.length} cards...`);
       const { error } = await supabase
         .from('cards')
-        .upsert(transformedCards, { onConflict: 'id' });
+        .upsert(transformedCards, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        });
       
       if (error) {
         console.error('Database error:', error);
@@ -315,7 +318,7 @@ serve(async (req) => {
         
         console.log('⏰ Minutes since last sync:', minutesSinceLastSync);
         
-        if (minutesSinceLastSync < 30) {
+        if (minutesSinceLastSync < 5) {
           console.log('⚠️ Sync already running, rejecting request');
           return new Response(
             JSON.stringify({ 
@@ -334,27 +337,22 @@ serve(async (req) => {
         }
       }
       
-      console.log('🚀 Starting sync in foreground for better reliability');
+      console.log('🚀 Starting sync in background to prevent timeouts');
       
-      // Run sync in foreground to ensure it completes
-      try {
-        await syncCards();
-        return new Response(
-          JSON.stringify({ 
-            message: 'Card sync completed successfully', 
-            timestamp: new Date().toISOString(),
-            status: 'completed'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        );
-      } catch (syncError) {
-        console.error('💥 Sync failed:', syncError);
-        await updateSyncStatus('scryfall_cards', 'failed', `Sync error: ${syncError.message}`);
-        throw syncError;
-      }
+      // Run sync in background to prevent edge function timeouts
+      EdgeRuntime.waitUntil(syncCards());
+      
+      return new Response(
+        JSON.stringify({ 
+          message: 'Card sync started successfully', 
+          timestamp: new Date().toISOString(),
+          status: 'started'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
     }
     
     if (action === 'stop') {

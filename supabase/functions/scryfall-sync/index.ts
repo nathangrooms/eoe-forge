@@ -91,10 +91,19 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
         continue;
       }
       
+      if (response.status === 422) {
+        // Unprocessable Entity - likely hit end of results or invalid page
+        console.log(`HTTP 422 on URL: ${url} - likely end of results`);
+        return response; // Return the 422 response to handle it properly
+      }
+      
       if (response.ok) {
         return response;
       }
       
+      // Log the response for debugging
+      const responseText = await response.text();
+      console.error(`HTTP ${response.status} for ${url}: ${responseText.substring(0, 500)}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error) {
       console.error(`Attempt ${i + 1} failed:`, error);
@@ -172,8 +181,8 @@ async function syncCards(): Promise<void> {
         const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=is%3Apaper+-is%3Adigital&unique=cards&page=${page}`);
         
         if (!response.ok) {
-          if (response.status === 404) {
-            console.log('📊 No more pages available - sync complete');
+          if (response.status === 404 || response.status === 422) {
+            console.log(`📊 No more pages available (HTTP ${response.status}) - sync complete`);
             break;
           }
           throw new Error(`Failed to fetch page ${page}: ${response.status}`);

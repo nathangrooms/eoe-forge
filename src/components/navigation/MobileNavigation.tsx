@@ -162,14 +162,6 @@ export function MobileNavigation() {
                 <Plus className="h-5 w-5" />
                 Quick Build
               </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
             
             <div className="flex-1 overflow-auto py-4 space-y-6">

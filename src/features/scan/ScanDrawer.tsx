@@ -23,6 +23,7 @@ import { useAutoCapture } from './useAutoCapture';
 import { useScanStore, type ScannedCard } from './store';
 import { cropTitleBand, preprocessForOCR, resizeForOCR } from './image';
 import { recognizeCardName } from './ocrWorker';
+import { enhancedOCR } from './enhancedOCR';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { logActivity } from '@/features/dashboard/hooks';
 
@@ -79,20 +80,33 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
       const processedData = preprocessForOCR(croppedData);
       const resizedData = resizeForOCR(processedData);
 
-      // Perform OCR
-      const { text, confidence } = await recognizeCardName(resizedData);
+      // Try enhanced OCR first, fall back to tesseract if needed
+      let ocrResult;
+      try {
+        console.log('Attempting enhanced OCR...');
+        ocrResult = await enhancedOCR(resizedData);
+        console.log('Enhanced OCR result:', ocrResult);
+      } catch (error) {
+        console.log('Enhanced OCR failed, falling back to Tesseract...');
+        ocrResult = await recognizeCardName(resizedData);
+      }
+      
+      const { text, confidence } = ocrResult;
       setLastOCR(text, confidence);
 
-      console.log('OCR Result:', { text, confidence }); // Debug logging
+      console.log('OCR Result:', { text, confidence });
 
-      if (confidence < 0.3) { // Lowered threshold for better results
+      if (confidence < 0.4) { // Adjusted threshold for enhanced OCR
         // Only show error if more than 3 seconds since last error to reduce spam
         const now = Date.now();
         if (now - lastErrorTime > 3000) {
           setLastErrorTime(now);
-          // Don't show error during auto-capture to reduce spam
+          // Show more helpful error messages
           if (!settings.autoCapture) {
-            setErrorMessage('Could not read card name clearly. Try adjusting lighting or angle.');
+            const errorMsg = confidence === 0 
+              ? 'Could not read any text. Try better lighting or manual search below.'
+              : 'Text unclear. Try adjusting angle or use manual search below.';
+            setErrorMessage(errorMsg);
             setTimeout(() => setErrorMessage(null), 3000);
           }
         }

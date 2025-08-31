@@ -110,7 +110,7 @@ export function EnhancedDeckTile({
         return;
       }
 
-      // Load deck cards without join to avoid foreign key issues  
+      // Load deck cards and commander
       const { data: deckCards, error } = await supabase
         .from('deck_cards')
         .select('*')
@@ -134,6 +134,31 @@ export function EnhancedDeckTile({
         return;
       }
 
+      // Find commander or get a preview card
+      const commanderCard = deckCards.find(card => card.is_commander);
+      const previewCard = !commanderCard ? deckCards[0] : null;
+
+      // Get card image from Scryfall
+      let cardWithImage = null;
+      const targetCard = commanderCard || previewCard;
+      
+      if (targetCard) {
+        try {
+          const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(targetCard.card_name)}`);
+          if (response.ok) {
+            const cardData = await response.json();
+            cardWithImage = {
+              name: cardData.name,
+              image_url: cardData.image_uris?.normal || cardData.image_uris?.large,
+              colors: cardData.colors || [],
+              cmc: cardData.cmc || 0
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching card image:', error);
+        }
+      }
+
       // Calculate basic metrics from deck cards
       const totalCards = deckCards.reduce((sum, card) => sum + card.quantity, 0);
       const uniqueCards = deckCards.length;
@@ -145,6 +170,8 @@ export function EnhancedDeckTile({
         totalValue: 0, // Would need card price lookup
         avgCmc: 0, // Would need card CMC lookup
         duplicates,
+        commanderCard: commanderCard && cardWithImage ? cardWithImage : undefined,
+        previewCard: !commanderCard && cardWithImage ? cardWithImage : undefined,
         colorDistribution: {},
         typeDistribution: {}
       });

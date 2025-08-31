@@ -76,7 +76,29 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   };
 
   const groupedCards = cards.reduce((acc, card) => {
-    const category = card.category || 'creatures';
+    // Determine category based on type_line
+    let category: Category = 'creatures'; // default
+    
+    const typeLine = card.type_line?.toLowerCase() || '';
+    
+    if (typeLine.includes('land')) {
+      category = 'lands';
+    } else if (typeLine.includes('creature')) {
+      category = 'creatures';
+    } else if (typeLine.includes('instant')) {
+      category = 'instants';
+    } else if (typeLine.includes('sorcery')) {
+      category = 'sorceries';
+    } else if (typeLine.includes('enchantment')) {
+      category = 'enchantments';
+    } else if (typeLine.includes('artifact')) {
+      category = 'artifacts';
+    } else if (typeLine.includes('planeswalker')) {
+      category = 'planeswalkers';
+    } else if (typeLine.includes('battle')) {
+      category = 'battles';
+    }
+    
     if (!acc[category]) {
       acc[category] = [];
     }

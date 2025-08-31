@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ListingFormData, ListingVisibility } from '@/types/listing';
+import { ListingFormData } from '@/types/listing';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 interface SellCardModalProps {
@@ -25,6 +25,19 @@ const getCardId = (card: any) => {
   return card?.card_id || card?.id || '';
 };
 
+// Get the current market price for the card
+const getCardPrice = (card: any, foil: boolean = false): number => {
+  if (!card?.card?.prices && !card?.prices) return 0;
+  
+  const prices = card?.card?.prices || card?.prices;
+  
+  if (foil) {
+    return parseFloat(prices?.usd_foil || '0');
+  }
+  
+  return parseFloat(prices?.usd || '0');
+};
+
 export function SellCardModal({
   isOpen,
   onClose,
@@ -39,13 +52,25 @@ export function SellCardModal({
     qty: 1,
     foil: false,
     condition: 'NM',
-    price_usd: defaultPrice,
+    price_usd: 0,
     note: '',
-    visibility: 'private' as ListingVisibility,
+    visibility: 'public',
     status: 'draft'
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update price when foil status changes or modal opens
+  useEffect(() => {
+    if (isOpen && card) {
+      const marketPrice = getCardPrice(card, formData.foil);
+      setFormData(prev => ({
+        ...prev,
+        card_id: getCardId(card),
+        price_usd: marketPrice || defaultPrice
+      }));
+    }
+  }, [isOpen, card, formData.foil, defaultPrice]);
 
   const maxQuantity = formData.foil ? ownedFoil : ownedQuantity;
 
@@ -123,11 +148,15 @@ export function SellCardModal({
               <Switch
                 id="foil"
                 checked={formData.foil}
-                onCheckedChange={(checked) => setFormData(prev => ({ 
-                  ...prev, 
-                  foil: checked,
-                  qty: Math.min(checked ? ownedFoil : ownedQuantity, prev.qty)
-                }))}
+                onCheckedChange={(checked) => {
+                  const newPrice = getCardPrice(card, checked);
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    foil: checked,
+                    qty: Math.min(checked ? ownedFoil : ownedQuantity, prev.qty),
+                    price_usd: newPrice || prev.price_usd
+                  }));
+                }}
               />
             </div>
 
@@ -164,22 +193,11 @@ export function SellCardModal({
                   price_usd: Math.max(0, parseFloat(e.target.value) || 0)
                 }))}
               />
-            </div>
-
-            {/* Visibility */}
-            <div>
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select value={formData.visibility} onValueChange={(value: ListingVisibility) => 
-                setFormData(prev => ({ ...prev, visibility: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select visibility" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                </SelectContent>
-              </Select>
+              {getCardPrice(card, formData.foil) > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Market price: ${getCardPrice(card, formData.foil).toFixed(2)} {formData.foil ? '(foil)' : ''}
+                </p>
+              )}
             </div>
 
             {/* Note */}

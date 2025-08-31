@@ -153,63 +153,95 @@ function tagCard(card: ScryfallCard): string[] {
 }
 
 async function syncCards(): Promise<void> {
-  console.log('🚀 Starting reliable 50-card batch sync...');
+  console.log('🚀 Starting 50-card batch sync (proven working method)...');
   
   try {
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, 0, 'init', 0);
+    await updateSyncStatus('scryfall_cards', 'running', null, 0, 5000, 'init', 1);
     
-    // Get sample data first (just 50 cards to test)
-    console.log('📦 Fetching sample card data from Scryfall...');
-    const response = await fetchWithRetry('https://api.scryfall.com/cards/search?q=is%3Apaper+set%3Amh3&unique=cards');
+    let totalProcessed = 0;
+    let page = 1;
+    const maxCards = 5000; // Hard cap like before
+    const batchSize = 50;
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch cards: ${response.status}`);
+    while (totalProcessed < maxCards) {
+      console.log(`📦 Fetching page ${page} (processed: ${totalProcessed}/${maxCards})...`);
+      
+      // Use a broad search that returns many cards
+      const response = await fetchWithRetry(`https://api.scryfall.com/cards/search?q=is%3Apaper+-is%3Adigital&unique=cards&page=${page}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('📊 No more pages available');
+          break;
+        }
+        throw new Error(`Failed to fetch page ${page}: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const cards = data.data || [];
+      
+      if (cards.length === 0) {
+        console.log('📊 No more cards to process');
+        break;
+      }
+      
+      // Process this batch
+      const transformedCards = cards.slice(0, batchSize).map((card: ScryfallCard) => ({
+        id: card.id,
+        oracle_id: card.oracle_id,
+        name: card.name,
+        set_code: card.set,
+        collector_number: card.collector_number,
+        layout: card.layout || 'normal',
+        type_line: card.type_line,
+        cmc: card.cmc || 0,
+        colors: card.colors || [],
+        color_identity: card.color_identity || [],
+        oracle_text: card.oracle_text,
+        mana_cost: card.mana_cost,
+        power: card.power,
+        toughness: card.toughness,
+        loyalty: card.loyalty,
+        keywords: card.keywords || [],
+        legalities: card.legalities || {},
+        image_uris: card.image_uris || {},
+        prices: card.prices || {},
+        is_legendary: card.type_line?.toLowerCase().includes('legendary') || false,
+        is_reserved: card.reserved || false,
+        rarity: card.rarity || 'common',
+        tags: tagCard(card)
+      }));
+      
+      console.log(`💾 Saving batch of ${transformedCards.length} cards...`);
+      const { error } = await supabase
+        .from('cards')
+        .upsert(transformedCards, { onConflict: 'id' });
+      
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+      
+      totalProcessed += transformedCards.length;
+      
+      // Update progress
+      await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, maxCards, 'processing', 2);
+      console.log(`✅ Processed ${totalProcessed}/${maxCards} cards`);
+      
+      // Check if we've hit our limit
+      if (totalProcessed >= maxCards) {
+        console.log(`🎯 Reached maximum card limit of ${maxCards}`);
+        break;
+      }
+      
+      page++;
+      
+      // Rate limiting delay
+      await delay(100);
     }
     
-    const data = await response.json();
-    const cards = data.data || [];
-    
-    console.log(`📥 Processing ${cards.length} cards...`);
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, cards.length, 'processing', 2);
-    
-    const transformedCards = cards.map((card: ScryfallCard) => ({
-      id: card.id,
-      oracle_id: card.oracle_id,
-      name: card.name,
-      set_code: card.set,
-      collector_number: card.collector_number,
-      layout: card.layout || 'normal',
-      type_line: card.type_line,
-      cmc: card.cmc || 0,
-      colors: card.colors || [],
-      color_identity: card.color_identity || [],
-      oracle_text: card.oracle_text,
-      mana_cost: card.mana_cost,
-      power: card.power,
-      toughness: card.toughness,
-      loyalty: card.loyalty,
-      keywords: card.keywords || [],
-      legalities: card.legalities || {},
-      image_uris: card.image_uris || {},
-      prices: card.prices || {},
-      is_legendary: card.type_line?.toLowerCase().includes('legendary') || false,
-      is_reserved: card.reserved || false,
-      rarity: card.rarity || 'common',
-      tags: tagCard(card)
-    }));
-    
-    console.log('💾 Saving cards to database...');
-    const { error } = await supabase
-      .from('cards')
-      .upsert(transformedCards, { onConflict: 'id' });
-    
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
-    }
-    
-    console.log(`✅ Successfully processed ${transformedCards.length} cards`);
-    await updateSyncStatus('scryfall_cards', 'completed', null, transformedCards.length, transformedCards.length, 'complete', 4);
+    console.log(`✅ Sync completed: ${totalProcessed} cards processed`);
+    await updateSyncStatus('scryfall_cards', 'completed', null, totalProcessed, totalProcessed, 'complete', 4);
     
   } catch (error) {
     console.error('❌ Sync failed:', error);

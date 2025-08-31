@@ -86,23 +86,35 @@ export class CollectionAPI {
         return { error: 'User not authenticated' };
       }
 
-      // First get card data
-      const { data: card, error: cardError } = await supabase
+      // Try to find card by ID first, then by name if it's a Scryfall format
+      let { data: card, error: cardError } = await supabase
         .from('cards')
         .select('*')
         .eq('id', cardId)
-        .single();
+        .maybeSingle();
 
-      if (cardError || !card) {
-        return { error: 'Card not found' };
+      // If not found and cardId looks like a Scryfall UUID, try by name match
+      if (!card && cardId.match(/^[0-9a-f-]{36}$/i)) {
+        // For now, return a more helpful error since we need to match by name
+        return { error: `Please add cards by searching for their name. Direct Scryfall ID lookup not yet supported.` };
       }
 
-      // Check if already in collection
+      if (cardError) {
+        console.error('Card lookup error:', cardError);
+        return { error: `Database error: ${cardError.message}` };
+      }
+
+      if (!card) {
+        console.error('Card not found for ID:', cardId);
+        return { error: `Card not found with ID: ${cardId}` };
+      }
+
+      // Check if already in collection (use the found card's ID)
       const { data: existing } = await supabase
         .from('user_collections')
         .select('*')
         .eq('user_id', user.id)
-        .eq('card_id', cardId)
+        .eq('card_id', card.id)
         .maybeSingle();
 
       if (existing) {
@@ -135,7 +147,7 @@ export class CollectionAPI {
           .from('user_collections')
           .insert({
             user_id: user.id,
-            card_id: cardId,
+            card_id: card.id,  // Use the found card's ID, not the input cardId
             card_name: card.name,
             set_code: card.set_code,
             quantity,
@@ -156,6 +168,46 @@ export class CollectionAPI {
           condition: inserted.condition as CollectionCard['condition']
         } as CollectionCard };
       }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Add a card to collection by name (for Scryfall integration)
+  static async addCardByName(cardName: string, setCode?: string, quantity: number = 1, foil: number = 0): Promise<ApiResponse<CollectionCard>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { error: 'User not authenticated' };
+      }
+
+      // Search for card by name
+      let cardQuery = supabase
+        .from('cards')
+        .select('*')
+        .ilike('name', cardName);
+
+      if (setCode) {
+        cardQuery = cardQuery.eq('set_code', setCode);
+      }
+
+      const { data: cards, error: cardError } = await cardQuery.limit(1);
+
+      if (cardError) {
+        console.error('Card lookup error:', cardError);
+        return { error: `Database error: ${cardError.message}` };
+      }
+
+      if (!cards || cards.length === 0) {
+        console.error('Card not found for name:', cardName);
+        return { error: `Card "${cardName}" not found in database` };
+      }
+
+      const card = cards[0];
+
+      // Use the existing addCard method with the found card's ID
+      return this.addCard(card.id, quantity, foil);
+
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Unknown error' };
     }

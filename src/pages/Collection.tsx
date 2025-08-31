@@ -16,6 +16,7 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
+import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Collection() {
@@ -90,8 +91,12 @@ export default function Collection() {
     // Add to collection if enabled
     if (addToCollectionState) {
       try {
-        // Use the collection store's addCard method (expects cardId)
-        await addCard(card.id, 1); // Add 1 copy
+        // Use the collection store's addCardByName method for Scryfall cards
+        const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        await refresh(); // Refresh the collection
         addedToCollection = true;
       } catch (error) {
         console.error('Error adding to collection:', error);

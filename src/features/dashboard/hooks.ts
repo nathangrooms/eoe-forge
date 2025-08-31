@@ -29,6 +29,14 @@ export interface DashboardSummary {
     name: string;
     at: string;
   }>;
+  buildQueue: {
+    lastBuild: {
+      deckName: string;
+      power: number;
+      timestamp: string;
+    } | null;
+    isBuilding: boolean;
+  };
   status: {
     scryfallSyncAt: string | null;
     dbOk: boolean;
@@ -67,17 +75,44 @@ export function useDashboardSummary() {
         totalCards += item.quantity + item.foil;
       });
 
-      // Fetch wishlist data
+      // Fetch wishlist data with card prices
       const { data: wishlistData } = await supabase
         .from('wishlist')
-        .select('quantity')
+        .select(`
+          quantity,
+          card_id
+        `)
         .eq('user_id', user.id);
+
+      // Get unique card IDs for price lookup
+      const cardIds = wishlistData?.map(item => item.card_id).filter(Boolean) || [];
+      
+      let wishlistCardPrices: Record<string, number> = {};
+      if (cardIds.length > 0) {
+        const { data: cardData } = await supabase
+          .from('cards')
+          .select('id, prices')
+          .in('id', cardIds);
+        
+        cardData?.forEach(card => {
+          try {
+            const prices = typeof card.prices === 'string' ? JSON.parse(card.prices) : card.prices;
+            if (prices && prices.usd) {
+              wishlistCardPrices[card.id] = parseFloat(prices.usd);
+            }
+          } catch (e) {
+            // Skip if prices can't be parsed
+          }
+        });
+      }
 
       let wishlistValue = 0;
       let wishlistDesired = 0;
       
       wishlistData?.forEach(item => {
         const quantity = item.quantity || 1;
+        const price = wishlistCardPrices[item.card_id] || 0;
+        wishlistValue += price * quantity;
         wishlistDesired += quantity;
       });
 
@@ -111,6 +146,15 @@ export function useDashboardSummary() {
       // Get last opened decks from localStorage
       const lastOpened = getLastOpenedDecks();
 
+      // Fetch latest build log
+      const { data: buildLogData } = await supabase
+        .from('build_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
       // Check system status
       const { data: syncStatus } = await supabase
         .from('sync_status')
@@ -135,6 +179,14 @@ export function useDashboardSummary() {
         },
         recent: recentActivity,
         lastOpened,
+        buildQueue: {
+          lastBuild: buildLogData ? {
+            deckName: getDeckNameFromChanges(buildLogData.changes) || 'Unknown Deck',
+            power: calculatePowerFromChanges(buildLogData.changes),
+            timestamp: buildLogData.created_at
+          } : null,
+          isBuilding: false
+        },
         status: {
           scryfallSyncAt: syncStatus?.last_sync || null,
           dbOk: true,
@@ -151,6 +203,27 @@ export function useDashboardSummary() {
 
   useEffect(() => {
     fetchSummary();
+
+    // Auto-refresh every 30 seconds when page is visible
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchSummary();
+      }
+    }, 30000);
+
+    // Also refresh when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchSummary();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user]);
 
   return { data, loading, error, refetch: fetchSummary };
@@ -181,10 +254,40 @@ export function useFavoriteDecks() {
         .eq('user_id', user.id)
         .limit(8);
 
-      const formattedFavorites = data?.map(fav => ({
-        ...fav.user_decks,
-        commanderArt: null // Will be enhanced later
-      })).filter(Boolean) || [];
+      const formattedFavorites = await Promise.all(
+        data?.map(async (fav) => {
+          // Get commander art for the deck
+          const { data: commanderCards } = await supabase
+            .from('deck_cards')
+            .select('card_id')
+            .eq('deck_id', fav.deck_id)
+            .eq('is_commander', true)
+            .limit(1);
+
+          let commanderArt = null;
+          if (commanderCards && commanderCards.length > 0) {
+            const { data: cardData } = await supabase
+              .from('cards')
+              .select('image_uris')
+              .eq('id', commanderCards[0].card_id)
+              .single();
+            
+            try {
+              const imageUris = typeof cardData?.image_uris === 'string' 
+                ? JSON.parse(cardData.image_uris) 
+                : cardData?.image_uris;
+              commanderArt = imageUris?.art_crop || null;
+            } catch (e) {
+              commanderArt = null;
+            }
+          }
+
+          return {
+            ...fav.user_decks,
+            commanderArt
+          };
+        }).filter(Boolean) || []
+      );
 
       setFavorites(formattedFavorites);
     } catch (error) {
@@ -318,5 +421,23 @@ export function trackDeckOpen(deckId: string, name: string) {
     localStorage.setItem('lastOpenedDecks', JSON.stringify(updated));
   } catch (error) {
     console.error('Error tracking deck open:', error);
+  }
+}
+
+function getDeckNameFromChanges(changes: any): string {
+  try {
+    const parsedChanges = typeof changes === 'string' ? JSON.parse(changes) : changes;
+    return parsedChanges?.deckName || parsedChanges?.name || 'AI Generated Deck';
+  } catch {
+    return 'AI Generated Deck';
+  }
+}
+
+function calculatePowerFromChanges(changes: any): number {
+  try {
+    const parsedChanges = typeof changes === 'string' ? JSON.parse(changes) : changes;
+    return parsedChanges?.powerLevel || parsedChanges?.power || 6.5;
+  } catch {
+    return 6.5;
   }
 }

@@ -53,6 +53,26 @@ const Dashboard = () => {
     }
   };
 
+  const getActivityLink = (activity: any) => {
+    switch (activity.type) {
+      case 'deck_created':
+      case 'deck_updated':
+      case 'deck_favorited':
+        return `/deck-builder?deck=${activity.entity_id}`;
+      case 'card_added':
+      case 'collection_import':
+        return '/collection';
+      case 'wishlist_added':
+        return '/wishlist';
+      case 'listing_created':
+        return '/collection?tab=listings';
+      case 'ai_build_run':
+        return '/deck-builder?tab=ai-builder';
+      default:
+        return '/decks';
+    }
+  };
+
   const quickActions = [
     {
       title: 'AI Deck Builder',
@@ -154,6 +174,15 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              className="hidden md:flex"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
             <Avatar className="h-12 w-12 ring-2 ring-primary/20">
               <AvatarImage src={user?.user_metadata?.avatar_url} />
               <AvatarFallback className="bg-gradient-to-br from-primary to-purple-500 text-white">
@@ -281,14 +310,22 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="text-sm">
-                  <div className="font-medium">Last AI Build: Simic Ramp</div>
-                  <div className="text-muted-foreground">Power 6.8 • 2 mins ago</div>
-                </div>
-                <Button size="sm" className="w-full">
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Run AI Builder
-                </Button>
+                {dashboardData?.buildQueue.lastBuild ? (
+                  <div className="text-sm">
+                    <div className="font-medium">Last AI Build: {dashboardData.buildQueue.lastBuild.deckName}</div>
+                    <div className="text-muted-foreground">
+                      Power {dashboardData.buildQueue.lastBuild.power.toFixed(1)} • {formatTimeAgo(dashboardData.buildQueue.lastBuild.timestamp)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No recent AI builds</div>
+                )}
+                <Link to="/deck-builder?tab=ai-builder">
+                  <Button size="sm" className="w-full">
+                    <Wand2 className="h-4 w-4 mr-2" />
+                    Run AI Builder
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -336,6 +373,11 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground">
                   Scryfall sync: {dashboardData?.status.scryfallSyncAt ? formatTimeAgo(dashboardData.status.scryfallSyncAt) : 'Never'}
                 </div>
+                <Link to="/admin">
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    View Details
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -446,32 +488,34 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {dashboardData?.recent.length ? dashboardData.recent.map((activity, index) => (
-                    <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        {activity.type === 'deck_created' && <Wand2 className="h-4 w-4 text-primary" />}
-                        {activity.type === 'card_added' && <Package className="h-4 w-4 text-green-500" />}
-                        {activity.type === 'deck_updated' && <Sparkles className="h-4 w-4 text-blue-500" />}
-                        {activity.type === 'deck_favorited' && <Star className="h-4 w-4 text-yellow-500" />}
-                        {activity.type === 'wishlist_added' && <Heart className="h-4 w-4 text-pink-500" />}
-                        {activity.type === 'listing_created' && <DollarSign className="h-4 w-4 text-green-500" />}
-                        {activity.type === 'ai_build_run' && <Zap className="h-4 w-4 text-purple-500" />}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          {activity.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {formatTimeAgo(activity.at)}
-                        </p>
-                        {activity.subtitle && (
-                          <p className="text-xs text-muted-foreground">
-                            {activity.subtitle}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                   {dashboardData?.recent.length ? dashboardData.recent.map((activity, index) => (
+                     <Link key={index} to={getActivityLink(activity)}>
+                       <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                         <div className="p-2 rounded-full bg-primary/10">
+                           {activity.type === 'deck_created' && <Wand2 className="h-4 w-4 text-primary" />}
+                           {activity.type === 'card_added' && <Package className="h-4 w-4 text-green-500" />}
+                           {activity.type === 'deck_updated' && <Sparkles className="h-4 w-4 text-blue-500" />}
+                           {activity.type === 'deck_favorited' && <Star className="h-4 w-4 text-yellow-500" />}
+                           {activity.type === 'wishlist_added' && <Heart className="h-4 w-4 text-pink-500" />}
+                           {activity.type === 'listing_created' && <DollarSign className="h-4 w-4 text-green-500" />}
+                           {activity.type === 'ai_build_run' && <Zap className="h-4 w-4 text-purple-500" />}
+                         </div>
+                         <div className="flex-1">
+                           <p className="text-sm font-medium">
+                             {activity.title}
+                           </p>
+                           <p className="text-xs text-muted-foreground flex items-center">
+                             <Clock className="h-3 w-3 mr-1" />
+                             {formatTimeAgo(activity.at)}
+                           </p>
+                           {activity.subtitle && (
+                             <p className="text-xs text-muted-foreground">
+                               {activity.subtitle}
+                             </p>
+                           )}
+                         </div>
+                       </div>
+                     </Link>
                   )) : (
                     <div className="text-center py-4">
                       <Activity className="h-8 w-8 mx-auto text-muted-foreground mb-2" />

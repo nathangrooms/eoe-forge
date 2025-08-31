@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { useCardSearch } from '@/hooks/useCardSearch';
+import { useEnhancedCardSearch } from '@/hooks/useEnhancedCardSearch';
 import { SearchResultsSkeleton } from '@/components/ui/loading-skeleton';
 import { UniversalCardDisplay } from './UniversalCardDisplay';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
@@ -104,24 +104,15 @@ export function UniversalCardSearch({
   });
 
   const { 
-    cards: results, 
+    results, 
     loading, 
-    error
-  } = useCardSearch(query);
-  
-  // Mock additional properties until properly implemented
-  const hasMore = false;
-  const totalResults = results.length;
-  const searchCards = async (searchQuery: string) => {
-    // This will be implemented with proper Scryfall API integration
-    console.log('Searching for:', searchQuery);
-  };
-  const loadMore = () => {
-    console.log('Load more cards');
-  };
-  const clearResults = () => {
-    console.log('Clear results');
-  };
+    error,
+    hasMore,
+    totalResults,
+    searchCards,
+    loadMore,
+    clearResults
+  } = useEnhancedCardSearch();
 
   useEffect(() => {
     if (query.trim()) {

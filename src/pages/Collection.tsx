@@ -8,6 +8,8 @@ import { Heart, Crown } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionInventory } from '@/features/collection/CollectionInventory';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
+import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedCollectionAnalytics';
+import { CollectionImport } from '@/components/collection/CollectionImport';
 import { BulkOperations } from '@/components/collection/BulkOperations';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { UniversalCardSearch } from '@/components/universal/UniversalCardSearch';
@@ -36,6 +38,7 @@ export default function Collection() {
   // Get active tab from URL params  
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'collection';
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const setActiveTab = (tab: string) => {
     if (tab === 'collection') {
@@ -247,13 +250,30 @@ export default function Collection() {
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-6">
-          <CollectionAnalytics 
+          <EnhancedCollectionAnalytics 
             stats={stats}
             loading={loading}
           />
         </TabsContent>
 
         <TabsContent value="add-cards" className="space-y-6">
+          {/* Import Button */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">Bulk Import</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Import your collection from text lists, CSV files, or other tools
+                  </p>
+                </div>
+                <Button onClick={() => setShowImportDialog(true)}>
+                  Import Collection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <UniversalCardSearch
             onCardAdd={addToCollection}
             onCardSelect={(card) => console.log('Selected:', card)}
@@ -269,6 +289,16 @@ export default function Collection() {
           />
         </TabsContent>
         </Tabs>
+        
+        {/* Import Dialog */}
+        <CollectionImport
+          isOpen={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            setShowImportDialog(false);
+            refresh();
+          }}
+        />
     </StandardPageLayout>
   );
 }

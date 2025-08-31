@@ -44,6 +44,7 @@ interface EnhancedUniversalCardSearchProps {
   showFilters?: boolean;
   showAddButton?: boolean;
   showWishlistButton?: boolean;
+  onCardWishlist?: (card: any) => void;
   showViewModes?: boolean;
   compact?: boolean;
   initialQuery?: string;
@@ -56,6 +57,7 @@ export function EnhancedUniversalCardSearch({
   showFilters = true,
   showAddButton = true,
   showWishlistButton = true,
+  onCardWishlist,
   showViewModes = true,
   compact = false,
   initialQuery = ''
@@ -136,6 +138,10 @@ export function EnhancedUniversalCardSearch({
     setSelectedCard(card);
     setShowModal(true);
     onCardSelect?.(card);
+  };
+
+  const handleCardWishlist = (card: any) => {
+    onCardWishlist?.(card);
   };
 
   const handleCardAdd = (card: any) => {
@@ -365,7 +371,7 @@ export function EnhancedUniversalCardSearch({
               viewMode={viewMode}
               onCardClick={handleCardClick}
               onCardAdd={showAddButton ? handleCardAdd : undefined}
-              onCardWishlist={showWishlistButton ? (card) => console.log('Wishlist:', card) : undefined}
+              onCardWishlist={showWishlistButton ? handleCardWishlist : undefined}
               showWishlistButton={showWishlistButton}
               compact={compact}
             />
@@ -409,7 +415,7 @@ export function EnhancedUniversalCardSearch({
             setSelectedCard(null);
           }}
           onAddToCollection={showAddButton ? handleCardAdd : undefined}
-          onAddToWishlist={showWishlistButton ? (card) => console.log('Wishlist:', card) : undefined}
+          onAddToWishlist={showWishlistButton ? onCardWishlist : undefined}
         />
       )}
 

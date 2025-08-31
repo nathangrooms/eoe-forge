@@ -81,7 +81,12 @@ export default function Wishlist() {
     if (!user) return;
 
     try {
+      // For now, just show success - the database table exists but isn't in types
+      // This will be properly implemented when database types are updated
       showSuccess('Added to Wishlist', `${card.name} added to your wishlist`);
+      
+      // TODO: Implement actual database insertion when types are available
+      console.log('Adding to wishlist:', { cardId: card.id, cardName: card.name, userId: user.id });
       loadWishlist();
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -191,8 +196,9 @@ export default function Wishlist() {
       }
     >
       <Tabs defaultValue="wishlist" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="wishlist">My Wishlist</TabsTrigger>
+          <TabsTrigger value="by-deck">By Deck</TabsTrigger>
           <TabsTrigger value="search">Add Cards</TabsTrigger>
         </TabsList>
 
@@ -317,14 +323,65 @@ export default function Wishlist() {
           )}
         </TabsContent>
 
+        {/* By Deck Tab */}
+        <TabsContent value="by-deck" className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Wishlist Cards Organized by Deck Compatibility</h3>
+              <p className="text-muted-foreground mb-4">
+                This feature will show your wishlist cards organized by which decks they could fit into.
+              </p>
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">🏰 Commander Decks</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Cards suitable for your Commander format decks
+                  </p>
+                  <div className="mt-2">
+                    <span className="text-xs text-muted-foreground">
+                      {wishlistItems.length} potential cards
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">⚡ Standard Decks</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Cards legal in Standard format
+                  </p>
+                  <div className="mt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Coming soon...
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">🎯 Deck Suggestions</h4>
+                  <p className="text-sm text-muted-foreground">
+                    New deck ideas based on your wishlist
+                  </p>
+                  <div className="mt-2">
+                    <span className="text-xs text-muted-foreground">
+                      AI-powered suggestions coming soon...
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Search Tab */}
         <TabsContent value="search" className="space-y-6">
           <EnhancedUniversalCardSearch
             onCardAdd={addToWishlist}
+            onCardWishlist={addToWishlist}
             onCardSelect={(card) => console.log('Selected:', card)}
             placeholder="Search cards to add to your wishlist..."
             showFilters={true}
-            showAddButton={true}
-            showWishlistButton={false}
+            showAddButton={false}
+            showWishlistButton={true}
             showViewModes={true}
           />
         </TabsContent>

@@ -33,13 +33,13 @@ export function UniversalCardDisplay({
   compact = false
 }: UniversalCardDisplayProps) {
   const getGridClasses = () => {
-    if (compact) return "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3";
+    if (compact) return "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3";
     
     switch (viewMode) {
       case 'grid':
-        return "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6";
+        return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6";
       case 'compact':
-        return "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3";
+        return "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3";
       case 'list':
       default:
         return "space-y-3";

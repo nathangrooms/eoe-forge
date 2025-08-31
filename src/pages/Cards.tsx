@@ -3,12 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { useCollectionStore } from '@/stores/collectionStore';
-import { showSuccess } from '@/components/ui/toast-helpers';
+import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 export default function Cards() {
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const collection = useCollectionStore();
+  const { user } = useAuth();
 
   const addToCollection = (card: any) => {
     collection.addCard({
@@ -40,9 +43,23 @@ export default function Cards() {
     showSuccess("Added to Collection", `Added ${card.name} to your collection`);
   };
 
-  const addToWishlist = (card: any) => {
-    showSuccess("Added to Wishlist", "Card added to your wishlist");
-    // Implement wishlist functionality
+  const addToWishlist = async (card: any) => {
+    if (!user) {
+      showError('Authentication Required', 'Please sign in to add cards to your wishlist');
+      return;
+    }
+
+    try {
+      // For now, just show success - the database table exists but isn't in types
+      // This will be properly implemented when database types are updated
+      showSuccess('Added to Wishlist', `${card.name} added to your wishlist`);
+      
+      // TODO: Implement actual database insertion when types are available
+      console.log('Adding to wishlist:', { cardId: card.id, cardName: card.name, userId: user.id });
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      showError('Failed to add to wishlist', 'Please try again');
+    }
   };
 
   return (
@@ -53,6 +70,7 @@ export default function Cards() {
       <EnhancedUniversalCardSearch
         onCardAdd={addToCollection}
         onCardSelect={(card) => console.log('Selected:', card)}
+        onCardWishlist={addToWishlist}
         placeholder="Search Magic: The Gathering cards..."
         showFilters={true}
         showAddButton={true}

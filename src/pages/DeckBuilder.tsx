@@ -372,7 +372,7 @@ const DeckBuilder = () => {
       }
     >
       <Tabs defaultValue="deck" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="deck" className="flex items-center space-x-2">
             <Sparkles className="h-4 w-4" />
             <span>Deck ({deck.totalCards || 0})</span>
@@ -380,10 +380,6 @@ const DeckBuilder = () => {
           <TabsTrigger value="search" className="flex items-center space-x-2">
             <Search className="h-4 w-4" />
             <span>Card Search</span>
-          </TabsTrigger>
-          <TabsTrigger value="ai-builder" className="flex items-center space-x-2">
-            <Activity className="h-4 w-4" />
-            <span>AI Builder</span>
           </TabsTrigger>
           <TabsTrigger value="analysis" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
@@ -454,10 +450,6 @@ const DeckBuilder = () => {
           )}
         </TabsContent>
 
-        {/* AI Builder Tab */}
-        <TabsContent value="ai-builder">
-          <AIBuilder />
-        </TabsContent>
 
         {/* Analysis Tab */}
         <TabsContent value="analysis">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -41,6 +42,7 @@ interface Listing {
 
 export default function Marketplace() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
+  const [soldListings, setSoldListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSoldModal, setShowSoldModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -55,7 +57,8 @@ export default function Marketplace() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await supabase
+      // Load active/draft listings
+      const { data: activeData, error: activeError } = await supabase
         .from('listings')
         .select(`
           *,
@@ -72,8 +75,29 @@ export default function Marketplace() {
         .in('status', ['active', 'draft'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setMyListings((data as any) || []);
+      if (activeError) throw activeError;
+      setMyListings((activeData as any) || []);
+
+      // Load sold listings
+      const { data: soldData, error: soldError } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          cards(
+            id,
+            name,
+            image_uris,
+            prices,
+            set_code,
+            rarity
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .eq('status', 'sold')
+        .order('updated_at', { ascending: false });
+
+      if (soldError) throw soldError;
+      setSoldListings((soldData as any) || []);
     } catch (error) {
       console.error('Error loading my listings:', error);
       showError('Error', 'Failed to load your listings');
@@ -175,6 +199,100 @@ export default function Marketplace() {
     return listing.cards?.image_uris?.normal || listing.cards?.image_uris?.small;
   };
 
+  const editListing = (listingId: string) => {
+    // TODO: Navigate to edit listing page or open edit modal
+    console.log('Edit listing:', listingId);
+    showError('Not Implemented', 'Edit functionality coming soon');
+  };
+
+  const renderListingCard = (listing: Listing) => (
+    <Card key={listing.id} className="overflow-hidden">
+      <div className="relative">
+        {getCardImage(listing) ? (
+          <img 
+            src={getCardImage(listing)} 
+            alt={listing.cards?.name || listing.card_id}
+            className="w-full h-64 object-contain bg-background"
+          />
+        ) : (
+          <div className="w-full h-64 bg-muted flex items-center justify-center">
+            <Package className="h-12 w-12 text-muted-foreground" />
+          </div>
+        )}
+        {listing.foil && (
+          <Badge className="absolute top-2 right-2 bg-yellow-500">
+            Foil
+          </Badge>
+        )}
+      </div>
+      
+      <CardContent className="p-4">
+        <h3 className="font-medium text-sm mb-1 truncate">
+          {listing.cards?.name || listing.card_id}
+        </h3>
+        <p className="text-xs text-muted-foreground mb-2">
+          {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
+        </p>
+        
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">{listing.condition || 'NM'}</span>
+          <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
+        </div>
+        
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-lg font-bold text-green-600">
+            ${listing.price_usd.toFixed(2)}
+          </span>
+          {listing.cards?.prices?.usd && (
+            <span className="text-xs text-muted-foreground">
+              Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-muted-foreground flex items-center">
+            <Calendar className="h-3 w-3 mr-1" />
+            {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          {listing.status !== 'sold' && (
+            <>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => editListing(listing.id)}
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => handleShowSoldModal(listing)}
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Sold
+              </Button>
+            </>
+          )}
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            className="aspect-square p-0 h-9 w-9 flex-shrink-0"
+            onClick={() => deleteListing(listing.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <StandardPageLayout
@@ -195,7 +313,7 @@ export default function Marketplace() {
     >
       <div className="space-y-6">
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
@@ -203,6 +321,18 @@ export default function Marketplace() {
                 <div>
                   <p className="text-sm font-medium">Active Listings</p>
                   <p className="text-2xl font-bold">{myListings.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Sold Items</p>
+                  <p className="text-2xl font-bold">{soldListings.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -221,109 +351,48 @@ export default function Marketplace() {
           </Card>
         </div>
 
-        {/* My Listings */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {myListings.map((listing) => (
-              <Card key={listing.id} className="overflow-hidden">
-                <div className="relative">
-                  {getCardImage(listing) ? (
-                    <img 
-                      src={getCardImage(listing)} 
-                      alt={listing.cards?.name || listing.card_id}
-                      className="w-full h-48 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-48 bg-muted flex items-center justify-center">
-                      <Package className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                  )}
-                  {listing.foil && (
-                    <Badge className="absolute top-2 right-2 bg-yellow-500">
-                      Foil
-                    </Badge>
-                  )}
-                  <Badge 
-                    className="absolute top-2 left-2" 
-                    variant={listing.status === 'active' ? 'default' : 'secondary'}
-                  >
-                    {listing.status || 'Draft'}
-                  </Badge>
-                </div>
-                
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-sm mb-1 truncate">
-                    {listing.cards?.name || listing.card_id}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
-                  </p>
-                  
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-muted-foreground">{listing.condition || 'NM'}</span>
-                    <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg font-bold text-green-600">
-                      ${listing.price_usd.toFixed(2)}
-                    </span>
-                    {listing.cards?.prices?.usd && (
-                      <span className="text-xs text-muted-foreground">
-                        Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1">
-                    <Button size="sm" variant="outline" className="text-xs">
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs"
-                      onClick={() => handleShowSoldModal(listing)}
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Sold
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs"
-                      onClick={() => deleteListing(listing.id)}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {myListings.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No listings yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Start by marking cards for sale in your collection.
-              </p>
-              <Button asChild>
-                <a href="/collection">Go to Collection</a>
-              </Button>
+        {/* Tabs for For Sale and Sold */}
+        <Tabs defaultValue="for-sale" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="for-sale">For Sale ({myListings.length})</TabsTrigger>
+            <TabsTrigger value="sold">Sold ({soldListings.length})</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="for-sale" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {myListings.map(renderListingCard)}
             </div>
-          )}
-        </div>
+
+            {myListings.length === 0 && (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No listings yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start by marking cards for sale in your collection.
+                </p>
+                <Button asChild>
+                  <a href="/collection">Go to Collection</a>
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="sold" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {soldListings.map(renderListingCard)}
+            </div>
+
+            {soldListings.length === 0 && (
+              <div className="text-center py-12">
+                <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No sold items yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Items you mark as sold will appear here.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
 
         <MarkAsSoldModal
           isOpen={showSoldModal}

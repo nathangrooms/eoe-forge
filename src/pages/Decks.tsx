@@ -31,6 +31,7 @@ import {
 import { useDeckStore } from '@/stores/deckStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { StandardDeckTile } from '@/components/ui/standardized-components';
+import { EnhancedDeckTile } from '@/components/deck-builder/EnhancedDeckTile';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
@@ -486,10 +487,11 @@ export default function Decks() {
 
           {/* Decks Grid */}
           {!loading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {filteredDecks.map((deckData) => (
-                <StandardDeckTile
+                <EnhancedDeckTile
                   key={deckData.id}
+                  id={deckData.id}
                   name={deckData.name}
                   format={deckData.format}
                   colors={deckData.colors}
@@ -500,7 +502,10 @@ export default function Decks() {
                   onEdit={() => loadDeck(deckData)}
                   onDelete={() => deleteDeck(deckData.id)}
                   onDuplicate={() => duplicateDeck(deckData)}
-                  onView={() => loadDeck(deckData)}
+                  onView={() => {
+                    setSelectedDeck(deckData.id);
+                    setActiveTab('analysis');
+                  }}
                 />
               ))}
             </div>
@@ -508,7 +513,7 @@ export default function Decks() {
 
           {!loading && filteredDecks.length === 0 && (
             <Card className="p-12 text-center">
-              <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <Crown className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-xl font-medium mb-2">No Decks Found</h3>
               <p className="text-muted-foreground mb-4">
                 {decks.length === 0 

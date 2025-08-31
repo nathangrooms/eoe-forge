@@ -122,30 +122,40 @@ export function buildScryfallURL(state: CardSearchState, baseURL = "https://api.
 }
 
 // Preset queries for common searches
-export const PRESET_QUERIES: Record<string, CardSearchState> = {
-  "cheap_removal_modern": {
-    types: ["instant"],
-    colors: { mode: "any", value: [] },
-    mv: { max: 2 },
-    legal: [{ format: "modern", state: "legal" }],
-    orGroups: [['o:"destroy target"']]
+export const PRESET_QUERIES = [
+  {
+    name: "Cheap Removal",
+    query: "t:instant mv<=2 o:\"destroy target\" f:modern"
   },
-  "blue_cantrips": {
-    colors: { mode: "exact", value: ["U"] },
-    types: ["instant"],
-    mv: { max: 2 },
-    text: "draw a card"
+  {
+    name: "Blue Cantrips", 
+    query: "c:u t:instant mv<=2 o:\"draw a card\""
   },
-  "commander_ramp_green": {
-    colors: { mode: "any", value: ["G"] },
-    legal: [{ format: "commander", state: "legal" }],
-    orGroups: [['o:"add {g}"', 'o:"search your library for a basic land"']]
+  {
+    name: "Green Ramp",
+    query: "c:g f:commander (o:\"add {g}\" or o:\"search your library for a basic land\")"
   },
-  "vehicles_standard": {
-    types: ["vehicle"],
-    legal: [{ format: "standard", state: "legal" }]
+  {
+    name: "Vehicles",
+    query: "t:vehicle f:standard"
+  },
+  {
+    name: "Planeswalkers",
+    query: "t:planeswalker"
+  },
+  {
+    name: "Artifacts",
+    query: "t:artifact -t:creature"
+  },
+  {
+    name: "Legendary Creatures",
+    query: "t:legendary t:creature"
+  },
+  {
+    name: "Budget Cards",
+    query: "usd<=1"
   }
-};
+];
 
 // Helper to get color symbol for UI
 export const COLOR_SYMBOLS: Record<Color, { symbol: string; name: string; className: string }> = {

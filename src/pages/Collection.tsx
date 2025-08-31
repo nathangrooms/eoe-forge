@@ -169,10 +169,18 @@ export default function Collection() {
     >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="add-cards">Add Cards</TabsTrigger>
-            <TabsTrigger value="collection">My Collection</TabsTrigger>
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
-            <TabsTrigger value="import">Import</TabsTrigger>
+            <TabsTrigger value="add-cards" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Add Cards
+            </TabsTrigger>
+            <TabsTrigger value="collection" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              My Collection
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="import" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Import
+            </TabsTrigger>
           </TabsList>
 
           {/* Add Cards Tab */}

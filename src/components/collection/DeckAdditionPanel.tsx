@@ -77,95 +77,97 @@ export function DeckAdditionPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Add to Collection Toggle */}
-        <div className="flex items-center justify-between p-3 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <Package className="h-5 w-5 text-blue-500" />
-            <div>
-              <p className="font-medium">My Collection</p>
-              <p className="text-sm text-muted-foreground">Track your owned cards</p>
+        {/* Single row with both options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Add to Collection Toggle */}
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <Package className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="font-medium">My Collection</p>
+                <p className="text-xs text-muted-foreground">Track owned cards</p>
+              </div>
             </div>
+            <Button
+              variant={addToCollection ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSelectionChange({ addToCollection: !addToCollection })}
+            >
+              {addToCollection && <Check className="h-4 w-4 mr-1" />}
+              {addToCollection ? 'Adding' : 'Add'}
+            </Button>
           </div>
-          <Button
-            variant={addToCollection ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleSelectionChange({ addToCollection: !addToCollection })}
-          >
-            {addToCollection && <Check className="h-4 w-4 mr-1" />}
-            {addToCollection ? 'Adding' : 'Add'}
-          </Button>
-        </div>
 
-        {/* Add to Deck Section */}
-        <div className="space-y-3">
+          {/* Add to Deck Section */}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
               <Crown className="h-5 w-5 text-purple-500" />
               <div>
                 <p className="font-medium">Add to Deck</p>
-                <p className="text-sm text-muted-foreground">Build your deck simultaneously</p>
+                <p className="text-xs text-muted-foreground">Build simultaneously</p>
               </div>
             </div>
             <Button
               variant={addToDeck ? "default" : "outline"}
               size="sm"
-            onClick={() => handleSelectionChange({ addToDeck: !addToDeck })}
-          >
-            {addToDeck && <Check className="h-4 w-4 mr-1" />}
-            {addToDeck ? 'Enabled' : 'Enable'}
-          </Button>
+              onClick={() => handleSelectionChange({ addToDeck: !addToDeck })}
+            >
+              {addToDeck && <Check className="h-4 w-4 mr-1" />}
+              {addToDeck ? 'Enabled' : 'Enable'}
+            </Button>
           </div>
-
-          {addToDeck && (
-            <div className="pl-4 space-y-3">
-              <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a deck..." />
-                </SelectTrigger>
-                <SelectContent className="bg-background border z-50">
-                  {decks.map(deck => (
-                    <SelectItem key={deck.id} value={deck.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{deck.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {deck.format}
-                        </Badge>
-                        {deck.colors.length > 0 && getColorIndicator(deck.colors)}
-                        <span className="text-xs text-muted-foreground">
-                          ({deck.totalCards} cards)
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {selectedDeckId && (
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  {(() => {
-                    const selectedDeck = decks.find(d => d.id === selectedDeckId);
-                    return selectedDeck ? (
-                      <div className="flex items-center gap-3">
-                        {selectedDeck.commander && (
-                          <div className="flex items-center gap-2">
-                            <Crown className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm">{selectedDeck.commander.name}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {selectedDeck.format}
-                          </Badge>
-                          {selectedDeck.colors.length > 0 && getColorIndicator(selectedDeck.colors)}
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Deck Selection - Only show when deck adding is enabled */}
+        {addToDeck && (
+          <div className="space-y-3">
+            <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
+              <SelectTrigger className="bg-background border z-50">
+                <SelectValue placeholder="Choose a deck..." />
+              </SelectTrigger>
+              <SelectContent className="bg-background border z-50">
+                {decks.map(deck => (
+                  <SelectItem key={deck.id} value={deck.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{deck.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {deck.format}
+                      </Badge>
+                      {deck.colors.length > 0 && getColorIndicator(deck.colors)}
+                      <span className="text-xs text-muted-foreground">
+                        ({deck.totalCards} cards)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedDeckId && (
+              <div className="bg-muted/50 p-3 rounded-lg">
+                {(() => {
+                  const selectedDeck = decks.find(d => d.id === selectedDeckId);
+                  return selectedDeck ? (
+                    <div className="flex items-center gap-3">
+                      {selectedDeck.commander && (
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4 text-yellow-500" />
+                          <span className="text-sm">{selectedDeck.commander.name}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedDeck.format}
+                        </Badge>
+                        {selectedDeck.colors.length > 0 && getColorIndicator(selectedDeck.colors)}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Summary */}
         <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">

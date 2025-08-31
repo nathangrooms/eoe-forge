@@ -16,7 +16,8 @@ import {
   Settings,
   Camera,
   Menu,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
     section: 'main'
   },
   {
-    title: 'Collection',
+    title: 'Collection Manager',
     href: '/collection',
     icon: Package,
     section: 'main'
@@ -78,6 +79,12 @@ const NAV_ITEMS: NavItem[] = [
     section: 'tools'
   },
   {
+    title: 'Admin Panel',
+    href: '/admin',
+    icon: Shield,
+    section: 'admin'
+  },
+  {
     title: 'Settings',
     href: '/settings',
     icon: Settings,
@@ -88,6 +95,7 @@ const NAV_ITEMS: NavItem[] = [
 const SECTIONS = {
   main: 'Main',
   tools: 'Tools',
+  admin: 'Admin',
   user: 'User'
 };
 
@@ -149,7 +157,10 @@ export function MobileNavigation() {
         <SheetContent side="left" className="w-72 p-0">
           <div className="flex h-full flex-col">
             <div className="flex h-14 items-center border-b px-4">
-              <h2 className="font-semibold">Navigation</h2>
+              <Link to="/deck-builder" className="flex items-center gap-2 font-semibold" onClick={() => setIsOpen(false)}>
+                <Plus className="h-5 w-5" />
+                Quick Build
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"

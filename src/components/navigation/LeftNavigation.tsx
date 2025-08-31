@@ -13,7 +13,8 @@ import {
   Shield,
   Settings,
   Plus,
-  Camera
+  Camera,
+  ShoppingCart
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,6 +36,12 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Collection Manager',
     href: '/collection',
     icon: Package,
+    section: 'main'
+  },
+  {
+    title: 'Marketplace',
+    href: '/marketplace',
+    icon: ShoppingCart,
     section: 'main'
   },
   {

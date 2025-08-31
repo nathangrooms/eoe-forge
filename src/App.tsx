@@ -24,6 +24,7 @@ import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
 import DeckInterface from "./pages/DeckInterface";
 import AIBuilder from "./pages/AIBuilder";
+import Marketplace from "./pages/Marketplace";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ function AppContent() {
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/landing" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+            <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />

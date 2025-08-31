@@ -200,16 +200,18 @@ export function AdminPanel() {
                 </p>
               )}
 
-              {status.status === 'running' && status.total_records > 0 && (
+              {status.status === 'running' && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Progress</span>
-                    <span>{status.records_processed.toLocaleString()} / {status.total_records.toLocaleString()}</span>
+                    <span>{status.records_processed.toLocaleString()}{status.total_records ? ` / ${status.total_records.toLocaleString()}` : ' cards'}</span>
                   </div>
-                  <Progress 
-                    value={(status.records_processed / status.total_records) * 100} 
-                    className="w-full"
-                  />
+                  {status.total_records && (
+                    <Progress 
+                      value={(status.records_processed / status.total_records) * 100} 
+                      className="w-full"
+                    />
+                  )}
                 </div>
               )}
 

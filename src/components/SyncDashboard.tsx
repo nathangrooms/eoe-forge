@@ -469,7 +469,7 @@ const SyncDashboard = () => {
             </div>
             <p className="text-xs text-muted-foreground">
               {syncStatus 
-                ? `${syncStatus.records_processed.toLocaleString()} / ${syncStatus.total_records.toLocaleString()}`
+                ? `${syncStatus.records_processed.toLocaleString()}${syncStatus.total_records ? ` / ${syncStatus.total_records.toLocaleString()}` : ' cards'}`
                 : 'No active sync'
               }
             </p>
@@ -513,7 +513,7 @@ const SyncDashboard = () => {
                     {step.status === 'current' && step.id === 'download' && syncStatus.total_records > 0 && (
                       <div className="mt-1">
                         <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                          <span>{syncStatus.records_processed.toLocaleString()} / {syncStatus.total_records.toLocaleString()}</span>
+                          <span>{syncStatus.records_processed.toLocaleString()}{syncStatus.total_records ? ` / ${syncStatus.total_records.toLocaleString()}` : ' cards'}</span>
                           <span>{getEstimatedTimeRemaining() && `~${getEstimatedTimeRemaining()} remaining`}</span>
                         </div>
                         <Progress value={calculateProgress()} className="h-2" />
@@ -556,7 +556,7 @@ const SyncDashboard = () => {
                   <Progress value={calculateProgress()} className="w-full" />
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{syncStatus.records_processed.toLocaleString()} processed</span>
-                    <span>{syncStatus.total_records.toLocaleString()} total</span>
+                    <span>{syncStatus.total_records ? `${syncStatus.total_records.toLocaleString()} total` : 'Fetching all cards'}</span>
                   </div>
                 </>
               ) : (

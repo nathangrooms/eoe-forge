@@ -76,7 +76,7 @@ export function TopNavigation() {
             <img 
               src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" 
               alt="DECKMATRIX"
-              className="h-12 w-auto"
+              className="h-20 w-auto"
             />
           </div>
         </div>

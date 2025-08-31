@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,6 +82,7 @@ export default function Decks() {
   const deck = useDeckStore();
   const collection = useCollectionStore();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // Load decks from database AND local store
   useEffect(() => {
@@ -548,15 +549,11 @@ export default function Decks() {
                 description={deck.description}
                 onEdit={() => {
                   // Navigate to deck builder with this deck loaded
-                  const url = new URL('/deckbuilder', window.location.origin);
-                  url.searchParams.set('deck', deck.id);
-                  window.location.href = url.toString();
+                  navigate(`/deck-builder?deck=${deck.id}`);
                 }}
                 onView={() => {
                   // Navigate to deck builder with this deck loaded
-                  const url = new URL('/deckbuilder', window.location.origin);
-                  url.searchParams.set('deck', deck.id);
-                  window.location.href = url.toString();
+                  navigate(`/deck-builder?deck=${deck.id}`);
                 }}
                 onDuplicate={() => duplicateDeck(deck)}
                 onDelete={() => deleteDeck(deck.id)}

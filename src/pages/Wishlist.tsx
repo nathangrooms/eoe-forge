@@ -91,44 +91,84 @@ export default function Wishlist() {
 
     try {
       setLoading(true);
-      // Join wishlist with cards table to get complete card information
-      const { data, error } = await (supabase as any)
+      
+      // First, load wishlist items without joins to avoid errors
+      const { data: wishlistData, error: wishlistError } = await (supabase as any)
         .from('wishlist')
-        .select(`
-          *,
-          card:cards!inner(
-            id,
-            name,
-            type_line,
-            colors,
-            color_identity,
-            rarity,
-            cmc,
-            mana_cost,
-            oracle_text,
-            power,
-            toughness,
-            image_uris,
-            prices,
-            set_code,
-            keywords
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      
-      // Transform the data to flatten the card information
-      const transformedData = (data || []).map((item: any) => ({
+      if (wishlistError) throw wishlistError;
+
+      if (!wishlistData || wishlistData.length === 0) {
+        setWishlistItems([]);
+        return;
+      }
+
+      // For now, just use basic card data from card names
+      // This will show the wishlist with basic information while we resolve the card data fetching
+      const transformedData = wishlistData.map((item: any) => ({
         ...item,
-        card: item.card
+        card: {
+          id: item.card_id,
+          name: item.card_name,
+          type_line: 'Loading...',
+          colors: [],
+          color_identity: [],
+          rarity: 'common',
+          image_uris: {},
+          prices: { usd: '0.00' },
+          set_code: 'UNK'
+        }
       }));
       
       setWishlistItems(transformedData);
+
+      // Attempt to fetch additional card data from Scryfall for enhanced display
+      if (wishlistData.length > 0) {
+        setTimeout(async () => {
+          try {
+            const updatedItems = await Promise.all(
+              wishlistData.map(async (item: any) => {
+                try {
+                  const response = await fetch(`https://api.scryfall.com/cards/${item.card_id}`);
+                  if (response.ok) {
+                    const cardData = await response.json();
+                    return {
+                      ...item,
+                      card: cardData
+                    };
+                  }
+                } catch (error) {
+                  console.warn(`Failed to fetch card ${item.card_id}:`, error);
+                }
+                return {
+                  ...item,
+                  card: {
+                    id: item.card_id,
+                    name: item.card_name,
+                    type_line: 'Unknown',
+                    colors: [],
+                    color_identity: [],
+                    rarity: 'common',
+                    image_uris: {},
+                    prices: { usd: '0.00' },
+                    set_code: 'UNK'
+                  }
+                };
+              })
+            );
+            setWishlistItems(updatedItems);
+          } catch (error) {
+            console.warn('Failed to enhance wishlist with card data:', error);
+          }
+        }, 100);
+      }
     } catch (error) {
       console.error('Error loading wishlist:', error);
       showError('Failed to load wishlist');
+      setWishlistItems([]);
     } finally {
       setLoading(false);
     }

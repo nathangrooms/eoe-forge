@@ -4,9 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
-import { AppSidebar } from "@/components/AppSidebar";
+import { TopNavigation } from "@/components/navigation/TopNavigation";
+import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
@@ -19,6 +19,9 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
+import Wishlist from "./pages/Wishlist";
+import DeckInterface from "./pages/DeckInterface";
+import AIBuilder from "./pages/AIBuilder";
 
 const queryClient = new QueryClient();
 
@@ -53,33 +56,36 @@ function AppContent() {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
+    <div className="min-h-screen bg-background">
+      {/* Top Navigation - Always Visible */}
+      <TopNavigation />
+      
+      {/* Main Layout with Left Nav + Content */}
+      <div className="flex">
+        {/* Left Navigation */}
+        <LeftNavigation />
         
-        <main className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b px-4">
-            <SidebarTrigger />
-          </header>
-          
-          <div className="flex-1">
-            <Routes>
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/home" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
-              <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
-              <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
-              <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
-              <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
-              <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+        {/* Main Content Area */}
+        <main className="flex-1 min-h-[calc(100vh-4rem)]">
+          <Routes>
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
+            <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
+            <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
+            <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
+            <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
+            <Route path="/ai-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
+            <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+            <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
+            <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 

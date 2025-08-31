@@ -101,8 +101,13 @@ export function buildScryfallQuery(s: CardSearchState): { q: string, params: Rec
     if (grp.length > 0) tokens.push(`( ${grp.join(" OR ")} )`);
   });
 
-  // cleanup double spaces
-  const q = tokens.join(" ").replace(/\s+/g, " ").trim();
+  // cleanup double spaces and ensure we have a valid query
+  let q = tokens.join(" ").replace(/\s+/g, " ").trim();
+  
+  // If no query was built, use a default to prevent API errors
+  if (!q) {
+    q = "*"; // Search all cards
+  }
 
   const params: Record<string, string> = {};
   if (s.unique) params["unique"] = s.unique;

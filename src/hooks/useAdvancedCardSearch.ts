@@ -23,10 +23,14 @@ export function useAdvancedCardSearch(): UseAdvancedCardSearchResult {
   const [currentState, setCurrentState] = useState<CardSearchState | null>(null);
 
   const searchWithState = useCallback(async (state: CardSearchState, page = 1) => {
-    if (!state || Object.keys(state).length === 0) {
+    // Don't search if no meaningful search criteria
+    if (!state || (!state.text?.trim() && Object.keys(state).filter(key => 
+      key !== 'unique' && key !== 'order' && key !== 'dir' && state[key as keyof CardSearchState]
+    ).length === 0)) {
       setResults([]);
       setHasMore(false);
       setTotalResults(0);
+      setError(null);
       return;
     }
 

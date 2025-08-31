@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-optimized scanning styles */
+@layer components {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .touch-friendly {
+    @apply transform transition-transform duration-200 active:scale-95;
+  }
+  
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

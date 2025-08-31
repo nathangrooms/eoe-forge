@@ -68,13 +68,18 @@ export function preprocessForOCR(imageData: ImageData): ImageData {
 export function calculateSharpness(imageData: ImageData): number {
   const { width, height, data } = imageData;
   
+  // Validate input
+  if (width === 0 || height === 0 || data.length === 0) {
+    return 0;
+  }
+  
   // Convert to grayscale first
   const grayData = new Array(width * height);
   for (let i = 0, j = 0; i < data.length; i += 4, j++) {
     grayData[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   
-  // Apply Laplacian kernel
+  // Apply Laplacian kernel (avoid edges to prevent index errors)
   let sum = 0;
   let count = 0;
   
@@ -82,17 +87,20 @@ export function calculateSharpness(imageData: ImageData): number {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x;
       
-      const laplacian = 
-        -grayData[idx - width - 1] - grayData[idx - width] - grayData[idx - width + 1] +
-        -grayData[idx - 1] + 8 * grayData[idx] - grayData[idx + 1] +
-        -grayData[idx + width - 1] - grayData[idx + width] - grayData[idx + width + 1];
-      
-      sum += laplacian * laplacian;
-      count++;
+      // Check bounds
+      if (idx - width - 1 >= 0 && idx + width + 1 < grayData.length) {
+        const laplacian = 
+          -grayData[idx - width - 1] - grayData[idx - width] - grayData[idx - width + 1] +
+          -grayData[idx - 1] + 8 * grayData[idx] - grayData[idx + 1] +
+          -grayData[idx + width - 1] - grayData[idx + width] - grayData[idx + width + 1];
+        
+        sum += laplacian * laplacian;
+        count++;
+      }
     }
   }
   
-  return sum / count;
+  return count > 0 ? sum / count : 0;
 }
 
 // Resize image for faster OCR processing

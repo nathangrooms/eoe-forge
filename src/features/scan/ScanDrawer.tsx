@@ -221,8 +221,14 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-full max-h-full w-screen h-screen p-0 gap-0">
-        <div className="flex flex-col h-full bg-black text-white">
+      <DialogContent className="max-w-full max-h-full w-screen h-screen p-0 gap-0 overflow-hidden">
+        <div className="flex flex-col h-full bg-black text-white touch-pan-y"
+             style={{ 
+               // Optimize for mobile viewport
+               minHeight: '100svh',
+               WebkitUserSelect: 'none',
+               userSelect: 'none'
+             }}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 bg-black/80 backdrop-blur-sm z-10">
             <div className="flex items-center gap-3">
@@ -315,41 +321,53 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
                   className="w-full h-full object-cover"
                 />
                 
-                {/* Framing Guide */}
-                <div className="absolute inset-0 flex items-start justify-center pt-16">
-                  <div className="relative w-80 h-20 border-2 border-blue-400 border-dashed rounded-lg bg-blue-400/10">
-                    <div className="absolute -top-6 left-0 text-blue-400 text-sm font-medium">
+                {/* Framing Guide - Mobile Optimized */}
+                <div className="absolute inset-0 flex items-start justify-center pt-12 sm:pt-16 pointer-events-none">
+                  <div className="relative w-72 sm:w-80 h-16 sm:h-20 border-2 border-blue-400 border-dashed rounded-lg bg-blue-400/10">
+                    <div className="absolute -top-8 left-0 text-blue-400 text-sm font-medium">
                       Align card name here
                     </div>
+                    {/* Corner indicators for better mobile guidance */}
+                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-blue-400" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-blue-400" />
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-blue-400" />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-blue-400" />
                   </div>
                 </div>
 
-                {/* Capture Button */}
-                <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+                {/* Capture Button - Mobile Optimized */}
+                <div className="absolute bottom-6 sm:bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-3">
                   <Button
                     onClick={() => handleCapture()}
                     disabled={processing || isLoading}
                     size="lg"
-                    className="rounded-full w-16 h-16 bg-white text-black hover:bg-gray-200"
+                    className="rounded-full w-20 h-20 bg-white text-black hover:bg-gray-200 active:scale-95 transition-transform shadow-lg"
                   >
-                    <Camera className="h-6 w-6" />
+                    <Camera className="h-8 w-8" />
                   </Button>
+                  {!settings.autoCapture && (
+                    <p className="text-white text-sm">Tap to capture</p>
+                  )}
                 </div>
               </>
             )}
           </div>
 
-          {/* Manual Search */}
-          <div className="p-4 bg-black/90 border-t border-white/10">
+          {/* Manual Search - Mobile Optimized */}
+          <div className="p-4 bg-black/90 border-t border-white/10 pb-safe">
             <div className="flex gap-2">
               <Input
                 value={manualSearch}
                 onChange={(e) => setManualSearch(e.target.value)}
                 placeholder="Or search manually..."
-                className="bg-black/50 border-white/20 text-white placeholder:text-gray-400"
+                className="bg-black/50 border-white/20 text-white placeholder:text-gray-400 touch-target"
                 onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
               />
-              <Button onClick={handleManualSearch} variant="outline" className="text-white border-white">
+              <Button 
+                onClick={handleManualSearch} 
+                variant="outline" 
+                className="text-white border-white touch-target shrink-0"
+              >
                 <Search className="h-4 w-4" />
               </Button>
             </div>
@@ -401,26 +419,27 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
           )}
         </div>
 
-        {/* Candidates Modal */}
+        {/* Candidates Modal - Mobile Optimized */}
         {showCandidates && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 flex items-end">
-            <Card className="w-full bg-white m-4 max-h-[60vh] overflow-hidden">
-              <CardContent className="p-6">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 flex items-end touch-pan-y">
+            <Card className="w-full bg-white m-4 max-h-[70vh] overflow-hidden rounded-t-2xl">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Select Card</h3>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowCandidates(false)}
+                    className="touch-target"
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto">
+                <div className="grid grid-cols-1 gap-4 max-h-80 overflow-y-auto overscroll-contain">
                   {candidates.map((candidate, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 active:bg-gray-100 cursor-pointer touch-friendly transition-colors"
                       onClick={() => addCardToCollection(candidate)}
                     >
                       <img

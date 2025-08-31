@@ -30,32 +30,38 @@ export function useAutoCapture(
     }
 
     const frameData = captureFrame();
-    if (!frameData) {
+    if (!frameData || frameData.width === 0 || frameData.height === 0) {
       animationFrameRef.current = requestAnimationFrame(checkSharpness);
       return;
     }
 
-    const sharpness = calculateSharpness(frameData);
-    
-    if (sharpness > options.sharpnessThreshold) {
-      // Image is sharp
-      if (stableStartTime.current === 0) {
-        stableStartTime.current = now;
-      } else if (now - stableStartTime.current >= options.stabilityDelay) {
-        // Image has been stable and sharp for required duration
-        setIsCapturing(true);
-        lastCaptureTime.current = now;
+    try {
+      const sharpness = calculateSharpness(frameData);
+      
+      if (sharpness > options.sharpnessThreshold) {
+        // Image is sharp
+        if (stableStartTime.current === 0) {
+          stableStartTime.current = now;
+        } else if (now - stableStartTime.current >= options.stabilityDelay) {
+          // Image has been stable and sharp for required duration
+          setIsCapturing(true);
+          lastCaptureTime.current = now;
+          stableStartTime.current = 0;
+          
+          setTimeout(() => {
+            onCapture(frameData);
+            setIsCapturing(false);
+          }, 100);
+          
+          return;
+        }
+      } else {
+        // Image not sharp enough, reset timer
         stableStartTime.current = 0;
-        
-        setTimeout(() => {
-          onCapture(frameData);
-          setIsCapturing(false);
-        }, 100);
-        
-        return;
       }
-    } else {
-      // Image not sharp enough, reset timer
+    } catch (error) {
+      console.error('Error checking sharpness:', error);
+      // Reset timer on error
       stableStartTime.current = 0;
     }
 

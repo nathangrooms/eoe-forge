@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -18,7 +19,9 @@ import {
   Plus, 
   Trash2, 
   Edit, 
-  ShoppingCart
+  ShoppingCart,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 
 interface WishlistItem {
@@ -30,11 +33,13 @@ interface WishlistItem {
   note?: string;
   created_at: string;
   card?: {
+    id?: string;
     name: string;
     set_code: string;
     type_line: string;
     colors: string[];
     rarity: string;
+    cmc?: number;
     prices?: {
       usd?: string;
       usd_foil?: string;
@@ -46,12 +51,22 @@ interface WishlistItem {
   };
 }
 
+interface UserDeck {
+  id: string;
+  name: string;
+  format: string;
+  colors: string[];
+}
+
 export default function Wishlist() {
   const { user } = useAuth();
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
+  const [userDecks, setUserDecks] = useState<UserDeck[]>([]);
   const [loading, setLoading] = useState(true);
+  const [decksLoading, setDecksLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<WishlistItem | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [editForm, setEditForm] = useState({
     quantity: 1,
     priority: 'medium',
@@ -59,7 +74,10 @@ export default function Wishlist() {
   });
 
   useEffect(() => {
-    loadWishlist();
+    if (user) {
+      loadWishlist();
+      loadUserDecks();
+    }
   }, [user]);
 
   const loadWishlist = async () => {
@@ -80,6 +98,26 @@ export default function Wishlist() {
       showError('Failed to load wishlist');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserDecks = async () => {
+    if (!user) return;
+
+    try {
+      setDecksLoading(true);
+      const { data, error } = await supabase
+        .from('user_decks')
+        .select('id, name, format, colors')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUserDecks(data || []);
+    } catch (error) {
+      console.error('Error loading user decks:', error);
+    } finally {
+      setDecksLoading(false);
     }
   };
 
@@ -220,6 +258,83 @@ export default function Wishlist() {
     }
   };
 
+  const exportToMoxfield = () => {
+    const moxfieldFormat = wishlistItems.map(item => 
+      `${item.quantity} ${item.card_name}`
+    ).join('\n');
+    
+    const blob = new Blob([moxfieldFormat], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wishlist_moxfield.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    showSuccess('Export Complete', 'Wishlist exported for Moxfield');
+  };
+
+  const exportToCSV = () => {
+    const csvData = [
+      'Card Name,Quantity,Priority,Price,Total Value,Note',
+      ...wishlistItems.map(item => [
+        item.card_name,
+        item.quantity,
+        item.priority,
+        item.card?.prices?.usd || '0',
+        (parseFloat(item.card?.prices?.usd || '0') * item.quantity).toFixed(2),
+        item.note || ''
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvData], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wishlist.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showSuccess('Export Complete', 'Wishlist exported as CSV');
+  };
+
+  const getWishlistForDeck = (deck: UserDeck) => {
+    return wishlistItems.filter(item => {
+      if (!item.card?.colors) return deck.colors.length === 0;
+      
+      // Check if card colors are compatible with deck colors
+      return item.card.colors.every(color => deck.colors.includes(color));
+    });
+  };
+
+  const getDeckWishlistValue = (deck: UserDeck) => {
+    const deckWishlist = getWishlistForDeck(deck);
+    return deckWishlist.reduce((sum, item) => {
+      const price = parseFloat(item.card?.prices?.usd || '0');
+      return sum + (price * item.quantity);
+    }, 0);
+  };
+
+  // Convert wishlist items to card format for UniversalCardDisplay
+  const formatWishlistItemsAsCards = (items: WishlistItem[]) => {
+    return items.map(item => ({
+      id: item.card_id,
+      name: item.card_name,
+      ...item.card,
+      // Add wishlist-specific metadata
+      wishlistQuantity: item.quantity,
+      wishlistPriority: item.priority,
+      wishlistNote: item.note,
+      wishlistId: item.id
+    }));
+  };
+
+  const handleCardClick = (card: any) => {
+    // Find the original wishlist item
+    const wishlistItem = wishlistItems.find(item => item.id === card.wishlistId);
+    if (wishlistItem) {
+      openEditDialog(wishlistItem);
+    }
+  };
+
   const totalValue = wishlistItems.reduce((sum, item) => {
     const price = parseFloat(item.card?.prices?.usd || '0');
     return sum + (price * item.quantity);
@@ -231,6 +346,16 @@ export default function Wishlist() {
       description="Track cards you want to add to your collection"
       action={
         <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToMoxfield}>
+              <Download className="h-4 w-4 mr-2" />
+              Moxfield
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+          </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">Total Value</div>
             <div className="text-lg font-bold text-green-600">
@@ -253,17 +378,13 @@ export default function Wishlist() {
 
         <TabsContent value="wishlist" className="space-y-6">
           {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
                 <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="animate-pulse flex space-x-4">
-                      <div className="w-16 h-20 bg-muted rounded"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-muted rounded w-3/4"></div>
-                        <div className="h-3 bg-muted rounded w-1/2"></div>
-                      </div>
-                    </div>
+                  <div className="aspect-[5/7] bg-muted animate-pulse"></div>
+                  <CardContent className="p-3">
+                    <div className="h-4 bg-muted rounded animate-pulse mb-2"></div>
+                    <div className="h-3 bg-muted rounded animate-pulse"></div>
                   </CardContent>
                 </Card>
               ))}
@@ -284,141 +405,136 @@ export default function Wishlist() {
               </Button>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {wishlistItems.map((item) => (
-                <Card key={item.id} className="group hover:shadow-md transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-4">
-                      {/* Card Image */}
-                      <div className="w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
-                        {item.card?.image_uris?.small && (
-                          <img 
-                            src={item.card.image_uris.small}
-                            alt={item.card_name}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-
-                      {/* Card Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium truncate">{item.card_name}</h3>
-                          <Badge variant={getPriorityColor(item.priority)} className="text-xs">
-                            {getPriorityIcon(item.priority)} {item.priority}
-                          </Badge>
-                        </div>
-                        
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>{item.card?.type_line}</p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {item.card?.set_code?.toUpperCase()}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {item.card?.rarity}
-                            </Badge>
-                            <span>Qty: {item.quantity}</span>
-                          </div>
-                          {item.note && (
-                            <p className="text-xs italic">{item.note}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Price */}
-                      <div className="text-right flex-shrink-0">
-                        <div className="font-medium">
-                          {item.card?.prices?.usd ? `$${item.card.prices.usd}` : 'N/A'}
-                        </div>
-                        {item.quantity > 1 && (
-                          <div className="text-sm text-muted-foreground">
-                            Total: ${((parseFloat(item.card?.prices?.usd || '0')) * item.quantity).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          size="sm"
-                          onClick={() => addToCollection(item)}
-                          disabled={!item.card?.prices?.usd}
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditDialog(item)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removeFromWishlist(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <UniversalCardDisplay
+              cards={formatWishlistItemsAsCards(wishlistItems)}
+              viewMode={viewMode}
+              onCardClick={handleCardClick}
+              showWishlistButton={false}
+            />
           )}
         </TabsContent>
 
         {/* By Deck Tab */}
         <TabsContent value="by-deck" className="space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Wishlist Cards Organized by Deck Compatibility</h3>
+          {decksLoading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <div className="animate-pulse space-y-3">
+                      <div className="h-6 bg-muted rounded w-1/3"></div>
+                      <div className="h-4 bg-muted rounded w-2/3"></div>
+                      <div className="h-8 bg-muted rounded"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : userDecks.length === 0 ? (
+            <Card className="p-12 text-center">
+              <h3 className="text-lg font-medium mb-2">No decks found</h3>
               <p className="text-muted-foreground mb-4">
-                This feature will show your wishlist cards organized by which decks they could fit into.
+                Create some decks to see wishlist recommendations for each deck
               </p>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">🏰 Commander Decks</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Cards suitable for your Commander format decks
-                  </p>
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground">
-                      {wishlistItems.length} potential cards
-                    </span>
-                  </div>
-                </div>
+              <Button onClick={() => window.location.href = '/decks'}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Deck
+              </Button>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {userDecks.map((deck) => {
+                const deckWishlist = getWishlistForDeck(deck);
+                const deckValue = getDeckWishlistValue(deck);
                 
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">⚡ Standard Decks</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Cards legal in Standard format
-                  </p>
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground">
-                      Coming soon...
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">🎯 Deck Suggestions</h4>
-                  <p className="text-sm text-muted-foreground">
-                    New deck ideas based on your wishlist
-                  </p>
-                  <div className="mt-2">
-                    <span className="text-xs text-muted-foreground">
-                      AI-powered suggestions coming soon...
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                return (
+                  <Card key={deck.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold">{deck.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {deck.format}
+                              </Badge>
+                              <div className="flex gap-1">
+                                {deck.colors.map((color, index) => (
+                                  <div
+                                    key={index}
+                                    className={`w-4 h-4 rounded-full border ${
+                                      color === 'W' ? 'bg-yellow-100 border-yellow-400' :
+                                      color === 'U' ? 'bg-blue-500 border-blue-600' :
+                                      color === 'B' ? 'bg-gray-800 border-gray-900' :
+                                      color === 'R' ? 'bg-red-500 border-red-600' :
+                                      color === 'G' ? 'bg-green-500 border-green-600' :
+                                      'bg-gray-400 border-gray-500'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="text-sm text-muted-foreground">Wishlist Value</div>
+                          <div className="text-lg font-bold text-green-600">
+                            ${deckValue.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {deckWishlist.length} cards
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {deckWishlist.length > 0 ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">Compatible Wishlist Cards</h4>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                const cardNames = deckWishlist.map(item => 
+                                  `${item.quantity} ${item.card_name}`
+                                ).join('\n');
+                                
+                                const blob = new Blob([cardNames], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${deck.name}_wishlist.txt`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                showSuccess('Export Complete', `${deck.name} wishlist exported`);
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Export
+                            </Button>
+                          </div>
+                          
+                          <UniversalCardDisplay
+                            cards={formatWishlistItemsAsCards(deckWishlist)}
+                            viewMode="compact"
+                            onCardClick={handleCardClick}
+                            compact={true}
+                            showWishlistButton={false}
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No wishlist cards are compatible with this deck's colors</p>
+                          <p className="text-sm mt-1">Add some cards to your wishlist that match this deck!</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         {/* Search Tab */}

@@ -120,13 +120,16 @@ export default function Decks() {
 
   const loadDeckSummaries = async () => {
     if (!user) {
+      console.log('No user found, skipping deck summary load');
       setLoading(false);
       return;
     }
 
     try {
+      console.log('Loading deck summaries for user:', user.id);
       // Load deck summaries from new API
       const summaries = await DeckAPI.getDeckSummaries();
+      console.log('Loaded deck summaries:', summaries);
       setDeckSummaries(summaries);
     } catch (error) {
       console.error('Error loading deck summaries:', error);

@@ -34,6 +34,7 @@ export interface Deck {
   powerLevel: number;
   totalCards: number;
   isPublic: boolean;
+  favorite?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +52,7 @@ interface DeckManagementState {
   addCardToDeck: (deckId: string, card: DeckCard) => void;
   removeCardFromDeck: (deckId: string, cardId: string) => void;
   updateCardQuantity: (deckId: string, cardId: string, quantity: number) => void;
+  toggleFavorite: (deckId: string) => void;
   getDeckValue: (deckId: string) => number;
   
   // Computed properties
@@ -78,6 +80,7 @@ export const useDeckManagementStore = create<DeckManagementState>()(
           powerLevel: 5,
           totalCards: 0,
           isPublic: false,
+          favorite: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -91,6 +94,7 @@ export const useDeckManagementStore = create<DeckManagementState>()(
           powerLevel: 5,
           totalCards: 0,
           isPublic: false,
+          favorite: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -108,6 +112,7 @@ export const useDeckManagementStore = create<DeckManagementState>()(
           powerLevel: 5,
           totalCards: 0,
           isPublic: false,
+          favorite: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -259,6 +264,19 @@ export const useDeckManagementStore = create<DeckManagementState>()(
               : state.activeDeck
           };
         });
+      },
+
+      toggleFavorite: (deckId: string) => {
+        set(state => ({
+          decks: state.decks.map(deck => 
+            deck.id === deckId 
+              ? { ...deck, favorite: !deck.favorite, updatedAt: new Date() }
+              : deck
+          ),
+          activeDeck: state.activeDeck?.id === deckId 
+            ? { ...state.activeDeck, favorite: !state.activeDeck.favorite, updatedAt: new Date() }
+            : state.activeDeck
+        }));
       },
 
       getDeckValue: (deckId: string) => {

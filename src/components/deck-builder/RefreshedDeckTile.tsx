@@ -79,16 +79,17 @@ export function RefreshedDeckTile({
       const isLocalDeck = deckSummary.name.includes('(Local)');
       
       if (isLocalDeck) {
-        // For local decks, just toggle the state locally
-        const newFavoriteState = !isFavorite;
-        setIsFavorite(newFavoriteState);
-        onFavoriteChange?.();
+        // For local decks, use the store
+        const { useDeckManagementStore } = await import('@/stores/deckManagementStore');
+        const toggleFavorite = useDeckManagementStore.getState().toggleFavorite;
+        toggleFavorite(deckSummary.id);
+        setIsFavorite(!isFavorite);
       } else {
         // For database decks, use the API
         const result = await DeckAPI.toggleFavorite(deckSummary.id);
         setIsFavorite(result.favorited);
-        onFavoriteChange?.();
       }
+      onFavoriteChange?.();
     } catch (error) {
       console.error('Error toggling favorite:', error);
     } finally {

@@ -183,7 +183,7 @@ export default function Decks() {
         },
         tags: [],
         updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date(deck.updatedAt || Date.now()).toISOString(),
-        favorite: false
+        favorite: deck.favorite || false
       }));
 
       console.log('Local deck summaries:', localSummaries);

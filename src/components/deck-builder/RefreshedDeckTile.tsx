@@ -131,50 +131,54 @@ export function RefreshedDeckTile({
     <Card className={cn("group hover:shadow-xl transition-all duration-300 overflow-hidden border-2 hover:border-primary/30", className)}>
       <CardContent className="p-0">
         <div className="flex min-h-[280px]">
-          {/* Left: Full Height Commander Section - Made Wider */}
-          <div className="w-48 flex-shrink-0 relative p-3">
+          {/* Left: Full Height Commander Section - Much Wider */}
+          <div className="w-80 flex-shrink-0 relative p-4">
             {deckSummary.commander ? (
-              <div className="absolute inset-3 rounded-lg bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden">
+              <div className="absolute inset-4 rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg">
                 <img 
                   src={deckSummary.commander.image} 
                   alt={deckSummary.commander.name}
-                  className="w-full h-full object-cover rounded-lg"
+                  className="w-full h-full object-cover rounded-xl"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder.svg';
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-lg" />
+                
+                {/* Subtle gradient for text readability - only at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent rounded-b-xl" />
                 
                 {/* Commander Badge */}
-                <div className="absolute top-3 right-3">
-                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
-                    <Crown className="h-3 w-3 text-white" />
+                <div className="absolute top-4 right-4">
+                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-xl border-2 border-white">
+                    <Crown className="h-4 w-4 text-white" />
                   </div>
                 </div>
 
-                {/* Commander Name Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <div className="text-white text-sm font-medium leading-tight drop-shadow-lg">
-                    {deckSummary.commander.name}
-                  </div>
-                  <div className="text-white/80 text-xs mt-1">
-                    Commander
+                {/* Commander Info - Bottom overlay with clear background */}
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                    <div className="text-white text-base font-bold leading-tight drop-shadow-lg">
+                      {deckSummary.commander.name}
+                    </div>
+                    <div className="text-white/90 text-sm mt-1 font-medium">
+                      Commander
+                    </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="absolute inset-3 rounded-lg bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center">
+              <div className="absolute inset-4 rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
                 <div className="text-center text-muted-foreground">
-                  <Crown className="h-12 w-12 mx-auto mb-3" />
-                  <div className="text-sm font-medium">No Commander</div>
-                  <div className="text-xs mt-1">Set in Builder</div>
+                  <Crown className="h-16 w-16 mx-auto mb-4" />
+                  <div className="text-lg font-medium">No Commander</div>
+                  <div className="text-sm mt-2">Set in Builder</div>
                 </div>
               </div>
             )}
 
-            {/* Format Badge on Commander */}
-            <div className="absolute bottom-3 left-3">
-              <Badge className={cn("text-xs font-bold shadow-lg", formatColors[deckSummary.format as keyof typeof formatColors] || formatColors.custom)}>
+            {/* Format Badge - Top left corner with space from image */}
+            <div className="absolute top-4 left-4">
+              <Badge className={cn("text-sm font-bold shadow-xl border border-white/30", formatColors[deckSummary.format as keyof typeof formatColors] || formatColors.custom)}>
                 {deckSummary.format.toUpperCase()}
               </Badge>
             </div>

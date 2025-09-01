@@ -30,10 +30,61 @@ export function FavoriteDecksPreview() {
 
   const loadFavoriteDecks = async () => {
     try {
-      // Load both database and local favorite decks
-      const allSummaries = await DeckAPI.getDeckSummaries();
-      const favorites = allSummaries.filter(deck => deck.favorite).slice(0, 4);
-      setFavoriteDecks(favorites);
+      // First get all local decks from the store
+      const { useDeckManagementStore } = await import('@/stores/deckManagementStore');
+      const localDecks = useDeckManagementStore.getState().decks;
+      
+      // Convert local decks to summary format and filter favorites
+      const localSummaries: DeckSummary[] = localDecks
+        .filter(deck => deck.favorite)
+        .map(deck => ({
+          id: deck.id,
+          name: `${deck.name} (Local)`,
+          format: deck.format,
+          colors: deck.colors,
+          identity: deck.colors,
+          commander: deck.commander ? {
+            name: deck.commander.name,
+            image: deck.commander.image_uris?.normal || '/placeholder.svg'
+          } : undefined,
+          counts: {
+            total: deck.totalCards,
+            unique: deck.cards.length,
+            lands: deck.cards.filter(c => c.category === 'lands').reduce((sum, c) => sum + c.quantity, 0),
+            creatures: deck.cards.filter(c => c.category === 'creatures').reduce((sum, c) => sum + c.quantity, 0),
+            instants: deck.cards.filter(c => c.category === 'instants').reduce((sum, c) => sum + c.quantity, 0),
+            sorceries: deck.cards.filter(c => c.category === 'sorceries').reduce((sum, c) => sum + c.quantity, 0),
+            artifacts: deck.cards.filter(c => c.category === 'artifacts').reduce((sum, c) => sum + c.quantity, 0),
+            enchantments: deck.cards.filter(c => c.category === 'enchantments').reduce((sum, c) => sum + c.quantity, 0),
+            planeswalkers: deck.cards.filter(c => c.category === 'planeswalkers').reduce((sum, c) => sum + c.quantity, 0),
+            battles: 0
+          },
+          curve: { bins: { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0 } },
+          mana: { sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, untappedPctByTurn: { t1: 0, t2: 0, t3: 0 } },
+          legality: { ok: true, issues: [] },
+          power: { score: deck.powerLevel, band: 'mid' as const, drivers: [], drags: [] },
+          economy: { priceUSD: 0, ownedPct: 100, missing: 0 },
+          tags: [],
+          updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date().toISOString(),
+          favorite: true
+        }));
+
+      let allFavorites: DeckSummary[] = [...localSummaries];
+
+      // Then try to load database favorites if user is authenticated
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const dbSummaries = await DeckAPI.getDeckSummaries();
+          const dbFavorites = dbSummaries.filter(deck => deck.favorite);
+          allFavorites = [...allFavorites, ...dbFavorites];
+        }
+      } catch (error) {
+        console.error('Error loading database favorites:', error);
+        // Continue with just local favorites
+      }
+
+      setFavoriteDecks(allFavorites.slice(0, 4));
     } catch (error) {
       console.error('Error loading favorite decks:', error);
     } finally {

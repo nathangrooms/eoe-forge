@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Wand2, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
 
 const Index = () => {
   return (
@@ -123,6 +124,11 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
             </Card>
+          </div>
+
+          {/* Favorite Decks Section */}
+          <div className="mb-12">
+            <FavoriteDecksPreview />
           </div>
 
           {/* Quick Actions */}

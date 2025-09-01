@@ -119,20 +119,95 @@ export default function Decks() {
   }, [aiFormat]);
 
   const loadDeckSummaries = async () => {
-    if (!user) {
-      console.log('No user found, skipping deck summary load');
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
+    console.log('=== DECK LOADING DEBUG ===');
+    console.log('User object:', user);
+    console.log('Local decks from store:', localDecks);
 
     try {
-      console.log('Loading deck summaries for user:', user.id);
-      // Load deck summaries from new API
-      const summaries = await DeckAPI.getDeckSummaries();
-      console.log('Loaded deck summaries:', summaries);
-      setDeckSummaries(summaries);
+      let allSummaries: DeckSummary[] = [];
+
+      // Load local decks first
+      const localSummaries: DeckSummary[] = localDecks.map(deck => ({
+        id: deck.id,
+        name: `${deck.name} (Local)`,
+        format: deck.format,
+        colors: deck.colors,
+        identity: deck.colors,
+        commander: deck.commander ? {
+          name: deck.commander.name,
+          image: deck.commander.image_uris?.normal || ''
+        } : undefined,
+        counts: {
+          total: deck.totalCards,
+          unique: deck.cards.length,
+          lands: deck.cards.filter(c => c.category === 'lands').length,
+          creatures: deck.cards.filter(c => c.category === 'creatures').length,
+          instants: deck.cards.filter(c => c.category === 'instants').length,
+          sorceries: deck.cards.filter(c => c.category === 'sorceries').length,
+          artifacts: deck.cards.filter(c => c.category === 'artifacts').length,
+          enchantments: deck.cards.filter(c => c.category === 'enchantments').length,
+          planeswalkers: deck.cards.filter(c => c.category === 'planeswalkers').length,
+          battles: 0
+        },
+        curve: {
+          bins: {
+            "0-1": deck.cards.filter(c => c.cmc <= 1).length,
+            "2": deck.cards.filter(c => c.cmc === 2).length,
+            "3": deck.cards.filter(c => c.cmc === 3).length,
+            "4": deck.cards.filter(c => c.cmc === 4).length,
+            "5": deck.cards.filter(c => c.cmc === 5).length,
+            "6-7": deck.cards.filter(c => c.cmc >= 6 && c.cmc <= 7).length,
+            "8-9": deck.cards.filter(c => c.cmc >= 8 && c.cmc <= 9).length,
+            "10+": deck.cards.filter(c => c.cmc >= 10).length
+          }
+        },
+        mana: {
+          sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+          untappedPctByTurn: { t1: 0.8, t2: 0.9, t3: 0.95 }
+        },
+        legality: {
+          ok: true,
+          issues: []
+        },
+        power: {
+          score: deck.powerLevel,
+          band: deck.powerLevel <= 3 ? 'casual' : deck.powerLevel <= 6 ? 'mid' : deck.powerLevel <= 8 ? 'high' : 'cEDH',
+          drivers: [],
+          drags: []
+        },
+        economy: {
+          priceUSD: 0,
+          ownedPct: 100,
+          missing: 0
+        },
+        tags: [],
+        updatedAt: deck.updatedAt.toISOString(),
+        favorite: false
+      }));
+
+      console.log('Local deck summaries:', localSummaries);
+      allSummaries = [...localSummaries];
+
+      // Load database decks if user is authenticated
+      if (user) {
+        console.log('Loading database decks for user:', user.id);
+        try {
+          const dbSummaries = await DeckAPI.getDeckSummaries();
+          console.log('Database deck summaries:', dbSummaries);
+          allSummaries = [...allSummaries, ...dbSummaries];
+        } catch (error) {
+          console.error('Error loading database decks:', error);
+          // Don't throw - we still want to show local decks
+        }
+      } else {
+        console.log('No authenticated user, showing only local decks');
+      }
+
+      console.log('Final combined summaries:', allSummaries);
+      setDeckSummaries(allSummaries);
     } catch (error) {
-      console.error('Error loading deck summaries:', error);
+      console.error('Error in loadDeckSummaries:', error);
       showError('Error', 'Failed to load deck summaries');
     } finally {
       setLoading(false);

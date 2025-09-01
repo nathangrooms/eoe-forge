@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Crown, Package, Plus, Check, Box } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Crown, Package, Plus, Check, Box, ChevronDown, ChevronUp, Minimize2 } from 'lucide-react';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageContainer } from '@/types/storage';
@@ -15,6 +16,7 @@ interface DeckAdditionPanelProps {
   addToCollection?: boolean;
   addToDeck?: boolean;
   addToBox?: boolean;
+  collapsed?: boolean;
   onSelectionChange?: (config: {
     selectedDeckId: string;
     selectedBoxId: string;
@@ -30,6 +32,7 @@ export function DeckAdditionPanel({
   addToCollection: initialAddToCollection = true,
   addToDeck: initialAddToDeck = false,
   addToBox: initialAddToBox = false,
+  collapsed: initialCollapsed = false,
   onSelectionChange 
 }: DeckAdditionPanelProps) {
   const { decks } = useDeckManagementStore();
@@ -38,6 +41,7 @@ export function DeckAdditionPanel({
   const [addToCollection, setAddToCollection] = useState(initialAddToCollection);
   const [addToDeck, setAddToDeck] = useState(initialAddToDeck);
   const [addToBox, setAddToBox] = useState(initialAddToBox);
+  const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
 
   // Load storage containers
@@ -110,15 +114,41 @@ export function DeckAdditionPanel({
     );
   };
 
+  const getActiveSummary = () => {
+    const targets = [
+      addToCollection && 'Collection',
+      addToDeck && selectedDeckId && decks.find(d => d.id === selectedDeckId)?.name,
+      addToBox && selectedBoxId && storageContainers.find(c => c.id === selectedBoxId)?.name
+    ].filter(Boolean);
+    
+    return targets.length > 0 ? targets.join(' + ') : 'Nothing selected';
+  };
+
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add Cards To
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible open={!isCollapsed} onOpenChange={setIsCollapsed}>
+      <Card className="mb-6">
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                <CardTitle>Add Cards To</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                {isCollapsed && (
+                  <Badge variant="secondary" className="text-xs">
+                    {getActiveSummary()}
+                  </Badge>
+                )}
+                <Button variant="ghost" size="sm">
+                  {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
         {/* Three columns for collection, deck, and box */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Add to Collection Toggle */}
@@ -289,7 +319,9 @@ export function DeckAdditionPanel({
             ].filter(Boolean).join(' + ') || 'Nothing selected'}
           </p>
         </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

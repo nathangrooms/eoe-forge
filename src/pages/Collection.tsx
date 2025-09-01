@@ -11,7 +11,9 @@ import { SellCardModal } from '@/components/collection/SellCardModal';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
-import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedCollectionAnalytics';
+import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
+import { CollectionSearch } from '@/components/collection/CollectionSearch';
+import { StorageManagement } from '@/components/storage/StorageManagement';
 import { StorageSidebar } from '@/components/storage/StorageSidebar';
 import { FullScreenAssignment } from '@/components/storage/FullScreenAssignment';
 import { StorageContainerView } from '@/components/storage/StorageContainerView';
@@ -51,6 +53,10 @@ export default function Collection() {
   const [selectedContainer, setSelectedContainer] = useState<StorageContainer | null>(null);
   const [showAssignment, setShowAssignment] = useState(false);
   const [assignmentContainerId, setAssignmentContainerId] = useState<string>('');
+  
+  // Collection search state
+  const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
+  const [collectionFilters, setCollectionFilters] = useState<any>({});
 
   useEffect(() => {
     load();
@@ -228,13 +234,26 @@ export default function Collection() {
         <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
-            <CollectionCardDisplay
-              items={filteredCards || []}
-              viewMode="grid"
-              onCardClick={handleCardClick}
-              onMarkForSale={handleMarkForSale}
-              onAddToDeck={handleAddToDeck}
-            />
+            <div className="space-y-6">
+              {/* Favorite Decks Preview */}
+              <FavoriteDecksPreview />
+              
+              {/* Collection Search */}
+              <CollectionSearch
+                onSearchChange={setCollectionSearchQuery}
+                onFiltersChange={setCollectionFilters}
+                totalResults={filteredCards?.length || 0}
+              />
+              
+              {/* Collection Cards */}
+              <CollectionCardDisplay
+                items={filteredCards || []}
+                viewMode="grid"
+                onCardClick={handleCardClick}
+                onMarkForSale={handleMarkForSale}
+                onAddToDeck={handleAddToDeck}
+              />
+            </div>
           </TabsContent>
 
           {/* Add Cards Tab */}
@@ -255,13 +274,10 @@ export default function Collection() {
 
           {/* Storage Tab */}
           <TabsContent value="storage" className="h-full overflow-auto px-6 py-4 m-0">
-            <StorageSidebar
+            <StorageManagement
               onAssignToContainer={handleAssignToContainer}
               onContainerSelect={handleContainerSelect}
               selectedContainerId={selectedContainer?.id}
-              collapsed={false}
-              onToggleCollapse={() => {}}
-              horizontal={true}
             />
           </TabsContent>
         </Tabs>

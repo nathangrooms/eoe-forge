@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { StorageOverview } from './StorageOverview';
 import { StorageContainerView } from './StorageContainerView';
 import { CreateContainerDialog } from './CreateContainerDialog';
 import { StorageContainer } from '@/types/storage';
@@ -25,8 +24,7 @@ export function StorageTab() {
   const handleContainerCreated = () => {
     setShowCreateDialog(false);
     setCreateTemplateId(undefined);
-    // Refresh the overview to show new container
-    window.location.reload(); // Simple refresh for now
+    window.location.reload();
   };
 
   if (selectedContainer) {
@@ -40,10 +38,10 @@ export function StorageTab() {
 
   return (
     <>
-      <StorageOverview 
-        onContainerSelect={handleContainerSelect}
-        onCreateContainer={handleCreateContainer}
-      />
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-4">Storage Overview</h2>
+        <p className="text-muted-foreground mb-6">Manage your storage containers</p>
+      </div>
       
       <CreateContainerDialog
         open={showCreateDialog}

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Crown, Heart, Plus, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 
 interface FavoriteDeck {
   deck_id: string;
@@ -19,7 +20,7 @@ interface FavoriteDeck {
 }
 
 export function FavoriteDecksPreview() {
-  const [favoriteDecks, setFavoriteDecks] = useState<FavoriteDeck[]>([]);
+  const [favoriteDecks, setFavoriteDecks] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -29,23 +30,10 @@ export function FavoriteDecksPreview() {
 
   const loadFavoriteDecks = async () => {
     try {
-      const { data, error } = await supabase
-        .from('favorite_decks')
-        .select(`
-          deck_id,
-          user_decks!favorite_decks_deck_id_fkey(
-            id,
-            name,
-            format,
-            colors,
-            power_level,
-            updated_at
-          )
-        `)
-        .limit(4);
-
-      if (error) throw error;
-      setFavoriteDecks(data || []);
+      // Load both database and local favorite decks
+      const allSummaries = await DeckAPI.getDeckSummaries();
+      const favorites = allSummaries.filter(deck => deck.favorite).slice(0, 4);
+      setFavoriteDecks(favorites);
     } catch (error) {
       console.error('Error loading favorite decks:', error);
     } finally {
@@ -118,15 +106,18 @@ export function FavoriteDecksPreview() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {favoriteDecks.map((favorite) => {
-          const deck = favorite.user_decks;
-          if (!deck) return null;
-          
+        {favoriteDecks.map((deck) => {
           return (
             <Card 
               key={deck.id} 
               className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-              onClick={() => navigate(`/decks/${deck.id}`)}
+              onClick={() => {
+                if (deck.name.includes('(Local)')) {
+                  navigate('/decks');
+                } else {
+                  navigate(`/decks/${deck.id}`);
+                }
+              }}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -147,7 +138,7 @@ export function FavoriteDecksPreview() {
                 <div className="flex items-center justify-between">
                   {deck.colors.length > 0 && getColorIndicator(deck.colors)}
                   <div className="text-xs text-muted-foreground">
-                    Power {deck.power_level}
+                    Power {deck.power.score}
                   </div>
                 </div>
               </CardContent>

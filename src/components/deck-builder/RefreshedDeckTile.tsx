@@ -75,8 +75,9 @@ export function RefreshedDeckTile({
       
       if (isLocalDeck) {
         // For local decks, just toggle the state locally
-        setIsFavorite(!isFavorite);
-        showSuccess('Favorite Updated', isFavorite ? 'Removed from favorites' : 'Added to favorites');
+        const newFavoriteState = !isFavorite;
+        setIsFavorite(newFavoriteState);
+        showSuccess('Favorite Updated', newFavoriteState ? 'Added to favorites' : 'Removed from favorites');
       } else {
         // For database decks, use the API
         const result = await DeckAPI.toggleFavorite(deckSummary.id);

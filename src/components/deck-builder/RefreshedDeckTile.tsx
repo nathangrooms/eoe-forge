@@ -70,11 +70,22 @@ export function RefreshedDeckTile({
   const handleFavoriteToggle = async () => {
     setFavoriteLoading(true);
     try {
-      const result = await DeckAPI.toggleFavorite(deckSummary.id);
-      setIsFavorite(result.favorited);
-      showSuccess('Favorite Updated', result.message);
+      // Check if this is a local deck
+      const isLocalDeck = deckSummary.name.includes('(Local)');
+      
+      if (isLocalDeck) {
+        // For local decks, just toggle the state locally
+        setIsFavorite(!isFavorite);
+        showSuccess('Favorite Updated', isFavorite ? 'Removed from favorites' : 'Added to favorites');
+      } else {
+        // For database decks, use the API
+        const result = await DeckAPI.toggleFavorite(deckSummary.id);
+        setIsFavorite(result.favorited);
+        showSuccess('Favorite Updated', result.message);
+      }
       onFavoriteChange?.();
     } catch (error) {
+      console.error('Error toggling favorite:', error);
       showError('Error', 'Failed to update favorite status');
     } finally {
       setFavoriteLoading(false);
@@ -119,48 +130,52 @@ export function RefreshedDeckTile({
   return (
     <Card className={cn("group hover:shadow-xl transition-all duration-300 overflow-hidden border-2 hover:border-primary/30", className)}>
       <CardContent className="p-0">
-        <div className="flex min-h-[300px]">
-          {/* Left: Full Height Commander Section */}
-          <div className="w-32 flex-shrink-0 relative">
+        <div className="flex min-h-[280px]">
+          {/* Left: Full Height Commander Section - Made Wider */}
+          <div className="w-48 flex-shrink-0 relative p-3">
             {deckSummary.commander ? (
-              <div className="absolute inset-0 bg-gradient-to-b from-muted via-muted/50 to-background">
+              <div className="absolute inset-3 rounded-lg bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden">
                 <img 
                   src={deckSummary.commander.image} 
                   alt={deckSummary.commander.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover rounded-lg"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder.svg';
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-lg" />
                 
                 {/* Commander Badge */}
-                <div className="absolute top-2 right-2">
-                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg">
+                <div className="absolute top-3 right-3">
+                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                     <Crown className="h-3 w-3 text-white" />
                   </div>
                 </div>
 
                 {/* Commander Name Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-2">
-                  <div className="text-white text-xs font-medium leading-tight">
-                    {deckSummary.commander.name.split(' ').slice(0, 2).join(' ')}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <div className="text-white text-sm font-medium leading-tight drop-shadow-lg">
+                    {deckSummary.commander.name}
+                  </div>
+                  <div className="text-white/80 text-xs mt-1">
+                    Commander
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center">
+              <div className="absolute inset-3 rounded-lg bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
-                  <Crown className="h-8 w-8 mx-auto mb-2" />
-                  <div className="text-xs">No Commander</div>
+                  <Crown className="h-12 w-12 mx-auto mb-3" />
+                  <div className="text-sm font-medium">No Commander</div>
+                  <div className="text-xs mt-1">Set in Builder</div>
                 </div>
               </div>
             )}
 
             {/* Format Badge on Commander */}
-            <div className="absolute bottom-2 left-2">
-              <Badge className={cn("text-xs font-bold", formatColors[deckSummary.format as keyof typeof formatColors] || formatColors.custom)}>
-                {deckSummary.format.charAt(0).toUpperCase()}
+            <div className="absolute bottom-3 left-3">
+              <Badge className={cn("text-xs font-bold shadow-lg", formatColors[deckSummary.format as keyof typeof formatColors] || formatColors.custom)}>
+                {deckSummary.format.toUpperCase()}
               </Badge>
             </div>
           </div>

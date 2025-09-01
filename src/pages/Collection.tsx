@@ -18,7 +18,7 @@ import { StorageSidebar } from '@/components/storage/StorageSidebar';
 import { FullScreenAssignment } from '@/components/storage/FullScreenAssignment';
 import { StorageContainerView } from '@/components/storage/StorageContainerView';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
-import { useDeckManagementStore } from '@/stores/deckManagementStore';
+import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
 import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
@@ -57,6 +57,15 @@ export default function Collection() {
   // Collection search state
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const [collectionFilters, setCollectionFilters] = useState<any>({});
+
+  // Deck Addition Panel state
+  const [deckAdditionConfig, setDeckAdditionConfig] = useState({
+    selectedDeckId: '',
+    selectedBoxId: '',
+    addToCollection: true,
+    addToDeck: false,
+    addToBox: false,
+  });
 
   useEffect(() => {
     load();
@@ -133,6 +142,72 @@ export default function Collection() {
     } catch (error) {
       console.error('Error adding to collection:', error);
       showError('Collection Error', 'Failed to add card to collection');
+    }
+  };
+
+  // Enhanced add card function that handles multiple destinations
+  const handleCardAddition = async (card: any) => {
+    const actions = [];
+    
+    // Add to collection if selected
+    if (deckAdditionConfig.addToCollection) {
+      try {
+        const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
+        if (result.error) throw new Error(result.error);
+        actions.push('Collection');
+      } catch (error) {
+        console.error('Error adding to collection:', error);
+        showError('Collection Error', 'Failed to add card to collection');
+        return;
+      }
+    }
+
+    // Add to deck if selected
+    if (deckAdditionConfig.addToDeck && deckAdditionConfig.selectedDeckId) {
+      try {
+        // Determine card category
+        const getCardCategory = (typeLine: string): DeckCard['category'] => {
+          if (typeLine.includes('Creature')) return 'creatures';
+          if (typeLine.includes('Land')) return 'lands';
+          if (typeLine.includes('Instant')) return 'instants';
+          if (typeLine.includes('Sorcery')) return 'sorceries';
+          if (typeLine.includes('Artifact')) return 'artifacts';
+          if (typeLine.includes('Enchantment')) return 'enchantments';
+          if (typeLine.includes('Planeswalker')) return 'planeswalkers';
+          return 'other';
+        };
+
+        await addCardToDeck(deckAdditionConfig.selectedDeckId, {
+          id: card.id,
+          name: card.name,
+          mana_cost: card.mana_cost,
+          type_line: card.type_line,
+          colors: card.colors || [],
+          cmc: card.cmc || 0,
+          quantity: 1,
+          category: getCardCategory(card.type_line || ''),
+          image_uris: card.image_uris,
+          prices: card.prices
+        });
+        actions.push('Deck');
+      } catch (error) {
+        console.error('Error adding to deck:', error);
+        showError('Deck Error', 'Failed to add card to deck');
+        return;
+      }
+    }
+
+    // Add to box if selected
+    if (deckAdditionConfig.addToBox && deckAdditionConfig.selectedBoxId) {
+      // TODO: Implement storage assignment
+      actions.push('Box');
+      console.log('Adding to box:', deckAdditionConfig.selectedBoxId);
+    }
+
+    // Refresh collection and show success
+    if (actions.length > 0) {
+      await refresh();
+      showSuccess('Card Added', `Added ${card.name} to ${actions.join(' + ')}`);
     }
   };
 
@@ -259,9 +334,16 @@ export default function Collection() {
           {/* Add Cards Tab */}
           <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
-              <DeckAdditionPanel />
+              <DeckAdditionPanel 
+                selectedDeckId={deckAdditionConfig.selectedDeckId}
+                selectedBoxId={deckAdditionConfig.selectedBoxId}
+                addToCollection={deckAdditionConfig.addToCollection}
+                addToDeck={deckAdditionConfig.addToDeck}
+                addToBox={deckAdditionConfig.addToBox}
+                onSelectionChange={setDeckAdditionConfig}
+              />
               <EnhancedUniversalCardSearch
-                onCardAdd={addToCollection}
+                onCardAdd={handleCardAddition}
                 onCardSelect={(card) => console.log('Selected:', card)}
                 placeholder="Search cards to add to collection, deck, or box"
                 showFilters={true}

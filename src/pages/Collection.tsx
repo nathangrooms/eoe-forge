@@ -10,6 +10,7 @@ import { CollectionCardDisplay } from '@/components/collection/CollectionCardDis
 import { SellCardModal } from '@/components/collection/SellCardModal';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { EnhancedCollectionAnalytics } from '@/components/enhanced/EnhancedCollectionAnalytics';
 import { StorageSidebar } from '@/components/storage/StorageSidebar';
 import { FullScreenAssignment } from '@/components/storage/FullScreenAssignment';
@@ -241,16 +242,11 @@ export default function Collection() {
 
             <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
               <div className="space-y-6">
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2">Add Cards & Organize</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Search for cards to add to your collection, then immediately assign them to storage containers.
-                  </p>
-                </div>
+                <DeckAdditionPanel />
                 <EnhancedUniversalCardSearch
                   onCardAdd={addToCollection}
                   onCardSelect={(card) => console.log('Selected:', card)}
-                  placeholder="Search cards to add (then assign to storage)"
+                  placeholder="Search cards to add to collection, deck, or box"
                   showFilters={true}
                   showAddButton={true}
                   showWishlistButton={false}

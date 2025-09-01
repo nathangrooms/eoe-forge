@@ -1,48 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Crown, Package, Plus, Check } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Crown, Package, Plus, Check, Box } from 'lucide-react';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
+import { StorageAPI } from '@/lib/api/storageAPI';
+import { StorageContainer } from '@/types/storage';
 
 interface DeckAdditionPanelProps {
   selectedDeckId?: string;
+  selectedBoxId?: string;
   addToCollection?: boolean;
   addToDeck?: boolean;
+  addToBox?: boolean;
   onSelectionChange?: (config: {
     selectedDeckId: string;
+    selectedBoxId: string;
     addToCollection: boolean;
     addToDeck: boolean;
+    addToBox: boolean;
   }) => void;
 }
 
 export function DeckAdditionPanel({ 
   selectedDeckId: initialDeckId = '', 
+  selectedBoxId: initialBoxId = '',
   addToCollection: initialAddToCollection = true,
   addToDeck: initialAddToDeck = false,
+  addToBox: initialAddToBox = false,
   onSelectionChange 
 }: DeckAdditionPanelProps) {
   const { decks } = useDeckManagementStore();
   const [selectedDeckId, setSelectedDeckId] = useState<string>(initialDeckId);
+  const [selectedBoxId, setSelectedBoxId] = useState<string>(initialBoxId);
   const [addToCollection, setAddToCollection] = useState(initialAddToCollection);
   const [addToDeck, setAddToDeck] = useState(initialAddToDeck);
+  const [addToBox, setAddToBox] = useState(initialAddToBox);
+  const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
+
+  // Load storage containers
+  useEffect(() => {
+    const loadContainers = async () => {
+      try {
+        const overview = await StorageAPI.getOverview();
+        setStorageContainers(overview.containers.map(c => ({
+          id: c.id,
+          user_id: c.user_id,
+          name: c.name,
+          type: c.type,
+          color: c.color,
+          icon: c.icon,
+          is_default: c.is_default,
+          deck_id: c.deck_id,
+          created_at: c.created_at,
+          updated_at: c.updated_at
+        })));
+      } catch (error) {
+        console.error('Failed to load storage containers:', error);
+      }
+    };
+    loadContainers();
+  }, []);
 
   // Notify parent of changes
   const handleSelectionChange = (updates: Partial<{
     selectedDeckId: string;
+    selectedBoxId: string;
     addToCollection: boolean;
     addToDeck: boolean;
+    addToBox: boolean;
   }>) => {
     const newConfig = {
       selectedDeckId: updates.selectedDeckId ?? selectedDeckId,
+      selectedBoxId: updates.selectedBoxId ?? selectedBoxId,
       addToCollection: updates.addToCollection ?? addToCollection,
       addToDeck: updates.addToDeck ?? addToDeck,
+      addToBox: updates.addToBox ?? addToBox,
     };
     
     if (updates.selectedDeckId !== undefined) setSelectedDeckId(updates.selectedDeckId);
+    if (updates.selectedBoxId !== undefined) setSelectedBoxId(updates.selectedBoxId);
     if (updates.addToCollection !== undefined) setAddToCollection(updates.addToCollection);
     if (updates.addToDeck !== undefined) setAddToDeck(updates.addToDeck);
+    if (updates.addToBox !== undefined) setAddToBox(updates.addToBox);
     
     onSelectionChange?.(newConfig);
   };
@@ -77,8 +119,8 @@ export function DeckAdditionPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Single row with both options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Three columns for collection, deck, and box */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Add to Collection Toggle */}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
@@ -116,58 +158,125 @@ export function DeckAdditionPanel({
               {addToDeck ? 'Enabled' : 'Enable'}
             </Button>
           </div>
+
+          {/* Add to Box Section */}
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <Box className="h-5 w-5 text-orange-500" />
+              <div>
+                <p className="font-medium">Add to Box</p>
+                <p className="text-xs text-muted-foreground">Organize storage</p>
+              </div>
+            </div>
+            <Button
+              variant={addToBox ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSelectionChange({ addToBox: !addToBox })}
+            >
+              {addToBox && <Check className="h-4 w-4 mr-1" />}
+              {addToBox ? 'Enabled' : 'Enable'}
+            </Button>
+          </div>
         </div>
 
-        {/* Deck Selection - Only show when deck adding is enabled */}
-        {addToDeck && (
-          <div className="space-y-3">
-            <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
-              <SelectTrigger className="bg-background border z-50">
-                <SelectValue placeholder="Choose a deck..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background border z-50">
-                {decks.map(deck => (
-                  <SelectItem key={deck.id} value={deck.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{deck.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {deck.format}
-                      </Badge>
-                      {deck.colors.length > 0 && getColorIndicator(deck.colors)}
-                      <span className="text-xs text-muted-foreground">
-                        ({deck.totalCards} cards)
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedDeckId && (
-              <div className="bg-muted/50 p-3 rounded-lg">
-                {(() => {
-                  const selectedDeck = decks.find(d => d.id === selectedDeckId);
-                  return selectedDeck ? (
-                    <div className="flex items-center gap-3">
-                      {selectedDeck.commander && (
-                        <div className="flex items-center gap-2">
-                          <Crown className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm">{selectedDeck.commander.name}</span>
-                        </div>
-                      )}
+        {/* Selection Panels */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Deck Selection - Only show when deck adding is enabled */}
+          {addToDeck && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Select Deck</Label>
+              <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
+                <SelectTrigger className="bg-background border">
+                  <SelectValue placeholder="Choose a deck..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background border">
+                  {decks.map(deck => (
+                    <SelectItem key={deck.id} value={deck.id}>
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {selectedDeck.format}
+                        <span className="max-w-32 truncate">{deck.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {deck.format}
                         </Badge>
-                        {selectedDeck.colors.length > 0 && getColorIndicator(selectedDeck.colors)}
+                        {deck.colors.length > 0 && getColorIndicator(deck.colors)}
                       </div>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            )}
-          </div>
-        )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedDeckId && (
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  {(() => {
+                    const selectedDeck = decks.find(d => d.id === selectedDeckId);
+                    return selectedDeck ? (
+                      <div className="flex items-center gap-3">
+                        {selectedDeck.commander && (
+                          <div className="flex items-center gap-2">
+                            <Crown className="h-4 w-4 text-yellow-500" />
+                            <span className="text-sm truncate">{selectedDeck.commander.name}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {selectedDeck.format}
+                          </Badge>
+                          {selectedDeck.colors.length > 0 && getColorIndicator(selectedDeck.colors)}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Box Selection - Only show when box adding is enabled */}
+          {addToBox && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Select Box</Label>
+              <Select value={selectedBoxId} onValueChange={(value) => handleSelectionChange({ selectedBoxId: value })}>
+                <SelectTrigger className="bg-background border">
+                  <SelectValue placeholder="Choose a box..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background border">
+                  {storageContainers.map(container => (
+                    <SelectItem key={container.id} value={container.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full border" 
+                          style={{ backgroundColor: container.color || '#64748b' }}
+                        />
+                        <span className="max-w-32 truncate">{container.name}</span>
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {container.type}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedBoxId && (
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  {(() => {
+                    const selectedBox = storageContainers.find(c => c.id === selectedBoxId);
+                    return selectedBox ? (
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Box className="h-4 w-4 text-orange-500" />
+                          <span className="text-sm truncate">{selectedBox.name}</span>
+                        </div>
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {selectedBox.type}
+                        </Badge>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Summary */}
         <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
@@ -175,7 +284,8 @@ export function DeckAdditionPanel({
             Cards will be added to: {' '}
             {[
               addToCollection && 'Collection',
-              addToDeck && selectedDeckId && decks.find(d => d.id === selectedDeckId)?.name
+              addToDeck && selectedDeckId && decks.find(d => d.id === selectedDeckId)?.name,
+              addToBox && selectedBoxId && storageContainers.find(c => c.id === selectedBoxId)?.name
             ].filter(Boolean).join(' + ') || 'Nothing selected'}
           </p>
         </div>

@@ -112,63 +112,42 @@ export function StorageSidebar({
 
   return (
     <>
-      <div className={cn(
-        "border-l bg-background transition-all duration-200 flex flex-col",
-        collapsed ? "w-16" : "w-80"
-      )}>
+      <div className="w-80 border-l bg-background flex flex-col">
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
-            {!collapsed && (
-              <div>
-                <h3 className="font-semibold">Storage</h3>
-                <p className="text-xs text-muted-foreground">
-                  {totalAssigned} assigned • {unassignedCount} unassigned
-                </p>
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 p-0"
-            >
-              {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
+            <div>
+              <h3 className="text-lg font-semibold">Storage</h3>
+              <p className="text-sm text-muted-foreground">
+                {totalAssigned} assigned • {unassignedCount} unassigned
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Unassigned Cards */}
         {unassignedCount > 0 && (
           <div className="p-4 border-b">
-            <Card className="bg-orange-50 border-orange-200">
-              <CardContent className="p-3">
-                {collapsed ? (
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-orange-600">{unassignedCount}</div>
-                    <div className="text-xs text-orange-600">Unassigned</div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Unassigned Cards</span>
-                      <Badge variant="outline" className="bg-orange-100 text-orange-600">
-                        {unassignedCount}
-                      </Badge>
+            <Card className="bg-muted border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-lg font-bold text-primary">{unassignedCount}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      ${overview?.unassigned.valueUSD.toFixed(2)} • {overview?.unassigned.uniqueCards} unique
-                    </p>
-                    <Button 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => onAssignToContainer('')}
-                    >
-                      <Search className="h-3 w-3 mr-2" />
-                      Assign Cards
-                    </Button>
-                  </>
-                )}
+                    <span className="font-medium">Unassigned</span>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  ${overview?.unassigned.valueUSD.toFixed(2)} • {overview?.unassigned.uniqueCards} unique
+                </p>
+                <Button 
+                  className="w-full"
+                  onClick={() => onAssignToContainer('')}
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Assign Cards
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -177,118 +156,84 @@ export function StorageSidebar({
         {/* Containers */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
-            {collapsed ? (
-              // Collapsed view - just icons
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-12"
-                  onClick={() => handleCreateContainer()}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                {overview?.containers.slice(0, 5).map((container) => {
-                  const Icon = STORAGE_ICONS[container.type as keyof typeof STORAGE_ICONS];
-                  return (
-                    <Button
-                      key={container.id}
-                      variant={selectedContainerId === container.id ? "default" : "outline"}
-                      size="sm"
-                      className="w-full h-12 flex flex-col gap-1"
-                      onClick={() => onContainerSelect(container)}
-                    >
-                      <Icon className="h-4 w-4" style={{ color: container.color || '#6B7280' }} />
-                      <span className="text-xs truncate">{container.name.slice(0, 3)}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            ) : (
-              // Expanded view
-              <>
-                {/* Quick Create */}
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Quick Create</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {DEFAULT_STORAGE_TEMPLATES.slice(0, 4).map((template) => (
-                      <Button
-                        key={template.id}
-                        variant="outline"
-                        size="sm"
-                        className="h-12 flex flex-col gap-1"
-                        onClick={() => handleCreateContainer(template.id)}
-                      >
-                        <Package className="h-3 w-3" style={{ color: template.color }} />
-                        <span className="text-xs text-center leading-none">{template.name}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Container Groups */}
-                {Object.entries(groupedContainers).map(([type, containers]) => (
-                  <Collapsible
-                    key={type}
-                    open={expandedGroups[type]}
-                    onOpenChange={() => toggleGroup(type)}
+            {/* Quick Create */}
+            <div>
+              <h4 className="text-sm font-medium mb-3">Quick Create</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {DEFAULT_STORAGE_TEMPLATES.slice(0, 4).map((template) => (
+                  <Button
+                    key={template.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-16 flex flex-col gap-1 text-xs"
+                    onClick={() => handleCreateContainer(template.id)}
                   >
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-between p-2 h-auto">
-                        <span className="text-sm font-medium capitalize">{type}s ({containers.length})</span>
-                        <ChevronRight className={cn(
-                          "h-4 w-4 transition-transform",
-                          expandedGroups[type] && "rotate-90"
-                        )} />
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-1">
-                      {containers.map((container) => {
-                        const Icon = STORAGE_ICONS[container.type as keyof typeof STORAGE_ICONS];
-                        const isSelected = selectedContainerId === container.id;
-                        
-                        return (
-                          <Card 
-                            key={container.id}
-                            className={cn(
-                              "cursor-pointer transition-colors",
-                              isSelected && "ring-2 ring-primary"
-                            )}
-                            onClick={() => onContainerSelect(container)}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Icon 
-                                  className="h-4 w-4 flex-shrink-0" 
-                                  style={{ color: container.color || '#6B7280' }} 
-                                />
-                                <span className="text-sm font-medium truncate">{container.name}</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {(container as any).itemCount || 0} cards • ${((container as any).valueUSD || 0).toFixed(2)}
-                              </div>
-                              <div className="flex gap-1 mt-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAssignToContainer(container.id);
-                                  }}
-                                >
-                                  Assign
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </CollapsibleContent>
-                  </Collapsible>
+                    <Package className="h-4 w-4" style={{ color: template.color }} />
+                    <span className="text-center leading-tight">{template.name}</span>
+                  </Button>
                 ))}
-              </>
-            )}
+              </div>
+            </div>
+
+            {/* Container Groups */}
+            {Object.entries(groupedContainers).map(([type, containers]) => (
+              <Collapsible
+                key={type}
+                open={expandedGroups[type]}
+                onOpenChange={() => toggleGroup(type)}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-2 h-auto">
+                    <span className="text-sm font-medium capitalize">
+                      {type}s ({containers.length})
+                    </span>
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      expandedGroups[type] && "rotate-90"
+                    )} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2">
+                  {containers.map((container) => {
+                    const Icon = STORAGE_ICONS[container.type as keyof typeof STORAGE_ICONS];
+                    const isSelected = selectedContainerId === container.id;
+                    
+                    return (
+                      <div
+                        key={container.id}
+                        className={cn(
+                          "p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50",
+                          isSelected && "bg-muted border-primary"
+                        )}
+                        onClick={() => onContainerSelect(container)}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon 
+                            className="h-4 w-4 flex-shrink-0" 
+                            style={{ color: container.color || '#6B7280' }} 
+                          />
+                          <span className="text-sm font-medium truncate">{container.name}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          {(container as any).itemCount || 0} cards • ${((container as any).valueUSD || 0).toFixed(2)}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAssignToContainer(container.id);
+                          }}
+                        >
+                          Assign
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
           </div>
         </ScrollArea>
       </div>

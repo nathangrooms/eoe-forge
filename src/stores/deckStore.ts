@@ -221,65 +221,68 @@ export const useDeckStore = create<DeckState>()(
         return mechanics;
       },
 
-      // Database operations
+      // Database operations (commented out - not implemented in DeckAPI yet)
       saveDeck: async () => {
-        const state = get();
-        const { DeckAPI } = await import('@/lib/api/deckAPI');
+        // const state = get();
+        // const { DeckAPI } = await import('@/lib/api/deckAPI');
         
-        return await DeckAPI.saveDeck({
-          name: state.name,
-          format: state.format,
-          colors: state.colors,
-          power_level: state.powerLevel,
-          cards: state.cards,
-          commander: state.commander
-        });
+        // return await DeckAPI.saveDeck({
+        //   name: state.name,
+        //   format: state.format,
+        //   colors: state.colors,
+        //   power_level: state.powerLevel,
+        //   cards: state.cards,
+        //   commander: state.commander
+        // });
+        throw new Error('saveDeck not implemented yet');
       },
 
       loadDeck: async (deckId: string) => {
-        const { DeckAPI } = await import('@/lib/api/deckAPI');
+        // const { DeckAPI } = await import('@/lib/api/deckAPI');
         
-        const result = await DeckAPI.loadDeck(deckId);
-        if (result.success && result.deck) {
-          const deck = result.deck;
-          
-          // Convert saved deck cards to local format
-          const cards: Card[] = deck.cards
-            .filter(c => !c.is_commander)
-            .map(c => ({
-              id: c.card_id,
-              name: c.card_name,
-              quantity: c.quantity,
-              cmc: 0, // Will be updated when card details are loaded
-              type_line: '',
-              colors: [],
-              category: 'other',
-              mechanics: []
-            }));
+        // const result = await DeckAPI.loadDeck(deckId);
+        // if (result.success && result.deck) {
+        //   const deck = result.deck;
+        //   
+        //   // Convert saved deck cards to local format
+        //   const cards: Card[] = deck.cards
+        //     .filter(c => !c.is_commander)
+        //     .map(c => ({
+        //       id: c.card_id,
+        //       name: c.card_name,
+        //       quantity: c.quantity,
+        //       cmc: 0, // Will be updated when card details are loaded
+        //       type_line: '',
+        //       colors: [],
+        //       category: 'other',
+        //       mechanics: []
+        //     }));
 
-          const commander = deck.cards.find(c => c.is_commander);
-          
-          set({
-            name: deck.name,
-            format: deck.format as any,
-            powerLevel: deck.power_level,
-            colors: deck.colors,
-            cards,
-            commander: commander ? {
-              id: commander.card_id,
-              name: commander.card_name,
-              quantity: 1,
-              cmc: 0,
-              type_line: '',
-              colors: [],
-              category: 'commanders',
-              mechanics: []
-            } : undefined,
-            totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
-          });
-        }
-        
-        return result;
+        //   const commander = deck.cards.find(c => c.is_commander);
+        //   
+        //   set({
+        //     name: deck.name,
+        //     format: deck.format as any,
+        //     powerLevel: deck.power_level,
+        //     colors: deck.colors,
+        //     cards,
+        //     commander: commander ? {
+        //       id: commander.card_id,
+        //       name: commander.card_name,
+        //       quantity: 1,
+        //       cmc: 0,
+        //       type_line: '',
+        //       colors: [],
+        //       category: 'commanders',
+        //       mechanics: []
+        //     } : undefined,
+        //     totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
+        //   });
+        // }
+        // 
+        // return result;
+        throw new Error('loadDeck not implemented yet');
+        return { success: false, error: 'loadDeck not implemented yet' };
       }
     }),
     {

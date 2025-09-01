@@ -67,7 +67,12 @@ export function RefreshedDeckTile({
     cEDH: 'bg-red-500/20 text-red-400'
   };
 
-  const handleFavoriteToggle = async () => {
+  const handleFavoriteToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (favoriteLoading) return;
+    
     setFavoriteLoading(true);
     try {
       // Check if this is a local deck
@@ -77,17 +82,15 @@ export function RefreshedDeckTile({
         // For local decks, just toggle the state locally
         const newFavoriteState = !isFavorite;
         setIsFavorite(newFavoriteState);
-        showSuccess('Favorite Updated', newFavoriteState ? 'Added to favorites' : 'Removed from favorites');
+        onFavoriteChange?.();
       } else {
         // For database decks, use the API
         const result = await DeckAPI.toggleFavorite(deckSummary.id);
         setIsFavorite(result.favorited);
-        showSuccess('Favorite Updated', result.message);
+        onFavoriteChange?.();
       }
-      onFavoriteChange?.();
     } catch (error) {
       console.error('Error toggling favorite:', error);
-      showError('Error', 'Failed to update favorite status');
     } finally {
       setFavoriteLoading(false);
     }
@@ -144,28 +147,6 @@ export function RefreshedDeckTile({
                     e.currentTarget.src = '/placeholder.svg';
                   }}
                 />
-                
-                {/* Subtle gradient for text readability - only at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent rounded-b-xl" />
-                
-                {/* Commander Badge */}
-                <div className="absolute top-4 right-4">
-                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center shadow-xl border-2 border-white">
-                    <Crown className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-
-                {/* Commander Info - Bottom overlay with clear background */}
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                    <div className="text-white text-base font-bold leading-tight drop-shadow-lg">
-                      {deckSummary.commander.name}
-                    </div>
-                    <div className="text-white/90 text-sm mt-1 font-medium">
-                      Commander
-                    </div>
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="absolute inset-4 rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
@@ -220,9 +201,15 @@ export function RefreshedDeckTile({
                 size="sm"
                 onClick={handleFavoriteToggle}
                 disabled={favoriteLoading}
-                className="text-yellow-500 hover:text-yellow-600 h-8 w-8 p-0"
+                className="text-yellow-500 hover:text-yellow-600 h-8 w-8 p-0 shrink-0"
               >
-                {isFavorite ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+                {favoriteLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : isFavorite ? (
+                  <Star className="h-4 w-4 fill-current" />
+                ) : (
+                  <StarOff className="h-4 w-4" />
+                )}
               </Button>
             </div>
 

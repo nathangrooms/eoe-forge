@@ -97,7 +97,7 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
 
       console.log('OCR Result:', { text, confidence });
 
-      if (confidence < 0.3) { // Back to original threshold
+      if (confidence < 0.25) { // Lowered threshold for better sensitivity
         // Only show error if more than 3 seconds since last error to reduce spam
         const now = Date.now();
         if (now - lastErrorTime > 3000) {
@@ -110,12 +110,15 @@ export function ScanDrawer({ isOpen, onClose, onCardAdded }: ScanDrawerProps) {
         return;
       }
 
-      // Clean up the OCR text more aggressively for card names
+      // Enhanced text cleaning for better card name recognition
       const cleanedText = text
         .replace(/[^\w\s,'-]/g, ' ') // Remove special chars except common ones
         .replace(/\s+/g, ' ') // Normalize spaces
-        .replace(/\b(the|a|an|of|and|or)\b/gi, ' ') // Remove common words that OCR adds
-        .replace(/\b\d+\b/g, ' ') // Remove standalone numbers (often mana costs)
+        .replace(/\b(the|a|an|of|and|or|to|in|at|on|for|with|by)\b/gi, ' ') // Remove more common words
+        .replace(/\b\d+\b/g, ' ') // Remove standalone numbers
+        .replace(/\b[a-z]\b/gi, ' ') // Remove single letters
+        .replace(/^[^a-zA-Z]*/, '') // Remove leading non-letters
+        .replace(/[^a-zA-Z]*$/, '') // Remove trailing non-letters
         .trim();
 
       console.log('OCR Result:', { text, confidence, cleanedText }); // Debug logging

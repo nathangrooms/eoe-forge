@@ -11,7 +11,10 @@ class OCRWorker {
       this.worker = await createWorker('eng');
       await this.worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,\'-.:/() ',
-        preserve_interword_spaces: '1'
+        preserve_interword_spaces: '1',
+        tessedit_pageseg_mode: '8', // Single word mode for card names
+        tessedit_ocr_engine_mode: '2', // LSTM only for better accuracy
+        classify_bln_numeric_mode: '0'
       } as any);
       this.initialized = true;
       console.log('OCR Worker initialized successfully');

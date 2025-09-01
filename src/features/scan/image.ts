@@ -2,11 +2,11 @@
 export function cropTitleBand(imageData: ImageData): ImageData {
   const { width, height, data } = imageData;
   
-  // Very focused crop - just the card name at the very top
-  const cropHeight = Math.floor(height * 0.08); // Only top 8% - card names are at very top
-  const cropY = Math.floor(height * 0.02); // Start very close to top edge
-  const cropX = Math.floor(width * 0.08); // Remove more edge noise
-  const cropWidth = Math.floor(width * 0.84); // 84% width to remove border artifacts
+  // Optimized crop for better card name isolation
+  const cropHeight = Math.floor(height * 0.12); // Slightly larger for better capture
+  const cropY = Math.floor(height * 0.03); // More margin from top edge
+  const cropX = Math.floor(width * 0.05); // Less aggressive edge removal
+  const cropWidth = Math.floor(width * 0.90); // Keep more of the card width
   
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -50,18 +50,43 @@ export function preprocessForOCR(imageData: ImageData): ImageData {
   
   const processedData = ctx.createImageData(width, height);
   
-  // More aggressive preprocessing for text detection
-  for (let i = 0; i < data.length; i += 4) {
+  // Enhanced preprocessing with adaptive thresholding
+  const grayscaleData = new Array(width * height);
+  
+  // First pass: convert to grayscale and calculate average brightness
+  let totalBrightness = 0;
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    
-    // Weighted grayscale conversion
     const gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+    grayscaleData[j] = gray;
+    totalBrightness += gray;
+  }
+  
+  const avgBrightness = totalBrightness / grayscaleData.length;
+  const threshold = Math.max(100, Math.min(180, avgBrightness * 0.8)); // Adaptive threshold
+  
+  // Second pass: apply enhanced binary threshold with noise reduction
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    const gray = grayscaleData[j];
     
-    // High contrast binary threshold for text
-    const threshold = 120;
-    const binary = gray > threshold ? 255 : 0;
+    // Apply threshold with slight smoothing for better text recognition
+    let binary = gray > threshold ? 255 : 0;
+    
+    // Simple noise reduction - check neighboring pixels
+    if (j > width && j < grayscaleData.length - width && j % width > 0 && j % width < width - 1) {
+      const neighbors = [
+        grayscaleData[j - 1], grayscaleData[j + 1],
+        grayscaleData[j - width], grayscaleData[j + width]
+      ];
+      const neighborAvg = neighbors.reduce((a, b) => a + b, 0) / 4;
+      
+      // If pixel differs significantly from neighbors, smooth it
+      if (Math.abs(gray - neighborAvg) > 50) {
+        binary = neighborAvg > threshold ? 255 : 0;
+      }
+    }
     
     processedData.data[i] = binary;     // R
     processedData.data[i + 1] = binary; // G

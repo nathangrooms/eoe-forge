@@ -154,11 +154,11 @@ export function StorageSidebar({
             </Card>
           )}
 
-          {/* Quick Create Templates */}
+          {/* Quick Create Templates - Compact */}
           <div>
             <h4 className="font-medium mb-3">Quick Create</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {DEFAULT_STORAGE_TEMPLATES.map((template) => {
+            <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+              {DEFAULT_STORAGE_TEMPLATES.slice(0, 5).map((template) => {
                 const Icon = template.icon === 'Package' ? Package : 
                             template.icon === 'Book' ? Book :
                             template.icon === 'Box' ? Box :
@@ -169,11 +169,11 @@ export function StorageSidebar({
                   <Button
                     key={template.id}
                     variant="outline"
-                    className="h-20 flex flex-col gap-2 hover:bg-muted"
+                    className="h-16 flex flex-col gap-1 hover:bg-muted text-xs p-2"
                     onClick={() => handleCreateContainer(template.id)}
                   >
-                    <Icon className="h-6 w-6" style={{ color: template.color }} />
-                    <span className="text-xs text-center leading-tight">{template.name}</span>
+                    <Icon className="h-4 w-4" style={{ color: template.color }} />
+                    <span className="text-center leading-tight truncate w-full">{template.name}</span>
                   </Button>
                 );
               })}
@@ -185,7 +185,7 @@ export function StorageSidebar({
             {Object.entries(groupedContainers).map(([type, containers]) => (
               <div key={type}>
                 <h4 className="font-medium mb-2 capitalize">{type}s ({containers.length})</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {containers.map((container) => {
                     const Icon = STORAGE_ICONS[container.type as keyof typeof STORAGE_ICONS];
                     const isSelected = selectedContainerId === container.id;
@@ -206,7 +206,7 @@ export function StorageSidebar({
                               style={{ color: container.color || '#6B7280' }} 
                             />
                             <div className="flex-1 min-w-0">
-                              <h5 className="font-medium truncate">{container.name}</h5>
+                              <h5 className="font-medium truncate text-sm">{container.name}</h5>
                               <p className="text-xs text-muted-foreground">
                                 {(container as any).itemCount || 0} cards • ${((container as any).valueUSD || 0).toFixed(2)}
                               </p>

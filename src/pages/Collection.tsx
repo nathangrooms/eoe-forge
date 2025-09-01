@@ -58,7 +58,7 @@ export default function Collection() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';
-    if (['collection', 'add-cards', 'analysis'].includes(tabFromUrl)) {
+    if (['collection', 'add-cards', 'storage'].includes(tabFromUrl)) {
       setCurrentTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -197,64 +197,73 @@ export default function Collection() {
         </div>
       </div>
 
-      {/* Storage Containers - Prominent at top */}
-      <div className="border-b bg-muted/30 px-6 py-4">
-        <StorageSidebar
-          onAssignToContainer={handleAssignToContainer}
-          onContainerSelect={handleContainerSelect}
-          selectedContainerId={selectedContainer?.id}
-          collapsed={false}
-          onToggleCollapse={() => {}}
-          horizontal={true}
-        />
+      {/* Tabs */}
+      <div className="border-b px-6">
+        <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-80 grid-cols-3 bg-transparent p-0 h-12">
+            <TabsTrigger 
+              value="collection" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Collection
+            </TabsTrigger>
+            <TabsTrigger 
+              value="add-cards"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Add Cards
+            </TabsTrigger>
+            <TabsTrigger 
+              value="storage"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Storage
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <div className="border-b px-6">
-            <TabsList className="grid w-96 grid-cols-2 bg-transparent p-0 h-12">
-              <TabsTrigger 
-                value="collection" 
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                Collection
-              </TabsTrigger>
-              <TabsTrigger 
-                value="add-cards"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                Add & Organize
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
+          {/* Collection Tab */}
+          <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
+            <CollectionCardDisplay
+              items={filteredCards || []}
+              viewMode="grid"
+              onCardClick={handleCardClick}
+              onMarkForSale={handleMarkForSale}
+              onAddToDeck={handleAddToDeck}
+            />
+          </TabsContent>
 
-          <div className="flex-1 overflow-hidden">
-            <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
-              <CollectionCardDisplay
-                items={filteredCards || []}
-                viewMode="grid"
-                onCardClick={handleCardClick}
-                onMarkForSale={handleMarkForSale}
-                onAddToDeck={handleAddToDeck}
+          {/* Add Cards Tab */}
+          <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
+            <div className="space-y-6">
+              <DeckAdditionPanel />
+              <EnhancedUniversalCardSearch
+                onCardAdd={addToCollection}
+                onCardSelect={(card) => console.log('Selected:', card)}
+                placeholder="Search cards to add to collection, deck, or box"
+                showFilters={true}
+                showAddButton={true}
+                showWishlistButton={false}
+                showViewModes={false}
               />
-            </TabsContent>
+            </div>
+          </TabsContent>
 
-            <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
-              <div className="space-y-6">
-                <DeckAdditionPanel />
-                <EnhancedUniversalCardSearch
-                  onCardAdd={addToCollection}
-                  onCardSelect={(card) => console.log('Selected:', card)}
-                  placeholder="Search cards to add to collection, deck, or box"
-                  showFilters={true}
-                  showAddButton={true}
-                  showWishlistButton={false}
-                  showViewModes={false}
-                />
-              </div>
-            </TabsContent>
-          </div>
+          {/* Storage Tab */}
+          <TabsContent value="storage" className="h-full overflow-auto px-6 py-4 m-0">
+            <StorageSidebar
+              onAssignToContainer={handleAssignToContainer}
+              onContainerSelect={handleContainerSelect}
+              selectedContainerId={selectedContainer?.id}
+              collapsed={false}
+              onToggleCollapse={() => {}}
+              horizontal={true}
+            />
+          </TabsContent>
         </Tabs>
       </div>
 

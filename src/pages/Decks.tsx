@@ -182,7 +182,7 @@ export default function Decks() {
           missing: 0
         },
         tags: [],
-        updatedAt: deck.updatedAt.toISOString(),
+        updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date(deck.updatedAt || Date.now()).toISOString(),
         favorite: false
       }));
 

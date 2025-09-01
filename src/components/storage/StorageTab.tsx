@@ -25,7 +25,8 @@ export function StorageTab() {
   const handleContainerCreated = () => {
     setShowCreateDialog(false);
     setCreateTemplateId(undefined);
-    // If we're in container view, stay there, otherwise overview will refresh
+    // Refresh the overview to show new container
+    window.location.reload(); // Simple refresh for now
   };
 
   if (selectedContainer) {

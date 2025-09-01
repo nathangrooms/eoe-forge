@@ -80,9 +80,9 @@ export function StorageOverview({ onContainerSelect, onCreateContainer }: Storag
   const groupedContainers = overview?.containers.reduce((groups, container) => {
     const type = container.type;
     if (!groups[type]) groups[type] = [];
-    groups[type].push(container);
+    groups[type].push(container as EnrichedStorageContainer);
     return groups;
-  }, {} as Record<string, StorageContainer[]>) || {};
+  }, {} as Record<string, EnrichedStorageContainer[]>) || {};
 
   const totalCards = overview?.containers.reduce((sum, c) => sum + c.itemCount, 0) || 0;
   const totalValue = overview?.containers.reduce((sum, c) => sum + c.valueUSD, 0) || 0;

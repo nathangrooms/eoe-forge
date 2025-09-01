@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Crown } from 'lucide-react';
+import { Heart, Crown, Package } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionInventory } from '@/features/collection/CollectionInventory';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
@@ -288,6 +288,29 @@ export default function Collection() {
 
           {/* Collection Tab - Now First */}
           <TabsContent value="collection" className="space-y-6">
+            {/* Storage Quick Access - Make it prominent */}
+            <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Storage Organization
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Organize your physical collection into boxes, binders, and containers
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={() => setActiveTab('storage')} 
+                  className="w-full sm:w-auto"
+                  size="lg"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Manage Storage
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Collection Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>

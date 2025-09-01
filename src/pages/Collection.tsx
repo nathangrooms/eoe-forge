@@ -175,33 +175,44 @@ export default function Collection() {
   }
 
   return (
-    <div className="h-screen flex bg-background">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="border-b px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold">Collection Manager</h1>
-              <p className="text-muted-foreground">Organize your Magic: The Gathering collection</p>
+    <div className="h-screen flex flex-col bg-background">
+      {/* Header */}
+      <div className="border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Collection Manager</h1>
+            <p className="text-muted-foreground">Organize your Magic: The Gathering collection</p>
+          </div>
+          <div className="flex items-center gap-8">
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Value</div>
+              <div className="text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Total Value</div>
-                <div className="text-lg font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Total Cards</div>
-                <div className="text-lg font-bold">{stats.totalCards}</div>
-              </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Cards</div>
+              <div className="text-xl font-bold">{stats.totalCards}</div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tabs */}
-        <Tabs value={currentTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      {/* Storage Containers - Prominent at top */}
+      <div className="border-b bg-muted/30 px-6 py-4">
+        <StorageSidebar
+          onAssignToContainer={handleAssignToContainer}
+          onContainerSelect={handleContainerSelect}
+          selectedContainerId={selectedContainer?.id}
+          collapsed={false}
+          onToggleCollapse={() => {}}
+          horizontal={true}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <div className="border-b px-6">
-            <TabsList className="grid w-96 grid-cols-3 bg-transparent p-0 h-12">
+            <TabsList className="grid w-96 grid-cols-2 bg-transparent p-0 h-12">
               <TabsTrigger 
                 value="collection" 
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
@@ -212,19 +223,13 @@ export default function Collection() {
                 value="add-cards"
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
               >
-                Add Cards
-              </TabsTrigger>
-              <TabsTrigger 
-                value="analysis"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                Analysis
+                Add & Organize
               </TabsTrigger>
             </TabsList>
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <TabsContent value="collection" className="h-full overflow-auto p-6 m-0">
+            <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
               <CollectionCardDisplay
                 items={filteredCards || []}
                 viewMode="grid"
@@ -234,36 +239,28 @@ export default function Collection() {
               />
             </TabsContent>
 
-            <TabsContent value="add-cards" className="h-full overflow-auto p-6 m-0">
-              <EnhancedUniversalCardSearch
-                onCardAdd={addToCollection}
-                onCardSelect={(card) => console.log('Selected:', card)}
-                placeholder="Search cards (Scryfall syntax)"
-                showFilters={true}
-                showAddButton={true}
-                showWishlistButton={false}
-                showViewModes={false}
-              />
-            </TabsContent>
-
-            <TabsContent value="analysis" className="h-full overflow-auto p-6 m-0">
-              <EnhancedCollectionAnalytics 
-                stats={stats}
-                loading={loading}
-              />
+            <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
+              <div className="space-y-6">
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2">Add Cards & Organize</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Search for cards to add to your collection, then immediately assign them to storage containers.
+                  </p>
+                </div>
+                <EnhancedUniversalCardSearch
+                  onCardAdd={addToCollection}
+                  onCardSelect={(card) => console.log('Selected:', card)}
+                  placeholder="Search cards to add (then assign to storage)"
+                  showFilters={true}
+                  showAddButton={true}
+                  showWishlistButton={false}
+                  showViewModes={false}
+                />
+              </div>
             </TabsContent>
           </div>
         </Tabs>
       </div>
-
-      {/* Storage Sidebar */}
-      <StorageSidebar
-        onAssignToContainer={handleAssignToContainer}
-        onContainerSelect={handleContainerSelect}
-        selectedContainerId={selectedContainer?.id}
-        collapsed={false}
-        onToggleCollapse={() => {}}
-      />
 
       {/* Full Screen Assignment */}
       {showAssignment && (

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Search, Scan, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plus, Package, Book, Box, Palette, Crown, ChevronRight, Search } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -14,11 +14,11 @@ import { useToast } from '@/hooks/use-toast';
 
 const STORAGE_ICONS = {
   box: Package,
-  binder: Package,
-  deckbox: Package,
+  binder: Book,
+  deckbox: Box,
   shelf: Package,
   other: Package,
-  'deck-linked': Package
+  'deck-linked': Box
 } as const;
 
 interface StorageSidebarProps {
@@ -27,6 +27,7 @@ interface StorageSidebarProps {
   selectedContainerId?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  horizontal?: boolean;
 }
 
 export function StorageSidebar({ 
@@ -34,7 +35,8 @@ export function StorageSidebar({
   onContainerSelect, 
   selectedContainerId,
   collapsed = false,
-  onToggleCollapse 
+  onToggleCollapse,
+  horizontal = false
 }: StorageSidebarProps) {
   const [overview, setOverview] = useState<StorageOverviewType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,18 +100,150 @@ export function StorageSidebar({
   if (loading) {
     return (
       <div className={cn(
-        "border-l bg-background transition-all duration-200",
-        collapsed ? "w-16" : "w-80"
+        "animate-pulse",
+        horizontal ? "flex gap-4" : "w-80 border-l bg-background"
       )}>
         <div className="p-4 space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-12 bg-muted animate-pulse rounded"></div>
+            <div key={i} className="h-12 bg-muted rounded"></div>
           ))}
         </div>
       </div>
     );
   }
 
+  if (horizontal) {
+    return (
+      <>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Storage Containers</h3>
+              <p className="text-sm text-muted-foreground">
+                {totalAssigned} assigned • {unassignedCount} unassigned cards
+              </p>
+            </div>
+            <Button onClick={() => handleCreateContainer()}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Container
+            </Button>
+          </div>
+
+          {/* Unassigned Cards - Prominent */}
+          {unassignedCount > 0 && (
+            <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
+                      <span className="text-xl font-bold text-white">{unassignedCount}</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Unassigned Cards</h4>
+                      <p className="text-sm text-muted-foreground">
+                        ${overview?.unassigned.valueUSD.toFixed(2)} • {overview?.unassigned.uniqueCards} unique
+                      </p>
+                    </div>
+                  </div>
+                  <Button onClick={() => onAssignToContainer('')}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Assign to Storage
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Create Templates */}
+          <div>
+            <h4 className="font-medium mb-3">Quick Create</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {DEFAULT_STORAGE_TEMPLATES.map((template) => {
+                const Icon = template.icon === 'Package' ? Package : 
+                            template.icon === 'Book' ? Book :
+                            template.icon === 'Box' ? Box :
+                            template.icon === 'Palette' ? Palette :
+                            template.icon === 'Crown' ? Crown : Package;
+                
+                return (
+                  <Button
+                    key={template.id}
+                    variant="outline"
+                    className="h-20 flex flex-col gap-2 hover:bg-muted"
+                    onClick={() => handleCreateContainer(template.id)}
+                  >
+                    <Icon className="h-6 w-6" style={{ color: template.color }} />
+                    <span className="text-xs text-center leading-tight">{template.name}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Container Groups - Horizontal */}
+          <div className="space-y-4">
+            {Object.entries(groupedContainers).map(([type, containers]) => (
+              <div key={type}>
+                <h4 className="font-medium mb-2 capitalize">{type}s ({containers.length})</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {containers.map((container) => {
+                    const Icon = STORAGE_ICONS[container.type as keyof typeof STORAGE_ICONS];
+                    const isSelected = selectedContainerId === container.id;
+                    
+                    return (
+                      <Card 
+                        key={container.id}
+                        className={cn(
+                          "cursor-pointer transition-all hover:shadow-md",
+                          isSelected && "ring-2 ring-primary bg-primary/5"
+                        )}
+                        onClick={() => onContainerSelect(container)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3 mb-3">
+                            <Icon 
+                              className="h-5 w-5 flex-shrink-0" 
+                              style={{ color: container.color || '#6B7280' }} 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-medium truncate">{container.name}</h5>
+                              <p className="text-xs text-muted-foreground">
+                                {(container as any).itemCount || 0} cards • ${((container as any).valueUSD || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAssignToContainer(container.id);
+                            }}
+                          >
+                            Assign Cards
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <CreateContainerDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          templateId={createTemplateId}
+          onSuccess={handleContainerCreated}
+        />
+      </>
+    );
+  }
+
+  // Vertical sidebar (original)
   return (
     <>
       <div className="w-80 border-l bg-background flex flex-col">

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Search, Scan, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Search, Scan, Plus, Minus, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { StorageAPI } from '@/lib/api/storageAPI';
@@ -62,7 +62,6 @@ export function FullScreenAssignment({
   const loadOwnedCards = async () => {
     setLoading(true);
     try {
-      // Get collection with card data
       const { data: collection, error: collectionError } = await supabase
         .from('user_collections')
         .select(`
@@ -77,14 +76,12 @@ export function FullScreenAssignment({
 
       if (collectionError) throw collectionError;
 
-      // Get assigned quantities for all cards
       const { data: assigned, error: assignedError } = await supabase
         .from('storage_items')
         .select('card_id, qty, foil');
 
       if (assignedError) throw assignedError;
 
-      // Calculate assigned quantities by card
       const assignedMap = new Map<string, { normal: number; foil: number }>();
       assigned?.forEach(item => {
         const key = item.card_id;
@@ -97,7 +94,6 @@ export function FullScreenAssignment({
         assignedMap.set(key, current);
       });
 
-      // Combine data
       const enrichedCards: OwnedCard[] = collection?.map(item => {
         const assigned = assignedMap.get(item.card_id) || { normal: 0, foil: 0 };
         return {
@@ -131,7 +127,6 @@ export function FullScreenAssignment({
       const current = prev[cardId] || { normal: 0, foil: 0 };
       const newValue = Math.max(0, current[type] + delta);
       
-      // Check against available quantity
       const card = ownedCards.find(c => c.card_id === cardId);
       if (!card) return prev;
       
@@ -218,192 +213,223 @@ export function FullScreenAssignment({
   );
 
   const openScanFeature = () => {
-    // Navigate to scan feature
     window.location.href = '/scan';
   };
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
       {/* Header */}
-      <div className="border-b p-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="ghost" onClick={onClose}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold">
-              {containerId ? `Assign Cards to ${containerName}` : 'Assign Cards to Storage'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Select cards from your collection to assign to storage
-            </p>
-          </div>
-        </div>
-
-        {/* Search and Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search your collection..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          {isMobile && (
-            <Button
-              variant="outline"
-              onClick={openScanFeature}
-              className="sm:w-auto"
-            >
-              <Scan className="h-4 w-4 mr-2" />
-              Fast Scan
+      <div className="border-b bg-background">
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Button variant="ghost" onClick={onClose} className="h-9 w-9 p-0">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-          )}
+            <div>
+              <h1 className="text-xl font-semibold">
+                Assign Cards to Storage
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {containerId && containerName ? `Assigning to ${containerName}` : 'Select cards from your collection to assign'}
+              </p>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search your collection..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-12 text-base"
+              />
+            </div>
+            {isMobile && (
+              <Button
+                variant="outline"
+                onClick={openScanFeature}
+                className="h-12 px-6"
+              >
+                <Scan className="h-4 w-4 mr-2" />
+                Fast Scan
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Cards List */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-3">
-          {loading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-4">
-                  <div className="flex gap-3">
-                    <div className="w-16 h-16 bg-muted rounded"></div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-3/4"></div>
-                      <div className="h-3 bg-muted rounded w-1/2"></div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : filteredCards.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No cards found</p>
-              {isMobile && (
-                <Button onClick={openScanFeature}>
-                  <Scan className="h-4 w-4 mr-2" />
-                  Try Fast Scan
-                </Button>
-              )}
-            </div>
-          ) : (
-            filteredCards.map((card) => {
-              const availableNormal = card.quantity - card.assigned_normal;
-              const availableFoil = card.foil - card.assigned_foil;
-              const assignment = assignments[card.card_id] || { normal: 0, foil: 0 };
-
-              if (availableNormal <= 0 && availableFoil <= 0) return null;
-
-              return (
-                <Card key={card.card_id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      <div className="w-16 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                        {card.card?.image_uris?.small && (
-                          <img
-                            src={card.card.image_uris.small}
-                            alt={card.card_name}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div>
-                          <h4 className="font-semibold truncate">{card.card_name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {card.set_code.toUpperCase()} • {card.card?.rarity}
-                          </p>
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="flex gap-4">
+                        <div className="w-20 h-20 bg-muted rounded"></div>
+                        <div className="flex-1 space-y-3">
+                          <div className="h-5 bg-muted rounded w-3/4"></div>
+                          <div className="h-4 bg-muted rounded w-1/2"></div>
+                          <div className="h-4 bg-muted rounded w-1/4"></div>
                         </div>
-                        
-                        {/* Normal Cards */}
-                        {availableNormal > 0 && (
-                          <div className="flex items-center justify-between">
-                            <Badge variant="secondary">
-                              {availableNormal} available
-                            </Badge>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAssignment(card.card_id, 'normal', -1)}
-                                disabled={assignment.normal <= 0}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-12 text-center font-medium">
-                                {assignment.normal}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAssignment(card.card_id, 'normal', 1)}
-                                disabled={assignment.normal >= availableNormal}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Foil Cards */}
-                        {availableFoil > 0 && (
-                          <div className="flex items-center justify-between">
-                            <Badge variant="default">
-                              {availableFoil} foil available
-                            </Badge>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAssignment(card.card_id, 'foil', -1)}
-                                disabled={assignment.foil <= 0}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-12 text-center font-medium">
-                                {assignment.foil}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateAssignment(card.card_id, 'foil', 1)}
-                                disabled={assignment.foil >= availableFoil}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredCards.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No cards found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery ? 'Try adjusting your search terms' : 'No cards available to assign'}
+                </p>
+                {isMobile && (
+                  <Button onClick={openScanFeature}>
+                    <Scan className="h-4 w-4 mr-2" />
+                    Try Fast Scan
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredCards.map((card) => {
+                  const availableNormal = card.quantity - card.assigned_normal;
+                  const availableFoil = card.foil - card.assigned_foil;
+                  const assignment = assignments[card.card_id] || { normal: 0, foil: 0 };
+
+                  if (availableNormal <= 0 && availableFoil <= 0) return null;
+
+                  return (
+                    <Card key={card.card_id} className="transition-all hover:shadow-sm">
+                      <CardContent className="p-6">
+                        <div className="flex gap-4">
+                          {/* Card Image */}
+                          <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                            {card.card?.image_uris?.small && (
+                              <img
+                                src={card.card.image_uris.small}
+                                alt={card.card_name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          
+                          {/* Card Info & Controls */}
+                          <div className="flex-1 space-y-4">
+                            <div>
+                              <h4 className="font-semibold text-lg">{card.card_name}</h4>
+                              <p className="text-muted-foreground">
+                                {card.set_code.toUpperCase()} • {card.card?.rarity}
+                              </p>
+                            </div>
+                            
+                            {/* Normal Cards Assignment */}
+                            {availableNormal > 0 && (
+                              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="secondary" className="text-sm">
+                                    {availableNormal} available
+                                  </Badge>
+                                  <span className="text-sm font-medium">Normal cards</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateAssignment(card.card_id, 'normal', -1)}
+                                    disabled={assignment.normal <= 0}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="w-12 text-center font-bold text-lg">
+                                    {assignment.normal}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateAssignment(card.card_id, 'normal', 1)}
+                                    disabled={assignment.normal >= availableNormal}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Foil Cards Assignment */}
+                            {availableFoil > 0 && (
+                              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="default" className="bg-amber-500 text-sm">
+                                    {availableFoil} foil available
+                                  </Badge>
+                                  <span className="text-sm font-medium">Foil cards</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateAssignment(card.card_id, 'foil', -1)}
+                                    disabled={assignment.foil <= 0}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="w-12 text-center font-bold text-lg">
+                                    {assignment.foil}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => updateAssignment(card.card_id, 'foil', 1)}
+                                    disabled={assignment.foil >= availableFoil}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
 
       {/* Footer */}
-      <div className="border-t p-4">
+      <div className="border-t bg-background p-6">
         <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {totalAssignments} cards selected
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              {totalAssignments} cards selected
+            </span>
+            {totalAssignments > 0 && (
+              <Badge variant="secondary">
+                Ready to assign
+              </Badge>
+            )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose} className="px-6">
               Cancel
             </Button>
             <Button
               onClick={handleAssignAll}
               disabled={totalAssignments === 0 || loading}
+              className="px-6"
             >
               {loading ? "Assigning..." : `Assign ${totalAssignments} Cards`}
             </Button>

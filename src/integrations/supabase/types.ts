@@ -702,7 +702,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      compute_deck_summary: {
+        Args: { deck_id: string }
+        Returns: Json
+      }
+      get_favorite_decks: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      toggle_deck_favorite: {
+        Args: { deck_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

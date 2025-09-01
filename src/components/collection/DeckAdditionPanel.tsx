@@ -125,7 +125,7 @@ export function DeckAdditionPanel({
   };
 
   return (
-    <Collapsible open={!isCollapsed} onOpenChange={setIsCollapsed}>
+    <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
       <Card className="mb-6">
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">

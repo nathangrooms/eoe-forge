@@ -17,6 +17,7 @@ import { SellCardModal } from '@/components/collection/SellCardModal';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { CollectionAPI } from '@/server/routes/collection';
@@ -60,7 +61,7 @@ export default function Collection() {
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';
     // Only update if it's actually a different tab (not just search params changing)
-    if (tabFromUrl !== currentTab && ['collection', 'add-cards', 'analysis', 'import'].includes(tabFromUrl)) {
+    if (tabFromUrl !== currentTab && ['collection', 'add-cards', 'analysis', 'storage', 'import'].includes(tabFromUrl)) {
       setCurrentTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -261,12 +262,12 @@ export default function Collection() {
       }
     >
         <Tabs value={currentTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
             <TabsTrigger 
               value="collection" 
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              My Collection
+              Collection
             </TabsTrigger>
             <TabsTrigger 
               value="add-cards" 
@@ -276,6 +277,9 @@ export default function Collection() {
             </TabsTrigger>
             <TabsTrigger value="analysis" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Analysis
+            </TabsTrigger>
+            <TabsTrigger value="storage" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              Storage
             </TabsTrigger>
             <TabsTrigger value="import" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Import
@@ -366,11 +370,15 @@ export default function Collection() {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-          <EnhancedCollectionAnalytics 
-            stats={stats}
-            loading={loading}
-          />
-        </TabsContent>
+            <EnhancedCollectionAnalytics 
+              stats={stats}
+              loading={loading}
+            />
+          </TabsContent>
+
+          <TabsContent value="storage" className="space-y-6">
+            <StorageTab />
+          </TabsContent>
 
         <TabsContent value="import" className="space-y-6">
           <Card>

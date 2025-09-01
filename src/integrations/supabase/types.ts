@@ -395,6 +395,129 @@ export type Database = {
           },
         ]
       }
+      storage_containers: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          deck_id: string | null
+          icon: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          deck_id?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          deck_id?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      storage_items: {
+        Row: {
+          card_id: string
+          container_id: string
+          created_at: string | null
+          foil: boolean | null
+          id: string
+          qty: number
+          slot_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          card_id: string
+          container_id: string
+          created_at?: string | null
+          foil?: boolean | null
+          id?: string
+          qty: number
+          slot_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          card_id?: string
+          container_id?: string
+          created_at?: string | null
+          foil?: boolean | null
+          id?: string
+          qty?: number
+          slot_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_items_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_items_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "storage_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_items_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "storage_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storage_slots: {
+        Row: {
+          container_id: string
+          id: string
+          name: string
+          position: number | null
+        }
+        Insert: {
+          container_id: string
+          id?: string
+          name: string
+          position?: number | null
+        }
+        Update: {
+          container_id?: string
+          id?: string
+          name?: string
+          position?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_slots_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "storage_containers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_status: {
         Row: {
           current_step: string | null

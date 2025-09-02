@@ -144,7 +144,7 @@ export function RefreshedDeckTile({
                 <img 
                   src={deckSummary.commander.image} 
                   alt={deckSummary.commander.name}
-                  className="w-full h-full object-cover rounded-xl"
+                  className="w-full h-full object-fill rounded-xl"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder.svg';
                   }}

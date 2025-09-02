@@ -262,28 +262,32 @@ export const ModernDeckList = () => {
     const filteredCards = filterCards(cards);
     
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 ml-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 ml-8 p-4">
         {filteredCards.map((card) => (
           <div key={card.id} className="relative group">
-            <div className="aspect-[5/7] rounded-lg overflow-hidden bg-muted/50 hover:shadow-lg transition-all duration-200">
+            <div className="aspect-[5/7] rounded-lg overflow-hidden bg-card/50 hover:shadow-lg transition-all duration-200 border border-border/50">
               {card.image_uris?.normal ? (
                 <img 
                   src={card.image_uris.normal} 
                   alt={card.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-center p-2">
-                  <span className="text-xs font-medium">{card.name}</span>
-                </div>
-              )}
+              ) : null}
+              <div className={`w-full h-full flex items-center justify-center text-center p-2 ${card.image_uris?.normal ? 'hidden' : ''}`}>
+                <span className="text-xs font-medium text-foreground">{card.name}</span>
+              </div>
               {card.quantity > 1 && (
                 <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs font-bold rounded px-1">
                   {card.quantity}
                 </div>
               )}
             </div>
-            <p className="text-xs text-center mt-1 truncate">{card.name}</p>
+            <p className="text-xs text-center mt-1 truncate text-foreground">{card.name}</p>
             <p className="text-xs text-center text-muted-foreground">CMC {card.cmc}</p>
           </div>
         ))}
@@ -327,13 +331,15 @@ export const ModernDeckList = () => {
       </div>
 
       {/* Categories */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {categories.map((category) => {
           const cards = groupedCards[category] || [];
           if (cards.length === 0) return null;
           
+          const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 border-primary bg-gradient-to-r from-primary/20 to-primary/10';
+          
           return (
-            <Card key={category} className="overflow-hidden">
+            <div key={category} className={`rounded-lg overflow-hidden ${colorClass}`}>
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (
                 <div className="pb-4">
@@ -345,7 +351,7 @@ export const ModernDeckList = () => {
                   }
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>

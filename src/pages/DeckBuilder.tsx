@@ -211,27 +211,29 @@ const DeckBuilder = () => {
 
         deck.clearDeck();
         
-        if (deckCards) {
+        if (deckCards && deckCards.length > 0) {
           console.log('Processing deck cards:', deckCards);
           
           // Process cards with real API data
-          const cardPromises = deckCards.map(async (dbCard) => {
-            console.log('Processing card:', dbCard.card_name);
-            let cardData;
+          for (const dbCard of deckCards) {
+            console.log('Processing card:', dbCard.card_name, 'is_commander:', dbCard.is_commander);
             
             try {
               // Try to fetch real card data from Scryfall API
               const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
+              
               if (response.ok) {
                 const apiCard = await response.json();
-                console.log('Found API data for:', dbCard.card_name, apiCard.type_line);
+                console.log('Found API data for:', dbCard.card_name, 'type:', apiCard.type_line);
                 
-                // Determine category based on type line
+                // Determine category based on type line and commander status
                 let category: any = 'other';
                 const typeLine = apiCard.type_line?.toLowerCase() || '';
                 
-                if (dbCard.is_commander || (typeLine.includes('legendary') && typeLine.includes('creature'))) {
+                // Commanders take priority
+                if (dbCard.is_commander) {
                   category = 'commanders';
+                  console.log('Setting as commander:', dbCard.card_name);
                 } else if (typeLine.includes('creature')) {
                   category = 'creatures';
                 } else if (typeLine.includes('land')) {
@@ -250,9 +252,9 @@ const DeckBuilder = () => {
                   category = 'battles';
                 }
                 
-                console.log('Assigned category:', category, 'for', dbCard.card_name);
+                console.log('Final category for', dbCard.card_name, ':', category);
                 
-                cardData = {
+                const cardData = {
                   id: apiCard.id,
                   name: apiCard.name,
                   quantity: dbCard.quantity,
@@ -276,79 +278,81 @@ const DeckBuilder = () => {
                   category,
                   mechanics: apiCard.keywords || []
                 };
+                
+                if (dbCard.is_commander) {
+                  console.log('Setting commander:', cardData);
+                  deck.setCommander(cardData);
+                } else {
+                  console.log('Adding card:', cardData);
+                  deck.addCard(cardData);
+                }
+                
               } else {
-                throw new Error('Card not found in API');
+                console.warn(`Scryfall API failed for ${dbCard.card_name}, using fallback`);
+                
+                // Create fallback card data
+                let category: any = dbCard.is_commander ? 'commanders' : 'other';
+                let type_line = '';
+                let image_uris = {};
+                
+                // Basic categorization for known cards
+                const cardName = dbCard.card_name.toLowerCase();
+                if (cardName.includes('plains') || cardName.includes('island') || cardName.includes('swamp') || 
+                    cardName.includes('mountain') || cardName.includes('forest')) {
+                  category = 'lands';
+                  type_line = `Basic Land — ${dbCard.card_name}`;
+                } else if (cardName.includes('sol ring')) {
+                  category = 'artifacts';
+                  type_line = 'Artifact';
+                }
+                
+                const cardData = {
+                  id: dbCard.card_id,
+                  name: dbCard.card_name,
+                  quantity: dbCard.quantity,
+                  cmc: 0,
+                  type_line,
+                  colors: [],
+                  color_identity: [],
+                  oracle_text: '',
+                  power: undefined,
+                  toughness: undefined,
+                  image_uris,
+                  prices: {},
+                  set: '',
+                  set_name: '',
+                  collector_number: '',
+                  rarity: 'common',
+                  keywords: [],
+                  legalities: {},
+                  layout: 'normal',
+                  mana_cost: '',
+                  category,
+                  mechanics: []
+                };
+                
+                if (dbCard.is_commander) {
+                  deck.setCommander(cardData);
+                } else {
+                  deck.addCard(cardData);
+                }
               }
+              
             } catch (error) {
-              console.warn(`Failed to fetch data for ${dbCard.card_name}, using fallback:`, error);
-              
-              // Fallback to basic data with improved categorization
-              let category: any = 'other';
-              let type_line = '';
-              let cmc = 0;
-              let image_uris = {};
-              
-              // Use card name patterns for better categorization
-              const cardName = dbCard.card_name.toLowerCase();
-              if (cardName.includes('plains') || cardName.includes('island') || cardName.includes('swamp') || 
-                  cardName.includes('mountain') || cardName.includes('forest')) {
-                category = 'lands';
-                type_line = `Basic Land — ${dbCard.card_name}`;
-              } else if (cardName.includes('sol ring') || cardName.includes('artifact')) {
-                category = 'artifacts';
-                type_line = 'Artifact';
-                cmc = 1;
-              }
-              
-              if (dbCard.is_commander) {
-                category = 'commanders';
-                type_line = 'Legendary Creature';
-              }
-              
-              console.log('Using fallback category:', category, 'for', dbCard.card_name);
-              
-              cardData = {
-                id: dbCard.card_id,
-                name: dbCard.card_name,
-                quantity: dbCard.quantity,
-                cmc,
-                type_line,
-                colors: [],
-                color_identity: [],
-                oracle_text: '',
-                power: undefined,
-                toughness: undefined,
-                image_uris,
-                prices: {},
-                set: '',
-                set_name: '',
-                collector_number: '',
-                rarity: 'common',
-                keywords: [],
-                legalities: {},
-                layout: 'normal',
-                mana_cost: '',
-                category,
-                mechanics: []
-              };
+              console.error(`Error processing ${dbCard.card_name}:`, error);
             }
             
-            return { cardData, isCommander: dbCard.is_commander };
-          });
-          
-          // Wait for all card data to be processed
-          const processedCards = await Promise.all(cardPromises);
-          console.log('All cards processed:', processedCards);
-          
-          // Add cards to deck
-          for (const { cardData, isCommander } of processedCards) {
-            console.log('Adding card to deck:', cardData.name, 'category:', cardData.category, 'isCommander:', isCommander);
-            if (isCommander) {
-              deck.setCommander(cardData);
-            } else {
-              deck.addCard(cardData);
-            }
+            // Add small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 50));
           }
+          
+          console.log('Finished processing all cards. Deck state:', {
+            totalCards: deck.totalCards,
+            commander: deck.commander?.name,
+            cardCount: deck.cards.length
+          });
+        } else {
+          console.log('No deck cards found');
         }
       }
 

@@ -119,64 +119,11 @@ export function FavoriteDecksPreview() {
   const handleDeckClick = async (deckSummary: DeckSummary) => {
     try {
       if (deckSummary.name.includes('(Local)')) {
-        // Handle local deck loading
-        const { useDeckManagementStore } = await import('@/stores/deckManagementStore');
-        const localDecks = useDeckManagementStore.getState().decks;
-        const localDeck = localDecks.find(d => d.id === deckSummary.id);
-        
-        if (localDeck) {
-          // Load local deck into deck builder
-          deck.setDeckName(localDeck.name);
-          deck.setFormat(localDeck.format as 'standard' | 'commander' | 'custom');
-          deck.setPowerLevel(localDeck.powerLevel);
-          
-          // Clear current deck and add loaded cards
-          deck.clearDeck();
-          localDeck.cards.forEach(card => {
-            deck.addCard(card);
-          });
-          
-          showSuccess("Deck Loaded", `"${localDeck.name}" is ready for editing`);
-          navigate('/builder');
-        }
+        // Handle local deck loading - navigate directly without loading into store
+        navigate(`/builder?loadLocal=${deckSummary.id}`);
       } else {
-        // Handle database deck loading
-        deck.setDeckName(deckSummary.name);
-        deck.setFormat(deckSummary.format as any);
-        deck.setPowerLevel(deckSummary.power.score);
-        
-        // Load deck cards from database
-        const { data: deckCards, error } = await supabase
-          .from('deck_cards')
-          .select('*')
-          .eq('deck_id', deckSummary.id);
-
-        if (error) {
-          console.error('Error loading deck cards:', error);
-          showError("Error", "Failed to load deck cards");
-          return;
-        }
-
-        // Clear current deck and add loaded cards
-        deck.clearDeck();
-        
-        if (deckCards) {
-          for (const dbCard of deckCards) {
-            deck.addCard({
-              id: dbCard.card_id,
-              name: dbCard.card_name,
-              quantity: dbCard.quantity,
-              cmc: 0,
-              type_line: '',
-              colors: [],
-              category: dbCard.is_commander ? 'commanders' : 'creatures',
-              mechanics: []
-            });
-          }
-        }
-
-        showSuccess("Deck Loaded", `"${deckSummary.name}" is ready for editing`);
-        navigate('/builder');
+        // Handle database deck loading - navigate directly without loading into store
+        navigate(`/builder?loadDeck=${deckSummary.id}`);
       }
     } catch (error) {
       console.error('Error loading deck:', error);

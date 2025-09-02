@@ -53,60 +53,51 @@ const CATEGORY_COLORS = {
 };
 
 const getCategoryStyle = (category: string) => {
-  // EXACT colors from your reference image
+  // EXACT colors from your reference image with proper transparency
   const styles = {
     commanders: {
       borderLeft: '4px solid #eab308',
-      background: '#eab308',
-      opacity: '0.15',
+      backgroundColor: 'rgba(234, 179, 8, 0.2)',
       borderRadius: '8px'
     },
     lands: {
       borderLeft: '4px solid #d97706', 
-      background: '#d97706',
-      opacity: '0.15',
+      backgroundColor: 'rgba(217, 119, 6, 0.2)',
       borderRadius: '8px'
     },
     creatures: {
       borderLeft: '4px solid #16a34a',
-      background: '#16a34a', 
-      opacity: '0.15',
+      backgroundColor: 'rgba(22, 163, 74, 0.2)',
       borderRadius: '8px'
     },
     instants: {
       borderLeft: '4px solid #2563eb',
-      background: '#2563eb',
-      opacity: '0.15', 
+      backgroundColor: 'rgba(37, 99, 235, 0.2)',
       borderRadius: '8px'
     },
     sorceries: {
       borderLeft: '4px solid #dc2626',
-      background: '#dc2626',
-      opacity: '0.15',
+      backgroundColor: 'rgba(220, 38, 38, 0.2)',
       borderRadius: '8px'
     },
     enchantments: {
       borderLeft: '4px solid #9333ea',
-      background: '#9333ea',
-      opacity: '0.15',
+      backgroundColor: 'rgba(147, 51, 234, 0.2)',
       borderRadius: '8px'
     },
     artifacts: {
       borderLeft: '4px solid #6b7280',
-      background: '#6b7280', 
-      opacity: '0.15',
+      backgroundColor: 'rgba(107, 114, 128, 0.2)',
       borderRadius: '8px'
     },
     planeswalkers: {
       borderLeft: '4px solid #ec4899',
-      background: '#ec4899',
-      opacity: '0.15',
+      backgroundColor: 'rgba(236, 72, 153, 0.2)',
       borderRadius: '8px'
     },
     battles: {
       borderLeft: '4px solid #f97316',
-      background: '#f97316',
-      opacity: '0.15',
+      backgroundColor: 'rgba(249, 115, 22, 0.2)',
       borderRadius: '8px'
     }
   };
@@ -402,8 +393,12 @@ export const ModernDeckList = () => {
           return (
             <div 
               key={category} 
-              style={categoryStyle}
-              className="overflow-hidden"
+              style={{
+                ...categoryStyle,
+                position: 'relative',
+                zIndex: 1
+              }}
+              className="overflow-hidden !bg-transparent"
             >
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (

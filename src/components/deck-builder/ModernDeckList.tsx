@@ -41,15 +41,15 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  commanders: 'border-l-yellow-500 bg-yellow-500/10',
-  lands: 'border-l-emerald-500 bg-emerald-500/10',
-  creatures: 'border-l-green-500 bg-green-500/10',
-  instants: 'border-l-blue-500 bg-blue-500/10',
-  sorceries: 'border-l-red-500 bg-red-500/10',
-  enchantments: 'border-l-purple-500 bg-purple-500/10',
-  artifacts: 'border-l-gray-500 bg-gray-500/10',
-  planeswalkers: 'border-l-orange-500 bg-orange-500/10',
-  battles: 'border-l-rose-500 bg-rose-500/10'
+  commanders: 'border-l-4 border-yellow-400 bg-gradient-to-r from-yellow-500/10 to-yellow-600/5',
+  lands: 'border-l-4 border-emerald-400 bg-gradient-to-r from-emerald-500/10 to-emerald-600/5',
+  creatures: 'border-l-4 border-green-400 bg-gradient-to-r from-green-500/10 to-green-600/5',
+  instants: 'border-l-4 border-blue-400 bg-gradient-to-r from-blue-500/10 to-blue-600/5',
+  sorceries: 'border-l-4 border-red-400 bg-gradient-to-r from-red-500/10 to-red-600/5',
+  enchantments: 'border-l-4 border-purple-400 bg-gradient-to-r from-purple-500/10 to-purple-600/5',
+  artifacts: 'border-l-4 border-gray-400 bg-gradient-to-r from-gray-500/10 to-gray-600/5',
+  planeswalkers: 'border-l-4 border-orange-400 bg-gradient-to-r from-orange-500/10 to-orange-600/5',
+  battles: 'border-l-4 border-rose-400 bg-gradient-to-r from-rose-500/10 to-rose-600/5'
 };
 
 const CMC_BUCKETS = [
@@ -109,7 +109,7 @@ export const ModernDeckList = () => {
 
     return (
       <div 
-        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 rounded-lg transition-colors border-l-4 ${colorClass}`}
+        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 rounded-lg transition-all duration-200 ${colorClass}`}
         onClick={() => toggleCategory(category)}
       >
         <div className="flex items-center space-x-3">

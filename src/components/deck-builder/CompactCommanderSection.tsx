@@ -4,20 +4,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Crown, Edit, X } from 'lucide-react';
-import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
+import { useDeckStore } from '@/stores/deckStore';
 import { CommanderSelector } from './CommanderSelector';
 
 interface CompactCommanderSectionProps {
-  deckId: string;
-  currentCommander?: DeckCard;
+  currentCommander?: any;
 }
 
-export function CompactCommanderSection({ deckId, currentCommander }: CompactCommanderSectionProps) {
+export function CompactCommanderSection({ currentCommander }: CompactCommanderSectionProps) {
   const [showCommanderDialog, setShowCommanderDialog] = useState(false);
-  const { setCommander } = useDeckManagementStore();
+  const { setCommander } = useDeckStore();
 
   const removeCommander = () => {
-    setCommander(deckId, undefined as any);
+    setCommander(undefined as any);
   };
 
   if (!currentCommander) {

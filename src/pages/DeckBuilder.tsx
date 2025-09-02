@@ -212,87 +212,134 @@ const DeckBuilder = () => {
         deck.clearDeck();
         
         if (deckCards) {
-          for (const dbCard of deckCards) {
-            // Use a simpler approach with better fallback data
-            const cardData = {
-              id: dbCard.card_id,
-              name: dbCard.card_name,
-              quantity: dbCard.quantity,
-              cmc: 0, // Will be updated if we fetch from Scryfall
-              type_line: '', // Will be updated if we fetch from Scryfall
-              colors: [],
-              color_identity: [],
-              oracle_text: '',
-              power: undefined,
-              toughness: undefined,
-              image_uris: {},
-              prices: {},
-              set: '',
-              set_name: '',
-              collector_number: '',
-              rarity: 'common',
-              keywords: [],
-              legalities: {},
-               layout: 'normal' as const,
-               mana_cost: '',
-               category: (dbCard.is_commander ? 'commanders' : 'other') as any,
-               mechanics: []
-             };
-
-             // Try to get better data for known cards
-             if (dbCard.card_name === 'Plains') {
-               cardData.type_line = 'Basic Land — Plains';
-               (cardData as any).category = 'lands';
-               cardData.colors = [];
-               cardData.mana_cost = '';
-               cardData.image_uris = { normal: 'https://cards.scryfall.io/normal/front/f/2/f2ca4afe-256b-4d24-8bdd-88f4d1b513e6.jpg' };
-             } else if (dbCard.card_name === 'Swamp') {
-               cardData.type_line = 'Basic Land — Swamp';
-               (cardData as any).category = 'lands';
-               cardData.colors = [];
-               cardData.mana_cost = '';
-               cardData.image_uris = { normal: 'https://cards.scryfall.io/normal/front/a/3/a3fb3239-3bca-4059-869d-e54e1fe4b4ee.jpg' };
-             } else if (dbCard.card_name === 'Sol Ring') {
-               cardData.type_line = 'Artifact';
-               (cardData as any).category = 'artifacts';
-               cardData.cmc = 1;
-               cardData.mana_cost = '{1}';
-               cardData.image_uris = { normal: 'https://cards.scryfall.io/normal/front/1/9/199cde21-5bc3-49cd-acd4-bae3af6e5881.jpg' };
-             } else if (dbCard.card_name === 'Syr Vondam, Sunstar Exemplar') {
-               cardData.type_line = 'Legendary Creature — Human Knight';
-               (cardData as any).category = 'commanders';
-               cardData.cmc = 4;
-               cardData.mana_cost = '{2}{W}{B}';
-               cardData.colors = ['W', 'B'];
-               cardData.color_identity = ['W', 'B'];
-               cardData.power = '3';
-               cardData.toughness = '4';
-               cardData.image_uris = { normal: 'https://cards.scryfall.io/normal/front/4/9/49554198-549b-4066-86ce-77a03fda0a2f.jpg' };
-             } else {
-               // Try to categorize based on type line patterns
-               const typeLower = (dbCard.card_name || '').toLowerCase();
-               if (typeLower.includes('creature')) {
-                 (cardData as any).category = 'creatures';
-               } else if (typeLower.includes('land')) {
-                 (cardData as any).category = 'lands';
-               } else if (typeLower.includes('instant')) {
-                 (cardData as any).category = 'instants';
-               } else if (typeLower.includes('sorcery')) {
-                 (cardData as any).category = 'sorceries';
-               } else if (typeLower.includes('artifact')) {
-                 (cardData as any).category = 'artifacts';
-               } else if (typeLower.includes('enchantment')) {
-                 (cardData as any).category = 'enchantments';
-               } else if (typeLower.includes('planeswalker')) {
-                 (cardData as any).category = 'planeswalkers';
-               }
-             }
-
-             if (dbCard.is_commander) {
-               deck.setCommander(cardData);
-             } else {
-               deck.addCard(cardData);
-             }
+          // Process cards with real API data
+          const cardPromises = deckCards.map(async (dbCard) => {
+            let cardData;
+            
+            try {
+              // Try to fetch real card data from Scryfall API
+              const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
+              if (response.ok) {
+                const apiCard = await response.json();
+                
+                // Determine category based on type line
+                let category: any = 'other';
+                const typeLine = apiCard.type_line?.toLowerCase() || '';
+                
+                if (dbCard.is_commander || typeLine.includes('legendary creature')) {
+                  category = 'commanders';
+                } else if (typeLine.includes('creature')) {
+                  category = 'creatures';
+                } else if (typeLine.includes('land')) {
+                  category = 'lands';
+                } else if (typeLine.includes('instant')) {
+                  category = 'instants';
+                } else if (typeLine.includes('sorcery')) {
+                  category = 'sorceries';
+                } else if (typeLine.includes('artifact')) {
+                  category = 'artifacts';
+                } else if (typeLine.includes('enchantment')) {
+                  category = 'enchantments';
+                } else if (typeLine.includes('planeswalker')) {
+                  category = 'planeswalkers';
+                } else if (typeLine.includes('battle')) {
+                  category = 'battles';
+                }
+                
+                cardData = {
+                  id: apiCard.id,
+                  name: apiCard.name,
+                  quantity: dbCard.quantity,
+                  cmc: apiCard.cmc || 0,
+                  type_line: apiCard.type_line || '',
+                  colors: apiCard.colors || [],
+                  color_identity: apiCard.color_identity || [],
+                  oracle_text: apiCard.oracle_text || '',
+                  power: apiCard.power,
+                  toughness: apiCard.toughness,
+                  image_uris: apiCard.image_uris || {},
+                  prices: apiCard.prices || {},
+                  set: apiCard.set || '',
+                  set_name: apiCard.set_name || '',
+                  collector_number: apiCard.collector_number || '',
+                  rarity: apiCard.rarity || 'common',
+                  keywords: apiCard.keywords || [],
+                  legalities: apiCard.legalities || {},
+                  layout: apiCard.layout || 'normal',
+                  mana_cost: apiCard.mana_cost || '',
+                  category,
+                  mechanics: apiCard.keywords || []
+                };
+              } else {
+                throw new Error('Card not found in API');
+              }
+            } catch (error) {
+              console.warn(`Failed to fetch data for ${dbCard.card_name}, using fallback:`, error);
+              
+              // Fallback to basic data with improved categorization
+              let category: any = 'other';
+              let type_line = '';
+              let cmc = 0;
+              let image_uris = {};
+              
+              if (dbCard.card_name === 'Plains') {
+                category = 'lands';
+                type_line = 'Basic Land — Plains';
+                image_uris = { normal: 'https://cards.scryfall.io/normal/front/f/2/f2ca4afe-256b-4d24-8bdd-88f4d1b513e6.jpg' };
+              } else if (dbCard.card_name === 'Swamp') {
+                category = 'lands';
+                type_line = 'Basic Land — Swamp';
+                image_uris = { normal: 'https://cards.scryfall.io/normal/front/a/3/a3fb3239-3bca-4059-869d-e54e1fe4b4ee.jpg' };
+              } else if (dbCard.card_name === 'Sol Ring') {
+                category = 'artifacts';
+                type_line = 'Artifact';
+                cmc = 1;
+                image_uris = { normal: 'https://cards.scryfall.io/normal/front/1/9/199cde21-5bc3-49cd-acd4-bae3af6e5881.jpg' };
+              }
+              
+              if (dbCard.is_commander) {
+                category = 'commanders';
+              }
+              
+              cardData = {
+                id: dbCard.card_id,
+                name: dbCard.card_name,
+                quantity: dbCard.quantity,
+                cmc,
+                type_line,
+                colors: [],
+                color_identity: [],
+                oracle_text: '',
+                power: undefined,
+                toughness: undefined,
+                image_uris,
+                prices: {},
+                set: '',
+                set_name: '',
+                collector_number: '',
+                rarity: 'common',
+                keywords: [],
+                legalities: {},
+                layout: 'normal',
+                mana_cost: '',
+                category,
+                mechanics: []
+              };
+            }
+            
+            return { cardData, isCommander: dbCard.is_commander };
+          });
+          
+          // Wait for all card data to be processed
+          const processedCards = await Promise.all(cardPromises);
+          
+          // Add cards to deck
+          for (const { cardData, isCommander } of processedCards) {
+            if (isCommander) {
+              deck.setCommander(cardData);
+            } else {
+              deck.addCard(cardData);
+            }
           }
         }
       }
@@ -470,8 +517,7 @@ const DeckBuilder = () => {
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold mb-3">Commander</h2>
                   <CompactCommanderSection 
-                    deckId={selectedDeckId || ''} 
-                    currentCommander={activeDeck?.commander}
+                    currentCommander={deck.commander}
                   />
                 </div>
               )}

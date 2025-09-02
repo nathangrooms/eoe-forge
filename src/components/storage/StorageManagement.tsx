@@ -10,13 +10,11 @@ import { CreateContainerDialog } from './CreateContainerDialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface StorageManagementProps {
-  onAssignToContainer: (containerId: string) => void;
   onContainerSelect: (container: StorageContainer) => void;
   selectedContainerId?: string;
 }
 
 export function StorageManagement({ 
-  onAssignToContainer, 
   onContainerSelect, 
   selectedContainerId 
 }: StorageManagementProps) {
@@ -74,7 +72,6 @@ export function StorageManagement({
   const totalUniqueCards = overview?.containers.reduce((sum, c) => sum + (c as any).uniqueCards, 0) || 0;
   const unassignedCount = overview?.unassigned.count || 0;
   const unassignedValue = overview?.unassigned.valueUSD || 0;
-  const storageUtilization = totalCards > 0 ? ((totalCards / (totalCards + unassignedCount)) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -152,7 +149,7 @@ export function StorageManagement({
               </div>
               <div>
                 <p className={`text-sm font-medium ${unassignedCount > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                  Unassigned
+                  In Collection
                 </p>
                 <p className={`text-3xl font-bold ${unassignedCount > 0 ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-gray-100'}`}>
                   {unassignedCount}
@@ -167,77 +164,6 @@ export function StorageManagement({
           </CardContent>
         </Card>
       </div>
-
-      {/* Enhanced Unassigned Cards Alert */}
-      {unassignedCount > 0 && (
-        <Card className="border-orange-200 bg-gradient-to-r from-orange-50 via-orange-50 to-amber-50 dark:from-orange-950 dark:via-orange-900 dark:to-amber-900">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-orange-500 rounded-full">
-                  <AlertCircle className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-orange-900 dark:text-orange-100">
-                    Unassigned Cards Need Organization
-                  </h3>
-                  <p className="text-orange-700 dark:text-orange-300 mt-1">
-                    You have <span className="font-semibold">{unassignedCount} cards</span> worth{' '}
-                    <span className="font-semibold">${unassignedValue.toFixed(2)}</span> that aren't stored in containers yet.
-                  </p>
-                  <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                    {overview?.unassigned.uniqueCards} unique cards waiting to be organized
-                  </p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => onAssignToContainer('')} 
-                className="bg-orange-600 hover:bg-orange-700 text-white shadow-lg"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Assign Cards
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Enhanced Storage Utilization */}
-      <Card className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            Storage Utilization
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Cards Organized</span>
-              <span className="text-2xl font-bold text-primary">{storageUtilization.toFixed(1)}%</span>
-            </div>
-            <Progress value={storageUtilization} className="h-3" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <p className="text-sm text-muted-foreground">Organized</p>
-                <p className="text-lg font-bold text-green-600">{totalCards}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Unassigned</p>
-                <p className="text-lg font-bold text-orange-600">{unassignedCount}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Cards</p>
-                <p className="text-lg font-bold">{totalCards + unassignedCount}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Value</p>
-                <p className="text-lg font-bold text-green-600">${(totalValue + unassignedValue).toFixed(2)}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Enhanced Containers Section */}
       <div>
@@ -327,11 +253,11 @@ export function StorageManagement({
                       className="w-full bg-primary/10 hover:bg-primary/20 text-primary border-primary/20"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAssignToContainer(container.id);
+                        onContainerSelect(container);
                       }}
                     >
-                      <Search className="h-4 w-4 mr-2" />
-                      Manage Cards
+                      <Package className="h-4 w-4 mr-2" />
+                      View Contents
                     </Button>
                   </CardContent>
                 </Card>

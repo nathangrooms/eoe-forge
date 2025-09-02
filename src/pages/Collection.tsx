@@ -8,6 +8,7 @@ import { Package, Plus, Search, ShoppingCart, Users } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
 import { SellCardModal } from '@/components/collection/SellCardModal';
+import { StorageAPI } from '@/lib/api/storageAPI';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
@@ -199,9 +200,18 @@ export default function Collection() {
 
     // Add to box if selected
     if (deckAdditionConfig.addToBox && deckAdditionConfig.selectedBoxId) {
-      // TODO: Implement storage assignment
-      actions.push('Box');
-      console.log('Adding to box:', deckAdditionConfig.selectedBoxId);
+      try {
+        await StorageAPI.assignCard({
+          container_id: deckAdditionConfig.selectedBoxId,
+          card_id: card.id,
+          qty: 1,
+          foil: false
+        });
+        actions.push('Box');
+        console.log('Added to box:', deckAdditionConfig.selectedBoxId);
+      } catch (error) {
+        console.error('Failed to add to box:', error);
+      }
     }
 
     // Refresh collection and show success
@@ -212,11 +222,6 @@ export default function Collection() {
   };
 
   // Storage handlers
-  const handleAssignToContainer = (containerId: string) => {
-    setAssignmentContainerId(containerId);
-    setShowAssignment(true);
-  };
-
   const handleContainerSelect = (container: StorageContainer) => {
     setSelectedContainer(container);
   };
@@ -238,19 +243,10 @@ export default function Collection() {
 
   if (selectedContainer) {
     return (
-      <div className="h-screen flex">
-        <div className="flex-1">
-          <StorageContainerView 
-            container={selectedContainer}
-            onBack={handleBackToStorage}
-          />
-        </div>
-        <StorageSidebar
-          onAssignToContainer={handleAssignToContainer}
-          onContainerSelect={handleContainerSelect}
-          selectedContainerId={selectedContainer?.id}
-          collapsed={false}
-          onToggleCollapse={() => {}}
+      <div className="h-screen">
+        <StorageContainerView 
+          container={selectedContainer}
+          onBack={handleBackToStorage}
         />
       </div>
     );
@@ -357,7 +353,6 @@ export default function Collection() {
           {/* Storage Tab */}
           <TabsContent value="storage" className="h-full overflow-auto px-6 py-4 m-0">
             <StorageManagement
-              onAssignToContainer={handleAssignToContainer}
               onContainerSelect={handleContainerSelect}
               selectedContainerId={selectedContainer?.id}
             />
@@ -365,22 +360,7 @@ export default function Collection() {
         </Tabs>
       </div>
 
-      {/* Full Screen Assignment */}
-      {showAssignment && (
-        <FullScreenAssignment
-          containerId={assignmentContainerId}
-          containerName={
-            assignmentContainerId 
-              ? selectedContainer?.name || 'Container'
-              : undefined
-          }
-          onClose={() => setShowAssignment(false)}
-          onSuccess={() => {
-            setShowAssignment(false);
-            refresh();
-          }}
-        />
-      )}
+      {/* Full Screen Assignment - Remove this section */}
 
       {/* Modals */}
       <UniversalCardModal

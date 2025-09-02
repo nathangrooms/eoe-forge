@@ -162,6 +162,18 @@ const DeckBuilder = () => {
     };
 
     deck.addCard(deckCard);
+    
+    // Auto-save if this is a Supabase deck
+    if (deck.currentDeckId) {
+      deck.updateDeck(deck.currentDeckId).then((result) => {
+        if (result.success) {
+          console.log('Auto-saved deck changes');
+        } else {
+          console.error('Failed to auto-save:', result.error);
+        }
+      });
+    }
+    
     showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);
   };
 
@@ -190,178 +202,26 @@ const DeckBuilder = () => {
           setActiveDeck(originalId);
         }
       } else {
-        deck.setDeckName(deckData.name);
-        deck.setFormat(deckData.format);
-        deck.setPowerLevel(deckData.powerLevel);
+        // Use the store's loadDeck function for Supabase decks
+        const result = await deck.loadDeck(deckData.id);
         
-        const { data: deckCards, error } = await supabase
-          .from('deck_cards')
-          .select('*')
-          .eq('deck_id', deckData.id);
-
-        if (error) {
-          console.error('Error loading deck cards:', error);
+        if (result.success) {
+          // Set the current deck ID for auto-saving
+          deck.setCurrentDeckId(deckData.id);
+          setSelectedDeckId(deckData.id);
+          
           toast({
-            title: "Error",
-            description: "Failed to load deck cards",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        deck.clearDeck();
-        
-        if (deckCards && deckCards.length > 0) {
-          console.log('Processing deck cards:', deckCards);
-          
-          // Process cards with real API data
-          for (const dbCard of deckCards) {
-            console.log('Processing card:', dbCard.card_name, 'is_commander:', dbCard.is_commander);
-            
-            try {
-              // Try to fetch real card data from Scryfall API
-              const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
-              
-              if (response.ok) {
-                const apiCard = await response.json();
-                console.log('Found API data for:', dbCard.card_name, 'type:', apiCard.type_line);
-                
-                // Determine category based on type line and commander status
-                let category: any = 'other';
-                const typeLine = apiCard.type_line?.toLowerCase() || '';
-                
-                // Commanders take priority
-                if (dbCard.is_commander) {
-                  category = 'commanders';
-                  console.log('Setting as commander:', dbCard.card_name);
-                } else if (typeLine.includes('creature')) {
-                  category = 'creatures';
-                } else if (typeLine.includes('land')) {
-                  category = 'lands';
-                } else if (typeLine.includes('instant')) {
-                  category = 'instants';
-                } else if (typeLine.includes('sorcery')) {
-                  category = 'sorceries';
-                } else if (typeLine.includes('artifact')) {
-                  category = 'artifacts';
-                } else if (typeLine.includes('enchantment')) {
-                  category = 'enchantments';
-                } else if (typeLine.includes('planeswalker')) {
-                  category = 'planeswalkers';
-                } else if (typeLine.includes('battle')) {
-                  category = 'battles';
-                }
-                
-                console.log('Final category for', dbCard.card_name, ':', category);
-                
-                const cardData = {
-                  id: apiCard.id,
-                  name: apiCard.name,
-                  quantity: dbCard.quantity,
-                  cmc: apiCard.cmc || 0,
-                  type_line: apiCard.type_line || '',
-                  colors: apiCard.colors || [],
-                  color_identity: apiCard.color_identity || [],
-                  oracle_text: apiCard.oracle_text || '',
-                  power: apiCard.power,
-                  toughness: apiCard.toughness,
-                  image_uris: apiCard.image_uris || {},
-                  prices: apiCard.prices || {},
-                  set: apiCard.set || '',
-                  set_name: apiCard.set_name || '',
-                  collector_number: apiCard.collector_number || '',
-                  rarity: apiCard.rarity || 'common',
-                  keywords: apiCard.keywords || [],
-                  legalities: apiCard.legalities || {},
-                  layout: apiCard.layout || 'normal',
-                  mana_cost: apiCard.mana_cost || '',
-                  category,
-                  mechanics: apiCard.keywords || []
-                };
-                
-                if (dbCard.is_commander) {
-                  console.log('Setting commander:', cardData);
-                  deck.setCommander(cardData);
-                } else {
-                  console.log('Adding card:', cardData);
-                  deck.addCard(cardData);
-                }
-                
-              } else {
-                console.warn(`Scryfall API failed for ${dbCard.card_name}, using fallback`);
-                
-                // Create fallback card data
-                let category: any = dbCard.is_commander ? 'commanders' : 'other';
-                let type_line = '';
-                let image_uris = {};
-                
-                // Basic categorization for known cards
-                const cardName = dbCard.card_name.toLowerCase();
-                if (cardName.includes('plains') || cardName.includes('island') || cardName.includes('swamp') || 
-                    cardName.includes('mountain') || cardName.includes('forest')) {
-                  category = 'lands';
-                  type_line = `Basic Land — ${dbCard.card_name}`;
-                } else if (cardName.includes('sol ring')) {
-                  category = 'artifacts';
-                  type_line = 'Artifact';
-                }
-                
-                const cardData = {
-                  id: dbCard.card_id,
-                  name: dbCard.card_name,
-                  quantity: dbCard.quantity,
-                  cmc: 0,
-                  type_line,
-                  colors: [],
-                  color_identity: [],
-                  oracle_text: '',
-                  power: undefined,
-                  toughness: undefined,
-                  image_uris,
-                  prices: {},
-                  set: '',
-                  set_name: '',
-                  collector_number: '',
-                  rarity: 'common',
-                  keywords: [],
-                  legalities: {},
-                  layout: 'normal',
-                  mana_cost: '',
-                  category,
-                  mechanics: []
-                };
-                
-                if (dbCard.is_commander) {
-                  deck.setCommander(cardData);
-                } else {
-                  deck.addCard(cardData);
-                }
-              }
-              
-            } catch (error) {
-              console.error(`Error processing ${dbCard.card_name}:`, error);
-            }
-            
-            // Add small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-          
-          console.log('Finished processing all cards. Deck state:', {
-            totalCards: deck.totalCards,
-            commander: deck.commander?.name,
-            cardCount: deck.cards.length
+            title: "Deck Loaded",
+            description: `"${deckData.name}" is ready for editing`,
           });
         } else {
-          console.log('No deck cards found');
+          toast({
+            title: "Error",
+            description: result.error || "Failed to load deck",
+            variant: "destructive"
+          });
         }
       }
-
-      setSelectedDeckId(deckData.id);
-      
-      toast({
-        title: "Deck Loaded",
-        description: `"${deckData.name.replace(' (Local)', '')}" is ready for editing`,
-      });
     } catch (error) {
       console.error('Error loading deck:', error);
       toast({

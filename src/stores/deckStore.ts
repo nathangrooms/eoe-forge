@@ -46,6 +46,9 @@ interface DeckState {
   cards: Card[];
   commander?: Card;
   
+  // Current deck ID for auto-saving
+  currentDeckId?: string;
+  
   // Computed properties
   totalCards: number;
   
@@ -59,10 +62,12 @@ interface DeckState {
   setCommander: (card: Card) => void;
   clearDeck: () => void;
   importDeck: (cards: Card[]) => void;
+  setCurrentDeckId: (deckId: string) => void;
   
   // Database operations
   saveDeck: () => Promise<{ success: boolean; deckId?: string; error?: string }>;
   loadDeck: (deckId: string) => Promise<{ success: boolean; error?: string }>;
+  updateDeck: (deckId: string) => Promise<{ success: boolean; error?: string }>;
   
   // Analysis
   getCardsByCategory: (category: string) => Card[];
@@ -82,6 +87,7 @@ export const useDeckStore = create<DeckState>()(
       colorIdentity: [],
       cards: [],
       commander: undefined,
+      currentDeckId: undefined,
       totalCards: 0,
 
       // Actions
@@ -98,16 +104,34 @@ export const useDeckStore = create<DeckState>()(
           const updatedCards = state.cards.map(c =>
             c.id === card.id ? { ...c, quantity: c.quantity + 1 } : c
           );
-          return {
+          const newState = {
             cards: updatedCards,
             totalCards: state.totalCards + 1
           };
+          
+          // Auto-save if we have a current deck ID
+          if (state.currentDeckId) {
+            setTimeout(() => {
+              get().updateDeck(state.currentDeckId!);
+            }, 500); // Debounce auto-save
+          }
+          
+          return newState;
         } else {
           // Add new card
-          return {
+          const newState = {
             cards: [...state.cards, { ...card, quantity: 1 }],
             totalCards: state.totalCards + 1
           };
+          
+          // Auto-save if we have a current deck ID
+          if (state.currentDeckId) {
+            setTimeout(() => {
+              get().updateDeck(state.currentDeckId!);
+            }, 500); // Debounce auto-save
+          }
+          
+          return newState;
         }
       }),
       
@@ -115,22 +139,32 @@ export const useDeckStore = create<DeckState>()(
         const card = state.cards.find(c => c.id === cardId);
         if (!card) return state;
         
+        let newState;
         if (card.quantity > 1) {
           // Decrease quantity
           const updatedCards = state.cards.map(c =>
             c.id === cardId ? { ...c, quantity: c.quantity - 1 } : c
           );
-          return {
+          newState = {
             cards: updatedCards,
             totalCards: state.totalCards - 1
           };
         } else {
           // Remove card entirely
-          return {
+          newState = {
             cards: state.cards.filter(c => c.id !== cardId),
             totalCards: state.totalCards - 1
           };
         }
+        
+        // Auto-save if we have a current deck ID
+        if (state.currentDeckId) {
+          setTimeout(() => {
+            get().updateDeck(state.currentDeckId!);
+          }, 500); // Debounce auto-save
+        }
+        
+        return newState;
       }),
       
       updateCardQuantity: (cardId, quantity) => set((state) => {
@@ -173,6 +207,8 @@ export const useDeckStore = create<DeckState>()(
         cards,
         totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
       }),
+      
+      setCurrentDeckId: (deckId) => set({ currentDeckId: deckId }),
       
       // Analysis functions
       getCardsByCategory: (category) => {
@@ -333,53 +369,120 @@ export const useDeckStore = create<DeckState>()(
 
           if (deckCards) {
             for (const dbCard of deckCards) {
-              let category: Card['category'] = 'other';
-              let type_line = '';
-              let cmc = 0;
+              // Fetch real card data from Scryfall API
+              try {
+                const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
+                
+                if (response.ok) {
+                  const apiCard = await response.json();
+                  
+                  // Determine category based on type line and commander status
+                  let category: Card['category'] = 'other';
+                  const typeLine = apiCard.type_line?.toLowerCase() || '';
+                  
+                  if (dbCard.is_commander) {
+                    category = 'commanders';
+                  } else if (typeLine.includes('creature')) {
+                    category = 'creatures';
+                  } else if (typeLine.includes('land')) {
+                    category = 'lands';
+                  } else if (typeLine.includes('instant')) {
+                    category = 'instants';
+                  } else if (typeLine.includes('sorcery')) {
+                    category = 'sorceries';
+                  } else if (typeLine.includes('artifact')) {
+                    category = 'artifacts';
+                  } else if (typeLine.includes('enchantment')) {
+                    category = 'enchantments';
+                  } else if (typeLine.includes('planeswalker')) {
+                    category = 'planeswalkers';
+                  } else if (typeLine.includes('battle')) {
+                    category = 'battles';
+                  }
+                  
+                  const cardData: Card = {
+                    id: apiCard.id,
+                    name: apiCard.name,
+                    quantity: dbCard.quantity,
+                    cmc: apiCard.cmc || 0,
+                    type_line: apiCard.type_line || '',
+                    colors: apiCard.colors || [],
+                    color_identity: apiCard.color_identity || [],
+                    oracle_text: apiCard.oracle_text || '',
+                    power: apiCard.power,
+                    toughness: apiCard.toughness,
+                    image_uris: apiCard.image_uris || {},
+                    prices: apiCard.prices || {},
+                    set: apiCard.set || '',
+                    set_name: apiCard.set_name || '',
+                    collector_number: apiCard.collector_number || '',
+                    rarity: apiCard.rarity || 'common',
+                    keywords: apiCard.keywords || [],
+                    legalities: apiCard.legalities || {},
+                    layout: apiCard.layout || 'normal',
+                    mana_cost: apiCard.mana_cost || '',
+                    category,
+                    mechanics: apiCard.keywords || []
+                  };
 
-              // Basic categorization
-              if (dbCard.card_name === 'Plains' || dbCard.card_name === 'Swamp') {
-                category = 'lands';
-                type_line = `Basic Land — ${dbCard.card_name}`;
-              } else if (dbCard.card_name === 'Sol Ring') {
-                category = 'artifacts';
-                type_line = 'Artifact';
-                cmc = 1;
-              }
+                  if (dbCard.is_commander) {
+                    commander = cardData;
+                  } else {
+                    cards.push(cardData);
+                  }
+                  
+                } else {
+                  // Fallback for cards not found in Scryfall
+                  let category: Card['category'] = dbCard.is_commander ? 'commanders' : 'other';
+                  let type_line = '';
+                  
+                  const cardName = dbCard.card_name.toLowerCase();
+                  if (cardName.includes('plains') || cardName.includes('island') || cardName.includes('swamp') || 
+                      cardName.includes('mountain') || cardName.includes('forest')) {
+                    category = 'lands';
+                    type_line = `Basic Land — ${dbCard.card_name}`;
+                  } else if (cardName.includes('sol ring')) {
+                    category = 'artifacts';
+                    type_line = 'Artifact';
+                  }
 
-              if (dbCard.is_commander) {
-                category = 'commanders';
-              }
+                  const cardData: Card = {
+                    id: dbCard.card_id,
+                    name: dbCard.card_name,
+                    quantity: dbCard.quantity,
+                    cmc: 0,
+                    type_line,
+                    colors: [],
+                    color_identity: [],
+                    oracle_text: '',
+                    power: undefined,
+                    toughness: undefined,
+                    image_uris: {},
+                    prices: {},
+                    set: '',
+                    set_name: '',
+                    collector_number: '',
+                    rarity: 'common',
+                    keywords: [],
+                    legalities: {},
+                    layout: 'normal',
+                    mana_cost: '',
+                    category,
+                    mechanics: []
+                  };
 
-              const cardData: Card = {
-                id: dbCard.card_id,
-                name: dbCard.card_name,
-                quantity: dbCard.quantity,
-                cmc,
-                type_line,
-                colors: [],
-                color_identity: [],
-                oracle_text: '',
-                power: undefined,
-                toughness: undefined,
-                image_uris: {},
-                prices: {},
-                set: '',
-                set_name: '',
-                collector_number: '',
-                rarity: 'common',
-                keywords: [],
-                legalities: {},
-                layout: 'normal',
-                mana_cost: '',
-                category,
-                mechanics: []
-              };
-
-              if (dbCard.is_commander) {
-                commander = cardData;
-              } else {
-                cards.push(cardData);
+                  if (dbCard.is_commander) {
+                    commander = cardData;
+                  } else {
+                    cards.push(cardData);
+                  }
+                }
+                
+                // Add small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+              } catch (error) {
+                console.error(`Error processing ${dbCard.card_name}:`, error);
               }
             }
           }
@@ -392,6 +495,7 @@ export const useDeckStore = create<DeckState>()(
             colors: deckData.colors,
             cards,
             commander,
+            currentDeckId: deckId,
             totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
           });
 
@@ -399,6 +503,93 @@ export const useDeckStore = create<DeckState>()(
         } catch (error) {
           console.error('Database error:', error);
           return { success: false, error: 'Failed to load deck' };
+        }
+      },
+
+      updateDeck: async (deckId: string) => {
+        const state = get();
+        const { supabase } = await import('@/integrations/supabase/client');
+
+        try {
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            return { success: false, error: 'User not authenticated' };
+          }
+
+          // Update deck metadata
+          const { error: deckError } = await supabase
+            .from('user_decks')
+            .update({
+              name: state.name,
+              format: state.format,
+              colors: state.colors,
+              power_level: state.powerLevel,
+              description: `${state.format} deck with ${state.totalCards} cards`,
+            })
+            .eq('id', deckId)
+            .eq('user_id', user.id);
+
+          if (deckError) {
+            console.error('Error updating deck:', deckError);
+            return { success: false, error: deckError.message };
+          }
+
+          // Delete existing deck cards
+          const { error: deleteError } = await supabase
+            .from('deck_cards')
+            .delete()
+            .eq('deck_id', deckId);
+
+          if (deleteError) {
+            console.error('Error deleting existing cards:', deleteError);
+            return { success: false, error: deleteError.message };
+          }
+
+          // Insert commander if present
+          if (state.commander) {
+            const { error: commanderError } = await supabase
+              .from('deck_cards')
+              .insert({
+                deck_id: deckId,
+                card_id: state.commander.id,
+                card_name: state.commander.name,
+                quantity: 1,
+                is_commander: true,
+                is_sideboard: false
+              });
+
+            if (commanderError) {
+              console.error('Error saving commander:', commanderError);
+              return { success: false, error: commanderError.message };
+            }
+          }
+
+          // Insert all other cards
+          if (state.cards.length > 0) {
+            const cardInserts = state.cards.map(card => ({
+              deck_id: deckId,
+              card_id: card.id,
+              card_name: card.name,
+              quantity: card.quantity,
+              is_commander: false,
+              is_sideboard: false
+            }));
+
+            const { error: cardsError } = await supabase
+              .from('deck_cards')
+              .insert(cardInserts);
+
+            if (cardsError) {
+              console.error('Error saving cards:', cardsError);
+              return { success: false, error: cardsError.message };
+            }
+          }
+
+          return { success: true };
+        } catch (error) {
+          console.error('Database error:', error);
+          return { success: false, error: 'Failed to update deck' };
         }
       }
     }),
@@ -411,6 +602,7 @@ export const useDeckStore = create<DeckState>()(
         powerLevel: state.powerLevel,
         cards: state.cards,
         commander: state.commander,
+        currentDeckId: state.currentDeckId,
         totalCards: state.totalCards
       })
     }

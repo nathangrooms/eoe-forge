@@ -29,6 +29,7 @@ import { CardPreview } from './CardPreview';
 
 const CATEGORY_ICONS = {
   commander: Crown,
+  commanders: Crown,
   lands: Mountain,
   creatures: Users,
   instants: Sparkles,
@@ -37,6 +38,18 @@ const CATEGORY_ICONS = {
   artifacts: Shield,
   planeswalkers: Swords,
   battles: Skull
+};
+
+const CATEGORY_COLORS = {
+  commanders: 'border-l-yellow-500 bg-yellow-500/10',
+  lands: 'border-l-emerald-500 bg-emerald-500/10',
+  creatures: 'border-l-green-500 bg-green-500/10',
+  instants: 'border-l-blue-500 bg-blue-500/10',
+  sorceries: 'border-l-red-500 bg-red-500/10',
+  enchantments: 'border-l-purple-500 bg-purple-500/10',
+  artifacts: 'border-l-gray-500 bg-gray-500/10',
+  planeswalkers: 'border-l-orange-500 bg-orange-500/10',
+  battles: 'border-l-rose-500 bg-rose-500/10'
 };
 
 const CMC_BUCKETS = [
@@ -62,6 +75,7 @@ export const ModernDeckList = () => {
     battles: false
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'visual'>('visual');
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => ({
@@ -91,10 +105,11 @@ export const ModernDeckList = () => {
   const renderCategoryHeader = (category: string, count: number) => {
     const Icon = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] || Gem;
     const isExpanded = expandedCategories[category];
+    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-primary bg-primary/10';
 
     return (
       <div 
-        className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 rounded-lg transition-colors"
+        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 rounded-lg transition-colors border-l-4 ${colorClass}`}
         onClick={() => toggleCategory(category)}
       >
         <div className="flex items-center space-x-3">
@@ -241,31 +256,62 @@ export const ModernDeckList = () => {
     );
   };
 
-  const categories = ['creatures', 'lands', 'instants', 'sorceries', 'enchantments', 'artifacts', 'planeswalkers', 'battles'];
+  const categories = ['commanders', 'creatures', 'lands', 'instants', 'sorceries', 'enchantments', 'artifacts', 'planeswalkers', 'battles'];
+
+  const renderVisualCards = (cards: any[]) => {
+    const filteredCards = filterCards(cards);
+    
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 ml-8">
+        {filteredCards.map((card) => (
+          <div key={card.id} className="relative group">
+            <div className="aspect-[5/7] rounded-lg overflow-hidden bg-muted/50 hover:shadow-lg transition-all duration-200">
+              {card.image_uris?.normal ? (
+                <img 
+                  src={card.image_uris.normal} 
+                  alt={card.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-center p-2">
+                  <span className="text-xs font-medium">{card.name}</span>
+                </div>
+              )}
+              {card.quantity > 1 && (
+                <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs font-bold rounded px-1">
+                  {card.quantity}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-center mt-1 truncate">{card.name}</p>
+            <p className="text-xs text-center text-muted-foreground">CMC {card.cmc}</p>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Deck Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{deck.name}</h2>
+          <h2 className="text-2xl font-bold">Deck List</h2>
           <p className="text-muted-foreground">
-            {deck.totalCards} cards • Power Level {deck.powerLevel}/10 • {deck.format}
+            {deck.totalCards} cards total
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => deck.clearDeck()}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Clear
-          </Button>
+        <div className="flex items-center space-x-2">
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'visual')}>
+            <TabsList>
+              <TabsTrigger value="list" className="flex items-center space-x-2">
+                <span>List</span>
+              </TabsTrigger>
+              <TabsTrigger value="visual" className="flex items-center space-x-2">
+                <span>Visual</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -291,9 +337,11 @@ export const ModernDeckList = () => {
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (
                 <div className="pb-4">
-                  {category === 'creatures' ? 
-                    renderCreatureBuckets(cards) : 
-                    renderCardList(cards)
+                  {viewMode === 'visual' ? 
+                    renderVisualCards(cards) :
+                    (category === 'creatures' ? 
+                      renderCreatureBuckets(cards) : 
+                      renderCardList(cards))
                   }
                 </div>
               )}

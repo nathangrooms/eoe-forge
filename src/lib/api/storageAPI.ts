@@ -235,14 +235,21 @@ export class StorageAPI {
     }
 
     // Check if item already exists in this container
-    const { data: existing, error: existingError } = await supabase
+    let query = supabase
       .from('storage_items')
       .select('*')
       .eq('container_id', request.container_id)
       .eq('card_id', request.card_id)
-      .eq('foil', request.foil)
-      .eq('slot_id', request.slot_id || null)
-      .single();
+      .eq('foil', request.foil);
+
+    // Handle slot_id properly - null values need special handling
+    if (request.slot_id) {
+      query = query.eq('slot_id', request.slot_id);
+    } else {
+      query = query.is('slot_id', null);
+    }
+
+    const { data: existing, error: existingError } = await query.single();
 
     if (existingError && existingError.code !== 'PGRST116') throw existingError;
 

@@ -61,13 +61,13 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
       // Skip empty lines and comments
       if (!line || line.startsWith('//') || line.startsWith('#')) continue;
       
-      // Category headers
+      // Category headers - Enhanced commander detection
       if (line.toLowerCase().includes('sideboard') || line.toLowerCase().includes('side board')) {
         currentCategory = 'sideboard';
         continue;
       }
       
-      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone')) {
+      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone') || line.toLowerCase() === 'commander') {
         currentCategory = 'commander';
         continue;
       }

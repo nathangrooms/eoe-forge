@@ -355,9 +355,9 @@ const DeckBuilder = () => {
         </div>
       }
     >
-      {/* Tabs */}
-      <div className="border-b px-6">
-        <Tabs defaultValue="deck" className="w-full">
+      <Tabs defaultValue="deck" className="h-full flex flex-col">
+        {/* Tabs */}
+        <div className="border-b px-6">
           <TabsList className="flex w-full justify-start bg-transparent p-0 h-12 gap-6">
             <TabsTrigger 
               value="deck" 
@@ -396,13 +396,10 @@ const DeckBuilder = () => {
               Import/Export
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="deck" className="h-full">
-
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
           {/* Deck Canvas Tab */}
           <TabsContent value="deck" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name ? (
@@ -452,7 +449,6 @@ const DeckBuilder = () => {
               </div>
             )}
           </TabsContent>
-
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
@@ -542,8 +538,8 @@ const DeckBuilder = () => {
               <AIBuilder />
             </div>
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
     </StandardPageLayout>
   );
 };

@@ -102,29 +102,27 @@ export default function Cards() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b px-6">
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-          <TabsList className="grid w-96 grid-cols-2 bg-transparent p-0 h-12">
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="h-full flex flex-col">
+        {/* Tabs */}
+        <div className="border-b px-6">
+          <TabsList className="flex w-full justify-start bg-transparent p-0 h-12 gap-6">
             <TabsTrigger 
               value="simple" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Simple Search
             </TabsTrigger>
             <TabsTrigger 
               value="advanced"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Advanced Search
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="h-full">
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
           {/* Simple Search Tab */}
           <TabsContent value="simple" className="h-full overflow-auto px-6 py-4 m-0">
             <EnhancedUniversalCardSearch
@@ -154,8 +152,8 @@ export default function Cards() {
               initialQuery={initialQuery}
             />
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
     </div>
   );
 }

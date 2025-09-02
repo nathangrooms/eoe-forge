@@ -489,35 +489,33 @@ export default function Wishlist() {
         </div>
       }
     >
-      {/* Tabs */}
-      <div className="border-b px-6">
-        <Tabs defaultValue="wishlist" className="w-full">
-          <TabsList className="grid w-96 grid-cols-3 bg-transparent p-0 h-12">
+      <Tabs defaultValue="wishlist" className="h-full flex flex-col">
+        {/* Tabs */}
+        <div className="border-b px-6">
+          <TabsList className="flex w-full justify-start bg-transparent p-0 h-12 gap-6">
             <TabsTrigger 
               value="wishlist" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               My Wishlist
             </TabsTrigger>
             <TabsTrigger 
               value="by-deck"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               By Deck
             </TabsTrigger>
             <TabsTrigger 
               value="search"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Add Cards
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="wishlist" className="h-full">
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
 
           <TabsContent value="wishlist" className="h-full overflow-auto px-6 py-4 m-0">
           {loading ? (
@@ -677,8 +675,8 @@ export default function Wishlist() {
               showViewModes={true}
             />
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
 
       {/* Card Modal */}
       {selectedItem && (

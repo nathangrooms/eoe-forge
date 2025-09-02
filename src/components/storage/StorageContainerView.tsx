@@ -73,52 +73,50 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
+        <Button variant="outline" onClick={onBack} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
           Back to Storage
         </Button>
         <div className="flex items-center gap-3">
-          <Package 
-            className="h-8 w-8" 
-            style={{ color: container.color || '#6B7280' }} 
-          />
+          <div 
+            className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-sm"
+            style={{ backgroundColor: container.color || '#6366F1' }}
+          >
+            <Package className="h-6 w-6" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">{container.name}</h1>
-            <p className="text-muted-foreground capitalize">{container.type}</p>
+            <h1 className="text-3xl font-bold">{container.name}</h1>
+            <p className="text-muted-foreground capitalize flex items-center gap-2">
+              <Badge variant="outline">{container.type}</Badge>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold">{totalCards}</p>
-              <p className="text-sm text-muted-foreground">Total Cards</p>
-            </div>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-foreground">{totalCards}</div>
+            <div className="text-sm text-muted-foreground">Total Cards</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold">{uniqueCards}</p>
-              <p className="text-sm text-muted-foreground">Unique Cards</p>
-            </div>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-foreground">{uniqueCards}</div>
+            <div className="text-sm text-muted-foreground">Unique Cards</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">Total Value</p>
-            </div>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">${totalValue.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground">Total Value</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Controls */}
-      <Card>
+      {/* Search and Actions */}
+      <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
@@ -130,26 +128,26 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
                 className="pl-9"
               />
             </div>
-            <Button onClick={() => setShowAssignDrawer(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button onClick={() => setShowAssignDrawer(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
               Assign Cards
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Items Grid */}
+      {/* Cards Display */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="animate-pulse border-border/50">
               <CardContent className="p-4">
                 <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted rounded"></div>
+                  <div className="w-16 h-16 bg-muted/50 rounded"></div>
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4"></div>
-                    <div className="h-3 bg-muted rounded w-1/2"></div>
-                    <div className="h-3 bg-muted rounded w-1/4"></div>
+                    <div className="h-4 bg-muted/50 rounded w-3/4"></div>
+                    <div className="h-3 bg-muted/50 rounded w-1/2"></div>
+                    <div className="h-3 bg-muted/50 rounded w-1/4"></div>
                   </div>
                 </div>
               </CardContent>
@@ -157,14 +155,16 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
           ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <Card className="border-dashed border-2 border-muted">
+          <CardContent className="p-12 text-center">
+            <div className="mx-auto w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+              <Package className="h-8 w-8 text-muted-foreground" />
+            </div>
             <h3 className="text-lg font-semibold mb-2">No cards assigned</h3>
-            <p className="text-muted-foreground mb-4">
-              This container is empty. Start by assigning some cards.
+            <p className="text-muted-foreground mb-6">
+              This container is empty. Start by assigning some cards from your collection.
             </p>
-            <Button onClick={() => setShowAssignDrawer(true)}>
+            <Button onClick={() => setShowAssignDrawer(true)} size="lg">
               <Plus className="h-4 w-4 mr-2" />
               Assign Cards
             </Button>
@@ -173,54 +173,63 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
+            <Card key={item.id} className="group hover:shadow-md transition-all duration-200 border-border/50">
               <CardContent className="p-4">
                 <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                    {item.card?.image_uris?.small && (
+                  {/* Card Image */}
+                  <div className="w-16 h-16 bg-muted/50 rounded overflow-hidden flex-shrink-0 border border-border/30">
+                    {item.card?.image_uris?.small ? (
                       <img
                         src={item.card.image_uris.small}
                         alt={item.card.name}
                         className="w-full h-full object-cover"
                       />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="h-6 w-6 text-muted-foreground" />
+                      </div>
                     )}
                   </div>
                   
+                  {/* Card Info */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm truncate">
+                    <h4 className="font-semibold text-sm truncate mb-1">
                       {item.card?.name || 'Unknown Card'}
                     </h4>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mb-2">
                       {item.card?.set_code?.toUpperCase()} • {item.card?.rarity}
                     </p>
                     
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={item.foil ? "default" : "secondary"}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant={item.foil ? "default" : "secondary"} className="text-xs">
                         {item.qty}x {item.foil ? 'Foil' : 'Normal'}
                       </Badge>
                       {item.card?.prices?.usd && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-green-600 font-medium">
                           ${(parseFloat(item.card.prices.usd) * item.qty).toFixed(2)}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex gap-1 mt-2">
+                    {/* Action Buttons */}
+                    <div className="flex gap-1">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="text-xs h-7 px-2"
                         onClick={() => handleUnassign(item.id, 1)}
                         disabled={item.qty <= 0}
                       >
-                        Unassign 1
+                        Remove 1
                       </Button>
                       {item.qty > 1 && (
                         <Button
                           size="sm"
                           variant="outline"
+                          className="text-xs h-7 px-2"
                           onClick={() => handleUnassign(item.id, item.qty)}
                         >
-                          Unassign All
+                          Remove All
                         </Button>
                       )}
                     </div>

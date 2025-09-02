@@ -317,6 +317,14 @@ export default function Collection() {
     // Add to box if selected
     if (deckAdditionConfig.addToBox && deckAdditionConfig.selectedBoxId) {
       try {
+        console.log('Attempting to add to box:', {
+          container_id: deckAdditionConfig.selectedBoxId,
+          card_id: card.id,
+          card_name: card.name,
+          qty: 1,
+          foil: false
+        });
+        
         await StorageAPI.assignCard({
           container_id: deckAdditionConfig.selectedBoxId,
           card_id: card.id,
@@ -324,9 +332,11 @@ export default function Collection() {
           foil: false
         });
         actions.push('Box');
-        console.log('Added to box:', deckAdditionConfig.selectedBoxId);
+        console.log('Successfully added to box:', deckAdditionConfig.selectedBoxId);
       } catch (error) {
         console.error('Failed to add to box:', error);
+        showError('Box Error', 'Failed to add card to box');
+        return;
       }
     }
 

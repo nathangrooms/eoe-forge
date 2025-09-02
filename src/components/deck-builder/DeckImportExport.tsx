@@ -34,6 +34,12 @@ interface ParseResult {
   warnings: string[];
 }
 
+interface ParsedCard {
+  name: string;
+  quantity: number;
+  category: string;
+}
+
 export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExportProps) => {
   const [importText, setImportText] = useState('');
   const [exportFormat, setExportFormat] = useState<'text' | 'csv' | 'arena' | 'modo'>('text');

@@ -91,13 +91,13 @@ export const CardPreview = ({ card, showAddButton = true, variant = 'grid' }: Ca
       layout: card.layout || 'normal',
       mana_cost: card.mana_cost,
       quantity: 1,
-      category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
-               card.type_line.toLowerCase().includes('land') ? 'lands' :
-               card.type_line.toLowerCase().includes('instant') ? 'instants' :
-               card.type_line.toLowerCase().includes('sorcery') ? 'sorceries' :
-               card.type_line.toLowerCase().includes('enchantment') ? 'enchantments' :
-               card.type_line.toLowerCase().includes('artifact') ? 'artifacts' :
-               card.type_line.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other',
+      category: card.type_line.toLowerCase().includes('creature') ? 'creatures' as const : 
+               card.type_line.toLowerCase().includes('land') ? 'lands' as const :
+               card.type_line.toLowerCase().includes('instant') ? 'instants' as const :
+               card.type_line.toLowerCase().includes('sorcery') ? 'sorceries' as const :
+               card.type_line.toLowerCase().includes('enchantment') ? 'enchantments' as const :
+               card.type_line.toLowerCase().includes('artifact') ? 'artifacts' as const :
+               card.type_line.toLowerCase().includes('planeswalker') ? 'planeswalkers' as const : 'other' as const,
       mechanics: card.mechanics || []
     });
   };

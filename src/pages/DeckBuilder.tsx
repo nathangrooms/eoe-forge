@@ -129,18 +129,10 @@ const DeckBuilder = () => {
         }
       }
 
-      const localDecksFormatted: Deck[] = localDecks.map(localDeck => ({
-        id: localDeck.id,
-        name: `${localDeck.name} (Local)`,
-        format: localDeck.format as any,
-        powerLevel: localDeck.powerLevel,
-        colors: localDeck.colors,
-        cardCount: localDeck.totalCards,
-        lastModified: new Date(localDeck.updatedAt),
-        description: localDeck.description || ''
-      }));
+      const localDecksFormatted: Deck[] = [];
+      // No longer including local decks since we only want Supabase decks
 
-      setAllDecks([...supabaseDecks, ...localDecksFormatted]);
+      setAllDecks([...supabaseDecks]);
     } catch (error) {
       console.error('Error loading decks:', error);
     } finally {

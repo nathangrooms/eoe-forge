@@ -77,7 +77,7 @@ export default function Collection() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';
-    if (['collection', 'add-cards', 'storage'].includes(tabFromUrl)) {
+    if (['collection', 'analytics', 'add-cards', 'storage'].includes(tabFromUrl)) {
       setCurrentTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -393,12 +393,18 @@ export default function Collection() {
       {/* Tabs */}
       <div className="border-b px-6">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-80 grid-cols-3 bg-transparent p-0 h-12">
+          <TabsList className="grid w-96 grid-cols-4 bg-transparent p-0 h-12">
             <TabsTrigger 
               value="collection" 
               className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
             >
               Collection
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analytics"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Analytics
             </TabsTrigger>
             <TabsTrigger 
               value="add-cards"
@@ -422,14 +428,6 @@ export default function Collection() {
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
-              {/* Collection Analytics */}
-              {collectionStats && (
-                <CollectionAnalytics 
-                  stats={collectionStats} 
-                  loading={loading}
-                />
-              )}
-              
               {/* Collection Search */}
               <CollectionSearch
                 onSearchChange={setCollectionSearchQuery}
@@ -445,6 +443,18 @@ export default function Collection() {
                 onMarkForSale={handleMarkForSale}
                 onAddToDeck={handleAddToDeck}
               />
+            </div>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="h-full overflow-auto px-6 py-4 m-0">
+            <div className="space-y-6">
+              {collectionStats && (
+                <CollectionAnalytics 
+                  stats={collectionStats} 
+                  loading={loading}
+                />
+              )}
             </div>
           </TabsContent>
 

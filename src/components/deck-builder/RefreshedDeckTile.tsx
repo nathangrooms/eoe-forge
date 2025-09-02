@@ -114,8 +114,9 @@ export function RefreshedDeckTile({
     ));
   };
 
-  // Mini curve chart data
-  const curveData = Object.entries(deckSummary.curve.bins).map(([cmc, count]) => ({
+  // Mini curve chart data - handle both data structures
+  const curveSource = deckSummary.curve?.bins || deckSummary.curve || {};
+  const curveData = Object.entries(curveSource).map(([cmc, count]) => ({
     cmc,
     count: Number(count)
   }));
@@ -357,7 +358,7 @@ export function RefreshedDeckTile({
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-center gap-1 mb-2">
-                    {Object.entries(deckSummary.mana.sources)
+                    {Object.entries(deckSummary.mana?.sources || {})
                       .filter(([_, count]) => Number(count) > 0)
                       .slice(0, 5)
                       .map(([color, count]) => (
@@ -376,9 +377,9 @@ export function RefreshedDeckTile({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-xs">T1 Untapped</span>
-                      <span className="text-xs font-bold">{Math.round(deckSummary.mana.untappedPctByTurn.t1)}%</span>
+                      <span className="text-xs font-bold">{Math.round((deckSummary.mana.untappedPctByTurn?.t1 || 0) * 100)}%</span>
                     </div>
-                    <Progress value={deckSummary.mana.untappedPctByTurn.t1} className="h-1" />
+                    <Progress value={(deckSummary.mana.untappedPctByTurn?.t1 || 0) * 100} className="h-1" />
                   </div>
                 </div>
               </div>

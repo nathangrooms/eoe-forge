@@ -501,10 +501,21 @@ const DeckBuilder = () => {
             />
             <DeckImportExport 
               currentDeck={deck.cards}
-              onImportDeck={(cards) => {
-                deck.clearDeck();
-                cards.forEach(card => deck.addCard(card));
-                showSuccess("Deck Imported", `Imported ${cards.length} cards`);
+              onImportDeck={async (cards) => {
+                try {
+                  // Import all cards directly to the store without triggering auto-saves
+                  deck.importDeck(cards);
+                  
+                  // If we have a current deck, save it once to the database
+                  if (deck.currentDeckId) {
+                    await deck.updateDeck(deck.currentDeckId);
+                  }
+                  
+                  showSuccess("Deck Imported", `Imported ${cards.length} cards`);
+                } catch (error) {
+                  console.error('Import error:', error);
+                  showError("Import Failed", "Failed to import deck");
+                }
               }}
             />
           </div>

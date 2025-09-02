@@ -61,8 +61,8 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
         continue;
       }
       
-      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone') || line.toLowerCase() === 'deck') {
-        currentCategory = line.toLowerCase().includes('commander') ? 'commander' : 'main';
+      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone')) {
+        currentCategory = 'commander';
         continue;
       }
       

@@ -175,7 +175,7 @@ export default function AIBuilder() {
           type_line: 'Instant', // Mock value
           colors: ['R'], // Mock value
           quantity: 1,
-          category: 'spells',
+          category: 'instants',
           mechanics: []
         });
       }

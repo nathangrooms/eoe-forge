@@ -4,12 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Search, X, Star, TrendingUp } from 'lucide-react';
-import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
+import { useDeckStore } from '@/stores/deckStore';
 import { showSuccess } from '@/components/ui/toast-helpers';
 
 interface CommanderSelectorProps {
-  deckId: string;
-  currentCommander?: DeckCard;
+  currentCommander?: any;
 }
 
 const POPULAR_COMMANDERS = [
@@ -23,8 +22,8 @@ const POPULAR_COMMANDERS = [
   { name: 'Yuriko, the Tiger\'s Shadow', colors: ['U', 'B'], popularity: 74 },
 ];
 
-export function CommanderSelector({ deckId, currentCommander }: CommanderSelectorProps) {
-  const { setCommander } = useDeckManagementStore();
+export function CommanderSelector({ currentCommander }: CommanderSelectorProps) {
+  const { setCommander } = useDeckStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +68,7 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
   }, [searchQuery]);
 
   const handleCommanderSelect = (card: any) => {
-    const commanderCard: DeckCard = {
+    const commanderCard = {
       id: card.id,
       name: card.name,
       cmc: card.cmc || 0,
@@ -77,13 +76,13 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
       colors: card.color_identity || card.colors || [],
       mana_cost: card.mana_cost,
       quantity: 1,
-      category: 'creatures',
+      category: 'commanders' as const,
       mechanics: card.keywords || [],
       image_uris: card.image_uris,
       prices: card.prices
     };
 
-    setCommander(deckId, commanderCard);
+    setCommander(commanderCard);
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -135,7 +134,7 @@ export function CommanderSelector({ deckId, currentCommander }: CommanderSelecto
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setCommander(deckId, undefined as any)}
+              onClick={() => setCommander(undefined as any)}
               className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
             >
               <X className="h-4 w-4" />

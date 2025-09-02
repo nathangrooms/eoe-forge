@@ -56,7 +56,7 @@ export function EnhancedDeckCanvas({ format = 'standard' }: EnhancedDeckCanvasPr
 
     if (format === 'commander') {
       // Commander section
-      const commanders = deck.cards.filter(card => card.category === 'commander');
+      const commanders = deck.cards.filter(card => card.category === 'commanders');
       groups.push({
         name: 'Commander',
         cards: commanders,

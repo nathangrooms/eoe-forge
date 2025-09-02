@@ -47,7 +47,6 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
                   </DialogTitle>
                 </DialogHeader>
                 <CommanderSelector 
-                  deckId={deckId} 
                   currentCommander={currentCommander}
                 />
               </DialogContent>
@@ -123,7 +122,6 @@ export function CompactCommanderSection({ deckId, currentCommander }: CompactCom
                   </DialogTitle>
                 </DialogHeader>
                 <CommanderSelector 
-                  deckId={deckId} 
                   currentCommander={currentCommander}
                 />
               </DialogContent>

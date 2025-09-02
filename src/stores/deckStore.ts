@@ -30,7 +30,7 @@ export interface Card {
   layout?: string;
   mana_cost?: string;
   quantity: number;
-  category: string;
+  category: 'commanders' | 'creatures' | 'lands' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'battles' | 'other';
   mechanics?: string[];
 }
 
@@ -221,68 +221,185 @@ export const useDeckStore = create<DeckState>()(
         return mechanics;
       },
 
-      // Database operations (commented out - not implemented in DeckAPI yet)
+      // Database operations
       saveDeck: async () => {
-        // const state = get();
-        // const { DeckAPI } = await import('@/lib/api/deckAPI');
-        
-        // return await DeckAPI.saveDeck({
-        //   name: state.name,
-        //   format: state.format,
-        //   colors: state.colors,
-        //   power_level: state.powerLevel,
-        //   cards: state.cards,
-        //   commander: state.commander
-        // });
-        throw new Error('saveDeck not implemented yet');
+        const state = get();
+        const { supabase } = await import('@/integrations/supabase/client');
+
+        try {
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            return { success: false, error: 'User not authenticated' };
+          }
+
+          // Check if we need to create a new deck or update existing
+          const deckToSave = {
+            name: state.name,
+            format: state.format,
+            colors: state.colors,
+            power_level: state.powerLevel,
+            description: `${state.format} deck with ${state.totalCards} cards`,
+            user_id: user.id
+          };
+
+          const { data: deckData, error: deckError } = await supabase
+            .from('user_decks')
+            .insert(deckToSave)
+            .select()
+            .single();
+
+          if (deckError) {
+            console.error('Error saving deck:', deckError);
+            return { success: false, error: deckError.message };
+          }
+
+          // Save commander if present
+          if (state.commander) {
+            const { error: commanderError } = await supabase
+              .from('deck_cards')
+              .insert({
+                deck_id: deckData.id,
+                card_id: state.commander.id,
+                card_name: state.commander.name,
+                quantity: 1,
+                is_commander: true,
+                is_sideboard: false
+              });
+
+            if (commanderError) {
+              console.error('Error saving commander:', commanderError);
+            }
+          }
+
+          // Save all other cards
+          if (state.cards.length > 0) {
+            const cardInserts = state.cards.map(card => ({
+              deck_id: deckData.id,
+              card_id: card.id,
+              card_name: card.name,
+              quantity: card.quantity,
+              is_commander: false,
+              is_sideboard: false
+            }));
+
+            const { error: cardsError } = await supabase
+              .from('deck_cards')
+              .insert(cardInserts);
+
+            if (cardsError) {
+              console.error('Error saving cards:', cardsError);
+              return { success: false, error: cardsError.message };
+            }
+          }
+
+          return { success: true, deckId: deckData.id };
+        } catch (error) {
+          console.error('Database error:', error);
+          return { success: false, error: 'Failed to save deck' };
+        }
       },
 
       loadDeck: async (deckId: string) => {
-        // const { DeckAPI } = await import('@/lib/api/deckAPI');
+        const { supabase } = await import('@/integrations/supabase/client');
         
-        // const result = await DeckAPI.loadDeck(deckId);
-        // if (result.success && result.deck) {
-        //   const deck = result.deck;
-        //   
-        //   // Convert saved deck cards to local format
-        //   const cards: Card[] = deck.cards
-        //     .filter(c => !c.is_commander)
-        //     .map(c => ({
-        //       id: c.card_id,
-        //       name: c.card_name,
-        //       quantity: c.quantity,
-        //       cmc: 0, // Will be updated when card details are loaded
-        //       type_line: '',
-        //       colors: [],
-        //       category: 'other',
-        //       mechanics: []
-        //     }));
+        try {
+          // Load deck metadata
+          const { data: deckData, error: deckError } = await supabase
+            .from('user_decks')
+            .select('*')
+            .eq('id', deckId)
+            .single();
 
-        //   const commander = deck.cards.find(c => c.is_commander);
-        //   
-        //   set({
-        //     name: deck.name,
-        //     format: deck.format as any,
-        //     powerLevel: deck.power_level,
-        //     colors: deck.colors,
-        //     cards,
-        //     commander: commander ? {
-        //       id: commander.card_id,
-        //       name: commander.card_name,
-        //       quantity: 1,
-        //       cmc: 0,
-        //       type_line: '',
-        //       colors: [],
-        //       category: 'commanders',
-        //       mechanics: []
-        //     } : undefined,
-        //     totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
-        //   });
-        // }
-        // 
-        // return result;
-        throw new Error('loadDeck not implemented yet');
-        return { success: false, error: 'loadDeck not implemented yet' };
+          if (deckError) {
+            console.error('Error loading deck:', deckError);
+            return { success: false, error: deckError.message };
+          }
+
+          // Load deck cards
+          const { data: deckCards, error: cardsError } = await supabase
+            .from('deck_cards')
+            .select('*')
+            .eq('deck_id', deckId);
+
+          if (cardsError) {
+            console.error('Error loading deck cards:', cardsError);
+            return { success: false, error: cardsError.message };
+          }
+
+          // Transform and set deck data
+          const cards: Card[] = [];
+          let commander: Card | undefined;
+
+          if (deckCards) {
+            for (const dbCard of deckCards) {
+              let category: Card['category'] = 'other';
+              let type_line = '';
+              let cmc = 0;
+
+              // Basic categorization
+              if (dbCard.card_name === 'Plains' || dbCard.card_name === 'Swamp') {
+                category = 'lands';
+                type_line = `Basic Land — ${dbCard.card_name}`;
+              } else if (dbCard.card_name === 'Sol Ring') {
+                category = 'artifacts';
+                type_line = 'Artifact';
+                cmc = 1;
+              }
+
+              if (dbCard.is_commander) {
+                category = 'commanders';
+              }
+
+              const cardData: Card = {
+                id: dbCard.card_id,
+                name: dbCard.card_name,
+                quantity: dbCard.quantity,
+                cmc,
+                type_line,
+                colors: [],
+                color_identity: [],
+                oracle_text: '',
+                power: undefined,
+                toughness: undefined,
+                image_uris: {},
+                prices: {},
+                set: '',
+                set_name: '',
+                collector_number: '',
+                rarity: 'common',
+                keywords: [],
+                legalities: {},
+                layout: 'normal',
+                mana_cost: '',
+                category,
+                mechanics: []
+              };
+
+              if (dbCard.is_commander) {
+                commander = cardData;
+              } else {
+                cards.push(cardData);
+              }
+            }
+          }
+
+          // Update store state
+          set({
+            name: deckData.name,
+            format: deckData.format as any,
+            powerLevel: deckData.power_level,
+            colors: deckData.colors,
+            cards,
+            commander,
+            totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
+          });
+
+          return { success: true };
+        } catch (error) {
+          console.error('Database error:', error);
+          return { success: false, error: 'Failed to load deck' };
+        }
       }
     }),
     {

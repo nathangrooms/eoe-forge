@@ -41,15 +41,54 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  commanders: 'border-l-4 border-type-commander bg-gradient-to-r from-type-commander/20 to-type-commander/10 hover:from-type-commander/30 hover:to-type-commander/15',
-  lands: 'border-l-4 border-type-lands bg-gradient-to-r from-type-lands/20 to-type-lands/10 hover:from-type-lands/30 hover:to-type-lands/15',
-  creatures: 'border-l-4 border-type-creatures bg-gradient-to-r from-type-creatures/20 to-type-creatures/10 hover:from-type-creatures/30 hover:to-type-creatures/15',
-  instants: 'border-l-4 border-type-instants bg-gradient-to-r from-type-instants/20 to-type-instants/10 hover:from-type-instants/30 hover:to-type-instants/15',
-  sorceries: 'border-l-4 border-type-sorceries bg-gradient-to-r from-type-sorceries/20 to-type-sorceries/10 hover:from-type-sorceries/30 hover:to-type-sorceries/15',
-  enchantments: 'border-l-4 border-type-enchantments bg-gradient-to-r from-type-enchantments/20 to-type-enchantments/10 hover:from-type-enchantments/30 hover:to-type-enchantments/15',
-  artifacts: 'border-l-4 border-type-artifacts bg-gradient-to-r from-type-artifacts/20 to-type-artifacts/10 hover:from-type-artifacts/30 hover:to-type-artifacts/15',
-  planeswalkers: 'border-l-4 border-type-planeswalkers bg-gradient-to-r from-type-planeswalkers/20 to-type-planeswalkers/10 hover:from-type-planeswalkers/30 hover:to-type-planeswalkers/15',
-  battles: 'border-l-4 border-type-battles bg-gradient-to-r from-type-battles/20 to-type-battles/10 hover:from-type-battles/30 hover:to-type-battles/15'
+  commanders: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  lands: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300', 
+  creatures: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  instants: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  sorceries: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  enchantments: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  artifacts: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  planeswalkers: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
+  battles: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300'
+};
+
+const CATEGORY_STYLES = {
+  commanders: {
+    borderLeftColor: 'hsl(45 93% 47%)',
+    background: 'linear-gradient(to right, hsl(45 93% 47% / 0.2), hsl(45 93% 47% / 0.1))'
+  },
+  lands: {
+    borderLeftColor: 'hsl(159 64% 52%)',
+    background: 'linear-gradient(to right, hsl(159 64% 52% / 0.2), hsl(159 64% 52% / 0.1))'
+  },
+  creatures: {
+    borderLeftColor: 'hsl(142 71% 45%)',
+    background: 'linear-gradient(to right, hsl(142 71% 45% / 0.2), hsl(142 71% 45% / 0.1))'
+  },
+  instants: {
+    borderLeftColor: 'hsl(217 91% 60%)',
+    background: 'linear-gradient(to right, hsl(217 91% 60% / 0.2), hsl(217 91% 60% / 0.1))'
+  },
+  sorceries: {
+    borderLeftColor: 'hsl(0 84% 60%)',
+    background: 'linear-gradient(to right, hsl(0 84% 60% / 0.2), hsl(0 84% 60% / 0.1))'
+  },
+  enchantments: {
+    borderLeftColor: 'hsl(262 83% 58%)',
+    background: 'linear-gradient(to right, hsl(262 83% 58% / 0.2), hsl(262 83% 58% / 0.1))'
+  },
+  artifacts: {
+    borderLeftColor: 'hsl(215 28% 52%)',
+    background: 'linear-gradient(to right, hsl(215 28% 52% / 0.2), hsl(215 28% 52% / 0.1))'
+  },
+  planeswalkers: {
+    borderLeftColor: 'hsl(340 75% 55%)',
+    background: 'linear-gradient(to right, hsl(340 75% 55% / 0.2), hsl(340 75% 55% / 0.1))'
+  },
+  battles: {
+    borderLeftColor: 'hsl(25 95% 53%)',
+    background: 'linear-gradient(to right, hsl(25 95% 53% / 0.2), hsl(25 95% 53% / 0.1))'
+  }
 };
 
 const CMC_BUCKETS = [
@@ -105,11 +144,13 @@ export const ModernDeckList = () => {
   const renderCategoryHeader = (category: string, count: number) => {
     const Icon = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] || Gem;
     const isExpanded = expandedCategories[category];
-    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 border-primary bg-gradient-to-r from-primary/20 to-primary/10';
+    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 bg-gradient-to-r';
+    const categoryStyle = CATEGORY_STYLES[category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.creatures;
 
     return (
       <div 
-        className={`flex items-center justify-between p-4 cursor-pointer rounded-lg transition-all duration-300 ${colorClass}`}
+        className={`flex items-center justify-between p-4 cursor-pointer rounded-lg ${colorClass}`}
+        style={categoryStyle}
         onClick={() => toggleCategory(category)}
       >
         <div className="flex items-center space-x-3">
@@ -336,10 +377,11 @@ export const ModernDeckList = () => {
           const cards = groupedCards[category] || [];
           if (cards.length === 0) return null;
           
-          const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 border-primary bg-gradient-to-r from-primary/20 to-primary/10';
+          const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 bg-gradient-to-r';
+          const categoryStyle = CATEGORY_STYLES[category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.creatures;
           
           return (
-            <div key={category} className={`rounded-lg overflow-hidden ${colorClass}`}>
+            <div key={category} className={`rounded-lg overflow-hidden ${colorClass}`} style={categoryStyle}>
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (
                 <div className="pb-4">

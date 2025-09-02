@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Package, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Search, Zap, FolderOpen, Grid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { AssignDrawer } from './AssignDrawer';
+import { StorageQuickActions } from './StorageQuickActions';
 import { useToast } from '@/hooks/use-toast';
 
 interface StorageContainerViewProps {
@@ -18,7 +19,8 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAssignDrawer, setShowAssignDrawer] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,13 +48,13 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
       await StorageAPI.unassignCard({ item_id: itemId, qty });
       toast({
         title: "Success",
-        description: "Card unassigned successfully"
+        description: "Card removed from container"
       });
       loadItems();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to unassign card",
+        description: error.message || "Failed to remove card",
         variant: "destructive"
       });
     }
@@ -72,28 +74,46 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={onBack} className="gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Storage
-        </Button>
-        <div className="flex items-center gap-3">
-          <div 
-            className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-sm"
-            style={{ backgroundColor: container.color || '#6366F1' }}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={onBack} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-sm"
+              style={{ backgroundColor: container.color || '#6366F1' }}
+            >
+              <Package className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">{container.name}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="capitalize">{container.type}</Badge>
+                <span className="text-sm text-muted-foreground">•</span>
+                <span className="text-sm text-muted-foreground">{totalCards} cards</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
           >
-            <Package className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">{container.name}</h1>
-            <p className="text-muted-foreground capitalize flex items-center gap-2">
-              <Badge variant="outline">{container.type}</Badge>
-            </p>
-          </div>
+            {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
+          </Button>
+          <Button onClick={() => setShowQuickActions(true)} className="gap-2">
+            <Zap className="h-4 w-4" />
+            Quick Add
+          </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-border/50">
           <CardContent className="p-4 text-center">
@@ -115,7 +135,7 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
         </Card>
       </div>
 
-      {/* Search and Actions */}
+      {/* Search and Filters */}
       <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
@@ -128,17 +148,16 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
                 className="pl-9"
               />
             </div>
-            <Button onClick={() => setShowAssignDrawer(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Assign Cards
-            </Button>
+            <div className="text-sm text-muted-foreground">
+              {filteredItems.length} of {items.length} cards
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Cards Display */}
+      {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
           {[1, 2, 3, 4, 5, 6].map(i => (
             <Card key={i} className="animate-pulse border-border/50">
               <CardContent className="p-4">
@@ -158,26 +177,36 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
         <Card className="border-dashed border-2 border-muted">
           <CardContent className="p-12 text-center">
             <div className="mx-auto w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-              <Package className="h-8 w-8 text-muted-foreground" />
+              <FolderOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No cards assigned</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {searchQuery ? 'No matching cards' : 'Container is empty'}
+            </h3>
             <p className="text-muted-foreground mb-6">
-              This container is empty. Start by assigning some cards from your collection.
+              {searchQuery 
+                ? `No cards match "${searchQuery}". Try a different search term.`
+                : 'Start organizing your collection by adding cards, decks, or bulk imports.'
+              }
             </p>
-            <Button onClick={() => setShowAssignDrawer(true)} size="lg">
-              <Plus className="h-4 w-4 mr-2" />
-              Assign Cards
-            </Button>
+            {!searchQuery && (
+              <Button onClick={() => setShowQuickActions(true)} size="lg" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Quick Add Cards
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={viewMode === 'grid' 
+          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' 
+          : 'space-y-2'
+        }>
           {filteredItems.map((item) => (
-            <Card key={item.id} className="group hover:shadow-md transition-all duration-200 border-border/50">
-              <CardContent className="p-4">
-                <div className="flex gap-3">
+            <Card key={item.id} className={`group hover:shadow-md transition-all duration-200 border-border/50 ${viewMode === 'list' ? 'hover:bg-muted/30' : ''}`}>
+              <CardContent className={viewMode === 'grid' ? 'p-4' : 'p-3'}>
+                <div className={`flex gap-3 ${viewMode === 'list' ? 'items-center' : ''}`}>
                   {/* Card Image */}
-                  <div className="w-16 h-16 bg-muted/50 rounded overflow-hidden flex-shrink-0 border border-border/30">
+                  <div className={`bg-muted/50 rounded overflow-hidden flex-shrink-0 border border-border/30 ${viewMode === 'grid' ? 'w-16 h-16' : 'w-12 h-12'}`}>
                     {item.card?.image_uris?.small ? (
                       <img
                         src={item.card.image_uris.small}
@@ -186,52 +215,54 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-6 w-6 text-muted-foreground" />
+                        <Package className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
                   </div>
                   
                   {/* Card Info */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm truncate mb-1">
+                    <h4 className={`font-semibold truncate mb-1 ${viewMode === 'grid' ? 'text-sm' : 'text-base'}`}>
                       {item.card?.name || 'Unknown Card'}
                     </h4>
-                    <p className="text-xs text-muted-foreground mb-2">
+                    <p className={`text-muted-foreground mb-2 ${viewMode === 'grid' ? 'text-xs' : 'text-sm'}`}>
                       {item.card?.set_code?.toUpperCase()} • {item.card?.rarity}
                     </p>
                     
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge variant={item.foil ? "default" : "secondary"} className="text-xs">
-                        {item.qty}x {item.foil ? 'Foil' : 'Normal'}
-                      </Badge>
-                      {item.card?.prices?.usd && (
-                        <span className="text-xs text-green-600 font-medium">
-                          ${(parseFloat(item.card.prices.usd) * item.qty).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
+                    <div className={`flex items-center gap-2 ${viewMode === 'grid' ? 'flex-col items-start space-y-2' : 'justify-between'}`}>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={item.foil ? "default" : "secondary"} className="text-xs">
+                          {item.qty}x {item.foil ? 'Foil' : 'Normal'}
+                        </Badge>
+                        {item.card?.prices?.usd && (
+                          <span className="text-xs text-green-600 font-medium">
+                            ${(parseFloat(item.card.prices.usd) * item.qty).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-7 px-2"
-                        onClick={() => handleUnassign(item.id, 1)}
-                        disabled={item.qty <= 0}
-                      >
-                        Remove 1
-                      </Button>
-                      {item.qty > 1 && (
+                      {/* Action Buttons */}
+                      <div className="flex gap-1">
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-xs h-7 px-2"
-                          onClick={() => handleUnassign(item.id, item.qty)}
+                          onClick={() => handleUnassign(item.id, 1)}
+                          disabled={item.qty <= 0}
                         >
-                          Remove All
+                          -1
                         </Button>
-                      )}
+                        {item.qty > 1 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 px-2"
+                            onClick={() => handleUnassign(item.id, item.qty)}
+                          >
+                            Remove All
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -241,12 +272,13 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
         </div>
       )}
 
-      <AssignDrawer
-        open={showAssignDrawer}
-        onOpenChange={setShowAssignDrawer}
+      {/* Quick Actions Modal */}
+      <StorageQuickActions
+        isOpen={showQuickActions}
+        onClose={() => setShowQuickActions(false)}
         containerId={container.id}
         onSuccess={() => {
-          setShowAssignDrawer(false);
+          setShowQuickActions(false);
           loadItems();
         }}
       />

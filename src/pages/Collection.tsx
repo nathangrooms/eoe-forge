@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import { FullScreenAssignment } from '@/components/storage/FullScreenAssignment'
 import { StorageContainerView } from '@/components/storage/StorageContainerView';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
+import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
+import { CollectionStats } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
@@ -58,6 +60,7 @@ export default function Collection() {
   // Collection search state
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const [collectionFilters, setCollectionFilters] = useState<any>({});
+  const [collectionStats, setCollectionStats] = useState<CollectionStats | null>(null);
 
   // Deck Addition Panel state
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
@@ -89,7 +92,120 @@ export default function Collection() {
   };
 
   const stats = getStats();
-  const filteredCards = getFilteredCards();
+  const cards = snapshot?.items || [];
+
+  // Filter cards based on search
+  const filteredCards = useMemo(() => {
+    if (!cards) return [];
+    
+    let filtered = cards;
+    
+    if (collectionSearchQuery) {
+      filtered = filtered.filter(card => 
+        card.card_name.toLowerCase().includes(collectionSearchQuery.toLowerCase()) ||
+        card.set_code.toLowerCase().includes(collectionSearchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [cards, collectionSearchQuery]);
+
+  // Calculate collection stats
+  const calculateStats = useMemo(() => {
+    if (!cards || cards.length === 0) {
+      return {
+        totalCards: 0,
+        uniqueCards: 0,
+        totalValue: 0,
+        avgCmc: 0,
+        colorDistribution: {},
+        typeDistribution: {},
+        rarityDistribution: {},
+        setDistribution: {},
+        topValueCards: [],
+        recentlyAdded: []
+      };
+    }
+
+    const stats: CollectionStats = {
+      totalCards: 0,
+      uniqueCards: cards.length,
+      totalValue: 0,
+      avgCmc: 0,
+      colorDistribution: {},
+      typeDistribution: {},
+      rarityDistribution: {},
+      setDistribution: {},
+      topValueCards: [],
+      recentlyAdded: []
+    };
+
+    let totalCmc = 0;
+    let cardsWithCmc = 0;
+
+    cards.forEach(card => {
+      const totalQuantity = card.quantity + card.foil;
+      stats.totalCards += totalQuantity;
+      
+      // Value calculation
+      const normalValue = card.quantity * (parseFloat(card.card?.prices?.usd || '0') || 0);
+      const foilValue = card.foil * (parseFloat(card.card?.prices?.usd_foil || card.card?.prices?.usd || '0') || 0);
+      stats.totalValue += normalValue + foilValue;
+
+      // CMC calculation
+      if (card.card?.cmc) {
+        totalCmc += card.card.cmc * totalQuantity;
+        cardsWithCmc += totalQuantity;
+      }
+
+      // Color distribution
+      if (card.card?.colors && card.card.colors.length > 0) {
+        card.card.colors.forEach(color => {
+          stats.colorDistribution[color] = (stats.colorDistribution[color] || 0) + totalQuantity;
+        });
+      } else {
+        stats.colorDistribution['C'] = (stats.colorDistribution['C'] || 0) + totalQuantity;
+      }
+
+      // Type distribution (extract main type from type_line)
+      if (card.card?.type_line) {
+        const mainType = card.card.type_line.split(' — ')[0].split(' ')[0].toLowerCase();
+        stats.typeDistribution[mainType] = (stats.typeDistribution[mainType] || 0) + totalQuantity;
+      }
+
+      // Rarity distribution
+      if (card.card?.rarity) {
+        stats.rarityDistribution[card.card.rarity] = (stats.rarityDistribution[card.card.rarity] || 0) + totalQuantity;
+      }
+
+      // Set distribution
+      stats.setDistribution[card.set_code] = (stats.setDistribution[card.set_code] || 0) + totalQuantity;
+    });
+
+    stats.avgCmc = cardsWithCmc > 0 ? totalCmc / cardsWithCmc : 0;
+
+    // Top value cards (sorted by total value)
+    stats.topValueCards = [...cards]
+      .map(card => ({
+        ...card,
+        calculatedValue: (card.quantity * (parseFloat(card.card?.prices?.usd || '0') || 0)) +
+                        (card.foil * (parseFloat(card.card?.prices?.usd_foil || card.card?.prices?.usd || '0') || 0))
+      }))
+      .sort((a, b) => (b as any).calculatedValue - (a as any).calculatedValue)
+      .slice(0, 10);
+
+    // Recently added (last 6 by created_at)
+    stats.recentlyAdded = [...cards]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 6);
+
+    return stats;
+  }, [cards]);
+
+  // Update stats when calculation changes
+  useEffect(() => {
+    setCollectionStats(calculateStats);
+  }, [calculateStats]);
 
   const handleCardClick = (item: any) => {
     setSelectedCard(item.card);
@@ -306,8 +422,13 @@ export default function Collection() {
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
-              {/* Favorite Decks Preview */}
-              <FavoriteDecksPreview />
+              {/* Collection Analytics */}
+              {collectionStats && (
+                <CollectionAnalytics 
+                  stats={collectionStats} 
+                  loading={loading}
+                />
+              )}
               
               {/* Collection Search */}
               <CollectionSearch

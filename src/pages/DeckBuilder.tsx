@@ -358,40 +358,40 @@ const DeckBuilder = () => {
       {/* Tabs */}
       <div className="border-b px-6">
         <Tabs defaultValue="deck" className="w-full">
-          <TabsList className="grid w-96 grid-cols-6 bg-transparent p-0 h-12">
+          <TabsList className="flex w-full justify-start bg-transparent p-0 h-12 gap-6">
             <TabsTrigger 
               value="deck" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Deck ({deck.totalCards || 0})
             </TabsTrigger>
             <TabsTrigger 
               value="search"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Card Search
             </TabsTrigger>
             <TabsTrigger 
               value="analysis"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Analysis
             </TabsTrigger>
             <TabsTrigger 
               value="power-tuning"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Power Tuning
             </TabsTrigger>
             <TabsTrigger 
               value="manabase"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Manabase
             </TabsTrigger>
             <TabsTrigger 
               value="import-export"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
               Import/Export
             </TabsTrigger>

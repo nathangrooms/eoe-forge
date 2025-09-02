@@ -59,31 +59,31 @@ const getCategoryStyle = (category: string) => {
       background: 'linear-gradient(to right, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.1))'
     },
     lands: {
-      borderLeftColor: '#10b981', // Emerald
-      background: 'linear-gradient(to right, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))'
+      borderLeftColor: '#d97706', // Orange (matching your reference)
+      background: 'linear-gradient(to right, rgba(217, 119, 6, 0.2), rgba(217, 119, 6, 0.1))'
     },
     creatures: {
-      borderLeftColor: '#22c55e', // Green
-      background: 'linear-gradient(to right, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1))'
+      borderLeftColor: '#16a34a', // Green (matching your reference)
+      background: 'linear-gradient(to right, rgba(22, 163, 74, 0.2), rgba(22, 163, 74, 0.1))'
     },
     instants: {
-      borderLeftColor: '#3b82f6', // Blue
-      background: 'linear-gradient(to right, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1))'
+      borderLeftColor: '#2563eb', // Blue (matching your reference)
+      background: 'linear-gradient(to right, rgba(37, 99, 235, 0.2), rgba(37, 99, 235, 0.1))'
     },
     sorceries: {
-      borderLeftColor: '#ef4444', // Red
-      background: 'linear-gradient(to right, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1))'
+      borderLeftColor: '#dc2626', // Red (matching your reference)
+      background: 'linear-gradient(to right, rgba(220, 38, 38, 0.2), rgba(220, 38, 38, 0.1))'
     },
     enchantments: {
-      borderLeftColor: '#a855f7', // Purple
-      background: 'linear-gradient(to right, rgba(168, 85, 247, 0.2), rgba(168, 85, 247, 0.1))'
+      borderLeftColor: '#9333ea', // Purple (matching your reference)
+      background: 'linear-gradient(to right, rgba(147, 51, 234, 0.2), rgba(147, 51, 234, 0.1))'
     },
     artifacts: {
-      borderLeftColor: '#64748b', // Slate
-      background: 'linear-gradient(to right, rgba(100, 116, 139, 0.2), rgba(100, 116, 139, 0.1))'
+      borderLeftColor: '#6b7280', // Grey (matching your reference)
+      background: 'linear-gradient(to right, rgba(107, 114, 128, 0.2), rgba(107, 114, 128, 0.1))'
     },
     planeswalkers: {
-      borderLeftColor: '#ec4899', // Pink
+      borderLeftColor: '#ec4899', // Pink (matching your reference)
       background: 'linear-gradient(to right, rgba(236, 72, 153, 0.2), rgba(236, 72, 153, 0.1))'
     },
     battles: {

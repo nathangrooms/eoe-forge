@@ -6,6 +6,8 @@ import { Crown, Heart, Plus, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
+import { useDeckStore } from '@/stores/deckStore';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 interface FavoriteDeck {
   deck_id: string;
@@ -23,6 +25,7 @@ export function FavoriteDecksPreview() {
   const [favoriteDecks, setFavoriteDecks] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const deck = useDeckStore();
 
   useEffect(() => {
     loadFavoriteDecks();
@@ -113,6 +116,74 @@ export function FavoriteDecksPreview() {
     );
   };
 
+  const handleDeckClick = async (deckSummary: DeckSummary) => {
+    try {
+      if (deckSummary.name.includes('(Local)')) {
+        // Handle local deck loading
+        const { useDeckManagementStore } = await import('@/stores/deckManagementStore');
+        const localDecks = useDeckManagementStore.getState().decks;
+        const localDeck = localDecks.find(d => d.id === deckSummary.id);
+        
+        if (localDeck) {
+          // Load local deck into deck builder
+          deck.setDeckName(localDeck.name);
+          deck.setFormat(localDeck.format as 'standard' | 'commander' | 'custom');
+          deck.setPowerLevel(localDeck.powerLevel);
+          
+          // Clear current deck and add loaded cards
+          deck.clearDeck();
+          localDeck.cards.forEach(card => {
+            deck.addCard(card);
+          });
+          
+          showSuccess("Deck Loaded", `"${localDeck.name}" is ready for editing`);
+          navigate('/builder');
+        }
+      } else {
+        // Handle database deck loading
+        deck.setDeckName(deckSummary.name);
+        deck.setFormat(deckSummary.format as any);
+        deck.setPowerLevel(deckSummary.power.score);
+        
+        // Load deck cards from database
+        const { data: deckCards, error } = await supabase
+          .from('deck_cards')
+          .select('*')
+          .eq('deck_id', deckSummary.id);
+
+        if (error) {
+          console.error('Error loading deck cards:', error);
+          showError("Error", "Failed to load deck cards");
+          return;
+        }
+
+        // Clear current deck and add loaded cards
+        deck.clearDeck();
+        
+        if (deckCards) {
+          for (const dbCard of deckCards) {
+            deck.addCard({
+              id: dbCard.card_id,
+              name: dbCard.card_name,
+              quantity: dbCard.quantity,
+              cmc: 0,
+              type_line: '',
+              colors: [],
+              category: dbCard.is_commander ? 'commanders' : 'creatures',
+              mechanics: []
+            });
+          }
+        }
+
+        showSuccess("Deck Loaded", `"${deckSummary.name}" is ready for editing`);
+        navigate('/builder');
+      }
+    } catch (error) {
+      console.error('Error loading deck:', error);
+      showError("Error", "Failed to load deck");
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -162,13 +233,7 @@ export function FavoriteDecksPreview() {
             <Card 
               key={deck.id} 
               className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-              onClick={() => {
-                if (deck.name.includes('(Local)')) {
-                  navigate('/decks');
-                } else {
-                  navigate(`/decks/${deck.id}`);
-                }
-              }}
+              onClick={() => handleDeckClick(deck)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">

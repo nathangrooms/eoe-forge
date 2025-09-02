@@ -67,7 +67,7 @@ export function CommanderSelector({ currentCommander }: CommanderSelectorProps) 
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
-  const handleCommanderSelect = (card: any) => {
+  const handleCommanderSelect = async (card: any) => {
     const commanderCard = {
       id: card.id,
       name: card.name,
@@ -83,6 +83,50 @@ export function CommanderSelector({ currentCommander }: CommanderSelectorProps) 
     };
 
     setCommander(commanderCard);
+    
+    // Also save the commander to the database immediately
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Get current deck ID from URL or state
+        const urlParams = new URLSearchParams(window.location.search);
+        const deckId = urlParams.get('deck');
+        
+        if (deckId) {
+          console.log('Saving commander to deck:', deckId, card.name);
+          
+          // Remove existing commander first
+          await supabase
+            .from('deck_cards')
+            .delete()
+            .eq('deck_id', deckId)
+            .eq('is_commander', true);
+          
+          // Add new commander
+          const { error } = await supabase
+            .from('deck_cards')
+            .insert({
+              deck_id: deckId,
+              card_id: card.id,
+              card_name: card.name,
+              quantity: 1,
+              is_commander: true,
+              is_sideboard: false
+            });
+            
+          if (error) {
+            console.error('Error saving commander:', error);
+          } else {
+            console.log('Commander saved successfully');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleCommanderSelect:', error);
+    }
+    
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);

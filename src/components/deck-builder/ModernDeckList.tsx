@@ -41,15 +41,15 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  commanders: 'border-l-4 border-yellow-400 bg-gradient-to-r from-yellow-500/10 to-yellow-600/5',
-  lands: 'border-l-4 border-emerald-400 bg-gradient-to-r from-emerald-500/10 to-emerald-600/5',
-  creatures: 'border-l-4 border-green-400 bg-gradient-to-r from-green-500/10 to-green-600/5',
-  instants: 'border-l-4 border-blue-400 bg-gradient-to-r from-blue-500/10 to-blue-600/5',
-  sorceries: 'border-l-4 border-red-400 bg-gradient-to-r from-red-500/10 to-red-600/5',
-  enchantments: 'border-l-4 border-purple-400 bg-gradient-to-r from-purple-500/10 to-purple-600/5',
-  artifacts: 'border-l-4 border-gray-400 bg-gradient-to-r from-gray-500/10 to-gray-600/5',
-  planeswalkers: 'border-l-4 border-orange-400 bg-gradient-to-r from-orange-500/10 to-orange-600/5',
-  battles: 'border-l-4 border-rose-400 bg-gradient-to-r from-rose-500/10 to-rose-600/5'
+  commanders: 'border-l-4 border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-yellow-600/10 hover:from-yellow-500/30 hover:to-yellow-600/15',
+  lands: 'border-l-4 border-emerald-400 bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 hover:from-emerald-500/30 hover:to-emerald-600/15',
+  creatures: 'border-l-4 border-green-400 bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/15',
+  instants: 'border-l-4 border-blue-400 bg-gradient-to-r from-blue-500/20 to-blue-600/10 hover:from-blue-500/30 hover:to-blue-600/15',
+  sorceries: 'border-l-4 border-red-400 bg-gradient-to-r from-red-500/20 to-red-600/10 hover:from-red-500/30 hover:to-red-600/15',
+  enchantments: 'border-l-4 border-purple-400 bg-gradient-to-r from-purple-500/20 to-purple-600/10 hover:from-purple-500/30 hover:to-purple-600/15',
+  artifacts: 'border-l-4 border-slate-400 bg-gradient-to-r from-slate-500/20 to-slate-600/10 hover:from-slate-500/30 hover:to-slate-600/15',
+  planeswalkers: 'border-l-4 border-orange-400 bg-gradient-to-r from-orange-500/20 to-orange-600/10 hover:from-orange-500/30 hover:to-orange-600/15',
+  battles: 'border-l-4 border-rose-400 bg-gradient-to-r from-rose-500/20 to-rose-600/10 hover:from-rose-500/30 hover:to-rose-600/15'
 };
 
 const CMC_BUCKETS = [
@@ -105,11 +105,11 @@ export const ModernDeckList = () => {
   const renderCategoryHeader = (category: string, count: number) => {
     const Icon = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] || Gem;
     const isExpanded = expandedCategories[category];
-    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-primary bg-primary/10';
+    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 border-primary bg-gradient-to-r from-primary/20 to-primary/10';
 
     return (
       <div 
-        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 rounded-lg transition-all duration-200 ${colorClass}`}
+        className={`flex items-center justify-between p-4 cursor-pointer rounded-lg transition-all duration-300 ${colorClass}`}
         onClick={() => toggleCategory(category)}
       >
         <div className="flex items-center space-x-3">

@@ -212,8 +212,11 @@ const DeckBuilder = () => {
         deck.clearDeck();
         
         if (deckCards) {
+          console.log('Processing deck cards:', deckCards);
+          
           // Process cards with real API data
           const cardPromises = deckCards.map(async (dbCard) => {
+            console.log('Processing card:', dbCard.card_name);
             let cardData;
             
             try {
@@ -221,12 +224,13 @@ const DeckBuilder = () => {
               const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
               if (response.ok) {
                 const apiCard = await response.json();
+                console.log('Found API data for:', dbCard.card_name, apiCard.type_line);
                 
                 // Determine category based on type line
                 let category: any = 'other';
                 const typeLine = apiCard.type_line?.toLowerCase() || '';
                 
-                if (dbCard.is_commander || typeLine.includes('legendary creature')) {
+                if (dbCard.is_commander || (typeLine.includes('legendary') && typeLine.includes('creature'))) {
                   category = 'commanders';
                 } else if (typeLine.includes('creature')) {
                   category = 'creatures';
@@ -245,6 +249,8 @@ const DeckBuilder = () => {
                 } else if (typeLine.includes('battle')) {
                   category = 'battles';
                 }
+                
+                console.log('Assigned category:', category, 'for', dbCard.card_name);
                 
                 cardData = {
                   id: apiCard.id,
@@ -282,24 +288,24 @@ const DeckBuilder = () => {
               let cmc = 0;
               let image_uris = {};
               
-              if (dbCard.card_name === 'Plains') {
+              // Use card name patterns for better categorization
+              const cardName = dbCard.card_name.toLowerCase();
+              if (cardName.includes('plains') || cardName.includes('island') || cardName.includes('swamp') || 
+                  cardName.includes('mountain') || cardName.includes('forest')) {
                 category = 'lands';
-                type_line = 'Basic Land — Plains';
-                image_uris = { normal: 'https://cards.scryfall.io/normal/front/f/2/f2ca4afe-256b-4d24-8bdd-88f4d1b513e6.jpg' };
-              } else if (dbCard.card_name === 'Swamp') {
-                category = 'lands';
-                type_line = 'Basic Land — Swamp';
-                image_uris = { normal: 'https://cards.scryfall.io/normal/front/a/3/a3fb3239-3bca-4059-869d-e54e1fe4b4ee.jpg' };
-              } else if (dbCard.card_name === 'Sol Ring') {
+                type_line = `Basic Land — ${dbCard.card_name}`;
+              } else if (cardName.includes('sol ring') || cardName.includes('artifact')) {
                 category = 'artifacts';
                 type_line = 'Artifact';
                 cmc = 1;
-                image_uris = { normal: 'https://cards.scryfall.io/normal/front/1/9/199cde21-5bc3-49cd-acd4-bae3af6e5881.jpg' };
               }
               
               if (dbCard.is_commander) {
                 category = 'commanders';
+                type_line = 'Legendary Creature';
               }
+              
+              console.log('Using fallback category:', category, 'for', dbCard.card_name);
               
               cardData = {
                 id: dbCard.card_id,
@@ -332,9 +338,11 @@ const DeckBuilder = () => {
           
           // Wait for all card data to be processed
           const processedCards = await Promise.all(cardPromises);
+          console.log('All cards processed:', processedCards);
           
           // Add cards to deck
           for (const { cardData, isCommander } of processedCards) {
+            console.log('Adding card to deck:', cardData.name, 'category:', cardData.category, 'isCommander:', isCommander);
             if (isCommander) {
               deck.setCommander(cardData);
             } else {

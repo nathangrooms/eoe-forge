@@ -355,175 +355,195 @@ const DeckBuilder = () => {
         </div>
       }
     >
-      <Tabs defaultValue="deck" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="deck" className="flex items-center space-x-2">
-            <Sparkles className="h-4 w-4" />
-            <span>Deck ({deck.totalCards || 0})</span>
-          </TabsTrigger>
-          <TabsTrigger value="search" className="flex items-center space-x-2">
-            <Search className="h-4 w-4" />
-            <span>Card Search</span>
-          </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center space-x-2">
-            <BarChart3 className="h-4 w-4" />
-            <span>Analysis</span>
-          </TabsTrigger>
-          <TabsTrigger value="power-tuning" className="flex items-center space-x-2">
-            <Target className="h-4 w-4" />
-            <span>Power Tuning</span>
-          </TabsTrigger>
-          <TabsTrigger value="manabase" className="flex items-center space-x-2">
-            <Zap className="h-4 w-4" />
-            <span>Manabase</span>
-          </TabsTrigger>
-          <TabsTrigger value="import-export" className="flex items-center space-x-2">
-            <Settings className="h-4 w-4" />
-            <span>Import/Export</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <div className="border-b px-6">
+        <Tabs defaultValue="deck" className="w-full">
+          <TabsList className="grid w-96 grid-cols-6 bg-transparent p-0 h-12">
+            <TabsTrigger 
+              value="deck" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Deck ({deck.totalCards || 0})
+            </TabsTrigger>
+            <TabsTrigger 
+              value="search"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Card Search
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analysis"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger 
+              value="power-tuning"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Power Tuning
+            </TabsTrigger>
+            <TabsTrigger 
+              value="manabase"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Manabase
+            </TabsTrigger>
+            <TabsTrigger 
+              value="import-export"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Import/Export
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
-        {/* Deck Canvas Tab */}
-        <TabsContent value="deck">
-          {deck.name ? (
-            <div className="space-y-6">
-              {/* Commander Section - Only for Commander format */}
-              {deck.format === 'commander' && (
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold mb-3">Commander</h2>
-                  <CompactCommanderSection 
-                    currentCommander={deck.commander}
-                  />
-                </div>
-              )}
-              
-              {/* Enhanced Deck List */}
-              <EnhancedDeckList deckId={selectedDeckId || undefined} />
-            </div>
-          ) : (
-            <div className="text-center p-8">
-              <p className="text-muted-foreground mb-4">No deck selected</p>
-              <p className="text-sm text-muted-foreground mb-4">Select a deck from the dropdown above to start building</p>
-            </div>
-          )}
-        </TabsContent>
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="deck" className="h-full">
 
-        {/* Card Search Tab */}
-        <TabsContent value="search" className="space-y-6">
-          {deck.name ? (
-            <>
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
-                <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
+          {/* Deck Canvas Tab */}
+          <TabsContent value="deck" className="h-full overflow-auto px-6 py-4 m-0">
+            {deck.name ? (
+              <div className="space-y-6">
+                {/* Commander Section - Only for Commander format */}
+                {deck.format === 'commander' && (
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold mb-3">Commander</h2>
+                    <CompactCommanderSection 
+                      currentCommander={deck.commander}
+                    />
+                  </div>
+                )}
+                
+                {/* Enhanced Deck List */}
+                <EnhancedDeckList deckId={selectedDeckId || undefined} />
               </div>
-              <EnhancedUniversalCardSearch
-                onCardAdd={handleAddCardToDeck}
-                onCardSelect={(card) => console.log('Selected:', card)}
-                placeholder={`Search cards for your ${deck.format} deck...`}
-                showFilters={true}
-                showAddButton={true}
-                showWishlistButton={false}
-                showViewModes={true}
-              />
-            </>
-          ) : (
-            <div className="text-center p-8">
-              <p className="text-muted-foreground mb-4">Select a deck first to add cards</p>
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">No deck selected</p>
+                <p className="text-sm text-muted-foreground mb-4">Select a deck from the dropdown above to start building</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Card Search Tab */}
+          <TabsContent value="search" className="h-full overflow-auto px-6 py-4 m-0">
+            {deck.name ? (
+              <>
+                <div className="bg-muted/50 p-4 rounded-lg mb-6">
+                  <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
+                  <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
+                </div>
+                <EnhancedUniversalCardSearch
+                  onCardAdd={handleAddCardToDeck}
+                  onCardSelect={(card) => console.log('Selected:', card)}
+                  placeholder={`Search cards for your ${deck.format} deck...`}
+                  showFilters={true}
+                  showAddButton={true}
+                  showWishlistButton={false}
+                  showViewModes={true}
+                />
+              </>
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">Select a deck first to add cards</p>
+              </div>
+            )}
+          </TabsContent>
+
+
+          {/* Analysis Tab */}
+          <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
+            <EnhancedDeckAnalysisPanel deck={deck.cards} format={deck.format || 'standard'} />
+          </TabsContent>
+
+          {/* Power Tuning Tab */}
+          <TabsContent value="power-tuning" className="h-full overflow-auto px-6 py-4 m-0">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2">
+                <ModernDeckList />
+              </div>
+              <div className="space-y-6">
+                <PowerSliderCoaching
+                  currentPower={deck.powerLevel}
+                  onPowerChange={(power) => deck.setPowerLevel(power)}
+                  onApplyChanges={(power) => {
+                    deck.setPowerLevel(power);
+                    toast({
+                      title: "Power Level Updated",
+                      description: `Deck power level set to ${power.toFixed(1)}`,
+                    });
+                  }}
+                />
+              </div>
             </div>
-          )}
-        </TabsContent>
+          </TabsContent>
 
-
-        {/* Analysis Tab */}
-        <TabsContent value="analysis">
-          <EnhancedDeckAnalysisPanel deck={deck.cards} format={deck.format || 'standard'} />
-        </TabsContent>
-
-        {/* Power Tuning Tab */}
-        <TabsContent value="power-tuning" className="space-y-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-              <ModernDeckList />
+          {/* Manabase Tab */}
+          <TabsContent value="manabase" className="h-full overflow-auto px-6 py-4 m-0">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2">
+                <ModernDeckList />
+              </div>
+              <div className="space-y-6">
+                <LandEnhancerUX />
+                <LandEnhancer 
+                  deck={deck.cards}
+                  format={deck.format || 'standard'}
+                  onAddLand={(landName) => {
+                    const landCard = {
+                      id: Math.random().toString(),
+                      name: landName,
+                      type_line: 'Land',
+                      cmc: 0,
+                      colors: [],
+                      quantity: 1,
+                      category: 'lands' as const,
+                      mechanics: []
+                    };
+                    deck.addCard(landCard);
+                  }}
+                />
+              </div>
             </div>
+          </TabsContent>
+
+          {/* Import/Export Tab */}
+          <TabsContent value="import-export" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
-              <PowerSliderCoaching
-                currentPower={deck.powerLevel}
-                onPowerChange={(power) => deck.setPowerLevel(power)}
-                onApplyChanges={(power) => {
-                  deck.setPowerLevel(power);
+              <DeckImportExport 
+                currentDeck={deck.cards}
+                onImportDeck={async (cards) => {
+                  try {
+                    deck.importDeck(cards);
+                    if (deck.currentDeckId) {
+                      await deck.updateDeck(deck.currentDeckId);
+                    }
+                    showSuccess("Deck Imported", `Imported ${cards.length} cards`);
+                  } catch (error) {
+                    console.error('Import error:', error);
+                    showError("Import Failed", "Failed to import deck");
+                  }
+                }}
+              />
+              <ArchetypeLibrary 
+                currentFormat={deck.format || 'standard'}
+                currentDeck={deck.cards}
+                onApplyTemplate={(template) => {
+                  console.log('Selected template:', template);
                   toast({
-                    title: "Power Level Updated",
-                    description: `Deck power level set to ${power.toFixed(1)}`,
+                    title: "Template Applied",
+                    description: `Applied ${template.name} archetype template`,
                   });
                 }}
               />
+              <AIBuilder />
             </div>
-          </div>
-        </TabsContent>
-
-        {/* Manabase Tab */}
-        <TabsContent value="manabase" className="space-y-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-              <ModernDeckList />
-            </div>
-            <div className="space-y-6">
-              <LandEnhancerUX />
-              <LandEnhancer 
-                deck={deck.cards}
-                format={deck.format || 'standard'}
-                onAddLand={(landName) => {
-                  const landCard = {
-                    id: Math.random().toString(),
-                    name: landName,
-                    type_line: 'Land',
-                    cmc: 0,
-                    colors: [],
-                    quantity: 1,
-                    category: 'lands' as const,
-                    mechanics: []
-                  };
-                  deck.addCard(landCard);
-                  showSuccess("Land Added", `Added ${landName} to deck`);
-                }}
-              />
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Templates & Import/Export Tab */}
-        <TabsContent value="import-export" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ArchetypeLibrary 
-              currentFormat={deck.format || 'standard'}
-              currentDeck={deck.cards}
-              onApplyTemplate={(template) => {
-                console.log('Apply template:', template);
-                showSuccess("Template Applied", `Applied ${template.name} template`);
-              }}
-            />
-            <DeckImportExport 
-              currentDeck={deck.cards}
-              onImportDeck={async (cards) => {
-                try {
-                  // Import all cards directly to the store without triggering auto-saves
-                  deck.importDeck(cards);
-                  
-                  // If we have a current deck, save it once to the database
-                  if (deck.currentDeckId) {
-                    await deck.updateDeck(deck.currentDeckId);
-                  }
-                  
-                  showSuccess("Deck Imported", `Imported ${cards.length} cards`);
-                } catch (error) {
-                  console.error('Import error:', error);
-                  showError("Import Failed", "Failed to import deck");
-                }
-              }}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
     </StandardPageLayout>
   );
 };

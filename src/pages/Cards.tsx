@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +13,7 @@ export default function Cards() {
   const initialQuery = searchParams.get('q') || '';
   const collection = useCollectionStore();
   const { user } = useAuth();
+  const [currentTab, setCurrentTab] = useState('simple');
 
   const addToCollection = (card: any) => {
     collection.addCard({
@@ -89,21 +91,71 @@ export default function Cards() {
   };
 
   return (
-    <StandardPageLayout
-      title="Card Database"
-      description="Search through every Magic: The Gathering card ever printed with universal MTG search"
-    >
-      <EnhancedUniversalCardSearch
-        onCardAdd={addToCollection}
-        onCardSelect={(card) => console.log('Selected:', card)}
-        onCardWishlist={addToWishlist}
-        placeholder="Search Magic: The Gathering cards..."
-        showFilters={true}
-        showAddButton={true}
-        showWishlistButton={true}
-        showViewModes={true}
-        initialQuery={initialQuery}
-      />
-    </StandardPageLayout>
+    <div className="h-screen flex flex-col bg-background">
+      {/* Header */}
+      <div className="border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Card Database</h1>
+            <p className="text-muted-foreground">Search through every Magic: The Gathering card ever printed with universal MTG search</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b px-6">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <TabsList className="grid w-96 grid-cols-2 bg-transparent p-0 h-12">
+            <TabsTrigger 
+              value="simple" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Simple Search
+            </TabsTrigger>
+            <TabsTrigger 
+              value="advanced"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Advanced Search
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="h-full">
+          {/* Simple Search Tab */}
+          <TabsContent value="simple" className="h-full overflow-auto px-6 py-4 m-0">
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToCollection}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              onCardWishlist={addToWishlist}
+              placeholder="Search Magic: The Gathering cards..."
+              showFilters={false}
+              showAddButton={true}
+              showWishlistButton={true}
+              showViewModes={true}
+              initialQuery={initialQuery}
+            />
+          </TabsContent>
+
+          {/* Advanced Search Tab */}
+          <TabsContent value="advanced" className="h-full overflow-auto px-6 py-4 m-0">
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToCollection}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              onCardWishlist={addToWishlist}
+              placeholder="Search with advanced filters and syntaxes..."
+              showFilters={true}
+              showAddButton={true}
+              showWishlistButton={true}
+              showViewModes={true}
+              initialQuery={initialQuery}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
   );
 }

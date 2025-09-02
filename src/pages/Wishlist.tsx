@@ -489,14 +489,37 @@ export default function Wishlist() {
         </div>
       }
     >
-      <Tabs defaultValue="wishlist" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="wishlist">My Wishlist</TabsTrigger>
-          <TabsTrigger value="by-deck">By Deck</TabsTrigger>
-          <TabsTrigger value="search">Add Cards</TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <div className="border-b px-6">
+        <Tabs defaultValue="wishlist" className="w-full">
+          <TabsList className="grid w-96 grid-cols-3 bg-transparent p-0 h-12">
+            <TabsTrigger 
+              value="wishlist" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              My Wishlist
+            </TabsTrigger>
+            <TabsTrigger 
+              value="by-deck"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              By Deck
+            </TabsTrigger>
+            <TabsTrigger 
+              value="search"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              Add Cards
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
-        <TabsContent value="wishlist" className="space-y-6">
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="wishlist" className="h-full">
+
+          <TabsContent value="wishlist" className="h-full overflow-auto px-6 py-4 m-0">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => (
@@ -532,10 +555,10 @@ export default function Wishlist() {
               onAddToCollection={addToCollection}
             />
           )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* By Deck Tab */}
-        <TabsContent value="by-deck" className="space-y-6">
+          {/* By Deck Tab */}
+          <TabsContent value="by-deck" className="h-full overflow-auto px-6 py-4 m-0">
           {decksLoading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
@@ -639,38 +662,49 @@ export default function Wishlist() {
               )}
             </div>
           )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* Search Tab */}
-        <TabsContent value="search" className="space-y-6">
-          <EnhancedUniversalCardSearch
-            onCardAdd={addToWishlist}
-            onCardWishlist={addToWishlist}
-            onCardSelect={(card) => console.log('Selected:', card)}
-            placeholder="Search cards to add to your wishlist..."
-            showFilters={true}
-            showAddButton={false}
-            showWishlistButton={true}
-            showViewModes={true}
-          />
-        </TabsContent>
+          {/* Search Tab */}
+          <TabsContent value="search" className="h-full overflow-auto px-6 py-4 m-0">
+            <EnhancedUniversalCardSearch
+              onCardAdd={addToWishlist}
+              onCardWishlist={addToWishlist}
+              onCardSelect={(card) => console.log('Selected:', card)}
+              placeholder="Search cards to add to your wishlist..."
+              showFilters={true}
+              showAddButton={false}
+              showWishlistButton={true}
+              showViewModes={true}
+            />
+          </TabsContent>
         </Tabs>
+      </div>
 
-        {/* Universal Card Modal */}
+      {/* Card Modal */}
+      {selectedItem && (
         <UniversalCardModal
-          card={selectedItem?.card}
+          card={selectedItem.card || { 
+            id: selectedItem.card_id, 
+            name: selectedItem.card_name, 
+            type_line: '', 
+            colors: [], 
+            rarity: 'common' 
+          }}
           isOpen={showCardModal}
           onClose={() => {
             setShowCardModal(false);
             setSelectedItem(null);
           }}
-          onAddToCollection={() => {
+          onAddToCollection={(card) => {
             if (selectedItem) {
               addToCollection(selectedItem);
             }
           }}
-          onAddToWishlist={addToWishlist}
+          onAddToWishlist={() => {
+            // Already in wishlist
+          }}
         />
-      </StandardPageLayout>
-    );
-  }
+      )}
+    </StandardPageLayout>
+  );
+}

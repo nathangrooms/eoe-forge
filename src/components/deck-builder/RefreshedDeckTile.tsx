@@ -160,12 +160,6 @@ export function RefreshedDeckTile({
               </div>
             )}
 
-            {/* Format Badge - Top left corner with space from image */}
-            <div className="absolute top-4 left-4">
-              <Badge className={cn("text-sm font-bold shadow-xl border border-white/30", formatColors[deckSummary.format as keyof typeof formatColors] || formatColors.custom)}>
-                {deckSummary.format.toUpperCase()}
-              </Badge>
-            </div>
           </div>
 
           {/* Right: Comprehensive Stats Section */}

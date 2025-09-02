@@ -61,8 +61,14 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
         continue;
       }
       
-      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone')) {
-        currentCategory = 'commander';
+      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone') || line.toLowerCase() === 'deck') {
+        currentCategory = line.toLowerCase().includes('commander') ? 'commander' : 'main';
+        continue;
+      }
+      
+      // Handle "Deck" section specifically
+      if (line.toLowerCase() === 'deck') {
+        currentCategory = 'main';
         continue;
       }
       
@@ -145,6 +151,67 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
     };
   };
 
+  // Function to fetch card data from Scryfall
+  const fetchCardFromScryfall = async (cardName: string) => {
+    try {
+      const response = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
+      if (!response.ok) {
+        throw new Error(`Card not found: ${cardName}`);
+      }
+      const cardData = await response.json();
+      
+      // Determine category based on type_line
+      let category = 'creatures'; // default
+      
+      const typeLine = cardData.type_line?.toLowerCase() || '';
+      
+      if (typeLine.includes('creature')) {
+        category = 'creatures';
+      } else if (typeLine.includes('land')) {
+        category = 'lands';
+      } else if (typeLine.includes('instant')) {
+        category = 'instants';
+      } else if (typeLine.includes('sorcery')) {
+        category = 'sorceries';
+      } else if (typeLine.includes('enchantment')) {
+        category = 'enchantments';
+      } else if (typeLine.includes('artifact')) {
+        category = 'artifacts';
+      } else if (typeLine.includes('planeswalker')) {
+        category = 'planeswalkers';
+      } else if (typeLine.includes('battle')) {
+        category = 'battles';
+      }
+      
+      return {
+        id: cardData.id,
+        name: cardData.name,
+        cmc: cardData.cmc || 0,
+        type_line: cardData.type_line,
+        colors: cardData.colors || [],
+        color_identity: cardData.color_identity || [],
+        oracle_text: cardData.oracle_text || '',
+        power: cardData.power,
+        toughness: cardData.toughness,
+        image_uris: cardData.image_uris,
+        prices: cardData.prices,
+        set: cardData.set,
+        set_name: cardData.set_name,
+        collector_number: cardData.collector_number,
+        rarity: cardData.rarity,
+        keywords: cardData.keywords || [],
+        legalities: cardData.legalities,
+        layout: cardData.layout,
+        mana_cost: cardData.mana_cost,
+        category,
+        mechanics: cardData.keywords || []
+      };
+    } catch (error) {
+      console.error(`Failed to fetch card: ${cardName}`, error);
+      return null;
+    }
+  };
+
   const handleImport = async () => {
     if (!importText.trim()) {
       toast({
@@ -158,34 +225,65 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
     setIsParsingDeck(true);
     
     try {
-      // Simulate async parsing (in real app, might validate against card database)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       const result = parseDeckList(importText);
       setParseResult(result);
       
       if (result.success && result.cards.length > 0) {
-        // Convert parsed cards to deck format
-        const deckCards = result.cards.map(card => ({
-          id: `import-${card.name.replace(/\s+/g, '-').toLowerCase()}`,
-          name: card.name,
-          quantity: card.quantity,
-          cmc: 0, // Would lookup from database
-          type_line: '', // Would lookup from database
-          colors: [], // Would lookup from database
-          category: card.category || 'main',
-          mechanics: []
-        }));
+        const deckCards = [];
+        const fetchErrors = [];
         
-        onImportDeck(deckCards);
+        // Fetch card data for each card
+        for (const parsedCard of result.cards) {
+          const cardData = await fetchCardFromScryfall(parsedCard.name);
+          
+          if (cardData) {
+            // Override category if it was specified in import (commander section)
+            let finalCategory = cardData.category;
+            if (parsedCard.category === 'commander') {
+              finalCategory = 'commanders';
+            }
+            
+            deckCards.push({
+              ...cardData,
+              quantity: parsedCard.quantity,
+              category: finalCategory,
+              is_commander: parsedCard.category === 'commander'
+            });
+          } else {
+            fetchErrors.push(`Could not find card: ${parsedCard.name}`);
+          }
+          
+          // Add small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         
-        toast({
-          title: "Import Successful",
-          description: `Imported ${result.cards.length} unique cards`,
-        });
+        if (deckCards.length > 0) {
+          onImportDeck(deckCards);
+          
+          let message = `Imported ${deckCards.length} cards successfully`;
+          if (fetchErrors.length > 0) {
+            message += `. ${fetchErrors.length} cards could not be found.`;
+          }
+          
+          toast({
+            title: "Import Successful",
+            description: message,
+          });
+          
+          setImportText('');
+          setParseResult(null);
+        } else {
+          toast({
+            title: "Import Failed",
+            description: "No cards could be found in Scryfall database",
+            variant: "destructive"
+          });
+        }
         
-        setImportText('');
-        setParseResult(null);
+        // Show errors for cards that couldn't be found
+        if (fetchErrors.length > 0) {
+          console.log('Cards not found:', fetchErrors);
+        }
       }
     } catch (error) {
       toast({
@@ -306,7 +404,7 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="Paste your deck list here... Supports multiple formats:&#10;4 Lightning Bolt&#10;1x Counterspell&#10;Brainstorm x3&#10;2 Force of Will (EMA) 49"
+            placeholder="Paste your deck list here... Example format:&#10;&#10;Commander&#10;1 Kraum, Ludevic's Opus&#10;1 Tymna the Weaver&#10;&#10;Deck&#10;1 Lightning Bolt&#10;1 Counterspell&#10;1 Sol Ring"
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             rows={8}

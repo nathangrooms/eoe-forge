@@ -183,8 +183,8 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
           <CardContent className="pt-0">
             {viewMode === 'list' ? (
               <div className="space-y-2">
-                {categoryCards.map((card) => (
-                  <div key={card.id} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors">
+                {categoryCards.map((card, index) => (
+                  <div key={`${card.id}-${index}`} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex items-center gap-2 min-w-[80px]">
                         <Button
@@ -234,8 +234,8 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-4">
-                {categoryCards.map((card) => (
-                  <div key={card.id} className="relative group">
+                {categoryCards.map((card, index) => (
+                  <div key={`${card.id}-${index}`} className="relative group">
                     <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-colors">
                       {card.image_uris?.normal ? (
                         <img 

@@ -125,23 +125,61 @@ export function RefreshedDeckTile({
     setAddingToWishlist(true);
     try {
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
+      if (!user.user) {
+        showError("Authentication Required", "Please log in to add cards to wishlist");
+        return;
+      }
 
-      // Get missing cards (cards in deck but not in collection)
-      const { data: missingCards, error } = await supabase
-        .from('deck_cards')
-        .select('card_id, card_name, quantity')
-        .eq('deck_id', deckSummary.id)
-        .not('card_id', 'in', `(
-          SELECT card_id FROM user_collections 
-          WHERE user_id = '${user.user.id}'
-        )`);
+      console.log('Starting add missing to wishlist for deck:', deckSummary.id);
 
-      if (error) throw error;
+      // Get missing cards using a more robust query
+      const { data: missingCards, error: missingError } = await supabase
+        .rpc('get_missing_cards_for_deck', {
+          deck_id_param: deckSummary.id,
+          user_id_param: user.user.id
+        });
 
-      if (missingCards && missingCards.length > 0) {
-        // Add each missing card to wishlist
-        const wishlistItems = missingCards.map(card => ({
+      if (missingError) {
+        console.error('Error getting missing cards:', missingError);
+        
+        // Fallback to simpler query if RPC doesn't exist
+        const { data: allDeckCards, error: deckError } = await supabase
+          .from('deck_cards')
+          .select('card_id, card_name, quantity')
+          .eq('deck_id', deckSummary.id);
+
+        if (deckError) {
+          throw deckError;
+        }
+
+        if (!allDeckCards || allDeckCards.length === 0) {
+          showError("No Cards Found", "This deck appears to be empty");
+          return;
+        }
+
+        // Check which cards are missing from collection
+        const { data: ownedCards, error: ownedError } = await supabase
+          .from('user_collections')
+          .select('card_id')
+          .eq('user_id', user.user.id)
+          .in('card_id', allDeckCards.map(c => c.card_id));
+
+        if (ownedError) {
+          console.error('Error checking owned cards:', ownedError);
+        }
+
+        const ownedCardIds = new Set(ownedCards?.map(c => c.card_id) || []);
+        const actualMissingCards = allDeckCards.filter(card => !ownedCardIds.has(card.card_id));
+
+        console.log('Missing cards found:', actualMissingCards.length);
+
+        if (actualMissingCards.length === 0) {
+          showSuccess("Complete Collection", "You already own all cards in this deck!");
+          return;
+        }
+
+        // Add missing cards to wishlist
+        const wishlistItems = actualMissingCards.map(card => ({
           user_id: user.user.id,
           card_id: card.card_id,
           card_name: card.card_name,
@@ -156,24 +194,56 @@ export function RefreshedDeckTile({
             ignoreDuplicates: false
           });
 
-        if (insertError) throw insertError;
-
-        showSuccess("Added to Wishlist", `Added ${wishlistItems.length} missing cards to your wishlist`);
-
-        // Refresh wishlist count
-        const { data, error: countError } = await supabase.rpc('get_deck_wishlist_count', {
-          deck_id_param: deckSummary.id
-        });
-        
-        if (!countError && typeof data === 'number') {
-          setWishlistCount(data);
+        if (insertError) {
+          console.error('Error inserting to wishlist:', insertError);
+          throw insertError;
         }
+
+        showSuccess("Added to Wishlist", `Added ${actualMissingCards.length} missing cards to your wishlist`);
       } else {
-        showSuccess("No Missing Cards", "You already own all cards in this deck!");
+        console.log('Missing cards from RPC:', missingCards?.length || 0);
+        
+        if (!missingCards || missingCards.length === 0) {
+          showSuccess("Complete Collection", "You already own all cards in this deck!");
+          return;
+        }
+
+        // Add missing cards to wishlist using RPC results
+        const wishlistItems = missingCards.map((card: any) => ({
+          user_id: user.user.id,
+          card_id: card.card_id,
+          card_name: card.card_name,
+          quantity: card.quantity,
+          priority: 'medium'
+        }));
+
+        const { error: insertError } = await supabase
+          .from('wishlist')
+          .upsert(wishlistItems, { 
+            onConflict: 'user_id,card_id',
+            ignoreDuplicates: false
+          });
+
+        if (insertError) {
+          console.error('Error inserting to wishlist:', insertError);
+          throw insertError;
+        }
+
+        showSuccess("Added to Wishlist", `Added ${missingCards.length} missing cards to your wishlist`);
       }
+
+      // Refresh wishlist count
+      const { data: newCount, error: countError } = await supabase.rpc('get_deck_wishlist_count', {
+        deck_id_param: deckSummary.id
+      });
+      
+      if (!countError && typeof newCount === 'number') {
+        setWishlistCount(newCount);
+      }
+
     } catch (error) {
       console.error('Error adding missing cards to wishlist:', error);
-      showError("Error", "Failed to add missing cards to wishlist");
+      showError("Error", "Failed to add missing cards to wishlist. Please try again.");
     } finally {
       setAddingToWishlist(false);
     }

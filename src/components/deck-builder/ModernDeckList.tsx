@@ -41,15 +41,15 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  commanders: 'border-l-4 border-yellow-400 bg-gradient-to-r from-yellow-500/20 to-yellow-600/10 hover:from-yellow-500/30 hover:to-yellow-600/15',
-  lands: 'border-l-4 border-emerald-400 bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 hover:from-emerald-500/30 hover:to-emerald-600/15',
-  creatures: 'border-l-4 border-green-400 bg-gradient-to-r from-green-500/20 to-green-600/10 hover:from-green-500/30 hover:to-green-600/15',
-  instants: 'border-l-4 border-blue-400 bg-gradient-to-r from-blue-500/20 to-blue-600/10 hover:from-blue-500/30 hover:to-blue-600/15',
-  sorceries: 'border-l-4 border-red-400 bg-gradient-to-r from-red-500/20 to-red-600/10 hover:from-red-500/30 hover:to-red-600/15',
-  enchantments: 'border-l-4 border-purple-400 bg-gradient-to-r from-purple-500/20 to-purple-600/10 hover:from-purple-500/30 hover:to-purple-600/15',
-  artifacts: 'border-l-4 border-slate-400 bg-gradient-to-r from-slate-500/20 to-slate-600/10 hover:from-slate-500/30 hover:to-slate-600/15',
-  planeswalkers: 'border-l-4 border-orange-400 bg-gradient-to-r from-orange-500/20 to-orange-600/10 hover:from-orange-500/30 hover:to-orange-600/15',
-  battles: 'border-l-4 border-rose-400 bg-gradient-to-r from-rose-500/20 to-rose-600/10 hover:from-rose-500/30 hover:to-rose-600/15'
+  commanders: 'border-l-4 border-type-commander bg-gradient-to-r from-type-commander/20 to-type-commander/10 hover:from-type-commander/30 hover:to-type-commander/15',
+  lands: 'border-l-4 border-type-lands bg-gradient-to-r from-type-lands/20 to-type-lands/10 hover:from-type-lands/30 hover:to-type-lands/15',
+  creatures: 'border-l-4 border-type-creatures bg-gradient-to-r from-type-creatures/20 to-type-creatures/10 hover:from-type-creatures/30 hover:to-type-creatures/15',
+  instants: 'border-l-4 border-type-instants bg-gradient-to-r from-type-instants/20 to-type-instants/10 hover:from-type-instants/30 hover:to-type-instants/15',
+  sorceries: 'border-l-4 border-type-sorceries bg-gradient-to-r from-type-sorceries/20 to-type-sorceries/10 hover:from-type-sorceries/30 hover:to-type-sorceries/15',
+  enchantments: 'border-l-4 border-type-enchantments bg-gradient-to-r from-type-enchantments/20 to-type-enchantments/10 hover:from-type-enchantments/30 hover:to-type-enchantments/15',
+  artifacts: 'border-l-4 border-type-artifacts bg-gradient-to-r from-type-artifacts/20 to-type-artifacts/10 hover:from-type-artifacts/30 hover:to-type-artifacts/15',
+  planeswalkers: 'border-l-4 border-type-planeswalkers bg-gradient-to-r from-type-planeswalkers/20 to-type-planeswalkers/10 hover:from-type-planeswalkers/30 hover:to-type-planeswalkers/15',
+  battles: 'border-l-4 border-type-battles bg-gradient-to-r from-type-battles/20 to-type-battles/10 hover:from-type-battles/30 hover:to-type-battles/15'
 };
 
 const CMC_BUCKETS = [

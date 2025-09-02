@@ -72,6 +72,17 @@ All colors MUST be HSL.
     --mana-black: 21 11 0; /* #150B00 */
     --mana-red: 211 32 42; /* #D3202A */
     --mana-green: 0 115 62; /* #00733E */
+
+    /* Card Type Colors */
+    --type-commander: 45 93% 47%; /* Golden yellow for commanders */
+    --type-lands: 159 64% 52%; /* Emerald green for lands */
+    --type-creatures: 142 71% 45%; /* Green for creatures */
+    --type-instants: 217 91% 60%; /* Blue for instants */
+    --type-sorceries: 0 84% 60%; /* Red for sorceries */
+    --type-enchantments: 262 83% 58%; /* Purple for enchantments */
+    --type-artifacts: 215 28% 52%; /* Slate/grey for artifacts */
+    --type-planeswalkers: 340 75% 55%; /* Pink for planeswalkers */
+    --type-battles: 25 95% 53%; /* Orange for battles */
     
     /* Power Level Colors */
     --power-1: 34 197 94; /* Low power - green */

@@ -67,7 +67,17 @@ export default {
 				station: 'hsl(var(--station))',
 				warp: 'hsl(var(--warp))',
 				void: 'hsl(var(--void))',
-				planet: 'hsl(var(--planet))'
+				planet: 'hsl(var(--planet))',
+				// Card Type Colors
+				'type-commander': 'hsl(var(--type-commander))',
+				'type-lands': 'hsl(var(--type-lands))',
+				'type-creatures': 'hsl(var(--type-creatures))',
+				'type-instants': 'hsl(var(--type-instants))',
+				'type-sorceries': 'hsl(var(--type-sorceries))',
+				'type-enchantments': 'hsl(var(--type-enchantments))',
+				'type-artifacts': 'hsl(var(--type-artifacts))',
+				'type-planeswalkers': 'hsl(var(--type-planeswalkers))',
+				'type-battles': 'hsl(var(--type-battles))'
 			},
 			backgroundImage: {
 				'cosmic': 'var(--gradient-cosmic)',

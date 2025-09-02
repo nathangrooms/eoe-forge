@@ -222,18 +222,41 @@ export function RefreshedDeckTile({
           {/* Left: Full Height Commander Section - Much Wider */}
           <div className="w-80 flex-shrink-0 relative p-4">
             {deckSummary.commander ? (
-              <div className="absolute inset-4 rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg">
-                <img 
-                  src={deckSummary.commander.image} 
-                  alt={deckSummary.commander.name}
-                  className="w-full object-contain rounded-xl"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg';
-                  }}
-                />
+              <div className="h-full flex flex-col">
+                {/* Commander Image Container */}
+                <div className="flex-1 relative rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg mb-3">
+                  <img 
+                    src={deckSummary.commander.image} 
+                    alt={deckSummary.commander.name}
+                    className="w-full h-full object-cover rounded-xl"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder.svg';
+                    }}
+                  />
+                </div>
+                
+                {/* Commander Info Below Image */}
+                <div className="bg-gradient-to-r from-purple-500/10 to-yellow-500/10 rounded-lg p-3 border border-primary/20">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Crown className="h-4 w-4 text-yellow-500" />
+                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Commander</span>
+                    <Crown className="h-4 w-4 text-yellow-500" />
+                  </div>
+                  <h4 className="text-center font-semibold text-sm leading-tight">{deckSummary.commander.name}</h4>
+                  <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      <span>{deckSummary.counts.total} cards</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Target className="h-3 w-3" />
+                      <span>Power {deckSummary.power.score}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="absolute inset-4 rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
+              <div className="h-full rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
                 <div className="text-center text-muted-foreground">
                   <Crown className="h-16 w-16 mx-auto mb-4" />
                   <div className="text-lg font-medium">No Commander</div>

@@ -139,16 +139,16 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
     // Category-specific colors using app theme
     const getCategoryColor = (category: Category) => {
       const colors = {
-        creatures: 'border-l-green-500 bg-green-50/50 dark:bg-green-950/20',
-        lands: 'border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20', 
-        instants: 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20',
-        sorceries: 'border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20',
-        enchantments: 'border-l-pink-500 bg-pink-50/50 dark:bg-pink-950/20',
-        artifacts: 'border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/20',
-        planeswalkers: 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20',
-        battles: 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20'
+        creatures: 'border-l-green-500 bg-green-500/20',
+        lands: 'border-l-orange-500 bg-orange-500/20', 
+        instants: 'border-l-blue-500 bg-blue-500/20',
+        sorceries: 'border-l-red-500 bg-red-500/20',
+        enchantments: 'border-l-purple-500 bg-purple-500/20',
+        artifacts: 'border-l-gray-500 bg-gray-500/20',
+        planeswalkers: 'border-l-pink-500 bg-pink-500/20',
+        battles: 'border-l-orange-600 bg-orange-600/20'
       };
-      return colors[category] || 'border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/20';
+      return colors[category] || 'border-l-gray-500 bg-gray-500/20';
     };
 
     return (

@@ -163,15 +163,18 @@ const DeckBuilder = () => {
 
     deck.addCard(deckCard);
     
-    // Auto-save if this is a Supabase deck
+    // Auto-save if this is a Supabase deck (debounced to prevent rapid saves)
     if (deck.currentDeckId) {
-      deck.updateDeck(deck.currentDeckId).then((result) => {
-        if (result.success) {
-          console.log('Auto-saved deck changes');
-        } else {
-          console.error('Failed to auto-save:', result.error);
-        }
-      });
+      clearTimeout((window as any).__autoSaveTimeout);
+      (window as any).__autoSaveTimeout = setTimeout(() => {
+        deck.updateDeck(deck.currentDeckId!).then((result) => {
+          if (result.success) {
+            console.log('Auto-saved deck changes');
+          } else {
+            console.error('Failed to auto-save:', result.error);
+          }
+        });
+      }, 1000);
     }
     
     showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);

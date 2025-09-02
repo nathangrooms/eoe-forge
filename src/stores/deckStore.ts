@@ -565,9 +565,20 @@ export const useDeckStore = create<DeckState>()(
             }
           }
 
-          // Insert all other cards
+          // Insert all other cards in batches to avoid issues
           if (state.cards.length > 0) {
-            const cardInserts = state.cards.map(card => ({
+            // Remove duplicates and ensure unique card entries
+            const uniqueCards = state.cards.reduce((acc, card) => {
+              const existing = acc.find(c => c.id === card.id);
+              if (existing) {
+                existing.quantity += card.quantity;
+              } else {
+                acc.push({ ...card });
+              }
+              return acc;
+            }, [] as Card[]);
+
+            const cardInserts = uniqueCards.map(card => ({
               deck_id: deckId,
               card_id: card.id,
               card_name: card.name,

@@ -132,105 +132,72 @@ export function RefreshedDeckTile({
 
       console.log('Starting add missing to wishlist for deck:', deckSummary.id);
 
-      // Get missing cards using a more robust query
-      const { data: missingCards, error: missingError } = await supabase
-        .rpc('get_missing_cards_for_deck', {
-          deck_id_param: deckSummary.id,
-          user_id_param: user.user.id
+      // Get all deck cards
+      const { data: allDeckCards, error: deckError } = await supabase
+        .from('deck_cards')
+        .select('card_id, card_name, quantity')
+        .eq('deck_id', deckSummary.id);
+
+      if (deckError) {
+        console.error('Error getting deck cards:', deckError);
+        throw deckError;
+      }
+
+      if (!allDeckCards || allDeckCards.length === 0) {
+        showError("No Cards Found", "This deck appears to be empty");
+        return;
+      }
+
+      console.log('Deck cards found:', allDeckCards.length);
+
+      // Check which cards are missing from collection
+      const cardIds = allDeckCards.map(c => c.card_id);
+      const { data: ownedCards, error: ownedError } = await supabase
+        .from('user_collections')
+        .select('card_id')
+        .eq('user_id', user.user.id)
+        .in('card_id', cardIds);
+
+      if (ownedError) {
+        console.error('Error checking owned cards:', ownedError);
+        // Continue anyway, worst case we add some cards already owned
+      }
+
+      const ownedCardIds = new Set(ownedCards?.map(c => c.card_id) || []);
+      const actualMissingCards = allDeckCards.filter(card => !ownedCardIds.has(card.card_id));
+
+      console.log('Missing cards found:', actualMissingCards.length);
+
+      if (actualMissingCards.length === 0) {
+        showSuccess("Complete Collection", "You already own all cards in this deck!");
+        return;
+      }
+
+      // Add missing cards to wishlist
+      const wishlistItems = actualMissingCards.map(card => ({
+        user_id: user.user.id,
+        card_id: card.card_id,
+        card_name: card.card_name,
+        quantity: card.quantity,
+        priority: 'medium' as const
+      }));
+
+      console.log('Adding to wishlist:', wishlistItems.length, 'items');
+
+      const { error: insertError } = await supabase
+        .from('wishlist')
+        .upsert(wishlistItems, { 
+          onConflict: 'user_id,card_id',
+          ignoreDuplicates: false
         });
 
-      if (missingError) {
-        console.error('Error getting missing cards:', missingError);
-        
-        // Fallback to simpler query if RPC doesn't exist
-        const { data: allDeckCards, error: deckError } = await supabase
-          .from('deck_cards')
-          .select('card_id, card_name, quantity')
-          .eq('deck_id', deckSummary.id);
-
-        if (deckError) {
-          throw deckError;
-        }
-
-        if (!allDeckCards || allDeckCards.length === 0) {
-          showError("No Cards Found", "This deck appears to be empty");
-          return;
-        }
-
-        // Check which cards are missing from collection
-        const { data: ownedCards, error: ownedError } = await supabase
-          .from('user_collections')
-          .select('card_id')
-          .eq('user_id', user.user.id)
-          .in('card_id', allDeckCards.map(c => c.card_id));
-
-        if (ownedError) {
-          console.error('Error checking owned cards:', ownedError);
-        }
-
-        const ownedCardIds = new Set(ownedCards?.map(c => c.card_id) || []);
-        const actualMissingCards = allDeckCards.filter(card => !ownedCardIds.has(card.card_id));
-
-        console.log('Missing cards found:', actualMissingCards.length);
-
-        if (actualMissingCards.length === 0) {
-          showSuccess("Complete Collection", "You already own all cards in this deck!");
-          return;
-        }
-
-        // Add missing cards to wishlist
-        const wishlistItems = actualMissingCards.map(card => ({
-          user_id: user.user.id,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          quantity: card.quantity,
-          priority: 'medium'
-        }));
-
-        const { error: insertError } = await supabase
-          .from('wishlist')
-          .upsert(wishlistItems, { 
-            onConflict: 'user_id,card_id',
-            ignoreDuplicates: false
-          });
-
-        if (insertError) {
-          console.error('Error inserting to wishlist:', insertError);
-          throw insertError;
-        }
-
-        showSuccess("Added to Wishlist", `Added ${actualMissingCards.length} missing cards to your wishlist`);
-      } else {
-        console.log('Missing cards from RPC:', missingCards?.length || 0);
-        
-        if (!missingCards || missingCards.length === 0) {
-          showSuccess("Complete Collection", "You already own all cards in this deck!");
-          return;
-        }
-
-        // Add missing cards to wishlist using RPC results
-        const wishlistItems = missingCards.map((card: any) => ({
-          user_id: user.user.id,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          quantity: card.quantity,
-          priority: 'medium'
-        }));
-
-        const { error: insertError } = await supabase
-          .from('wishlist')
-          .upsert(wishlistItems, { 
-            onConflict: 'user_id,card_id',
-            ignoreDuplicates: false
-          });
-
-        if (insertError) {
-          console.error('Error inserting to wishlist:', insertError);
-          throw insertError;
-        }
-
-        showSuccess("Added to Wishlist", `Added ${missingCards.length} missing cards to your wishlist`);
+      if (insertError) {
+        console.error('Error inserting to wishlist:', insertError);
+        throw insertError;
       }
+
+      console.log('Successfully added to wishlist');
+      showSuccess("Added to Wishlist", `Added ${actualMissingCards.length} missing cards to your wishlist`);
 
       // Refresh wishlist count
       const { data: newCount, error: countError } = await supabase.rpc('get_deck_wishlist_count', {

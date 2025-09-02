@@ -714,6 +714,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      get_missing_cards_for_deck: {
+        Args: { deck_id_param: string; user_id_param: string }
+        Returns: {
+          card_id: string
+          card_name: string
+          quantity: number
+        }[]
+      }
       toggle_deck_favorite: {
         Args: { deck_id: string }
         Returns: Json

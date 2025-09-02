@@ -378,11 +378,12 @@ export const ModernDeckList = () => {
           const cards = groupedCards[category] || [];
           if (cards.length === 0) return null;
           
+          console.log(`Category: ${category}, Colors being applied:`, getCategoryStyle(category));
           const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 rounded-lg overflow-hidden';
           const categoryStyle = getCategoryStyle(category);
           
           return (
-            <div key={category} className={colorClass} style={categoryStyle}>
+            <div key={category} className={colorClass} style={{...categoryStyle, border: '2px solid red'}}>
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (
                 <div className="pb-4">

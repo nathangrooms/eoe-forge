@@ -104,10 +104,10 @@ export default function Decks() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Load decks from database and get summaries
+  // Load decks from database only
   useEffect(() => {
     loadDeckSummaries();
-  }, [user, localDecks]);
+  }, [user]);
   
   // Load available templates when format changes
   useEffect(() => {
@@ -122,89 +122,26 @@ export default function Decks() {
     setLoading(true);
     console.log('=== DECK LOADING DEBUG ===');
     console.log('User object:', user);
-    console.log('Local decks from store:', localDecks);
 
     try {
       let allSummaries: DeckSummary[] = [];
 
-      // Load local decks first
-      const localSummaries: DeckSummary[] = localDecks.map(deck => ({
-        id: deck.id,
-        name: `${deck.name} (Local)`,
-        format: deck.format,
-        colors: deck.colors,
-        identity: deck.colors,
-        commander: deck.commander ? {
-          name: deck.commander.name,
-          image: deck.commander.image_uris?.normal || ''
-        } : undefined,
-        counts: {
-          total: deck.totalCards,
-          unique: deck.cards.length,
-          lands: deck.cards.filter(c => c.category === 'lands').length,
-          creatures: deck.cards.filter(c => c.category === 'creatures').length,
-          instants: deck.cards.filter(c => c.category === 'instants').length,
-          sorceries: deck.cards.filter(c => c.category === 'sorceries').length,
-          artifacts: deck.cards.filter(c => c.category === 'artifacts').length,
-          enchantments: deck.cards.filter(c => c.category === 'enchantments').length,
-          planeswalkers: deck.cards.filter(c => c.category === 'planeswalkers').length,
-          battles: 0
-        },
-        curve: {
-          bins: {
-            "0-1": deck.cards.filter(c => c.cmc <= 1).length,
-            "2": deck.cards.filter(c => c.cmc === 2).length,
-            "3": deck.cards.filter(c => c.cmc === 3).length,
-            "4": deck.cards.filter(c => c.cmc === 4).length,
-            "5": deck.cards.filter(c => c.cmc === 5).length,
-            "6-7": deck.cards.filter(c => c.cmc >= 6 && c.cmc <= 7).length,
-            "8-9": deck.cards.filter(c => c.cmc >= 8 && c.cmc <= 9).length,
-            "10+": deck.cards.filter(c => c.cmc >= 10).length
-          }
-        },
-        mana: {
-          sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
-          untappedPctByTurn: { t1: 0.8, t2: 0.9, t3: 0.95 }
-        },
-        legality: {
-          ok: true,
-          issues: []
-        },
-        power: {
-          score: deck.powerLevel,
-          band: deck.powerLevel <= 3 ? 'casual' : deck.powerLevel <= 6 ? 'mid' : deck.powerLevel <= 8 ? 'high' : 'cEDH',
-          drivers: [],
-          drags: []
-        },
-        economy: {
-          priceUSD: 0,
-          ownedPct: 100,
-          missing: 0
-        },
-        tags: [],
-        updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date(deck.updatedAt || Date.now()).toISOString(),
-        favorite: deck.favorite || false
-      }));
-
-      console.log('Local deck summaries:', localSummaries);
-      allSummaries = [...localSummaries];
-
-      // Load database decks if user is authenticated
+      // Only load database decks if user is authenticated
       if (user) {
         console.log('Loading database decks for user:', user.id);
         try {
           const dbSummaries = await DeckAPI.getDeckSummaries();
           console.log('Database deck summaries:', dbSummaries);
-          allSummaries = [...allSummaries, ...dbSummaries];
+          allSummaries = dbSummaries;
         } catch (error) {
           console.error('Error loading database decks:', error);
-          // Don't throw - we still want to show local decks
+          showError('Error', 'Failed to load deck summaries');
         }
       } else {
-        console.log('No authenticated user, showing only local decks');
+        console.log('No authenticated user, showing empty deck list');
       }
 
-      console.log('Final combined summaries:', allSummaries);
+      console.log('Final summaries:', allSummaries);
       setDeckSummaries(allSummaries);
     } catch (error) {
       console.error('Error in loadDeckSummaries:', error);
@@ -285,28 +222,19 @@ export default function Decks() {
     if (!deckToDelete) return;
 
     try {
-      const isLocalDeck = deckToDelete.name.includes('(Local)');
-      
-      if (isLocalDeck) {
-        // Handle local deck deletion
-        const deckManagementStore = useDeckManagementStore.getState();
-        deckManagementStore.deleteDeck(deckToDelete.id);
-        showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
-      } else {
-        // Handle Supabase deck deletion
-        const { error } = await supabase
-          .from('user_decks')
-          .delete()
-          .eq('id', deckToDelete.id);
+      // Handle Supabase deck deletion only
+      const { error } = await supabase
+        .from('user_decks')
+        .delete()
+        .eq('id', deckToDelete.id);
 
-        if (error) {
-          console.error('Error deleting deck:', error);
-          showError("Delete Failed", "Failed to delete deck. Please try again.");
-          return;
-        }
-
-        showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
+      if (error) {
+        console.error('Error deleting deck:', error);
+        showError("Delete Failed", "Failed to delete deck. Please try again.");
+        return;
       }
+
+      showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
 
       // Refresh deck summaries
       await loadDeckSummaries();
@@ -333,67 +261,42 @@ export default function Decks() {
 
   const loadDeck = async (deckData: Deck) => {
     try {
-      // Check if this is a local deck (has "(Local)" in name)
-      const isLocalDeck = deckData.name.includes('(Local)');
+      // Load from database only
+      deck.setDeckName(deckData.name);
+      deck.setFormat(deckData.format);
+      deck.setPowerLevel(deckData.powerLevel);
       
-      if (isLocalDeck) {
-        // Load from local store
-        const originalId = deckData.id;
-        const localDeck = localDecks.find(d => d.id === originalId);
-        
-        if (localDeck) {
-          deck.setDeckName(localDeck.name);
-          deck.setFormat(localDeck.format as any);
-          deck.setPowerLevel(localDeck.powerLevel);
-          deck.clearDeck();
-          
-          // Add cards from local deck
-          localDeck.cards.forEach(card => {
-            deck.addCard(card);
-          });
-          
-          if (localDeck.commander) {
-            deck.setCommander(localDeck.commander);
-          }
-        }
-      } else {
-        // Load from database
-        deck.setDeckName(deckData.name);
-        deck.setFormat(deckData.format);
-        deck.setPowerLevel(deckData.powerLevel);
-        
-        // Load deck cards from database without join
-        const { data: deckCards, error } = await supabase
-          .from('deck_cards')
-          .select('*')
-          .eq('deck_id', deckData.id);
+      // Load deck cards from database without join
+      const { data: deckCards, error } = await supabase
+        .from('deck_cards')
+        .select('*')
+        .eq('deck_id', deckData.id);
 
-        if (error) {
-          console.error('Error loading deck cards:', error);
-          toast({
-            title: "Error",
-            description: "Failed to load deck cards",
-            variant: "destructive"
-          });
-          return;
-        }
+      if (error) {
+        console.error('Error loading deck cards:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load deck cards",
+          variant: "destructive"
+        });
+        return;
+      }
 
-        // Clear current deck and add loaded cards
-        deck.clearDeck();
-        
-        if (deckCards) {
-          for (const dbCard of deckCards) {
-            deck.addCard({
-              id: dbCard.card_id,
-              name: dbCard.card_name,
-              quantity: dbCard.quantity,
-              cmc: 0,
-              type_line: '',
-              colors: [],
-              category: dbCard.is_commander ? 'commanders' : 'creatures',
-              mechanics: []
-            });
-          }
+      // Clear current deck and add loaded cards
+      deck.clearDeck();
+      
+      if (deckCards) {
+        for (const dbCard of deckCards) {
+          deck.addCard({
+            id: dbCard.card_id,
+            name: dbCard.card_name,
+            quantity: dbCard.quantity,
+            cmc: 0,
+            type_line: '',
+            colors: [],
+            category: dbCard.is_commander ? 'commanders' : 'creatures',
+            mechanics: []
+          });
         }
       }
 
@@ -402,7 +305,7 @@ export default function Decks() {
       
       toast({
         title: "Deck Loaded",
-        description: `"${deckData.name.replace(' (Local)', '')}" is ready for editing`,
+        description: `"${deckData.name}" is ready for editing`,
       });
     } catch (error) {
       console.error('Error loading deck:', error);

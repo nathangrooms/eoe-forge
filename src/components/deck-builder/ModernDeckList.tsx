@@ -41,54 +41,58 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  commanders: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  lands: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300', 
-  creatures: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  instants: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  sorceries: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  enchantments: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  artifacts: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  planeswalkers: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300',
-  battles: 'border-l-4 bg-gradient-to-r hover:opacity-80 transition-all duration-300'
+  commanders: 'border-l-4 rounded-lg overflow-hidden',
+  lands: 'border-l-4 rounded-lg overflow-hidden', 
+  creatures: 'border-l-4 rounded-lg overflow-hidden',
+  instants: 'border-l-4 rounded-lg overflow-hidden',
+  sorceries: 'border-l-4 rounded-lg overflow-hidden',
+  enchantments: 'border-l-4 rounded-lg overflow-hidden',
+  artifacts: 'border-l-4 rounded-lg overflow-hidden',
+  planeswalkers: 'border-l-4 rounded-lg overflow-hidden',
+  battles: 'border-l-4 rounded-lg overflow-hidden'
 };
 
-const CATEGORY_STYLES = {
-  commanders: {
-    borderLeftColor: 'hsl(45 93% 47%)',
-    background: 'linear-gradient(to right, hsl(45 93% 47% / 0.2), hsl(45 93% 47% / 0.1))'
-  },
-  lands: {
-    borderLeftColor: 'hsl(159 64% 52%)',
-    background: 'linear-gradient(to right, hsl(159 64% 52% / 0.2), hsl(159 64% 52% / 0.1))'
-  },
-  creatures: {
-    borderLeftColor: 'hsl(142 71% 45%)',
-    background: 'linear-gradient(to right, hsl(142 71% 45% / 0.2), hsl(142 71% 45% / 0.1))'
-  },
-  instants: {
-    borderLeftColor: 'hsl(217 91% 60%)',
-    background: 'linear-gradient(to right, hsl(217 91% 60% / 0.2), hsl(217 91% 60% / 0.1))'
-  },
-  sorceries: {
-    borderLeftColor: 'hsl(0 84% 60%)',
-    background: 'linear-gradient(to right, hsl(0 84% 60% / 0.2), hsl(0 84% 60% / 0.1))'
-  },
-  enchantments: {
-    borderLeftColor: 'hsl(262 83% 58%)',
-    background: 'linear-gradient(to right, hsl(262 83% 58% / 0.2), hsl(262 83% 58% / 0.1))'
-  },
-  artifacts: {
-    borderLeftColor: 'hsl(215 28% 52%)',
-    background: 'linear-gradient(to right, hsl(215 28% 52% / 0.2), hsl(215 28% 52% / 0.1))'
-  },
-  planeswalkers: {
-    borderLeftColor: 'hsl(340 75% 55%)',
-    background: 'linear-gradient(to right, hsl(340 75% 55% / 0.2), hsl(340 75% 55% / 0.1))'
-  },
-  battles: {
-    borderLeftColor: 'hsl(25 95% 53%)',
-    background: 'linear-gradient(to right, hsl(25 95% 53% / 0.2), hsl(25 95% 53% / 0.1))'
-  }
+const getCategoryStyle = (category: string) => {
+  const styles = {
+    commanders: {
+      borderLeftColor: '#eab308', // Golden yellow
+      background: 'linear-gradient(to right, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.1))'
+    },
+    lands: {
+      borderLeftColor: '#10b981', // Emerald
+      background: 'linear-gradient(to right, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))'
+    },
+    creatures: {
+      borderLeftColor: '#22c55e', // Green
+      background: 'linear-gradient(to right, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1))'
+    },
+    instants: {
+      borderLeftColor: '#3b82f6', // Blue
+      background: 'linear-gradient(to right, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1))'
+    },
+    sorceries: {
+      borderLeftColor: '#ef4444', // Red
+      background: 'linear-gradient(to right, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1))'
+    },
+    enchantments: {
+      borderLeftColor: '#a855f7', // Purple
+      background: 'linear-gradient(to right, rgba(168, 85, 247, 0.2), rgba(168, 85, 247, 0.1))'
+    },
+    artifacts: {
+      borderLeftColor: '#64748b', // Slate
+      background: 'linear-gradient(to right, rgba(100, 116, 139, 0.2), rgba(100, 116, 139, 0.1))'
+    },
+    planeswalkers: {
+      borderLeftColor: '#ec4899', // Pink
+      background: 'linear-gradient(to right, rgba(236, 72, 153, 0.2), rgba(236, 72, 153, 0.1))'
+    },
+    battles: {
+      borderLeftColor: '#f97316', // Orange
+      background: 'linear-gradient(to right, rgba(249, 115, 22, 0.2), rgba(249, 115, 22, 0.1))'
+    }
+  };
+  
+  return styles[category as keyof typeof styles] || styles.creatures;
 };
 
 const CMC_BUCKETS = [
@@ -144,13 +148,10 @@ export const ModernDeckList = () => {
   const renderCategoryHeader = (category: string, count: number) => {
     const Icon = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS] || Gem;
     const isExpanded = expandedCategories[category];
-    const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 bg-gradient-to-r';
-    const categoryStyle = CATEGORY_STYLES[category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.creatures;
 
     return (
       <div 
-        className={`flex items-center justify-between p-4 cursor-pointer rounded-lg ${colorClass}`}
-        style={categoryStyle}
+        className="flex items-center justify-between p-4 cursor-pointer transition-all duration-300 hover:opacity-80"
         onClick={() => toggleCategory(category)}
       >
         <div className="flex items-center space-x-3">
@@ -377,11 +378,11 @@ export const ModernDeckList = () => {
           const cards = groupedCards[category] || [];
           if (cards.length === 0) return null;
           
-          const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 bg-gradient-to-r';
-          const categoryStyle = CATEGORY_STYLES[category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.creatures;
+          const colorClass = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'border-l-4 rounded-lg overflow-hidden';
+          const categoryStyle = getCategoryStyle(category);
           
           return (
-            <div key={category} className={`rounded-lg overflow-hidden ${colorClass}`} style={categoryStyle}>
+            <div key={category} className={colorClass} style={categoryStyle}>
               {renderCategoryHeader(category, cards.length)}
               {expandedCategories[category] && (
                 <div className="pb-4">

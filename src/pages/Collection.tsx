@@ -428,6 +428,9 @@ export default function Collection() {
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
+              {/* Favorite Decks Preview */}
+              <FavoriteDecksPreview />
+              
               {/* Collection Search */}
               <CollectionSearch
                 onSearchChange={setCollectionSearchQuery}

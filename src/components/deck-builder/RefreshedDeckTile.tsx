@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,14 @@ import {
   AlertTriangle,
   Box,
   Download,
-  Calendar
+  Calendar,
+  Plus,
+  ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeckSummary, DeckAPI } from '@/lib/api/deckAPI';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RefreshedDeckTileProps {
   deckSummary: DeckSummary;
@@ -51,6 +54,27 @@ export function RefreshedDeckTile({
 }: RefreshedDeckTileProps) {
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [wishlistCount, setWishlistCount] = useState<number>(0);
+  const [addingToWishlist, setAddingToWishlist] = useState(false);
+
+  // Load wishlist count on mount
+  useEffect(() => {
+    const loadWishlistCount = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_deck_wishlist_count', {
+          deck_id_param: deckSummary.id
+        });
+        
+        if (!error && typeof data === 'number') {
+          setWishlistCount(data);
+        }
+      } catch (error) {
+        console.error('Error loading wishlist count:', error);
+      }
+    };
+    
+    loadWishlistCount();
+  }, [deckSummary.id]);
 
   const formatColors = {
     standard: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -94,6 +118,64 @@ export function RefreshedDeckTile({
       console.error('Error toggling favorite:', error);
     } finally {
       setFavoriteLoading(false);
+    }
+  };
+
+  const handleAddMissingToWishlist = async () => {
+    setAddingToWishlist(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error('Not authenticated');
+
+      // Get missing cards (cards in deck but not in collection)
+      const { data: missingCards, error } = await supabase
+        .from('deck_cards')
+        .select('card_id, card_name, quantity')
+        .eq('deck_id', deckSummary.id)
+        .not('card_id', 'in', `(
+          SELECT card_id FROM user_collections 
+          WHERE user_id = '${user.user.id}'
+        )`);
+
+      if (error) throw error;
+
+      if (missingCards && missingCards.length > 0) {
+        // Add each missing card to wishlist
+        const wishlistItems = missingCards.map(card => ({
+          user_id: user.user.id,
+          card_id: card.card_id,
+          card_name: card.card_name,
+          quantity: card.quantity,
+          priority: 'medium'
+        }));
+
+        const { error: insertError } = await supabase
+          .from('wishlist')
+          .upsert(wishlistItems, { 
+            onConflict: 'user_id,card_id',
+            ignoreDuplicates: false
+          });
+
+        if (insertError) throw insertError;
+
+        showSuccess("Added to Wishlist", `Added ${wishlistItems.length} missing cards to your wishlist`);
+
+        // Refresh wishlist count
+        const { data, error: countError } = await supabase.rpc('get_deck_wishlist_count', {
+          deck_id_param: deckSummary.id
+        });
+        
+        if (!countError && typeof data === 'number') {
+          setWishlistCount(data);
+        }
+      } else {
+        showSuccess("No Missing Cards", "You already own all cards in this deck!");
+      }
+    } catch (error) {
+      console.error('Error adding missing cards to wishlist:', error);
+      showError("Error", "Failed to add missing cards to wishlist");
+    } finally {
+      setAddingToWishlist(false);
     }
   };
 
@@ -219,7 +301,7 @@ export function RefreshedDeckTile({
 
               <div className="text-center p-2 rounded-md bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onMissingCards}>
                 <Package className="h-3 w-3 text-blue-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">{deckSummary.economy.ownedPct}%</div>
+                <div className="text-sm font-bold">{deckSummary.counts.total - deckSummary.economy.missing} / {deckSummary.counts.total}</div>
                 <div className="text-xs text-muted-foreground">Owned</div>
               </div>
 
@@ -322,16 +404,17 @@ export function RefreshedDeckTile({
                   <BarChart3 className="h-3 w-3 text-primary" />
                   <span className="text-xs font-medium">Mana Curve</span>
                 </div>
-                <div className="flex items-end gap-1 h-8 mb-1">
+                <div className="flex items-end gap-1 h-12 mb-1">
                   {curveData.map(({ cmc, count }) => {
-                    const height = maxCurveCount > 0 ? (count / maxCurveCount) * 70 : 0;
+                    const height = maxCurveCount > 0 ? Math.max((count / maxCurveCount) * 100, count > 0 ? 8 : 0) : 0;
                     return (
-                      <div key={cmc} className="flex-1 flex flex-col items-center relative group">
+                      <div key={cmc} className="flex-1 flex flex-col items-center justify-end relative group">
                         <div 
-                          className="bg-gradient-to-t from-primary to-primary/60 w-full rounded-t min-h-[2px] transition-all group-hover:from-primary/80 group-hover:to-primary/40"
-                          style={{ height: `${Math.max(height, count > 0 ? 8 : 0)}%` }}
+                          className="bg-gradient-to-t from-primary/60 to-primary/20 w-full rounded-sm transition-all duration-200 hover:from-primary/80 hover:to-primary/40"
+                          style={{ height: `${height}%` }}
+                          title={`CMC ${cmc}: ${count} cards`}
                         />
-                        <span className="text-xs text-muted-foreground mt-1">{count}</span>
+                        <span className="text-xs text-muted-foreground mt-1">{cmc}</span>
                       </div>
                     );
                   })}
@@ -392,7 +475,14 @@ export function RefreshedDeckTile({
 
                 {deckSummary.economy.missing > 0 && (
                   <Badge variant="outline" className="text-xs text-red-500 cursor-pointer hover:opacity-80" onClick={onMissingCards}>
-                    Missing {deckSummary.economy.missing}
+                    {deckSummary.economy.missing} Missing
+                  </Badge>
+                )}
+
+                {wishlistCount > 0 && (
+                  <Badge variant="outline" className="text-xs text-primary cursor-pointer hover:opacity-80">
+                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    {wishlistCount} Wishlisted
                   </Badge>
                 )}
 
@@ -436,6 +526,20 @@ export function RefreshedDeckTile({
                     </Button>
                   )}
                 </div>
+                
+                {deckSummary.economy.missing > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleAddMissingToWishlist}
+                    disabled={addingToWishlist}
+                    className="ml-2 flex items-center gap-2"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Missing to Wishlist
+                    {addingToWishlist && <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent" />}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

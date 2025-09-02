@@ -706,6 +706,10 @@ export type Database = {
         Args: { deck_id: string }
         Returns: Json
       }
+      get_deck_wishlist_count: {
+        Args: { deck_id_param: string }
+        Returns: number
+      }
       get_favorite_decks: {
         Args: Record<PropertyKey, never>
         Returns: Json

@@ -1,40 +1,51 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cpu, BarChart3, Package, DollarSign, Wand2, Globe } from 'lucide-react';
+import { Wand2, BarChart3, Package, DollarSign } from 'lucide-react';
 
 const features = [
   {
     icon: Wand2,
     title: 'AI Deck Builder',
-    description: 'Build optimized decks instantly with AI that understands synergies, mana curves, and win conditions.'
+    description: 'Build competitive decks instantly with AI that understands synergies, mana curves, and win conditions.',
+    color: 'primary'
   },
   {
     icon: Package,
-    title: 'Collection Manager',
-    description: 'Track, value, and organize your entire collection with smart analytics and deck building integration.'
+    title: 'Collection Manager', 
+    description: 'Track, value, and organize your entire collection with smart analytics and deck building integration.',
+    color: 'accent'
   },
   {
     icon: BarChart3,
     title: 'Power Scoring',
-    description: 'Know your deck\'s competitive strength from 1-10 with transparent, explainable analysis.'
+    description: 'Know your deck\'s competitive strength from 1-10 with transparent, explainable analysis.',
+    color: 'type-enchantments'
   },
   {
     icon: DollarSign,
     title: 'Trade & Sell',
-    description: 'Mark cards for sale, track market values, and manage your trading inventory effortlessly.'
+    description: 'Mark cards for sale, track market values, and manage your trading inventory effortlessly.',
+    color: 'type-commander'
   }
 ];
 
 export function Features() {
   return (
-    <section className="py-24 px-4 bg-gradient-to-b from-spacecraft/5 to-background">
-      <div className="container mx-auto">
+    <section className="py-24 px-4 relative">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-card/20 to-background" />
+      
+      <div className="container mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-spacecraft to-station bg-clip-text text-transparent">
-            Everything You Need to Dominate
+        <div className="text-center mb-20">
+          <h2 className="text-5xl md:text-6xl font-bold mb-8">
+            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Everything You Need
+            </span>
+            <br />
+            <span className="text-foreground">to Dominate</span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            From casual kitchen table to competitive tournaments, DeckMatrix gives you the tools to build better decks faster.
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            From casual kitchen table to competitive tournaments, get the tools to build better decks faster than ever before.
           </p>
         </div>
 
@@ -43,19 +54,22 @@ export function Features() {
           {features.map((feature, index) => (
             <Card 
               key={index} 
-              className="relative group hover:shadow-xl hover:shadow-spacecraft/10 transition-all duration-300 bg-card/50 backdrop-blur-sm border-border/50 hover:border-spacecraft/30"
+              className="group relative overflow-hidden bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-all duration-500 hover:transform hover:scale-105"
             >
               {/* Glow effect */}
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-spacecraft/10 to-station/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/10 via-transparent to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               
-              <CardHeader className="relative z-10 text-center pb-4">
-                <div className="mx-auto mb-4 p-3 rounded-full bg-spacecraft/10 group-hover:bg-spacecraft/20 transition-colors duration-300">
-                  <feature.icon className="h-8 w-8 text-spacecraft group-hover:scale-110 transition-transform duration-300" />
+              <CardHeader className="relative z-10 text-center pb-6 pt-8">
+                <div className={`mx-auto mb-6 p-4 rounded-2xl bg-${feature.color}/10 group-hover:bg-${feature.color}/20 transition-all duration-300 relative`}>
+                  <feature.icon className={`h-10 w-10 text-${feature.color} group-hover:scale-110 transition-transform duration-300`} />
+                  <div className={`absolute inset-0 rounded-2xl bg-${feature.color}/20 animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                 </div>
-                <CardTitle className="text-xl font-bold">{feature.title}</CardTitle>
+                <CardTitle className="text-2xl font-bold group-hover:text-primary transition-colors duration-300">
+                  {feature.title}
+                </CardTitle>
               </CardHeader>
-              <CardContent className="relative z-10 text-center">
-                <CardDescription className="text-base leading-relaxed">
+              <CardContent className="relative z-10 text-center px-6 pb-8">
+                <CardDescription className="text-base leading-relaxed text-muted-foreground group-hover:text-foreground/80 transition-colors duration-300">
                   {feature.description}
                 </CardDescription>
               </CardContent>

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Sparkles, Menu, X } from 'lucide-react';
+import { Wand2, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -17,9 +17,11 @@ export function PublicNavigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold hover:text-spacecraft transition-colors">
-            <Sparkles className="h-6 w-6 text-spacecraft" />
-            DeckMatrix
+          <Link to="/" className="flex items-center gap-3 text-2xl font-bold hover:text-primary transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <Wand2 className="h-5 w-5 text-primary-foreground" />
+            </div>
+            MTG Deck Builder
           </Link>
 
           {/* Desktop Navigation */}
@@ -28,7 +30,7 @@ export function PublicNavigation() {
               <a
                 key={item.name}
                 href={item.href}
-                className="text-muted-foreground hover:text-spacecraft transition-colors font-medium"
+                className="text-muted-foreground hover:text-primary transition-colors font-medium"
               >
                 {item.name}
               </a>
@@ -38,12 +40,12 @@ export function PublicNavigation() {
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
-              <Button variant="ghost" className="hover:text-spacecraft">
+              <Button variant="ghost" className="hover:text-primary">
                 Login
               </Button>
             </Link>
             <Link to="/register">
-              <Button className="bg-spacecraft hover:bg-station transition-colors">
+              <Button className="bg-primary hover:bg-primary/90 transition-colors">
                 Register
               </Button>
             </Link>
@@ -52,7 +54,7 @@ export function PublicNavigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 text-muted-foreground hover:text-spacecraft transition-colors"
+            className="md:hidden p-2 text-muted-foreground hover:text-primary transition-colors"
           >
             {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -66,7 +68,7 @@ export function PublicNavigation() {
                 <a
                   key={item.name}
                   href={item.href}
-                  className="block text-muted-foreground hover:text-spacecraft transition-colors font-medium"
+                  className="block text-muted-foreground hover:text-primary transition-colors font-medium"
                   onClick={() => setIsOpen(false)}
                 >
                   {item.name}
@@ -74,12 +76,12 @@ export function PublicNavigation() {
               ))}
               <div className="pt-4 space-y-2">
                 <Link to="/login" onClick={() => setIsOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start hover:text-spacecraft">
+                  <Button variant="ghost" className="w-full justify-start hover:text-primary">
                     Login
                   </Button>
                 </Link>
                 <Link to="/register" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full bg-spacecraft hover:bg-station">
+                  <Button className="w-full bg-primary hover:bg-primary/90">
                     Register
                   </Button>
                 </Link>

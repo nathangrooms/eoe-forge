@@ -10,6 +10,7 @@ import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import { MobileNavigation } from "@/components/navigation/MobileNavigation";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
+import Homepage from "./pages/Homepage";
 import Dashboard from "./pages/Dashboard";
 import Scan from "./pages/Scan";
 import DeckBuilder from "./pages/DeckBuilder";
@@ -18,6 +19,8 @@ import Builder from "./pages/Builder";
 import Templates from "./pages/Templates";
 import Cards from "./pages/Cards";
 import Auth from "./pages/Auth";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
@@ -47,13 +50,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
       <Routes>
+        <Route path="/" element={<Homepage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
@@ -76,6 +90,7 @@ function AppContent() {
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/landing" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/homepage" element={<Navigate to="/" replace />} />
             <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
             <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
@@ -90,6 +105,8 @@ function AppContent() {
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/auth" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/register" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

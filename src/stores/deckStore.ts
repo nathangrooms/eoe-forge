@@ -32,6 +32,15 @@ export interface Card {
   quantity: number;
   category: 'commanders' | 'creatures' | 'lands' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'battles' | 'other';
   mechanics?: string[];
+  replacements?: Card[];
+}
+
+export interface ReplacementCard {
+  id: string;
+  originalCardId: string;
+  card: Card;
+  priority: number;
+  notes?: string;
 }
 
 interface DeckState {
@@ -45,6 +54,7 @@ interface DeckState {
   // Deck contents
   cards: Card[];
   commander?: Card;
+  replacements: ReplacementCard[];
   
   // Current deck ID for auto-saving
   currentDeckId?: string;
@@ -63,6 +73,13 @@ interface DeckState {
   clearDeck: () => void;
   importDeck: (cards: Card[]) => void;
   setCurrentDeckId: (deckId: string) => void;
+  
+  // Replacement actions
+  addReplacement: (originalCardId: string, replacementCard: Card, priority?: number, notes?: string) => void;
+  removeReplacement: (replacementId: string) => void;
+  updateReplacementPriority: (replacementId: string, priority: number) => void;
+  getReplacementsForCard: (cardId: string) => ReplacementCard[];
+  addReplacementToWishlist: (replacementId: string) => void;
   
   // Database operations
   saveDeck: () => Promise<{ success: boolean; deckId?: string; error?: string }>;
@@ -87,6 +104,7 @@ export const useDeckStore = create<DeckState>()(
       colorIdentity: [],
       cards: [],
       commander: undefined,
+      replacements: [],
       currentDeckId: undefined,
       totalCards: 0,
 
@@ -198,6 +216,7 @@ export const useDeckStore = create<DeckState>()(
       clearDeck: () => set({
         cards: [],
         commander: undefined,
+        replacements: [],
         totalCards: 0,
         colors: [],
         colorIdentity: []
@@ -255,6 +274,59 @@ export const useDeckStore = create<DeckState>()(
         });
         
         return mechanics;
+      },
+
+      // Replacement actions
+      addReplacement: (originalCardId, replacementCard, priority = 1, notes) => set((state) => {
+        const newReplacement: ReplacementCard = {
+          id: `${originalCardId}-${replacementCard.id}-${Date.now()}`,
+          originalCardId,
+          card: replacementCard,
+          priority,
+          notes
+        };
+        
+        return {
+          replacements: [...state.replacements, newReplacement]
+        };
+      }),
+
+      removeReplacement: (replacementId) => set((state) => ({
+        replacements: state.replacements.filter(r => r.id !== replacementId)
+      })),
+
+      updateReplacementPriority: (replacementId, priority) => set((state) => ({
+        replacements: state.replacements.map(r => 
+          r.id === replacementId ? { ...r, priority } : r
+        )
+      })),
+
+      getReplacementsForCard: (cardId) => {
+        return get().replacements
+          .filter(r => r.originalCardId === cardId)
+          .sort((a, b) => a.priority - b.priority);
+      },
+
+      addReplacementToWishlist: async (replacementId) => {
+        const state = get();
+        const replacement = state.replacements.find(r => r.id === replacementId);
+        if (!replacement) return;
+
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        try {
+          await supabase.from('wishlist').insert({
+            user_id: user.id,
+            card_id: replacement.card.id,
+            card_name: replacement.card.name,
+            priority: replacement.priority.toString(),
+            note: replacement.notes || `Replacement for deck: ${state.name}`
+          });
+        } catch (error) {
+          console.error('Error adding to wishlist:', error);
+        }
       },
 
       // Database operations

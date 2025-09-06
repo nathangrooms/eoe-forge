@@ -18,6 +18,7 @@ import { DeckSelector } from '@/components/deck-builder/DeckSelector';
 import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
+import { ReplacementsPanel } from '@/components/deck-builder/ReplacementsPanel';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
@@ -390,6 +391,12 @@ const DeckBuilder = () => {
               Manabase
             </TabsTrigger>
             <TabsTrigger 
+              value="replacements"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+            >
+              Replacements ({deck.replacements.length})
+            </TabsTrigger>
+            <TabsTrigger 
               value="import-export"
               className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
@@ -504,6 +511,17 @@ const DeckBuilder = () => {
                 />
               </div>
             </div>
+          </TabsContent>
+
+          {/* Replacements Tab */}
+          <TabsContent value="replacements" className="h-full overflow-auto px-6 py-4 m-0">
+            {deck.name ? (
+              <ReplacementsPanel />
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">Select a deck first to manage replacements</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Import/Export Tab */}

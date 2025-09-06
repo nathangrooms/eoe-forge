@@ -16,9 +16,11 @@ import {
   Sparkles,
   Mountain,
   Users,
-  Skull
+  Skull,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
+import { CardReplacementModal } from './CardReplacementModal';
 
 const CATEGORY_ICONS = {
   commander: Crown,
@@ -68,6 +70,10 @@ export const DeckList = () => {
     artifacts: false,
     planeswalkers: false,
     battles: false
+  });
+  const [replacementModal, setReplacementModal] = useState<{isOpen: boolean, card?: any}>({
+    isOpen: false,
+    card: undefined
   });
 
   const toggleCategory = (category: string) => {
@@ -140,6 +146,18 @@ export const DeckList = () => {
                         className="h-6 w-6 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setReplacementModal({isOpen: true, card});
+                        }}
+                        title="Replace card"
+                      >
+                        <ArrowRightLeft className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           deck.removeCard(card.id);
                         }}
                       >
@@ -187,6 +205,18 @@ export const DeckList = () => {
               )}
             </div>
             <div className="flex items-center space-x-1">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReplacementModal({isOpen: true, card});
+                }}
+                title="Replace card"
+              >
+                <ArrowRightLeft className="h-3 w-3" />
+              </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -255,6 +285,13 @@ export const DeckList = () => {
           <p className="text-sm">Search for cards and add them to begin building your Magic deck.</p>
         </div>
       )}
+
+      {/* Card Replacement Modal */}
+      <CardReplacementModal
+        isOpen={replacementModal.isOpen}
+        onClose={() => setReplacementModal({isOpen: false, card: undefined})}
+        cardToReplace={replacementModal.card}
+      />
     </div>
   );
 };

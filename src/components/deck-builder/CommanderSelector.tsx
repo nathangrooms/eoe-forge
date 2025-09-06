@@ -37,7 +37,22 @@ export function CommanderSelector({ currentCommander }: CommanderSelectorProps) 
 
     setLoading(true);
     try {
-      // Search specifically for legendary creatures
+      // First try fuzzy search for the exact name
+      const fuzzyResponse = await fetch(
+        `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(query)}`
+      );
+      
+      if (fuzzyResponse.ok) {
+        const fuzzyCard = await fuzzyResponse.json();
+        // Check if it's a legendary creature
+        if (fuzzyCard.type_line?.toLowerCase().includes('legendary') && 
+            fuzzyCard.type_line?.toLowerCase().includes('creature')) {
+          setSearchResults([fuzzyCard]);
+          return;
+        }
+      }
+
+      // Fallback to search with legendary creature filter
       const searchString = `t:legendary t:creature ${query}`;
       const response = await fetch(
         `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchString)}&order=edhrec`

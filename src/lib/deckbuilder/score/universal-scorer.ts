@@ -1,34 +1,30 @@
-import { Card, DeckAnalysis, BuildContext } from '../types';
+import { Card } from '../types';
+import { BuildContext, DeckAnalysis } from '../types';
+import { EDHPowerCalculator } from './edh-power-calculator';
 
 export class UniversalScorer {
-  
-  public static scoreDeck(deck: Card[], context: BuildContext): DeckAnalysis {
-    const subscores = {
-      speed: this.scoreSpeed(deck),
-      interaction: this.scoreInteraction(deck),
-      tutors: this.scoreTutors(deck),
-      wincon: this.scoreWincons(deck),
-      mana: this.scoreManabase(deck),
-      consistency: this.scoreConsistency(deck)
-    };
-    
-    // Overall power level (1-10 scale)
-    const weights = {
-      speed: 0.2,
-      interaction: 0.15,
-      tutors: 0.2,
-      wincon: 0.2,
-      mana: 0.15,
-      consistency: 0.1
-    };
-    
-    const power = Object.entries(subscores).reduce(
-      (total, [key, score]) => total + score * weights[key as keyof typeof weights],
-      0
+  static scoreDeck(deck: Card[], context: BuildContext): DeckAnalysis {
+    // Use the new EDH power calculator
+    const edhScore = EDHPowerCalculator.calculatePower(
+      deck, 
+      context.format,
+      42, // seed
+      undefined, // commander - context doesn't have this
+      context.powerTarget
     );
     
+    // Map to existing DeckAnalysis format for backward compatibility
+    const subscores = {
+      speed: edhScore.subscores.speed / 100 * 10,
+      interaction: edhScore.subscores.interaction / 100 * 10,
+      tutors: edhScore.subscores.tutors / 100 * 10,
+      wincon: edhScore.subscores.stax_pressure / 100 * 10, // Map stax to wincon for compatibility
+      mana: edhScore.subscores.mana / 100 * 10,
+      consistency: edhScore.subscores.consistency / 100 * 10
+    };
+    
     return {
-      power: Math.min(10, Math.max(1, power)),
+      power: edhScore.power,
       subscores,
       curve: this.analyzeCurve(deck),
       colorDistribution: this.analyzeColorDistribution(deck),
@@ -99,123 +95,69 @@ export class UniversalScorer {
     
     const broadTutors = deck.filter(c => c.tags.has('tutor-broad')).length;
     const narrowTutors = deck.filter(c => c.tags.has('tutor-narrow')).length;
-    
-    // Broad tutors are much more powerful
-    score += broadTutors * 2;
-    score += narrowTutors * 0.8;
-    
-    // Selection and card advantage
     const cardDraw = deck.filter(c => c.tags.has('draw')).length;
+    
+    score += broadTutors * 1.2;
+    score += narrowTutors * 0.8;
     score += cardDraw * 0.3;
     
     return Math.min(10, Math.max(1, score));
   }
   
   private static scoreWincons(deck: Card[]): number {
-    let score = 2; // Base wincon power
+    let score = 1; // Base wincon
     
     const wincons = deck.filter(c => c.tags.has('wincon')).length;
-    const comboMatter = deck.filter(c => c.tags.has('combo-piece')).length;
-    
-    // Direct wincons
-    score += wincons * 1.5;
-    
-    // Combo pieces enable powerful wins
-    score += comboMatter * 1.2;
-    
-    // Instant-speed wins are more powerful
-    const instantWins = deck.filter(c => 
-      c.tags.has('wincon') && 
-      (c.type_line.includes('Instant') || c.tags.has('flash'))
+    const comboPieces = deck.filter(c => c.tags.has('combo')).length;
+    const finishers = deck.filter(c => 
+      c.type_line.includes('Creature') && 
+      (parseInt(c.power || '0') >= 5 || c.tags.has('evasion'))
     ).length;
-    score += instantWins * 0.5;
     
-    // Multiple win conditions provide redundancy
-    if (wincons >= 3) score += 1;
-    if (wincons >= 5) score += 1;
+    score += wincons * 1.0;
+    score += comboPieces * 0.8;
+    score += finishers * 0.3;
     
     return Math.min(10, Math.max(1, score));
   }
   
   private static scoreManabase(deck: Card[]): number {
     const lands = deck.filter(c => c.type_line.includes('Land'));
-    const nonLands = deck.filter(c => !c.type_line.includes('Land'));
+    const deckSize = deck.length;
+    const landRatio = lands.length / deckSize;
     
-    if (lands.length === 0) return 1;
+    // Optimal land ratios by format
+    const optimalRatio = 0.36; // Commander default
+    const deviation = Math.abs(landRatio - optimalRatio);
+    let score = Math.max(2, 8 - (deviation * 20));
     
-    let score = 5; // Average manabase
-    
-    // Land ratio
-    const landRatio = lands.length / deck.length;
-    const optimalRatio = deck.length === 100 ? 0.37 : 0.4; // Commander vs 60-card
-    const ratioDeviation = Math.abs(landRatio - optimalRatio);
-    
-    if (ratioDeviation < 0.05) score += 1;
-    else if (ratioDeviation > 0.1) score -= 2;
-    
-    // Fixing quality
-    const basics = lands.filter(c => c.type_line.includes('Basic')).length;
-    const nonBasics = lands.length - basics;
-    const colors = this.getUniqueColors(nonLands);
-    
-    if (colors <= 1) {
-      // Mono-color: mostly basics is fine
-      if (basics / lands.length > 0.6) score += 1;
-    } else if (colors === 2) {
-      // Two-color: good fixing needed
-      if (nonBasics >= Math.min(8, lands.length * 0.5)) score += 1;
-    } else {
-      // Multicolor: excellent fixing required
-      if (nonBasics >= Math.min(12, lands.length * 0.6)) score += 1;
-      else if (nonBasics < lands.length * 0.4) score -= 2;
-    }
-    
-    // Untapped sources
-    const fastLands = lands.filter(c => 
-      !c.tags.has('etb-tapped') && 
-      !c.type_line.includes('Basic')
+    // Fixing quality bonus
+    const dualLands = lands.filter(c => 
+      c.oracle_text?.includes('any color') || 
+      c.type_line.includes('Dual')
     ).length;
-    
-    if (colors > 1 && fastLands >= colors * 2) score += 1;
-    
-    // Utility lands (commander bonus)
-    if (deck.length === 100) {
-      const utilityLands = lands.filter(c => 
-        !c.type_line.includes('Basic') && 
-        c.color_identity.length === 0
-      ).length;
-      if (utilityLands >= 2) score += 0.5;
-    }
+    score += Math.min(dualLands / lands.length * 3, 2);
     
     return Math.min(10, Math.max(1, score));
   }
   
   private static scoreConsistency(deck: Card[]): number {
-    let score = 5; // Base consistency
+    let score = 3; // Base consistency
     
-    // Deck size penalty for oversized decks
-    if (deck.length > 100) {
-      score -= (deck.length - 100) * 0.1;
-    } else if (deck.length > 60 && deck.length < 100) {
-      score -= (deck.length - 60) * 0.05;
-    }
+    const nonLands = deck.filter(c => !c.type_line.includes('Land'));
+    const deckSize = nonLands.length;
     
-    // Card selection and tutoring improve consistency
-    const tutors = deck.filter(c => 
-      c.tags.has('tutor-broad') || c.tags.has('tutor-narrow')
-    ).length;
-    const cardDraw = deck.filter(c => c.tags.has('draw')).length;
+    // Curve analysis
+    const lowCurve = nonLands.filter(c => c.cmc <= 2).length;
+    const midCurve = nonLands.filter(c => c.cmc >= 3 && c.cmc <= 5).length;
+    const highCurve = nonLands.filter(c => c.cmc > 5).length;
     
-    score += tutors * 0.5;
-    score += cardDraw * 0.2;
+    const curveScore = (lowCurve * 2 + midCurve - highCurve * 0.5) / deckSize;
+    score += Math.min(curveScore * 3, 3);
     
-    // Redundancy in key effects
-    const keyTags = ['ramp', 'draw', 'removal-spot'];
-    for (const tag of keyTags) {
-      const count = deck.filter(c => c.tags.has(tag)).length;
-      if (count >= 4) score += 0.3;
-      else if (count <= 1) score -= 0.5;
-    }
+    // Redundancy bonus
+    const tutors = deck.filter(c => c.tags.has('tutor-broad') || c.tags.has('tutor-narrow')).length;
+    score += Math.min(tutors * 0.5, 2);
     
     return Math.min(10, Math.max(1, score));
   }
@@ -225,64 +167,58 @@ export class UniversalScorer {
       '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7+': 0
     };
     
-    const nonLands = deck.filter(c => !c.type_line.includes('Land'));
-    
-    for (const card of nonLands) {
+    deck.filter(c => !c.type_line.includes('Land')).forEach(card => {
       const cmc = card.cmc;
       if (cmc <= 6) {
         curve[cmc.toString()]++;
       } else {
         curve['7+']++;
       }
-    }
+    });
     
     return curve;
   }
   
   private static analyzeColorDistribution(deck: Card[]): Record<string, number> {
-    const distribution: Record<string, number> = {
+    const colors: Record<string, number> = {
       'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0, 'C': 0
     };
     
-    for (const card of deck) {
-      if (card.color_identity.length === 0) {
-        distribution['C']++;
+    deck.forEach(card => {
+      if (card.colors.length === 0) {
+        colors['C']++;
       } else {
-        for (const color of card.color_identity) {
-          distribution[color]++;
-        }
+        card.colors.forEach(color => {
+          colors[color] = (colors[color] || 0) + 1;
+        });
       }
-    }
+    });
     
-    return distribution;
+    return colors;
   }
   
   private static analyzeTagDistribution(deck: Card[]): Record<string, number> {
     const tagCounts: Record<string, number> = {};
     
-    for (const card of deck) {
-      for (const tag of card.tags) {
+    deck.forEach(card => {
+      card.tags.forEach(tag => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-      }
-    }
+      });
+    });
     
     // Return top 10 most common tags
     return Object.fromEntries(
       Object.entries(tagCounts)
-        .sort((a, b) => b[1] - a[1])
+        .sort(([,a], [,b]) => b - a)
         .slice(0, 10)
     );
   }
   
   private static getUniqueColors(cards: Card[]): number {
     const colors = new Set<string>();
-    
-    for (const card of cards) {
-      for (const color of card.color_identity) {
-        colors.add(color);
-      }
-    }
-    
+    cards.forEach(card => {
+      card.colors.forEach(color => colors.add(color));
+    });
     return colors.size;
   }
 }

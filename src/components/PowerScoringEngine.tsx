@@ -3,18 +3,21 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useDeckStore } from '@/stores/deckStore';
+import { EDHPowerCalculator } from '@/lib/deckbuilder/score/edh-power-calculator';
 
 interface PowerScore {
   power: number;
-  score: number;
   band: string;
   subscores: Record<string, number>;
   drivers: string[];
   drags: string[];
-  recommendations: Array<{
-    change: string;
-    impact: Record<string, number>;
-  }>;
+  recommendations: string[];
+  playability: {
+    keepable7_pct: number;
+    t1_color_hit_pct: number;
+    untapped_land_ratio: number;
+    avg_cmc: number;
+  };
 }
 
 interface PowerScoringEngineProps {
@@ -23,128 +26,212 @@ interface PowerScoringEngineProps {
 }
 
 export function PowerScoringEngine({ deck, format }: PowerScoringEngineProps) {
-  const { cards: deckCards, format: deckFormat } = useDeckStore();
+  const { cards: deckCards, format: deckFormat, commander } = useDeckStore();
   
   const activeDeck = deck || deckCards;
   const activeFormat = format || deckFormat;
 
-  // Calculate power score based on the deck
+  // Calculate power score using new EDH calculator
   const calculatePowerScore = React.useCallback((): PowerScore => {
     if (!activeDeck || activeDeck.length === 0) {
       return {
         power: 5,
-        score: 50,
-        band: 'Casual',
+        band: 'casual',
         subscores: {
           speed: 0,
           interaction: 0,
-          ramp: 0,
-          cardAdvantage: 0,
           tutors: 0,
-          wincon: 0,
           resilience: 0,
+          card_advantage: 0,
           mana: 0,
+          consistency: 0,
+          stax_pressure: 0,
           synergy: 0
         },
         drivers: [],
         drags: [],
-        recommendations: []
+        recommendations: [],
+        playability: {
+          keepable7_pct: 0,
+          t1_color_hit_pct: 0,
+          untapped_land_ratio: 0,
+          avg_cmc: 0
+        }
       };
     }
 
-    // Simplified scoring algorithm
-    const subscores = {
-      speed: calculateSpeedScore(activeDeck),
-      interaction: calculateInteractionScore(activeDeck),
-      ramp: calculateRampScore(activeDeck),
-      cardAdvantage: calculateCardAdvantageScore(activeDeck),
-      tutors: calculateTutorScore(activeDeck),
-      wincon: calculateWinconScore(activeDeck),
-      resilience: calculateResilienceScore(activeDeck),
-      mana: calculateManaScore(activeDeck),
-      synergy: calculateSynergyScore(activeDeck)
-    };
+    // Convert deck store cards to EDH calculator format
+    const convertedDeck = activeDeck.map(card => ({
+      id: card.id || '',
+      oracle_id: card.id || '',
+      name: card.name,
+      mana_cost: card.mana_cost || '',
+      cmc: card.cmc,
+      type_line: card.type_line,
+      oracle_text: card.oracle_text || '',
+      colors: card.colors || [],
+      color_identity: card.color_identity || [],
+      power: card.power,
+      toughness: card.toughness,
+      keywords: card.keywords || [],
+      legalities: (card.legalities as any) || {},
+      image_uris: card.image_uris,
+      prices: card.prices,
+      set: card.set || '',
+      set_name: card.set_name || '',
+      collector_number: card.collector_number || '',
+      rarity: (card.rarity as any) || 'common',
+      layout: card.layout || 'normal',
+      is_legendary: false,
+      tags: new Set<string>(),
+      derived: {
+        mv: card.cmc,
+        colorPips: {},
+        producesMana: false,
+        etbTapped: false
+      }
+    }));
 
-    // Weighted average based on format
-    const weights = getFormatWeights(activeFormat);
-    const weightedScore = Object.entries(subscores).reduce((total, [key, score]) => {
-      return total + (score * (weights[key] || 1));
-    }, 0) / Object.values(weights).reduce((a, b) => a + b, 0);
+    const convertedCommander = commander ? {
+      id: commander.id || '',
+      oracle_id: commander.id || '',
+      name: commander.name,
+      mana_cost: commander.mana_cost || '',
+      cmc: commander.cmc || 0,
+      type_line: commander.type_line || '',
+      oracle_text: commander.oracle_text || '',
+      colors: commander.colors || [],
+      color_identity: commander.color_identity || [],
+      power: commander.power,
+      toughness: commander.toughness,
+      keywords: commander.keywords || [],
+      legalities: (commander.legalities as any) || {},
+      image_uris: commander.image_uris,
+      prices: commander.prices,
+      set: commander.set || '',
+      set_name: commander.set_name || '',
+      collector_number: commander.collector_number || '',
+      rarity: 'mythic' as any,
+      layout: commander.layout || 'normal',
+      is_legendary: true,
+      tags: new Set<string>(),
+      derived: {
+        mv: commander.cmc || 0,
+        colorPips: {},
+        producesMana: false,
+        etbTapped: false
+      }
+    } : undefined;
 
-    // Convert to 1-10 scale using logistic function
-    const power = Math.max(1, Math.min(10, Math.round(1 + 9 / (1 + Math.exp(-0.1 * (weightedScore - 50))))));
-    
-    const band = getPowerBand(power);
-    const drivers = getDrivers(subscores);
-    const drags = getDrags(subscores);
-    const recommendations = getRecommendations(subscores, power);
+    const result = EDHPowerCalculator.calculatePower(
+      convertedDeck,
+      activeFormat,
+      42,
+      convertedCommander
+    );
 
     return {
-      power,
-      score: Math.round(weightedScore),
-      band,
-      subscores,
-      drivers,
-      drags,
-      recommendations
+      power: result.power,
+      band: result.band,
+      subscores: result.subscores,
+      drivers: result.drivers,
+      drags: result.drags,
+      recommendations: result.recommendations,
+      playability: result.playability
     };
-  }, [activeDeck, activeFormat]);
+  }, [activeDeck, activeFormat, commander]);
 
   const scoreData = calculatePowerScore();
 
+  if (!activeDeck || activeDeck.length === 0) {
+    return (
+      <Card className="p-6 text-center">
+        <h3 className="text-lg font-semibold mb-2">Power Analysis</h3>
+        <p className="text-muted-foreground">Add cards to your deck to see power analysis</p>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="p-6">
-      <div className="space-y-6">
+    <div className="space-y-4">
+      <Card className="p-6">
         {/* Overall Power Score */}
-        <div className="text-center">
-          <div className="text-4xl font-bold text-primary mb-2">
-            {scoreData.power}/10
-          </div>
-          <Badge variant="outline" className="text-sm">
-            {scoreData.band}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Power Level</h3>
+          <Badge variant={scoreData.band === 'cedh' ? 'destructive' : scoreData.band === 'high' ? 'default' : 'secondary'}>
+            {scoreData.power.toFixed(1)}/10 - {scoreData.band.toUpperCase()}
           </Badge>
-          <p className="text-sm text-muted-foreground mt-2">
-            Raw Score: {scoreData.score}/100
-          </p>
+        </div>
+        
+        <Progress value={scoreData.power * 10} className="h-3 mb-4" />
+
+        {/* Playability Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary">
+              {scoreData.playability.keepable7_pct.toFixed(0)}%
+            </div>
+            <div className="text-sm text-muted-foreground">Keepable Hands</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary">
+              {scoreData.playability.t1_color_hit_pct.toFixed(0)}%
+            </div>
+            <div className="text-sm text-muted-foreground">T1 Color Hit</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary">
+              {scoreData.playability.avg_cmc.toFixed(1)}
+            </div>
+            <div className="text-sm text-muted-foreground">Avg CMC</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary">
+              {scoreData.playability.untapped_land_ratio.toFixed(0)}%
+            </div>
+            <div className="text-sm text-muted-foreground">Untapped Lands</div>
+          </div>
         </div>
 
         {/* Subscores */}
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold">Detailed Analysis</h4>
+          <h4 className="font-medium">Component Scores</h4>
           {Object.entries(scoreData.subscores).map(([category, score]) => (
-            <div key={category} className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="capitalize">{category.replace(/([A-Z])/g, ' $1')}</span>
-                <span>{Math.round(score)}/100</span>
+            <div key={category} className="flex items-center justify-between">
+              <span className="text-sm capitalize">{category.replace('_', ' ')}</span>
+              <div className="flex items-center space-x-2">
+                <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary rounded-full" 
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium w-8 text-right">
+                  {Math.round(score)}
+                </span>
               </div>
-              <Progress value={score} className="h-2" />
             </div>
           ))}
         </div>
 
-        {/* Drivers */}
+        {/* Drivers and Drags */}
         {scoreData.drivers.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold mb-2 text-green-600">Strengths</h4>
+          <div className="mt-4">
+            <h4 className="font-medium text-green-600 mb-2">Strengths</h4>
             <div className="space-y-1">
               {scoreData.drivers.map((driver, index) => (
-                <p key={index} className="text-sm text-green-700">
-                  • {driver}
-                </p>
+                <div key={index} className="text-sm text-green-600">• {driver}</div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Drags */}
         {scoreData.drags.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold mb-2 text-orange-600">Weaknesses</h4>
+          <div className="mt-4">
+            <h4 className="font-medium text-orange-600 mb-2">Weaknesses</h4>
             <div className="space-y-1">
               {scoreData.drags.map((drag, index) => (
-                <p key={index} className="text-sm text-orange-700">
-                  • {drag}
-                </p>
+                <div key={index} className="text-sm text-orange-600">• {drag}</div>
               ))}
             </div>
           </div>
@@ -152,234 +239,16 @@ export function PowerScoringEngine({ deck, format }: PowerScoringEngineProps) {
 
         {/* Recommendations */}
         {scoreData.recommendations.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold mb-2 text-blue-600">Recommendations</h4>
+          <div className="mt-4">
+            <h4 className="font-medium text-blue-600 mb-2">Recommendations</h4>
             <div className="space-y-1">
-              {scoreData.recommendations.map((rec, index) => (
-                <p key={index} className="text-sm text-blue-700">
-                  • {rec.change}
-                </p>
+              {scoreData.recommendations.slice(0, 3).map((rec, index) => (
+                <div key={index} className="text-sm text-blue-600">• {rec}</div>
               ))}
             </div>
           </div>
         )}
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
-}
-
-// Helper functions for scoring
-function calculateSpeedScore(deck: any[]): number {
-  const lowCostCards = deck.filter(card => card.cmc <= 2).length;
-  const fastMana = deck.filter(card => 
-    card.type_line?.includes('Artifact') && 
-    card.oracle_text?.includes('add') && 
-    card.cmc <= 2
-  ).length;
-  
-  return Math.min(100, (lowCostCards * 2) + (fastMana * 10));
-}
-
-function calculateInteractionScore(deck: any[]): number {
-  const removal = deck.filter(card => 
-    card.oracle_text?.includes('destroy') || 
-    card.oracle_text?.includes('exile')
-  ).length;
-  const counterspells = deck.filter(card => 
-    card.oracle_text?.includes('counter target')
-  ).length;
-  
-  return Math.min(100, (removal * 8) + (counterspells * 10));
-}
-
-function calculateRampScore(deck: any[]): number {
-  const rampCards = deck.filter(card => 
-    card.oracle_text?.includes('add') && card.oracle_text?.includes('mana')
-  ).length;
-  
-  return Math.min(100, rampCards * 10);
-}
-
-function calculateCardAdvantageScore(deck: any[]): number {
-  const drawCards = deck.filter(card => 
-    card.oracle_text?.includes('draw') && card.oracle_text?.includes('card')
-  ).length;
-  
-  return Math.min(100, drawCards * 12);
-}
-
-function calculateTutorScore(deck: any[]): number {
-  const tutors = deck.filter(card => 
-    card.oracle_text?.includes('search') && card.oracle_text?.includes('library')
-  ).length;
-  
-  return Math.min(100, tutors * 15);
-}
-
-function calculateWinconScore(deck: any[]): number {
-  const legendaryCreatures = deck.filter(card => 
-    card.type_line?.includes('Legendary') && card.type_line?.includes('Creature')
-  ).length;
-  const planeswalkers = deck.filter(card => 
-    card.type_line?.includes('Planeswalker')
-  ).length;
-  
-  return Math.min(100, (legendaryCreatures * 8) + (planeswalkers * 12));
-}
-
-function calculateResilienceScore(deck: any[]): number {
-  const protection = deck.filter(card => 
-    card.oracle_text?.includes('hexproof') || 
-    card.oracle_text?.includes('indestructible') ||
-    card.oracle_text?.includes('protection')
-  ).length;
-  
-  return Math.min(100, protection * 15);
-}
-
-function calculateManaScore(deck: any[]): number {
-  const lands = deck.filter(card => card.type_line?.includes('Land')).length;
-  const deckSize = deck.length;
-  const ratio = deckSize > 0 ? lands / deckSize : 0;
-  
-  // Optimal land ratio is around 35-40% for most decks
-  const optimal = 0.375;
-  const deviation = Math.abs(ratio - optimal);
-  
-  return Math.max(0, 100 - (deviation * 200));
-}
-
-function calculateSynergyScore(deck: any[]): number {
-  // Simplified synergy calculation based on shared types and themes
-  const types = deck.reduce((acc, card) => {
-    const type = card.type_line?.split(' ')[0];
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const maxType = Math.max(...Object.values(types).map(Number), 0);
-  return Math.min(100, (maxType / deck.length) * 150);
-}
-
-function getFormatWeights(format: string): Record<string, number> {
-  switch (format) {
-    case 'commander':
-      return {
-        speed: 0.8,
-        interaction: 1.2,
-        ramp: 1.1,
-        cardAdvantage: 1.3,
-        tutors: 0.9,
-        wincon: 1.0,
-        resilience: 1.1,
-        mana: 1.0,
-        synergy: 1.4
-      };
-    case 'modern':
-      return {
-        speed: 1.3,
-        interaction: 1.1,
-        ramp: 0.8,
-        cardAdvantage: 1.0,
-        tutors: 1.2,
-        wincon: 1.2,
-        resilience: 0.9,
-        mana: 1.1,
-        synergy: 1.0
-      };
-    case 'standard':
-      return {
-        speed: 1.1,
-        interaction: 1.0,
-        ramp: 0.9,
-        cardAdvantage: 1.1,
-        tutors: 0.8,
-        wincon: 1.0,
-        resilience: 0.9,
-        mana: 1.0,
-        synergy: 1.0
-      };
-    default:
-      return {
-        speed: 1.0,
-        interaction: 1.0,
-        ramp: 1.0,
-        cardAdvantage: 1.0,
-        tutors: 1.0,
-        wincon: 1.0,
-        resilience: 1.0,
-        mana: 1.0,
-        synergy: 1.0
-      };
-  }
-}
-
-function getPowerBand(power: number): string {
-  if (power >= 9) return 'Competitive';
-  if (power >= 7) return 'High Power';
-  if (power >= 5) return 'Mid Power';
-  if (power >= 3) return 'Casual';
-  return 'Precon';
-}
-
-function getDrivers(subscores: Record<string, number>): string[] {
-  const drivers = [];
-  const threshold = 70;
-  
-  Object.entries(subscores).forEach(([category, score]) => {
-    if (score >= threshold) {
-      const categoryName = category.replace(/([A-Z])/g, ' $1').toLowerCase();
-      drivers.push(`Strong ${categoryName} package`);
-    }
-  });
-  
-  return drivers;
-}
-
-function getDrags(subscores: Record<string, number>): string[] {
-  const drags = [];
-  const threshold = 30;
-  
-  Object.entries(subscores).forEach(([category, score]) => {
-    if (score <= threshold) {
-      const categoryName = category.replace(/([A-Z])/g, ' $1').toLowerCase();
-      drags.push(`Weak ${categoryName} package`);
-    }
-  });
-  
-  return drags;
-}
-
-function getRecommendations(subscores: Record<string, number>, power: number): Array<{ change: string; impact: Record<string, number> }> {
-  const recommendations = [];
-  
-  if (subscores.interaction < 40) {
-    recommendations.push({
-      change: 'Add 2-3 more removal spells',
-      impact: { interaction: 15, power: 0.5 }
-    });
-  }
-  
-  if (subscores.ramp < 30) {
-    recommendations.push({
-      change: 'Include more mana acceleration',
-      impact: { ramp: 20, speed: 10 }
-    });
-  }
-  
-  if (subscores.cardAdvantage < 35) {
-    recommendations.push({
-      change: 'Add card draw engines',
-      impact: { cardAdvantage: 18, resilience: 8 }
-    });
-  }
-  
-  if (subscores.mana < 60) {
-    recommendations.push({
-      change: 'Optimize manabase fixing',
-      impact: { mana: 15, speed: 5 }
-    });
-  }
-  
-  return recommendations;
 }

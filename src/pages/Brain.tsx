@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings, Plus, Heart } from 'lucide-react';
+import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
+import { CardAdditionPanel } from '@/components/brain/CardAdditionPanel';
 
 interface CardData {
   name: string;
@@ -160,53 +161,6 @@ export default function Brain() {
     setShowQuickActions(true);
   };
 
-  const addCardToDeck = async (card: CardData) => {
-    if (!selectedDeck) return;
-    
-    try {
-      const { error } = await supabase
-        .from('deck_cards')
-        .insert({
-          deck_id: selectedDeck.id,
-          card_id: card.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-          card_name: card.name,
-          quantity: 1,
-          is_commander: false,
-          is_sideboard: false
-        });
-
-      if (error) throw error;
-      
-      toast.success(`Added ${card.name} to ${selectedDeck.name}`);
-    } catch (error) {
-      console.error('Error adding card to deck:', error);
-      toast.error('Failed to add card to deck');
-    }
-  };
-
-  const addCardToWishlist = async (card: CardData) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('wishlist')
-        .insert({
-          user_id: user.id,
-          card_id: card.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-          card_name: card.name,
-          quantity: 1,
-          priority: 'medium'
-        });
-
-      if (error) throw error;
-      
-      toast.success(`Added ${card.name} to wishlist`);
-    } catch (error) {
-      console.error('Error adding card to wishlist:', error);
-      toast.error('Failed to add card to wishlist');
-    }
-  };
 
   // Initialize with welcome message
   useEffect(() => {
@@ -422,33 +376,17 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                                           {card.power}/{card.toughness}
                                         </div>
                                       )}
-                                      <div className="text-xs text-muted-foreground line-clamp-3">
-                                        {card.oracle_text}
-                                      </div>
-                                      
-                                      {/* Action buttons */}
-                                      <div className="flex gap-2 pt-2">
-                                        {selectedDeck && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs"
-                                            onClick={() => addCardToDeck(card)}
-                                          >
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            Add to Deck
-                                          </Button>
-                                        )}
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 text-xs"
-                                          onClick={() => addCardToWishlist(card)}
-                                        >
-                                          <Heart className="h-3 w-3 mr-1" />
-                                          Wishlist
-                                        </Button>
-                                      </div>
+                                       <div className="text-xs text-muted-foreground line-clamp-3">
+                                         {card.oracle_text}
+                                       </div>
+                                       
+                                       {/* Enhanced card addition panel */}
+                                       <div className="pt-2">
+                                         <CardAdditionPanel 
+                                           card={card}
+                                           defaultExpanded={false}
+                                         />
+                                       </div>
                                     </div>
                                   </div>
                                 ))}

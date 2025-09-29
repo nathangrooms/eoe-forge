@@ -149,6 +149,17 @@ class ScryfallAPI {
 const detectCardMentions = (text: string): string[] => {
   const cardNames = new Set<string>();
   
+  // Pattern for "Referenced Cards:" section at end of AI responses
+  const referencedCardsMatch = text.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
+  if (referencedCardsMatch) {
+    const referencedSection = referencedCardsMatch[1];
+    // Split by commas, semicolons, or bullet points and clean up
+    const cards = referencedSection.split(/[,;•\-\n]/)
+      .map(card => card.trim().replace(/^[\-•]\s*/, ''))
+      .filter(card => card.length > 2);
+    cards.forEach(card => cardNames.add(card));
+  }
+  
   // Pattern for quoted card names: "Card Name"
   const quotedNames = text.match(/"([^"]+)"/g);
   if (quotedNames) {
@@ -296,6 +307,13 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - **Deck Building Advice:** Apply Rule of 9, mana curves, and archetype knowledge
 - **Practical Recommendations:** Suggest specific cards and strategies
 - **Card Searches:** When users ask for specific card recommendations (e.g., "show me white legendary creatures under 5 mana"), provide detailed lists with explanations
+
+## CRITICAL: CARD REFERENCE FORMAT
+**ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this:
+
+Referenced Cards: Sol Ring, Lightning Bolt, Counterspell, Rhystic Study
+
+Even if you mention cards within your response text, ALWAYS include this section at the end for reliable card detection and display.
 
 ## RESPONSE STYLE
 ${responseStyle === 'detailed' ? `

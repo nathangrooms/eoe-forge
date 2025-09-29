@@ -10,11 +10,25 @@ import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 
+interface CardData {
+  name: string;
+  image_uri?: string;
+  mana_cost: string;
+  type_line: string;
+  oracle_text: string;
+  power?: string;
+  toughness?: string;
+  cmc: number;
+  colors: string[];
+  rarity: string;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  cards?: CardData[];
 }
 
 interface QuickAction {
@@ -112,7 +126,7 @@ Choose a quick action below or ask me anything about Magic!`,
     }
   }, [deckName, format, totalCards, powerLevel]);
 
-  const generateResponse = async (userMessage: string): Promise<string> => {
+  const generateResponse = async (userMessage: string): Promise<{ message: string; cards: CardData[] }> => {
     try {
       console.log('Sending message to MTG Brain:', userMessage);
       
@@ -131,7 +145,8 @@ Choose a quick action below or ask me anything about Magic!`,
       const { data, error } = await supabase.functions.invoke('mtg-brain', {
         body: { 
           message: userMessage,
-          deckContext 
+          deckContext,
+          conversationHistory: messages.slice(-6).map(m => ({ role: m.type, content: m.content }))
         }
       });
 
@@ -146,7 +161,7 @@ Choose a quick action below or ask me anything about Magic!`,
         throw new Error(data.error || 'MTG Brain returned an error');
       }
 
-      return data.message || 'No response received from MTG Brain';
+      return { message: data.message || 'No response received from MTG Brain', cards: data.cards || [] };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
       
@@ -191,7 +206,8 @@ Choose a quick action below or ask me anything about Magic!`,
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: response,
+        content: response.message,
+        cards: response.cards,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
@@ -259,6 +275,47 @@ Choose a quick action below or ask me anything about Magic!`,
                         <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert">
                           {message.content}
                         </div>
+                        
+                        {/* Display referenced cards */}
+                        {message.cards && message.cards.length > 0 && (
+                          <div className="mt-4 space-y-3">
+                            <div className="text-xs font-medium text-muted-foreground border-t pt-3">
+                              Referenced Cards:
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {message.cards.map((card, cardIndex) => (
+                                <div
+                                  key={cardIndex}
+                                  className="bg-background/80 border rounded-lg p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
+                                >
+                                  {card.image_uri && (
+                                    <img
+                                      src={card.image_uri}
+                                      alt={card.name}
+                                      className="w-full h-auto rounded aspect-[5/7] object-cover"
+                                    />
+                                  )}
+                                  <div className="space-y-1">
+                                    <div className="font-semibold text-foreground">{card.name}</div>
+                                    <div className="text-muted-foreground">
+                                      {card.mana_cost} • CMC {card.cmc}
+                                    </div>
+                                    <div className="text-muted-foreground">{card.type_line}</div>
+                                    {card.power && card.toughness && (
+                                      <div className="text-muted-foreground font-mono">
+                                        {card.power}/{card.toughness}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-muted-foreground line-clamp-3">
+                                      {card.oracle_text}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="text-xs opacity-60 mt-2">
                           {message.timestamp.toLocaleTimeString()}
                         </div>

@@ -116,6 +116,73 @@ const MTG_KNOWLEDGE = {
   }
 };
 
+// Scryfall API integration for edge functions
+class ScryfallAPI {
+  private baseUrl = 'https://api.scryfall.com';
+
+  async makeRequest<T>(url: string): Promise<T> {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'MTG-Brain/1.0' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Scryfall API error: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async searchCards(query: string): Promise<any> {
+    const encodedQuery = encodeURIComponent(query);
+    const url = `${this.baseUrl}/cards/search?q=${encodedQuery}&order=name&unique=cards`;
+    return this.makeRequest(url);
+  }
+
+  async getCardByName(name: string): Promise<any> {
+    const encodedName = encodeURIComponent(name);
+    const url = `${this.baseUrl}/cards/named?fuzzy=${encodedName}`;
+    return this.makeRequest(url);
+  }
+}
+
+// Card name detection patterns
+const detectCardMentions = (text: string): string[] => {
+  const cardNames = new Set<string>();
+  
+  // Pattern for quoted card names: "Card Name"
+  const quotedNames = text.match(/"([^"]+)"/g);
+  if (quotedNames) {
+    quotedNames.forEach(match => {
+      const name = match.slice(1, -1).trim();
+      if (name.length > 2) cardNames.add(name);
+    });
+  }
+  
+  // Pattern for [[Card Name]] (common MTG notation)
+  const bracketNames = text.match(/\[\[([^\]]+)\]\]/g);
+  if (bracketNames) {
+    bracketNames.forEach(match => {
+      const name = match.slice(2, -2).trim();
+      if (name.length > 2) cardNames.add(name);
+    });
+  }
+  
+  // Common MTG card names (partial list)
+  const commonCards = [
+    'Sol Ring', 'Lightning Bolt', 'Counterspell', 'Swords to Plowshares', 
+    'Path to Exile', 'Rhystic Study', 'Cyclonic Rift', 'Demonic Tutor',
+    'Mana Crypt', 'Force of Will', 'Birds of Paradise', 'Noble Hierarch'
+  ];
+  
+  commonCards.forEach(card => {
+    if (text.toLowerCase().includes(card.toLowerCase())) {
+      cardNames.add(card);
+    }
+  });
+  
+  return Array.from(cardNames);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -124,7 +191,7 @@ serve(async (req) => {
   try {
     console.log('MTG Brain function called');
     
-    const { message, deckContext } = await req.json();
+    const { message, deckContext, conversationHistory = [] } = await req.json();
     console.log('Received message:', message);
     console.log('Deck context:', deckContext);
 
@@ -133,8 +200,53 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Build comprehensive system prompt with MTG knowledge
-    const systemPrompt = `You are the MTG Super Brain, the ultimate Magic: The Gathering expert assistant. You have comprehensive knowledge of:
+    // Initialize Scryfall API and detect card mentions
+    const scryfallAPI = new ScryfallAPI();
+    const allText = [message, ...conversationHistory.map((msg: any) => msg.content)].join(' ');
+    const mentionedCards = detectCardMentions(allText);
+    
+    console.log('Detected card mentions:', mentionedCards);
+
+    // Search for card data and images
+    let cardContext = '';
+    const cardData: any[] = [];
+    
+    if (mentionedCards.length > 0) {
+      console.log('Searching for card data...');
+      
+      // Limit to first 10 cards to avoid overwhelming the context
+      const cardsToSearch = mentionedCards.slice(0, 10);
+      
+      for (const cardName of cardsToSearch) {
+        try {
+          const card = await scryfallAPI.getCardByName(cardName);
+          cardData.push({
+            name: card.name,
+            image_uri: card.image_uris?.normal || card.image_uris?.large,
+            mana_cost: card.mana_cost,
+            type_line: card.type_line,
+            oracle_text: card.oracle_text,
+            power: card.power,
+            toughness: card.toughness,
+            cmc: card.cmc,
+            colors: card.colors,
+            rarity: card.rarity
+          });
+          
+          cardContext += `\n**${card.name}** (${card.mana_cost}) - ${card.type_line}\n`;
+          cardContext += `${card.oracle_text}\n`;
+          if (card.power && card.toughness) {
+            cardContext += `Power/Toughness: ${card.power}/${card.toughness}\n`;
+          }
+          cardContext += `---\n`;
+        } catch (error) {
+          console.log(`Could not find card: ${cardName}`);
+        }
+      }
+    }
+
+    // Build comprehensive system prompt with MTG knowledge and card context
+    let systemPrompt = `You are the MTG Super Brain, the ultimate Magic: The Gathering expert assistant. You have comprehensive knowledge of:
 
 ## CORE KNOWLEDGE
 **Game Rules:** ${JSON.stringify(MTG_KNOWLEDGE.GAME_RULES, null, 2)}
@@ -152,7 +264,20 @@ serve(async (req) => {
 **Staple Cards:** ${JSON.stringify(MTG_KNOWLEDGE.STAPLE_CARDS, null, 2)}
 
 ## CURRENT DECK CONTEXT
-${deckContext ? `The user is currently working on: ${JSON.stringify(deckContext, null, 2)}` : 'No deck currently loaded.'}
+${deckContext ? `The user is currently working on: ${JSON.stringify(deckContext, null, 2)}` : 'No deck currently loaded.'}`;
+
+    // Add card context if cards were mentioned
+    if (cardContext) {
+      systemPrompt += `
+
+## REFERENCED CARDS IN CONVERSATION
+The following cards have been mentioned in this conversation:
+${cardContext}
+
+When discussing these cards, reference their actual mechanics, costs, and abilities as shown above.`;
+    }
+
+    systemPrompt += `
 
 ## YOUR ROLE
 You are an expert MTG strategist, deck builder, and rules advisor. Provide:
@@ -161,6 +286,7 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - **Format Expertise:** Understand meta trends and competitive play
 - **Deck Building Advice:** Apply Rule of 9, mana curves, and archetype knowledge
 - **Practical Recommendations:** Suggest specific cards and strategies
+- **Card Searches:** When users ask for specific card recommendations (e.g., "show me white legendary creatures under 5 mana"), provide detailed lists with explanations
 
 ## RESPONSE STYLE
 - Use markdown formatting with headers and bullet points
@@ -169,8 +295,9 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - Provide actionable advice
 - Include reasoning behind recommendations
 - Use MTG terminology correctly
+- When suggesting cards, include mana cost, type, and key abilities
 
-Always ground your responses in the provided knowledge base and current deck context.`;
+Always ground your responses in the provided knowledge base, referenced card data, and current deck context.`;
 
     console.log('Calling Lovable AI Gateway...');
     
@@ -229,6 +356,7 @@ Always ground your responses in the provided knowledge base and current deck con
 
     return new Response(JSON.stringify({ 
       message: assistantMessage,
+      cards: cardData,
       success: true 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -275,6 +275,8 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
   };
 
   const extractCardsFromMessage = async (messageText: string) => {
+    if (isLoading) return; // Prevent multiple simultaneous calls
+    
     try {
       // More comprehensive card name patterns
       const patterns = [
@@ -293,77 +295,95 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
         const matches = messageText.match(pattern) || [];
         matches.forEach(match => {
           let cleanName = match.replace(/["""]/g, '').trim();
-          if (cleanName.length >= 3 && cleanName.length <= 50) {
+          // Filter out common non-card words
+          const skipWords = ['Magic', 'Card', 'Deck', 'Commander', 'Player', 'Game', 'Turn', 'Mana', 'Library', 'Hand', 'Battlefield', 'Graveyard'];
+          if (cleanName.length >= 3 && cleanName.length <= 50 && !skipWords.includes(cleanName)) {
             potentialCards.add(cleanName);
           }
         });
       });
       
       const foundCards: CardData[] = [];
+      const searchPromises: Promise<void>[] = [];
       
-      for (const cardName of potentialCards) {
-        try {
-          // Use Scryfall's fuzzy search for better matching
-          const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
-          if (searchResponse.ok) {
-            const cardData = await searchResponse.json();
-            
-            // Only add if we haven't found this card already
-            if (!foundCards.some(c => c.name === cardData.name)) {
-              foundCards.push({
-                name: cardData.name,
-                image_uri: cardData.image_uris?.normal,
-                mana_cost: cardData.mana_cost,
-                type_line: cardData.type_line,
-                oracle_text: cardData.oracle_text,
-                power: cardData.power,
-                toughness: cardData.toughness,
-                cmc: cardData.cmc,
-                colors: cardData.colors,
-                rarity: cardData.rarity
-              });
-            }
-          }
-        } catch (error) {
-          // If fuzzy search fails, try autocomplete for partial matches
+      // Limit to prevent too many API calls
+      const cardsToSearch = Array.from(potentialCards).slice(0, 10);
+      
+      for (const cardName of cardsToSearch) {
+        const searchPromise = (async () => {
           try {
-            const autocompleteResponse = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(cardName)}`);
-            if (autocompleteResponse.ok) {
-              const suggestions = await autocompleteResponse.json();
-              if (suggestions.data && suggestions.data.length > 0) {
-                // Try the first suggestion
-                const exactResponse = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(suggestions.data[0])}`);
-                if (exactResponse.ok) {
-                  const cardData = await exactResponse.json();
-                  if (!foundCards.some(c => c.name === cardData.name)) {
-                    foundCards.push({
-                      name: cardData.name,
-                      image_uri: cardData.image_uris?.normal,
-                      mana_cost: cardData.mana_cost,
-                      type_line: cardData.type_line,
-                      oracle_text: cardData.oracle_text,
-                      power: cardData.power,
-                      toughness: cardData.toughness,
-                      cmc: cardData.cmc,
-                      colors: cardData.colors,
-                      rarity: cardData.rarity
-                    });
+            // Use Scryfall's fuzzy search for better matching
+            const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
+            if (searchResponse.ok) {
+              const cardData = await searchResponse.json();
+              
+              // Only add if we haven't found this card already
+              if (!foundCards.some(c => c.name === cardData.name)) {
+                foundCards.push({
+                  name: cardData.name,
+                  image_uri: cardData.image_uris?.normal,
+                  mana_cost: cardData.mana_cost,
+                  type_line: cardData.type_line,
+                  oracle_text: cardData.oracle_text,
+                  power: cardData.power,
+                  toughness: cardData.toughness,
+                  cmc: cardData.cmc,
+                  colors: cardData.colors,
+                  rarity: cardData.rarity
+                });
+              }
+            } else if (searchResponse.status === 404) {
+              // If fuzzy search fails, try autocomplete for partial matches
+              try {
+                const autocompleteResponse = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(cardName)}`);
+                if (autocompleteResponse.ok) {
+                  const suggestions = await autocompleteResponse.json();
+                  if (suggestions.data && suggestions.data.length > 0) {
+                    // Try the first suggestion
+                    const exactResponse = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(suggestions.data[0])}`);
+                    if (exactResponse.ok) {
+                      const cardData = await exactResponse.json();
+                      if (!foundCards.some(c => c.name === cardData.name)) {
+                        foundCards.push({
+                          name: cardData.name,
+                          image_uri: cardData.image_uris?.normal,
+                          mana_cost: cardData.mana_cost,
+                          type_line: cardData.type_line,
+                          oracle_text: cardData.oracle_text,
+                          power: cardData.power,
+                          toughness: cardData.toughness,
+                          cmc: cardData.cmc,
+                          colors: cardData.colors,
+                          rarity: cardData.rarity
+                        });
+                      }
+                    }
                   }
                 }
+              } catch (autocompleteError) {
+                // Skip if autocomplete also fails
+                console.log(`Could not find card: ${cardName}`);
               }
             }
-          } catch (autocompleteError) {
+          } catch (error) {
             // Skip if both methods fail
-            continue;
+            console.log(`Error searching for card: ${cardName}`, error);
           }
-        }
+        })();
+        
+        searchPromises.push(searchPromise);
       }
+      
+      // Wait for all searches to complete
+      await Promise.all(searchPromises);
       
       setMessageCards(foundCards);
       setShowMessageCardsModal(true);
       
       if (foundCards.length === 0) {
         toast.info('No Magic cards detected in this message');
+      } else {
+        toast.success(`Found ${foundCards.length} Magic card${foundCards.length === 1 ? '' : 's'}`);
       }
     } catch (error) {
       console.error('Error extracting cards from message:', error);

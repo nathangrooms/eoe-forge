@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb } from 'lucide-react';
+import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 
 interface CardData {
   name: string;
@@ -88,8 +90,11 @@ export default function Brain() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(true);
+  const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
+  const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
+  const [deckCards, setDeckCards] = useState<any[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { name: deckName, format, totalCards, powerLevel, cards } = useDeckStore();
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -100,9 +105,94 @@ export default function Brain() {
     scrollToBottom();
   }, [messages]);
 
+  // Load available decks
+  useEffect(() => {
+    loadUserDecks();
+  }, []);
+
+  const loadUserDecks = async () => {
+    setLoadingDecks(true);
+    try {
+      const decks = await DeckAPI.getDeckSummaries();
+      setAvailableDecks(decks);
+      if (decks.length > 0 && !selectedDeck) {
+        setSelectedDeck(decks[0]);
+      }
+    } catch (error) {
+      console.error('Error loading decks:', error);
+      toast({
+        title: "Error Loading Decks",
+        description: "Could not load your deck list. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingDecks(false);
+    }
+  };
+
+  // Load deck cards when deck is selected
+  useEffect(() => {
+    if (selectedDeck) {
+      loadDeckCards(selectedDeck.id);
+    }
+  }, [selectedDeck]);
+
+  const loadDeckCards = async (deckId: string) => {
+    try {
+      const { data: cards, error } = await supabase
+        .from('deck_cards')
+        .select(`
+          card_id,
+          card_name,
+          quantity,
+          is_commander,
+          is_sideboard,
+          cards (
+            name,
+            mana_cost,
+            cmc,
+            type_line,
+            oracle_text,
+            power,
+            toughness,
+            colors,
+            image_uris,
+            prices
+          )
+        `)
+        .eq('deck_id', deckId);
+
+      if (error) throw error;
+      
+      setDeckCards(cards || []);
+    } catch (error) {
+      console.error('Error loading deck cards:', error);
+      toast({
+        title: "Error Loading Deck Cards",
+        description: "Could not load the selected deck's cards.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeckChange = (deckId: string) => {
+    const deck = availableDecks.find(d => d.id === deckId);
+    if (deck) {
+      setSelectedDeck(deck);
+      // Clear conversation when switching decks
+      setMessages([]);
+      setShowQuickActions(true);
+    }
+  };
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setShowQuickActions(true);
+  };
+
   // Initialize with welcome message
   useEffect(() => {
-    if (messages.length === 0) {
+    if (messages.length === 0 && selectedDeck) {
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
@@ -117,27 +207,41 @@ I'm your comprehensive Magic: The Gathering assistant, powered by deep game know
 • **Meta Intelligence** - Current trends and competitive insights
 • **Synergy Detection** - Discover powerful card combinations
 
-${deckName ? `\n**Current Deck:** ${deckName} (${format}, ${totalCards} cards, Power Level ${powerLevel})` : '\n**Ready to analyze any deck you\'re building!**'}
+**Currently Analyzing:** ${selectedDeck.name} (${selectedDeck.format}, ${selectedDeck.counts.total} cards, Power Level ${selectedDeck.power.score})
+
+I have access to all ${selectedDeck.counts.total} cards in your deck, including your ${selectedDeck.commander?.name ? `commander ${selectedDeck.commander.name}` : 'deck composition'}.
 
 Choose a quick action below or ask me anything about Magic!`,
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
     }
-  }, [deckName, format, totalCards, powerLevel]);
+  }, [selectedDeck]);
 
   const generateResponse = async (userMessage: string): Promise<{ message: string; cards: CardData[] }> => {
     try {
       console.log('Sending message to MTG Brain:', userMessage);
       
-      // Prepare deck context
-      const deckContext = deckName ? {
-        name: deckName,
-        format,
-        totalCards,
-        powerLevel,
-        cardCount: cards.length,
-        hasCards: cards.length > 0
+      // Prepare comprehensive deck context
+      const deckContext = selectedDeck ? {
+        id: selectedDeck.id,
+        name: selectedDeck.name,
+        format: selectedDeck.format,
+        totalCards: selectedDeck.counts.total,
+        powerLevel: selectedDeck.power.score,
+        powerBand: selectedDeck.power.band,
+        colors: selectedDeck.colors,
+        commander: selectedDeck.commander,
+        counts: selectedDeck.counts,
+        curve: selectedDeck.curve,
+        mana: selectedDeck.mana,
+        cards: deckCards.map(dc => ({
+          name: dc.card_name,
+          quantity: dc.quantity,
+          is_commander: dc.is_commander,
+          is_sideboard: dc.is_sideboard,
+          ...dc.cards
+        }))
       } : null;
 
       console.log('Deck context:', deckContext);
@@ -244,11 +348,40 @@ Choose a quick action below or ask me anything about Magic!`,
                   <p className="text-sm text-muted-foreground">Your strategic Magic assistant</p>
                 </div>
               </div>
-              {deckName && (
-                <Badge variant="secondary" className="hidden sm:flex">
-                  Analyzing: {deckName}
-                </Badge>
-              )}
+              
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNewConversation}
+                  className="hidden sm:flex"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  New Chat
+                </Button>
+                
+                {/* Deck Selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground hidden sm:block">Analyzing:</span>
+                  <Select value={selectedDeck?.id || ''} onValueChange={handleDeckChange}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder={loadingDecks ? "Loading..." : "Select deck"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDecks.map((deck) => (
+                        <SelectItem key={deck.id} value={deck.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{deck.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {deck.format}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -411,18 +544,21 @@ Choose a quick action below or ask me anything about Magic!`,
           </Card>
 
           {/* Context Info */}
-          {deckName && (
+          {selectedDeck && (
             <Card className="mt-4 bg-background/40 backdrop-blur-sm border-border/50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4">
-                    <span><strong>Deck:</strong> {deckName}</span>
-                    <span><strong>Format:</strong> {format}</span>
-                    <span><strong>Cards:</strong> {totalCards}</span>
-                    <span><strong>Power:</strong> {powerLevel}/10</span>
+                    <span><strong>Deck:</strong> {selectedDeck.name}</span>
+                    <span><strong>Format:</strong> {selectedDeck.format}</span>
+                    <span><strong>Cards:</strong> {selectedDeck.counts.total}</span>
+                    <span><strong>Power:</strong> {selectedDeck.power.score}/10</span>
+                    {selectedDeck.commander && (
+                      <span><strong>Commander:</strong> {selectedDeck.commander.name}</span>
+                    )}
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    Context Active
+                    Full Deck Access
                   </Badge>
                 </div>
               </CardContent>

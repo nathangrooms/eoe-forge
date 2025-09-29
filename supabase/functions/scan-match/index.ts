@@ -114,7 +114,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Card match error:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: (error as any).message,
       candidates: [] 
     }), {
       status: 500,

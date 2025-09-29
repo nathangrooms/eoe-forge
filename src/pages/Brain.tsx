@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings } from 'lucide-react';
+import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useDeckStore } from '@/stores/deckStore';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { CardAddModal } from '@/components/brain/CardAddModal';
+import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
 
 interface CardData {
   name: string;
@@ -98,6 +99,8 @@ export default function Brain() {
   const [loadingDecks, setLoadingDecks] = useState(false);
   const [detailedResponses, setDetailedResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalCard, setModalCard] = useState<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -417,9 +420,24 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                          {card.oracle_text}
                                        </div>
                                         
-                                        {/* Card addition modal */}
-                                        <div className="pt-2">
+                                        {/* Actions: Add + View details */}
+                                        <div className="pt-2 flex gap-2">
                                           <CardAddModal card={card} />
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              const normalized = {
+                                                ...card,
+                                                image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                              };
+                                              setModalCard(normalized);
+                                              setModalOpen(true);
+                                            }}
+                                          >
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            View details
+                                          </Button>
                                         </div>
                                     </div>
                                   </div>
@@ -517,6 +535,15 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
             </div>
           )}
         </div>
+        {modalOpen && (
+          <UniversalCardViewModal 
+            card={modalCard}
+            open={modalOpen}
+            onOpenChange={setModalOpen}
+            showAddButton={false}
+            showWishlistButton={false}
+          />
+        )}
       </div>
     </div>
   );

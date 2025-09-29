@@ -252,8 +252,12 @@ serve(async (req) => {
         try {
           const card = await scryfallAPI.getCardByName(cardName);
           cardData.push({
+            id: card.id,
+            set: card.set,
+            collector_number: card.collector_number,
             name: card.name,
             image_uri: card.image_uris?.normal || card.image_uris?.large,
+            image_uris: card.image_uris || null,
             mana_cost: card.mana_cost,
             type_line: card.type_line,
             oracle_text: card.oracle_text,
@@ -359,6 +363,9 @@ Always ground your responses in the provided knowledge base, referenced card dat
 
     console.log('Calling Lovable AI Gateway...');
     
+    const temperature = responseStyle === 'detailed' ? 0.8 : 0.2;
+    const max_tokens = responseStyle === 'detailed' ? 2000 : 600;
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -371,8 +378,8 @@ Always ground your responses in the provided knowledge base, referenced card dat
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
-        temperature: 0.7,
-        max_tokens: 2000
+        temperature,
+        max_tokens
       }),
     });
 
@@ -423,8 +430,12 @@ Always ground your responses in the provided knowledge base, referenced card dat
         try {
           const card = await scryfallAPI.getCardByName(cardName);
           cardData.push({
+            id: card.id,
+            set: card.set,
+            collector_number: card.collector_number,
             name: card.name,
             image_uri: card.image_uris?.normal || card.image_uris?.large,
+            image_uris: card.image_uris || null,
             mana_cost: card.mana_cost,
             type_line: card.type_line,
             oracle_text: card.oracle_text,

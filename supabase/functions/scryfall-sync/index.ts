@@ -175,7 +175,7 @@ async function syncCards(): Promise<void> {
   console.log('🚀 Starting comprehensive card sync from Scryfall API...');
   
   try {
-    await updateSyncStatus('scryfall_cards', 'running', null, 0, null, 'initializing', 0);
+    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, undefined, 'initializing', 0);
     
     let totalProcessed = 0;
     let page = 1;
@@ -205,11 +205,11 @@ async function syncCards(): Promise<void> {
         const cards = data.data || [];
         
         // Get total count from first page if available
-        if (page === 1 && data.total_cards) {
-          estimatedTotal = data.total_cards;
-          console.log(`📊 Estimated total cards: ${estimatedTotal}`);
-          await updateSyncStatus('scryfall_cards', 'running', null, 0, estimatedTotal, 'processing', 1);
-        }
+  if (page === 1 && data.total_cards) {
+    estimatedTotal = data.total_cards;
+    console.log(`📊 Estimated total cards: ${estimatedTotal}`);
+    await updateSyncStatus('scryfall_cards', 'running', undefined, 0, estimatedTotal, 'processing', 1);
+  }
         
         if (cards.length === 0) {
           console.log('📊 No more cards to process - sync complete');
@@ -273,7 +273,7 @@ async function syncCards(): Promise<void> {
         // Update progress every 100 cards processed for better UX
         if (totalProcessed % 100 === 0) {
           const progressPercent = estimatedTotal ? Math.min(95, (totalProcessed / estimatedTotal) * 100) : null;
-          await updateSyncStatus('scryfall_cards', 'running', null, totalProcessed, estimatedTotal, 'processing', 2);
+          await updateSyncStatus('scryfall_cards', 'running', undefined, totalProcessed, estimatedTotal, 'processing', 2);
           console.log(`🎯 Progress: ${totalProcessed} cards processed${progressPercent ? ` (${progressPercent.toFixed(1)}%)` : ''}`);
         }
         
@@ -287,7 +287,7 @@ async function syncCards(): Promise<void> {
         consecutiveErrors++;
         
         if (consecutiveErrors >= maxConsecutiveErrors) {
-          throw new Error(`Too many consecutive errors on page ${page}: ${pageError.message}`);
+          throw new Error(`Too many consecutive errors on page ${page}: ${(pageError as any).message}`);
         }
         
         console.log(`⚠️ Error ${consecutiveErrors}/${maxConsecutiveErrors}, retrying in 5 seconds...`);
@@ -297,13 +297,13 @@ async function syncCards(): Promise<void> {
     }
     
     console.log(`🎉 Sync completed successfully! Total cards processed: ${totalProcessed}`);
-    await updateSyncStatus('scryfall_cards', 'completed', null, totalProcessed, totalProcessed, 'complete', 4);
+    await updateSyncStatus('scryfall_cards', 'completed', undefined, totalProcessed, totalProcessed, 'complete', 4);
     
   } catch (error) {
     console.error('💥 Sync failed:', error);
-    console.error('📋 Error details:', error.message);
-    console.error('🔍 Stack trace:', error.stack);
-    await updateSyncStatus('scryfall_cards', 'failed', error.message);
+    console.error('📋 Error details:', (error as any).message);
+    console.error('🔍 Stack trace:', (error as any).stack);
+    await updateSyncStatus('scryfall_cards', 'failed', (error as any).message);
     throw error;
   }
 }
@@ -380,7 +380,7 @@ serve(async (req) => {
               message: 'Sync already running - please wait for current sync to complete', 
               status: existingSync.status,
               lastSync: existingSync.last_sync,
-              recordsProcessed: existingSync.records_processed || 0
+              recordsProcessed: (existingSync as any).records_processed || 0
             }),
             { 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -396,7 +396,7 @@ serve(async (req) => {
       console.log('🚀 Starting sync in background to prevent timeouts');
       
       // Run sync in background to prevent edge function timeouts
-      EdgeRuntime.waitUntil(syncCards());
+      syncCards();
       
       return new Response(
         JSON.stringify({ 

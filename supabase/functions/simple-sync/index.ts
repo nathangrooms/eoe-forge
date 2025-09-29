@@ -128,14 +128,14 @@ serve(async (req) => {
       .from('sync_status')
       .update({
         status: 'failed',
-        error_message: error.message,
+        error_message: (error as any).message,
         last_sync: new Date().toISOString()
       })
       .eq('id', 'scryfall_cards');
     
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: (error as any).message,
         timestamp: new Date().toISOString()
       }),
       { 

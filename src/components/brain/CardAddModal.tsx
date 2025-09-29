@@ -108,9 +108,9 @@ export function CardAddModal({ card }: CardAddModalProps) {
       if (addToCollection) {
         promises.push(
           supabase.from('user_collections').insert({
-            card_id: card.name, // Using card name as card_id for now
+            card_id: (card as any).id || card.name,
             card_name: card.name,
-            set_code: 'UNK', // Default set code
+            set_code: (card as any).set || 'UNK',
             quantity: 1,
             foil: 0,
             user_id: user.id
@@ -136,7 +136,7 @@ export function CardAddModal({ card }: CardAddModalProps) {
       if (addToWishlist) {
         promises.push(
           supabase.from('wishlist').insert({
-            card_id: card.name, // Using card name as card_id for now
+            card_id: (card as any).id || card.name,
             card_name: card.name,
             quantity: 1,
             priority: 'medium',

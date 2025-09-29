@@ -58,7 +58,7 @@ async function testScryfallAPI() {
     console.error('❌ Scryfall API test failed:', error);
     return {
       success: false,
-      error: error.message
+      error: (error as any).message
     };
   }
 }
@@ -86,7 +86,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: (error as any).message 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

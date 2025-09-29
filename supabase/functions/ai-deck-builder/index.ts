@@ -259,7 +259,7 @@ function isLand(card: Card): boolean {
 }
 
 function isFastMana(card: Card): boolean {
-  return card.cmc <= 2 && card.oracle_text?.toLowerCase().includes('add') && card.oracle_text?.toLowerCase().includes('mana');
+  return card.cmc <= 2 && !!card.oracle_text?.toLowerCase().includes('add') && !!card.oracle_text?.toLowerCase().includes('mana');
 }
 
 function isRemoval(card: Card): boolean {
@@ -294,7 +294,7 @@ function isWincon(card: Card): boolean {
   return type.includes('planeswalker') || 
          text.includes('win the game') ||
          text.includes('damage to any target') ||
-         (card.power && parseInt(card.power) >= 5);
+         (!!card.power && parseInt(card.power) >= 5);
 }
 
 function isProtection(card: Card): boolean {
@@ -325,7 +325,12 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
   // Step 4: Fill role quotas
   for (const [role, quota] of Object.entries(template.quotas)) {
     const roleCards = cardPool.filter(card => matchesRole(card, role));
-    const target = typeof quota === 'object' ? quota.min : quota;
+    let target: number;
+    if (typeof quota === 'object' && quota && 'min' in (quota as any)) {
+      target = Number((quota as any).min);
+    } else {
+      target = Number(quota as any);
+    }
     const selected = selectCards(roleCards, target, powerTarget, rng);
     
     deck.push(...selected);
@@ -614,7 +619,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('AI deck builder error:', error);
     return new Response(JSON.stringify({ 
-      error: error.message 
+      error: (error as any).message || 'Unknown error' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

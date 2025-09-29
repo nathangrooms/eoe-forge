@@ -276,49 +276,95 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
   const extractCardsFromMessage = async (messageText: string) => {
     try {
-      const response = await fetch('https://api.scryfall.com/cards/autocomplete?q=' + encodeURIComponent(messageText.substring(0, 200)));
-      const suggestions = await response.json();
+      // More comprehensive card name patterns
+      const patterns = [
+        // Quoted card names
+        /"([^"]+)"/g,
+        // Card names with common formats: Name, Title or Name of Location
+        /\b[A-Z][a-z]+(?:\s[A-Z][a-z]*)*(?:\s(?:of|the|from)\s[A-Z][a-z]+(?:\s[A-Z][a-z]*)*)?/g,
+        // Legendary/planeswalker patterns with commas
+        /\b[A-Z][a-z]+(?:\s[A-Z][a-z]*)*,\s[A-Z][a-z]+(?:\s[A-Z][a-z]*)*(?:\s[A-Z][a-z]+)*/g,
+      ];
       
-      // Simple card name detection - look for quoted names or capitalized sequences
-      const cardNameRegex = /\b[A-Z][A-Za-z\s,'-]+(?:\sof\s[A-Z][A-Za-z\s,'-]+)?\b/g;
-      const potentialCards = messageText.match(cardNameRegex) || [];
+      const potentialCards = new Set<string>();
+      
+      // Extract potential card names using all patterns
+      patterns.forEach(pattern => {
+        const matches = messageText.match(pattern) || [];
+        matches.forEach(match => {
+          let cleanName = match.replace(/["""]/g, '').trim();
+          if (cleanName.length >= 3 && cleanName.length <= 50) {
+            potentialCards.add(cleanName);
+          }
+        });
+      });
       
       const foundCards: CardData[] = [];
       
       for (const cardName of potentialCards) {
-        const cleanName = cardName.trim();
-        if (cleanName.length < 3) continue;
-        
         try {
-          const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cleanName)}`);
+          // Use Scryfall's fuzzy search for better matching
+          const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
           if (searchResponse.ok) {
             const cardData = await searchResponse.json();
-            foundCards.push({
-              name: cardData.name,
-              image_uri: cardData.image_uris?.normal,
-              mana_cost: cardData.mana_cost,
-              type_line: cardData.type_line,
-              oracle_text: cardData.oracle_text,
-              power: cardData.power,
-              toughness: cardData.toughness,
-              cmc: cardData.cmc,
-              colors: cardData.colors,
-              rarity: cardData.rarity
-            });
+            
+            // Only add if we haven't found this card already
+            if (!foundCards.some(c => c.name === cardData.name)) {
+              foundCards.push({
+                name: cardData.name,
+                image_uri: cardData.image_uris?.normal,
+                mana_cost: cardData.mana_cost,
+                type_line: cardData.type_line,
+                oracle_text: cardData.oracle_text,
+                power: cardData.power,
+                toughness: cardData.toughness,
+                cmc: cardData.cmc,
+                colors: cardData.colors,
+                rarity: cardData.rarity
+              });
+            }
           }
         } catch (error) {
-          // Skip cards that can't be found
-          continue;
+          // If fuzzy search fails, try autocomplete for partial matches
+          try {
+            const autocompleteResponse = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(cardName)}`);
+            if (autocompleteResponse.ok) {
+              const suggestions = await autocompleteResponse.json();
+              if (suggestions.data && suggestions.data.length > 0) {
+                // Try the first suggestion
+                const exactResponse = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(suggestions.data[0])}`);
+                if (exactResponse.ok) {
+                  const cardData = await exactResponse.json();
+                  if (!foundCards.some(c => c.name === cardData.name)) {
+                    foundCards.push({
+                      name: cardData.name,
+                      image_uri: cardData.image_uris?.normal,
+                      mana_cost: cardData.mana_cost,
+                      type_line: cardData.type_line,
+                      oracle_text: cardData.oracle_text,
+                      power: cardData.power,
+                      toughness: cardData.toughness,
+                      cmc: cardData.cmc,
+                      colors: cardData.colors,
+                      rarity: cardData.rarity
+                    });
+                  }
+                }
+              }
+            }
+          } catch (autocompleteError) {
+            // Skip if both methods fail
+            continue;
+          }
         }
       }
       
-      // Remove duplicates by name
-      const uniqueCards = foundCards.filter((card, index, arr) => 
-        arr.findIndex(c => c.name === card.name) === index
-      );
-      
-      setMessageCards(uniqueCards);
+      setMessageCards(foundCards);
       setShowMessageCardsModal(true);
+      
+      if (foundCards.length === 0) {
+        toast.info('No Magic cards detected in this message');
+      }
     } catch (error) {
       console.error('Error extracting cards from message:', error);
       toast.error('Could not extract cards from message');
@@ -439,105 +485,121 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                               )}
                             </div>
                           
-                          {/* Display referenced cards */}
-                          {message.cards && message.cards.length > 0 && (
-                             <div className="mt-4 space-y-3">
-                                <div className="flex items-center justify-between border-t pt-3">
-                                  <div className="text-xs font-medium text-muted-foreground">
-                                    Referenced Cards:
+                          {/* Display referenced cards or show option to find cards */}
+                          {message.type === 'assistant' && (
+                            <div className="mt-4 space-y-3">
+                              {message.cards && message.cards.length > 0 ? (
+                                <>
+                                  <div className="flex items-center justify-between border-t pt-3">
+                                    <div className="text-xs font-medium text-muted-foreground">
+                                      Referenced Cards:
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-xs h-6 px-2"
+                                      onClick={() => extractCardsFromMessage(message.content)}
+                                    >
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      Find more cards
+                                    </Button>
                                   </div>
+                                   <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2 md:gap-3">
+                                    {message.cards.map((card, cardIndex) => (
+                                      <div
+                                        key={cardIndex}
+                                        className="bg-background/80 border rounded-lg p-2 md:p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
+                                     >
+                                       {card.image_uri && (
+                                         <img
+                                           src={card.image_uri}
+                                           alt={card.name}
+                                           className="w-full h-auto rounded aspect-[5/7] object-cover"
+                                         />
+                                       )}
+                                       <div className="space-y-1">
+                                         <div className="font-semibold text-foreground">{card.name}</div>
+                                         <div className="text-muted-foreground">
+                                           {card.mana_cost} • CMC {card.cmc}
+                                         </div>
+                                         <div className="text-muted-foreground">{card.type_line}</div>
+                                         {card.power && card.toughness && (
+                                           <div className="text-muted-foreground font-mono">
+                                             {card.power}/{card.toughness}
+                                           </div>
+                                         )}
+                                          <div className="text-xs text-muted-foreground line-clamp-3">
+                                            {card.oracle_text}
+                                          </div>
+                                            
+                                             {/* Actions */}
+                                             <div className="pt-2 grid grid-cols-2 gap-2">
+                                               <CardAddModal card={{
+                                                 ...(card as any),
+                                                 image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                               }} compact />
+                                               <Button
+                                                 variant="outline"
+                                                 size="sm"
+                                                 className="w-full text-xs h-7"
+                                                 onClick={() => {
+                                                   const normalized = {
+                                                     ...card,
+                                                     image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                                   };
+                                                   setModalCard(normalized);
+                                                   setModalOpen(true);
+                                                 }}
+                                               >
+                                                 <Eye className="h-3 w-3 mr-1" />
+                                                 <span className="hidden sm:inline">View details</span>
+                                                 <span className="sm:hidden">View</span>
+                                               </Button>
+                                             </div>
+                                       </div>
+                                     </div>
+                                   ))}
+                                 </div>
+                                </>
+                              ) : (
+                                <div className="border-t pt-3">
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
-                                    className="text-xs h-6 px-2"
+                                    className="text-xs h-8"
                                     onClick={() => extractCardsFromMessage(message.content)}
                                   >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    View cards from message
+                                    <Eye className="h-3 w-3 mr-2" />
+                                    Find Magic cards in this message
                                   </Button>
                                 </div>
-                                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2 md:gap-3">
-                                 {message.cards.map((card, cardIndex) => (
-                                   <div
-                                     key={cardIndex}
-                                     className="bg-background/80 border rounded-lg p-2 md:p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
-                                  >
-                                    {card.image_uri && (
-                                      <img
-                                        src={card.image_uri}
-                                        alt={card.name}
-                                        className="w-full h-auto rounded aspect-[5/7] object-cover"
-                                      />
-                                    )}
-                                    <div className="space-y-1">
-                                      <div className="font-semibold text-foreground">{card.name}</div>
-                                      <div className="text-muted-foreground">
-                                        {card.mana_cost} • CMC {card.cmc}
-                                      </div>
-                                      <div className="text-muted-foreground">{card.type_line}</div>
-                                      {card.power && card.toughness && (
-                                        <div className="text-muted-foreground font-mono">
-                                          {card.power}/{card.toughness}
-                                        </div>
-                                      )}
-                                       <div className="text-xs text-muted-foreground line-clamp-3">
-                                         {card.oracle_text}
-                                       </div>
-                                         
-                                          {/* Actions */}
-                                          <div className="pt-2 grid grid-cols-2 gap-2">
-                                            <CardAddModal card={{
-                                              ...(card as any),
-                                              image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                            }} compact />
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="w-full text-xs h-7"
-                                              onClick={() => {
-                                                const normalized = {
-                                                  ...card,
-                                                  image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                                };
-                                                setModalCard(normalized);
-                                                setModalOpen(true);
-                                              }}
-                                            >
-                                              <Eye className="h-3 w-3 mr-1" />
-                                              <span className="hidden sm:inline">View details</span>
-                                              <span className="sm:hidden">View</span>
-                                            </Button>
-                                          </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                              )}
                             </div>
                           )}
-                          
-                          <div className="text-xs opacity-60 mt-2">
-                            {message.timestamp.toLocaleTimeString()}
-                          </div>
-                         </div>
-                       </div>
-                     );
-                     })}
-                    
-                    {isLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-muted/80 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
-                            <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                            <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                            <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+                           
+                           <div className="text-xs opacity-60 mt-2">
+                             {message.timestamp.toLocaleTimeString()}
+                           </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </ScrollArea>
+                      );
+                      })}
+                     
+                     {isLoading && (
+                       <div className="flex justify-start">
+                         <div className="bg-muted/80 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50">
+                           <div className="flex items-center space-x-2">
+                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                             <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                     <div ref={messagesEndRef} />
+                   </div>
+                 </ScrollArea>
 
                 {/* Input Area */}
                 <div className="p-4 border-t bg-background/95 backdrop-blur-sm">

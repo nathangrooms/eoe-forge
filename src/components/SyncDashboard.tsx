@@ -94,11 +94,30 @@ const SyncDashboard = () => {
 
       if (error) {
         console.error('Sync invoke error:', error);
+        // Handle the specific 409 conflict error more gracefully
+        if (error.message?.includes('non-2xx status code')) {
+          toast({
+            title: "Sync Already Running",
+            description: "A sync is already in progress. Please wait for it to complete or reset if stuck.",
+            variant: "destructive",
+          });
+          return;
+        }
         throw error;
       }
 
       if (data?.error) {
         throw new Error(data.error);
+      }
+
+      // Handle conflict responses from the edge function
+      if (data?.status === 'running' && data?.message?.includes('already running')) {
+        toast({
+          title: "Sync Already Running",
+          description: "A sync is already in progress. Please wait for it to complete or reset if stuck.",
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({

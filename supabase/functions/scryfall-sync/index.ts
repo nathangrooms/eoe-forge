@@ -373,11 +373,15 @@ serve(async (req) => {
         
         console.log('⏰ Minutes since last sync:', minutesSinceLastSync);
         
-        if (minutesSinceLastSync < 10) {
+        // If sync has been running for more than 30 minutes, consider it stuck and reset
+        if (minutesSinceLastSync > 30) {
+          console.log('🔧 Sync appears stuck, automatically resetting...');
+          await updateSyncStatus('scryfall_cards', 'failed', 'Previous sync timed out and was automatically reset', 0, 0, 'timeout');
+        } else if (minutesSinceLastSync < 2) { // Reduced from 10 to 2 minutes for faster recovery
           console.log('⚠️ Sync already running, rejecting request');
           return new Response(
             JSON.stringify({ 
-              message: 'Sync already running - please wait for current sync to complete', 
+              message: 'Sync already running - please wait for current sync to complete',
               status: existingSync.status,
               lastSync: existingSync.last_sync,
               recordsProcessed: (existingSync as any).records_processed || 0

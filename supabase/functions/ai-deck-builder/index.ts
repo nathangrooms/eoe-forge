@@ -546,6 +546,9 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
   
   // Step 4: Fill role quotas
   for (const [role, quota] of Object.entries(template.quotas)) {
+    // Skip land quota here; manabase is handled in a dedicated step
+    if (role === 'lands') continue;
+
     const roleCards = cardPool.filter(card => matchesRole(card, role));
     let target: number;
     if (typeof quota === 'object' && quota && 'min' in (quota as any)) {
@@ -646,6 +649,59 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
     iterations++;
   }
   
+  // Step 7: Final exact size enforcement (lands and non-lands)
+  {
+    const finalTargetSize = format === 'commander' ? 99 : 60;
+    const desiredLandCount = landCount; // from earlier calculation
+
+    // Split deck
+    let landsArr = deck.filter(isLand);
+    let nonLandsArr = deck.filter(c => !isLand(c));
+
+    // Adjust lands to desired count
+    if (landsArr.length > desiredLandCount) {
+      const excess = landsArr.length - desiredLandCount;
+      for (let i = 0; i < excess; i++) {
+        const landToRemove = landsArr.pop();
+        if (!landToRemove) break;
+        const idx = deck.lastIndexOf(landToRemove);
+        if (idx > -1) deck.splice(idx, 1);
+        changelog.push({ action: 'remove', card: landToRemove.name, reason: 'Reduce land count to target', stage: 'sizing' });
+      }
+    } else if (landsArr.length < desiredLandCount) {
+      const need = desiredLandCount - landsArr.length;
+      const extra = buildManabase(cardPool, targetColors, need, format, rng);
+      deck.push(...extra);
+      extra.forEach(land => changelog.push({ action: 'add', card: land.name, reason: 'Increase land count to target', stage: 'sizing' }));
+      landsArr = deck.filter(isLand);
+    }
+
+    // Adjust non-lands to fill remaining slots exactly
+    const desiredNonLandCount = finalTargetSize - desiredLandCount;
+    const deckIds = new Set(deck.map(c => c.id));
+
+    while (nonLandsArr.length > desiredNonLandCount) {
+      // remove highest CMC non-land first
+      nonLandsArr.sort((a, b) => b.cmc - a.cmc);
+      const remove = nonLandsArr.shift();
+      if (!remove) break;
+      const idx = deck.indexOf(remove);
+      if (idx > -1) deck.splice(idx, 1);
+      changelog.push({ action: 'remove', card: remove.name, reason: 'Trim to exact deck size', stage: 'sizing' });
+    }
+
+    while (nonLandsArr.length < desiredNonLandCount) {
+      const needed = desiredNonLandCount - nonLandsArr.length;
+      const candidates = cardPool.filter(c => !isLand(c) && !deckIds.has(c.id));
+      const additions = selectCards(candidates, needed, powerTarget, rng);
+      deck.push(...additions);
+      additions.forEach(card => changelog.push({ action: 'add', card: card.name, reason: 'Pad to exact deck size', stage: 'sizing' }));
+      nonLandsArr = deck.filter(c => !isLand(c));
+      additions.forEach(c => deckIds.add(c.id));
+      if (additions.length === 0) break;
+    }
+  }
+
   // Step 8: Final analysis
   const { power, subscores } = calculatePowerScore(deck, format);
   const analysis = generateAnalysis(deck, subscores, powerTarget);
@@ -658,6 +714,7 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
     changelog
   };
 }
+
 
 async function getCardPool(format: string, colors: string[], constraints?: any): Promise<Card[]> {
   try {

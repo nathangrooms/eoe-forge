@@ -10,3 +10,6 @@ enable_signup = true
 
 [functions.ai-deck-builder]
 verify_jwt = false
+
+[functions.gemini-deck-coach]
+verify_jwt = false

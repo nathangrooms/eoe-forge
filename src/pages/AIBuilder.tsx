@@ -445,7 +445,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     try {
       setBuildProgress(20);
       
-      const { data, error } = await supabase.functions.invoke('ai-deck-builder', {
+      const { data, error } = await supabase.functions.invoke('gemini-deck-coach', {
         body: {
           format: 'commander',
           commander: commander,
@@ -463,20 +463,30 @@ Focus on archetypes that specifically leverage this commander's unique abilities
 
       if (error) throw error;
 
-      if (data?.success) {
+      if (data && !error) {
         setBuildResult({
           deckName: `${commander.name} ${buildData.archetype} Deck`,
-          cards: data.deck || [],
-          analysis: data.analysis || {},
-          changelog: data.changelog || [],
-          power: data.power || 0,
-          totalValue: data.metadata?.totalValue || 0,
-          cardCount: data.metadata?.cardCount || 0
+          cards: data.decklist || [],
+          analysis: {
+            power: data.power || 5,
+            band: data.band || 'mid',
+            subscores: data.subscores || {},
+            playability: data.playability || {},
+            drivers: data.drivers || [],
+            drags: data.drags || [],
+            recommendations: data.recommendations || [],
+            iterations: data.iterations || 0,
+            text: data.analysis || 'Deck optimized using Gemini AI coaching'
+          },
+          changelog: [],
+          power: data.power || 5,
+          totalValue: 0,
+          cardCount: data.decklist?.length || 0
         });
         setStep(6);
-        showSuccess('Deck Generated', `AI has created your optimized ${commander.name} deck!`);
+        showSuccess('AI Deck Generated!', `Created a ${data.band} power deck (${data.power?.toFixed(1)}/10) with ${data.iterations} Gemini optimization iterations`);
       } else {
-        throw new Error(data?.error || 'Failed to build deck');
+        throw new Error(error?.message || 'Failed to build deck with Gemini coaching');
       }
       
     } catch (error) {
@@ -786,7 +796,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                           type_line: 'Legendary Creature — Human Knight',
                           cmc: 4,
                           oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/3/93b18a1f-b8f8-4f5f-93f9-6e088cc4bf4c.jpg' }
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/3/93b18a1f-b8f8-4f5f-93f9-6e088cc4bf4c.jpg?1732145509' }
                         },
                         { 
                           name: 'Atraxa, Praetors\' Voice', 

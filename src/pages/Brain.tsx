@@ -168,11 +168,21 @@ export default function Brain() {
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
-        content: `# Welcome to MTG Super Brain! 🧠
+        content: `## 🚀 DeckMatrix AI Analysis Engine Activated
 
-I'm analyzing **${selectedDeck.name}** (${selectedDeck.format}, ${selectedDeck.counts.total} cards, Power Level ${selectedDeck.power.score}).
+**TARGET DECK**: ${selectedDeck.name}  
+**FORMAT**: ${selectedDeck.format} | **CARDS**: ${selectedDeck.counts.total} | **POWER LEVEL**: ${selectedDeck.power.score}/10
 
-Ask me anything about your deck, card interactions, or Magic strategy!`,
+### Ready for Deep Strategic Analysis
+I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic knowledge and advanced deck optimization algorithms. I can provide:
+
+- **Power Level Assessment** - Detailed scoring and meta positioning
+- **Synergy Analysis** - Card interaction mapping and combo identification  
+- **Upgrade Pathways** - Strategic improvement recommendations
+- **Meta Positioning** - Current format analysis and matchup data
+- **Strategic Guidance** - Optimal play patterns and decision trees
+
+**Ask me anything about your deck's strategy, card interactions, or optimization opportunities!**`,
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
@@ -266,24 +276,24 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
   };
 
   return (
-    <StandardPageLayout title="MTG Super Brain" description="Your comprehensive Magic: The Gathering assistant">
-      <div className="container mx-auto px-4 py-6 h-full">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          {/* Main Chat Area */}
-          <div className="lg:col-span-2 flex flex-col h-full min-h-[600px]">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-none mx-auto px-4 py-6 h-full">
+        <div className="flex gap-6 h-full">{/* Full width layout */}
+          {/* Main Chat Area - Full width */}
+          <div className="flex-1 flex flex-col h-full min-h-[600px] max-w-5xl mx-auto">{/* Center content with max width */}
             <Card className="flex-1 flex flex-col">
               <CardContent className="p-0 flex flex-col h-full">
                 {/* Header */}
-                <div className="p-4 border-b bg-muted/30">
+                <div className="p-4 border-b bg-gradient-to-r from-spacecraft/10 to-celestial/10 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                        <Sparkles className="h-5 w-5 text-primary-foreground" />
+                      <div className="w-12 h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
+                        <Sparkles className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <h2 className="font-semibold text-lg">MTG Super Brain</h2>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedDeck ? `Analyzing: ${selectedDeck.name}` : 'Select a deck to start'}
+                        <h2 className="font-bold text-xl bg-gradient-cosmic bg-clip-text text-transparent">DeckMatrix AI</h2>
+                        <p className="text-sm text-spacecraft font-medium">
+                          {selectedDeck ? `Analyzing: ${selectedDeck.name}` : 'Select a deck to start analysis'}
                         </p>
                       </div>
                     </div>
@@ -337,14 +347,40 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                           }`}
                         >
                            <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
-                             <ReactMarkdown
-                               components={{
-                                 p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                               }}
-                             >
-                               {message.content}
-                             </ReactMarkdown>
-                           </div>
+                              {message.type === 'assistant' ? (
+                                <div className="space-y-4">
+                                  <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                                        <span className="text-xs font-bold text-white">DM</span>
+                                      </div>
+                                      <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                                    </div>
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ children }) => <p className="mb-3 last:mb-0 text-foreground/90">{children}</p>,
+                                        h1: ({ children }) => <h1 className="text-lg font-bold text-spacecraft mb-2">{children}</h1>,
+                                        h2: ({ children }) => <h2 className="text-base font-semibold text-spacecraft/90 mb-2">{children}</h2>,
+                                        h3: ({ children }) => <h3 className="text-sm font-medium text-spacecraft/80 mb-1">{children}</h3>,
+                                        strong: ({ children }) => <strong className="font-semibold text-spacecraft">{children}</strong>,
+                                        ul: ({ children }) => <ul className="space-y-1 text-foreground/90">{children}</ul>,
+                                        li: ({ children }) => <li className="flex items-start gap-2"><span className="text-spacecraft mt-1">•</span><span>{children}</span></li>
+                                      }}
+                                    >
+                                      {message.content}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              ) : (
+                                <ReactMarkdown
+                                  components={{
+                                    p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              )}
+                            </div>
                           
                           {/* Display referenced cards */}
                           {message.cards && message.cards.length > 0 && (
@@ -352,8 +388,8 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                               <div className="text-xs font-medium text-muted-foreground border-t pt-3">
                                 Referenced Cards:
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {message.cards.map((card, cardIndex) => (
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                 {message.cards.map((card, cardIndex) => (
                                   <div
                                     key={cardIndex}
                                     className="bg-background/80 border rounded-lg p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
@@ -441,39 +477,16 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
             </Card>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-6">
-            {/* Welcome Card */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="text-center space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-primary-foreground" />
-                  </div>
-                  <h3 className="font-semibold">MTG Super Brain</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your comprehensive Magic: The Gathering assistant with deep game knowledge and strategic analysis.
-                  </p>
-                  {selectedDeck && (
-                    <div className="pt-2 border-t">
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <div><strong>Mode:</strong> {detailedResponses ? 'Detailed Analysis' : 'Quick Responses'}</div>
-                        <div><strong>Deck:</strong> {selectedDeck.name}</div>
-                        <div><strong>Cards:</strong> {selectedDeck.counts.total}</div>
-                        <div><strong>Format:</strong> {selectedDeck.format}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            {showQuickActions && messages.length <= 1 && (
-              <Card>
+          {/* Floating Quick Actions - Only show when needed */}
+          {showQuickActions && messages.length <= 1 && (
+            <div className="fixed bottom-20 right-4 w-80 z-50">
+              <Card className="shadow-cosmic-glow border-spacecraft/20">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium">Quick Actions</h3>
+                    <h3 className="text-sm font-medium flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-spacecraft" />
+                      DeckMatrix Quick Actions
+                    </h3>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -484,17 +497,17 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    {QUICK_ACTIONS.map((action) => (
+                    {QUICK_ACTIONS.slice(0, 4).map((action) => (
                       <button
                         key={action.id}
                         onClick={() => handleQuickAction(action)}
-                        className={`w-full p-3 rounded-lg border text-left transition-all hover:shadow-md text-sm ${action.color}`}
+                        className="w-full p-2 rounded-lg border border-spacecraft/20 text-left transition-all hover:bg-spacecraft/10 hover:border-spacecraft/40 text-sm"
                       >
                         <div className="flex items-start gap-2">
-                          <action.icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                          <action.icon className="h-4 w-4 flex-shrink-0 mt-0.5 text-spacecraft" />
                           <div>
-                            <div className="font-medium">{action.label}</div>
-                            <div className="text-xs opacity-80 mt-1">{action.description}</div>
+                            <div className="font-medium text-spacecraft">{action.label}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{action.description}</div>
                           </div>
                         </div>
                       </button>
@@ -502,10 +515,10 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-    </StandardPageLayout>
+    </div>
   );
 }

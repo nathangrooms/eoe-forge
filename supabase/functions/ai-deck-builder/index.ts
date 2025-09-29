@@ -803,14 +803,73 @@ function matchesRole(card: Card, role: string): boolean {
 function selectCards(cards: Card[], count: number, powerTarget: number, rng: () => number): Card[] {
   if (cards.length === 0) return [];
   
-  // Weight cards by power level appropriateness
+  // Weight cards by actual power level characteristics
   const weights = cards.map(card => {
     let weight = 1;
+    const name = card.name.toLowerCase();
+    const text = card.oracle_text?.toLowerCase() || '';
+    const price = parseFloat(card.prices?.usd || '0');
     
-    // Prefer cards with appropriate power level
-    if (powerTarget >= 8 && isFastMana(card)) weight += 2;
-    if (powerTarget <= 4 && card.cmc > 5) weight -= 1;
-    if (powerTarget >= 7 && isTutor(card)) weight += 1;
+    // High-power staples get massive weight bonuses
+    const powerStaples = [
+      'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond',
+      'demonic tutor', 'vampiric tutor', 'imperial seal', 'mystical tutor',
+      'enlightened tutor', 'worldly tutor', 'survival of the fittest',
+      'sylvan library', 'rhystic study', 'smothering tithe', 'mystic remora',
+      'force of will', 'force of negation', 'mana drain', 'counterspell',
+      'swords to plowshares', 'path to exile', 'lightning bolt',
+      'dockside extortionist', 'ragavan nimble pilferer', 'esper sentinel',
+      'fierce guardianship', 'deflecting swat', 'cyclonic rift',
+      'teferi time raveler', 'jace the mind sculptor', 'oko thief of crowns',
+      'craterhoof behemoth', 'thassa oracle', 'consultation',
+      'gaea cradle', 'ancient tomb', 'city of traitors', 'mishra workshop'
+    ];
+    
+    if (powerStaples.some(staple => name.includes(staple))) {
+      weight += powerTarget >= 7 ? 5 : 2;
+    }
+    
+    // Combo pieces and enablers
+    if (text.includes('infinite') || 
+        (text.includes('enters the battlefield') && text.includes('copy')) ||
+        (text.includes('when') && text.includes('dies') && text.includes('return')) ||
+        text.includes('win the game')) {
+      weight += powerTarget >= 6 ? 3 : 1;
+    }
+    
+    // Fast mana gets higher priority at high power
+    if (isFastMana(card)) {
+      weight += powerTarget >= 7 ? 4 : (powerTarget >= 5 ? 2 : 1);
+    }
+    
+    // Tutors are power multipliers
+    if (isTutor(card)) {
+      weight += powerTarget >= 7 ? 3 : (powerTarget >= 5 ? 2 : 1);
+    }
+    
+    // Price often correlates with power
+    if (price > 50 && powerTarget >= 7) weight += 2;
+    if (price > 20 && powerTarget >= 6) weight += 1;
+    if (price > 100 && powerTarget >= 8) weight += 3;
+    
+    // Low CMC efficiency matters more at high power
+    if (card.cmc <= 2 && powerTarget >= 7) {
+      weight += 1.5;
+    }
+    
+    // High CMC cards are generally weaker except specific bombs
+    if (card.cmc > 6 && powerTarget >= 7) {
+      const isBomb = text.includes('win the game') || 
+                     text.includes('extra turn') ||
+                     name.includes('eldrazi') ||
+                     name.includes('blightsteel');
+      if (!isBomb) weight *= 0.5;
+    }
+    
+    // Protection and free spells
+    if ((card.cmc === 0 || text.includes('without paying')) && powerTarget >= 6) {
+      weight += 2;
+    }
     
     return Math.max(0.1, weight);
   });
@@ -870,8 +929,29 @@ function buildManabase(cardPool: Card[], colors: string[], landCount: number, fo
 }
 
 function escalateDeck(deck: Card[], cardPool: Card[], powerDiff: number, rng: () => number, changelog: ChangelogEntry[]) {
-  // Add more powerful cards: fast mana, tutors, efficient threats
-  const powerCards = cardPool.filter(card => isFastMana(card) || isTutor(card) || (isWincon(card) && card.cmc <= 4));
+  // Add the most powerful cards available: cEDH staples, fast mana, tutors, combo pieces
+  const powerCards = cardPool.filter(card => {
+    const name = card.name.toLowerCase();
+    const text = card.oracle_text?.toLowerCase() || '';
+    const price = parseFloat(card.prices?.usd || '0');
+    
+    // Prioritize cEDH staples and high-power cards
+    const cEDHStaples = [
+      'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond',
+      'demonic tutor', 'vampiric tutor', 'imperial seal', 'mystical tutor',
+      'force of will', 'force of negation', 'mana drain', 'fierce guardianship',
+      'dockside extortionist', 'thassa oracle', 'consultation', 'tainted pact',
+      'ad nauseam', 'necropotence', 'rhystic study', 'mystic remora'
+    ];
+    
+    return isFastMana(card) || 
+           isTutor(card) || 
+           (isWincon(card) && card.cmc <= 4) ||
+           cEDHStaples.some(staple => name.includes(staple)) ||
+           price > 30 ||
+           (text.includes('infinite') && card.cmc <= 6) ||
+           (card.cmc === 0 && !card.type_line.includes('Land'));
+  });
   
   if (powerCards.length > 0) {
     const toAdd = Math.min(Math.ceil(powerDiff), 3);

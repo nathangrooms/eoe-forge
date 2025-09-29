@@ -292,13 +292,17 @@ export class DeckAPI {
       }
 
       let exportText = '';
-      const mainboard = deckCards?.filter(card => !card.is_sideboard) || [];
+      const commander = deckCards?.find(card => card.is_commander);
+      const mainboard = deckCards?.filter(card => !card.is_sideboard && !card.is_commander) || [];
       const sideboard = deckCards?.filter(card => card.is_sideboard) || [];
 
       switch (format) {
         case 'arena':
           // Arena format
           exportText = 'Deck\n';
+          if (commander) {
+            exportText += `1 ${commander.card_name} (Commander)\n`;
+          }
           mainboard.forEach(card => {
             exportText += `${card.quantity} ${card.card_name}\n`;
           });
@@ -312,6 +316,9 @@ export class DeckAPI {
 
         case 'mtgo':
           // MTGO format (similar to arena but different header)
+          if (commander) {
+            exportText += `1 ${commander.card_name} (Commander)\n`;
+          }
           mainboard.forEach(card => {
             exportText += `${card.quantity} ${card.card_name}\n`;
           });
@@ -326,6 +333,9 @@ export class DeckAPI {
         case 'txt':
         default:
           // Plain text format
+          if (commander) {
+            exportText += `1x ${commander.card_name} (Commander)\n\n`;
+          }
           mainboard.forEach(card => {
             exportText += `${card.quantity}x ${card.card_name}\n`;
           });

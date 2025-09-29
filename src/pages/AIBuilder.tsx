@@ -782,57 +782,103 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                         { 
                           name: 'Syr Vondam, Sunstar Exemplar', 
                           colors: ['W', 'B'],
-                          oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.'
+                          color_identity: ['W', 'B'],
+                          type_line: 'Legendary Creature — Human Knight',
+                          cmc: 4,
+                          oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/3/93b18a1f-b8f8-4f5f-93f9-6e088cc4bf4c.jpg' }
                         },
                         { 
                           name: 'Atraxa, Praetors\' Voice', 
                           colors: ['W', 'U', 'B', 'G'],
-                          oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.'
+                          color_identity: ['W', 'U', 'B', 'G'],
+                          type_line: 'Legendary Creature — Phyrexian Angel Horror',
+                          cmc: 4,
+                          oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg' }
                         },
                         { 
                           name: 'Edgar Markov', 
                           colors: ['W', 'B', 'R'],
-                          oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.'
+                          color_identity: ['W', 'B', 'R'],
+                          type_line: 'Legendary Creature — Vampire Knight',
+                          cmc: 6,
+                          oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg' }
                         },
                         { 
                           name: 'Meren of Clan Nel Toth', 
                           colors: ['B', 'G'],
-                          oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card\'s converted mana cost is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.'
+                          color_identity: ['B', 'G'],
+                          type_line: 'Legendary Creature — Human Shaman',
+                          cmc: 4,
+                          oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card\'s converted mana cost is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/7/17d6703c-ad79-457b-a1b5-c2284e363085.jpg' }
                         },
                         { 
-                          name: 'Rhys the Redeemed', 
-                          colors: ['G', 'W'],
-                          oracle_text: '{2}{G/W}, {T}: Create a 1/1 green and white Elf Warrior creature token.\n{4}{G/W}{G/W}, {T}: For each creature token you control, create a token that\'s a copy of that creature.'
+                          name: 'Karador, Ghost Chieftain', 
+                          colors: ['W', 'B', 'G'],
+                          color_identity: ['W', 'B', 'G'],
+                          type_line: 'Legendary Creature — Centaur Spirit',
+                          cmc: 8,
+                          oracle_text: 'This spell costs {1} less to cast for each creature card in your graveyard.\nVigilance, trample\nOnce during each of your turns, you may cast a creature spell from your graveyard.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/c/7/c7eb0144-34f8-43e1-95fe-f2ca62d88e5d.jpg' }
                         },
                         { 
-                          name: 'Ezuri, Claw of Progress', 
-                          colors: ['G', 'U'],
-                          oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.'
-                        }
-                      ].map((popularCommander) => (
-                        <div
-                          key={popularCommander.name}
-                          className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all"
-                          onClick={() => {
-                            const mockCommander = {
-                              name: popularCommander.name,
-                              color_identity: popularCommander.colors,
-                              type_line: 'Legendary Creature',
-                              oracle_text: popularCommander.oracle_text || 'Mock commander for demo',
-                              image_uris: { normal: '/placeholder.svg' }
-                            };
-                            setCommander(mockCommander);
-                            analyzeCommander(mockCommander);
-                          }}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <div className="flex space-x-1">
-                              {popularCommander.colors.map(color => (
-                                <div
-                                  key={color}
-                                  className="w-3 h-3 rounded-full border"
-                                  style={{
-                                    backgroundColor: {
+                          name: 'Animar, Soul of Elements', 
+                          colors: ['U', 'R', 'G'],
+                          color_identity: ['U', 'R', 'G'],
+                          type_line: 'Legendary Creature — Elemental',
+                          cmc: 3,
+                          oracle_text: 'Protection from white and from black\nWhenever you cast a creature spell, put a +1/+1 counter on Animar, Soul of Elements.\nCreature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.',
+                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/d/1df98d4a-0f11-4064-a113-54ab14b9b3eb.jpg' }
+                        },
+                         { 
+                           name: 'Rhys the Redeemed', 
+                           colors: ['G', 'W'],
+                           color_identity: ['G', 'W'],
+                           type_line: 'Legendary Creature — Elf Warrior',
+                           cmc: 1,
+                           oracle_text: '{2}{G/W}, {T}: Create a 1/1 green and white Elf Warrior creature token.\n{4}{G/W}{G/W}, {T}: For each creature token you control, create a token that\'s a copy of that creature.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/5/9/59327a58-cd41-479c-81c7-31c9d3b29508.jpg' }
+                         },
+                         { 
+                           name: 'Ezuri, Claw of Progress', 
+                           colors: ['G', 'U'],
+                           color_identity: ['G', 'U'],
+                           type_line: 'Legendary Creature — Elf Warrior',
+                           cmc: 4,
+                           oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/e/f/ef1b62ff-dbb3-4500-9d64-a3047ce193ec.jpg' }
+                         }
+                       ].map((popularCommander) => (
+                         <div
+                           key={popularCommander.name}
+                           className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
+                           onClick={() => {
+                             const commanderWithId = {
+                               ...popularCommander,
+                               id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+                             };
+                             setCommander(commanderWithId);
+                             analyzeCommander(commanderWithId);
+                           }}
+                         >
+                           <img 
+                             src={popularCommander.image_uris?.normal || '/placeholder.svg'} 
+                             alt={popularCommander.name}
+                             className="w-12 h-12 rounded object-cover"
+                           />
+                           <div className="flex-1 min-w-0">
+                             <div className="font-medium text-sm truncate">{popularCommander.name}</div>
+                             <div className="text-xs text-muted-foreground truncate">{popularCommander.type_line}</div>
+                             <div className="flex space-x-1 mt-1">
+                               {popularCommander.color_identity.map(color => (
+                                 <div
+                                   key={color}
+                                   className="w-3 h-3 rounded-full border"
+                                   style={{
+                                     backgroundColor: {
                                       W: '#fffbd5',
                                       U: '#0e68ab',
                                       B: '#150b00', 
@@ -842,10 +888,9 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                                   }}
                                 />
                               ))}
-                            </div>
-                            <span className="text-sm font-medium">{popularCommander.name}</span>
-                          </div>
-                        </div>
+                             </div>
+                           </div>
+                         </div>
                       ))}
                     </div>
                   </div>

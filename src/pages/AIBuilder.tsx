@@ -507,7 +507,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           format: 'commander',
           colors: commanderColors,
           description: `AI-generated commander deck with ${commander.name} as commander.`,
-          power_level: buildResult.power || 6,
+          power_level: Math.round(buildResult.power || 6),
           is_public: false
         })
         .select()

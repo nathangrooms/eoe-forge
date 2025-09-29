@@ -301,14 +301,14 @@ export function AIGeneratedDeckList({
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <TrendingUp className="h-4 w-4 text-primary" />
-                <div className="text-2xl font-bold">{power || 0}/10</div>
+                <div className="text-2xl font-bold">{Math.round(power || 0)}/10</div>
               </div>
               <div className="text-sm text-muted-foreground">Power Score</div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-green-600" />
-                <div className="text-2xl font-bold text-green-600">${totalValue?.toFixed(2) || '0.00'}</div>
+                <div className="text-2xl font-bold text-green-600">${(totalValue || 0).toFixed(2)}</div>
               </div>
               <div className="text-sm text-muted-foreground">Est. Price</div>
             </div>
@@ -363,6 +363,39 @@ export function AIGeneratedDeckList({
               </Button>
             </div>
           </div>
+
+          {/* Commander Section */}
+          {commander && (
+            <Card className="mb-4 border-l-4 border-l-yellow-500 bg-yellow-500/10">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <Crown className="h-5 w-5 text-yellow-600" />
+                  <CardTitle className="text-lg">Commander</CardTitle>
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">1</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  {commander.image_uris?.normal ? (
+                    <img 
+                      src={commander.image_uris.normal} 
+                      alt={commander.name}
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                      <Crown className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-medium">{commander.name}</div>
+                    <div className="text-sm text-muted-foreground">CMC {commander.cmc || 0}</div>
+                    <div className="text-sm text-muted-foreground">{commander.type_line}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Categories */}
           {Object.entries(groupedCards).map(([category, categoryCards]) => (

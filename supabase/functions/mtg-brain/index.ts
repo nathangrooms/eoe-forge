@@ -193,6 +193,19 @@ const detectCardMentions = (text: string): string[] => {
   return Array.from(cardNames);
 };
 
+// Strictly extract cards only from a final "Referenced Cards:" section in the text
+const detectReferencedCardsStrict = (text: string): string[] => {
+  const match = text.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
+  if (!match) return [];
+  const section = match[1];
+  const cards = section
+    .split(/[;,\n]/)
+    .flatMap((seg) => seg.split(/\s*•\s*/))
+    .map((c) => c.trim().replace(/^[\-•]\s*/, ''))
+    .filter((c) => c.length > 1);
+  return Array.from(new Set(cards));
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -408,14 +421,15 @@ Always ground your responses in the provided knowledge base, referenced card dat
       throw new Error('No response content from AI');
     }
 
-    // Re-detect cards from the assistant's response for better accuracy
-    const responseCardMentions = detectCardMentions(assistantMessage);
-    console.log('Cards detected from AI response:', responseCardMentions);
+    // Re-detect cards from the assistant's response STRICTLY from the "Referenced Cards:" section
+    const responseCardMentions = detectReferencedCardsStrict(assistantMessage);
+    console.log('Cards detected from AI response (strict):', responseCardMentions);
     
-    // Add any newly detected cards to cardData (STRICTLY prefer AI response list)
+    // Always clear any previously collected card data to avoid mismatches
+    cardData.length = 0;
+    
     if (responseCardMentions.length > 0) {
-      console.log('Rebuilding cards strictly from AI response list...');
-      cardData.length = 0; // clear any stale detections from prior context
+      console.log('Rebuilding cards strictly from AI referenced list...');
       for (const cardName of responseCardMentions.slice(0, 10)) {
         try {
           const card = await scryfallAPI.getCardByName(cardName);
@@ -439,6 +453,8 @@ Always ground your responses in the provided knowledge base, referenced card dat
           console.log(`Could not find card: ${cardName}`);
         }
       }
+    } else {
+      console.log('No "Referenced Cards" section found in AI response. Returning empty card list to ensure exact match.');
     }
 
     return new Response(JSON.stringify({ 

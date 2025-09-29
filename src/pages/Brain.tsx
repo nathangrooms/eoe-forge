@@ -420,26 +420,30 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                          {card.oracle_text}
                                        </div>
                                          
-                                         {/* View details button */}
-                                         <div className="pt-2">
-                                           <Button
-                                             variant="outline"
-                                             size="sm"
-                                             className="w-full text-xs h-7"
-                                             onClick={() => {
-                                               const normalized = {
-                                                 ...card,
-                                                 image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                               };
-                                               setModalCard(normalized);
-                                               setModalOpen(true);
-                                             }}
-                                           >
-                                             <Eye className="h-3 w-3 mr-1" />
-                                             <span className="hidden sm:inline">View details</span>
-                                             <span className="sm:hidden">View</span>
-                                           </Button>
-                                         </div>
+                                          {/* Actions */}
+                                          <div className="pt-2 grid grid-cols-2 gap-2">
+                                            <CardAddModal card={{
+                                              ...(card as any),
+                                              image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                            }} compact />
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="w-full text-xs h-7"
+                                              onClick={() => {
+                                                const normalized = {
+                                                  ...card,
+                                                  image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                                };
+                                                setModalCard(normalized);
+                                                setModalOpen(true);
+                                              }}
+                                            >
+                                              <Eye className="h-3 w-3 mr-1" />
+                                              <span className="hidden sm:inline">View details</span>
+                                              <span className="sm:hidden">View</span>
+                                            </Button>
+                                          </div>
                                     </div>
                                   </div>
                                 ))}

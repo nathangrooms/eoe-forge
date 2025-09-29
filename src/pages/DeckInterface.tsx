@@ -163,16 +163,24 @@ export default function DeckInterface() {
     if (!deck) return;
 
     let exportText = '';
-    const mainboard = deck.cards.filter(c => !c.is_sideboard);
+    const commander = deck.cards.find(c => c.is_commander);
+    const mainboard = deck.cards.filter(c => !c.is_sideboard && !c.is_commander);
     const sideboard = deck.cards.filter(c => c.is_sideboard);
 
     if (format === 'arena') {
-      exportText = `Deck\n${mainboard.map(c => `${c.quantity} ${c.card_name}`).join('\n')}`;
+      exportText = 'Deck\n';
+      if (commander) {
+        exportText += `1 ${commander.card_name} (Commander)\n`;
+      }
+      exportText += mainboard.map(c => `${c.quantity} ${c.card_name}`).join('\n');
       if (sideboard.length > 0) {
         exportText += `\n\nSideboard\n${sideboard.map(c => `${c.quantity} ${c.card_name}`).join('\n')}`;
       }
     } else {
-      exportText = mainboard.map(c => `${c.quantity}x ${c.card_name}`).join('\n');
+      if (commander) {
+        exportText += `1x ${commander.card_name} (Commander)\n\n`;
+      }
+      exportText += mainboard.map(c => `${c.quantity}x ${c.card_name}`).join('\n');
       if (sideboard.length > 0) {
         exportText += `\n\nSideboard:\n${sideboard.map(c => `${c.quantity}x ${c.card_name}`).join('\n')}`;
       }

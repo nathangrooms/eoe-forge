@@ -307,61 +307,76 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
       return 'No cards in deck to export.';
     }
 
-    const grouped = currentDeck.reduce((acc, card) => {
-      const category = card.category || 'main';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(card);
-      return acc;
-    }, {} as Record<string, any[]>);
+    const commander = currentDeck.find(card => card.category === 'commanders' || card.is_commander);
+    const mainCards = currentDeck.filter(card => 
+      card.category !== 'commanders' && 
+      card.category !== 'sideboard' && 
+      !card.is_commander
+    );
+    const sideboardCards = currentDeck.filter(card => card.category === 'sideboard');
 
     let output = '';
 
     switch (exportFormat) {
       case 'text':
-        // Standard text format
-        Object.entries(grouped).forEach(([category, cards]) => {
-          if (category !== 'main') {
-            output += `\n// ${category.charAt(0).toUpperCase() + category.slice(1)}\n`;
-          }
-          (cards as any[]).forEach(card => {
-            output += `${card.quantity} ${card.name}\n`;
-          });
+        // Standard text format with commander at top
+        if (commander) {
+          output += `1x ${commander.name} (Commander)\n\n`;
+        }
+        mainCards.forEach(card => {
+          output += `${card.quantity}x ${card.name}\n`;
         });
+        if (sideboardCards.length > 0) {
+          output += '\nSideboard:\n';
+          sideboardCards.forEach(card => {
+            output += `${card.quantity}x ${card.name}\n`;
+          });
+        }
         break;
 
       case 'csv':
         // CSV format
         output = 'Quantity,Name,Category,CMC,Colors\n';
-        currentDeck.forEach(card => {
-          output += `${card.quantity},"${card.name}","${card.category || 'main'}",${card.cmc},"${card.colors.join('')}"\n`;
+        if (commander) {
+          output += `1,"${commander.name}","Commander",${commander.cmc || 0},"${(commander.colors || []).join('')}"\n`;
+        }
+        currentDeck.filter(card => !card.is_commander && card.category !== 'commanders').forEach(card => {
+          output += `${card.quantity},"${card.name}","${card.category || 'main'}",${card.cmc || 0},"${(card.colors || []).join('')}"\n`;
         });
         break;
 
       case 'arena':
         // MTG Arena format
-        const mainCards = grouped.main || [];
-        const sideboardCards = grouped.sideboard || [];
-        
         output = 'Deck\n';
+        if (commander) {
+          output += `1 ${commander.name} (Commander)\n`;
+        }
         mainCards.forEach(card => {
           output += `${card.quantity} ${card.name}\n`;
         });
         
         if (sideboardCards.length > 0) {
           output += '\nSideboard\n';
-          (sideboardCards as any[]).forEach(card => {
+          sideboardCards.forEach(card => {
             output += `${card.quantity} ${card.name}\n`;
           });
         }
         break;
 
       case 'modo':
-        // MTGO format (similar to text but with specific formatting)
-        Object.entries(grouped).forEach(([category, cards]) => {
-          (cards as any[]).forEach(card => {
-            output += `${card.quantity} ${card.name}\n`;
-          });
+        // MTGO format
+        if (commander) {
+          output += `1 ${commander.name} (Commander)\n`;
+        }
+        mainCards.forEach(card => {
+          output += `${card.quantity} ${card.name}\n`;
         });
+        if (sideboardCards.length > 0) {
+          output += '\n';
+          sideboardCards.forEach(card => {
+            output += `SB: ${card.quantity} ${card.name}\n`;
+          });
+        }
         break;
     }
 

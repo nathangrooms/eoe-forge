@@ -149,14 +149,18 @@ class ScryfallAPI {
 const detectCardMentions = (text: string): string[] => {
   const cardNames = new Set<string>();
   
-  // Pattern for "Referenced Cards:" section at end of AI responses
+  console.log('Processing text for card detection:', text.substring(0, 200) + '...');
+  
+  // Pattern for "Referenced Cards:" section at end of AI responses (highest priority)
   const referencedCardsMatch = text.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
   if (referencedCardsMatch) {
+    console.log('Found Referenced Cards section:', referencedCardsMatch[1]);
     const referencedSection = referencedCardsMatch[1];
     // Split by commas, semicolons, or bullet points and clean up
     const cards = referencedSection.split(/[,;•\-\n]/)
       .map(card => card.trim().replace(/^[\-•]\s*/, ''))
       .filter(card => card.length > 2);
+    console.log('Parsed cards from Referenced section:', cards);
     cards.forEach(card => cardNames.add(card));
   }
   
@@ -165,7 +169,10 @@ const detectCardMentions = (text: string): string[] => {
   if (quotedNames) {
     quotedNames.forEach(match => {
       const name = match.slice(1, -1).trim();
-      if (name.length > 2) cardNames.add(name);
+      if (name.length > 2) {
+        console.log('Found quoted card:', name);
+        cardNames.add(name);
+      }
     });
   }
   
@@ -174,7 +181,10 @@ const detectCardMentions = (text: string): string[] => {
   if (bracketNames) {
     bracketNames.forEach(match => {
       const name = match.slice(2, -2).trim();
-      if (name.length > 2) cardNames.add(name);
+      if (name.length > 2) {
+        console.log('Found bracketed card:', name);
+        cardNames.add(name);
+      }
     });
   }
   
@@ -223,6 +233,7 @@ serve(async (req) => {
     // Initialize Scryfall API and detect card mentions
     const scryfallAPI = new ScryfallAPI();
     const allText = [message, ...conversationHistory.map((msg: any) => msg.content)].join(' ');
+    console.log('All text being analyzed:', allText);
     const mentionedCards = detectCardMentions(allText);
     
     console.log('Detected card mentions:', mentionedCards);
@@ -399,6 +410,34 @@ Always ground your responses in the provided knowledge base, referenced card dat
     
     if (!assistantMessage) {
       throw new Error('No response content from AI');
+    }
+
+    // Re-detect cards from the assistant's response for better accuracy
+    const responseCardMentions = detectCardMentions(assistantMessage);
+    console.log('Cards detected from AI response:', responseCardMentions);
+    
+    // Add any newly detected cards to cardData
+    if (responseCardMentions.length > 0 && cardData.length === 0) {
+      console.log('Re-searching for cards from AI response...');
+      for (const cardName of responseCardMentions.slice(0, 10)) {
+        try {
+          const card = await scryfallAPI.getCardByName(cardName);
+          cardData.push({
+            name: card.name,
+            image_uri: card.image_uris?.normal || card.image_uris?.large,
+            mana_cost: card.mana_cost,
+            type_line: card.type_line,
+            oracle_text: card.oracle_text,
+            power: card.power,
+            toughness: card.toughness,
+            cmc: card.cmc,
+            colors: card.colors,
+            rarity: card.rarity
+          });
+        } catch (error) {
+          console.log(`Could not find card: ${cardName}`);
+        }
+      }
     }
 
     return new Response(JSON.stringify({ 

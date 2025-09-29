@@ -382,11 +382,15 @@ Ask me anything about your deck, card interactions, or Magic strategy!`,
                               : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
                           }`}
                         >
-                          <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:m-0 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-li:my-0">
-                            <ReactMarkdown>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
+                           <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
+                             <ReactMarkdown
+                               components={{
+                                 p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                               }}
+                             >
+                               {message.content}
+                             </ReactMarkdown>
+                           </div>
                           
                           {/* Display referenced cards */}
                           {message.cards && message.cards.length > 0 && (

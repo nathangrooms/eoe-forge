@@ -26,9 +26,10 @@ interface CardData {
 
 interface CardAddModalProps {
   card: CardData;
+  compact?: boolean;
 }
 
-export function CardAddModal({ card }: CardAddModalProps) {
+export function CardAddModal({ card, compact = false }: CardAddModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -188,10 +189,16 @@ export function CardAddModal({ card }: CardAddModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full">
-          <Plus className="h-3 w-3 mr-1" />
-          Add Card
-        </Button>
+        {compact ? (
+          <Button variant="outline" size="icon" className="h-7 w-7" aria-label="Add card">
+            <Plus className="h-3 w-3" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full">
+            <Plus className="h-3 w-3 mr-1" />
+            Add Card
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

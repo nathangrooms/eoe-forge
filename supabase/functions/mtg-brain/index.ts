@@ -156,12 +156,14 @@ const detectCardMentions = (text: string): string[] => {
   if (referencedCardsMatch) {
     console.log('Found Referenced Cards section:', referencedCardsMatch[1]);
     const referencedSection = referencedCardsMatch[1];
-    // Split by commas, semicolons, or bullet points and clean up
-    const cards = referencedSection.split(/[,;•\-\n]/)
+    const cards = referencedSection
+      .split(/[;,\n]/)
+      .flatMap(seg => seg.split(/\s*•\s*/))
       .map(card => card.trim().replace(/^[\-•]\s*/, ''))
-      .filter(card => card.length > 2);
+      .filter(card => card.length > 1);
     console.log('Parsed cards from Referenced section:', cards);
-    cards.forEach(card => cardNames.add(card));
+    // If explicit referenced cards are present, prefer ONLY these
+    return Array.from(new Set(cards));
   }
   
   // Pattern for quoted card names: "Card Name"
@@ -232,7 +234,7 @@ serve(async (req) => {
 
     // Initialize Scryfall API and detect card mentions
     const scryfallAPI = new ScryfallAPI();
-    const allText = [message, ...conversationHistory.map((msg: any) => msg.content)].join(' ');
+    const allText = message; // Only analyze the current user message to avoid stale detections
     console.log('All text being analyzed:', allText);
     const mentionedCards = detectCardMentions(allText);
     
@@ -423,9 +425,10 @@ Always ground your responses in the provided knowledge base, referenced card dat
     const responseCardMentions = detectCardMentions(assistantMessage);
     console.log('Cards detected from AI response:', responseCardMentions);
     
-    // Add any newly detected cards to cardData
-    if (responseCardMentions.length > 0 && cardData.length === 0) {
-      console.log('Re-searching for cards from AI response...');
+    // Add any newly detected cards to cardData (STRICTLY prefer AI response list)
+    if (responseCardMentions.length > 0) {
+      console.log('Rebuilding cards strictly from AI response list...');
+      cardData.length = 0; // clear any stale detections from prior context
       for (const cardName of responseCardMentions.slice(0, 10)) {
         try {
           const card = await scryfallAPI.getCardByName(cardName);

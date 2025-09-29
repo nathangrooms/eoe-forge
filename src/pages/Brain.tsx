@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useDeckStore } from '@/stores/deckStore';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-
+import { CardAddModal } from '@/components/brain/CardAddModal';
 import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
 
 interface CardData {

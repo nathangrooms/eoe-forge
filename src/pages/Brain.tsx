@@ -11,10 +11,9 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useDeckStore } from '@/stores/deckStore';
-import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { CardAdditionPanel } from '@/components/brain/CardAdditionPanel';
+import { CardAddModal } from '@/components/brain/CardAddModal';
 
 interface CardData {
   name: string;
@@ -277,10 +276,10 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-none mx-auto px-4 py-6 h-full">
-        <div className="flex gap-6 h-full">{/* Full width layout */}
-          {/* Main Chat Area - Full width */}
-          <div className="flex-1 flex flex-col h-full min-h-[600px] max-w-5xl mx-auto">{/* Center content with max width */}
+      <div className="w-full px-4 py-6 h-full">
+        <div className="flex gap-6 h-full">
+          {/* Main Chat Area - Full width when cards are displayed */}
+          <div className="flex-1 flex flex-col h-full min-h-[600px]">
             <Card className="flex-1 flex flex-col">
               <CardContent className="p-0 flex flex-col h-full">
                 {/* Header */}
@@ -334,18 +333,20 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                 {/* Messages Area */}
                 <ScrollArea className="flex-1 p-4">
                   <div className="space-y-4">
-                    {messages.map((message, index) => (
-                      <div
-                        key={index}
-                        className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                            message.type === 'user'
-                              ? 'bg-primary text-primary-foreground shadow-md'
-                              : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
-                          }`}
-                        >
+                     {messages.map((message, index) => {
+                       const hasCards = message.cards && message.cards.length > 0;
+                       return (
+                         <div
+                           key={index}
+                           className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                         >
+                           <div
+                             className={`${hasCards && message.type === 'assistant' ? 'w-full' : 'max-w-[85%]'} rounded-2xl px-4 py-3 ${
+                               message.type === 'user'
+                                 ? 'bg-primary text-primary-foreground shadow-md'
+                                 : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
+                             }`}
+                           >
                            <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
                               {message.type === 'assistant' ? (
                                 <div className="space-y-4">
@@ -385,10 +386,10 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                           {/* Display referenced cards */}
                           {message.cards && message.cards.length > 0 && (
                             <div className="mt-4 space-y-3">
-                              <div className="text-xs font-medium text-muted-foreground border-t pt-3">
-                                Referenced Cards:
-                              </div>
-                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                               <div className="text-xs font-medium text-muted-foreground border-t pt-3">
+                                 Referenced Cards:
+                               </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
                                  {message.cards.map((card, cardIndex) => (
                                   <div
                                     key={cardIndex}
@@ -415,14 +416,11 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                        <div className="text-xs text-muted-foreground line-clamp-3">
                                          {card.oracle_text}
                                        </div>
-                                       
-                                       {/* Enhanced card addition panel */}
-                                       <div className="pt-2">
-                                         <CardAdditionPanel 
-                                           card={card}
-                                           defaultExpanded={false}
-                                         />
-                                       </div>
+                                        
+                                        {/* Card addition modal */}
+                                        <div className="pt-2">
+                                          <CardAddModal card={card} />
+                                        </div>
                                     </div>
                                   </div>
                                 ))}
@@ -433,9 +431,10 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                           <div className="text-xs opacity-60 mt-2">
                             {message.timestamp.toLocaleTimeString()}
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                         </div>
+                       </div>
+                     );
+                     })}
                     
                     {isLoading && (
                       <div className="flex justify-start">

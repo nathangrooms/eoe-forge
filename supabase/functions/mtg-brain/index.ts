@@ -191,8 +191,9 @@ serve(async (req) => {
   try {
     console.log('MTG Brain function called');
     
-    const { message, deckContext, conversationHistory = [] } = await req.json();
+    const { message, deckContext, conversationHistory = [], responseStyle = 'concise' } = await req.json();
     console.log('Received message:', message);
+    console.log('Response style:', responseStyle);
     console.log('Deck context:', deckContext);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -296,6 +297,19 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - Include reasoning behind recommendations
 - Use MTG terminology correctly
 - When suggesting cards, include mana cost, type, and key abilities
+
+## RESPONSE STYLE
+${responseStyle === 'detailed' ? `
+- **Comprehensive Analysis:** Provide in-depth explanations with multiple examples
+- **Detailed Card Lists:** Include extensive card suggestions with reasoning
+- **Strategic Deep Dives:** Explain complex interactions and meta considerations
+- **Extended Recommendations:** Cover multiple approaches and alternatives
+` : `
+- **Concise and Focused:** Keep responses brief and to the point
+- **Essential Information Only:** Highlight key cards and strategies without lengthy explanations
+- **Quick Recommendations:** Provide actionable advice without excessive detail
+- **Bullet Points Preferred:** Use clear, scannable formatting
+`}
 
 Always ground your responses in the provided knowledge base, referenced card data, and current deck context.`;
 

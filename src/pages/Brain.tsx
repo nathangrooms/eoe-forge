@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw } from 'lucide-react';
+import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -94,6 +97,7 @@ export default function Brain() {
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
   const [deckCards, setDeckCards] = useState<any[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(false);
+  const [detailedResponses, setDetailedResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -250,7 +254,8 @@ Choose a quick action below or ask me anything about Magic!`,
         body: { 
           message: userMessage,
           deckContext,
-          conversationHistory: messages.slice(-6).map(m => ({ role: m.type, content: m.content }))
+          conversationHistory: messages.slice(-6).map(m => ({ role: m.type, content: m.content })),
+          responseStyle: detailedResponses ? 'detailed' : 'concise'
         }
       });
 
@@ -359,6 +364,18 @@ Choose a quick action below or ask me anything about Magic!`,
                   <RefreshCw className="h-4 w-4 mr-2" />
                   New Chat
                 </Button>
+
+                {/* Response Style Toggle */}
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="detailed-toggle" className="text-sm text-muted-foreground hidden sm:block">
+                    Detailed
+                  </Label>
+                  <Switch
+                    id="detailed-toggle"
+                    checked={detailedResponses}
+                    onCheckedChange={setDetailedResponses}
+                  />
+                </div>
                 
                 {/* Deck Selector */}
                 <div className="flex items-center gap-2">
@@ -405,8 +422,10 @@ Choose a quick action below or ask me anything about Magic!`,
                             : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
                         }`}
                       >
-                        <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert">
-                          {message.content}
+                        <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:m-0 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-li:my-0">
+                          <ReactMarkdown>
+                            {message.content}
+                          </ReactMarkdown>
                         </div>
                         
                         {/* Display referenced cards */}
@@ -557,9 +576,14 @@ Choose a quick action below or ask me anything about Magic!`,
                       <span><strong>Commander:</strong> {selectedDeck.commander.name}</span>
                     )}
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    Full Deck Access
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {detailedResponses ? 'Detailed' : 'Concise'} Mode
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      Full Deck Access
+                    </Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>

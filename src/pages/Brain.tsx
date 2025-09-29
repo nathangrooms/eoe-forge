@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useDeckStore } from '@/stores/deckStore';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { CardAddModal } from '@/components/brain/CardAddModal';
+
 import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
 
 interface CardData {
@@ -392,11 +392,11 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                <div className="text-xs font-medium text-muted-foreground border-t pt-3">
                                  Referenced Cards:
                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+                                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2 md:gap-3">
                                  {message.cards.map((card, cardIndex) => (
-                                  <div
-                                    key={cardIndex}
-                                    className="bg-background/80 border rounded-lg p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
+                                   <div
+                                     key={cardIndex}
+                                     className="bg-background/80 border rounded-lg p-2 md:p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
                                   >
                                     {card.image_uri && (
                                       <img
@@ -419,26 +419,27 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                        <div className="text-xs text-muted-foreground line-clamp-3">
                                          {card.oracle_text}
                                        </div>
-                                        
-                                        {/* Actions: Add + View details */}
-                                        <div className="pt-2 flex gap-2">
-                                          <CardAddModal card={card} />
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                              const normalized = {
-                                                ...card,
-                                                image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                              };
-                                              setModalCard(normalized);
-                                              setModalOpen(true);
-                                            }}
-                                          >
-                                            <Eye className="h-3 w-3 mr-1" />
-                                            View details
-                                          </Button>
-                                        </div>
+                                         
+                                         {/* View details button */}
+                                         <div className="pt-2">
+                                           <Button
+                                             variant="outline"
+                                             size="sm"
+                                             className="w-full text-xs h-7"
+                                             onClick={() => {
+                                               const normalized = {
+                                                 ...card,
+                                                 image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                               };
+                                               setModalCard(normalized);
+                                               setModalOpen(true);
+                                             }}
+                                           >
+                                             <Eye className="h-3 w-3 mr-1" />
+                                             <span className="hidden sm:inline">View details</span>
+                                             <span className="sm:hidden">View</span>
+                                           </Button>
+                                         </div>
                                     </div>
                                   </div>
                                 ))}

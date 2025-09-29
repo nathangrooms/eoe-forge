@@ -971,7 +971,11 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                       <div className="flex justify-between items-start">
                         <div>
                           <h4 className="font-medium">{card.quantity}x {card.name}</h4>
-                          <p className="text-sm text-muted-foreground">{card.reason}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {typeof card.reason === 'string' ? card.reason : 
+                             typeof card.reason === 'object' ? card.reason?.reason || JSON.stringify(card.reason) :
+                             'Added to deck'}
+                          </p>
                         </div>
                         <Badge variant="outline">{card.quantity}</Badge>
                       </div>
@@ -1022,9 +1026,12 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               </TabsContent>
 
               <TabsContent value="changelog" className="space-y-2">
-                {(buildResult.changelog || []).map((change: string, index: number) => (
+                {(buildResult.changelog || []).map((change: any, index: number) => (
                   <div key={index} className="p-2 bg-muted/50 rounded text-sm font-mono">
-                    {change}
+                    {typeof change === 'string' ? change : 
+                     typeof change === 'object' && change ? (
+                       `${change.action || 'Action'}: ${change.card || 'Card'} - ${change.reason || 'No reason'} (${change.stage || 'Stage'})`
+                     ) : String(change)}
                   </div>
                 ))}
               </TabsContent>

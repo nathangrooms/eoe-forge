@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import MTGKnowledgeBase from '@/lib/magic/knowledge-base';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -74,7 +75,8 @@ export default function Brain() {
   const [isLoading, setIsLoading] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { name: deckName, format, totalCards, powerLevel } = useDeckStore();
+  const { name: deckName, format, totalCards, powerLevel, cards } = useDeckStore();
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,18 +113,61 @@ Choose a quick action below or ask me anything about Magic!`,
   }, [deckName, format, totalCards, powerLevel]);
 
   const generateResponse = async (userMessage: string): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-    return `# Response to: "${userMessage}"
+    try {
+      console.log('Sending message to MTG Brain:', userMessage);
+      
+      // Prepare deck context
+      const deckContext = deckName ? {
+        name: deckName,
+        format,
+        totalCards,
+        powerLevel,
+        cardCount: cards.length,
+        hasCards: cards.length > 0
+      } : null;
 
-This is a placeholder response. In a full implementation, this would analyze your question using the MTG knowledge base and provide detailed strategic insights.
+      console.log('Deck context:', deckContext);
 
-**Key points:**
-• Comprehensive analysis based on your question
-• Strategic recommendations
-• Format-specific guidance
-• Actionable next steps
+      const { data, error } = await supabase.functions.invoke('mtg-brain', {
+        body: { 
+          message: userMessage,
+          deckContext 
+        }
+      });
 
-Ask me more specific questions about deck building, card analysis, or MTG strategy!`;
+      console.log('MTG Brain response:', data);
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to get response from MTG Brain');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'MTG Brain returned an error');
+      }
+
+      return data.message || 'No response received from MTG Brain';
+    } catch (error) {
+      console.error('Error calling MTG Brain:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Rate limits exceeded')) {
+          toast({
+            title: "Rate Limit Reached",
+            description: "Please wait a moment before asking another question.",
+            variant: "destructive"
+          });
+        } else if (error.message.includes('Payment required')) {
+          toast({
+            title: "Credits Required",
+            description: "Please add AI credits to your workspace to continue.",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      throw error;
+    }
   };
 
   const handleSendMessage = async (messageText?: string) => {

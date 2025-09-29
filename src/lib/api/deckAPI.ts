@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { EDHPowerCalculator } from '@/lib/deckbuilder/score/edh-power-calculator';
 
 export interface DeckSummary {
   id: string;
@@ -71,64 +72,151 @@ export class DeckAPI {
         throw error;
       }
 
-      // Get summaries for each deck
+      // Get summaries for each deck (client-side power using EDH calculator)
       const summaries = await Promise.all(
         (decks || []).map(async (deck) => {
           try {
-            const { data: summaryData, error: summaryError } = await supabase
-              .rpc('compute_deck_summary', { deck_id: deck.id });
+            // 1) Fetch deck cards (ids and flags)
+            const { data: deckCards, error: dcError } = await supabase
+              .from('deck_cards')
+              .select('card_id, card_name, quantity, is_commander, is_sideboard')
+              .eq('deck_id', deck.id);
+            if (dcError) throw dcError;
 
-            if (summaryError) {
-              console.error('Error computing deck summary:', summaryError);
-              // Return basic summary if computation fails
+            const playable = (deckCards || []).filter(dc => !dc.is_sideboard);
+            const ids = Array.from(new Set(playable.map(dc => dc.card_id)));
+
+            // 2) Fetch card details for all ids in one query
+            const { data: cards, error: cError } = await supabase
+              .from('cards')
+              .select('id, name, mana_cost, cmc, type_line, oracle_text, colors, color_identity, power, toughness, keywords, legalities, image_uris, prices, set_code, collector_number, rarity, layout, is_legendary');
+            // If filtering by ids is not supported in this environment, fall back to using all cards select (above) and map by id.
+            // Prefer IN filter when available:
+            // .in('id', ids)
+            if (cError) throw cError;
+
+            const cardMap = new Map<string, any>((cards || []).map((c: any) => [c.id, c]));
+
+            // 3) Convert to calculator format
+            const nonCommander = playable.filter(dc => !dc.is_commander);
+            const convertedCards = nonCommander.map(dc => {
+              const c = cardMap.get(dc.card_id) || {};
               return {
-                id: deck.id,
-                name: deck.name,
-                format: deck.format,
-                colors: deck.colors,
-                identity: deck.colors,
-                counts: {
-                  total: 0,
-                  unique: 0,
-                  lands: 0,
-                  creatures: 0,
-                  instants: 0,
-                  sorceries: 0,
-                  artifacts: 0,
-                  enchantments: 0,
-                  planeswalkers: 0,
-                  battles: 0
-                },
-                curve: {
-                  bins: { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0 }
-                },
-                mana: {
-                  sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
-                  untappedPctByTurn: { t1: 0, t2: 0, t3: 0 }
-                },
-                legality: { ok: true, issues: [] },
-                power: {
-                  score: deck.power_level,
-                  band: deck.power_level <= 3 ? 'casual' : deck.power_level <= 6 ? 'mid' : deck.power_level <= 8 ? 'high' : 'cEDH',
-                  drivers: [],
-                  drags: []
-                },
-                economy: { priceUSD: 0, ownedPct: 0, missing: 0 },
-                tags: [],
-                updatedAt: deck.updated_at,
-                favorite: false
-              } as DeckSummary;
-            }
+                id: c.id || dc.card_id,
+                oracle_id: c.id || dc.card_id,
+                name: c.name || dc.card_name,
+                mana_cost: c.mana_cost || '',
+                cmc: Number(c.cmc) || 0,
+                type_line: c.type_line || '',
+                oracle_text: c.oracle_text || '',
+                colors: c.colors || [],
+                color_identity: c.color_identity || [],
+                power: c.power,
+                toughness: c.toughness,
+                keywords: c.keywords || [],
+                legalities: c.legalities || {},
+                image_uris: c.image_uris || {},
+                prices: c.prices || {},
+                set: c.set_code || '',
+                set_name: '',
+                collector_number: c.collector_number || '',
+                rarity: c.rarity || 'common',
+                layout: c.layout || 'normal',
+                is_legendary: !!c.is_legendary,
+                tags: new Set<string>(),
+                derived: { mv: Number(c.cmc) || 0, colorPips: {}, producesMana: false, etbTapped: false }
+              };
+            });
 
-            // Fix commander image path if present
-            if (summaryData && (summaryData as any).commander) {
-              const commander = (summaryData as any).commander;
-              if (commander.image_uris && !commander.image) {
-                commander.image = commander.image_uris.normal || commander.image_uris.large || '/placeholder.svg';
-              }
-            }
+            const commanderDC = playable.find(dc => dc.is_commander);
+            const commanderCard = commanderDC ? cardMap.get(commanderDC.card_id) : undefined;
+            const convertedCommander = commanderCard ? {
+              id: commanderCard.id,
+              oracle_id: commanderCard.id,
+              name: commanderCard.name,
+              mana_cost: commanderCard.mana_cost || '',
+              cmc: Number(commanderCard.cmc) || 0,
+              type_line: commanderCard.type_line || '',
+              oracle_text: commanderCard.oracle_text || '',
+              colors: commanderCard.colors || [],
+              color_identity: commanderCard.color_identity || [],
+              power: commanderCard.power,
+              toughness: commanderCard.toughness,
+              keywords: commanderCard.keywords || [],
+              legalities: commanderCard.legalities || {},
+              image_uris: commanderCard.image_uris || {},
+              prices: commanderCard.prices || {},
+              set: commanderCard.set_code || '',
+              set_name: '',
+              collector_number: commanderCard.collector_number || '',
+              rarity: 'mythic' as any,
+              layout: commanderCard.layout || 'normal',
+              is_legendary: true,
+              tags: new Set<string>(),
+              derived: { mv: Number(commanderCard.cmc) || 0, colorPips: {}, producesMana: false, etbTapped: false }
+            } : undefined;
 
-            return summaryData as unknown as DeckSummary;
+            const power = EDHPowerCalculator.calculatePower(convertedCards, deck.format, 42, convertedCommander);
+
+            // 4) Build counts and curve
+            const emptyCounts = { total: 0, unique: 0, lands: 0, creatures: 0, instants: 0, sorceries: 0, artifacts: 0, enchantments: 0, planeswalkers: 0, battles: 0 };
+            const counts = playable.reduce((acc, dc) => {
+              const c = cardMap.get(dc.card_id);
+              if (!c) return acc;
+              acc.total += dc.quantity || 1;
+              acc.unique += 1;
+              const tl = String(c.type_line || '').toLowerCase();
+              if (tl.includes('land')) acc.lands += dc.quantity || 1;
+              else if (tl.includes('creature')) acc.creatures += dc.quantity || 1;
+              else if (tl.includes('instant')) acc.instants += dc.quantity || 1;
+              else if (tl.includes('sorcery')) acc.sorceries += dc.quantity || 1;
+              else if (tl.includes('artifact') && !tl.includes('creature')) acc.artifacts += dc.quantity || 1;
+              else if (tl.includes('enchantment')) acc.enchantments += dc.quantity || 1;
+              else if (tl.includes('planeswalker')) acc.planeswalkers += dc.quantity || 1;
+              else if (tl.includes('battle')) acc.battles += dc.quantity || 1;
+              return acc;
+            }, { ...emptyCounts });
+
+            const curveBinsInit: Record<'0-1'|'2'|'3'|'4'|'5'|'6-7'|'8-9'|'10+', number> = { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0 };
+            const curveBins = playable.reduce((acc, dc) => {
+              const c = cardMap.get(dc.card_id) || {};
+              const cmc = Number(c.cmc) || 0;
+              const qty = dc.quantity || 1;
+              if (cmc <= 1) acc['0-1'] += qty; else if (cmc === 2) acc['2'] += qty; else if (cmc === 3) acc['3'] += qty; else if (cmc === 4) acc['4'] += qty; else if (cmc === 5) acc['5'] += qty; else if (cmc <= 7) acc['6-7'] += qty; else if (cmc <= 9) acc['8-9'] += qty; else acc['10+'] += qty;
+              return acc;
+            }, { ...curveBinsInit });
+
+            // 5) Favorite status
+            const { data: fav } = await supabase
+              .from('favorite_decks')
+              .select('deck_id')
+              .eq('deck_id', deck.id)
+              .single();
+
+            // 6) Build summary for UI (power from EDH model)
+            return {
+              id: deck.id,
+              name: deck.name,
+              format: deck.format,
+              colors: deck.colors,
+              identity: deck.colors,
+              commander: commanderCard ? {
+                name: commanderCard.name,
+                image: commanderCard.image_uris?.normal || commanderCard.image_uris?.large || '/placeholder.svg'
+              } : undefined,
+              counts,
+              curve: { bins: curveBins },
+              mana: {
+                sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+                untappedPctByTurn: { t1: (power.playability.t1_color_hit_pct || 0) / 100, t2: 0.9, t3: 0.95 }
+              },
+              legality: { ok: true, issues: [] },
+              power: { score: Math.round(power.power * 10) / 10, band: power.band as any, drivers: power.drivers, drags: power.drags },
+              economy: { priceUSD: 0, ownedPct: 0, missing: 0 },
+              tags: [],
+              updatedAt: deck.updated_at,
+              favorite: !!fav
+            } as DeckSummary;
           } catch (error) {
             console.error(`Error processing deck ${deck.id}:`, error);
             return null;

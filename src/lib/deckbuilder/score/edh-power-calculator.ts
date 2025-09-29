@@ -83,9 +83,9 @@ export class EDHPowerCalculator {
 
   static calculatePower(
     deck: Card[],
-    commander?: Card,
     format: string = 'commander',
     seed: number = 42,
+    commander?: Card,
     targetPower?: number,
     config: PowerCalculatorConfig = this.defaultConfig
   ): EDHPowerScore {
@@ -111,7 +111,7 @@ export class EDHPowerCalculator {
     const goldfish = PlayabilitySimulator.calculateGoldfishMetrics(deck, features);
     
     // Check legality
-    const legality = this.checkLegality(deck, commander, format);
+    const legality = this.checkLegality(deck, format, commander);
     
     // Identify drivers and drags
     const drivers = this.identifyDrivers(subscores, power);
@@ -199,8 +199,8 @@ export class EDHPowerCalculator {
 
   private static checkLegality(
     deck: Card[],
-    commander?: Card,
-    format: string
+    format: string,
+    commander?: Card
   ): { ok: boolean; issues: string[] } {
     const issues: string[] = [];
     

@@ -89,10 +89,8 @@ export class DeckAPI {
             // 2) Fetch card details for all ids in one query
             const { data: cards, error: cError } = await supabase
               .from('cards')
-              .select('id, name, mana_cost, cmc, type_line, oracle_text, colors, color_identity, power, toughness, keywords, legalities, image_uris, prices, set_code, collector_number, rarity, layout, is_legendary');
-            // If filtering by ids is not supported in this environment, fall back to using all cards select (above) and map by id.
-            // Prefer IN filter when available:
-            // .in('id', ids)
+              .select('id, name, mana_cost, cmc, type_line, oracle_text, colors, color_identity, power, toughness, keywords, legalities, image_uris, prices, set_code, collector_number, rarity, layout, is_legendary')
+              .in('id', ids);
             if (cError) throw cError;
 
             const cardMap = new Map<string, any>((cards || []).map((c: any) => [c.id, c]));

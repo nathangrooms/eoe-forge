@@ -86,13 +86,24 @@ const DeckBuilder = () => {
   // Handle URL parameters for deck loading
   useEffect(() => {
     const deckParam = searchParams.get('deck');
-    if (deckParam && allDecks.length > 0) {
+    if (!deckParam) return;
+
+    if (allDecks.length > 0) {
       const deckToLoad = allDecks.find(d => d.id === deckParam);
       if (deckToLoad) {
         loadDeck(deckToLoad);
         setSelectedDeckId(deckParam);
+        return;
       }
     }
+    // Fallback: attempt direct load by id if not found in list yet
+    (async () => {
+      const res = await deck.loadDeck(deckParam);
+      if (res.success) {
+        deck.setCurrentDeckId(deckParam);
+        setSelectedDeckId(deckParam);
+      }
+    })();
   }, [searchParams, allDecks]);
 
   const loadAllDecks = async () => {

@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
+import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
 import { 
   Sparkles, 
   Crown, 
@@ -26,6 +27,8 @@ import {
   Brain
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 const FORMATS = [
   { value: 'standard', label: 'Standard', description: '60-card competitive format' },
@@ -93,6 +96,8 @@ const COLOR_COMBINATIONS = [
 
 export default function AIBuilder() {
   const deck = useDeckStore();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [commander, setCommander] = useState<any>(null);
   const [commanderSearch, setCommanderSearch] = useState('');
@@ -484,56 +489,77 @@ Focus on archetypes that specifically leverage this commander's unique abilities
   };
 
   const applyToDeck = async () => {
-    if (!buildResult || !commander) return;
+    if (!buildResult || !commander || !user) {
+      showError('Error', 'Please ensure you are logged in and have generated a deck.');
+      return;
+    }
     
     try {
-      // Save deck to database
-      const { data: deckData, error: deckError } = await supabase
-        .from('user_decks')
-        .insert([{
-          name: buildResult.deckName,
-          format: 'commander',
-          colors: commander.color_identity || [],
-          power_level: buildResult.power || 6,
-          description: `AI-generated ${buildData.archetype} deck featuring ${commander.name}`,
-          is_public: false,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }])
-        .select()
-        .single();
-
-      if (deckError) throw deckError;
-
-      // Add commander first
-      await supabase.from('deck_cards').insert({
-        deck_id: deckData.id,
-        card_id: commander.id || `commander-${Date.now()}`,
-        card_name: commander.name,
+      // Clear current deck and add commander
+      deck.clearDeck();
+      deck.setCommander({
+        id: commander.id || `commander-${Date.now()}`,
+        name: commander.name,
+        cmc: commander.cmc || 0,
+        type_line: commander.type_line || 'Legendary Creature',
+        colors: commander.colors || commander.color_identity || [],
+        color_identity: commander.color_identity || [],
+        oracle_text: commander.oracle_text || '',
+        image_uris: commander.image_uris || {},
+        prices: commander.prices || {},
+        rarity: commander.rarity || 'rare',
         quantity: 1,
-        is_commander: true
+        category: 'commanders',
+        mechanics: []
       });
 
-      // Add other cards
-      const cardInserts = buildResult.cards.map((card: any) => ({
-        deck_id: deckData.id,
-        card_id: card.id || `card-${Date.now()}-${Math.random()}`,
-        card_name: card.name,
-        quantity: card.quantity || 1,
-        is_commander: false
-      }));
+      // Add all generated cards to deck
+      buildResult.cards.forEach((card: any) => {
+        const deckCard = {
+          id: card.id || `card-${Date.now()}-${Math.random()}`,
+          name: card.name,
+          cmc: card.cmc || 0,
+          type_line: card.type_line || '',
+          colors: card.colors || [],
+          color_identity: card.color_identity || [],
+          oracle_text: card.oracle_text || '',
+          image_uris: card.image_uris || {},
+          prices: card.prices || {},
+          rarity: card.rarity || 'common',
+          quantity: card.quantity || 1,
+          category: determineCategory(card.type_line || ''),
+          mechanics: card.keywords || []
+        };
+        
+        for (let i = 0; i < (card.quantity || 1); i++) {
+          deck.addCard(deckCard);
+        }
+      });
 
-      const { error: cardsError } = await supabase
-        .from('deck_cards')
-        .insert(cardInserts);
+      // Set deck properties
+      deck.setDeckName(buildResult.deckName);
+      deck.setFormat('commander');
+      deck.setPowerLevel(buildResult.power || 6);
 
-      if (cardsError) throw cardsError;
-
-      showSuccess('Deck Saved', `Your ${buildResult.deckName} has been saved to your collection!`);
-      resetBuilder();
+      showSuccess('Deck Applied', 'AI-generated deck has been applied to your deck builder!');
+      navigate('/builder');
     } catch (error) {
-      console.error('Error saving deck:', error);
-      showError('Save Failed', 'Could not save deck to your collection. Please try again.');
+      console.error('Error applying deck:', error);
+      showError('Apply Failed', 'Could not apply deck to builder. Please try again.');
     }
+  };
+
+  const determineCategory = (typeLine: string): any => {
+    const type = typeLine.toLowerCase();
+    if (type.includes('creature')) return 'creatures';
+    if (type.includes('land')) return 'lands';
+    if (type.includes('instant')) return 'instants';
+    if (type.includes('sorcery')) return 'sorceries';
+    if (type.includes('artifact')) return 'artifacts';
+    if (type.includes('enchantment')) return 'enchantments';
+    if (type.includes('planeswalker')) return 'planeswalkers';
+    if (type.includes('battle')) return 'battles';
+    return 'other';
   };
 
   const resetBuilder = () => {
@@ -962,141 +988,17 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       case 6:
         return buildResult && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2" />
-                  {buildResult.deckName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{buildResult.power || 0}/10</div>
-                    <div className="text-sm text-muted-foreground">Power Score</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">${buildResult.totalValue?.toFixed(2) || '0.00'}</div>
-                    <div className="text-sm text-muted-foreground">Est. Price</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{buildResult.cardCount || buildResult.cards.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Cards</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Tabs defaultValue="cards" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="cards">Cards</TabsTrigger>
-                <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                <TabsTrigger value="changelog">Changelog</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="cards" className="space-y-3">
-                {(buildResult.cards || []).map((card: any, index: number) => (
-                  <Card key={index}>
-                     <CardContent className="p-4">
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-center space-x-2">
-                             <h4 className="font-medium">{card.quantity || 1}x {card.name}</h4>
-                             <Badge variant="outline" className="text-xs">
-                               ${parseFloat(card.prices?.usd || '0').toFixed(2)}
-                             </Badge>
-                           </div>
-                           <p className="text-sm text-muted-foreground mt-1">
-                             {typeof card.reason === 'string' ? card.reason : 
-                              typeof card.reason === 'object' ? card.reason?.reason || JSON.stringify(card.reason) :
-                              'Added to deck'}
-                           </p>
-                           <p className="text-xs text-muted-foreground">
-                             {card.type_line} • CMC {card.cmc || 0}
-                           </p>
-                         </div>
-                         <div className="flex flex-col items-end space-y-1">
-                           <Badge variant="secondary">{card.quantity || 1}</Badge>
-                           {card.image_uris?.small && (
-                             <img 
-                               src={card.image_uris.small} 
-                               alt={card.name}
-                               className="w-12 h-16 rounded object-cover"
-                               onError={(e) => {
-                                 e.currentTarget.style.display = 'none';
-                               }}
-                             />
-                           )}
-                         </div>
-                       </div>
-                     </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-
-              <TabsContent value="analysis" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Strengths</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1">
-                      {(buildResult.analysis?.strengths || []).map((strength: string, index: number) => (
-                        <li key={index} className="text-sm">• {strength}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Weaknesses</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1">
-                      {(buildResult.analysis?.weaknesses || []).map((weakness: string, index: number) => (
-                        <li key={index} className="text-sm">• {weakness}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Suggestions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1">
-                      {(buildResult.analysis?.suggestions || []).map((suggestion: string, index: number) => (
-                        <li key={index} className="text-sm">• {suggestion}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="changelog" className="space-y-2">
-                {(buildResult.changelog || []).map((change: any, index: number) => (
-                  <div key={index} className="p-2 bg-muted/50 rounded text-sm font-mono">
-                    {typeof change === 'string' ? change : 
-                     typeof change === 'object' && change ? (
-                       `${change.action || 'Action'}: ${change.card || 'Card'} - ${change.reason || 'No reason'} (${change.stage || 'Stage'})`
-                     ) : String(change)}
-                  </div>
-                ))}
-              </TabsContent>
-            </Tabs>
-
-            <div className="flex gap-2">
-              <Button onClick={applyToDeck} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                Apply to Deck Builder
-              </Button>
-              <Button variant="outline" onClick={resetBuilder}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Build Another
-              </Button>
-            </div>
+            <AIGeneratedDeckList
+              deckName={buildResult.deckName}
+              cards={buildResult.cards || []}
+              commander={commander}
+              power={buildResult.power}
+              totalValue={buildResult.totalValue}
+              analysis={buildResult.analysis}
+              changelog={buildResult.changelog}
+              onSaveDeck={applyToDeck}
+              onStartOver={resetBuilder}
+            />
           </div>
         );
 

@@ -101,6 +101,8 @@ export default function Brain() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalCard, setModalCard] = useState<any>(null);
+  const [showMessageCardsModal, setShowMessageCardsModal] = useState(false);
+  const [messageCards, setMessageCards] = useState<CardData[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -272,6 +274,57 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
     }
   };
 
+  const extractCardsFromMessage = async (messageText: string) => {
+    try {
+      const response = await fetch('https://api.scryfall.com/cards/autocomplete?q=' + encodeURIComponent(messageText.substring(0, 200)));
+      const suggestions = await response.json();
+      
+      // Simple card name detection - look for quoted names or capitalized sequences
+      const cardNameRegex = /\b[A-Z][A-Za-z\s,'-]+(?:\sof\s[A-Z][A-Za-z\s,'-]+)?\b/g;
+      const potentialCards = messageText.match(cardNameRegex) || [];
+      
+      const foundCards: CardData[] = [];
+      
+      for (const cardName of potentialCards) {
+        const cleanName = cardName.trim();
+        if (cleanName.length < 3) continue;
+        
+        try {
+          const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cleanName)}`);
+          if (searchResponse.ok) {
+            const cardData = await searchResponse.json();
+            foundCards.push({
+              name: cardData.name,
+              image_uri: cardData.image_uris?.normal,
+              mana_cost: cardData.mana_cost,
+              type_line: cardData.type_line,
+              oracle_text: cardData.oracle_text,
+              power: cardData.power,
+              toughness: cardData.toughness,
+              cmc: cardData.cmc,
+              colors: cardData.colors,
+              rarity: cardData.rarity
+            });
+          }
+        } catch (error) {
+          // Skip cards that can't be found
+          continue;
+        }
+      }
+      
+      // Remove duplicates by name
+      const uniqueCards = foundCards.filter((card, index, arr) => 
+        arr.findIndex(c => c.name === card.name) === index
+      );
+      
+      setMessageCards(uniqueCards);
+      setShowMessageCardsModal(true);
+    } catch (error) {
+      console.error('Error extracting cards from message:', error);
+      toast.error('Could not extract cards from message');
+    }
+  };
+
   const handleQuickAction = (action: any) => {
     setInput(action.prompt);
     setShowQuickActions(false);
@@ -388,10 +441,21 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                           
                           {/* Display referenced cards */}
                           {message.cards && message.cards.length > 0 && (
-                            <div className="mt-4 space-y-3">
-                               <div className="text-xs font-medium text-muted-foreground border-t pt-3">
-                                 Referenced Cards:
-                               </div>
+                             <div className="mt-4 space-y-3">
+                                <div className="flex items-center justify-between border-t pt-3">
+                                  <div className="text-xs font-medium text-muted-foreground">
+                                    Referenced Cards:
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs h-6 px-2"
+                                    onClick={() => extractCardsFromMessage(message.content)}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    View cards from message
+                                  </Button>
+                                </div>
                                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2 md:gap-3">
                                  {message.cards.map((card, cardIndex) => (
                                    <div
@@ -548,6 +612,90 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
             showAddButton={false}
             showWishlistButton={false}
           />
+        )}
+        
+        {/* Message Cards Modal */}
+        {showMessageCardsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background rounded-lg max-w-6xl w-full max-h-[80vh] overflow-hidden">
+              <div className="p-4 border-b">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Cards Found in Message</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowMessageCardsModal(false)}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="p-4 max-h-[60vh]">
+                {messageCards.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No Magic cards detected in this message.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {messageCards.map((card, cardIndex) => (
+                      <div
+                        key={cardIndex}
+                        className="bg-background/80 border rounded-lg p-3 space-y-2 hover:shadow-md transition-shadow"
+                      >
+                        {card.image_uri && (
+                          <img
+                            src={card.image_uri}
+                            alt={card.name}
+                            className="w-full h-auto rounded aspect-[5/7] object-cover"
+                          />
+                        )}
+                        <div className="space-y-1">
+                          <div className="font-semibold text-foreground text-sm">{card.name}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {card.mana_cost} • CMC {card.cmc}
+                          </div>
+                          <div className="text-muted-foreground text-xs">{card.type_line}</div>
+                          {card.power && card.toughness && (
+                            <div className="text-muted-foreground font-mono text-xs">
+                              {card.power}/{card.toughness}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground line-clamp-3">
+                            {card.oracle_text}
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="pt-2 grid grid-cols-2 gap-2">
+                            <CardAddModal card={{
+                              ...(card as any),
+                              image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                            }} compact />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs h-7"
+                              onClick={() => {
+                                const normalized = {
+                                  ...card,
+                                  image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                };
+                                setModalCard(normalized);
+                                setModalOpen(true);
+                                setShowMessageCardsModal(false);
+                              }}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
         )}
       </div>
     </div>

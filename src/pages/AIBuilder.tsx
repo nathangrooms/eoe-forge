@@ -113,6 +113,7 @@ export default function AIBuilder() {
   const [buildResult, setBuildResult] = useState<any>(null);
   const [commanderSearchResults, setCommanderSearchResults] = useState<any[]>([]);
   const [searchingCommanders, setSearchingCommanders] = useState(false);
+  const [buildProgress, setBuildProgress] = useState(0);
 
   
   // Search for commanders
@@ -523,8 +524,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       includeBasics: true
     });
   };
-
-  const [buildProgress, setBuildProgress] = useState(0);
 
   const renderStep = () => {
     switch (step) {

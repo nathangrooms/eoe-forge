@@ -377,17 +377,97 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
       // Wait for all searches to complete
       await Promise.all(searchPromises);
       
-      setMessageCards(foundCards);
-      setShowMessageCardsModal(true);
-      
+      // Always try to show something, even if no cards found initially
       if (foundCards.length === 0) {
-        toast.info('No Magic cards detected in this message');
+        // Try AI-enhanced extraction as fallback
+        console.log('No cards found with basic patterns, trying DeckMatrix AI...');
+        
+        try {
+          const response = await supabase.functions.invoke('mtg-brain', {
+            body: {
+              message: `Analyze this text and extract any Magic: The Gathering card names you can identify, even if they're misspelled or incomplete. Be intelligent about context and card references:
+
+"${messageText}"
+
+List only the actual card names you can confidently identify, separated by semicolons. If no Magic cards are mentioned, respond with "No cards found".`,
+              deckContext: null,
+              conversationHistory: [],
+              responseStyle: 'concise'
+            },
+          });
+
+          const { data } = response;
+          
+          if (data?.cards && data.cards.length > 0) {
+            setMessageCards(data.cards);
+            setShowMessageCardsModal(true);
+            toast.success(`DeckMatrix AI found ${data.cards.length} Magic card${data.cards.length === 1 ? '' : 's'}!`);
+            return;
+          } else if (data?.message && !data.message.toLowerCase().includes('no cards found')) {
+            // Try to parse AI response for card names
+            const aiResponse = data.message;
+            const cardMatches = aiResponse.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
+            if (cardMatches) {
+              const aiCardNames = cardMatches[1]
+                .split(/[;\n]/)
+                .map(name => name.trim().replace(/^[\-•]\s*/, ''))
+                .filter(name => name.length > 2)
+                .slice(0, 5);
+              
+              if (aiCardNames.length > 0) {
+                const aiFoundCards: CardData[] = [];
+                
+                for (const cardName of aiCardNames) {
+                  try {
+                    const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
+                    if (searchResponse.ok) {
+                      const cardData = await searchResponse.json();
+                      if (!aiFoundCards.some(c => c.name === cardData.name)) {
+                        aiFoundCards.push({
+                          name: cardData.name,
+                          image_uri: cardData.image_uris?.normal,
+                          mana_cost: cardData.mana_cost,
+                          type_line: cardData.type_line,
+                          oracle_text: cardData.oracle_text,
+                          power: cardData.power,
+                          toughness: cardData.toughness,
+                          cmc: cardData.cmc,
+                          colors: cardData.colors,
+                          rarity: cardData.rarity
+                        });
+                      }
+                    }
+                  } catch {}
+                }
+                
+                if (aiFoundCards.length > 0) {
+                  setMessageCards(aiFoundCards);
+                  setShowMessageCardsModal(true);
+                  toast.success(`DeckMatrix AI found ${aiFoundCards.length} Magic card${aiFoundCards.length === 1 ? '' : 's'}!`);
+                  return;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.log('AI fallback also failed:', error);
+        }
+        
+        // If still no cards found, show modal anyway with helpful message
+        setMessageCards([]);
+        setShowMessageCardsModal(true);
+        toast.info('DeckMatrix could not identify Magic cards in this text. Try asking the AI for card recommendations!');
       } else {
-        toast.success(`Found ${foundCards.length} Magic card${foundCards.length === 1 ? '' : 's'}`);
+        setMessageCards(foundCards);
+        setShowMessageCardsModal(true);
+        toast.success(`Found ${foundCards.length} Magic card${foundCards.length === 1 ? '' : 's'} in the message!`);
       }
     } catch (error) {
       console.error('Error extracting cards from message:', error);
-      toast.error('Could not extract cards from message');
+      // Show modal even on error with helpful message
+      setMessageCards([]);
+      setShowMessageCardsModal(true);
+      toast.error('Error analyzing text. Try asking DeckMatrix AI for card suggestions instead!');
     }
   };
 

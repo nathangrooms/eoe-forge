@@ -463,7 +463,10 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           deckName: `${commander.name} ${buildData.archetype} Deck`,
           cards: data.deck || [],
           analysis: data.analysis || {},
-          changelog: data.changelog || []
+          changelog: data.changelog || [],
+          power: data.power || 0,
+          totalValue: data.metadata?.totalValue || 0,
+          cardCount: data.metadata?.cardCount || 0
         });
         setStep(6);
         showSuccess('Deck Generated', `AI has created your optimized ${commander.name} deck!`);
@@ -480,33 +483,60 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     }
   };
 
-  const applyToDeck = () => {
-    if (!buildResult) return;
+  const applyToDeck = async () => {
+    if (!buildResult || !commander) return;
     
-    // Clear current deck
-    deck.cards.forEach(card => deck.removeCard(card.id));
-    
-    // Add generated cards
-    buildResult.cards.forEach((card: any) => {
-      for (let i = 0; i < card.quantity; i++) {
-        deck.addCard({
-          id: Math.random().toString(),
-          name: card.name,
-          cmc: 1, // Mock value
-          type_line: 'Instant', // Mock value
-          colors: ['R'], // Mock value
-          quantity: 1,
-          category: 'instants',
-          mechanics: []
-        });
-      }
-    });
-    
-    deck.setFormat(buildData.format as any);
-    showSuccess('Deck Applied', 'Generated deck has been applied to your deck builder!');
+    try {
+      // Save deck to database
+      const { data: deckData, error: deckError } = await supabase
+        .from('user_decks')
+        .insert([{
+          name: buildResult.deckName,
+          format: 'commander',
+          colors: commander.color_identity || [],
+          power_level: buildResult.power || 6,
+          description: `AI-generated ${buildData.archetype} deck featuring ${commander.name}`,
+          is_public: false,
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        }])
+        .select()
+        .single();
+
+      if (deckError) throw deckError;
+
+      // Add commander first
+      await supabase.from('deck_cards').insert({
+        deck_id: deckData.id,
+        card_id: commander.id || `commander-${Date.now()}`,
+        card_name: commander.name,
+        quantity: 1,
+        is_commander: true
+      });
+
+      // Add other cards
+      const cardInserts = buildResult.cards.map((card: any) => ({
+        deck_id: deckData.id,
+        card_id: card.id || `card-${Date.now()}-${Math.random()}`,
+        card_name: card.name,
+        quantity: card.quantity || 1,
+        is_commander: false
+      }));
+
+      const { error: cardsError } = await supabase
+        .from('deck_cards')
+        .insert(cardInserts);
+
+      if (cardsError) throw cardsError;
+
+      showSuccess('Deck Saved', `Your ${buildResult.deckName} has been saved to your collection!`);
+      resetBuilder();
+    } catch (error) {
+      console.error('Error saving deck:', error);
+      showError('Save Failed', 'Could not save deck to your collection. Please try again.');
+    }
   };
 
-  const restart = () => {
+  const resetBuilder = () => {
     setStep(1);
     setBuildResult(null);
     setCommander(null);
@@ -942,16 +972,16 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{buildResult.analysis.powerScore}/10</div>
+                    <div className="text-2xl font-bold">{buildResult.power || 0}/10</div>
                     <div className="text-sm text-muted-foreground">Power Score</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">${buildResult.analysis.estimatedPrice}</div>
+                    <div className="text-2xl font-bold text-green-600">${buildResult.totalValue?.toFixed(2) || '0.00'}</div>
                     <div className="text-sm text-muted-foreground">Est. Price</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{buildResult.cards.length}</div>
-                    <div className="text-sm text-muted-foreground">Unique Cards</div>
+                    <div className="text-2xl font-bold">{buildResult.cardCount || buildResult.cards.length}</div>
+                    <div className="text-sm text-muted-foreground">Total Cards</div>
                   </div>
                 </div>
               </CardContent>
@@ -967,19 +997,39 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               <TabsContent value="cards" className="space-y-3">
                 {(buildResult.cards || []).map((card: any, index: number) => (
                   <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-medium">{card.quantity}x {card.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {typeof card.reason === 'string' ? card.reason : 
-                             typeof card.reason === 'object' ? card.reason?.reason || JSON.stringify(card.reason) :
-                             'Added to deck'}
-                          </p>
-                        </div>
-                        <Badge variant="outline">{card.quantity}</Badge>
-                      </div>
-                    </CardContent>
+                     <CardContent className="p-4">
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1">
+                           <div className="flex items-center space-x-2">
+                             <h4 className="font-medium">{card.quantity || 1}x {card.name}</h4>
+                             <Badge variant="outline" className="text-xs">
+                               ${parseFloat(card.prices?.usd || '0').toFixed(2)}
+                             </Badge>
+                           </div>
+                           <p className="text-sm text-muted-foreground mt-1">
+                             {typeof card.reason === 'string' ? card.reason : 
+                              typeof card.reason === 'object' ? card.reason?.reason || JSON.stringify(card.reason) :
+                              'Added to deck'}
+                           </p>
+                           <p className="text-xs text-muted-foreground">
+                             {card.type_line} • CMC {card.cmc || 0}
+                           </p>
+                         </div>
+                         <div className="flex flex-col items-end space-y-1">
+                           <Badge variant="secondary">{card.quantity || 1}</Badge>
+                           {card.image_uris?.small && (
+                             <img 
+                               src={card.image_uris.small} 
+                               alt={card.name}
+                               className="w-12 h-16 rounded object-cover"
+                               onError={(e) => {
+                                 e.currentTarget.style.display = 'none';
+                               }}
+                             />
+                           )}
+                         </div>
+                       </div>
+                     </CardContent>
                   </Card>
                 ))}
               </TabsContent>
@@ -1042,7 +1092,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                 <Save className="h-4 w-4 mr-2" />
                 Apply to Deck Builder
               </Button>
-              <Button variant="outline" onClick={restart}>
+              <Button variant="outline" onClick={resetBuilder}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Build Another
               </Button>

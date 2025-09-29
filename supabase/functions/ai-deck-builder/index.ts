@@ -584,9 +584,35 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
     });
   });
   
-  // Step 7: Power tuning loop
+  // Step 7: Deck size enforcement for Commander (99 + commander = 100)
+  const targetSize = format === 'commander' ? 99 : 60;
+  
+  while (deck.length > targetSize) {
+    // Remove excess cards, prioritizing lowest value cards first
+    const nonEssential = deck.filter(card => 
+      card.type_line?.toLowerCase().includes('creature') && 
+      !card.type_line?.toLowerCase().includes('land') &&
+      card.cmc > 4
+    );
+    
+    const toRemove = nonEssential.pop() || deck.filter(card => !card.type_line?.toLowerCase().includes('land')).pop();
+    if (toRemove) {
+      const index = deck.indexOf(toRemove);
+      deck.splice(index, 1);
+      changelog.push({
+        action: 'remove',
+        card: toRemove.name,
+        reason: `Deck size optimization (${deck.length + 1} -> ${deck.length})`,
+        stage: 'finalization'
+      });
+    } else {
+      break;
+    }
+  }
+  
+  // Step 8: Power tuning loop
   let iterations = 0;
-  const maxIterations = 5;
+  const maxIterations = 3;
   
   while (iterations < maxIterations) {
     const { power } = calculatePowerScore(deck, format);
@@ -885,14 +911,33 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       success: true,
-      deck: result.decklist,
-      analysis: result.analysis,
+      deck: result.decklist.map(card => ({
+        id: card.id,
+        name: card.name,
+        quantity: 1,
+        cmc: card.cmc || 0,
+        type_line: card.type_line || '',
+        colors: card.colors || [],
+        mana_cost: card.mana_cost || '',
+        oracle_text: card.oracle_text || '',
+        image_uris: card.image_uris || {},
+        prices: card.prices || {},
+        rarity: card.rarity || 'common',
+        reason: `Added for ${buildRequest.themeId} synergy`
+      })),
+      analysis: {
+        powerLevel: result.power,
+        strengths: Object.entries(result.subscores || {}).filter(([_, score]) => score >= 70).map(([key]) => key),
+        weaknesses: Object.entries(result.subscores || {}).filter(([_, score]) => score <= 40).map(([key]) => key),
+        suggestions: [`Optimize for power level ${buildRequest.powerTarget}`, "Consider adding more synergistic pieces", "Balance your mana curve"]
+      },
       power: result.power,
       subscores: result.subscores,
       changelog: result.changelog,
       metadata: {
         powerLevel: result.power,
-        cardCount: result.decklist.length
+        cardCount: result.decklist.length,
+        totalValue: result.decklist.reduce((sum, card) => sum + (parseFloat(card.prices?.usd || '0') || 0), 0)
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

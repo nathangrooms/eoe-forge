@@ -167,15 +167,23 @@ const detectCardMentions = (text: string): string[] => {
     });
   }
   
-  // Common MTG card names (partial list)
+  // Common MTG card names (expanded list for better detection)
   const commonCards = [
     'Sol Ring', 'Lightning Bolt', 'Counterspell', 'Swords to Plowshares', 
     'Path to Exile', 'Rhystic Study', 'Cyclonic Rift', 'Demonic Tutor',
-    'Mana Crypt', 'Force of Will', 'Birds of Paradise', 'Noble Hierarch'
+    'Mana Crypt', 'Force of Will', 'Birds of Paradise', 'Noble Hierarch',
+    'Llanowar Elves', 'Mystic Remora', 'Smothering Tithe', 'Dockside Extortionist',
+    'Mana Drain', 'Vampiric Tutor', 'Enlightened Tutor', 'Worldly Tutor',
+    'Brainstorm', 'Ponder', 'Preordain', 'Dark Ritual', 'Mox Diamond',
+    'Chrome Mox', 'Mana Vault', 'Grim Monolith', 'Thassa\'s Oracle',
+    'Laboratory Maniac', 'Jace the Mind Sculptor', 'Teferi Time Raveler',
+    'Wrenn and Six', 'Oko Thief of Crowns', 'Ragavan Nimble Pilferer'
   ];
   
+  // Check for common cards (case insensitive, word boundaries)
   commonCards.forEach(card => {
-    if (text.toLowerCase().includes(card.toLowerCase())) {
+    const regex = new RegExp(`\\b${card.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (regex.test(text)) {
       cardNames.add(card);
     }
   });

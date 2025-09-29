@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings } from 'lucide-react';
+import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings, Plus, Heart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useDeckStore } from '@/stores/deckStore';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -99,7 +99,7 @@ export default function Brain() {
   const [loadingDecks, setLoadingDecks] = useState(false);
   const [detailedResponses, setDetailedResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+  
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,11 +124,7 @@ export default function Brain() {
       }
     } catch (error) {
       console.error('Error loading decks:', error);
-      toast({
-        title: "Error Loading Decks",
-        description: "Could not load your deck list. Please try again.",
-        variant: "destructive",
-      });
+      toast.error('Could not load your deck list. Please try again.');
     } finally {
       setLoadingDecks(false);
     }
@@ -153,11 +149,7 @@ export default function Brain() {
       setDeckCards(cards || []);
     } catch (error) {
       console.error('Error loading deck cards:', error);
-      toast({
-        title: "Error Loading Deck Cards",
-        description: "Could not load the selected deck's cards.",
-        variant: "destructive",
-      });
+      toast.error('Could not load the selected deck\'s cards.');
     }
   };
 
@@ -174,6 +166,54 @@ export default function Brain() {
   const handleNewConversation = () => {
     setMessages([]);
     setShowQuickActions(true);
+  };
+
+  const addCardToDeck = async (card: CardData) => {
+    if (!selectedDeck) return;
+    
+    try {
+      const { error } = await supabase
+        .from('deck_cards')
+        .insert({
+          deck_id: selectedDeck.id,
+          card_id: card.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          card_name: card.name,
+          quantity: 1,
+          is_commander: false,
+          is_sideboard: false
+        });
+
+      if (error) throw error;
+      
+      toast.success(`Added ${card.name} to ${selectedDeck.name}`);
+    } catch (error) {
+      console.error('Error adding card to deck:', error);
+      toast.error('Failed to add card to deck');
+    }
+  };
+
+  const addCardToWishlist = async (card: CardData) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('wishlist')
+        .insert({
+          user_id: user.id,
+          card_id: card.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          card_name: card.name,
+          quantity: 1,
+          priority: 'medium'
+        });
+
+      if (error) throw error;
+      
+      toast.success(`Added ${card.name} to wishlist`);
+    } catch (error) {
+      console.error('Error adding card to wishlist:', error);
+      toast.error('Failed to add card to wishlist');
+    }
   };
 
   // Initialize with welcome message
@@ -258,17 +298,9 @@ Choose a quick action below or ask me anything about Magic!`,
       
       if (error instanceof Error) {
         if (error.message.includes('Rate limits exceeded')) {
-          toast({
-            title: "Rate Limit Reached",
-            description: "Please wait a moment before asking another question.",
-            variant: "destructive"
-          });
+          toast.error('Rate limits exceeded. Please wait a moment before asking another question.');
         } else if (error.message.includes('Payment required')) {
-          toast({
-            title: "Credits Required",
-            description: "Please add AI credits to your workspace to continue.",
-            variant: "destructive"
-          });
+          toast.error('Credits required. Please add AI credits to your workspace to continue.');
         }
       }
       
@@ -442,6 +474,30 @@ Choose a quick action below or ask me anything about Magic!`,
                                     )}
                                     <div className="text-xs text-muted-foreground line-clamp-3">
                                       {card.oracle_text}
+                                    </div>
+                                    
+                                    {/* Action buttons */}
+                                    <div className="flex gap-2 pt-2">
+                                      {selectedDeck && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={() => addCardToDeck(card)}
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Add to Deck
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => addCardToWishlist(card)}
+                                      >
+                                        <Heart className="h-3 w-3 mr-1" />
+                                        Wishlist
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>

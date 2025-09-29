@@ -111,6 +111,49 @@ export default function AIBuilder() {
   });
   const [building, setBuilding] = useState(false);
   const [buildResult, setBuildResult] = useState<any>(null);
+  const [commanderSearchResults, setCommanderSearchResults] = useState<any[]>([]);
+  const [searchingCommanders, setSearchingCommanders] = useState(false);
+
+  
+  // Search for commanders
+  const searchCommanders = async (query: string) => {
+    if (!query.trim()) {
+      setCommanderSearchResults([]);
+      return;
+    }
+
+    setSearchingCommanders(true);
+    try {
+      const response = await fetch(
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query + ' type:legendary type:creature')}&unique=cards&order=name`
+      );
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setCommanderSearchResults([]);
+          return;
+        }
+        throw new Error('Search failed');
+      }
+      
+      const data = await response.json();
+      setCommanderSearchResults(data.data || []);
+    } catch (error) {
+      console.error('Commander search error:', error);
+      setCommanderSearchResults([]);
+    } finally {
+      setSearchingCommanders(false);
+    }
+  };
+
+  // Debounce commander search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchCommanders(commanderSearch);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [commanderSearch]);
 
   const currentArchetypes = useMemo(() => {
     return suggestedArchetypes.length > 0 ? suggestedArchetypes : (ARCHETYPES[buildData.format as keyof typeof ARCHETYPES] || ARCHETYPES.standard);
@@ -395,10 +438,55 @@ Respond in a structured format with clear archetype suggestions.`,
                   
                   {commanderSearch && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-                      {/* Commander search results would be rendered here */}
-                      <div className="text-center text-muted-foreground py-8">
-                        Type a commander name to search...
-                      </div>
+                      {searchingCommanders ? (
+                        <div className="col-span-full text-center text-muted-foreground py-8">
+                          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                          Searching for commanders...
+                        </div>
+                      ) : commanderSearchResults.length > 0 ? (
+                        commanderSearchResults.slice(0, 12).map((card: any) => (
+                          <div
+                            key={card.id}
+                            className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
+                            onClick={() => {
+                              setCommander(card);
+                              setCommanderSearch('');
+                              analyzeCommander(card);
+                            }}
+                          >
+                            <img 
+                              src={card.image_uris?.small || card.image_uris?.normal || '/placeholder.svg'} 
+                              alt={card.name}
+                              className="w-12 h-12 rounded object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{card.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{card.type_line}</div>
+                              <div className="flex space-x-1 mt-1">
+                                {(card.color_identity || []).map((color: string) => (
+                                  <div
+                                    key={color}
+                                    className="w-3 h-3 rounded-full border"
+                                    style={{
+                                      backgroundColor: {
+                                        W: '#fffbd5',
+                                        U: '#0e68ab',
+                                        B: '#150b00',
+                                        R: '#d3202a',
+                                        G: '#00733e'
+                                      }[color] || '#ccc'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full text-center text-muted-foreground py-8">
+                          No commanders found matching "{commanderSearch}"
+                        </div>
+                      )}
                     </div>
                   )}
                   

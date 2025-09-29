@@ -190,27 +190,6 @@ const detectCardMentions = (text: string): string[] => {
     });
   }
   
-  // Common MTG card names (expanded list for better detection)
-  const commonCards = [
-    'Sol Ring', 'Lightning Bolt', 'Counterspell', 'Swords to Plowshares', 
-    'Path to Exile', 'Rhystic Study', 'Cyclonic Rift', 'Demonic Tutor',
-    'Mana Crypt', 'Force of Will', 'Birds of Paradise', 'Noble Hierarch',
-    'Llanowar Elves', 'Mystic Remora', 'Smothering Tithe', 'Dockside Extortionist',
-    'Mana Drain', 'Vampiric Tutor', 'Enlightened Tutor', 'Worldly Tutor',
-    'Brainstorm', 'Ponder', 'Preordain', 'Dark Ritual', 'Mox Diamond',
-    'Chrome Mox', 'Mana Vault', 'Grim Monolith', 'Thassa\'s Oracle',
-    'Laboratory Maniac', 'Jace the Mind Sculptor', 'Teferi Time Raveler',
-    'Wrenn and Six', 'Oko Thief of Crowns', 'Ragavan Nimble Pilferer'
-  ];
-  
-  // Check for common cards (case insensitive, word boundaries)
-  commonCards.forEach(card => {
-    const regex = new RegExp(`\\b${card.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-    if (regex.test(text)) {
-      cardNames.add(card);
-    }
-  });
-  
   return Array.from(cardNames);
 };
 
@@ -324,6 +303,14 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - **Deck Building Advice:** Apply Rule of 9, mana curves, and archetype knowledge
 - **Practical Recommendations:** Suggest specific cards and strategies
 - **Card Searches:** When users ask for specific card recommendations (e.g., "show me white legendary creatures under 5 mana"), provide detailed lists with explanations
+
+## CRITICAL: COLOR IDENTITY RESTRICTIONS
+When users specify color requirements (e.g., "white black only", "mono red", "green blue commanders"):
+- **STRICTLY** adhere to the specified colors only
+- For partner commanders, BOTH partners must fit the color restriction
+- Do not suggest cards outside the specified color identity
+- If a user says "white black only" - suggest ONLY white, black, or white/black cards
+- Explain color identity clearly when relevant
 
 ## CRITICAL: CARD REFERENCE FORMAT
 **ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this:

@@ -1,0 +1,92 @@
+{
+  "fast_mana": {
+    "tier_1": {
+      "weight": 10,
+      "cards": ["Sol Ring", "Mana Crypt", "Mana Vault", "Chrome Mox", "Mox Diamond", "Lotus Petal", "Lion's Eye Diamond", "Black Lotus"]
+    },
+    "tier_2": {
+      "weight": 6,
+      "cards": ["Ancient Tomb", "City of Traitors", "Gemstone Caverns", "Simian Spirit Guide", "Elvish Spirit Guide"]
+    },
+    "tier_3": {
+      "weight": 4,
+      "cards": ["Azorius Signet", "Dimir Signet", "Rakdos Signet", "Gruul Signet", "Selesnya Signet", "Orzhov Signet", "Golgari Signet", "Simic Signet", "Izzet Signet", "Boros Signet"]
+    },
+    "tier_4": {
+      "weight": 3,
+      "cards": ["Talisman of Progress", "Talisman of Dominance", "Talisman of Indulgence", "Talisman of Impulse", "Talisman of Unity", "Talisman of Hierarchy", "Talisman of Resilience", "Talisman of Curiosity", "Talisman of Creativity", "Talisman of Conviction"]
+    }
+  },
+  "tutors": {
+    "broad": {
+      "weight": 10,
+      "cards": ["Demonic Tutor", "Vampiric Tutor", "Imperial Seal", "Grim Tutor", "Diabolic Intent"]
+    },
+    "category": {
+      "weight": 8,
+      "cards": ["Mystical Tutor", "Enlightened Tutor", "Worldly Tutor", "Survival of the Fittest", "Chord of Calling", "Green Sun's Zenith"]
+    },
+    "narrow": {
+      "weight": 6,
+      "cards": ["Steelshaper's Gift", "Stoneforge Mystic", "Fabricate", "Whir of Invention", "Trinket Mage"]
+    }
+  },
+  "interaction": {
+    "premium_removal": {
+      "weight": 8,
+      "cards": ["Swords to Plowshares", "Path to Exile", "Lightning Bolt", "Fatal Push", "Abrupt Decay", "Assassin's Trophy"]
+    },
+    "premium_counters": {
+      "weight": 9,
+      "cards": ["Force of Will", "Force of Negation", "Mana Drain", "Counterspell", "Mental Misstep", "Fierce Guardianship"]
+    },
+    "sweepers": {
+      "weight": 7,
+      "cards": ["Wrath of God", "Damnation", "Cyclonic Rift", "Toxic Deluge", "Blasphemous Act"]
+    },
+    "free_interaction": {
+      "weight": 10,
+      "cards": ["Force of Will", "Force of Negation", "Mental Misstep", "Deflecting Swat", "Fierce Guardianship"]
+    }
+  },
+  "card_advantage": {
+    "engines": {
+      "weight": 8,
+      "cards": ["Rhystic Study", "Mystic Remora", "Sylvan Library", "Necropotence", "Phyrexian Arena", "Smothering Tithe"]
+    },
+    "burst": {
+      "weight": 6,
+      "cards": ["Ad Nauseam", "Wheel of Fortune", "Windfall", "Timetwister", "Ancestral Recall"]
+    }
+  },
+  "protection": {
+    "premium": {
+      "weight": 8,
+      "cards": ["Teferi's Protection", "Heroic Intervention", "Boros Charm", "Autumn's Veil", "Veil of Summer"]
+    },
+    "permanent": {
+      "weight": 6,
+      "cards": ["Privileged Position", "Sterling Grove", "Greater Auramancy", "Asceticism"]
+    }
+  },
+  "stax": {
+    "resource_denial": {
+      "weight": 7,
+      "cards": ["Winter Orb", "Static Orb", "Stasis", "Armageddon", "Ravages of War"]
+    },
+    "tax_effects": {
+      "weight": 5,
+      "cards": ["Sphere of Resistance", "Thorn of Amethyst", "Trinisphere", "Lodestone Golem"]
+    }
+  },
+  "win_conditions": {
+    "efficient": {
+      "weight": 8,
+      "cards": ["Thassa's Oracle", "Laboratory Maniac", "Jace, Wielder of Mysteries", "Craterhoof Behemoth"]
+    },
+    "combo_pieces": {
+      "weight": 9,
+      "cards": ["Demonic Consultation", "Tainted Pact", "Isochron Scepter", "Dramatic Reversal"]
+    }
+  }
+}

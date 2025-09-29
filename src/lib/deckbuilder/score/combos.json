@@ -1,0 +1,108 @@
+{
+  "two_card_combos": [
+    {
+      "name": "Thassa's Oracle + Demonic Consultation",
+      "cards": ["Thassa's Oracle", "Demonic Consultation"],
+      "total_mv": 3,
+      "protection_requirement": "counterspell",
+      "win_type": "instant",
+      "tags": ["oracle", "consultation"]
+    },
+    {
+      "name": "Isochron Scepter + Dramatic Reversal",
+      "cards": ["Isochron Scepter", "Dramatic Reversal"],
+      "total_mv": 4,
+      "protection_requirement": "artifact",
+      "win_type": "infinite_mana",
+      "tags": ["dramatic", "scepter"]
+    },
+    {
+      "name": "Kiki-Jiki + Zealous Conscripts",
+      "cards": ["Kiki-Jiki, Mirror Breaker", "Zealous Conscripts"],
+      "total_mv": 10,
+      "protection_requirement": "creature",
+      "win_type": "infinite_creatures",
+      "tags": ["kiki", "conscripts"]
+    },
+    {
+      "name": "Splinter Twin + Deceiver Exarch",
+      "cards": ["Splinter Twin", "Deceiver Exarch"],
+      "total_mv": 7,
+      "protection_requirement": "enchantment",
+      "win_type": "infinite_creatures",
+      "tags": ["twin", "exarch"]
+    },
+    {
+      "name": "Dualcaster Mage + Ghostly Flicker",
+      "cards": ["Dualcaster Mage", "Ghostly Flicker"],
+      "total_mv": 5,
+      "protection_requirement": "counterspell",
+      "win_type": "infinite_etb",
+      "tags": ["dualcaster", "flicker"]
+    },
+    {
+      "name": "Dockside Extortionist + Temur Sabertooth",
+      "cards": ["Dockside Extortionist", "Temur Sabertooth"],
+      "total_mv": 6,
+      "protection_requirement": "creature",
+      "win_type": "infinite_mana",
+      "tags": ["dockside", "sabertooth"]
+    },
+    {
+      "name": "Hermit Druid + Laboratory Maniac",
+      "cards": ["Hermit Druid", "Laboratory Maniac"],
+      "total_mv": 4,
+      "protection_requirement": "creature",
+      "win_type": "mill_win",
+      "tags": ["hermit", "labman"]
+    },
+    {
+      "name": "Necrotic Ooze + Phyrexian Devourer",
+      "cards": ["Necrotic Ooze", "Phyrexian Devourer"],
+      "total_mv": 5,
+      "protection_requirement": "graveyard",
+      "win_type": "combo_kill",
+      "tags": ["ooze", "devourer"]
+    },
+    {
+      "name": "Basalt Monolith + Rings of Brighthearth",
+      "cards": ["Basalt Monolith", "Rings of Brighthearth"],
+      "total_mv": 6,
+      "protection_requirement": "artifact",
+      "win_type": "infinite_mana",
+      "tags": ["basalt", "rings"]
+    },
+    {
+      "name": "Food Chain + Eternal Scourge",
+      "cards": ["Food Chain", "Eternal Scourge"],
+      "total_mv": 6,
+      "protection_requirement": "enchantment",
+      "win_type": "infinite_mana",
+      "tags": ["food_chain", "scourge"]
+    }
+  ],
+  "three_card_combos": [
+    {
+      "name": "Mikaeus + Triskelion + Sac Outlet",
+      "cards": ["Mikaeus, the Unhallowed", "Triskelion", "Viscera Seer"],
+      "total_mv": 10,
+      "protection_requirement": "creature",
+      "win_type": "infinite_damage",
+      "tags": ["mikaeus", "triskelion"]
+    },
+    {
+      "name": "Animate Dead + Worldgorger Dragon + Outlet",
+      "cards": ["Animate Dead", "Worldgorger Dragon", "Piranha Marsh"],
+      "total_mv": 9,
+      "protection_requirement": "graveyard",
+      "win_type": "infinite_mana",
+      "tags": ["worldgorger", "animate"]
+    }
+  ],
+  "compact_definitions": {
+    "early_combo": "total_mv <= 7",
+    "late_combo": "total_mv > 7",
+    "protected_combo": "has protection or redundancy",
+    "unprotected_combo": "easily disrupted"
+  }
+}

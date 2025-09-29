@@ -199,7 +199,7 @@ const detectReferencedCardsStrict = (text: string): string[] => {
   if (!match) return [];
   const section = match[1];
   const cards = section
-    .split(/[;,\n]/)
+    .split(/[;\n]/)
     .flatMap((seg) => seg.split(/\s*•\s*/))
     .map((c) => c.trim().replace(/^[\-•]\s*/, ''))
     .filter((c) => c.length > 1);
@@ -325,6 +325,13 @@ When users specify color requirements (e.g., "white black only", "mono red", "gr
 - If a user says "white black only" - suggest ONLY white, black, or white/black cards
 - Explain color identity clearly when relevant
 
+## CRITICAL: COMMANDER QUERIES
+If the user's request mentions "commander", "EDH", or "general", ONLY recommend legal commanders:
+- Legendary Creature cards; or
+- Cards whose oracle text explicitly says "can be your commander" (e.g., specific planeswalkers)
+Do NOT include non-commander permanents like enchantments or artifacts unless they explicitly say "can be your commander".
+The "Referenced Cards:" list must include only legal commanders in these cases.
+
 ## CRITICAL: CARD REFERENCE FORMAT
 **ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this (use SEMICOLONS to separate cards to avoid commas inside names):
 
@@ -415,7 +422,7 @@ Always ground your responses in the provided knowledge base, referenced card dat
     const aiResponse = await response.json();
     console.log('AI response received:', aiResponse?.choices?.[0]?.message?.content?.substring(0, 100) + '...');
 
-    const assistantMessage = aiResponse.choices?.[0]?.message?.content;
+    let assistantMessage = aiResponse.choices?.[0]?.message?.content;
     
     if (!assistantMessage) {
       throw new Error('No response content from AI');
@@ -484,6 +491,33 @@ Always ground your responses in the provided knowledge base, referenced card dat
       }
     } else {
       console.log('No "Referenced Cards" section found in AI response. Returning empty card list to ensure exact match.');
+    }
+
+    // If the user asked about commanders, ensure we only surface legal commanders
+    const commanderIntent = /(\bcommander\b|\bedh\b|\bgeneral\b)/i.test(message || '');
+    if (commanderIntent && cardData.length) {
+      const isLegalCommander = (c: any) => {
+        const tl = (c.type_line || '').toLowerCase();
+        const ot = (c.oracle_text || '').toLowerCase();
+        const isLegendaryCreature = tl.includes('legendary creature');
+        const hasCommanderText = ot.includes('can be your commander');
+        const isPlaneswalkerCommander = tl.includes('planeswalker') && hasCommanderText;
+        return isLegendaryCreature || isPlaneswalkerCommander || hasCommanderText;
+      };
+
+      const filtered = cardData.filter(isLegalCommander);
+      if (filtered.length !== cardData.length) {
+        // Rebuild the Referenced Cards section to match the filtered list
+        const names = filtered.map((c: any) => c.name);
+        const refSection = `Referenced Cards: ${names.join('; ')}`;
+        if (/Referenced Cards?:/i.test(assistantMessage)) {
+          assistantMessage = assistantMessage.replace(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i, refSection);
+        } else {
+          assistantMessage = `${assistantMessage.trim()}\n\n${refSection}`;
+        }
+        cardData.length = 0;
+        cardData.push(...filtered);
+      }
     }
 
     return new Response(JSON.stringify({ 

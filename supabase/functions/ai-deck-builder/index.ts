@@ -91,6 +91,46 @@ function pickWeighted<T>(items: T[], weights: number[], rng: () => number): T | 
 // Load archetype templates
 function getArchetypeTemplate(themeId: string, format: string) {
   const templates: Record<string, any> = {
+    // === CREATURE-BASED ARCHETYPES ===
+    'aggro': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 30, max: 40 },
+        'low-cost': { min: 15, max: 20 },
+        removal: { min: 4, max: 6 },
+        ramp: { min: 6, max: 8 },
+        draw: { min: 6, max: 8 },
+        lands: { min: 34, max: 36 }
+      },
+      curves: { '0-1': { min: 8, max: 15 }, '2': { min: 10, max: 15 }, '3': { min: 8, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 2, max: 6 } }
+    },
+    'tribal': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 25, max: 35 },
+        'tribal-lords': { min: 4, max: 8 },
+        'tribal-support': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 8, max: 12 }, '4': { min: 6, max: 10 }, '5+': { min: 6, max: 10 } }
+    },
+    'voltron': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 10, max: 20 },
+        equipment: { min: 8, max: 12 },
+        auras: { min: 4, max: 8 },
+        protection: { min: 8, max: 12 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 6, max: 8 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 10 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
     'aristocrats': {
       deckSize: 100,
       quotas: {
@@ -102,133 +142,238 @@ function getArchetypeTemplate(themeId: string, format: string) {
         draw: { min: 8, max: 10 },
         lands: { min: 36, max: 38 }
       },
-      curves: {
-        '0-1': { min: 4, max: 8 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 6, max: 10 },
-        '4': { min: 4, max: 8 },
-        '5+': { min: 4, max: 8 }
-      }
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 10 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
     },
-    'blink-flicker': {
-      deckSize: 100,
-      quotas: {
-        creatures: { min: 20, max: 30 },
-        'blink-effects': { min: 8, max: 12 },
-        'etb-creatures': { min: 8, max: 12 },
-        removal: { min: 6, max: 8 },
-        ramp: { min: 8, max: 10 },
-        draw: { min: 8, max: 10 },
-        lands: { min: 36, max: 38 }
-      },
-      curves: {
-        '0-1': { min: 2, max: 6 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 8, max: 12 },
-        '4': { min: 6, max: 10 },
-        '5+': { min: 6, max: 10 }
-      }
-    },
-    'token-sacrifice': {
+    'tokens': {
       deckSize: 100,
       quotas: {
         creatures: { min: 15, max: 25 },
         'token-generators': { min: 8, max: 12 },
-        'sacrifice-outlets': { min: 4, max: 6 },
-        'death-payoffs': { min: 4, max: 6 },
+        anthems: { min: 4, max: 8 },
+        'sacrifice-outlets': { min: 2, max: 4 },
         removal: { min: 6, max: 8 },
         ramp: { min: 8, max: 10 },
         draw: { min: 8, max: 10 },
         lands: { min: 36, max: 38 }
       },
-      curves: {
-        '0-1': { min: 3, max: 8 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 6, max: 10 },
-        '4': { min: 4, max: 8 },
-        '5+': { min: 4, max: 8 }
-      }
+      curves: { '0-1': { min: 3, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 10 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
     },
-    'counter-voltron': {
-      deckSize: 100,
-      quotas: {
-        creatures: { min: 15, max: 25 },
-        'counter-support': { min: 8, max: 12 },
-        protection: { min: 6, max: 8 },
-        removal: { min: 6, max: 8 },
-        ramp: { min: 8, max: 10 },
-        draw: { min: 8, max: 10 },
-        lands: { min: 36, max: 38 }
-      },
-      curves: {
-        '0-1': { min: 4, max: 8 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 6, max: 10 },
-        '4': { min: 4, max: 8 },
-        '5+': { min: 4, max: 8 }
-      }
-    },
-    'commander-midrange': {
+    'counters': {
       deckSize: 100,
       quotas: {
         creatures: { min: 20, max: 30 },
+        'counter-support': { min: 8, max: 12 },
+        'counter-payoffs': { min: 4, max: 8 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 10 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+    'reanimator': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 15, max: 25 },
+        'reanimation-spells': { min: 6, max: 10 },
+        'discard-outlets': { min: 4, max: 6 },
+        'big-threats': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 6, max: 8 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 2, max: 6 }, '2': { min: 6, max: 10 }, '3': { min: 4, max: 8 }, '4': { min: 4, max: 8 }, '5+': { min: 8, max: 15 } }
+    },
+
+    // === SPELL-BASED ARCHETYPES ===
+    'spellslinger': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 10, max: 20 },
+        instants: { min: 15, max: 25 },
+        sorceries: { min: 10, max: 20 },
+        'spell-payoffs': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 10, max: 15 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 6, max: 12 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+    'control': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 8, max: 15 },
+        counterspells: { min: 8, max: 12 },
+        removal: { min: 10, max: 15 },
+        sweepers: { min: 4, max: 8 },
+        wincons: { min: 3, max: 6 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 12, max: 18 },
+        lands: { min: 37, max: 39 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 6, max: 10 }, '5+': { min: 6, max: 12 } }
+    },
+    'combo': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 8, max: 20 },
+        'combo-pieces': { min: 6, max: 12 },
+        tutors: { min: 8, max: 15 },
+        protection: { min: 6, max: 10 },
+        removal: { min: 4, max: 8 },
+        ramp: { min: 10, max: 15 },
+        draw: { min: 10, max: 15 },
+        lands: { min: 34, max: 36 }
+      },
+      curves: { '0-1': { min: 6, max: 12 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+    'stax': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 10, max: 20 },
+        'stax-pieces': { min: 8, max: 15 },
+        removal: { min: 6, max: 10 },
+        protection: { min: 4, max: 8 },
+        wincons: { min: 3, max: 6 },
         ramp: { min: 8, max: 12 },
         draw: { min: 8, max: 12 },
-        removal: { min: 8, max: 12 },
-        sweepers: { min: 2, max: 4 },
-        tutors: { min: 0, max: 4 },
-        wincons: { min: 2, max: 4 },
-        lands: { min: 35, max: 40 }
+        lands: { min: 36, max: 38 }
       },
-      curves: {
-        '0-1': { min: 3, max: 8 },
-        '2': { min: 6, max: 12 },
-        '3': { min: 6, max: 12 },
-        '4': { min: 4, max: 8 },
-        '5': { min: 2, max: 6 },
-        '6-7': { min: 2, max: 4 },
-        '8+': { min: 0, max: 2 }
-      }
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 6, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 10 } }
     },
-    'standard-aggro': {
-      deckSize: 60,
+
+    // === SYNERGY-BASED ARCHETYPES ===
+    'artifacts': {
+      deckSize: 100,
       quotas: {
-        creatures: { min: 20, max: 28 },
-        removal: { min: 6, max: 10 },
-        draw: { min: 2, max: 6 },
-        finishers: { min: 3, max: 6 },
-        lands: { min: 20, max: 26 }
+        creatures: { min: 15, max: 25 },
+        artifacts: { min: 20, max: 30 },
+        'artifact-payoffs': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 12 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 34, max: 36 }
       },
-      curves: {
-        '0-1': { min: 8, max: 12 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 6, max: 10 },
-        '4': { min: 2, max: 6 },
-        '5+': { min: 0, max: 4 }
-      }
+      curves: { '0-1': { min: 6, max: 12 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
     },
-    'modern-control': {
-      deckSize: 60,
+    'enchantments': {
+      deckSize: 100,
       quotas: {
-        counterspells: { min: 8, max: 12 },
-        removal: { min: 8, max: 12 },
-        sweepers: { min: 2, max: 4 },
-        draw: { min: 6, max: 10 },
-        wincons: { min: 2, max: 4 },
-        lands: { min: 22, max: 26 }
+        creatures: { min: 15, max: 25 },
+        enchantments: { min: 15, max: 25 },
+        'enchantment-payoffs': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
       },
-      curves: {
-        '0-1': { min: 4, max: 8 },
-        '2': { min: 8, max: 12 },
-        '3': { min: 6, max: 10 },
-        '4': { min: 4, max: 8 },
-        '5+': { min: 2, max: 6 }
-      }
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+    'graveyard': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        'graveyard-fillers': { min: 6, max: 10 },
+        'graveyard-payoffs': { min: 8, max: 12 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+    'lands-matter': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 15, max: 25 },
+        'land-ramp': { min: 10, max: 15 },
+        'landfall-payoffs': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 40, max: 45 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 6, max: 12 } }
+    },
+    'blink': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        'blink-effects': { min: 8, max: 12 },
+        'etb-creatures': { min: 10, max: 15 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 2, max: 6 }, '2': { min: 8, max: 12 }, '3': { min: 8, max: 12 }, '4': { min: 6, max: 10 }, '5+': { min: 6, max: 10 } }
+    },
+
+    // === RESOURCE-BASED ARCHETYPES ===
+    'ramp': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        'big-threats': { min: 8, max: 15 },
+        ramp: { min: 15, max: 20 },
+        removal: { min: 6, max: 8 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 38, max: 42 }
+      },
+      curves: { '0-1': { min: 6, max: 12 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 10 }, '4': { min: 4, max: 8 }, '5+': { min: 8, max: 15 } }
+    },
+    'group-hug': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 15, max: 25 },
+        'group-hug-effects': { min: 10, max: 15 },
+        'political-cards': { min: 6, max: 10 },
+        removal: { min: 4, max: 6 },
+        ramp: { min: 10, max: 15 },
+        draw: { min: 12, max: 18 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 3, max: 8 }, '2': { min: 6, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 6, max: 12 } }
+    },
+    'lifegain': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        'lifegain-sources': { min: 8, max: 12 },
+        'lifegain-payoffs': { min: 6, max: 10 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+    },
+
+    // === FALLBACK ARCHETYPES ===
+    'midrange': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        removal: { min: 8, max: 12 },
+        ramp: { min: 8, max: 12 },
+        draw: { min: 8, max: 12 },
+        threats: { min: 6, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: { '0-1': { min: 3, max: 8 }, '2': { min: 6, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5': { min: 2, max: 6 }, '6+': { min: 2, max: 6 } }
+    },
+
+    // === LEGACY TEMPLATES ===
+    'commander-midrange': {
+      deckSize: 100,
+      quotas: { creatures: { min: 20, max: 30 }, ramp: { min: 8, max: 12 }, draw: { min: 8, max: 12 }, removal: { min: 8, max: 12 }, lands: { min: 35, max: 40 } },
+      curves: { '0-1': { min: 3, max: 8 }, '2': { min: 6, max: 12 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
     }
   };
 
   // Default template based on format
-  const defaultKey = format === 'commander' ? 'commander-midrange' : 
+  const defaultKey = format === 'commander' ? 'midrange' : 
                     format === 'standard' ? 'standard-aggro' : 'modern-control';
   
   return templates[themeId] || templates[defaultKey];
@@ -524,6 +669,34 @@ function matchesRole(card: Card, role: string): boolean {
     case 'etb-creatures': return !!(card.type_line.toLowerCase().includes('creature') && card.oracle_text?.toLowerCase().includes('enters'));
     case 'token-generators': return !!(card.oracle_text?.toLowerCase().includes('token'));
     case 'counter-support': return !!(card.oracle_text?.toLowerCase().includes('+1/+1 counter'));
+    case 'counter-payoffs': return !!(card.oracle_text?.toLowerCase().includes('+1/+1 counter') && card.oracle_text?.toLowerCase().includes('power'));
+    case 'anthems': return !!(card.oracle_text?.toLowerCase().includes('creatures you control get +'));
+    case 'reanimation-spells': return !!(card.oracle_text?.toLowerCase().includes('return') && card.oracle_text?.toLowerCase().includes('graveyard') && card.oracle_text?.toLowerCase().includes('battlefield'));
+    case 'discard-outlets': return !!(card.oracle_text?.toLowerCase().includes('discard'));
+    case 'big-threats': return !!(card.cmc >= 6 && (card.type_line.toLowerCase().includes('creature') || card.type_line.toLowerCase().includes('planeswalker')));
+    case 'spell-payoffs': return !!(card.oracle_text?.toLowerCase().includes('instant') || card.oracle_text?.toLowerCase().includes('sorcery'));
+    case 'combo-pieces': return !!(card.oracle_text?.toLowerCase().includes('infinite') || card.oracle_text?.toLowerCase().includes('each') || card.oracle_text?.toLowerCase().includes('whenever'));
+    case 'stax-pieces': return !!(card.oracle_text?.toLowerCase().includes('can\'t') || card.oracle_text?.toLowerCase().includes('additional cost'));
+    case 'artifacts': return !!(card.type_line.toLowerCase().includes('artifact'));
+    case 'enchantments': return !!(card.type_line.toLowerCase().includes('enchantment'));
+    case 'artifact-payoffs': return !!(card.oracle_text?.toLowerCase().includes('artifact'));
+    case 'enchantment-payoffs': return !!(card.oracle_text?.toLowerCase().includes('enchantment'));
+    case 'graveyard-fillers': return !!(card.oracle_text?.toLowerCase().includes('mill') || card.oracle_text?.toLowerCase().includes('graveyard'));
+    case 'graveyard-payoffs': return !!(card.oracle_text?.toLowerCase().includes('graveyard') && !card.oracle_text?.toLowerCase().includes('mill'));
+    case 'land-ramp': return !!(card.oracle_text?.toLowerCase().includes('search') && card.oracle_text?.toLowerCase().includes('land'));
+    case 'landfall-payoffs': return !!(card.oracle_text?.toLowerCase().includes('landfall') || card.oracle_text?.toLowerCase().includes('land enters'));
+    case 'group-hug-effects': return !!(card.oracle_text?.toLowerCase().includes('each player') || card.oracle_text?.toLowerCase().includes('all players'));
+    case 'political-cards': return !!(card.oracle_text?.toLowerCase().includes('target opponent') || card.oracle_text?.toLowerCase().includes('choose'));
+    case 'lifegain-sources': return !!(card.oracle_text?.toLowerCase().includes('gain') && card.oracle_text?.toLowerCase().includes('life'));
+    case 'lifegain-payoffs': return !!(card.oracle_text?.toLowerCase().includes('life you gained') || card.oracle_text?.toLowerCase().includes('whenever you gain life'));
+    case 'equipment': return !!(card.type_line.toLowerCase().includes('equipment'));
+    case 'auras': return !!(card.type_line.toLowerCase().includes('aura'));
+    case 'low-cost': return !!(card.cmc <= 2 && !isLand(card));
+    case 'tribal-lords': return !!(card.oracle_text?.toLowerCase().includes('get +') && card.type_line.toLowerCase().includes('creature'));
+    case 'tribal-support': return !!(card.oracle_text?.toLowerCase().includes('creature type') || card.oracle_text?.toLowerCase().includes('tribal'));
+    case 'threats': return !!(card.type_line.toLowerCase().includes('creature') && card.cmc >= 4);
+    case 'instants': return !!(card.type_line.toLowerCase().includes('instant'));
+    case 'sorceries': return !!(card.type_line.toLowerCase().includes('sorcery'));
     
     default: return false;
   }

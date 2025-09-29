@@ -177,31 +177,34 @@ export default function AIBuilder() {
     try {
       const { data, error } = await supabase.functions.invoke('mtg-brain', {
         body: {
-          message: `You are an expert Magic: The Gathering strategist. Analyze the commander Syr Vondam, Sunstar Exemplar and suggest 4-5 specific, synergistic deck archetypes.
+          message: `You are an expert Magic: The Gathering strategist and deck builder. Analyze the given commander and suggest 4-5 specific, synergistic deck archetypes that would work optimally with this commander's abilities, color identity, and strategic potential.
 
 Commander: ${selectedCommander.name}
-Colors: ${selectedCommander.color_identity?.join('') || 'Colorless'} (White/Black)
+Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}
 Type: ${selectedCommander.type_line}
-Abilities: ${selectedCommander.oracle_text || 'Vigilance, menace. Whenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life. When Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.'}
+Abilities: ${selectedCommander.oracle_text || 'No abilities specified'}
 
-This commander rewards:
-- Creatures dying/being exiled (+1/+1 counters + life)
-- Growing powerful (destruction when it dies at 4+ power)
-- White/Black color identity advantages
+Consider these factors in your analysis:
+1. **Mechanical Synergies**: How do the commander's abilities create synergistic opportunities?
+2. **Color Identity**: What strategies are strongest in these colors?
+3. **Mana Cost**: How does the casting cost affect viable strategies?
+4. **Keywords**: How do inherent keywords (flying, trample, etc.) inform strategy?
+5. **Power Level**: What competitive levels work best for this commander?
+
+Suggest archetypes from the full spectrum of Magic strategies:
+- **Creature-based**: Aggro, Tribal, Voltron, Aristocrats, Tokens, +1/+1 Counters, Reanimator
+- **Spell-based**: Spellslinger, Control, Combo, Stax
+- **Synergy-based**: Artifacts, Enchantments, Graveyard, Lands Matter, Blink
+- **Resource-based**: Ramp, Group Hug, Lifegain
 
 Provide EXACTLY 4-5 archetypes in this format:
 
 1. **[Archetype Name]**
-   Description: [1-2 sentence description]
-   Synergy: [Why it works with this commander]
-   Power: [1-10 rating]
+   Description: [2-3 sentence description of the strategy]
+   Synergy: [Specific explanation of how this works with the commander]
+   Power: [1-10 competitive rating]
 
-2. **[Archetype Name]**
-   Description: [1-2 sentence description] 
-   Synergy: [Why it works with this commander]
-   Power: [1-10 rating]
-
-Focus on archetypes that specifically utilize this commander's abilities: creature death/exile triggers, +1/+1 counter accumulation, and destruction threat.`,
+Focus on archetypes that specifically leverage this commander's unique abilities and create genuine strategic advantages.`,
           cards: []
         }
       });
@@ -295,39 +298,130 @@ Focus on archetypes that specifically utilize this commander's abilities: creatu
     
     console.log('Parsed archetypes:', archetypes);
     
-    // Fallback: if parsing failed, provide strategic archetypes for this commander
+    // Fallback: if parsing failed, provide strategic archetypes based on commander analysis
     if (archetypes.length === 0) {
       console.log('Parsing failed, using fallback archetypes for', commander.name);
-      return [
-        {
+      
+      const colors = commander.color_identity || [];
+      const abilities = commander.oracle_text?.toLowerCase() || '';
+      const type = commander.type_line?.toLowerCase() || '';
+      
+      // Analyze commander characteristics to suggest appropriate archetypes
+      const suggestedArchetypes = [];
+      
+      // Check for specific ability patterns
+      if (abilities.includes('dies') || abilities.includes('sacrifice')) {
+        suggestedArchetypes.push({
           value: 'aristocrats',
           label: 'Aristocrats',
-          description: 'Sacrifice creatures for value while growing Syr Vondam with death triggers.',
-          synergy: 'Every creature death gives +1/+1 counter and life, turning sacrifice into massive advantage.',
+          description: 'Sacrifice creatures for value and build engine synergies.',
+          synergy: 'Commander benefits from creature deaths, creating value loops.',
           powerLevel: 7
-        },
-        {
-          value: 'blink-flicker',
+        });
+      }
+      
+      if (abilities.includes('exile') || abilities.includes('flicker') || abilities.includes('blink')) {
+        suggestedArchetypes.push({
+          value: 'blink',
           label: 'Blink & Flicker',
-          description: 'Exile and return creatures for ETB value while triggering Syr Vondam.',
-          synergy: 'Exile triggers give +1/+1 counters, ETB effects provide repeatable value.',
+          description: 'Exile and return creatures for repeatable ETB value.',
+          synergy: 'Commander triggers on exile effects while providing ETB value.',
           powerLevel: 6
-        },
-        {
-          value: 'token-sacrifice',
-          label: 'Token Sacrifice',
-          description: 'Create tokens to sacrifice for value and commander growth.',
-          synergy: 'Mass token generation feeds into sacrifice engines and commander triggers.',
+        });
+      }
+      
+      if (abilities.includes('token') || abilities.includes('create')) {
+        suggestedArchetypes.push({
+          value: 'tokens',
+          label: 'Token Strategy',
+          description: 'Generate creature tokens for wide board presence.',
+          synergy: 'Tokens provide expendable resources for commander triggers.',
           powerLevel: 6
-        },
-        {
-          value: 'counter-voltron',
-          label: '+1/+1 Counter Voltron',
-          description: 'Focus on +1/+1 counter synergies and commander damage.',
-          synergy: 'Natural +1/+1 counter growth enables massive commander damage and destruction threats.',
+        });
+      }
+      
+      if (abilities.includes('+1/+1') || abilities.includes('counter')) {
+        suggestedArchetypes.push({
+          value: 'counters',
+          label: '+1/+1 Counters',
+          description: 'Build +1/+1 counter synergies and grow threats.',
+          synergy: 'Commander naturally accumulates counters for scaling threats.',
+          powerLevel: 6
+        });
+      }
+      
+      if (abilities.includes('equipment') || abilities.includes('aura') || type.includes('knight') || type.includes('warrior')) {
+        suggestedArchetypes.push({
+          value: 'voltron',
+          label: 'Voltron',
+          description: 'Focus on commander damage with equipment and auras.',
+          synergy: 'Commander becomes a major threat with protective gear.',
           powerLevel: 5
-        }
-      ];
+        });
+      }
+      
+      // Color-based suggestions
+      if (colors.includes('W') && colors.includes('B')) {
+        suggestedArchetypes.push({
+          value: 'lifegain',
+          label: 'Lifegain Synergy',
+          description: 'Orzhov lifegain value engine with payoffs.',
+          synergy: 'White/Black provides excellent lifegain support and payoffs.',
+          powerLevel: 5
+        });
+      }
+      
+      if (colors.includes('U')) {
+        suggestedArchetypes.push({
+          value: 'control',
+          label: 'Control',
+          description: 'Counter threats and control the game state.',
+          synergy: 'Blue provides card draw and counterspells for protection.',
+          powerLevel: 7
+        });
+      }
+      
+      if (colors.includes('R')) {
+        suggestedArchetypes.push({
+          value: 'aggro',
+          label: 'Aggressive',
+          description: 'Fast pressure with efficient threats.',
+          synergy: 'Red provides haste and burn for quick victories.',
+          powerLevel: 6
+        });
+      }
+      
+      if (colors.includes('G')) {
+        suggestedArchetypes.push({
+          value: 'ramp',
+          label: 'Big Mana',
+          description: 'Ramp into large threats and powerful spells.',
+          synergy: 'Green ramp enables expensive commander-supporting spells.',
+          powerLevel: 6
+        });
+      }
+      
+      // Default fallbacks if no specific patterns match
+      if (suggestedArchetypes.length === 0) {
+        suggestedArchetypes.push(
+          {
+            value: 'midrange',
+            label: 'Midrange Value',
+            description: 'Balanced approach with efficient threats and answers.',
+            synergy: 'Commander provides consistent value in fair games.',
+            powerLevel: 6
+          },
+          {
+            value: 'tribal',
+            label: 'Tribal Synergy',
+            description: 'Focus on creature type synergies and lords.',
+            synergy: 'Commander supports tribal strategies with its creature type.',
+            powerLevel: 5
+          }
+        );
+      }
+      
+      return suggestedArchetypes.slice(0, 5);
     }
     
     return archetypes.slice(0, 5);
@@ -558,11 +652,31 @@ Focus on archetypes that specifically utilize this commander's abilities: creatu
                           colors: ['W', 'B'],
                           oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.'
                         },
-                        { name: 'Atraxa, Praetors\' Voice', colors: ['W', 'U', 'B', 'G'] },
-                        { name: 'Edgar Markov', colors: ['W', 'B', 'R'] },
-                        { name: 'Kaalia of the Vast', colors: ['W', 'B', 'R'] },
-                        { name: 'Meren of Clan Nel Toth', colors: ['B', 'G'] },
-                        { name: 'Prossh, Skyraider of Kher', colors: ['B', 'R', 'G'] }
+                        { 
+                          name: 'Atraxa, Praetors\' Voice', 
+                          colors: ['W', 'U', 'B', 'G'],
+                          oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.'
+                        },
+                        { 
+                          name: 'Edgar Markov', 
+                          colors: ['W', 'B', 'R'],
+                          oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.'
+                        },
+                        { 
+                          name: 'Meren of Clan Nel Toth', 
+                          colors: ['B', 'G'],
+                          oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card\'s converted mana cost is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.'
+                        },
+                        { 
+                          name: 'Rhys the Redeemed', 
+                          colors: ['G', 'W'],
+                          oracle_text: '{2}{G/W}, {T}: Create a 1/1 green and white Elf Warrior creature token.\n{4}{G/W}{G/W}, {T}: For each creature token you control, create a token that\'s a copy of that creature.'
+                        },
+                        { 
+                          name: 'Ezuri, Claw of Progress', 
+                          colors: ['G', 'U'],
+                          oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.'
+                        }
                       ].map((popularCommander) => (
                         <div
                           key={popularCommander.name}

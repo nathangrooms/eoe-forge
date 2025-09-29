@@ -326,9 +326,9 @@ When users specify color requirements (e.g., "white black only", "mono red", "gr
 - Explain color identity clearly when relevant
 
 ## CRITICAL: CARD REFERENCE FORMAT
-**ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this:
+**ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this (use SEMICOLONS to separate cards to avoid commas inside names):
 
-Referenced Cards: Sol Ring, Lightning Bolt, Counterspell, Rhystic Study
+Referenced Cards: Tevesh Szat, Doom of Fools; Rograkh, Son of Rohgahh; Tymna the Weaver; Kraum, Ludevic's Opus
 
 Even if you mention cards within your response text, ALWAYS include this section at the end for reliable card detection and display.
 
@@ -427,30 +427,59 @@ Always ground your responses in the provided knowledge base, referenced card dat
     
     // Always clear any previously collected card data to avoid mismatches
     cardData.length = 0;
-    
+
     if (responseCardMentions.length > 0) {
-      console.log('Rebuilding cards strictly from AI referenced list...');
-      for (const cardName of responseCardMentions.slice(0, 10)) {
-        try {
-          const card = await scryfallAPI.getCardByName(cardName);
+      console.log('Rebuilding cards from AI referenced list with smart comma-join + de-dup...');
+
+      const segments = responseCardMentions.map((s) => s.trim()).filter(Boolean);
+      const seen = new Set<string>();
+
+      for (let i = 0; i < segments.length; i++) {
+        let name = segments[i];
+        let fetched: any = null;
+
+        // Try to merge with next token to handle names like "Tevesh Szat, Doom of Fools"
+        if (i + 1 < segments.length) {
+          const combined = `${name}, ${segments[i + 1]}`.trim();
+          try {
+            const card = await scryfallAPI.getCardByName(combined);
+            if (card && typeof card.name === 'string' && card.name.toLowerCase().startsWith(name.toLowerCase() + ',')) {
+              fetched = card;
+              i++; // consume next segment
+            }
+          } catch (_) {
+            // ignore and fall back to single-token lookup
+          }
+        }
+
+        // Fallback: try current token as-is
+        if (!fetched) {
+          try {
+            fetched = await scryfallAPI.getCardByName(name);
+          } catch (_) {
+            console.log(`Could not find card: ${name}`);
+            continue;
+          }
+        }
+
+        if (fetched && !seen.has(fetched.id)) {
+          seen.add(fetched.id);
           cardData.push({
-            id: card.id,
-            set: card.set,
-            collector_number: card.collector_number,
-            name: card.name,
-            image_uri: card.image_uris?.normal || card.image_uris?.large,
-            image_uris: card.image_uris || null,
-            mana_cost: card.mana_cost,
-            type_line: card.type_line,
-            oracle_text: card.oracle_text,
-            power: card.power,
-            toughness: card.toughness,
-            cmc: card.cmc,
-            colors: card.colors,
-            rarity: card.rarity
+            id: fetched.id,
+            set: fetched.set,
+            collector_number: fetched.collector_number,
+            name: fetched.name,
+            image_uri: fetched.image_uris?.normal || fetched.image_uris?.large,
+            image_uris: fetched.image_uris || null,
+            mana_cost: fetched.mana_cost,
+            type_line: fetched.type_line,
+            oracle_text: fetched.oracle_text,
+            power: fetched.power,
+            toughness: fetched.toughness,
+            cmc: fetched.cmc,
+            colors: fetched.colors,
+            rarity: fetched.rarity,
           });
-        } catch (error) {
-          console.log(`Could not find card: ${cardName}`);
         }
       }
     } else {

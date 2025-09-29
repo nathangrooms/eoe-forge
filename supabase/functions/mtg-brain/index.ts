@@ -332,6 +332,13 @@ If the user's request mentions "commander", "EDH", or "general", ONLY recommend 
 Do NOT include non-commander permanents like enchantments or artifacts unless they explicitly say "can be your commander".
 The "Referenced Cards:" list must include only legal commanders in these cases.
 
+## CRITICAL: DECK BUILDING
+When the user asks to "build a deck", "make a deck", "create a deck", or similar:
+- Provide a COMPLETE deck list with all 99+ cards (for Commander) or appropriate number for other formats
+- Include ALL cards from the deck in the "Referenced Cards:" section so users can see card images
+- Organize the deck clearly by categories (creatures, spells, lands, etc.)
+- Even if it's a long list, include every single card in "Referenced Cards:"
+
 ## CRITICAL: CARD REFERENCE FORMAT
 **ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this (use SEMICOLONS to separate cards to avoid commas inside names):
 

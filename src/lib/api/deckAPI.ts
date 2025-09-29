@@ -120,6 +120,14 @@ export class DeckAPI {
               } as DeckSummary;
             }
 
+            // Fix commander image path if present
+            if (summaryData && (summaryData as any).commander) {
+              const commander = (summaryData as any).commander;
+              if (commander.image_uris && !commander.image) {
+                commander.image = commander.image_uris.normal || commander.image_uris.large || '/placeholder.svg';
+              }
+            }
+
             return summaryData as unknown as DeckSummary;
           } catch (error) {
             console.error(`Error processing deck ${deck.id}:`, error);

@@ -263,7 +263,10 @@ export function RefreshedDeckTile({
                 {/* Commander Image Container */}
                 <div className="flex-1 relative rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg mb-3">
                   <img 
-                    src={deckSummary.commander.image} 
+                    src={(deckSummary.commander as any)?.image_uris?.normal || 
+                         (deckSummary.commander as any)?.image_uris?.large || 
+                         deckSummary.commander.image || 
+                         '/placeholder.svg'} 
                     alt={deckSummary.commander.name}
                     className="w-full h-full object-cover rounded-xl"
                     onError={(e) => {

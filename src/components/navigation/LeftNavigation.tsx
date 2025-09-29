@@ -14,7 +14,8 @@ import {
   Settings,
   Plus,
   Camera,
-  ShoppingCart
+  ShoppingCart,
+  Brain
 } from 'lucide-react';
 
 interface NavItem {
@@ -73,6 +74,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/ai-builder',
     icon: Sparkles,
     badge: 'New',
+    section: 'tools'
+  },
+  {
+    title: 'MTG Brain',
+    href: '/brain',
+    icon: Brain,
+    badge: 'AI',
     section: 'tools'
   },
   {

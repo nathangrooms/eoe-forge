@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package, BarChart3 } from 'lucide-react';
+import { Wand2, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package, BarChart3, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
 
@@ -46,7 +46,20 @@ const Index = () => {
             Master Magic: The Gathering
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <Card className="hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Brain className="h-6 w-6 mr-3 text-primary" />
+                  MTG Super Brain
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive AI assistant with deep MTG knowledge for strategy, analysis,
+                  and deck optimization insights.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
             <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center">

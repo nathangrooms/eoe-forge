@@ -27,6 +27,7 @@ import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
 import DeckInterface from "./pages/DeckInterface";
 import AIBuilder from "./pages/AIBuilder";
+import Brain from "./pages/Brain";
 import Marketplace from "./pages/Marketplace";
 
 const queryClient = new QueryClient();
@@ -99,6 +100,7 @@ function AppContent() {
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
             <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
             <Route path="/ai-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
+            <Route path="/brain" element={<ProtectedRoute><Brain /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />

@@ -91,6 +91,83 @@ function pickWeighted<T>(items: T[], weights: number[], rng: () => number): T | 
 // Load archetype templates
 function getArchetypeTemplate(themeId: string, format: string) {
   const templates: Record<string, any> = {
+    'aristocrats': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 25, max: 35 },
+        'sacrifice-outlets': { min: 4, max: 6 },
+        'death-payoffs': { min: 6, max: 8 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: {
+        '0-1': { min: 4, max: 8 },
+        '2': { min: 8, max: 12 },
+        '3': { min: 6, max: 10 },
+        '4': { min: 4, max: 8 },
+        '5+': { min: 4, max: 8 }
+      }
+    },
+    'blink-flicker': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 20, max: 30 },
+        'blink-effects': { min: 8, max: 12 },
+        'etb-creatures': { min: 8, max: 12 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: {
+        '0-1': { min: 2, max: 6 },
+        '2': { min: 8, max: 12 },
+        '3': { min: 8, max: 12 },
+        '4': { min: 6, max: 10 },
+        '5+': { min: 6, max: 10 }
+      }
+    },
+    'token-sacrifice': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 15, max: 25 },
+        'token-generators': { min: 8, max: 12 },
+        'sacrifice-outlets': { min: 4, max: 6 },
+        'death-payoffs': { min: 4, max: 6 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: {
+        '0-1': { min: 3, max: 8 },
+        '2': { min: 8, max: 12 },
+        '3': { min: 6, max: 10 },
+        '4': { min: 4, max: 8 },
+        '5+': { min: 4, max: 8 }
+      }
+    },
+    'counter-voltron': {
+      deckSize: 100,
+      quotas: {
+        creatures: { min: 15, max: 25 },
+        'counter-support': { min: 8, max: 12 },
+        protection: { min: 6, max: 8 },
+        removal: { min: 6, max: 8 },
+        ramp: { min: 8, max: 10 },
+        draw: { min: 8, max: 10 },
+        lands: { min: 36, max: 38 }
+      },
+      curves: {
+        '0-1': { min: 4, max: 8 },
+        '2': { min: 8, max: 12 },
+        '3': { min: 6, max: 10 },
+        '4': { min: 4, max: 8 },
+        '5+': { min: 4, max: 8 }
+      }
+    },
     'commander-midrange': {
       deckSize: 100,
       quotas: {
@@ -438,6 +515,16 @@ function matchesRole(card: Card, role: string): boolean {
     case 'lands': return isLand(card);
     case 'sweepers': return card.oracle_text?.toLowerCase().includes('destroy all') || false;
     case 'finishers': return isWincon(card);
+    case 'protection': return isProtection(card);
+    
+    // Archetype-specific roles
+    case 'sacrifice-outlets': return !!(card.oracle_text?.toLowerCase().includes('sacrifice') && !card.oracle_text?.toLowerCase().includes('target'));
+    case 'death-payoffs': return !!(card.oracle_text?.toLowerCase().includes('dies') || card.oracle_text?.toLowerCase().includes('death'));
+    case 'blink-effects': return !!(card.oracle_text?.toLowerCase().includes('exile') && card.oracle_text?.toLowerCase().includes('return'));
+    case 'etb-creatures': return !!(card.type_line.toLowerCase().includes('creature') && card.oracle_text?.toLowerCase().includes('enters'));
+    case 'token-generators': return !!(card.oracle_text?.toLowerCase().includes('token'));
+    case 'counter-support': return !!(card.oracle_text?.toLowerCase().includes('+1/+1 counter'));
+    
     default: return false;
   }
 }
@@ -607,12 +694,34 @@ serve(async (req) => {
   }
 
   try {
-    const request = await req.json() as BuildRequest;
+    const request = await req.json();
     console.log('Building deck with request:', request);
     
-    const result = await buildDeck(request);
+    // Convert frontend request format to backend format
+    const buildRequest: BuildRequest = {
+      format: request.format || 'commander',
+      colors: request.colors || request.commander?.color_identity || [],
+      identity: request.identity || request.commander?.color_identity || [],
+      themeId: request.themeId || request.archetype || 'commander-midrange',
+      powerTarget: request.powerTarget || request.powerLevel || 6,
+      budget: request.budget,
+      seed: request.seed || Math.floor(Math.random() * 10000)
+    };
     
-    return new Response(JSON.stringify(result), {
+    const result = await buildDeck(buildRequest);
+    
+    return new Response(JSON.stringify({
+      success: true,
+      deck: result.decklist,
+      analysis: result.analysis,
+      power: result.power,
+      subscores: result.subscores,
+      changelog: result.changelog,
+      metadata: {
+        powerLevel: result.power,
+        cardCount: result.decklist.length
+      }
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
     

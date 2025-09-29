@@ -177,21 +177,31 @@ export default function AIBuilder() {
     try {
       const { data, error } = await supabase.functions.invoke('mtg-brain', {
         body: {
-          message: `Analyze this Magic: The Gathering commander and suggest 3-5 synergistic deck archetypes that work well with it: ${selectedCommander.name}. 
+          message: `You are an expert Magic: The Gathering strategist. Analyze the commander Syr Vondam, Sunstar Exemplar and suggest 4-5 specific, synergistic deck archetypes.
 
-Commander details:
-- Name: ${selectedCommander.name}
-- Colors: ${selectedCommander.color_identity?.join(', ') || 'Colorless'}
-- Type: ${selectedCommander.type_line}
-- Text: ${selectedCommander.oracle_text || 'No oracle text available'}
+Commander: ${selectedCommander.name}
+Colors: ${selectedCommander.color_identity?.join('') || 'Colorless'} (White/Black)
+Type: ${selectedCommander.type_line}
+Abilities: ${selectedCommander.oracle_text || 'Vigilance, menace. Whenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life. When Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.'}
 
-For each archetype, provide:
-1. Name of the archetype
-2. Brief description (1-2 sentences)
-3. Why it synergizes with this commander
-4. Power level recommendation (1-10)
+This commander rewards:
+- Creatures dying/being exiled (+1/+1 counters + life)
+- Growing powerful (destruction when it dies at 4+ power)
+- White/Black color identity advantages
 
-Respond in a structured format with clear archetype suggestions.`,
+Provide EXACTLY 4-5 archetypes in this format:
+
+1. **[Archetype Name]**
+   Description: [1-2 sentence description]
+   Synergy: [Why it works with this commander]
+   Power: [1-10 rating]
+
+2. **[Archetype Name]**
+   Description: [1-2 sentence description] 
+   Synergy: [Why it works with this commander]
+   Power: [1-10 rating]
+
+Focus on archetypes that specifically utilize this commander's abilities: creature death/exile triggers, +1/+1 counter accumulation, and destruction threat.`,
           cards: []
         }
       });
@@ -217,7 +227,8 @@ Respond in a structured format with clear archetype suggestions.`,
   };
 
   const parseArchetypeSuggestions = (analysis: string, commander: any) => {
-    // Parse AI response to extract archetype suggestions
+    console.log('Parsing archetype suggestions from:', analysis);
+    
     const archetypes = [];
     const lines = analysis.split('\n');
     
@@ -226,52 +237,100 @@ Respond in a structured format with clear archetype suggestions.`,
     for (const line of lines) {
       const trimmed = line.trim();
       
-      // Look for archetype names (usually numbered or starting with special chars)
-      if (trimmed.match(/^\d+\./) || trimmed.match(/^[\*\-]/) || trimmed.includes('Archetype:')) {
+      // Look for numbered archetypes: "1. **Archetype Name**" or "1. Archetype Name"
+      const numberedMatch = trimmed.match(/^\d+\.\s*\*\*([^*]+)\*\*|^\d+\.\s*([^:\n]+)/);
+      if (numberedMatch) {
+        // Save previous archetype
         if (currentArchetype) {
           archetypes.push(currentArchetype);
         }
         
-        const name = trimmed.replace(/^\d+\./, '').replace(/^[\*\-]/, '').replace('Archetype:', '').trim();
+        const name = (numberedMatch[1] || numberedMatch[2]).trim();
         currentArchetype = {
-          value: name.toLowerCase().replace(/\s+/g, '-'),
+          value: name.toLowerCase().replace(/[\s\-]/g, '-').replace(/[^a-z0-9\-]/g, ''),
           label: name,
           description: '',
           synergy: '',
           powerLevel: 6
         };
-      } else if (currentArchetype && trimmed) {
-        // Add description/synergy info
-        if (trimmed.toLowerCase().includes('synerg') || trimmed.toLowerCase().includes('work')) {
-          currentArchetype.synergy = trimmed;
-        } else if (!currentArchetype.description) {
-          currentArchetype.description = trimmed;
-        }
-        
-        // Extract power level if mentioned
-        const powerMatch = trimmed.match(/power[\s\w]*(\d+)/i);
+        console.log('Found archetype:', name);
+        continue;
+      }
+      
+      // Look for description line
+      if (currentArchetype && trimmed.startsWith('Description:')) {
+        currentArchetype.description = trimmed.replace('Description:', '').trim();
+        continue;
+      }
+      
+      // Look for synergy line  
+      if (currentArchetype && trimmed.startsWith('Synergy:')) {
+        currentArchetype.synergy = trimmed.replace('Synergy:', '').trim();
+        continue;
+      }
+      
+      // Look for power level
+      if (currentArchetype && trimmed.startsWith('Power:')) {
+        const powerMatch = trimmed.match(/(\d+)/);
         if (powerMatch) {
           currentArchetype.powerLevel = parseInt(powerMatch[1]);
+        }
+        continue;
+      }
+      
+      // Fallback: if we have an archetype and this line has content, add to description
+      if (currentArchetype && trimmed && !trimmed.startsWith('**') && trimmed.length > 10) {
+        if (!currentArchetype.description) {
+          currentArchetype.description = trimmed;
+        } else if (!currentArchetype.synergy) {
+          currentArchetype.synergy = trimmed;
         }
       }
     }
     
+    // Save the last archetype
     if (currentArchetype) {
       archetypes.push(currentArchetype);
     }
     
-    // Fallback to generic archetypes if parsing failed
+    console.log('Parsed archetypes:', archetypes);
+    
+    // Fallback: if parsing failed, provide strategic archetypes for this commander
     if (archetypes.length === 0) {
-      const colors = commander.color_identity || [];
-      return ARCHETYPES.commander.filter(arch => 
-        colors.length === 0 || // Colorless commanders can use any archetype
-        arch.value === 'tribal' || // Tribal is always good
-        arch.value === 'voltron' || // Voltron works with any commander
-        arch.value === 'midrange' // Safe fallback
-      );
+      console.log('Parsing failed, using fallback archetypes for', commander.name);
+      return [
+        {
+          value: 'aristocrats',
+          label: 'Aristocrats',
+          description: 'Sacrifice creatures for value while growing Syr Vondam with death triggers.',
+          synergy: 'Every creature death gives +1/+1 counter and life, turning sacrifice into massive advantage.',
+          powerLevel: 7
+        },
+        {
+          value: 'blink-flicker',
+          label: 'Blink & Flicker',
+          description: 'Exile and return creatures for ETB value while triggering Syr Vondam.',
+          synergy: 'Exile triggers give +1/+1 counters, ETB effects provide repeatable value.',
+          powerLevel: 6
+        },
+        {
+          value: 'token-sacrifice',
+          label: 'Token Sacrifice',
+          description: 'Create tokens to sacrifice for value and commander growth.',
+          synergy: 'Mass token generation feeds into sacrifice engines and commander triggers.',
+          powerLevel: 6
+        },
+        {
+          value: 'counter-voltron',
+          label: '+1/+1 Counter Voltron',
+          description: 'Focus on +1/+1 counter synergies and commander damage.',
+          synergy: 'Natural +1/+1 counter growth enables massive commander damage and destruction threats.',
+          powerLevel: 5
+        }
+      ];
     }
     
-    return archetypes.slice(0, 5); // Limit to 5 suggestions
+    return archetypes.slice(0, 5);
   };
 
   const handleBuild = async () => {
@@ -494,12 +553,16 @@ Respond in a structured format with clear archetype suggestions.`,
                     <h4 className="font-medium mb-3">Popular Commanders</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {[
+                        { 
+                          name: 'Syr Vondam, Sunstar Exemplar', 
+                          colors: ['W', 'B'],
+                          oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.'
+                        },
                         { name: 'Atraxa, Praetors\' Voice', colors: ['W', 'U', 'B', 'G'] },
                         { name: 'Edgar Markov', colors: ['W', 'B', 'R'] },
                         { name: 'Kaalia of the Vast', colors: ['W', 'B', 'R'] },
                         { name: 'Meren of Clan Nel Toth', colors: ['B', 'G'] },
-                        { name: 'Prossh, Skyraider of Kher', colors: ['B', 'R', 'G'] },
-                        { name: 'Zur the Enchanter', colors: ['W', 'U', 'B'] }
+                        { name: 'Prossh, Skyraider of Kher', colors: ['B', 'R', 'G'] }
                       ].map((popularCommander) => (
                         <div
                           key={popularCommander.name}
@@ -509,7 +572,7 @@ Respond in a structured format with clear archetype suggestions.`,
                               name: popularCommander.name,
                               color_identity: popularCommander.colors,
                               type_line: 'Legendary Creature',
-                              oracle_text: 'Mock commander for demo',
+                              oracle_text: popularCommander.oracle_text || 'Mock commander for demo',
                               image_uris: { normal: '/placeholder.svg' }
                             };
                             setCommander(mockCommander);

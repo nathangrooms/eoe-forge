@@ -488,7 +488,84 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     }
   };
 
-  const applyToDeck = async () => {
+  const saveDeckToDatabase = async () => {
+    if (!buildResult || !commander || !user) {
+      showError('Error', 'Please ensure you are logged in and have generated a deck.');
+      return;
+    }
+
+    try {
+      const deckName = buildResult.deckName || `AI Built - ${commander?.name || 'Commander'} Deck`;
+      const commanderColors = commander?.color_identity || commander?.colors || [];
+      
+      // Create deck record
+      const { data: deck, error: deckError } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name: deckName,
+          format: 'commander',
+          colors: commanderColors,
+          description: `AI-generated commander deck with ${commander.name} as commander.`,
+          power_level: buildResult.power || 6,
+          is_public: false
+        })
+        .select()
+        .single();
+
+      if (deckError) {
+        console.error('Error creating deck:', deckError);
+        throw deckError;
+      }
+
+      // Add commander
+      if (commander && deck) {
+        const { error: commanderError } = await supabase
+          .from('deck_cards')
+          .insert({
+            deck_id: deck.id,
+            card_id: commander.id,
+            card_name: commander.name,
+            quantity: 1,
+            is_commander: true,
+            is_sideboard: false
+          });
+        
+        if (commanderError) {
+          console.error('Error adding commander:', commanderError);
+        }
+      }
+
+      // Add deck cards in batches
+      if (deck && buildResult.cards.length > 0) {
+        const cardInserts = buildResult.cards.map((card: any) => ({
+          deck_id: deck.id,
+          card_id: card.id,
+          card_name: card.name,
+          quantity: card.quantity || 1,
+          is_commander: false,
+          is_sideboard: false
+        }));
+
+        const { error: cardsError } = await supabase
+          .from('deck_cards')
+          .insert(cardInserts);
+        
+        if (cardsError) {
+          console.error('Error adding cards:', cardsError);
+          throw cardsError;
+        }
+      }
+
+      showSuccess('Deck Saved!', `${deckName} has been saved to your collection.`);
+      navigate('/decks');
+    } catch (error) {
+      console.error('Error saving deck:', error);
+      showError('Save Failed', 'Could not save deck to database. Please try again.');
+    }
+  };
+
+  const applyToDeckBuilder = async () => {
     if (!buildResult || !commander || !user) {
       showError('Error', 'Please ensure you are logged in and have generated a deck.');
       return;
@@ -542,7 +619,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       deck.setPowerLevel(buildResult.power || 6);
 
       showSuccess('Deck Applied', 'AI-generated deck has been applied to your deck builder!');
-      navigate('/builder');
+      navigate('/deck-builder');
     } catch (error) {
       console.error('Error applying deck:', error);
       showError('Apply Failed', 'Could not apply deck to builder. Please try again.');
@@ -996,7 +1073,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               totalValue={buildResult.totalValue}
               analysis={buildResult.analysis}
               changelog={buildResult.changelog}
-              onSaveDeck={applyToDeck}
+              onSaveDeck={saveDeckToDatabase}
+              onApplyToDeckBuilder={applyToDeckBuilder}
               onStartOver={resetBuilder}
             />
           </div>

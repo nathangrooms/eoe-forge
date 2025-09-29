@@ -63,6 +63,7 @@ interface AIGeneratedDeckListProps {
   analysis?: any;
   changelog?: any[];
   onSaveDeck: () => void;
+  onApplyToDeckBuilder?: () => void;
   onStartOver: () => void;
 }
 
@@ -74,7 +75,8 @@ export function AIGeneratedDeckList({
   totalValue, 
   analysis,
   changelog,
-  onSaveDeck, 
+  onSaveDeck,
+  onApplyToDeckBuilder,
   onStartOver 
 }: AIGeneratedDeckListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -536,7 +538,13 @@ export function AIGeneratedDeckList({
           <Save className="h-4 w-4 mr-2" />
           Save to My Decks
         </Button>
-        <Button variant="outline" onClick={onStartOver} className="flex-1">
+        {onApplyToDeckBuilder && (
+          <Button variant="outline" onClick={onApplyToDeckBuilder} className="flex-1">
+            <Swords className="h-4 w-4 mr-2" />
+            Open in Deck Builder
+          </Button>
+        )}
+        <Button variant="outline" onClick={onStartOver}>
           <RotateCcw className="h-4 w-4 mr-2" />
           Build Another Deck
         </Button>

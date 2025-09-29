@@ -570,8 +570,49 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
   const nonLands = deck.filter(card => !isLand(card));
   fillCurveDistribution(deck, cardPool, template.curves, nonLands.length, rng, changelog);
   
-  // Step 6: Add lands
+  // Step 6: Calculate required deck size before adding lands
+  const targetSize = format === 'commander' ? 99 : 60;
   const landCount = template.quotas.lands?.min || (format === 'commander' ? 36 : 24);
+  const nonLandTarget = targetSize - landCount;
+  
+  // Step 6a: Trim non-lands to make room for lands
+  let currentNonLands = deck.filter(card => !isLand(card));
+  while (currentNonLands.length > nonLandTarget) {
+    // Remove excess non-lands, prioritizing highest CMC creatures first
+    const sortedByPriority = currentNonLands.sort((a, b) => {
+      // Prioritize removal of high CMC creatures
+      if (a.type_line?.toLowerCase().includes('creature') && b.type_line?.toLowerCase().includes('creature')) {
+        return b.cmc - a.cmc;
+      }
+      // Then high CMC non-creatures
+      if (!a.type_line?.toLowerCase().includes('creature') && !b.type_line?.toLowerCase().includes('creature')) {
+        return b.cmc - a.cmc;
+      }
+      // Prefer removing creatures over spells
+      if (a.type_line?.toLowerCase().includes('creature')) return 1;
+      if (b.type_line?.toLowerCase().includes('creature')) return -1;
+      return 0;
+    });
+    
+    const toRemove = sortedByPriority[0];
+    if (toRemove) {
+      const deckIndex = deck.indexOf(toRemove);
+      const nonLandIndex = currentNonLands.indexOf(toRemove);
+      if (deckIndex > -1) deck.splice(deckIndex, 1);
+      if (nonLandIndex > -1) currentNonLands.splice(nonLandIndex, 1);
+      
+      changelog.push({
+        action: 'remove',
+        card: toRemove.name,
+        reason: `Deck size optimization - making room for manabase`,
+        stage: 'sizing'
+      });
+    } else {
+      break;
+    }
+  }
+  
+  // Step 6b: Add lands
   const lands = buildManabase(cardPool, targetColors, landCount, format, rng);
   deck.push(...lands);
   
@@ -583,32 +624,6 @@ async function buildDeck(request: BuildRequest): Promise<BuildResult> {
       stage: 'manabase'
     });
   });
-  
-  // Step 7: Deck size enforcement for Commander (99 + commander = 100)
-  const targetSize = format === 'commander' ? 99 : 60;
-  
-  while (deck.length > targetSize) {
-    // Remove excess cards, prioritizing lowest value cards first
-    const nonEssential = deck.filter(card => 
-      card.type_line?.toLowerCase().includes('creature') && 
-      !card.type_line?.toLowerCase().includes('land') &&
-      card.cmc > 4
-    );
-    
-    const toRemove = nonEssential.pop() || deck.filter(card => !card.type_line?.toLowerCase().includes('land')).pop();
-    if (toRemove) {
-      const index = deck.indexOf(toRemove);
-      deck.splice(index, 1);
-      changelog.push({
-        action: 'remove',
-        card: toRemove.name,
-        reason: `Deck size optimization (${deck.length + 1} -> ${deck.length})`,
-        stage: 'finalization'
-      });
-    } else {
-      break;
-    }
-  }
   
   // Step 8: Power tuning loop
   let iterations = 0;

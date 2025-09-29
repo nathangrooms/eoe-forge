@@ -460,10 +460,10 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('💥 Edge function error:', error);
-    console.error('📋 Error stack:', error.stack);
+    console.error('📋 Error stack:', (error as Error).stack);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: (error as Error).message,
         timestamp: new Date().toISOString()
       }),
       { 

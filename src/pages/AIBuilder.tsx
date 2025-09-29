@@ -965,7 +965,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               </TabsList>
 
               <TabsContent value="cards" className="space-y-3">
-                {buildResult.cards.map((card: any, index: number) => (
+                {(buildResult.cards || []).map((card: any, index: number) => (
                   <Card key={index}>
                     <CardContent className="p-4">
                       <div className="flex justify-between items-start">
@@ -987,7 +987,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-1">
-                      {buildResult.analysis.strengths.map((strength: string, index: number) => (
+                      {(buildResult.analysis?.strengths || []).map((strength: string, index: number) => (
                         <li key={index} className="text-sm">• {strength}</li>
                       ))}
                     </ul>
@@ -1000,7 +1000,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-1">
-                      {buildResult.analysis.weaknesses.map((weakness: string, index: number) => (
+                      {(buildResult.analysis?.weaknesses || []).map((weakness: string, index: number) => (
                         <li key={index} className="text-sm">• {weakness}</li>
                       ))}
                     </ul>
@@ -1013,7 +1013,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-1">
-                      {buildResult.analysis.suggestions.map((suggestion: string, index: number) => (
+                      {(buildResult.analysis?.suggestions || []).map((suggestion: string, index: number) => (
                         <li key={index} className="text-sm">• {suggestion}</li>
                       ))}
                     </ul>
@@ -1022,7 +1022,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               </TabsContent>
 
               <TabsContent value="changelog" className="space-y-2">
-                {buildResult.changelog.map((change: string, index: number) => (
+                {(buildResult.changelog || []).map((change: string, index: number) => (
                   <div key={index} className="p-2 bg-muted/50 rounded text-sm font-mono">
                     {change}
                   </div>

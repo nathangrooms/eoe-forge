@@ -145,25 +145,7 @@ export default function Brain() {
     try {
       const { data: cards, error } = await supabase
         .from('deck_cards')
-        .select(`
-          card_id,
-          card_name,
-          quantity,
-          is_commander,
-          is_sideboard,
-          cards (
-            name,
-            mana_cost,
-            cmc,
-            type_line,
-            oracle_text,
-            power,
-            toughness,
-            colors,
-            image_uris,
-            prices
-          )
-        `)
+        .select('card_id, card_name, quantity, is_commander, is_sideboard')
         .eq('deck_id', deckId);
 
       if (error) throw error;

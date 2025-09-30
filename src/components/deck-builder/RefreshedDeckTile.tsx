@@ -57,27 +57,29 @@ export function RefreshedDeckTile({
 }: RefreshedDeckTileProps) {
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const [wishlistCount, setWishlistCount] = useState<number>(0);
+  const [wishlistCount, setWishlistCount] = useState<number | null>(null);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
 
-  // Load wishlist count on mount
-  useEffect(() => {
-    const loadWishlistCount = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_deck_wishlist_count', {
-          deck_id_param: deckSummary.id
-        });
-        
-        if (!error && typeof data === 'number') {
-          setWishlistCount(data);
-        }
-      } catch (error) {
-        console.error('Error loading wishlist count:', error);
-      }
-    };
+  // Lazy load wishlist count only when needed
+  const loadWishlistCount = async () => {
+    if (wishlistCount !== null || wishlistLoading) return; // Already loaded or loading
     
-    loadWishlistCount();
-  }, [deckSummary.id]);
+    setWishlistLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_deck_wishlist_count', {
+        deck_id_param: deckSummary.id
+      });
+      
+      if (!error && typeof data === 'number') {
+        setWishlistCount(data);
+      }
+    } catch (error) {
+      console.error('Error loading wishlist count:', error);
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const formatColors = {
     standard: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -125,6 +127,9 @@ export function RefreshedDeckTile({
   };
 
   const handleAddMissingToWishlist = async () => {
+    // Load count first if not already loaded
+    await loadWishlistCount();
+    
     setAddingToWishlist(true);
     try {
       const { data: user } = await supabase.auth.getUser();

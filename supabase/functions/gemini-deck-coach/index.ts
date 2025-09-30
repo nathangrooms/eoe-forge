@@ -115,11 +115,15 @@ serve(async (req) => {
     
     // Calculate total deck value
     const totalValue = currentDeck.reduce((sum, card) => {
-      const price = parseFloat(card.prices?.usd || '0');
+      const priceStr = card.prices?.usd;
+      const price = priceStr && priceStr !== '' ? parseFloat(priceStr) : 0;
+      if (price > 0) {
+        console.log(`Card: ${card.name} - Price: $${price}`);
+      }
       return sum + price;
     }, 0);
     
-    console.log(`Final deck value: $${totalValue.toFixed(2)}`);
+    console.log(`Final deck value: $${totalValue.toFixed(2)} from ${currentDeck.length} cards`);
     
     const result: CoachingResult = {
       decklist: currentDeck,

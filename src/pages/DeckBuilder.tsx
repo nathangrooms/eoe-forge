@@ -551,7 +551,10 @@ const DeckBuilder = () => {
           <TabsContent value="import-export" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
               <DeckImportExport 
-                currentDeck={deck.cards}
+                currentDeck={[
+                  ...deck.cards,
+                  ...(deck.commander ? [{ ...(deck.commander as any), quantity: deck.commander.quantity ?? 1, category: 'commanders', is_commander: true }] : [])
+                ]}
                 onImportDeck={async (cards) => {
                   try {
                     deck.importDeck(cards);

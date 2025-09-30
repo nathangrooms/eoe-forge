@@ -1,15 +1,19 @@
 {
   "fast_mana": {
+    "tier_0": {
+      "weight": 15,
+      "cards": ["Mana Crypt", "Sol Ring", "Black Lotus", "Mox Diamond", "Mox Opal", "Lion's Eye Diamond"]
+    },
     "tier_1": {
-      "weight": 10,
-      "cards": ["Sol Ring", "Mana Crypt", "Mana Vault", "Chrome Mox", "Mox Diamond", "Lotus Petal", "Lion's Eye Diamond", "Black Lotus"]
+      "weight": 12,
+      "cards": ["Mana Vault", "Chrome Mox", "Lotus Petal", "Ancient Tomb", "City of Traitors", "Grim Monolith"]
     },
     "tier_2": {
-      "weight": 6,
-      "cards": ["Ancient Tomb", "City of Traitors", "Gemstone Caverns", "Simian Spirit Guide", "Elvish Spirit Guide"]
+      "weight": 8,
+      "cards": ["Gemstone Caverns", "Simian Spirit Guide", "Elvish Spirit Guide", "Basalt Monolith", "Thran Dynamo", "Worn Powerstone"]
     },
     "tier_3": {
-      "weight": 4,
+      "weight": 5,
       "cards": ["Azorius Signet", "Dimir Signet", "Rakdos Signet", "Gruul Signet", "Selesnya Signet", "Orzhov Signet", "Golgari Signet", "Simic Signet", "Izzet Signet", "Boros Signet"]
     },
     "tier_4": {
@@ -18,35 +22,43 @@
     }
   },
   "tutors": {
+    "ultra_broad": {
+      "weight": 15,
+      "cards": ["Demonic Tutor", "Vampiric Tutor", "Imperial Seal", "Grim Tutor", "Diabolic Intent", "Personal Tutor"]
+    },
     "broad": {
-      "weight": 10,
-      "cards": ["Demonic Tutor", "Vampiric Tutor", "Imperial Seal", "Grim Tutor", "Diabolic Intent"]
+      "weight": 12,
+      "cards": ["Enlightened Tutor", "Mystical Tutor", "Worldly Tutor", "Survival of the Fittest", "Gamble", "Lim-Dul's Vault"]
     },
     "category": {
-      "weight": 8,
-      "cards": ["Mystical Tutor", "Enlightened Tutor", "Worldly Tutor", "Survival of the Fittest", "Chord of Calling", "Green Sun's Zenith"]
+      "weight": 10,
+      "cards": ["Chord of Calling", "Green Sun's Zenith", "Finale of Devastation", "Natural Order", "Eldritch Evolution", "Merchant Scroll"]
     },
     "narrow": {
       "weight": 6,
-      "cards": ["Steelshaper's Gift", "Stoneforge Mystic", "Fabricate", "Whir of Invention", "Trinket Mage"]
+      "cards": ["Steelshaper's Gift", "Stoneforge Mystic", "Fabricate", "Whir of Invention", "Trinket Mage", "Idyllic Tutor"]
     }
   },
   "interaction": {
     "premium_removal": {
-      "weight": 8,
-      "cards": ["Swords to Plowshares", "Path to Exile", "Lightning Bolt", "Fatal Push", "Abrupt Decay", "Assassin's Trophy"]
+      "weight": 12,
+      "cards": ["Swords to Plowshares", "Path to Exile", "Lightning Bolt", "Fatal Push", "Abrupt Decay", "Assassin's Trophy", "Prismatic Ending", "Rapid Hybridization"]
     },
     "premium_counters": {
-      "weight": 9,
-      "cards": ["Force of Will", "Force of Negation", "Mana Drain", "Counterspell", "Mental Misstep", "Fierce Guardianship"]
+      "weight": 15,
+      "cards": ["Force of Will", "Force of Negation", "Mana Drain", "Counterspell", "Mental Misstep", "Fierce Guardianship", "Swan Song", "Flusterstorm", "Negate", "Dispel"]
     },
     "sweepers": {
-      "weight": 7,
-      "cards": ["Wrath of God", "Damnation", "Cyclonic Rift", "Toxic Deluge", "Blasphemous Act"]
+      "weight": 10,
+      "cards": ["Wrath of God", "Damnation", "Cyclonic Rift", "Toxic Deluge", "Blasphemous Act", "Supreme Verdict", "Austere Command"]
     },
     "free_interaction": {
-      "weight": 10,
-      "cards": ["Force of Will", "Force of Negation", "Mental Misstep", "Deflecting Swat", "Fierce Guardianship"]
+      "weight": 18,
+      "cards": ["Force of Will", "Force of Negation", "Mental Misstep", "Deflecting Swat", "Fierce Guardianship", "Force of Vigor", "Pyroblast", "Red Elemental Blast"]
+    },
+    "stax_interaction": {
+      "weight": 12,
+      "cards": ["Null Rod", "Stony Silence", "Collector Ouphe", "Kataki War's Wage", "Sphere of Resistance", "Thorn of Amethyst"]
     }
   },
   "card_advantage": {
@@ -80,13 +92,21 @@
     }
   },
   "win_conditions": {
+    "instant_wins": {
+      "weight": 15,
+      "cards": ["Thassa's Oracle", "Laboratory Maniac", "Jace, Wielder of Mysteries", "Demonic Consultation", "Tainted Pact"]
+    },
     "efficient": {
-      "weight": 8,
-      "cards": ["Thassa's Oracle", "Laboratory Maniac", "Jace, Wielder of Mysteries", "Craterhoof Behemoth"]
+      "weight": 12,
+      "cards": ["Craterhoof Behemoth", "Walking Ballista", "Finale of Devastation", "Torment of Hailfire", "Exsanguinate"]
     },
     "combo_pieces": {
-      "weight": 9,
-      "cards": ["Demonic Consultation", "Tainted Pact", "Isochron Scepter", "Dramatic Reversal"]
+      "weight": 14,
+      "cards": ["Isochron Scepter", "Dramatic Reversal", "Kiki-Jiki, Mirror Breaker", "Zealous Conscripts", "Splinter Twin", "Deceiver Exarch", "Food Chain", "Eternal Scourge"]
+    },
+    "compact_combos": {
+      "weight": 16,
+      "cards": ["Rings of Brighthearth", "Basalt Monolith", "Worldgorger Dragon", "Animate Dead", "Hermit Druid", "Mikaeus, the Unhallowed", "Triskelion"]
     }
   }
 }

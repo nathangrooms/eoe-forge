@@ -72,7 +72,7 @@ function mulberry32(seed: number) {
   };
 }
 
-// Deterministic card selection with weighted probability
+// Deterministic card selection with weighted probability - Enhanced for power
 function pickWeighted<T>(items: T[], weights: number[], rng: () => number): T | null {
   if (items.length === 0) return null;
   
@@ -204,30 +204,32 @@ function getArchetypeTemplate(themeId: string, format: string) {
     'control': {
       deckSize: 100,
       quotas: {
-        creatures: { min: 8, max: 15 },
-        counterspells: { min: 8, max: 12 },
-        removal: { min: 10, max: 15 },
-        sweepers: { min: 4, max: 8 },
-        wincons: { min: 3, max: 6 },
-        ramp: { min: 8, max: 10 },
+        creatures: { min: 6, max: 12 },
+        counterspells: { min: 10, max: 15 },   // More counters
+        removal: { min: 12, max: 18 },         // More removal
+        sweepers: { min: 6, max: 10 },
+        'fast-mana': { min: 6, max: 10 },      // Fast mana for tempo
+        tutors: { min: 6, max: 10 },           // Tutors for consistency
+        wincons: { min: 4, max: 8 },
         draw: { min: 12, max: 18 },
-        lands: { min: 37, max: 39 }
+        lands: { min: 35, max: 37 }            // Fewer lands
       },
-      curves: { '0-1': { min: 4, max: 8 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 6, max: 10 }, '5+': { min: 6, max: 12 } }
+      curves: { '0-1': { min: 8, max: 15 }, '2': { min: 10, max: 18 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 2, max: 6 } }
     },
     'combo': {
       deckSize: 100,
       quotas: {
-        creatures: { min: 8, max: 20 },
-        'combo-pieces': { min: 6, max: 12 },
-        tutors: { min: 8, max: 15 },
-        protection: { min: 6, max: 10 },
-        removal: { min: 4, max: 8 },
-        ramp: { min: 10, max: 15 },
-        draw: { min: 10, max: 15 },
-        lands: { min: 34, max: 36 }
+        creatures: { min: 8, max: 15 },
+        'combo-pieces': { min: 8, max: 15 },
+        tutors: { min: 12, max: 20 },      // More tutors for consistency
+        'fast-mana': { min: 8, max: 12 },  // Essential for speed
+        protection: { min: 8, max: 12 },
+        removal: { min: 6, max: 10 },
+        ramp: { min: 6, max: 10 },         // Less ramp, more fast mana
+        draw: { min: 8, max: 12 },
+        lands: { min: 32, max: 34 }        // Fewer lands, more gas
       },
-      curves: { '0-1': { min: 6, max: 12 }, '2': { min: 8, max: 15 }, '3': { min: 6, max: 12 }, '4': { min: 4, max: 8 }, '5+': { min: 4, max: 8 } }
+      curves: { '0-1': { min: 12, max: 20 }, '2': { min: 10, max: 15 }, '3': { min: 6, max: 10 }, '4': { min: 2, max: 6 }, '5+': { min: 1, max: 4 } }
     },
     'stax': {
       deckSize: 100,
@@ -379,7 +381,7 @@ function getArchetypeTemplate(themeId: string, format: string) {
   return templates[themeId] || templates[defaultKey];
 }
 
-// Calculate power score for a deck
+// Enhanced power score calculation for competitive accuracy
 function calculatePowerScore(deck: Card[], format: string): { power: number; subscores: Record<string, number> } {
   const subscores = {
     speed: calculateSpeedScore(deck),
@@ -390,24 +392,32 @@ function calculatePowerScore(deck: Card[], format: string): { power: number; sub
     wincons: calculateWinconScore(deck),
     resilience: calculateResilienceScore(deck),
     mana: calculateManaScore(deck, format),
-    synergy: calculateSynergyScore(deck)
+    synergy: calculateSynergyScore(deck),
+    efficiency: calculateEfficiencyScore(deck),
+    combo: calculateComboScore(deck)
   };
 
-  // Format-specific weights
+  // Enhanced format-specific weights prioritizing competitive metrics
   const weights = getFormatWeights(format);
   const weightedScore = Object.entries(subscores).reduce((total, [key, score]) => {
     return total + (score * (weights[key] || 1));
   }, 0) / Object.values(weights).reduce((a, b) => a + b, 0);
 
-  const power = Math.max(1, Math.min(10, 1 + (weightedScore / 100) * 9));
+  // More aggressive power scaling - competitive decks should score higher
+  const power = Math.max(1, Math.min(10, 2 + (weightedScore / 100) * 8));
   
   return { power, subscores };
 }
 
 function calculateSpeedScore(deck: Card[]): number {
   const lowCost = deck.filter(c => c.cmc <= 2 && !isLand(c)).length;
+  const zeroCost = deck.filter(c => c.cmc === 0 && !isLand(c)).length;
+  const oneCost = deck.filter(c => c.cmc === 1 && !isLand(c)).length;
   const fastMana = deck.filter(c => isFastMana(c)).length;
-  return Math.min(100, (lowCost * 2) + (fastMana * 15));
+  
+  // Enhanced speed calculation emphasizing early game explosiveness
+  const speedScore = (zeroCost * 8) + (oneCost * 4) + (lowCost * 2) + (fastMana * 20);
+  return Math.min(100, speedScore);
 }
 
 function calculateInteractionScore(deck: Card[]): number {
@@ -428,7 +438,13 @@ function calculateCardAdvantageScore(deck: Card[]): number {
 
 function calculateTutorScore(deck: Card[]): number {
   const tutors = deck.filter(c => isTutor(c)).length;
-  return Math.min(100, tutors * 20);
+  const broadTutors = deck.filter(c => {
+    const text = c.oracle_text?.toLowerCase() || '';
+    return text.includes('search') && text.includes('library') && text.includes('any card');
+  }).length;
+  
+  // Weight broad tutors more heavily as they're more powerful
+  return Math.min(100, (tutors * 15) + (broadTutors * 10));
 }
 
 function calculateWinconScore(deck: Card[]): number {
@@ -465,13 +481,25 @@ function calculateSynergyScore(deck: Card[]): number {
 function getFormatWeights(format: string): Record<string, number> {
   switch (format) {
     case 'commander':
-      return { speed: 0.8, interaction: 1.2, ramp: 1.1, cardAdvantage: 1.3, tutors: 0.9, wincons: 1.0, resilience: 1.1, mana: 1.0, synergy: 1.4 };
+      return { 
+        speed: 1.4,           // Fast mana and low curve are critical
+        interaction: 1.3,     // Removal and counters essential 
+        ramp: 1.0,           // Important but not as critical as speed
+        cardAdvantage: 1.2,   // Card draw engines matter
+        tutors: 1.5,         // Tutors are power multipliers
+        wincons: 1.3,        // Compact win conditions
+        resilience: 1.1,     // Protection matters
+        mana: 1.0,           // Manabase important but baseline
+        synergy: 1.0,        // Nice but not as important as raw power
+        efficiency: 1.4,     // New: CMC efficiency critical
+        combo: 1.3           // New: Combo potential
+      };
     case 'modern':
-      return { speed: 1.3, interaction: 1.1, ramp: 0.8, cardAdvantage: 1.0, tutors: 1.2, wincons: 1.2, resilience: 0.9, mana: 1.1, synergy: 1.0 };
+      return { speed: 1.3, interaction: 1.1, ramp: 0.8, cardAdvantage: 1.0, tutors: 1.2, wincons: 1.2, resilience: 0.9, mana: 1.1, synergy: 1.0, efficiency: 1.2, combo: 1.1 };
     case 'standard':
-      return { speed: 1.1, interaction: 1.0, ramp: 0.9, cardAdvantage: 1.1, tutors: 0.8, wincons: 1.0, resilience: 0.9, mana: 1.0, synergy: 1.0 };
+      return { speed: 1.1, interaction: 1.0, ramp: 0.9, cardAdvantage: 1.1, tutors: 0.8, wincons: 1.0, resilience: 0.9, mana: 1.0, synergy: 1.0, efficiency: 1.0, combo: 0.8 };
     default:
-      return { speed: 1.0, interaction: 1.0, ramp: 1.0, cardAdvantage: 1.0, tutors: 1.0, wincons: 1.0, resilience: 1.0, mana: 1.0, synergy: 1.0 };
+      return { speed: 1.0, interaction: 1.0, ramp: 1.0, cardAdvantage: 1.0, tutors: 1.0, wincons: 1.0, resilience: 1.0, mana: 1.0, synergy: 1.0, efficiency: 1.0, combo: 1.0 };
   }
 }
 
@@ -481,7 +509,23 @@ function isLand(card: Card): boolean {
 }
 
 function isFastMana(card: Card): boolean {
-  return card.cmc <= 2 && !!card.oracle_text?.toLowerCase().includes('add') && !!card.oracle_text?.toLowerCase().includes('mana');
+  const text = card.oracle_text?.toLowerCase() || '';
+  const name = card.name.toLowerCase();
+  
+  // Explicit fast mana staples
+  const fastManaNames = [
+    'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond', 
+    'mox opal', 'lotus petal', 'ancient tomb', 'city of traitors',
+    'grim monolith', 'basalt monolith', 'thran dynamo'
+  ];
+  
+  if (fastManaNames.some(staple => name.includes(staple))) return true;
+  
+  // Heuristic: low CMC mana producers
+  return card.cmc <= 2 && 
+         !card.type_line.toLowerCase().includes('land') &&
+         text.includes('add') && 
+         text.includes('mana');
 }
 
 function isRemoval(card: Card): boolean {
@@ -522,6 +566,90 @@ function isWincon(card: Card): boolean {
 function isProtection(card: Card): boolean {
   const text = card.oracle_text?.toLowerCase() || '';
   return text.includes('protection') || text.includes('hexproof') || text.includes('ward') || text.includes('indestructible');
+}
+
+// New efficiency scoring function
+function calculateEfficiencyScore(deck: Card[]): number {
+  let efficiency = 0;
+  const nonLands = deck.filter(c => !isLand(c));
+  
+  nonLands.forEach(card => {
+    const cmc = card.cmc;
+    const text = card.oracle_text?.toLowerCase() || '';
+    
+    // High efficiency: powerful effects at low CMC
+    if (cmc <= 1) {
+      if (isFastMana(card) || isTutor(card) || isRemoval(card) || isCounterspell(card)) {
+        efficiency += 15;
+      } else {
+        efficiency += 5;
+      }
+    } else if (cmc === 2) {
+      if (isTutor(card) || isRemoval(card) || isCounterspell(card) || isCardDraw(card)) {
+        efficiency += 10;
+      } else {
+        efficiency += 3;
+      }
+    } else if (cmc === 3) {
+      if (isTutor(card) || text.includes('draw') || text.includes('destroy all')) {
+        efficiency += 6;
+      } else {
+        efficiency += 1;
+      }
+    } else if (cmc >= 4) {
+      // High CMC cards need to be very impactful
+      if (text.includes('win the game') || text.includes('destroy all') || 
+          text.includes('extra turn') || isWincon(card)) {
+        efficiency += 3;
+      } else {
+        efficiency -= 2; // Penalty for expensive cards without huge impact
+      }
+    }
+  });
+  
+  return Math.max(0, Math.min(100, efficiency));
+}
+
+// New combo potential scoring function  
+function calculateComboScore(deck: Card[]): number {
+  let comboScore = 0;
+  const cardNames = deck.map(c => c.name.toLowerCase());
+  
+  // Known two-card combos
+  const combos = [
+    ['thassa\'s oracle', 'demonic consultation'],
+    ['thassa\'s oracle', 'tainted pact'],
+    ['isochron scepter', 'dramatic reversal'],
+    ['kiki-jiki', 'zealous conscripts'],
+    ['splinter twin', 'deceiver exarch'],
+    ['dockside extortionist', 'temur sabertooth'],
+    ['hermit druid', 'laboratory maniac'],
+    ['rings of brighthearth', 'basalt monolith'],
+    ['food chain', 'eternal scourge'],
+    ['worldgorger dragon', 'animate dead']
+  ];
+  
+  combos.forEach(combo => {
+    const hasAllPieces = combo.every(piece => 
+      cardNames.some(name => name.includes(piece))
+    );
+    if (hasAllPieces) {
+      comboScore += 25; // Two-card combos are very powerful
+    }
+  });
+  
+  // Check for instant win cards
+  deck.forEach(card => {
+    const text = card.oracle_text?.toLowerCase() || '';
+    if (text.includes('win the game') || text.includes('wins the game')) {
+      comboScore += 15;
+    }
+    if (text.includes('infinite') && card.cmc <= 6) {
+      comboScore += 10;
+    }
+  });
+  
+  return Math.min(100, comboScore);
 }
 
 // Deterministic deck building pipeline
@@ -760,7 +888,8 @@ function matchesRole(card: Card, role: string): boolean {
     case 'finishers': return isWincon(card);
     case 'protection': return isProtection(card);
     
-    // Archetype-specific roles
+    // Enhanced archetype-specific roles with power considerations
+    case 'fast-mana': return isFastMana(card);
     case 'sacrifice-outlets': return !!(card.oracle_text?.toLowerCase().includes('sacrifice') && !card.oracle_text?.toLowerCase().includes('target'));
     case 'death-payoffs': return !!(card.oracle_text?.toLowerCase().includes('dies') || card.oracle_text?.toLowerCase().includes('death'));
     case 'blink-effects': return !!(card.oracle_text?.toLowerCase().includes('exile') && card.oracle_text?.toLowerCase().includes('return'));
@@ -773,7 +902,10 @@ function matchesRole(card: Card, role: string): boolean {
     case 'discard-outlets': return !!(card.oracle_text?.toLowerCase().includes('discard'));
     case 'big-threats': return !!(card.cmc >= 6 && (card.type_line.toLowerCase().includes('creature') || card.type_line.toLowerCase().includes('planeswalker')));
     case 'spell-payoffs': return !!(card.oracle_text?.toLowerCase().includes('instant') || card.oracle_text?.toLowerCase().includes('sorcery'));
-    case 'combo-pieces': return !!(card.oracle_text?.toLowerCase().includes('infinite') || card.oracle_text?.toLowerCase().includes('each') || card.oracle_text?.toLowerCase().includes('whenever'));
+    case 'combo-pieces': return !!(card.oracle_text?.toLowerCase().includes('infinite') || 
+                                   card.oracle_text?.toLowerCase().includes('each') || 
+                                   card.oracle_text?.toLowerCase().includes('whenever') ||
+                                   card.oracle_text?.toLowerCase().includes('win the game'));
     case 'stax-pieces': return !!(card.oracle_text?.toLowerCase().includes('can\'t') || card.oracle_text?.toLowerCase().includes('additional cost'));
     case 'artifacts': return !!(card.type_line.toLowerCase().includes('artifact'));
     case 'enchantments': return !!(card.type_line.toLowerCase().includes('enchantment'));
@@ -803,72 +935,136 @@ function matchesRole(card: Card, role: string): boolean {
 function selectCards(cards: Card[], count: number, powerTarget: number, rng: () => number): Card[] {
   if (cards.length === 0) return [];
   
-  // Weight cards by actual power level characteristics
+  // Enhanced weighting system for competitive power levels
   const weights = cards.map(card => {
     let weight = 1;
     const name = card.name.toLowerCase();
     const text = card.oracle_text?.toLowerCase() || '';
     const price = parseFloat(card.prices?.usd || '0');
     
-    // High-power staples get massive weight bonuses
-    const powerStaples = [
-      'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond',
-      'demonic tutor', 'vampiric tutor', 'imperial seal', 'mystical tutor',
-      'enlightened tutor', 'worldly tutor', 'survival of the fittest',
-      'sylvan library', 'rhystic study', 'smothering tithe', 'mystic remora',
-      'force of will', 'force of negation', 'mana drain', 'counterspell',
-      'swords to plowshares', 'path to exile', 'lightning bolt',
+    // Tier 0/1 cEDH staples get massive bonuses
+    const cEDHStaples = [
+      'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond', 'mox opal',
+      'lotus petal', 'grim monolith', 'ancient tomb', 'city of traitors',
+      'demonic tutor', 'vampiric tutor', 'imperial seal', 'grim tutor', 'diabolic intent',
+      'mystical tutor', 'enlightened tutor', 'worldly tutor', 'survival of the fittest',
+      'force of will', 'force of negation', 'mana drain', 'fierce guardianship',
+      'counterspell', 'swan song', 'flusterstorm', 'mental misstep',
+      'swords to plowshares', 'path to exile', 'assassin\'s trophy', 'abrupt decay',
+      'cyclonic rift', 'toxic deluge', 'wrath of god', 'damnation',
       'dockside extortionist', 'ragavan nimble pilferer', 'esper sentinel',
-      'fierce guardianship', 'deflecting swat', 'cyclonic rift',
-      'teferi time raveler', 'jace the mind sculptor', 'oko thief of crowns',
-      'craterhoof behemoth', 'thassa oracle', 'consultation',
-      'gaea cradle', 'ancient tomb', 'city of traitors', 'mishra workshop'
+      'thassa\'s oracle', 'jace wielder of mysteries', 'laboratory maniac',
+      'demonic consultation', 'tainted pact', 'ad nauseam', 'necropotence',
+      'rhystic study', 'mystic remora', 'sylvan library', 'smothering tithe',
+      'deflecting swat', 'teferi\'s protection', 'heroic intervention',
+      'gaea\'s cradle', 'tolarian academy', 'bazaar of baghdad', 'strip mine',
+      'craterhoof behemoth', 'eldrazi monument', 'finale of devastation'
     ];
     
-    if (powerStaples.some(staple => name.includes(staple))) {
-      weight += powerTarget >= 7 ? 5 : 2;
+    // Ultra-high-power combo pieces
+    const comboStaples = [
+      'isochron scepter', 'dramatic reversal', 'rings of brighthearth',
+      'basalt monolith', 'grim monolith', 'thopter foundry', 'sword of the meek',
+      'kiki-jiki mirror breaker', 'zealous conscripts', 'splinter twin',
+      'deceiver exarch', 'twin flame', 'heat shimmer', 'food chain',
+      'eternal scourge', 'squee the immortal', 'wordgorger dragon',
+      'animate dead', 'necromancy', 'dance of the dead', 'hermit druid',
+      'laboratory maniac', 'leveler', 'phyrexian devourer', 'necrotic ooze',
+      'walking ballista', 'mikaeus the unhallowed', 'triskelion'
+    ];
+    
+    // Powerful interaction and disruption
+    const premiumInteraction = [
+      'force of will', 'force of negation', 'mana drain', 'counterspell',
+      'negate', 'dispel', 'swan song', 'pyroblast', 'red elemental blast',
+      'silence', 'orim\'s chant', 'grand abolisher', 'teferi time raveler',
+      'null rod', 'stony silence', 'collector ouphe', 'kataki war\'s wage',
+      'winter orb', 'static orb', 'sphere of resistance', 'thorn of amethyst'
+    ];
+    
+    // Apply tier-based weighting
+    if (cEDHStaples.some(staple => name.includes(staple.replace('\'', '')))) {
+      weight += powerTarget >= 8 ? 8 : powerTarget >= 7 ? 5 : powerTarget >= 6 ? 3 : 2;
     }
     
-    // Combo pieces and enablers
-    if (text.includes('infinite') || 
-        (text.includes('enters the battlefield') && text.includes('copy')) ||
-        (text.includes('when') && text.includes('dies') && text.includes('return')) ||
-        text.includes('win the game')) {
-      weight += powerTarget >= 6 ? 3 : 1;
+    if (comboStaples.some(staple => name.includes(staple.replace('\'', '')))) {
+      weight += powerTarget >= 8 ? 6 : powerTarget >= 7 ? 4 : powerTarget >= 6 ? 2 : 1;
     }
     
-    // Fast mana gets higher priority at high power
-    if (isFastMana(card)) {
-      weight += powerTarget >= 7 ? 4 : (powerTarget >= 5 ? 2 : 1);
+    if (premiumInteraction.some(staple => name.includes(staple.replace('\'', '')))) {
+      weight += powerTarget >= 8 ? 5 : powerTarget >= 7 ? 3 : powerTarget >= 6 ? 2 : 1;
     }
     
-    // Tutors are power multipliers
-    if (isTutor(card)) {
-      weight += powerTarget >= 7 ? 3 : (powerTarget >= 5 ? 2 : 1);
+    // Enhanced fast mana detection and weighting
+    if (isFastMana(card) || (card.cmc <= 2 && text.includes('add') && text.includes('mana'))) {
+      if (card.cmc === 0) weight += powerTarget >= 7 ? 6 : 4;
+      else if (card.cmc === 1) weight += powerTarget >= 7 ? 4 : 3;
+      else if (card.cmc === 2) weight += powerTarget >= 7 ? 3 : 2;
     }
     
-    // Price often correlates with power
-    if (price > 50 && powerTarget >= 7) weight += 2;
-    if (price > 20 && powerTarget >= 6) weight += 1;
-    if (price > 100 && powerTarget >= 8) weight += 3;
-    
-    // Low CMC efficiency matters more at high power
-    if (card.cmc <= 2 && powerTarget >= 7) {
-      weight += 1.5;
+    // Tutors are extremely powerful - weight heavily
+    if (isTutor(card) || (text.includes('search') && text.includes('library') && !text.includes('basic land'))) {
+      if (text.includes('any card')) weight += powerTarget >= 7 ? 5 : 3;
+      else weight += powerTarget >= 7 ? 4 : 2;
     }
     
-    // High CMC cards are generally weaker except specific bombs
-    if (card.cmc > 6 && powerTarget >= 7) {
-      const isBomb = text.includes('win the game') || 
-                     text.includes('extra turn') ||
-                     name.includes('eldrazi') ||
-                     name.includes('blightsteel');
-      if (!isBomb) weight *= 0.5;
+    // Instant-win conditions
+    if (text.includes('win the game') || text.includes('wins the game')) {
+      weight += powerTarget >= 7 ? 4 : powerTarget >= 6 ? 3 : 2;
     }
     
-    // Protection and free spells
-    if ((card.cmc === 0 || text.includes('without paying')) && powerTarget >= 6) {
-      weight += 2;
+    // Free spells and alternative costs
+    if (card.cmc === 0 || text.includes('without paying') || text.includes('you may cast') ||
+        text.includes('alternative cost') || text.includes('exile') && text.includes('hand')) {
+      weight += powerTarget >= 7 ? 3 : 2;
+    }
+    
+    // Efficiency-based weighting (low CMC high impact)
+    if (card.cmc <= 1 && !card.type_line.includes('Land')) {
+      weight += powerTarget >= 7 ? 2 : 1;
+    } else if (card.cmc === 2 && (isRemoval(card) || isCounterspell(card) || isCardDraw(card))) {
+      weight += powerTarget >= 7 ? 1.5 : 1;
+    }
+    
+    // Price correlation (expensive cards often powerful)
+    if (powerTarget >= 7) {
+      if (price > 100) weight += 4;
+      else if (price > 50) weight += 3;
+      else if (price > 20) weight += 2;
+      else if (price > 10) weight += 1;
+    } else if (powerTarget >= 6) {
+      if (price > 50) weight += 2;
+      else if (price > 20) weight += 1;
+    }
+    
+    // Penalize high CMC cards heavily unless they're game-ending
+    if (card.cmc >= 7) {
+      const isGameEnder = text.includes('win the game') || 
+                         text.includes('extra turn') ||
+                         name.includes('eldrazi') ||
+                         name.includes('blightsteel') ||
+                         name.includes('ulamog') ||
+                         name.includes('kozilek') ||
+                         name.includes('emrakul');
+      if (!isGameEnder && powerTarget >= 7) {
+        weight *= 0.3;
+      } else if (!isGameEnder && powerTarget >= 6) {
+        weight *= 0.5;
+      }
+    } else if (card.cmc >= 5 && powerTarget >= 8) {
+      // Even 5-6 CMC cards get penalized at highest power levels
+      const isHighImpact = text.includes('draw') && text.includes('card') ||
+                          isWincon(card) ||
+                          text.includes('destroy all') ||
+                          text.includes('each opponent');
+      if (!isHighImpact) {
+        weight *= 0.7;
+      }
+    }
+    
+    // Legendary creatures that aren't commanders get bonus if powerful
+    if (card.type_line.includes('Legendary') && card.type_line.includes('Creature') && card.cmc <= 4) {
+      weight += powerTarget >= 7 ? 1 : 0.5;
     }
     
     return Math.max(0.1, weight);
@@ -929,36 +1125,86 @@ function buildManabase(cardPool: Card[], colors: string[], landCount: number, fo
 }
 
 function escalateDeck(deck: Card[], cardPool: Card[], powerDiff: number, rng: () => number, changelog: ChangelogEntry[]) {
-  // Add the most powerful cards available: cEDH staples, fast mana, tutors, combo pieces
-  const powerCards = cardPool.filter(card => {
+  // Aggressively add the highest-power cards available
+  const ultraPowerCards = cardPool.filter(card => {
     const name = card.name.toLowerCase();
     const text = card.oracle_text?.toLowerCase() || '';
     const price = parseFloat(card.prices?.usd || '0');
     
-    // Prioritize cEDH staples and high-power cards
-    const cEDHStaples = [
-      'sol ring', 'mana crypt', 'mana vault', 'chrome mox', 'mox diamond',
-      'demonic tutor', 'vampiric tutor', 'imperial seal', 'mystical tutor',
-      'force of will', 'force of negation', 'mana drain', 'fierce guardianship',
-      'dockside extortionist', 'thassa oracle', 'consultation', 'tainted pact',
-      'ad nauseam', 'necropotence', 'rhystic study', 'mystic remora'
+    // Tier 0/1 cEDH staples - the most powerful cards in the format
+    const tier0Cards = [
+      'mana crypt', 'sol ring', 'ancient tomb', 'mana vault', 'chrome mox',
+      'demonic tutor', 'vampiric tutor', 'imperial seal', 'grim tutor',
+      'force of will', 'force of negation', 'mana drain', 'counterspell',
+      'thassa\'s oracle', 'jace wielder of mysteries', 'laboratory maniac',
+      'demonic consultation', 'tainted pact', 'ad nauseam', 'necropotence',
+      'dockside extortionist', 'ragavan nimble pilferer', 'esper sentinel',
+      'fierce guardianship', 'deflecting swat', 'cyclonic rift',
+      'rhystic study', 'mystic remora', 'sylvan library', 'smothering tithe',
+      'gaea\'s cradle', 'tolarian academy', 'bazaar of baghdad'
     ];
     
-    return isFastMana(card) || 
-           isTutor(card) || 
-           (isWincon(card) && card.cmc <= 4) ||
-           cEDHStaples.some(staple => name.includes(staple)) ||
-           price > 30 ||
-           (text.includes('infinite') && card.cmc <= 6) ||
-           (card.cmc === 0 && !card.type_line.includes('Land'));
+    // High-powered combo pieces
+    const comboPieces = [
+      'isochron scepter', 'dramatic reversal', 'rings of brighthearth',
+      'basalt monolith', 'grim monolith', 'thopter foundry', 'sword of the meek',
+      'kiki-jiki mirror breaker', 'zealous conscripts', 'splinter twin',
+      'deceiver exarch', 'food chain', 'eternal scourge', 'worldgorger dragon',
+      'animate dead', 'necromancy', 'hermit druid', 'walking ballista',
+      'mikaeus the unhallowed', 'triskelion', 'finale of devastation'
+    ];
+    
+    // Premium interaction
+    const premiumRemoval = [
+      'swords to plowshares', 'path to exile', 'assassin\'s trophy',
+      'abrupt decay', 'toxic deluge', 'wrath of god', 'damnation',
+      'teferi\'s protection', 'heroic intervention', 'silence', 'grand abolisher'
+    ];
+    
+    return tier0Cards.some(staple => name.includes(staple.replace('\'', ''))) ||
+           comboPieces.some(piece => name.includes(piece.replace('\'', ''))) ||
+           premiumRemoval.some(removal => name.includes(removal.replace('\'', ''))) ||
+           (isFastMana(card) && card.cmc <= 2) ||
+           (isTutor(card) && card.cmc <= 4) ||
+           (text.includes('win the game') && card.cmc <= 6) ||
+           (card.cmc === 0 && !card.type_line.includes('Land')) ||
+           (text.includes('infinite') && card.cmc <= 5) ||
+           (price > 50 && card.cmc <= 4) ||
+           (text.includes('without paying') && card.cmc <= 3);
   });
   
-  if (powerCards.length > 0) {
-    const toAdd = Math.min(Math.ceil(powerDiff), 3);
-    const selected = selectCards(powerCards, toAdd, 8, rng);
+  if (ultraPowerCards.length > 0) {
+    const toAdd = Math.min(Math.ceil(powerDiff * 1.5), 5); // More aggressive additions
+    const selected = selectCards(ultraPowerCards, toAdd, 9, rng); // Target power 9
     
-    // Remove less powerful cards
-    const toRemove = deck.filter(card => !isLand(card) && card.cmc > 5).slice(0, selected.length);
+    // Remove the weakest cards first - prioritize high CMC, low impact cards
+    const toRemove = deck.filter(card => {
+      if (isLand(card)) return false; // Don't remove lands
+      
+      const text = card.oracle_text?.toLowerCase() || '';
+      const name = card.name.toLowerCase();
+      
+      // Remove high CMC cards that aren't game-enders
+      if (card.cmc >= 6) {
+        const isGameEnder = text.includes('win the game') || 
+                           text.includes('extra turn') ||
+                           name.includes('craterhoof') ||
+                           name.includes('eldrazi');
+        return !isGameEnder;
+      }
+      
+      // Remove low-impact cards
+      if (card.cmc >= 4) {
+        const hasImpact = text.includes('draw') && text.includes('card') ||
+                         text.includes('destroy') ||
+                         text.includes('counter') ||
+                         text.includes('search') ||
+                         isWincon(card);
+        return !hasImpact;
+      }
+      
+      return false;
+    }).slice(0, selected.length);
     
     toRemove.forEach(card => {
       const index = deck.indexOf(card);
@@ -967,7 +1213,7 @@ function escalateDeck(deck: Card[], cardPool: Card[], powerDiff: number, rng: ()
         changelog.push({
           action: 'remove',
           card: card.name,
-          reason: 'Power escalation - remove high CMC',
+          reason: 'Power escalation - remove inefficient card',
           stage: 'tuning'
         });
       }
@@ -978,7 +1224,7 @@ function escalateDeck(deck: Card[], cardPool: Card[], powerDiff: number, rng: ()
       changelog.push({
         action: 'add',
         card: card.name,
-        reason: 'Power escalation - add efficient threat',
+        reason: 'Power escalation - add cEDH staple',
         stage: 'tuning'
       });
     });

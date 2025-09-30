@@ -20,7 +20,8 @@ import {
   Download,
   Calendar,
   Plus,
-  ShoppingCart
+  ShoppingCart,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeckSummary, DeckAPI } from '@/lib/api/deckAPI';
@@ -37,6 +38,7 @@ interface RefreshedDeckTileProps {
   onExport?: () => void;
   onDeckbox?: () => void;
   onFavoriteChange?: () => void;
+  onShare?: () => void;
   className?: string;
 }
 
@@ -50,6 +52,7 @@ export function RefreshedDeckTile({
   onExport,
   onDeckbox,
   onFavoriteChange,
+  onShare,
   className
 }: RefreshedDeckTileProps) {
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
@@ -569,6 +572,11 @@ export function RefreshedDeckTile({
                 {onExport && (
                   <Button variant="ghost" size="sm" onClick={onExport} title="Export">
                     <Download className="h-3 w-3" />
+                  </Button>
+                )}
+                {onShare && (
+                  <Button variant="ghost" size="sm" onClick={onShare} title="Share">
+                    <Share2 className="h-3 w-3" />
                   </Button>
                 )}
                 {onEdit && (

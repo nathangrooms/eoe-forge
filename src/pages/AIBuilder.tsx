@@ -109,6 +109,7 @@ export default function AIBuilder() {
     archetype: '',
     powerLevel: 6,
     budget: 100,
+    maxBudget: 500, // Maximum total deck price
     customPrompt: '',
     includeLands: true,
     prioritizeSynergy: true,
@@ -455,6 +456,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           themeId: buildData.archetype,
           powerTarget: buildData.powerLevel,
           budget: buildData.budget < 50 ? 'low' : buildData.budget < 200 ? 'med' : 'high',
+          maxBudget: buildData.maxBudget,
           customInstructions: buildData.customPrompt,
         }
       });
@@ -664,6 +666,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       archetype: '',
       powerLevel: 6,
       budget: 100,
+      maxBudget: 500,
       customPrompt: '',
       includeLands: true,
       prioritizeSynergy: true,
@@ -1060,7 +1063,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Budget: ${buildData.budget}</Label>
+                  <Label>Per-Card Budget: ${buildData.budget}</Label>
                   <Badge variant={buildData.budget < 50 ? 'secondary' : buildData.budget < 200 ? 'default' : 'destructive'}>
                     {buildData.budget < 50 ? 'Budget ($3 max/card)' : buildData.budget < 200 ? 'Mid-Range ($15 max/card)' : 'High-End ($100 max/card)'}
                   </Badge>
@@ -1079,7 +1082,32 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   <span>$2000+</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Budget tiers filter individual card prices to stay within your total budget. Higher power decks may require higher budgets for optimal staples.
+                  Filters individual card prices to stay within your total budget.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Total Deck Budget: ${buildData.maxBudget}</Label>
+                  <Badge variant={buildData.maxBudget < 300 ? 'secondary' : buildData.maxBudget < 1000 ? 'default' : 'destructive'}>
+                    {buildData.maxBudget < 300 ? 'Budget' : buildData.maxBudget < 1000 ? 'Mid-Range' : 'High-End'}
+                  </Badge>
+                </div>
+                <Slider
+                  value={[buildData.maxBudget]}
+                  onValueChange={(value) => setBuildData(prev => ({ ...prev, maxBudget: value[0] }))}
+                  min={100}
+                  max={5000}
+                  step={100}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>$100</span>
+                  <span>$1000</span>
+                  <span>$5000+</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Maximum total price for the entire 100-card deck. AI will replace expensive cards with budget alternatives while maintaining power.
                 </p>
               </div>
 
@@ -1142,7 +1170,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   <p><strong>Colors:</strong> {commander?.color_identity?.join(', ') || 'None'}</p>
                   <p><strong>Archetype:</strong> {currentArchetypes.find(a => a.value === buildData.archetype)?.label}</p>
                   <p><strong>Power Level:</strong> {buildData.powerLevel}/10</p>
-                  <p><strong>Budget:</strong> ${buildData.budget}</p>
+                  <p><strong>Per-Card Budget:</strong> ${buildData.budget}</p>
+                  <p><strong>Total Budget:</strong> ${buildData.maxBudget}</p>
                 </div>
               </div>
             </CardContent>

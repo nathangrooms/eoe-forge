@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from "@/lib/api/shareAPI";
 import { DeckAnalysisPanel } from "@/components/deck-builder/DeckAnalysisPanel";
-import { ModernDeckList } from "@/components/deck-builder/ModernDeckList";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Copy, Download, ExternalLink } from "lucide-react";
@@ -167,16 +167,26 @@ export default function PublicDeck() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Analysis Panel */}
             <div className="lg:col-span-1">
-              <DeckAnalysisPanel deck={deck} format={deck.format} />
+              <DeckAnalysisPanel deck={deck.cards} format={deck.format} />
             </div>
 
             {/* Deck List */}
             <div className="lg:col-span-2">
-              <ModernDeckList
-                cards={deck.cards}
-                onQuantityChange={() => {}}
-                readOnly={true}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Decklist ({deck.counts.total} cards)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {deck.cards.map((card: any) => (
+                      <div key={card.card_id} className="flex items-center justify-between p-2 border rounded">
+                        <span>{card.quantity}x {card.card_name}</span>
+                        {card.is_commander && <Badge>Commander</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>

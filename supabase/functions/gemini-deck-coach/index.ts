@@ -24,6 +24,7 @@ interface CoachRequest {
   themeId: string;
   powerTarget: number;
   budget: 'low' | 'med' | 'high';
+  maxBudget?: number; // Maximum total deck price in USD
   customInstructions?: string;
   seed?: number;
 }
@@ -94,6 +95,10 @@ serve(async (req) => {
 
     const rng = mulberry32(request.seed || Math.floor(Math.random() * 1000000));
     
+    // Set default max budget if not specified
+    const maxBudget = request.maxBudget || (request.budget === 'low' ? 200 : request.budget === 'med' ? 500 : 1500);
+    console.log(`Budget constraints: per card ${request.budget}, total deck max $${maxBudget}`);
+    
     // 1. Build initial deck using template-based approach
     let currentDeck = await buildInitialDeck(request, rng);
     console.log(`Initial deck built: ${currentDeck.length} cards`);
@@ -102,28 +107,28 @@ serve(async (req) => {
     let currentPower = await analyzeWithEDHCalculator(currentDeck, request.commander, request.format);
     console.log(`Initial power: ${currentPower.power} (target: ${request.powerTarget})`);
     
+    // 3. Budget enforcement: replace expensive cards if over budget
+    let totalValue = calculateDeckValue(currentDeck);
+    console.log(`Initial deck value: $${totalValue.toFixed(2)}`);
+    
+    if (totalValue > maxBudget) {
+      console.log(`Deck over budget ($${totalValue} > $${maxBudget}), replacing expensive cards...`);
+      currentDeck = await enforceBudget(currentDeck, maxBudget, request, rng);
+      totalValue = calculateDeckValue(currentDeck);
+      currentPower = await analyzeWithEDHCalculator(currentDeck, request.commander, request.format);
+      console.log(`After budget enforcement: $${totalValue.toFixed(2)}, power: ${currentPower.power}`);
+    }
+    
     let iterations = 0;
     const maxIterations = 1; // Reduced from 3 to 1 to avoid timeout
     const startedAt = Date.now();
     const maxMillis = 30000; // 30s wall clock (reduced from 40s)
     
-    // Skip Gemini coaching loop to avoid timeout - just use the initial deck
+    // Skip Gemini coaching loop to avoid timeout - just use the optimized initial deck
     console.log('Skipping Gemini coaching to avoid timeout, using optimized initial deck');
     
     // 4. Generate final analysis quickly
-    const finalAnalysis = `This ${currentPower.band} power deck (${currentPower.power.toFixed(1)}/10) was built using a deterministic high-power algorithm focusing on playability and synergy. The deck includes ${currentDeck.length} cards optimized for the ${request.themeId} archetype.`;
-    
-    // Calculate total deck value
-    const totalValue = currentDeck.reduce((sum, card) => {
-      const priceStr = card.prices?.usd;
-      const price = priceStr && priceStr !== '' ? parseFloat(priceStr) : 0;
-      if (price > 0) {
-        console.log(`Card: ${card.name} - Price: $${price}`);
-      }
-      return sum + price;
-    }, 0);
-    
-    console.log(`Final deck value: $${totalValue.toFixed(2)} from ${currentDeck.length} cards`);
+    const finalAnalysis = `This ${currentPower.band} power deck (${currentPower.power.toFixed(1)}/10) was built with a budget of $${maxBudget}. Final deck value: $${totalValue.toFixed(2)}. The deck includes ${currentDeck.length} cards optimized for the ${request.themeId} archetype with excellent playability.`;
     
     const result: CoachingResult = {
       decklist: currentDeck,
@@ -154,6 +159,150 @@ serve(async (req) => {
     });
   }
 });
+
+// Helper: Calculate total deck value
+function calculateDeckValue(deck: Card[]): number {
+  return deck.reduce((sum, card) => {
+    const priceStr = card.prices?.usd;
+    const price = priceStr && priceStr !== '' ? parseFloat(priceStr) : 0;
+    return sum + price;
+  }, 0);
+}
+
+// Helper: Get card price
+function getCardPrice(card: Card): number {
+  const priceStr = card.prices?.usd;
+  return priceStr && priceStr !== '' ? parseFloat(priceStr) : 0;
+}
+
+// Budget enforcement: replace expensive cards with cheaper alternatives
+async function enforceBudget(
+  deck: Card[],
+  maxBudget: number,
+  request: CoachRequest,
+  rng: () => number
+): Promise<Card[]> {
+  const currentValue = calculateDeckValue(deck);
+  if (currentValue <= maxBudget) return deck;
+  
+  // Fetch all available cards again for replacements
+  let { data: allCards } = await supabase
+    .from('cards')
+    .select('*')
+    .or(`color_identity.cd.{${request.commander.color_identity.join(',')}},color_identity.eq.{}`)
+    .limit(4000);
+  
+  if (!allCards) return deck;
+  
+  const availableCards: Card[] = allCards.map((card: any) => ({
+    id: card.id,
+    oracle_id: card.oracle_id,
+    name: card.name,
+    mana_cost: card.mana_cost,
+    cmc: card.cmc || 0,
+    type_line: card.type_line,
+    oracle_text: card.oracle_text,
+    colors: card.colors || [],
+    color_identity: card.color_identity || [],
+    power: card.power,
+    toughness: card.toughness,
+    keywords: card.keywords || [],
+    legalities: card.legalities || {},
+    image_uris: card.image_uris || {},
+    prices: card.prices || {},
+    rarity: card.rarity || 'common',
+    tags: card.tags || [],
+    is_legendary: card.is_legendary || false
+  }));
+  
+  // Sort deck by price descending
+  const sortedDeck = [...deck].sort((a, b) => getCardPrice(b) - getCardPrice(a));
+  let workingDeck = [...deck];
+  let workingValue = currentValue;
+  
+  // Replace expensive cards starting from most expensive
+  for (let i = 0; i < sortedDeck.length && workingValue > maxBudget; i++) {
+    const expensiveCard = sortedDeck[i];
+    const cardPrice = getCardPrice(expensiveCard);
+    
+    // Skip if card is already cheap (< $5)
+    if (cardPrice < 5) continue;
+    
+    // Find similar but cheaper alternative
+    const replacement = findCheaperAlternative(
+      expensiveCard,
+      availableCards,
+      workingDeck,
+      cardPrice * 0.5 // Target 50% of current card price
+    );
+    
+    if (replacement) {
+      const replacementPrice = getCardPrice(replacement);
+      console.log(`Replacing ${expensiveCard.name} ($${cardPrice.toFixed(2)}) with ${replacement.name} ($${replacementPrice.toFixed(2)})`);
+      
+      // Replace in deck
+      const idx = workingDeck.findIndex(c => c.name === expensiveCard.name);
+      if (idx !== -1) {
+        workingDeck[idx] = replacement;
+        workingValue = workingValue - cardPrice + replacementPrice;
+      }
+    }
+  }
+  
+  console.log(`Budget enforcement complete: $${currentValue.toFixed(2)} -> $${workingValue.toFixed(2)}`);
+  return workingDeck;
+}
+
+// Find a cheaper alternative card with similar function
+function findCheaperAlternative(
+  card: Card,
+  availableCards: Card[],
+  currentDeck: Card[],
+  maxPrice: number
+): Card | null {
+  const usedNames = new Set(currentDeck.map(c => c.name.toLowerCase()));
+  
+  // Get card's primary types
+  const isLand = card.type_line.toLowerCase().includes('land');
+  const isCreature = card.type_line.toLowerCase().includes('creature');
+  const isInstant = card.type_line.toLowerCase().includes('instant');
+  const isSorcery = card.type_line.toLowerCase().includes('sorcery');
+  const isEnchantment = card.type_line.toLowerCase().includes('enchantment');
+  const isArtifact = card.type_line.toLowerCase().includes('artifact');
+  const isPlaneswalker = card.type_line.toLowerCase().includes('planeswalker');
+  
+  // Find similar cards that are cheaper and not already in deck
+  const candidates = availableCards.filter(alt => {
+    if (usedNames.has(alt.name.toLowerCase())) return false;
+    
+    const altPrice = getCardPrice(alt);
+    if (altPrice > maxPrice) return false;
+    
+    // Must be same card type category
+    const altTypes = alt.type_line.toLowerCase();
+    if (isLand && !altTypes.includes('land')) return false;
+    if (isCreature && !altTypes.includes('creature')) return false;
+    if (isInstant && !altTypes.includes('instant')) return false;
+    if (isSorcery && !altTypes.includes('sorcery')) return false;
+    if (isEnchantment && !altTypes.includes('enchantment')) return false;
+    if (isArtifact && !altTypes.includes('artifact')) return false;
+    if (isPlaneswalker && !altTypes.includes('planeswalker')) return false;
+    
+    // Similar CMC (within 1)
+    if (Math.abs(alt.cmc - card.cmc) > 1) return false;
+    
+    return true;
+  });
+  
+  if (candidates.length === 0) return null;
+  
+  // Sort by price descending to get best bang for buck
+  candidates.sort((a, b) => getCardPrice(b) - getCardPrice(a));
+  
+  // Return highest priced valid alternative (best value under max)
+  return candidates[0];
+}
+
 
 // High-Power Deck Builder following Mega Prompt methodology
 async function buildInitialDeck(request: CoachRequest, rng: () => number): Promise<Card[]> {

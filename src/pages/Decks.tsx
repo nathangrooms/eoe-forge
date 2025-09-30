@@ -49,6 +49,7 @@ import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
 import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
+import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
 import { buildDeck, getTemplatesForFormat, getFormatRules } from '@/lib/deckbuilder';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 
@@ -82,6 +83,13 @@ export default function Decks() {
   const [showMissingDrawer, setShowMissingDrawer] = useState(false);
   const [missingDeckId, setMissingDeckId] = useState<string>('');
   const [missingDeckName, setMissingDeckName] = useState<string>('');
+  
+  // Share drawer state
+  const [showShareDrawer, setShowShareDrawer] = useState(false);
+  const [shareDeckId, setShareDeckId] = useState<string>('');
+  const [shareDeckName, setShareDeckName] = useState<string>('');
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
+  const [shareIsPublic, setShareIsPublic] = useState(false);
   
   // AI Deck Builder state
   const [aiFormat, setAiFormat] = useState('standard');
@@ -559,6 +567,20 @@ export default function Decks() {
                   setMissingDeckName(deckSummary.name);
                   setShowMissingDrawer(true);
                 }}
+                onShare={async () => {
+                  // Load deck data to check if sharing is enabled
+                  const { data } = await supabase
+                    .from('user_decks')
+                    .select('public_enabled, public_slug')
+                    .eq('id', deckSummary.id)
+                    .single();
+                  
+                  setShareDeckId(deckSummary.id);
+                  setShareDeckName(deckSummary.name);
+                  setShareSlug(data?.public_slug || null);
+                  setShareIsPublic(data?.public_enabled || false);
+                  setShowShareDrawer(true);
+                }}
                 onExport={() => {
                   // TODO: Implement export with download
                   console.log('Export deck:', deckSummary.id);
@@ -623,6 +645,17 @@ export default function Decks() {
         onClose={() => setShowMissingDrawer(false)}
         deckId={missingDeckId}
         deckName={missingDeckName}
+      />
+      
+      {/* Share Drawer */}
+      <ShareDrawer
+        open={showShareDrawer}
+        onOpenChange={setShowShareDrawer}
+        deckId={shareDeckId}
+        deckName={shareDeckName}
+        currentSlug={shareSlug}
+        isPublic={shareIsPublic}
+        onShareToggle={loadDeckSummaries}
       />
     </StandardPageLayout>
   );

@@ -864,18 +864,39 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                            oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.',
                            image_uris: { normal: 'https://cards.scryfall.io/normal/front/e/f/ef1b62ff-dbb3-4500-9d64-a3047ce193ec.jpg' }
                          }
-                       ].map((popularCommander) => (
-                         <div
-                           key={popularCommander.name}
-                           className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
-                           onClick={() => {
-                             const commanderWithId = {
-                               ...popularCommander,
-                               id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-                             };
-                             setCommander(commanderWithId);
-                             analyzeCommander(commanderWithId);
-                           }}
+                        ].map((popularCommander) => (
+                          <div
+                            key={popularCommander.name}
+                            className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
+                            onClick={async () => {
+                              // Fetch the actual card from Scryfall to get the real ID
+                              try {
+                                const response = await fetch(
+                                  `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(popularCommander.name)}`
+                                );
+                                if (response.ok) {
+                                  const card = await response.json();
+                                  setCommander(card);
+                                  analyzeCommander(card);
+                                } else {
+                                  // Fallback if fetch fails
+                                  const commanderWithId = {
+                                    ...popularCommander,
+                                    id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+                                  };
+                                  setCommander(commanderWithId);
+                                  analyzeCommander(commanderWithId);
+                                }
+                              } catch (error) {
+                                console.error('Error fetching commander:', error);
+                                const commanderWithId = {
+                                  ...popularCommander,
+                                  id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+                                };
+                                setCommander(commanderWithId);
+                                analyzeCommander(commanderWithId);
+                              }
+                            }}
                          >
                            <img 
                              src={popularCommander.image_uris?.normal || '/placeholder.svg'} 

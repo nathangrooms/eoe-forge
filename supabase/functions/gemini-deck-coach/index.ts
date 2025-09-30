@@ -94,7 +94,14 @@ serve(async (req) => {
     
     // Original deck building logic
     const request: CoachRequest = body;
-    console.log('Building deck with Gemini coaching for:', request.commander.name);
+    if (!request?.commander?.name) {
+      console.warn('Deck build request missing commander; returning 400');
+      return new Response(JSON.stringify({ error: 'Missing commander in request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log('Building deck with Gemini coaching for:', request.commander?.name || 'Unknown');
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {

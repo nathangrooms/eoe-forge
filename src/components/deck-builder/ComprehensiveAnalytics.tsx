@@ -1,17 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Brain, Zap, Target, Shield, Sparkles, TrendingUp, 
-  Mountain, Eye, AlertTriangle, Info, Lightbulb, RefreshCw, Star
+  Mountain, Eye, AlertTriangle, Info
 } from 'lucide-react';
 import { EDHPowerCalculator, EDHPowerScore } from '@/lib/deckbuilder/score/edh-power-calculator';
 import { Card as DeckCard } from '@/stores/deckStore';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { BrainAnalysis } from './BrainAnalysis';
 
 interface ComprehensiveAnalyticsProps {
   deck: DeckCard[];
@@ -33,10 +31,6 @@ const SUBSCORE_CONFIG: Record<string, { icon: any; color: string; desc: string }
 };
 
 export function ComprehensiveAnalytics({ deck, format, commander, deckId }: ComprehensiveAnalyticsProps) {
-  const [aiInsights, setAiInsights] = useState<Record<string, string>>({});
-  const [loadingInsight, setLoadingInsight] = useState(false);
-  const [activeInsightType, setActiveInsightType] = useState<string | null>(null);
-  const [archetype, setArchetype] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
   const powerScore = useMemo<EDHPowerScore | null>(() => {
@@ -79,86 +73,6 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
     return EDHPowerCalculator.calculatePower(convertedDeck, format, 42, convertedCommander);
   }, [deck, format, commander]);
 
-  // Load saved archetype on mount
-  useEffect(() => {
-    const loadArchetype = async () => {
-      if (!deckId) return;
-      
-      try {
-        const { data } = await supabase
-          .from('user_decks')
-          .select('archetype')
-          .eq('id', deckId)
-          .maybeSingle();
-        
-        if (data?.archetype) {
-          setArchetype(data.archetype as string);
-          setAiInsights(prev => ({ ...prev, archetype: data.archetype as string }));
-        }
-      } catch (err) {
-        console.error('Failed to load archetype:', err);
-      }
-    };
-    
-    loadArchetype();
-  }, [deckId]);
-
-  const getAIInsight = async (analysisType: 'power-breakdown' | 'mana-analysis' | 'archetype' | 'recommendations') => {
-    if (!powerScore) return;
-    
-    // Return cached insight if available (except recommendations which should always be fresh)
-    if (aiInsights[analysisType] && analysisType !== 'recommendations') {
-      setActiveInsightType(analysisType);
-      return;
-    }
-    
-    setLoadingInsight(true);
-    setActiveInsightType(analysisType);
-
-    try {
-      const deckData = {
-        totalCards: deck.length,
-        commander: commander ? {
-          name: commander.name,
-          colors: commander.colors || []
-        } : undefined,
-        lands: deck.filter(c => c.type_line?.includes('Land')).length,
-        creatures: deck.filter(c => c.type_line?.includes('Creature')).length,
-        instants: deck.filter(c => c.type_line?.includes('Instant')).length,
-        sorceries: deck.filter(c => c.type_line?.includes('Sorcery')).length,
-        artifacts: deck.filter(c => c.type_line?.includes('Artifact')).length,
-        enchantments: deck.filter(c => c.type_line?.includes('Enchantment')).length,
-        avgCMC: powerScore.playability.avg_cmc,
-        colors: commander?.colors || [],
-        topCards: deck.slice(0, 15).map(c => c.name),
-      };
-
-      const { data, error } = await supabase.functions.invoke('gemini-deck-coach', {
-        body: { powerData: powerScore, deckData, analysisType }
-      });
-
-      if (error) throw error;
-      
-      setAiInsights(prev => ({ ...prev, [analysisType]: data.insight }));
-      
-      // Save archetype to database
-      if (analysisType === 'archetype' && deckId && data.insight) {
-        const archetypeLabel = data.insight.split('\n')[0]; // First line is usually the label
-        setArchetype(archetypeLabel);
-        
-        await supabase
-          .from('user_decks')
-          .update({ archetype: archetypeLabel } as any)
-          .eq('id', deckId);
-      }
-    } catch (err) {
-      console.error('Failed to get AI insight:', err);
-      toast.error('Failed to get AI analysis');
-    } finally {
-      setLoadingInsight(false);
-    }
-  };
-
   if (!powerScore) {
     return (
       <Card>
@@ -180,36 +94,14 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="power">Power</TabsTrigger>
         <TabsTrigger value="mana">Mana</TabsTrigger>
-        <TabsTrigger value="strategy">Strategy</TabsTrigger>
+        <TabsTrigger value="ai-analysis">
+          <Brain className="h-4 w-4 mr-2" />
+          AI Analysis
+        </TabsTrigger>
       </TabsList>
 
       {/* Overview Tab */}
       <TabsContent value="overview" className="space-y-4">
-        {/* Archetype Badge */}
-        {archetype && (
-          <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <div className="font-semibold">Archetype</div>
-                    <div className="text-sm text-muted-foreground">{archetype}</div>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => getAIInsight('archetype')}
-                  disabled={loadingInsight}
-                  variant="ghost"
-                  size="sm"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Main Power Score */}
         <Card className="border-l-4" style={{ borderLeftColor: `hsl(var(--primary))` }}>
           <CardHeader>
@@ -261,35 +153,6 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
             </CardContent>
           </Card>
         </div>
-
-        {/* Get Recommendations Button */}
-        <Button
-          onClick={() => getAIInsight('recommendations')}
-          disabled={loadingInsight}
-          variant="default"
-          size="lg"
-          className="w-full"
-        >
-          {loadingInsight && activeInsightType === 'recommendations' ? (
-            <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Generating Recommendations...</>
-          ) : (
-            <><Star className="h-4 w-4 mr-2" /> Get Card Recommendations</>
-          )}
-        </Button>
-
-        {aiInsights.recommendations && (
-          <Card className="bg-primary/5 border-primary/20">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Star className="h-5 w-5 text-primary" />
-                AI Recommendations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm whitespace-pre-wrap leading-relaxed">{aiInsights.recommendations}</div>
-            </CardContent>
-          </Card>
-        )}
       </TabsContent>
 
       {/* Power Tab */}
@@ -306,31 +169,6 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
           </CardHeader>
           <CardContent>
             <Progress value={powerScore.power * 10} className="h-3 mb-4" />
-            
-            <Button
-              onClick={() => getAIInsight('power-breakdown')}
-              disabled={loadingInsight}
-              variant="outline"
-              size="sm"
-              className="w-full mb-4"
-            >
-              {loadingInsight && activeInsightType === 'power-breakdown' ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</>
-              ) : (
-                <><Brain className="h-4 w-4 mr-2" /> Get Detailed Analysis</>
-              )}
-            </Button>
-
-            {aiInsights['power-breakdown'] && (
-              <Card className="mb-4 bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-2">
-                    <Brain className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{aiInsights['power-breakdown']}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </CardContent>
         </Card>
 
@@ -425,7 +263,7 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-muted/50 rounded">
                 <div className="text-2xl font-bold">{powerScore.playability.keepable7_pct.toFixed(0)}%</div>
                 <div className="text-xs text-muted-foreground">Keepable Hands</div>
@@ -443,77 +281,19 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
                 <div className="text-xs text-muted-foreground">Untapped Lands</div>
               </div>
             </div>
-
-            <Button
-              onClick={() => getAIInsight('mana-analysis')}
-              disabled={loadingInsight}
-              variant="outline"
-              size="sm"
-              className="w-full"
-            >
-              {loadingInsight && activeInsightType === 'mana-analysis' ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</>
-              ) : (
-                <><Mountain className="h-4 w-4 mr-2" /> Get Detailed Mana Analysis</>
-              )}
-            </Button>
-
-            {aiInsights['mana-analysis'] && (
-              <Card className="mt-4 bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-2">
-                    <Mountain className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{aiInsights['mana-analysis']}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </CardContent>
         </Card>
       </TabsContent>
 
-      {/* Strategy Tab */}
-      <TabsContent value="strategy" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Deck Strategy & Archetype
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {archetype && (
-              <div className="mb-4 p-3 bg-primary/10 rounded-lg">
-                <div className="font-semibold text-lg mb-1">{archetype}</div>
-              </div>
-            )}
-
-            <Button
-              onClick={() => getAIInsight('archetype')}
-              disabled={loadingInsight}
-              variant="outline"
-              size="sm"
-              className="w-full"
-            >
-              {loadingInsight && activeInsightType === 'archetype' ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</>
-              ) : (
-                <><Lightbulb className="h-4 w-4 mr-2" /> {archetype ? 'Refresh' : 'Identify'} Strategy</>
-              )}
-            </Button>
-
-            {aiInsights['archetype'] && (
-              <Card className="mt-4 bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-2">
-                    <Target className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{aiInsights['archetype']}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </CardContent>
-        </Card>
+      {/* AI Analysis Tab */}
+      <TabsContent value="ai-analysis" className="space-y-4">
+        <BrainAnalysis
+          deck={deck}
+          commander={commander}
+          powerScore={powerScore}
+          deckId={deckId}
+          format={format}
+        />
       </TabsContent>
     </Tabs>
   );

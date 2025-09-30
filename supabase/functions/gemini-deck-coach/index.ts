@@ -177,7 +177,7 @@ serve(async (req) => {
 
 // High-Power Deck Builder following Mega Prompt methodology
 async function buildInitialDeck(request: CoachRequest, rng: () => number): Promise<Card[]> {
-  console.log(`Building high-power deck for ${request.commander.name}, target power: ${request.powerTarget}`);
+  console.log(`Building playability-focused deck for ${request.commander.name}, target power: ${request.powerTarget}`);
   
   // Query cards from database with proper color identity filtering
   let { data: allCards, error: fetchError } = await supabase
@@ -240,12 +240,20 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
 
   const commanderColors = new Set((request.commander.color_identity || []).map((c) => c.toUpperCase()));
   const targetPower = request.powerTarget || 7;
-  const isHighPower = targetPower >= 7;
   const isCEDH = targetPower >= 9;
+  
+  // Playability targets based on power band
+  const playabilityTargets = {
+    keepable7: isCEDH ? 80 : 70,
+    t1ColorHit: isCEDH ? 90 : 85,
+    t2TwoColorHit: isCEDH ? 80 : 70,
+    untappedRatio: isCEDH ? 75 : 65, // 25% vs 35% tap tolerance
+    avgCMC: isCEDH ? 2.5 : 3.2
+  };
   
   // Determine archetype from commander
   const commanderName = request.commander.name.toLowerCase();
-  let archetype = 'value'; // default
+  let archetype = 'value';
   
   if (commanderName.includes('ezuri, claw of progress')) archetype = 'counters';
   else if (commanderName.includes('najeela')) archetype = 'combo';
@@ -255,35 +263,84 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
 
   console.log(`Detected archetype: ${archetype} for power target: ${targetPower}`);
 
-  // Power band quotas (High 7-8 vs cEDH 9-10)
+  // Power band quotas (playability-focused)
   const quotas = {
     lands: isCEDH ? 30 : 34,
-    fastMana: isCEDH ? 15 : 10,
+    fastMana: isCEDH ? 14 : 10,
     interaction: isCEDH ? 14 : 10,
     tutors: isCEDH ? 8 : 5,
-    drawEngines: isCEDH ? 12 : 9,
+    drawEngines: isCEDH ? 10 : 8,
     wincons: isCEDH ? 3 : 2,
     protection: isCEDH ? 5 : 3
   };
 
   const deck: Card[] = [];
   const byName = new Map(cards.map(c => [c.name.toLowerCase(), c]));
+  const used = new Set<string>();
 
   // Helper to add card by name if it exists
   const addByName = (name: string): boolean => {
     const card = byName.get(name.toLowerCase());
-    if (card && !deck.some(c => c.id === card.id)) {
+    if (card && !used.has(card.id)) {
       deck.push(card);
+      used.add(card.id);
       return true;
     }
     return false;
   };
 
-  // 1. FAST MANA PACKAGE (highest priority)
+  // 1. MANABASE FIRST (critical for playability)
+  console.log('Building manabase...');
+  
+  // Basics - ensure we have enough color sources
+  const basicCounts = {
+    'Forest': Math.floor(quotas.lands * 0.4),
+    'Island': Math.floor(quotas.lands * 0.3)
+  };
+  
+  for (const [basic, count] of Object.entries(basicCounts)) {
+    if (commanderColors.has(basic[0].toUpperCase())) {
+      for (let i = 0; i < count; i++) {
+        addByName(basic);
+      }
+    }
+  }
+
+  // Premium untapped duals (priority for playability)
+  const untappedDuals = [
+    'Breeding Pool', 'Tropical Island', 'Misty Rainforest', 'Polluted Delta',
+    'Flooded Strand', 'Scalding Tarn', 'Hinterland Harbor', 'Yavimaya Coast',
+    'Exotic Orchard', 'Command Tower', 'City of Brass', 'Mana Confluence',
+    'Cavern of Souls', 'Ancient Ziggurat', 'Reflecting Pool'
+  ];
+
+  for (const name of untappedDuals) {
+    if (deck.filter(c => c.type_line.toLowerCase().includes('land')).length >= quotas.lands) break;
+    addByName(name);
+  }
+
+  // Fill remaining land slots with color-fixing lands
+  const remainingLandSlots = quotas.lands - deck.filter(c => c.type_line.toLowerCase().includes('land')).length;
+  if (remainingLandSlots > 0) {
+    const colorFixingLands = [
+      'Temple of Mystery', 'Simic Growth Chamber', 'Thornwood Falls',
+      'Evolving Wilds', 'Terramorphic Expanse', 'Fabled Passage'
+    ];
+    
+    for (const name of colorFixingLands) {
+      if (deck.filter(c => c.type_line.toLowerCase().includes('land')).length >= quotas.lands) break;
+      addByName(name);
+    }
+  }
+
+  console.log(`Added ${deck.filter(c => c.type_line.toLowerCase().includes('land')).length} lands`);
+
+  // 2. FAST MANA PACKAGE (critical for early game)
+  console.log('Adding fast mana...');
   const fastManaStaples = [
     'Sol Ring', 'Mana Crypt', 'Mana Vault', 'Chrome Mox', 'Mox Diamond', 
     'Jeweled Lotus', 'Lotus Petal', 'Arcane Signet', 'Simic Signet',
-    'Fellwar Stone', 'Mox Opal', 'Carpet of Flowers'
+    'Fellwar Stone', 'Talisman of Curiosity', 'Mox Opal'
   ];
   
   const fastManaGreen = [
@@ -291,45 +348,31 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     'Deathrite Shaman', 'Elves of Deep Shadow', 'Noble Hierarch'
   ];
 
-  // Add fast mana
   let fastManaAdded = 0;
   for (const name of [...fastManaStaples, ...fastManaGreen]) {
     if (fastManaAdded >= quotas.fastMana) break;
     if (addByName(name)) fastManaAdded++;
   }
 
-  // 2. TUTORS PACKAGE
-  const tutorStaples = [
-    'Demonic Tutor', 'Vampiric Tutor', 'Mystical Tutor', 'Worldly Tutor',
-    'Enlightened Tutor', 'Sylvan Tutor', 'Green Sun\'s Zenith', 'Chord of Calling',
-    'Survival of the Fittest', 'Natural Order'
-  ];
-
-  let tutorsAdded = 0;
-  for (const name of tutorStaples) {
-    if (tutorsAdded >= quotas.tutors) break;
-    if (addByName(name)) tutorsAdded++;
-  }
-
-  // 3. INTERACTION PACKAGE
-  const interactionStaples = [
-    'Force of Will', 'Force of Negation', 'Fierce Guardianship', 'Deflecting Swat',
-    'Counterspell', 'Swan Song', 'Dispel', 'Negate', 'Pact of Negation',
-    'Beast Within', 'Nature\'s Claim', 'Krosan Grip', 'Abrupt Decay',
-    'Pongify', 'Rapid Hybridization', 'Reality Shift', 'Swords to Plowshares'
+  // 3. CHEAP INTERACTION (MV<=2 for playability)
+  console.log('Adding interaction...');
+  const cheapInteraction = [
+    'Swan Song', 'Dispel', 'Spell Pierce', 'Negate', 'Counterspell',
+    'Pongify', 'Rapid Hybridization', 'Nature\'s Claim', 'Mental Misstep',
+    'Force of Will', 'Force of Negation', 'Fierce Guardianship', 'Deflecting Swat'
   ];
 
   let interactionAdded = 0;
-  for (const name of interactionStaples) {
+  for (const name of cheapInteraction) {
     if (interactionAdded >= quotas.interaction) break;
     if (addByName(name)) interactionAdded++;
   }
 
-  // 4. DRAW ENGINES
+  // 4. DRAW ENGINES (card advantage)
+  console.log('Adding draw engines...');
   const drawStaples = [
     'Rhystic Study', 'Mystic Remora', 'Sylvan Library', 'Guardian Project',
-    'Beast Whisperer', 'Glimpse of Nature', 'The Great Henge', 'Rishkar\'s Expertise',
-    'Blue Sun\'s Zenith', 'Pull from Tomorrow', 'Fact or Fiction'
+    'Beast Whisperer', 'The Great Henge', 'Glimpse of Nature'
   ];
 
   let drawAdded = 0;
@@ -338,129 +381,333 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     if (addByName(name)) drawAdded++;
   }
 
-  // 5. ARCHETYPE-SPECIFIC PACKAGES
+  // 5. TUTORS (consistency)
+  console.log('Adding tutors...');
+  const tutorStaples = [
+    'Demonic Tutor', 'Vampiric Tutor', 'Mystical Tutor', 'Worldly Tutor',
+    'Green Sun\'s Zenith', 'Chord of Calling', 'Survival of the Fittest', 'Natural Order'
+  ];
+
+  let tutorsAdded = 0;
+  for (const name of tutorStaples) {
+    if (tutorsAdded >= quotas.tutors) break;
+    if (addByName(name)) tutorsAdded++;
+  }
+
+  // 6. ARCHETYPE-SPECIFIC SYNERGY
+  console.log(`Adding ${archetype} synergy...`);
   if (archetype === 'counters') {
     const countersPackage = [
       'Hardened Scales', 'The Ozolith', 'Simic Ascendancy', 'Doubling Season',
-      'Parallel Lives', 'Champion of Lambholt', 'Sage of Hours', 'Ezuri\'s Predation',
-      'Coiling Oracle', 'Llanowar Reborn', 'Gyre Sage', 'Managorger Hydra'
+      'Champion of Lambholt', 'Sage of Hours', 'Coiling Oracle', 'Gyre Sage'
     ];
     for (const name of countersPackage) {
-      if (addByName(name)) console.log(`Added counter synergy: ${name}`);
+      if (deck.length >= 90) break; // Leave room for win conditions
+      addByName(name);
     }
   }
 
-  // 6. WIN CONDITIONS
-  const winconPackages = {
-    combo: ['Thassa\'s Oracle', 'Demonic Consultation', 'Tainted Pact'],
-    value: ['Craterhoof Behemoth', 'Overwhelming Stampede', 'Triumph of the Hordes']
-  };
-
-  const wincons = isCEDH ? winconPackages.combo : winconPackages.value;
-  let winconsAdded = 0;
-  for (const name of wincons) {
-    if (winconsAdded >= quotas.wincons) break;
-    if (addByName(name)) winconsAdded++;
+  // 7. WIN CONDITIONS
+  console.log('Adding win conditions...');
+  let winConditions: string[] = [];
+  
+  if (isCEDH) {
+    // Compact combo lines for cEDH
+    winConditions = ['Thassa\'s Oracle', 'Demonic Consultation', 'Tainted Pact'];
+  } else {
+    // Value-based wins for high power
+    winConditions = ['Craterhoof Behemoth', 'Overwhelming Stampede', 'Triumph of the Hordes'];
   }
 
-  // 7. PROTECTION
-  const protectionStaples = [
-    'Heroic Intervention', 'Veil of Summer', 'Autumn\'s Veil', 'Teferi\'s Protection',
-    'Boros Charm', 'Snakeskin Veil'
-  ];
-
-  let protectionAdded = 0;
-  for (const name of protectionStaples) {
-    if (protectionAdded >= quotas.protection) break;
-    if (addByName(name)) protectionAdded++;
-  }
-
-  // 8. OPTIMIZED MANABASE
-  const landCount = 99 - deck.length;
-  const landsByPriority = [];
-
-  // Basics first
-  if (commanderColors.has('G')) {
-    for (let i = 0; i < Math.floor(landCount * 0.4); i++) {
-      if (addByName('Forest')) landsByPriority.push('Forest');
-    }
-  }
-  if (commanderColors.has('U')) {
-    for (let i = 0; i < Math.floor(landCount * 0.3); i++) {
-      if (addByName('Island')) landsByPriority.push('Island');
-    }
-  }
-
-  // Premium duals
-  const premiumDuals = [
-    'Breeding Pool', 'Misty Rainforest', 'Polluted Delta', 'Flooded Strand',
-    'Scalding Tarn', 'Hinterland Harbor', 'Yavimaya Coast', 'Exotic Orchard',
-    'Command Tower', 'City of Brass', 'Mana Confluence'
-  ];
-
-  for (const name of premiumDuals) {
-    if (deck.filter(c => c.type_line.toLowerCase().includes('land')).length >= quotas.lands) break;
+  for (const name of winConditions) {
+    if (deck.length >= 95) break; // Leave room for protection
     addByName(name);
   }
 
-  // Fill remaining deck slots with best available cards
+  // 8. PROTECTION
+  console.log('Adding protection...');
+  const protectionStaples = [
+    'Heroic Intervention', 'Veil of Summer', 'Autumn\'s Veil', 'Snakeskin Veil'
+  ];
+
+  for (const name of protectionStaples) {
+    if (deck.length >= 99) break;
+    addByName(name);
+  }
+
+  // 9. FILL REMAINING SLOTS WITH BEST SYNERGISTIC CARDS
   const remainingSlots = 99 - deck.length;
-  const availableCards = cards
-    .filter(c => !deck.some(d => d.id === c.id))
-    .filter(c => !c.type_line.toLowerCase().includes('land'))
-    .sort((a, b) => {
-      const aScore = calculateCardScore(a, archetype, targetPower);
-      const bScore = calculateCardScore(b, archetype, targetPower);
-      return bScore - aScore;
-    });
+  if (remainingSlots > 0) {
+    console.log(`Filling ${remainingSlots} remaining slots...`);
+    
+    const availableCards = cards
+      .filter(c => !used.has(c.id))
+      .sort((a, b) => {
+        const aScore = calculatePlayabilityScore(a, archetype, targetPower, playabilityTargets);
+        const bScore = calculatePlayabilityScore(b, archetype, targetPower, playabilityTargets);
+        return bScore - aScore;
+      });
 
-  deck.push(...availableCards.slice(0, remainingSlots));
+    deck.push(...availableCards.slice(0, remainingSlots));
+  }
 
-  console.log(`Built deck with ${deck.length} cards, targeting power ${targetPower}`);
-  console.log(`Quotas met - Fast mana: ${fastManaAdded}/${quotas.fastMana}, Interaction: ${interactionAdded}/${quotas.interaction}, Tutors: ${tutorsAdded}/${quotas.tutors}`);
+  const finalLandCount = deck.filter(c => c.type_line.toLowerCase().includes('land')).length;
+  // Simulate playability and adjust if needed
+  const playabilityResult = simulatePlayability(deck, playabilityTargets);
+  console.log(`Playability check: Keepable7=${playabilityResult.keepable7_pct}%, T1 hit=${playabilityResult.t1_color_hit_pct}%, Untapped=${playabilityResult.untapped_land_ratio}%`);
   
-  return deck.slice(0, 99);
+  // Apply tuning if playability is poor
+  let tunedDeck = deck;
+  if (playabilityResult.keepable7_pct < playabilityTargets.keepable7 || 
+      playabilityResult.t1_color_hit_pct < playabilityTargets.t1ColorHit ||
+      playabilityResult.untapped_land_ratio < playabilityTargets.untappedRatio) {
+    
+    console.log('Applying playability tuning...');
+    tunedDeck = await tuneForPlayability(deck, playabilityTargets, playabilityResult, request);
+  }
+
+  const finalLandCount = tunedDeck.filter(c => c.type_line.toLowerCase().includes('land')).length;
+  console.log(`Built deck with ${tunedDeck.length} cards (${finalLandCount} lands), targeting power ${targetPower}`);
+  console.log(`Quotas: Fast mana: ${fastManaAdded}/${quotas.fastMana}, Interaction: ${interactionAdded}/${quotas.interaction}, Tutors: ${tutorsAdded}/${quotas.tutors}`);
+  
+  return tunedDeck.slice(0, 99);
 }
 
-// Card scoring for high-power deck building
-function calculateCardScore(card: Card, archetype: string, targetPower: number): number {
+// Playability-focused card scoring
+function calculatePlayabilityScore(card: Card, archetype: string, targetPower: number, playabilityTargets: any): number {
   const tags = new Set(card.tags || []);
   const cmc = card.cmc;
   const typeLine = card.type_line.toLowerCase();
   const name = card.name.toLowerCase();
+  const oracleText = (card.oracle_text || '').toLowerCase();
   
   let score = 0;
 
-  // CMC efficiency (critical for high power)
-  if (cmc <= 1) score += 10;
-  else if (cmc === 2) score += 7;
+  // PLAYABILITY IMPACT (45% weight)
+  // CMC efficiency for hand playability
+  if (cmc <= 1) score += 12;
+  else if (cmc === 2) score += 8;
   else if (cmc === 3) score += 4;
   else if (cmc === 4) score += 1;
-  else if (cmc >= 6) score -= 5;
+  else if (cmc >= 6) score -= 8; // Heavy penalty for expensive cards
 
-  // Role bonuses
-  if (tags.has('ramp') || tags.has('fast-mana')) score += 8;
-  if (tags.has('tutor-broad') || tags.has('tutor-narrow')) score += 7;
-  if (tags.has('counterspell') || tags.has('removal-spot')) score += 6;
-  if (tags.has('draw') || tags.has('card-advantage')) score += 5;
-  if (tags.has('protection') || tags.has('recursion')) score += 4;
+  // Mana fixing and color access
+  if (typeLine.includes('land') && !oracleText.includes('enters the battlefield tapped')) {
+    score += 8; // Untapped lands crucial for playability
+  }
+  if (tags.has('ramp') || tags.has('fast-mana') || cmc <= 2 && typeLine.includes('artifact')) {
+    score += 10; // Early mana acceleration
+  }
 
-  // Archetype synergy
+  // EFFICIENCY (25% weight)
+  // Role-based efficiency
+  if (tags.has('tutor-broad')) score += 8;
+  if (tags.has('counterspell') && cmc <= 2) score += 7;
+  if (tags.has('removal-spot') && cmc <= 2) score += 6;
+  if (tags.has('draw') || tags.has('card-advantage')) score += 6;
+  if (tags.has('protection') && cmc <= 2) score += 5;
+
+  // Free spells and instant speed
+  if (oracleText.includes('you may cast') || oracleText.includes('without paying')) score += 6;
+  if (typeLine.includes('instant') || oracleText.includes('flash')) score += 2;
+
+  // SYNERGY (15% weight)
   if (archetype === 'counters') {
     if (tags.has('counters') || tags.has('proliferate')) score += 6;
     if (name.includes('scale') || name.includes('ozolith') || name.includes('ascendancy')) score += 8;
     if (typeLine.includes('creature') && card.power && parseInt(card.power) <= 2) score += 4;
+    if (oracleText.includes('+1/+1 counter') || oracleText.includes('proliferate')) score += 3;
+  }
+  
+  if (archetype === 'artifacts') {
+    if (typeLine.includes('artifact') || oracleText.includes('artifact')) score += 4;
+    if (tags.has('artifacts-matter')) score += 6;
   }
 
-  // Power-specific adjustments
+  // STAPLE WEIGHT (10% weight)
+  const staples = ['sol ring', 'arcane signet', 'counterspell', 'swords to plowshares', 
+                   'nature\'s claim', 'rhystic study', 'mystic remora'];
+  if (staples.some(staple => name.includes(staple))) score += 4;
+
+  // POWER-SPECIFIC ADJUSTMENTS (5% weight)
   if (targetPower >= 9) {
     // cEDH preferences
-    if (tags.has('free-spell') || tags.has('fast-mana')) score += 5;
-    if (name.includes('force of') || name.includes('pact of')) score += 4;
-    if (name.includes('oracle') || name.includes('consultation')) score += 6;
+    if (tags.has('free-spell') || name.includes('force of') || name.includes('pact of')) score += 5;
+    if (name.includes('oracle') || name.includes('consultation') || name.includes('tainted pact')) score += 6;
+    if (tags.has('fast-mana') && cmc === 0) score += 4;
+    
+    // Punish slow cards more harshly in cEDH
+    if (cmc >= 5 && !tags.has('wincon')) score -= 5;
+  } else {
+    // High power (7-8) allows more flexibility
+    if (cmc === 5 && (tags.has('wincon') || tags.has('draw'))) score += 2;
   }
 
-  return score;
+  // AVOID TRAP CARDS
+  if (oracleText.includes('enters the battlefield tapped') && typeLine.includes('land')) {
+    score -= 4; // Taplands hurt playability
+  }
+  if (cmc >= 7 && !tags.has('wincon') && !name.includes('craterhoof')) score -= 10;
+
+  return Math.max(0, score);
+}
+
+// Playability simulation functions
+function simulatePlayability(deck: Card[], targets: any): any {
+  const lands = deck.filter(c => c.type_line.toLowerCase().includes('land'));
+  const nonLands = deck.filter(c => !c.type_line.toLowerCase().includes('land'));
+  
+  // Calculate basic metrics
+  const totalCmc = nonLands.reduce((sum, card) => sum + card.cmc, 0);
+  const avgCmc = nonLands.length > 0 ? totalCmc / nonLands.length : 0;
+  
+  // Count untapped lands
+  const untappedLands = lands.filter(land => {
+    const text = (land.oracle_text || '').toLowerCase();
+    return !text.includes('enters the battlefield tapped') && 
+           !land.name.toLowerCase().includes('guildgate');
+  });
+  const untappedRatio = lands.length > 0 ? (untappedLands.length / lands.length) * 100 : 0;
+  
+  // Count rocks and dorks for ramp
+  const rocksAndDorks = deck.filter(card => {
+    const text = (card.oracle_text || '').toLowerCase();
+    const typeLine = card.type_line.toLowerCase();
+    return (typeLine.includes('artifact') || typeLine.includes('creature')) && 
+           text.includes('add') && text.includes('mana') && card.cmc <= 2;
+  });
+  
+  // Simulate keepable hands (simplified)
+  let keepableHands = 0;
+  const iterations = 1000;
+  
+  for (let i = 0; i < iterations; i++) {
+    const hand = simulateHand(deck);
+    if (isKeepableHand(hand)) {
+      keepableHands++;
+    }
+  }
+  
+  const keepable7Pct = (keepableHands / iterations) * 100;
+  
+  // Estimate color hits (simplified based on source count)
+  const colorSources = calculateColorSources(deck);
+  const t1ColorHit = Math.min(95, 65 + (colorSources.total * 2));
+  const t2TwoColorHit = Math.min(90, 50 + (colorSources.total * 1.5));
+  
+  return {
+    keepable7_pct: keepable7Pct,
+    t1_color_hit_pct: t1ColorHit,
+    t2_two_colors_hit_pct: t2TwoColorHit,
+    untapped_land_ratio: untappedRatio,
+    avg_cmc: avgCmc,
+    rocks_dorks_count: rocksAndDorks.length
+  };
+}
+
+function simulateHand(deck: Card[]): Card[] {
+  const shuffled = [...deck].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 7);
+}
+
+function isKeepableHand(hand: Card[]): boolean {
+  const lands = hand.filter(c => c.type_line.toLowerCase().includes('land'));
+  const rocks = hand.filter(c => {
+    const text = (c.oracle_text || '').toLowerCase();
+    const typeLine = c.type_line.toLowerCase();
+    return (typeLine.includes('artifact') || typeLine.includes('creature')) && 
+           text.includes('add') && text.includes('mana') && c.cmc <= 2;
+  });
+  const spells = hand.filter(c => !c.type_line.toLowerCase().includes('land') && c.cmc <= 3);
+  
+  // Keep if: 2+ lands OR (1 land + rock) AND some early plays
+  return (lands.length >= 2 || (lands.length >= 1 && rocks.length > 0)) && 
+         spells.length >= 2;
+}
+
+function calculateColorSources(deck: Card[]): any {
+  const lands = deck.filter(c => c.type_line.toLowerCase().includes('land'));
+  let totalSources = 0;
+  
+  lands.forEach(land => {
+    const name = land.name.toLowerCase();
+    const text = (land.oracle_text || '').toLowerCase();
+    
+    // Count basic lands and dual lands as 1 source each
+    if (name.includes('forest') || name.includes('island') || 
+        text.includes('add') && (text.includes('{g}') || text.includes('{u}'))) {
+      totalSources++;
+    }
+  });
+  
+  return { total: totalSources };
+}
+
+async function tuneForPlayability(deck: Card[], targets: any, current: any, request: CoachRequest): Promise<Card[]> {
+  let tunedDeck = [...deck];
+  const maxIterations = 3;
+  
+  for (let iter = 0; iter < maxIterations; iter++) {
+    console.log(`Tuning iteration ${iter + 1}...`);
+    
+    // Fix keepable hand issues
+    if (current.keepable7_pct < targets.keepable7) {
+      console.log('Fixing keepable hand rate...');
+      
+      // Add more 2-CMC rocks if we have room
+      const rockNames = ['Arcane Signet', 'Fellwar Stone', 'Talisman of Curiosity', 'Mind Stone'];
+      for (const rockName of rockNames) {
+        if (tunedDeck.length >= 99) break;
+        const rock = await findCardByName(rockName, request.commander.color_identity);
+        if (rock && !tunedDeck.some(c => c.id === rock.id)) {
+          tunedDeck.push(rock);
+          // Remove highest CMC non-synergy card
+          const highCmcIndex = tunedDeck.findIndex(c => c.cmc >= 6 && 
+            !c.type_line.toLowerCase().includes('land') &&
+            !c.tags.includes('wincon'));
+          if (highCmcIndex !== -1) {
+            tunedDeck.splice(highCmcIndex, 1);
+          }
+          break;
+        }
+      }
+    }
+    
+    // Fix untapped land ratio
+    if (current.untapped_land_ratio < targets.untappedRatio) {
+      console.log('Improving untapped land ratio...');
+      
+      // Replace taplands with untapped alternatives
+      const taplandIndex = tunedDeck.findIndex(c => 
+        c.type_line.toLowerCase().includes('land') &&
+        (c.oracle_text || '').toLowerCase().includes('enters the battlefield tapped')
+      );
+      
+      if (taplandIndex !== -1) {
+        const untappedLandNames = ['Exotic Orchard', 'City of Brass', 'Mana Confluence', 'Reflecting Pool'];
+        for (const landName of untappedLandNames) {
+          const land = await findCardByName(landName, request.commander.color_identity);
+          if (land && !tunedDeck.some(c => c.id === land.id)) {
+            tunedDeck[taplandIndex] = land;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Recalculate playability
+    current = simulatePlayability(tunedDeck, targets);
+    console.log(`After tuning ${iter + 1}: Keepable7=${current.keepable7_pct}%, Untapped=${current.untapped_land_ratio}%`);
+    
+    // Break early if targets are met
+    if (current.keepable7_pct >= targets.keepable7 && 
+        current.untapped_land_ratio >= targets.untappedRatio) {
+      console.log('Playability targets achieved!');
+      break;
+    }
+  }
+  
+  return tunedDeck;
 }
 
 function selectCardsByQuota(cards: Card[], count: number, rng: () => number): Card[] {

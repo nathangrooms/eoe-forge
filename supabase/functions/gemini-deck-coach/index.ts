@@ -171,14 +171,42 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
   const deck: Card[] = [];
   
   // Query cards from database
-  const { data: allCards } = await supabase
+  let { data: allCards, error: fetchError } = await supabase
     .from('cards')
     .select('*')
-    .in('color_identity', request.commander.color_identity.length > 0 ? request.commander.color_identity : [''])
-    .eq('legalities->>' + request.format.toLowerCase(), 'legal')
+    .or(`color_identity.cs.{${request.commander.color_identity.join(',')}},color_identity.is.null`)
     .limit(2000);
   
-  if (!allCards) throw new Error('Failed to fetch cards');
+  if (fetchError) {
+    console.error('Database error:', fetchError);
+    throw new Error(`Failed to fetch cards: ${fetchError.message}`);
+  }
+  
+  if (!allCards || allCards.length === 0) {
+    console.log('No cards found, fetching all cards without color restrictions...');
+    const { data: fallbackCards, error: fallbackError } = await supabase
+      .from('cards')
+      .select('*')
+      .limit(1000);
+    
+    if (fallbackError || !fallbackCards) {
+      throw new Error('Failed to fetch cards from database');
+    }
+    
+    // Filter in memory for commander's color identity
+    const filteredCards = fallbackCards.filter(card => {
+      if (!card.color_identity) return true;
+      return card.color_identity.every((color: string) => 
+        request.commander.color_identity.includes(color)
+      );
+    });
+    
+    if (filteredCards.length === 0) {
+      throw new Error('No legal cards found for this commander');
+    }
+    
+    allCards = filteredCards;
+  }
   
   // Convert to our format
   const cards: Card[] = allCards.map(card => ({

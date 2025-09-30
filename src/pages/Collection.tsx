@@ -72,8 +72,9 @@ export default function Collection() {
   });
 
   useEffect(() => {
+    // Load collection once on mount to avoid effect loops if `load` has unstable identity
     load();
-  }, [load]);
+  }, []);
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';

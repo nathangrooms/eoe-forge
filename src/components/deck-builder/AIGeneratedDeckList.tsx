@@ -80,7 +80,7 @@ export function AIGeneratedDeckList({
   onStartOver 
 }: AIGeneratedDeckListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set(['creatures', 'lands']));
+  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
 
   const toggleCategory = (category: Category) => {
     const newExpanded = new Set(expandedCategories);

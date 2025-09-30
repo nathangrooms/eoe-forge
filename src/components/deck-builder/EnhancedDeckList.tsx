@@ -55,7 +55,7 @@ interface EnhancedDeckListProps {
 
 export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set(['creatures', 'lands']));
+  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
   const [selectedCard, setSelectedCard] = useState<any>(null);
   
   const deck = useDeckStore();

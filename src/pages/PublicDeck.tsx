@@ -6,10 +6,9 @@ import { EnhancedDeckAnalysisPanel } from "@/components/deck-builder/EnhancedDec
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Copy, Download, ExternalLink, DollarSign } from "lucide-react";
+import { Eye, Copy, Download, ExternalLink, DollarSign, ChevronDown, ChevronRight, Crown, Users, Mountain, Sparkles, Scroll, Gem, Shield, Swords, Skull } from "lucide-react";
 import { toast } from "sonner";
 import { exportDeckToText } from "@/lib/deckExport";
-import { UniversalCardDisplay } from "@/components/universal/UniversalCardDisplay";
 import { UniversalCardModal } from "@/components/enhanced/UniversalCardModal";
 
 export default function PublicDeck() {
@@ -19,6 +18,7 @@ export default function PublicDeck() {
   const [tracked, setTracked] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Commander', 'Creatures', 'Instants & Sorceries']));
 
   useEffect(() => {
     if (!slug) return;
@@ -73,6 +73,16 @@ export default function PublicDeck() {
   const handleCardClick = (card: any) => {
     setSelectedCard(card);
     setShowCardModal(true);
+  };
+
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
   };
 
   if (loading) {
@@ -153,12 +163,26 @@ export default function PublicDeck() {
     mechanics: card.keywords || []
   }));
 
-  // Group cards by type for display
+  // Group cards by type for display with icons
+  const CATEGORY_CONFIG: Record<string, { icon: any, color: string }> = {
+    'Commander': { icon: Crown, color: 'border-l-yellow-500 bg-yellow-500/10' },
+    'Creatures': { icon: Users, color: 'border-l-green-500 bg-green-500/10' },
+    'Instants & Sorceries': { icon: Sparkles, color: 'border-l-blue-500 bg-blue-500/10' },
+    'Artifacts': { icon: Shield, color: 'border-l-gray-500 bg-gray-500/10' },
+    'Enchantments': { icon: Gem, color: 'border-l-purple-500 bg-purple-500/10' },
+    'Planeswalkers': { icon: Swords, color: 'border-l-pink-500 bg-pink-500/10' },
+    'Lands': { icon: Mountain, color: 'border-l-orange-500 bg-orange-500/10' },
+  };
+
   const cardGroups = [
     { title: 'Commander', cards: displayCards.filter((c: any) => c.is_commander) },
     { title: 'Creatures', cards: displayCards.filter((c: any) => !c.is_commander && c.type_line?.includes('Creature')) },
-    { title: 'Instants', cards: displayCards.filter((c: any) => c.type_line?.includes('Instant') && !c.type_line?.includes('Sorcery')) },
-    { title: 'Sorceries', cards: displayCards.filter((c: any) => c.type_line?.includes('Sorcery')) },
+    { 
+      title: 'Instants & Sorceries', 
+      cards: displayCards.filter((c: any) => 
+        c.type_line?.includes('Instant') || c.type_line?.includes('Sorcery')
+      ) 
+    },
     { title: 'Artifacts', cards: displayCards.filter((c: any) => c.type_line?.includes('Artifact') && !c.type_line?.includes('Creature')) },
     { title: 'Enchantments', cards: displayCards.filter((c: any) => c.type_line?.includes('Enchantment') && !c.type_line?.includes('Creature')) },
     { title: 'Planeswalkers', cards: displayCards.filter((c: any) => c.type_line?.includes('Planeswalker')) },
@@ -191,79 +215,46 @@ export default function PublicDeck() {
         {/* Header */}
         <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col gap-4">
-              {/* Top row */}
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl font-bold">{deck.name}</h1>
-                    <Badge variant="outline" className="gap-1">
-                      <Eye className="h-3 w-3" />
-                      Read-only
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                    <span className="capitalize">{deck.format}</span>
-                    <span>•</span>
-                    <span>Power Level {deck.power.score}/10</span>
-                    <span>•</span>
-                    <span>{deck.counts.total} cards</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      ${totalValue.toFixed(2)}
-                    </span>
-                    <span>•</span>
-                    <span>{viewCount} views</span>
-                  </div>
-                  {commander && (
-                    <div className="mt-2 text-sm">
-                      <span className="text-muted-foreground">Commander:</span>{' '}
-                      <span className="font-medium">{commander.name}</span>
-                    </div>
-                  )}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-2xl font-bold">{deck.name}</h1>
+                  <Badge variant="outline" className="gap-1">
+                    <Eye className="h-3 w-3" />
+                    Read-only
+                  </Badge>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={handleCopyList}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy List
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExport}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                  <Button asChild size="sm">
-                    <a href="/register">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Build Your Own
-                    </a>
-                  </Button>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span className="capitalize">{deck.format}</span>
+                  <span>•</span>
+                  <span>Power Level {deck.power.score}/10</span>
+                  <span>•</span>
+                  <span>{deck.counts.total} cards</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    ${totalValue.toFixed(2)}
+                  </span>
+                  <span>•</span>
+                  <span>{viewCount} views</span>
                 </div>
               </div>
               
-              {/* Stats row */}
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Creatures:</span>
-                  <Badge variant="secondary">{deck.counts.creatures}</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Spells:</span>
-                  <Badge variant="secondary">{deck.counts.instants + deck.counts.sorceries}</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Artifacts:</span>
-                  <Badge variant="secondary">{deck.counts.artifacts}</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Enchantments:</span>
-                  <Badge variant="secondary">{deck.counts.enchantments}</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Lands:</span>
-                  <Badge variant="secondary">{deck.counts.lands}</Badge>
-                </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleCopyList}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy List
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+                <Button asChild size="sm">
+                  <a href="/register">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Build Your Own
+                  </a>
+                </Button>
               </div>
             </div>
           </div>
@@ -273,7 +264,7 @@ export default function PublicDeck() {
         <div className="container mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Analysis Panel */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-4">
               <EnhancedDeckAnalysisPanel 
                 deck={transformedCards} 
                 format={deck.format}
@@ -281,27 +272,90 @@ export default function PublicDeck() {
             </div>
 
             {/* Visual Deck Display */}
-            <div className="lg:col-span-3 space-y-6">
-              {cardGroups.map((group) => (
-                <Card key={group.title}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{group.title}</span>
-                      <Badge variant="outline">
-                        {group.cards.reduce((sum: number, c: any) => sum + c.quantity, 0)} cards
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <UniversalCardDisplay
-                      cards={group.cards}
-                      viewMode="grid"
-                      onCardClick={handleCardClick}
-                      compact={false}
-                    />
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="lg:col-span-3 space-y-4">
+              {cardGroups.map((group) => {
+                const config = CATEGORY_CONFIG[group.title];
+                const Icon = config?.icon || Users;
+                const isExpanded = expandedCategories.has(group.title);
+                const totalCards = group.cards.reduce((sum: number, c: any) => sum + c.quantity, 0);
+
+                return (
+                  <Card key={group.title} className={`border-l-4 ${config?.color || ''}`}>
+                    <CardHeader 
+                      className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => toggleCategory(group.title)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          <Icon className="h-5 w-5 text-primary" />
+                          <CardTitle className="text-lg">{group.title}</CardTitle>
+                          <Badge variant="secondary">{totalCards}</Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    {isExpanded && (
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {group.cards.map((card: any, index: number) => (
+                            <div 
+                              key={`${card.id}-${index}`} 
+                              className="relative group cursor-pointer"
+                              onClick={() => handleCardClick(card)}
+                            >
+                              <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-all duration-200 shadow-sm group-hover:shadow-lg">
+                                {card.image_uris?.normal ? (
+                                  <img 
+                                    src={card.image_uris.normal} 
+                                    alt={card.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                                    <Icon className="h-8 w-8 text-muted-foreground" />
+                                  </div>
+                                )}
+                                
+                                {/* Quantity Badge */}
+                                {card.quantity > 1 && (
+                                  <div className="absolute top-2 left-2">
+                                    <Badge className="bg-background/90 text-foreground border font-bold">
+                                      {card.quantity}x
+                                    </Badge>
+                                  </div>
+                                )}
+
+                                {/* Price Badge */}
+                                {card.prices?.usd && (
+                                  <div className="absolute top-2 right-2">
+                                    <Badge className="bg-background/90 text-foreground border text-xs">
+                                      ${parseFloat(card.prices.usd).toFixed(2)}
+                                    </Badge>
+                                  </div>
+                                )}
+
+                                {/* View Details Overlay */}
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <div className="text-white text-sm font-medium flex items-center gap-2">
+                                    <Eye className="h-4 w-4" />
+                                    View Details
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-2 text-center">
+                                <div className="font-medium text-sm line-clamp-1">{card.name}</div>
+                                <div className="text-xs text-muted-foreground">CMC {card.cmc}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </div>

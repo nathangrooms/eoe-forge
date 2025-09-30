@@ -175,23 +175,16 @@ serve(async (req) => {
   }
 });
 
+// High-Power Deck Builder following Mega Prompt methodology
 async function buildInitialDeck(request: CoachRequest, rng: () => number): Promise<Card[]> {
-  // Get base template for the theme (kept for future use)
-  const template = getArchetypeTemplate(request.themeId, request.format);
+  console.log(`Building high-power deck for ${request.commander.name}, target power: ${request.powerTarget}`);
   
-  // We'll build a much higher-quality initial deck by:
-  // - Using correct color filtering (subset of commander's identity)
-  // - Preferring low-CMC, synergy, ramp/draw/interaction staples
-  // - Building a sane manabase for Commander
-  const deck: Card[] = [];
-
-  // Query cards from database
+  // Query cards from database with proper color identity filtering
   let { data: allCards, error: fetchError } = await supabase
     .from('cards')
     .select('*')
-    // color_identity contained-by commander colors, allow colorless (empty array)
     .or(`color_identity.cd.{${request.commander.color_identity.join(',')}},color_identity.eq.{}`)
-    .limit(3000);
+    .limit(4000);
   
   if (fetchError) {
     console.error('Database error:', fetchError);
@@ -203,7 +196,7 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     const { data: fallbackCards, error: fallbackError } = await supabase
       .from('cards')
       .select('*')
-      .limit(1500);
+      .limit(2000);
     
     if (fallbackError || !fallbackCards) {
       throw new Error('Failed to fetch cards from database');
@@ -244,146 +237,230 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     tags: card.tags || [],
     is_legendary: card.is_legendary || false
   }));
-  
-  const targetSize = request.format === 'commander' ? 99 : 60;
 
-  // Helpers
   const commanderColors = new Set((request.commander.color_identity || []).map((c) => c.toUpperCase()));
-  const isEzuri = (request.commander.name || '').toLowerCase().includes('ezuri, claw of progress');
+  const targetPower = request.powerTarget || 7;
+  const isHighPower = targetPower >= 7;
+  const isCEDH = targetPower >= 9;
+  
+  // Determine archetype from commander
+  const commanderName = request.commander.name.toLowerCase();
+  let archetype = 'value'; // default
+  
+  if (commanderName.includes('ezuri, claw of progress')) archetype = 'counters';
+  else if (commanderName.includes('najeela')) archetype = 'combo';
+  else if (commanderName.includes('kinnan')) archetype = 'artifacts';
+  else if (commanderName.includes('korvold')) archetype = 'aristocrats';
+  else if (commanderName.includes('tymna') || commanderName.includes('kraum')) archetype = 'tempo';
 
-  const nonLands = cards.filter((c) => !c.type_line.toLowerCase().includes('land'));
-  const landsPool = cards.filter((c) => c.type_line.toLowerCase().includes('land'))
-    // only lands whose color identity is subset of commander colors (or colorless)
-    .filter((c) => (c.color_identity || []).every((ci) => commanderColors.has(ci)));
+  console.log(`Detected archetype: ${archetype} for power target: ${targetPower}`);
 
-  function scoreCard(c: Card): number {
-    const tl = (c.type_line || '').toLowerCase();
-    const name = (c.name || '').toLowerCase();
-    const tags = new Set<string>(c.tags || []);
-    const cmc = Number(c.cmc || 0);
-
-    // Never pick lands in this scorer (we score spells/creatures only)
-    if (tl.includes('land')) return -999;
-
-    let w = 0;
-    // Strongly prefer low CMC
-    if (cmc <= 1) w += 5; 
-    else if (cmc === 2) w += 4;
-    else if (cmc === 3) w += 2;
-    else if (cmc >= 6) w -= 3;
-
-    // Role-based boosts
-    if (tags.has('ramp')) w += 5;
-    if (tags.has('draw') || tags.has('card-advantage')) w += 4;
-    if (tags.has('counterspell') || tags.has('removal-spot')) w += 4;
-    if (tags.has('tutor-broad') || tags.has('tutor-narrow')) w += 5;
-
-    // Commander-specific synergy: Ezuri loves small creatures and +1/+1 counters/proliferate
-    if (isEzuri) {
-      if (tl.includes('creature')) {
-        const p = parseInt(c.power || '0');
-        if (!isNaN(p) && p <= 2) w += 5; // experience counter synergy
-        if (tags.has('evasion')) w += 2;
-      }
-      if (tags.has('proliferate') || tags.has('counters') || name.includes('hardened scales') || name.includes('the ozolith') || name.includes('simic ascendancy')) {
-        w += 6;
-      }
-    }
-
-    // Very minor bump for legendary synergy pieces (avoid random legends otherwise)
-    if (c.is_legendary && !tl.includes('creature')) w -= 1; // avoid overvaluing enchant/legend clutter
-
-    return w;
-  }
-
-  // Build a better Commander manabase (approx 36 lands, GU only)
-  const targetLands = request.format === 'commander' ? 36 : Math.round(targetSize * 0.4);
-  const chosen: Card[] = [];
-
-  const byName = new Map(cards.map((c) => [c.name.toLowerCase(), c] as const));
-  function pushIfExists(name: string) {
-    const c = byName.get(name.toLowerCase());
-    if (c) chosen.push(c);
-  }
-
-  // Basics first (allow duplicates)
-  let basicsAdded = 0;
-  const addBasics = (name: string, qty: number) => {
-    const c = byName.get(name.toLowerCase());
-    if (!c) return;
-    for (let i = 0; i < qty; i++) {
-      chosen.push(c);
-      basicsAdded++;
-    }
+  // Power band quotas (High 7-8 vs cEDH 9-10)
+  const quotas = {
+    lands: isCEDH ? 30 : 34,
+    fastMana: isCEDH ? 15 : 10,
+    interaction: isCEDH ? 14 : 10,
+    tutors: isCEDH ? 8 : 5,
+    drawEngines: isCEDH ? 12 : 9,
+    wincons: isCEDH ? 3 : 2,
+    protection: isCEDH ? 5 : 3
   };
 
-  // Reasonable split for Simic
-  if (request.format === 'commander') {
-    addBasics('Forest', 12);
-    addBasics('Island', 8);
-  }
+  const deck: Card[] = [];
+  const byName = new Map(cards.map(c => [c.name.toLowerCase(), c]));
 
-  // Preferred GU duals (if present)
-  const preferredDuals = [
-    'Breeding Pool', 'Hinterland Harbor', 'Yavimaya Coast', 'Dreamroot Cascade', 'Waterlogged Grove', 'Botanical Sanctum', 'Rejuvenating Springs', 'Barkchannel Pathway', 'Vineglimmer Snarl', 'Thornwood Falls', 'Temple of Mystery'
+  // Helper to add card by name if it exists
+  const addByName = (name: string): boolean => {
+    const card = byName.get(name.toLowerCase());
+    if (card && !deck.some(c => c.id === card.id)) {
+      deck.push(card);
+      return true;
+    }
+    return false;
+  };
+
+  // 1. FAST MANA PACKAGE (highest priority)
+  const fastManaStaples = [
+    'Sol Ring', 'Mana Crypt', 'Mana Vault', 'Chrome Mox', 'Mox Diamond', 
+    'Jeweled Lotus', 'Lotus Petal', 'Arcane Signet', 'Simic Signet',
+    'Fellwar Stone', 'Mox Opal', 'Carpet of Flowers'
   ];
-  for (const n of preferredDuals) {
-    if (chosen.filter((c) => c.type_line.toLowerCase().includes('land')).length >= targetLands) break;
-    if (byName.has(n.toLowerCase())) pushIfExists(n);
-  }
-
-  // Fill remaining land slots with any legal GU/colorless lands, prefer ones that don't enter tapped
-  const landNeed = targetLands - chosen.filter((c) => c.type_line.toLowerCase().includes('land')).length;
-  if (landNeed > 0) {
-    const ranked = landsPool
-      .filter((l) => !chosen.some((c) => c.id === l.id))
-      .map((l) => {
-        const text = (l.oracle_text || '').toLowerCase();
-        let w = 0;
-        if (text.includes('enters the battlefield tapped')) w -= 2;
-        if (text.includes('you may pay 2 life') || text.includes('untapped')) w += 2; // shocks/pain/untapped
-        // prefer duals that fix both
-        if (text.includes('{g}') && text.includes('{u}')) w += 2;
-        return { l, w };
-      })
-      .sort((a, b) => b.w - a.w)
-      .slice(0, Math.max(0, landNeed))
-      .map((x) => x.l);
-    chosen.push(...ranked);
-  }
-
-  // Now select high-quality non-lands by score
-  const remainingSlots = targetSize - chosen.length;
-  const poolSorted = nonLands
-    .filter((c) => !chosen.some((x) => x.id === c.id))
-    .sort((a, b) => scoreCard(b) - scoreCard(a));
-
-  // Ensure key staples if present
-  const mustHaves = [
-    // fast mana & ramp
-    'Sol Ring', 'Arcane Signet', 'Nature\'s Lore', 'Three Visits', 'Farseek', 'Rampant Growth', 'Cultivate', 'Kodama\'s Reach',
-    // draw
-    'Mystic Remora', 'Rhystic Study', 'Guardian Project', 'Beast Whisperer',
-    // interaction
-    'Counterspell', 'Swan Song', 'Pongify', 'Rapid Hybridization', 'Reality Shift', 'Beast Within', 'Nature\'s Claim',
-    // synergy
-    'Hardened Scales', 'The Ozolith', 'Simic Ascendancy', 'Coiling Oracle', 'Risen Reef', 'Merfolk Skydiver'
+  
+  const fastManaGreen = [
+    'Birds of Paradise', 'Elvish Mystic', 'Llanowar Elves', 'Fyndhorn Elves',
+    'Deathrite Shaman', 'Elves of Deep Shadow', 'Noble Hierarch'
   ];
-  for (const n of mustHaves) {
-    const c = byName.get(n.toLowerCase());
-    if (c && !chosen.some((x) => x.id === c.id) && !c.type_line.toLowerCase().includes('land')) {
-      chosen.push(c);
-      if (chosen.length >= targetSize) break;
+
+  // Add fast mana
+  let fastManaAdded = 0;
+  for (const name of [...fastManaStaples, ...fastManaGreen]) {
+    if (fastManaAdded >= quotas.fastMana) break;
+    if (addByName(name)) fastManaAdded++;
+  }
+
+  // 2. TUTORS PACKAGE
+  const tutorStaples = [
+    'Demonic Tutor', 'Vampiric Tutor', 'Mystical Tutor', 'Worldly Tutor',
+    'Enlightened Tutor', 'Sylvan Tutor', 'Green Sun\'s Zenith', 'Chord of Calling',
+    'Survival of the Fittest', 'Natural Order'
+  ];
+
+  let tutorsAdded = 0;
+  for (const name of tutorStaples) {
+    if (tutorsAdded >= quotas.tutors) break;
+    if (addByName(name)) tutorsAdded++;
+  }
+
+  // 3. INTERACTION PACKAGE
+  const interactionStaples = [
+    'Force of Will', 'Force of Negation', 'Fierce Guardianship', 'Deflecting Swat',
+    'Counterspell', 'Swan Song', 'Dispel', 'Negate', 'Pact of Negation',
+    'Beast Within', 'Nature\'s Claim', 'Krosan Grip', 'Abrupt Decay',
+    'Pongify', 'Rapid Hybridization', 'Reality Shift', 'Swords to Plowshares'
+  ];
+
+  let interactionAdded = 0;
+  for (const name of interactionStaples) {
+    if (interactionAdded >= quotas.interaction) break;
+    if (addByName(name)) interactionAdded++;
+  }
+
+  // 4. DRAW ENGINES
+  const drawStaples = [
+    'Rhystic Study', 'Mystic Remora', 'Sylvan Library', 'Guardian Project',
+    'Beast Whisperer', 'Glimpse of Nature', 'The Great Henge', 'Rishkar\'s Expertise',
+    'Blue Sun\'s Zenith', 'Pull from Tomorrow', 'Fact or Fiction'
+  ];
+
+  let drawAdded = 0;
+  for (const name of drawStaples) {
+    if (drawAdded >= quotas.drawEngines) break;
+    if (addByName(name)) drawAdded++;
+  }
+
+  // 5. ARCHETYPE-SPECIFIC PACKAGES
+  if (archetype === 'counters') {
+    const countersPackage = [
+      'Hardened Scales', 'The Ozolith', 'Simic Ascendancy', 'Doubling Season',
+      'Parallel Lives', 'Champion of Lambholt', 'Sage of Hours', 'Ezuri\'s Predation',
+      'Coiling Oracle', 'Llanowar Reborn', 'Gyre Sage', 'Managorger Hydra'
+    ];
+    for (const name of countersPackage) {
+      if (addByName(name)) console.log(`Added counter synergy: ${name}`);
     }
   }
 
-  for (const c of poolSorted) {
-    if (chosen.length >= targetSize) break;
-    chosen.push(c);
+  // 6. WIN CONDITIONS
+  const winconPackages = {
+    combo: ['Thassa\'s Oracle', 'Demonic Consultation', 'Tainted Pact'],
+    value: ['Craterhoof Behemoth', 'Overwhelming Stampede', 'Triumph of the Hordes']
+  };
+
+  const wincons = isCEDH ? winconPackages.combo : winconPackages.value;
+  let winconsAdded = 0;
+  for (const name of wincons) {
+    if (winconsAdded >= quotas.wincons) break;
+    if (addByName(name)) winconsAdded++;
   }
 
-  // Trim to target size
-  return chosen.slice(0, targetSize);
+  // 7. PROTECTION
+  const protectionStaples = [
+    'Heroic Intervention', 'Veil of Summer', 'Autumn\'s Veil', 'Teferi\'s Protection',
+    'Boros Charm', 'Snakeskin Veil'
+  ];
+
+  let protectionAdded = 0;
+  for (const name of protectionStaples) {
+    if (protectionAdded >= quotas.protection) break;
+    if (addByName(name)) protectionAdded++;
+  }
+
+  // 8. OPTIMIZED MANABASE
+  const landCount = 99 - deck.length;
+  const landsByPriority = [];
+
+  // Basics first
+  if (commanderColors.has('G')) {
+    for (let i = 0; i < Math.floor(landCount * 0.4); i++) {
+      if (addByName('Forest')) landsByPriority.push('Forest');
+    }
+  }
+  if (commanderColors.has('U')) {
+    for (let i = 0; i < Math.floor(landCount * 0.3); i++) {
+      if (addByName('Island')) landsByPriority.push('Island');
+    }
+  }
+
+  // Premium duals
+  const premiumDuals = [
+    'Breeding Pool', 'Misty Rainforest', 'Polluted Delta', 'Flooded Strand',
+    'Scalding Tarn', 'Hinterland Harbor', 'Yavimaya Coast', 'Exotic Orchard',
+    'Command Tower', 'City of Brass', 'Mana Confluence'
+  ];
+
+  for (const name of premiumDuals) {
+    if (deck.filter(c => c.type_line.toLowerCase().includes('land')).length >= quotas.lands) break;
+    addByName(name);
+  }
+
+  // Fill remaining deck slots with best available cards
+  const remainingSlots = 99 - deck.length;
+  const availableCards = cards
+    .filter(c => !deck.some(d => d.id === c.id))
+    .filter(c => !c.type_line.toLowerCase().includes('land'))
+    .sort((a, b) => {
+      const aScore = calculateCardScore(a, archetype, targetPower);
+      const bScore = calculateCardScore(b, archetype, targetPower);
+      return bScore - aScore;
+    });
+
+  deck.push(...availableCards.slice(0, remainingSlots));
+
+  console.log(`Built deck with ${deck.length} cards, targeting power ${targetPower}`);
+  console.log(`Quotas met - Fast mana: ${fastManaAdded}/${quotas.fastMana}, Interaction: ${interactionAdded}/${quotas.interaction}, Tutors: ${tutorsAdded}/${quotas.tutors}`);
+  
+  return deck.slice(0, 99);
+}
+
+// Card scoring for high-power deck building
+function calculateCardScore(card: Card, archetype: string, targetPower: number): number {
+  const tags = new Set(card.tags || []);
+  const cmc = card.cmc;
+  const typeLine = card.type_line.toLowerCase();
+  const name = card.name.toLowerCase();
+  
+  let score = 0;
+
+  // CMC efficiency (critical for high power)
+  if (cmc <= 1) score += 10;
+  else if (cmc === 2) score += 7;
+  else if (cmc === 3) score += 4;
+  else if (cmc === 4) score += 1;
+  else if (cmc >= 6) score -= 5;
+
+  // Role bonuses
+  if (tags.has('ramp') || tags.has('fast-mana')) score += 8;
+  if (tags.has('tutor-broad') || tags.has('tutor-narrow')) score += 7;
+  if (tags.has('counterspell') || tags.has('removal-spot')) score += 6;
+  if (tags.has('draw') || tags.has('card-advantage')) score += 5;
+  if (tags.has('protection') || tags.has('recursion')) score += 4;
+
+  // Archetype synergy
+  if (archetype === 'counters') {
+    if (tags.has('counters') || tags.has('proliferate')) score += 6;
+    if (name.includes('scale') || name.includes('ozolith') || name.includes('ascendancy')) score += 8;
+    if (typeLine.includes('creature') && card.power && parseInt(card.power) <= 2) score += 4;
+  }
+
+  // Power-specific adjustments
+  if (targetPower >= 9) {
+    // cEDH preferences
+    if (tags.has('free-spell') || tags.has('fast-mana')) score += 5;
+    if (name.includes('force of') || name.includes('pact of')) score += 4;
+    if (name.includes('oracle') || name.includes('consultation')) score += 6;
+  }
+
+  return score;
 }
 
 function selectCardsByQuota(cards: Card[], count: number, rng: () => number): Card[] {
@@ -608,23 +685,116 @@ function getDefaultRecommendations(): any[] {
 }
 
 async function applyRecommendations(deck: Card[], recommendations: any[], request: CoachRequest, rng: () => number): Promise<Card[]> {
+  console.log(`Applying ${recommendations.length} recommendations...`);
+  
   let modifiedDeck = [...deck];
   
-  for (const rec of recommendations.slice(0, 2)) { // Apply max 2 recommendations per iteration
-    if (rec.action === 'add' && rec.cards_to_add?.length > 0) {
-      // Add new cards (simplified - would query database for real cards)
-      console.log(`Applying: Add ${rec.cards_to_add.join(', ')}`);
-    } else if (rec.action === 'remove' && rec.cards_to_remove?.length > 0) {
-      // Remove cards
-      modifiedDeck = modifiedDeck.filter(card => !rec.cards_to_remove.includes(card.name));
-      console.log(`Applying: Remove ${rec.cards_to_remove.join(', ')}`);
-    } else if (rec.action === 'replace') {
-      // Replace cards (simplified)
-      console.log(`Applying: Replace recommendation in ${rec.category}`);
+  // Apply up to 3 recommendations per iteration
+  for (const rec of recommendations.slice(0, 3)) {
+    try {
+      console.log(`Applying: ${rec.action} - ${rec.description}`);
+      
+      if (rec.action === 'replace' && rec.cards_to_remove?.length > 0 && rec.cards_to_add?.length > 0) {
+        // Remove specified cards
+        for (const cardName of rec.cards_to_remove) {
+          const removeIndex = modifiedDeck.findIndex(c => 
+            c.name.toLowerCase().includes(cardName.toLowerCase()) ||
+            cardName.toLowerCase().includes(c.name.toLowerCase())
+          );
+          if (removeIndex !== -1) {
+            modifiedDeck.splice(removeIndex, 1);
+            console.log(`Removed: ${cardName}`);
+          }
+        }
+        
+        // Add recommended cards if they're legal
+        for (const cardName of rec.cards_to_add) {
+          const cardToAdd = await findCardByName(cardName, request.commander.color_identity);
+          if (cardToAdd && modifiedDeck.length < 99) {
+            modifiedDeck.push(cardToAdd);
+            console.log(`Added: ${cardName}`);
+          }
+        }
+      }
+      
+      if (rec.action === 'add' && rec.cards_to_add?.length > 0) {
+        for (const cardName of rec.cards_to_add) {
+          if (modifiedDeck.length >= 99) break;
+          const cardToAdd = await findCardByName(cardName, request.commander.color_identity);
+          if (cardToAdd) {
+            modifiedDeck.push(cardToAdd);
+            console.log(`Added: ${cardName}`);
+          }
+        }
+      }
+      
+      if (rec.action === 'remove' && rec.cards_to_remove?.length > 0) {
+        for (const cardName of rec.cards_to_remove) {
+          const removeIndex = modifiedDeck.findIndex(c => 
+            c.name.toLowerCase().includes(cardName.toLowerCase()) ||
+            cardName.toLowerCase().includes(c.name.toLowerCase())
+          );
+          if (removeIndex !== -1) {
+            modifiedDeck.splice(removeIndex, 1);
+            console.log(`Removed: ${cardName}`);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error(`Failed to apply recommendation:`, error);
     }
   }
   
+  console.log(`Deck modified: ${deck.length} -> ${modifiedDeck.length} cards`);
   return modifiedDeck;
+}
+
+// Helper function to find cards by name
+async function findCardByName(cardName: string, commanderColors: string[]): Promise<Card | null> {
+  const { data: cards, error } = await supabase
+    .from('cards')
+    .select('*')
+    .or(`name.ilike.%${cardName}%`)
+    .limit(1);
+    
+  if (error || !cards?.length) {
+    console.log(`Card not found: ${cardName}`);
+    return null;
+  }
+  
+  const card = cards[0];
+  
+  // Check color identity
+  const cardCI = card.color_identity || [];
+  const allowed = new Set(commanderColors);
+  const isLegal = cardCI.every((c: string) => allowed.has(c));
+  
+  if (!isLegal) {
+    console.log(`Card ${cardName} not legal for commander colors`);
+    return null;
+  }
+  
+  return {
+    id: card.id,
+    oracle_id: card.oracle_id || card.id,
+    name: card.name,
+    mana_cost: card.mana_cost || '',
+    cmc: Number(card.cmc || 0),
+    type_line: card.type_line || '',
+    oracle_text: card.oracle_text || '',
+    colors: card.colors || [],
+    color_identity: card.color_identity || [],
+    power: card.power,
+    toughness: card.toughness,
+    keywords: card.keywords || [],
+    legalities: card.legalities || {},
+    image_uris: card.image_uris || {},
+    prices: card.prices || {},
+    rarity: card.rarity || 'common',
+    tags: card.tags || [],
+    is_legendary: card.is_legendary || false
+  };
 }
 
 async function generateFinalAnalysis(apiKey: string, request: CoachRequest, deck: Card[], power: any, iterations: number): Promise<string> {

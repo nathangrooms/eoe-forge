@@ -78,6 +78,19 @@ const DeckBuilder = () => {
   // Get URL parameters for deck loading
   const [searchParams] = useSearchParams();
   
+  // Clear any persisted deck when a specific deck is requested to avoid "random" deck showing first
+  useEffect(() => {
+    const deckParam = searchParams.get('deck');
+    if (deckParam) {
+      // Reset store so UI doesn't render a previously persisted deck before loading the requested one
+      deck.clearDeck();
+      deck.setDeckName('');
+      deck.setCurrentDeckId(undefined as any);
+      setSelectedDeckId(deckParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
   // Load all decks (Supabase + Local)
   useEffect(() => {
     loadAllDecks();

@@ -126,8 +126,16 @@ export class DeckAPI {
               };
             });
 
+            // Try to resolve commander from explicit flag; if missing, infer from legendary creature/planeswalker
             const commanderDC = playable.find(dc => dc.is_commander);
-            const commanderCard = commanderDC ? cardMap.get(commanderDC.card_id) : undefined;
+            let commanderCard = commanderDC ? cardMap.get(commanderDC.card_id) : undefined;
+            if (!commanderCard && deck.format === 'commander') {
+              // Heuristic fallback: first legendary creature, otherwise a planeswalker
+              const candidates = (cards || []);
+              commanderCard = candidates.find((c: any) => String(c.type_line || '').toLowerCase().includes('legendary') && String(c.type_line || '').toLowerCase().includes('creature'))
+                || candidates.find((c: any) => String(c.type_line || '').toLowerCase().includes('planeswalker'));
+            }
+
             const convertedCommander = commanderCard ? {
               id: commanderCard.id,
               oracle_id: commanderCard.id,

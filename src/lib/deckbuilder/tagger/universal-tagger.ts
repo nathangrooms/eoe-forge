@@ -110,7 +110,27 @@ export class UniversalTagger {
     counters: [
       /\+1\/\+1 counter/i,
       /put.*\+1\/\+1 counters/i,
-      /counter.*on.*creature/i
+      /counter.*on.*creature/i,
+      /counter.*on/i,
+      /enters.*with.*counter/i,
+      /loyalty counter/i,
+      /charge counter/i,
+      /experience counter/i,
+      /gets.*\+1\/\+1 for each/i,
+      /modular/i,
+      /undying/i,
+      /persist/i,
+      /evolve/i,
+      /adapt/i,
+      /bolster/i,
+      /support/i,
+      /renown/i
+    ],
+    
+    proliferate: [
+      /proliferate/i,
+      /double.*counters/i,
+      /each counter/i
     ],
     
     artifacts_matter: [

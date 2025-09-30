@@ -225,6 +225,72 @@ export const BASE_TEMPLATES: Record<string, ArchetypeTemplate> = {
       low: { cap: { 'fast-mana': 4 } },
       high: { floor: { 'fast-mana': 12, 'tutor-narrow': 8 } }
     }
+  },
+
+  'commander-counters': {
+    id: 'commander-counters',
+    name: 'Counters & Proliferate',
+    formats: ['commander'],
+    colors: ['W', 'U', 'B', 'G'],
+    weights: {
+      synergy: { 
+        'counters': 5, 
+        'proliferate': 5, 
+        'planeswalker': 3,
+        'tokens': 2,
+        'etb': 2
+      },
+      roles: { 
+        'draw': 4, 
+        'ramp': 4,
+        'removal-spot': 3, 
+        'removal-sweeper': 2,
+        'tutor-broad': 3,
+        'protection': 2
+      }
+    },
+    quotas: {
+      counts: {
+        'ramp': { min: 10, max: 14 },
+        'draw': { min: 10, max: 14 },
+        'removal-spot': { min: 8, max: 12 },
+        'removal-sweeper': { min: 2, max: 4 },
+        'counterspell': { min: 4, max: 8 },
+        'tutor-broad': { min: 3, max: 6 },
+        'tutor-narrow': { min: 2, max: 4 },
+        'counters': { min: 12, max: 18 },
+        'proliferate': { min: 4, max: 8 },
+        'planeswalker': { min: 3, max: 6 },
+        'wincon': { min: 3, max: 5 }
+      },
+      creatures_curve: {
+        '1': '4-6',
+        '2': '8-12',
+        '3': '8-12',
+        '4': '6-10',
+        '5': '4-6',
+        '6-7': '2-4',
+        '8-9': '1-2',
+        '10+': '0-1'
+      }
+    },
+    packages: [
+      {
+        name: 'counters-core',
+        require: [
+          { tag: 'counters', count: 12 },
+          { tag: 'proliferate', count: 4 },
+          { tag: 'ramp', count: 10 },
+          { tag: 'draw', count: 10 }
+        ]
+      }
+    ],
+    bans: [],
+    requires: [],
+    power_gates: {
+      low: { cap: { 'tutor-broad': 2, 'fast-mana': 1 } },
+      high: { floor: { 'tutor-broad': 5, 'fast-mana': 3, 'counters': 15 } }
+    }
   }
 };
 

@@ -59,10 +59,10 @@ export class UniversalDeckBuilder {
     let picks: Pick[] = [];
     
     picks = this.seedRequiredCards(filteredPool, template, commander, picks);
-    picks = this.fillInteraction(filteredPool, template, rules, picks);
-    picks = this.fillAdvantage(filteredPool, template, rules, context.powerTarget, picks);
-    picks = this.fillCurve(filteredPool, template, picks);
-    picks = this.pickWincons(filteredPool, template, context, picks);
+    picks = this.fillInteraction(filteredPool, template, rules, commander, picks);
+    picks = this.fillAdvantage(filteredPool, template, rules, context.powerTarget, commander, picks);
+    picks = this.fillCurve(filteredPool, template, commander, picks);
+    picks = this.pickWincons(filteredPool, template, context, commander, picks);
     
     // 4. Build manabase
     const nonLandPicks = picks.filter(p => !p.card.type_line.includes('Land'));
@@ -85,7 +85,8 @@ export class UniversalDeckBuilder {
     });
     
     // 5. Power tuning
-    picks = this.tunePowerLevel(filteredPool, picks, template, rules, context);
+    picks = this.tunePowerLevel(filteredPool, picks, template, rules, context, commander);
+    
     
     // 6. Validate and return
     const deck = picks.map(p => p.card);
@@ -120,8 +121,49 @@ export class UniversalDeckBuilder {
         card.tags = UniversalTagger.tagCard(card);
       }
       
+      // Filter out low-quality cards
+      if (!this.meetsMinimumQuality(card)) return false;
+      
       return true;
     });
+  }
+  
+  private meetsMinimumQuality(card: Card): boolean {
+    // Always include lands
+    if (card.type_line.includes('Land')) return true;
+    
+    const price = parseFloat(card.prices?.usd || '0');
+    const text = card.oracle_text || '';
+    
+    // Exclude bulk junk equipment/artifacts
+    if ((card.type_line.includes('Equipment') || card.type_line.includes('Artifact')) && 
+        price < 0.25 && card.rarity === 'common') {
+      
+      // Check if it's just a weak stat boost or cantrip with no other value
+      const junkPatterns = [
+        /^equipped creature gets \+[012]\/\+[012]\.?$/i,
+        /^tap: draw a card\.?$/i,
+        /^sacrifice.*: draw a card\.?$/i
+      ];
+      
+      if (junkPatterns.some(p => p.test(text.trim()))) {
+        return false;
+      }
+    }
+    
+    // Exclude vanilla creatures that are overcosted
+    if (card.type_line.includes('Creature') && !text && card.cmc > 3) {
+      const power = parseInt(card.power || '0');
+      const toughness = parseInt(card.toughness || '0');
+      const stats = power + toughness;
+      
+      // Expect at least CMC * 2 in stats for vanilla creatures
+      if (stats < card.cmc * 2) {
+        return false;
+      }
+    }
+    
+    return true;
   }
   
   private pickCommander(
@@ -136,13 +178,13 @@ export class UniversalDeckBuilder {
     // Score commanders based on template synergy
     const scoredCommanders = commanderCandidates.map(card => ({
       card,
-      score: this.scoreCardForTemplate(card, template)
+      score: this.scoreCardForTemplate(card, template) + this.scoreCardQuality(card)
     }));
     
     scoredCommanders.sort((a, b) => b.score - a.score);
     
     // Add some randomness to the top candidates
-    const topCandidates = scoredCommanders.slice(0, 3);
+    const topCandidates = scoredCommanders.slice(0, Math.min(5, scoredCommanders.length));
     const chosen = topCandidates[Math.floor(this.rng() * topCandidates.length)];
     
     return chosen.card;
@@ -164,7 +206,7 @@ export class UniversalDeckBuilder {
         );
         
         const needed = requirement.count;
-        const selected = this.selectTopCandidates(candidates, template, needed);
+        const selected = this.selectTopCandidates(candidates, template, needed, commander);
         
         selected.forEach(card => {
           picks.push({
@@ -186,6 +228,7 @@ export class UniversalDeckBuilder {
     pool: Card[],
     template: ArchetypeTemplate,
     rules: FormatRules,
+    commander: Card | undefined,
     picks: Pick[]
   ): Pick[] {
     this.log(`Filling interaction suite`);
@@ -205,7 +248,7 @@ export class UniversalDeckBuilder {
           !picks.some(p => p.card.id === card.id)
         );
         
-        const selected = this.selectTopCandidates(candidates, template, needed);
+        const selected = this.selectTopCandidates(candidates, template, needed, commander);
         selected.forEach(card => {
           picks.push({
             card,
@@ -227,6 +270,7 @@ export class UniversalDeckBuilder {
     template: ArchetypeTemplate,
     rules: FormatRules,
     powerTarget: number,
+    commander: Card | undefined,
     picks: Pick[]
   ): Pick[] {
     this.log(`Filling card advantage and acceleration`);
@@ -250,7 +294,7 @@ export class UniversalDeckBuilder {
           !picks.some(p => p.card.id === card.id)
         );
         
-        const selected = this.selectTopCandidates(candidates, template, needed);
+        const selected = this.selectTopCandidates(candidates, template, needed, commander);
         selected.forEach(card => {
           picks.push({
             card,
@@ -267,7 +311,12 @@ export class UniversalDeckBuilder {
     return picks;
   }
   
-  private fillCurve(pool: Card[], template: ArchetypeTemplate, picks: Pick[]): Pick[] {
+  private fillCurve(
+    pool: Card[], 
+    template: ArchetypeTemplate, 
+    commander: Card | undefined,
+    picks: Pick[]
+  ): Pick[] {
     this.log(`Filling mana curve`);
     
     const creatureCurve = template.quotas.creatures_curve;
@@ -286,7 +335,7 @@ export class UniversalDeckBuilder {
           !picks.some(p => p.card.id === card.id)
         );
         
-        const selected = this.selectTopCandidates(candidates, template, needed);
+        const selected = this.selectTopCandidates(candidates, template, needed, commander);
         selected.forEach(card => {
           picks.push({
             card,
@@ -307,6 +356,7 @@ export class UniversalDeckBuilder {
     pool: Card[],
     template: ArchetypeTemplate,
     context: BuildContext,
+    commander: Card | undefined,
     picks: Pick[]
   ): Pick[] {
     this.log(`Selecting win conditions`);
@@ -323,7 +373,7 @@ export class UniversalDeckBuilder {
         !picks.some(p => p.card.id === card.id)
       );
       
-      const selected = this.selectTopCandidates(candidates, template, needed);
+      const selected = this.selectTopCandidates(candidates, template, needed, commander);
       selected.forEach(card => {
         picks.push({
           card,
@@ -344,7 +394,8 @@ export class UniversalDeckBuilder {
     picks: Pick[],
     template: ArchetypeTemplate,
     rules: FormatRules,
-    context: BuildContext
+    context: BuildContext,
+    commander: Card | undefined
   ): Pick[] {
     this.log(`Tuning power level to ${context.powerTarget}`);
     
@@ -361,11 +412,11 @@ export class UniversalDeckBuilder {
       
       if (powerDiff < 0) {
         // Need to escalate power
-        picks = this.escalatePower(pool, picks, template, rules);
+        picks = this.escalatePower(pool, picks, template, rules, commander);
         this.log(`Escalated power (iteration ${iteration + 1})`);
       } else {
         // Need to de-escalate power
-        picks = this.deescalatePower(pool, picks, template, rules);
+        picks = this.deescalatePower(pool, picks, template, rules, commander);
         this.log(`De-escalated power (iteration ${iteration + 1})`);
       }
     }
@@ -377,7 +428,8 @@ export class UniversalDeckBuilder {
     pool: Card[],
     picks: Pick[],
     template: ArchetypeTemplate,
-    rules: FormatRules
+    rules: FormatRules,
+    commander: Card | undefined
   ): Pick[] {
     // Add cheap interaction, tutors, fast mana
     const upgrades = [
@@ -394,7 +446,7 @@ export class UniversalDeckBuilder {
       );
       
       if (candidates.length > 0) {
-        const best = this.selectTopCandidates(candidates, template, 1)[0];
+        const best = this.selectTopCandidates(candidates, template, 1, commander)[0];
         if (best) {
           // Replace a lower-priority card
           const replaceIndex = picks.findIndex(p => p.priority < upgrade.priority);
@@ -418,7 +470,8 @@ export class UniversalDeckBuilder {
     pool: Card[],
     picks: Pick[],
     template: ArchetypeTemplate,
-    rules: FormatRules
+    rules: FormatRules,
+    commander: Card | undefined
   ): Pick[] {
     // Replace high-power cards with more fair alternatives
     const downgrades = ['tutor-broad', 'fast-mana', 'combo-piece'];
@@ -434,7 +487,7 @@ export class UniversalDeckBuilder {
         );
         
         if (candidates.length > 0) {
-          const replacement = this.selectTopCandidates(candidates, template, 1)[0];
+          const replacement = this.selectTopCandidates(candidates, template, 1, commander)[0];
           if (replacement) {
             picks[highPowerIndex] = {
               card: replacement,
@@ -454,18 +507,67 @@ export class UniversalDeckBuilder {
   private selectTopCandidates(
     candidates: Card[],
     template: ArchetypeTemplate,
-    count: number
+    count: number,
+    commander?: Card
   ): Card[] {
     if (candidates.length === 0) return [];
     
     const scored = candidates.map(card => ({
       card,
-      score: this.scoreCardForTemplate(card, template) + (this.rng() * 0.1)
+      score: this.scoreCardForTemplate(card, template) + 
+             (commander ? this.scoreCommanderSynergy(card, commander) : 0) +
+             (this.rng() * 0.1)
     }));
     
     scored.sort((a, b) => b.score - a.score);
     
     return scored.slice(0, count).map(s => s.card);
+  }
+  
+  private scoreCommanderSynergy(card: Card, commander: Card): number {
+    let synergy = 0;
+    const commanderText = (commander.oracle_text || '').toLowerCase();
+    const commanderTags = commander.tags;
+    const cardTags = card.tags;
+    
+    // Direct tag overlap
+    const sharedTags = Array.from(cardTags).filter(tag => commanderTags.has(tag));
+    synergy += sharedTags.length * 0.5;
+    
+    // Specific synergies for common commander mechanics
+    if (commanderText.includes('counter')) {
+      if (cardTags.has('counters') || cardTags.has('proliferate')) synergy += 3;
+    }
+    
+    if (commanderText.includes('proliferate')) {
+      if (cardTags.has('counters') || cardTags.has('planeswalker')) synergy += 3;
+    }
+    
+    if (commanderText.includes('sacrifice')) {
+      if (cardTags.has('sac_outlet') || cardTags.has('aristocrats') || cardTags.has('tokens')) synergy += 3;
+    }
+    
+    if (commanderText.includes('token')) {
+      if (cardTags.has('tokens') || cardTags.has('aristocrats')) synergy += 3;
+    }
+    
+    if (commanderText.includes('spell') || commanderText.includes('instant') || commanderText.includes('sorcery')) {
+      if (cardTags.has('spellslinger') || cardTags.has('instant') || cardTags.has('sorcery')) synergy += 2;
+    }
+    
+    if (commanderText.includes('enters the battlefield')) {
+      if (cardTags.has('etb') || cardTags.has('blink')) synergy += 2;
+    }
+    
+    if (commanderText.includes('artifact')) {
+      if (cardTags.has('artifact') || cardTags.has('artifacts_matter')) synergy += 2;
+    }
+    
+    if (commanderText.includes('enchantment')) {
+      if (cardTags.has('enchantment') || cardTags.has('enchantments_matter')) synergy += 2;
+    }
+    
+    return synergy;
   }
   
   private scoreCardForTemplate(card: Card, template: ArchetypeTemplate): number {
@@ -485,10 +587,77 @@ export class UniversalDeckBuilder {
       }
     }
     
-    // Mana cost efficiency
-    score += Math.max(0, 8 - card.cmc) * 0.1;
+    // Card quality scoring
+    score += this.scoreCardQuality(card);
+    
+    // Mana cost efficiency (reduced weight)
+    score += Math.max(0, 6 - card.cmc) * 0.05;
     
     return score;
+  }
+  
+  private scoreCardQuality(card: Card): number {
+    let qualityScore = 0;
+    
+    // Rarity bonus
+    const rarityScores: Record<string, number> = {
+      'mythic': 3,
+      'rare': 2,
+      'uncommon': 1,
+      'common': 0
+    };
+    qualityScore += rarityScores[card.rarity] || 0;
+    
+    // Price indicates power/demand
+    const price = parseFloat(card.prices?.usd || '0');
+    if (price > 20) qualityScore += 4;
+    else if (price > 10) qualityScore += 3;
+    else if (price > 5) qualityScore += 2;
+    else if (price > 1) qualityScore += 1;
+    else if (price < 0.1) qualityScore -= 2; // Penalize bulk cards
+    
+    // Legendary bonus (commanders, high-power permanents)
+    if (card.is_legendary) qualityScore += 1;
+    
+    // Filter out clearly weak equipment/artifacts
+    if (card.type_line.includes('Equipment') || card.type_line.includes('Artifact')) {
+      // Weak equipment patterns
+      const weakEquipment = [
+        /gets \+1\/\+0/i,
+        /gets \+0\/\+1/i,
+        /gets \+1\/\+1/i,
+        /equipped creature has/i
+      ];
+      
+      const isWeakEquipment = weakEquipment.some(pattern => 
+        pattern.test(card.oracle_text || '')
+      );
+      
+      // Strong artifact patterns
+      const strongArtifact = [
+        /add.*mana/i,
+        /draw.*card/i,
+        /search your library/i,
+        /sacrifice.*:/i,
+        /whenever/i,
+        /at the beginning/i
+      ];
+      
+      const hasStrongEffect = strongArtifact.some(pattern =>
+        pattern.test(card.oracle_text || '')
+      );
+      
+      if (isWeakEquipment && !hasStrongEffect && price < 0.5) {
+        qualityScore -= 5; // Heavily penalize junk equipment
+      }
+    }
+    
+    // Penalize cards that just cantrip with no other effect
+    if ((card.oracle_text || '').match(/^(tap: )?draw a card\.?$/i)) {
+      qualityScore -= 3;
+    }
+    
+    return qualityScore;
   }
   
   private calculateColorRequirements(picks: Pick[]): Record<string, number> {

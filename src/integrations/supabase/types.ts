@@ -214,6 +214,44 @@ export type Database = {
           },
         ]
       }
+      deck_share_events: {
+        Row: {
+          created_at: string | null
+          deck_id: string
+          event: string
+          id: string
+          ip_hash: string | null
+          slug: string
+          ua_hash: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deck_id: string
+          event: string
+          id?: string
+          ip_hash?: string | null
+          slug: string
+          ua_hash?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deck_id?: string
+          event?: string
+          id?: string
+          ip_hash?: string | null
+          slug?: string
+          ua_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_share_events_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorite_decks: {
         Row: {
           created_at: string | null
@@ -632,6 +670,11 @@ export type Database = {
           is_public: boolean
           name: string
           power_level: number
+          public_enabled: boolean | null
+          public_show_latest: boolean | null
+          public_slug: string | null
+          published_at: string | null
+          share_view_count: number | null
           updated_at: string
           user_id: string
         }
@@ -644,6 +687,11 @@ export type Database = {
           is_public?: boolean
           name: string
           power_level?: number
+          public_enabled?: boolean | null
+          public_show_latest?: boolean | null
+          public_slug?: string | null
+          published_at?: string | null
+          share_view_count?: number | null
           updated_at?: string
           user_id: string
         }
@@ -656,6 +704,11 @@ export type Database = {
           is_public?: boolean
           name?: string
           power_level?: number
+          public_enabled?: boolean | null
+          public_show_latest?: boolean | null
+          public_slug?: string | null
+          published_at?: string | null
+          share_view_count?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -721,6 +774,14 @@ export type Database = {
           card_name: string
           quantity: number
         }[]
+      }
+      get_public_deck: {
+        Args: { deck_slug: string }
+        Returns: Json
+      }
+      increment_share_views: {
+        Args: { deck_slug: string }
+        Returns: undefined
       }
       toggle_deck_favorite: {
         Args: { deck_id: string }

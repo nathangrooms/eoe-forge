@@ -29,6 +29,7 @@ import DeckInterface from "./pages/DeckInterface";
 import AIBuilder from "./pages/AIBuilder";
 import Brain from "./pages/Brain";
 import Marketplace from "./pages/Marketplace";
+import PublicDeck from "./pages/PublicDeck";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/p/:slug" element={<PublicDeck />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -106,6 +108,7 @@ function AppContent() {
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/p/:slug" element={<PublicDeck />} />
             <Route path="/auth" element={<Navigate to="/" replace />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />

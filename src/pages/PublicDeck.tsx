@@ -152,6 +152,7 @@ export default function PublicDeck() {
     colors: card.colors || [],
     mana_cost: card.mana_cost,
     quantity: card.quantity,
+    is_commander: card.is_commander,
     category: (card.is_commander ? 'commanders' : 
               card.type_line?.toLowerCase().includes('creature') ? 'creatures' : 
               card.type_line?.toLowerCase().includes('land') ? 'lands' :
@@ -262,17 +263,18 @@ export default function PublicDeck() {
 
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Analysis Panel */}
-            <div className="lg:col-span-1 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6">
+            {/* Analysis Sidebar */}
+            <div className="space-y-4">
               <EnhancedDeckAnalysisPanel 
                 deck={transformedCards} 
                 format={deck.format}
+                commander={commander ? transformedCards.find(c => c.is_commander) : undefined}
               />
             </div>
 
             {/* Visual Deck Display */}
-            <div className="lg:col-span-3 space-y-4">
+            <div className="space-y-4">{/* cards will go here */}
               {cardGroups.map((group) => {
                 const config = CATEGORY_CONFIG[group.title];
                 const Icon = config?.icon || Users;

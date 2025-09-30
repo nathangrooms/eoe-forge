@@ -4,18 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
-import { AnalysisPanel } from '@/components/deck-builder/AnalysisPanel';
-import { AIBuilder } from '@/components/deck-builder/AIBuilder';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
-import { EnhancedDeckCanvas } from '@/components/deck-builder/EnhancedDeckCanvas';
-import { LandEnhancer } from '@/components/deck-builder/LandEnhancer';
-import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
-import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
-import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
-import { DeckSelector } from '@/components/deck-builder/DeckSelector';
-import { CommanderSelector } from '@/components/deck-builder/CommanderSelector';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { ReplacementsPanel } from '@/components/deck-builder/ReplacementsPanel';
@@ -24,29 +14,13 @@ import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-
-import { 
-  Search,
-  Sparkles,
-  Activity,
-  BarChart3,
-  Download,
-  Play,
-  Crown,
-  Plus,
-  Edit,
-  Wand2,
-  Settings,
-  Target,
-  Zap
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface Deck {
   id: string;
@@ -399,19 +373,7 @@ const DeckBuilder = () => {
               value="analysis"
               className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
-              Analysis
-            </TabsTrigger>
-            <TabsTrigger 
-              value="power-tuning"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
-            >
-              Power Tuning
-            </TabsTrigger>
-            <TabsTrigger 
-              value="manabase"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
-            >
-              Manabase
+              AI Analysis
             </TabsTrigger>
             <TabsTrigger 
               value="replacements"
@@ -482,58 +444,18 @@ const DeckBuilder = () => {
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
-            <EnhancedDeckAnalysisPanel deck={deck.cards} format={deck.format || 'standard'} />
-          </TabsContent>
-
-          {/* Power Tuning Tab */}
-          <TabsContent value="power-tuning" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <div className="xl:col-span-2">
-                <ModernDeckList />
+            {deck.name && deck.cards.length > 0 ? (
+              <EnhancedDeckAnalysisPanel 
+                deck={deck.cards}
+                format={deck.format || 'standard'}
+                commander={deck.commander}
+              />
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">Add cards to your deck to see AI-powered analysis</p>
+                <p className="text-sm text-muted-foreground">Get detailed stats, synergy insights, and recommendations</p>
               </div>
-              <div className="space-y-6">
-                <PowerSliderCoaching
-                  currentPower={deck.powerLevel}
-                  onPowerChange={(power) => deck.setPowerLevel(power)}
-                  onApplyChanges={(power) => {
-                    deck.setPowerLevel(power);
-                    toast({
-                      title: "Power Level Updated",
-                      description: `Deck power level set to ${power.toFixed(1)}`,
-                    });
-                  }}
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Manabase Tab */}
-          <TabsContent value="manabase" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <div className="xl:col-span-2">
-                <ModernDeckList />
-              </div>
-              <div className="space-y-6">
-                <LandEnhancerUX />
-                <LandEnhancer 
-                  deck={deck.cards}
-                  format={deck.format || 'standard'}
-                  onAddLand={(landName) => {
-                    const landCard = {
-                      id: Math.random().toString(),
-                      name: landName,
-                      type_line: 'Land',
-                      cmc: 0,
-                      colors: [],
-                      quantity: 1,
-                      category: 'lands' as const,
-                      mechanics: []
-                    };
-                    deck.addCard(landCard);
-                  }}
-                />
-              </div>
-            </div>
+            )}
           </TabsContent>
 
           {/* Replacements Tab */}
@@ -568,18 +490,6 @@ const DeckBuilder = () => {
                   }
                 }}
               />
-              <ArchetypeLibrary 
-                currentFormat={deck.format || 'standard'}
-                currentDeck={deck.cards}
-                onApplyTemplate={(template) => {
-                  console.log('Selected template:', template);
-                  toast({
-                    title: "Template Applied",
-                    description: `Applied ${template.name} archetype template`,
-                  });
-                }}
-              />
-              <AIBuilder />
             </div>
           </TabsContent>
         </div>

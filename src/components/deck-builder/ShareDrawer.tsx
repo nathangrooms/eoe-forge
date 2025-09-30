@@ -68,17 +68,18 @@ export function ShareDrawer({
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<any>(null);
 
+  // Set initial share URL and load analytics when drawer opens
   useEffect(() => {
-    if (currentSlug) {
-      setShareUrl(getShareUrl(currentSlug));
+    if (open) {
+      if (isPublic && currentSlug) {
+        setShareUrl(getShareUrl(currentSlug));
+        loadAnalytics();
+      } else {
+        setShareUrl('');
+        setAnalytics(null);
+      }
     }
-  }, [currentSlug]);
-
-  useEffect(() => {
-    if (open && isPublic && deckId) {
-      loadAnalytics();
-    }
-  }, [open, isPublic, deckId]);
+  }, [open, isPublic, currentSlug, deckId]);
 
   const loadAnalytics = async () => {
     try {
@@ -95,6 +96,7 @@ export function ShareDrawer({
       const result = await enableDeckShare(deckId);
       setShareUrl(result.url);
       onShareToggle();
+      await loadAnalytics();
       toast.success("Deck sharing enabled");
     } catch (err) {
       toast.error("Failed to enable sharing");

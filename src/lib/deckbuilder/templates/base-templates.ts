@@ -227,6 +227,54 @@ export const BASE_TEMPLATES: Record<string, ArchetypeTemplate> = {
     }
   },
 
+  'commander-control': {
+    id: 'commander-control',
+    name: 'Commander Control (Draw-Go)',
+    formats: ['commander'],
+    colors: ['W', 'U', 'B', 'G'],
+    weights: {
+      synergy: { 'spellslinger': 2, 'etb': 1 },
+      roles: { 'counterspell': 5, 'removal-spot': 4, 'removal-sweeper': 3, 'draw': 5, 'protection': 3, 'wincon': 2 }
+    },
+    quotas: {
+      counts: {
+        'ramp': { min: 10, max: 14 },
+        'draw': { min: 10, max: 16 },
+        'counterspell': { min: 8, max: 12 },
+        'removal-spot': { min: 6, max: 10 },
+        'removal-sweeper': { min: 2, max: 4 },
+        'protection': { min: 3, max: 6 },
+        'wincon': { min: 3, max: 5 }
+      },
+      creatures_curve: {
+        '1': '0-3',
+        '2': '2-6',
+        '3': '2-6',
+        '4': '3-5',
+        '5': '2-4',
+        '6-7': '1-3',
+        '8-9': '0-2',
+        '10+': '0-1'
+      }
+    },
+    packages: [
+      {
+        name: 'control-core',
+        require: [
+          { tag: 'counterspell', count: 8 },
+          { tag: 'draw', count: 10 },
+          { tag: 'removal-sweeper', count: 2 }
+        ]
+      }
+    ],
+    bans: [],
+    requires: [],
+    power_gates: {
+      low: { cap: { 'tutor-broad': 2, 'fast-mana': 2 } },
+      high: { floor: { 'counterspell': 10, 'draw': 12 } }
+    }
+  },
+
   'commander-counters': {
     id: 'commander-counters',
     name: 'Counters & Proliferate',

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
+import { scryfallAPI } from '@/lib/api/scryfall';
 
 interface Message {
   id: string;
@@ -77,14 +78,6 @@ export function AIAnalysisPanel({
   const [detailedResponses, setDetailedResponses] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
   // Initialize with welcome message
   useEffect(() => {
     if (messages.length === 0) {
@@ -136,13 +129,32 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  // Extract possible card names from AI text when backend didn't include Referenced Cards
+  const extractCardNames = (text: string): string[] => {
+    const names = new Set<string>();
+    // [[Card Name]]
+    const bracket = text.match(/\[\[([^\]]+)\]\]/g);
+    bracket?.forEach((m) => names.add(m.slice(2, -2).trim()));
+    // "Card Name"
+    const quoted = text.match(/"([^"]+)"/g);
+    quoted?.forEach((m) => names.add(m.slice(1, -1).trim()));
+    // Bullet or dash lists
+    const lines = text.split(/\n+/);
+    for (const line of lines) {
+      const match = line.match(/^\s*[-*•]\s*([A-Za-z0-9'’:,\- ]{3,})/);
+      if (match) names.add(match[1].trim());
+    }
+    return Array.from(names);
+  };
+
+  const handleSendMessage = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
+    if (!text || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: input.trim(),
+      content: text,
       timestamp: new Date()
     };
 
@@ -152,20 +164,45 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
     setShowQuickActions(false);
 
     try {
-      const { message: responseText, cards } = await generateResponse(input.trim());
-      
+      const { message: responseText, cards } = await generateResponse(text);
+
+      let finalCards: CardData[] = cards || [];
+      if (!finalCards || finalCards.length === 0) {
+        // Fallback: try to extract and fetch cards client-side
+        const names = extractCardNames(responseText).slice(0, 12);
+        const fetched: CardData[] = [];
+        for (const name of names) {
+          try {
+            const c = await scryfallAPI.getCardByName(name);
+            fetched.push({
+              name: c.name,
+              image_uri: c.image_uris?.normal || c.image_uris?.large,
+              mana_cost: c.mana_cost,
+              type_line: c.type_line,
+              oracle_text: c.oracle_text,
+              power: c.power,
+              toughness: c.toughness,
+              cmc: c.cmc,
+              colors: c.colors,
+              rarity: c.rarity,
+            });
+          } catch {}
+        }
+        if (fetched.length > 0) finalCards = fetched;
+      }
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseText,
         timestamp: new Date(),
-        cards
+        cards: finalCards,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error generating response:', error);
-      
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -178,12 +215,11 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
       setIsLoading(false);
     }
   };
-
   const handleQuickAction = (action: typeof QUICK_ACTIONS[0]) => {
-    setInput(action.prompt);
     setShowQuickActions(false);
+    setInput('');
+    handleSendMessage(action.prompt);
   };
-
   const handleNewConversation = () => {
     setMessages([]);
     setShowQuickActions(true);
@@ -232,7 +268,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action)}
-                className={`p-3 rounded-lg border-2 transition-all text-left h-full ${action.className}`}
+                className={`p-3 rounded-lg border-2 transition-all text-left h-full min-h-24 ${action.className}`}
               >
                 <action.icon className="h-4 w-4 mb-2" />
                 <div className="text-sm font-medium">{action.label}</div>
@@ -244,7 +280,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
 
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 min-h-[400px]">
+        <div className="space-y-4 min-h-[200px]">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -315,7 +351,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
             className="flex-1"
           />
           <Button 
-            onClick={handleSendMessage} 
+            onClick={() => handleSendMessage()} 
             disabled={isLoading || !input.trim()}
             size="icon"
           >

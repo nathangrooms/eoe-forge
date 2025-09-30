@@ -1,7 +1,7 @@
 // Enhanced Deck Analysis Panel with Advanced Magic Mechanics
 // Integrates mana curve, land base, synergy, and format validation
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,9 @@ import { SynergyEngine } from '@/lib/magic/synergy';
 import { FormatValidator, ALL_FORMATS } from '@/lib/magic/formats';
 import { Card as DeckCard } from '@/stores/deckStore';
 import { AIAnalysisPanel } from './AIAnalysisPanel';
+import ReactMarkdown from 'react-markdown';
+import { supabase } from '@/integrations/supabase/client';
+import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
 import { toast } from 'sonner';
 
 interface EnhancedDeckAnalysisPanelProps {
@@ -64,6 +67,8 @@ const COLORS = {
 
 export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, deckName }: EnhancedDeckAnalysisPanelProps) {
   const [aiAnalysisFocus, setAiAnalysisFocus] = useState<string | null>(null);
+  const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[] }>({ text: '', cards: [] });
+  const [inlineLoading, setInlineLoading] = useState(false);
 
   const analysis = useMemo(() => {
     // Convert deck format for analysis libraries
@@ -97,9 +102,36 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
     };
   }, [deck, format]);
 
-  const optimizations = useMemo(() => {
+const optimizations = useMemo(() => {
     return ManaCurveAnalyzer.generateOptimizationSuggestions(analysis.manaCurve);
   }, [analysis.manaCurve]);
+
+  useEffect(() => {
+    if (!aiAnalysisFocus || !deckId || !deckName) return;
+    setInlineLoading(true);
+    setInlineAI({ text: '', cards: [] });
+    const promptMap: Record<string, string> = {
+      curve: "Analyze my deck's mana curve. Call out curve issues and concrete card swaps. Finish with: Referenced Cards: ...",
+      lands: "Analyze my deck's mana base and color sources. Recommend lands and counts. Finish with: Referenced Cards: ...",
+      synergy: "Analyze synergies and combos in my deck and missing pieces. Finish with: Referenced Cards: ...",
+      validation: "Check format legality issues and fixes. Finish with: Referenced Cards: ...",
+      suggestions: "Provide top 5 targeted improvements with card suggestions. Finish with: Referenced Cards: ...",
+    };
+    const message = promptMap[aiAnalysisFocus] || 'Provide analysis.';
+    supabase.functions.invoke('mtg-brain', {
+      body: {
+        message,
+        deckContext: { id: deckId, name: deckName, format, counts: { total: deck.length + (commander ? 1 : 0) } },
+        responseStyle: 'concise'
+      }
+    }).then(({ data, error }) => {
+      if (error || data?.error) {
+        toast.error(error?.message || data?.error || 'AI analysis failed');
+        return;
+      }
+      setInlineAI({ text: data.message || '', cards: data.cards || [] });
+    }).finally(() => setInlineLoading(false));
+  }, [aiAnalysisFocus, deckId, deckName, format, deck.length, commander]);
 
   return (
     <div className="space-y-6">
@@ -211,7 +243,29 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {aiAnalysisFocus === 'curve' && (
+                <div className="mb-4 p-3 border rounded bg-muted/30">
+                  {inlineLoading ? (
+                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                  ) : inlineAI.text ? (
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">DM</span>
+                          </div>
+                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                        </div>
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                      </div>
+                      {inlineAI.cards?.length > 0 && (
+                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Mana Curve Chart */}
                 <div>
                   <h4 className="font-medium mb-3">Current vs Ideal Curve</h4>
@@ -299,6 +353,28 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {aiAnalysisFocus === 'lands' && (
+                <div className="mb-4 p-3 border rounded bg-muted/30">
+                  {inlineLoading ? (
+                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                  ) : inlineAI.text ? (
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">DM</span>
+                          </div>
+                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                        </div>
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                      </div>
+                      {inlineAI.cards?.length > 0 && (
+                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Color Requirements */}
                 <div>
@@ -390,6 +466,28 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {aiAnalysisFocus === 'synergy' && (
+                <div className="mb-4 p-3 border rounded bg-muted/30">
+                  {inlineLoading ? (
+                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                  ) : inlineAI.text ? (
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">DM</span>
+                          </div>
+                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                        </div>
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                      </div>
+                      {inlineAI.cards?.length > 0 && (
+                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Archetype Matches */}
                 <div>
@@ -486,6 +584,28 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {aiAnalysisFocus === 'validation' && (
+                <div className="mb-4 p-3 border rounded bg-muted/30">
+                  {inlineLoading ? (
+                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                  ) : inlineAI.text ? (
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">DM</span>
+                          </div>
+                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                        </div>
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                      </div>
+                      {inlineAI.cards?.length > 0 && (
+                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <div className="space-y-4">
                 {/* Overall Status */}
                 <div className="flex items-center space-x-2 p-4 border rounded">
@@ -571,6 +691,28 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, dec
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {aiAnalysisFocus === 'suggestions' && (
+                <div className="mb-4 p-3 border rounded bg-muted/30">
+                  {inlineLoading ? (
+                    <div className="text-sm text-muted-foreground">AI analyzing...</div>
+                  ) : inlineAI.text ? (
+                    <div className="space-y-3">
+                      <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                            <span className="text-xs font-bold text-white">DM</span>
+                          </div>
+                          <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                        </div>
+                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                      </div>
+                      {inlineAI.cards?.length > 0 && (
+                        <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <div className="space-y-6">
                 {/* Mana Curve Optimization */}
                 {optimizations.swapSuggestions.length > 0 && (

@@ -15,19 +15,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { CardAddModal } from '@/components/brain/CardAddModal';
 import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
+import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 
-interface CardData {
-  name: string;
-  image_uri?: string;
-  mana_cost?: string;
-  type_line?: string;
-  oracle_text?: string;
-  power?: string;
-  toughness?: string;
-  cmc?: number;
-  colors?: string[];
-  rarity?: string;
-}
+interface CardData extends SharedCardData {}
 
 interface Message {
   id: string;
@@ -169,13 +159,16 @@ export default function Brain() {
   // Initialize with welcome message
   useEffect(() => {
     if (messages.length === 0 && selectedDeck) {
+      const totalCards = selectedDeck.counts.total || 0;
+      const displayCount = selectedDeck.format === 'commander' && totalCards === 100 ? totalCards : totalCards;
+      
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
         content: `## 🚀 DeckMatrix AI Analysis Engine Activated
 
 **TARGET DECK**: ${selectedDeck.name}  
-**FORMAT**: ${selectedDeck.format} | **CARDS**: ${selectedDeck.counts.total} | **POWER LEVEL**: ${selectedDeck.power.score}/10
+**FORMAT**: ${selectedDeck.format} | **CARDS**: ${displayCount} | **POWER LEVEL**: ${selectedDeck.power.score}/10
 
 ### Ready for Deep Strategic Analysis
 I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic knowledge and advanced deck optimization algorithms. I can provide:

@@ -1,7 +1,7 @@
 // Enhanced Deck Analysis Panel with Advanced Magic Mechanics
 // Integrates mana curve, land base, synergy, and format validation
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -34,18 +34,23 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
-  Lightbulb
+  Lightbulb,
+  Sparkles
 } from 'lucide-react';
 import { ManaCurveAnalyzer } from '@/lib/magic/mana-curve';
 import { LandBaseCalculator } from '@/lib/magic/land-base';
 import { SynergyEngine } from '@/lib/magic/synergy';
 import { FormatValidator, ALL_FORMATS } from '@/lib/magic/formats';
 import { Card as DeckCard } from '@/stores/deckStore';
+import { AIAnalysisPanel } from './AIAnalysisPanel';
+import { toast } from 'sonner';
 
 interface EnhancedDeckAnalysisPanelProps {
   deck: DeckCard[];
   format: string;
   commander?: DeckCard;
+  deckId?: string;
+  deckName?: string;
 }
 
 const COLORS = {
@@ -57,7 +62,9 @@ const COLORS = {
   muted: '#d084d0'
 };
 
-export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedDeckAnalysisPanelProps) {
+export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, deckName }: EnhancedDeckAnalysisPanelProps) {
+  const [aiAnalysisFocus, setAiAnalysisFocus] = useState<string | null>(null);
+
   const analysis = useMemo(() => {
     // Convert deck format for analysis libraries
     const analysisCards = deck.map(card => ({
@@ -169,21 +176,38 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
 
       {/* Detailed Analysis Tabs */}
       <Tabs defaultValue="curve" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="curve">Mana Curve</TabsTrigger>
           <TabsTrigger value="lands">Land Base</TabsTrigger>
           <TabsTrigger value="synergy">Synergy</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+          <TabsTrigger value="ai" className="bg-gradient-cosmic text-white border-spacecraft data-[state=active]:bg-gradient-cosmic">
+            <span className="flex items-center gap-1">
+              <Brain className="h-4 w-4" />
+              AI Analysis
+            </span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Mana Curve Tab */}
         <TabsContent value="curve" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <TrendingUp className="h-5 w-5 mr-2" />
-                Mana Curve Analysis
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Mana Curve Analysis
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setAiAnalysisFocus('curve')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Analysis
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -258,9 +282,20 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
         <TabsContent value="lands" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <MapPin className="h-5 w-5 mr-2" />
-                Mana Base Analysis
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <MapPin className="h-5 w-5 mr-2" />
+                  Mana Base Analysis
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setAiAnalysisFocus('lands')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Analysis
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -338,9 +373,20 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
         <TabsContent value="synergy" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Brain className="h-5 w-5 mr-2" />
-                Synergy Analysis
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Brain className="h-5 w-5 mr-2" />
+                  Synergy Analysis
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setAiAnalysisFocus('synergy')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Analysis
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -423,9 +469,20 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
         <TabsContent value="validation" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Target className="h-5 w-5 mr-2" />
-                Format Validation
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Target className="h-5 w-5 mr-2" />
+                  Format Validation
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setAiAnalysisFocus('validation')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Analysis
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -497,9 +554,20 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
         <TabsContent value="suggestions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Lightbulb className="h-5 w-5 mr-2" />
-                Improvement Suggestions
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Lightbulb className="h-5 w-5 mr-2" />
+                  Improvement Suggestions
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setAiAnalysisFocus('suggestions')}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Analysis
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -564,6 +632,31 @@ export function EnhancedDeckAnalysisPanel({ deck, format, commander }: EnhancedD
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* AI Analysis Tab */}
+        <TabsContent value="ai" className="h-[600px]">
+          {deckId && deckName ? (
+            <AIAnalysisPanel
+              deckId={deckId}
+              deckName={deckName}
+              deckFormat={format}
+              deckSummary={{
+                power: { score: 0 },
+                counts: { total: deck.length + (commander ? 1 : 0) }
+              }}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">AI Analysis Unavailable</h3>
+                <p className="text-sm text-muted-foreground">
+                  Save your deck first to access AI-powered analysis
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

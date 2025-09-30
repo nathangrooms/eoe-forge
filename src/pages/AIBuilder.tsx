@@ -446,52 +446,87 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     try {
       setBuildProgress(20);
       
-      // Call Gemini deck coach with a UI timeout so it never hangs
-      const coachCall = supabase.functions.invoke('gemini-deck-coach', {
+      // Use new AI-powered deck builder with MTG Brain integration
+      console.log('Starting AI deck build with MTG Brain planning...');
+      
+      const buildCall = supabase.functions.invoke('ai-deck-builder-v2', {
         body: {
-          format: 'commander',
-          commander: commander,
-          colors: commander.color_identity || [],
-          identity: commander.color_identity || [],
-          themeId: buildData.archetype,
-          powerTarget: buildData.powerLevel,
-          budget: buildData.budget < 50 ? 'low' : buildData.budget < 200 ? 'med' : 'high',
-          maxBudget: buildData.maxBudget,
-          customInstructions: buildData.customPrompt,
+          commander: {
+            id: commander.id,
+            name: commander.name,
+            oracle_text: commander.oracle_text || '',
+            type_line: commander.type_line || '',
+            color_identity: commander.color_identity || [],
+            colors: commander.colors || []
+          },
+          archetype: buildData.archetype,
+          powerLevel: buildData.powerLevel,
+          useAIPlanning: buildData.prioritizeSynergy // Use AI planning for better quality
         }
       });
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI coach timed out')), 50000));
-      const { data, error } = await Promise.race([coachCall, timeoutPromise]) as any;
+      setBuildProgress(40);
+      
+      // Give it more time for quality builds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Build timed out - try a simpler archetype')), 90000)
+      );
+      
+      const { data, error } = await Promise.race([buildCall, timeoutPromise]) as any;
 
-      setBuildProgress(80);
+      setBuildProgress(60);
 
       if (error) throw error;
 
-      if (data && !error) {
+      // Check if we got a background task response
+      if (data?.status === 'building' && data?.usePolling) {
+        console.log('Build started in background, polling for completion...');
+        showSuccess('Building Deck', 'Creating high-quality deck with AI guidance. This may take 30-60 seconds...');
+        
+        // Poll for completion (simplified - in production you'd check a status endpoint)
+        await new Promise(resolve => setTimeout(resolve, 45000));
+        setBuildProgress(90);
+        
+        showError('Build Timeout', 'Deck build is taking longer than expected. Please try again with a simpler configuration.');
+        throw new Error('Background build not fully implemented yet - please use simpler configuration');
+      }
+
+      setBuildProgress(85);
+
+      if (data?.result) {
+        const result = data.result;
+        
         setBuildResult({
-          deckName: `${commander.name} ${buildData.archetype} Deck`,
-          cards: data.decklist || [],
+          deckName: `${commander.name} - ${buildData.archetype}`,
+          cards: result.deck || [],
           analysis: {
-            power: data.power || 5,
-            band: data.band || 'mid',
-            subscores: data.subscores || {},
-            playability: data.playability || {},
-            drivers: data.drivers || [],
-            drags: data.drags || [],
-            recommendations: data.recommendations || [],
-            iterations: data.iterations || 0,
-            text: data.analysis || 'Deck optimized using Gemini AI coaching'
+            power: result.analysis?.power || buildData.powerLevel,
+            band: result.analysis?.power <= 3 ? 'casual' : 
+                  result.analysis?.power <= 6 ? 'mid' : 
+                  result.analysis?.power <= 8 ? 'high' : 'cEDH',
+            subscores: result.analysis?.subscores || {},
+            playability: {},
+            drivers: [],
+            drags: [],
+            recommendations: result.changeLog || [],
+            iterations: 1,
+            text: data.plan?.strategy || `AI-built ${buildData.archetype} deck using MTG Brain guidance`
           },
-          changelog: [],
-          power: data.power || 5,
-          totalValue: data.totalValue || 0,
-          cardCount: data.decklist?.length || 0
+          changelog: result.changeLog || [],
+          power: result.analysis?.power || buildData.powerLevel,
+          totalValue: result.deck?.reduce((sum: number, card: any) => 
+            sum + (parseFloat(card.prices?.usd || '0')), 0
+          ) || 0,
+          cardCount: result.deck?.length || 0
         });
+        
+        setBuildProgress(100);
         setStep(6);
-        showSuccess('AI Deck Generated!', `Created a ${data.band} power deck (${data.power?.toFixed(1)}/10) with ${data.iterations} Gemini optimization iterations`);
+        
+        const planMessage = data.plan ? 'with AI strategic planning' : 'using algorithmic optimization';
+        showSuccess('Deck Built!', `Created ${buildData.archetype} deck ${planMessage}`);
       } else {
-        throw new Error(error?.message || 'Failed to build deck with Gemini coaching');
+        throw new Error('Invalid response from deck builder');
       }
       
     } catch (error) {

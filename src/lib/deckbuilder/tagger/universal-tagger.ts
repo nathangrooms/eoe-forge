@@ -6,33 +6,51 @@ export class UniversalTagger {
     // Role patterns
     ramp: [
       /add [\{\w\}]+ to your mana pool/i,
+      /add.*mana.*any.*color/i,
+      /add.*\{[wubrgc]\}/i,
       /create a treasure/i,
+      /create.*treasure token/i,
       /search.*basic land.*put.*onto the battlefield/i,
-      /you may put a land card/i
+      /search your library for.*land.*battlefield/i,
+      /you may put a land card/i,
+      /put.*land.*onto the battlefield/i,
+      /whenever a land enters.*add/i
     ],
     
     tutors_broad: [
       /search your library for a card/i,
-      /search your library.*card.*hand/i
+      /search your library.*card.*hand/i,
+      /tutor/i
     ],
     
     tutors_narrow: [
       /search your library for a.*creature card/i,
+      /search your library for.*creature/i,
       /search your library for a.*instant.*sorcery/i,
+      /search your library for.*instant.*sorcery/i,
       /search your library for a.*artifact/i,
-      /search your library for a.*enchantment/i
+      /search your library for.*artifact/i,
+      /search your library for a.*enchantment/i,
+      /search your library for.*enchantment/i,
+      /search your library for.*land/i
     ],
     
     removal_spot: [
       /(destroy|exile) target (creature|artifact|enchantment|permanent)/i,
+      /(destroy|exile).*target/i,
       /target.*gets -\d+\/-\d+ until end of turn/i,
-      /deal \d+ damage to (target creature|any target)/i
+      /deal \d+ damage to (target creature|any target)/i,
+      /target.*loses all abilities/i,
+      /return target.*to.*hand/i,
+      /target.*owner.*hand/i
     ],
     
     removal_sweeper: [
       /(destroy|exile) all (creatures|artifacts|enchantments)/i,
       /all creatures get -\d+\/-\d+/i,
-      /damage to each creature/i
+      /damage to each creature/i,
+      /wrath/i,
+      /board wipe/i
     ],
     
     counterspell: [
@@ -43,7 +61,11 @@ export class UniversalTagger {
     draw: [
       /draw (a card|\d+ cards?)/i,
       /you may draw/i,
-      /draws? a card/i
+      /draws? a card/i,
+      /draw.*equal to/i,
+      /each player draws/i,
+      /whenever.*draws.*draw/i,
+      /card advantage/i
     ],
     
     protection: [
@@ -207,8 +229,13 @@ export class UniversalTagger {
       tags.add('fast-mana');
     }
     
+    // Mana rocks and dorks (1-2 CMC ramp)
+    if ((card.cmc === 1 || card.cmc === 2) && text.includes('add') && text.includes('mana')) {
+      tags.add('ramp');
+    }
+    
     // ETB tapped detection
-    if (text.includes('enters the battlefield tapped')) {
+    if (text.includes('enters the battlefield tapped') || text.includes('enters tapped')) {
       tags.add('etb-tapped');
     }
     

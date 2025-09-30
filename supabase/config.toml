@@ -11,5 +11,11 @@ enable_signup = true
 [functions.ai-deck-builder]
 verify_jwt = false
 
+[functions.ai-deck-builder-v2]
+verify_jwt = false
+
 [functions.gemini-deck-coach]
+verify_jwt = false
+
+[functions.mtg-brain]
 verify_jwt = false

@@ -587,11 +587,19 @@ export class UniversalDeckBuilder {
       }
     }
     
-    // Card quality scoring
+    // Card quality scoring (important!)
     score += this.scoreCardQuality(card);
     
-    // Mana cost efficiency (reduced weight)
-    score += Math.max(0, 6 - card.cmc) * 0.05;
+    // Mana cost efficiency (balanced - not just low CMC)
+    // Sweet spot is 2-4 CMC for most commander decks
+    if (card.cmc >= 2 && card.cmc <= 4) {
+      score += 2; // Bonus for optimal CMC range
+    } else if (card.cmc === 1) {
+      score += 1; // Some bonus for cheap cards
+    } else if (card.cmc === 5) {
+      score += 0.5; // Slight bonus for 5 CMC
+    }
+    // No bonus or penalty for 6+ unless it's very impactful (covered by quality)
     
     return score;
   }

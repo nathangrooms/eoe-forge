@@ -9,13 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, Copy, Download, ExternalLink, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { exportDeckToText } from "@/lib/deckExport";
-import { Separator } from "@/components/ui/separator";
+import { UniversalCardDisplay } from "@/components/universal/UniversalCardDisplay";
+import { UniversalCardModal } from "@/components/enhanced/UniversalCardModal";
 
 export default function PublicDeck() {
   const { slug } = useParams<{ slug: string }>();
   const [data, setData] = useState<PublicDeckData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tracked, setTracked] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -67,6 +70,11 @@ export default function PublicDeck() {
     toast.success("Decklist exported");
   };
 
+  const handleCardClick = (card: any) => {
+    setSelectedCard(card);
+    setShowCardModal(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -105,7 +113,27 @@ export default function PublicDeck() {
     return sum + (price * card.quantity);
   }, 0);
   
-  // Transform database cards to Card type for analysis panel
+  // Transform database cards for display
+  const displayCards = deck.cards.map((card: any) => ({
+    id: card.card_id,
+    name: card.card_name,
+    image_uris: { normal: card.image || `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.card_name)}&format=image` },
+    mana_cost: card.mana_cost,
+    type_line: card.type_line || '',
+    oracle_text: card.oracle_text || '',
+    power: card.power,
+    toughness: card.toughness,
+    colors: card.colors || [],
+    rarity: card.rarity || 'common',
+    set_name: card.set_name || '',
+    set: card.set || '',
+    cmc: card.cmc || 0,
+    prices: { usd: card.price_usd },
+    quantity: card.quantity,
+    is_commander: card.is_commander
+  }));
+
+  // Transform for analysis panel
   const transformedCards = deck.cards.map((card: any) => ({
     id: card.card_id,
     name: card.card_name,
@@ -124,6 +152,18 @@ export default function PublicDeck() {
               card.type_line?.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other') as any,
     mechanics: card.keywords || []
   }));
+
+  // Group cards by type for display
+  const cardGroups = [
+    { title: 'Commander', cards: displayCards.filter((c: any) => c.is_commander) },
+    { title: 'Creatures', cards: displayCards.filter((c: any) => !c.is_commander && c.type_line?.includes('Creature')) },
+    { title: 'Instants', cards: displayCards.filter((c: any) => c.type_line?.includes('Instant') && !c.type_line?.includes('Sorcery')) },
+    { title: 'Sorceries', cards: displayCards.filter((c: any) => c.type_line?.includes('Sorcery')) },
+    { title: 'Artifacts', cards: displayCards.filter((c: any) => c.type_line?.includes('Artifact') && !c.type_line?.includes('Creature')) },
+    { title: 'Enchantments', cards: displayCards.filter((c: any) => c.type_line?.includes('Enchantment') && !c.type_line?.includes('Creature')) },
+    { title: 'Planeswalkers', cards: displayCards.filter((c: any) => c.type_line?.includes('Planeswalker')) },
+    { title: 'Lands', cards: displayCards.filter((c: any) => c.type_line?.includes('Land')) },
+  ].filter(group => group.cards.length > 0);
 
   return (
     <>
@@ -240,74 +280,43 @@ export default function PublicDeck() {
               />
             </div>
 
-            {/* Deck List */}
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Decklist</span>
-                    <Badge variant="outline">{deck.counts.total} cards</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Commander Section */}
-                    {commander && (
-                      <div>
-                        <h3 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                          Commander (1)
-                        </h3>
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <span className="font-medium">1x</span>
-                            <span className="font-medium">{commander.name}</span>
-                          </div>
-                          <Badge>Commander</Badge>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Group cards by type */}
-                    {[
-                      { title: 'Creatures', cards: deck.cards.filter((c: any) => !c.is_commander && c.type_line?.includes('Creature')) },
-                      { title: 'Instants', cards: deck.cards.filter((c: any) => c.type_line?.includes('Instant') && !c.type_line?.includes('Sorcery')) },
-                      { title: 'Sorceries', cards: deck.cards.filter((c: any) => c.type_line?.includes('Sorcery')) },
-                      { title: 'Artifacts', cards: deck.cards.filter((c: any) => c.type_line?.includes('Artifact') && !c.type_line?.includes('Creature')) },
-                      { title: 'Enchantments', cards: deck.cards.filter((c: any) => c.type_line?.includes('Enchantment') && !c.type_line?.includes('Creature')) },
-                      { title: 'Planeswalkers', cards: deck.cards.filter((c: any) => c.type_line?.includes('Planeswalker')) },
-                      { title: 'Lands', cards: deck.cards.filter((c: any) => c.type_line?.includes('Land')) },
-                    ].filter(group => group.cards.length > 0).map((group) => (
-                      <div key={group.title}>
-                        <Separator className="mb-3" />
-                        <h3 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                          {group.title} ({group.cards.length})
-                        </h3>
-                        <div className="grid gap-2">
-                          {group.cards.map((card: any) => (
-                            <div key={card.card_id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                              <div className="flex items-center gap-3 flex-1">
-                                <span className="text-sm font-medium w-8">{card.quantity}x</span>
-                                <span className="font-medium">{card.card_name}</span>
-                                {card.mana_cost && (
-                                  <span className="text-sm text-muted-foreground">{card.mana_cost}</span>
-                                )}
-                              </div>
-                              {card.price_usd && (
-                                <span className="text-sm text-muted-foreground">
-                                  ${parseFloat(card.price_usd).toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Visual Deck Display */}
+            <div className="lg:col-span-3 space-y-6">
+              {cardGroups.map((group) => (
+                <Card key={group.title}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{group.title}</span>
+                      <Badge variant="outline">
+                        {group.cards.reduce((sum: number, c: any) => sum + c.quantity, 0)} cards
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <UniversalCardDisplay
+                      cards={group.cards}
+                      viewMode="grid"
+                      onCardClick={handleCardClick}
+                      compact={false}
+                    />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </div>
+
+        {/* Card Details Modal */}
+        {selectedCard && (
+          <UniversalCardModal
+            card={selectedCard}
+            isOpen={showCardModal}
+            onClose={() => {
+              setShowCardModal(false);
+              setSelectedCard(null);
+            }}
+          />
+        )}
       </div>
     </>
   );

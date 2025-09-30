@@ -483,7 +483,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           },
           changelog: [],
           power: data.power || 5,
-          totalValue: 0,
+          totalValue: data.totalValue || 0,
           cardCount: data.decklist?.length || 0
         });
         setStep(6);
@@ -1059,7 +1059,12 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               </div>
 
               <div className="space-y-3">
-                <Label>Budget: ${buildData.budget}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Budget: ${buildData.budget}</Label>
+                  <Badge variant={buildData.budget < 50 ? 'secondary' : buildData.budget < 200 ? 'default' : 'destructive'}>
+                    {buildData.budget < 50 ? 'Budget ($3 max/card)' : buildData.budget < 200 ? 'Mid-Range ($15 max/card)' : 'High-End ($100 max/card)'}
+                  </Badge>
+                </div>
                 <Slider
                   value={[buildData.budget]}
                   onValueChange={(value) => setBuildData(prev => ({ ...prev, budget: value[0] }))}
@@ -1073,6 +1078,9 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   <span>$500</span>
                   <span>$2000+</span>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Budget tiers filter individual card prices to stay within your total budget. Higher power decks may require higher budgets for optimal staples.
+                </p>
               </div>
 
               <div className="space-y-3">

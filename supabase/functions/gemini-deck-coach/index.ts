@@ -65,6 +65,7 @@ interface CoachingResult {
   recommendations: string[];
   analysis: string;
   iterations: number;
+  totalValue: number;
 }
 
 // Seeded RNG for deterministic builds
@@ -112,6 +113,13 @@ serve(async (req) => {
     // 4. Generate final analysis quickly
     const finalAnalysis = `This ${currentPower.band} power deck (${currentPower.power.toFixed(1)}/10) was built using a deterministic high-power algorithm focusing on playability and synergy. The deck includes ${currentDeck.length} cards optimized for the ${request.themeId} archetype.`;
     
+    // Calculate total deck value
+    const totalValue = currentDeck.reduce((sum, card) => {
+      const price = parseFloat(card.prices?.usd || '0');
+      return sum + price;
+    }, 0);
+    
+    console.log(`Final deck value: $${totalValue.toFixed(2)}`);
     
     const result: CoachingResult = {
       decklist: currentDeck,
@@ -123,7 +131,8 @@ serve(async (req) => {
       drags: currentPower.drags,
       recommendations: currentPower.recommendations,
       analysis: finalAnalysis,
-      iterations
+      iterations,
+      totalValue: Math.round(totalValue * 100) / 100
     };
 
     return new Response(JSON.stringify(result), {
@@ -205,6 +214,33 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     is_legendary: card.is_legendary || false
   }));
 
+  // Apply budget filtering based on price
+  const budgetThresholds = {
+    'low': 3.0,    // Max $3 per card
+    'med': 15.0,   // Max $15 per card  
+    'high': 100.0  // Max $100 per card
+  };
+  
+  const maxCardPrice = budgetThresholds[request.budget] || 100.0;
+  console.log(`Applying budget filter: ${request.budget} (max $${maxCardPrice} per card)`);
+  
+  // Filter cards by budget, but always allow basics and common staples under $1
+  const budgetFilteredCards = cards.filter(card => {
+    const price = parseFloat(card.prices?.usd || '0');
+    const isBasic = card.type_line.toLowerCase().includes('basic');
+    const isCheap = price < 1.0;
+    return isBasic || isCheap || price <= maxCardPrice;
+  });
+  
+  console.log(`Budget filtering: ${cards.length} -> ${budgetFilteredCards.length} cards available`);
+
+    image_uris: card.image_uris || {},
+    prices: card.prices || {},
+    rarity: card.rarity || 'common',
+    tags: card.tags || [],
+    is_legendary: card.is_legendary || false
+  }));
+
   const commanderColors = new Set((request.commander.color_identity || []).map((c) => c.toUpperCase()));
   const targetPower = request.powerTarget || 7;
   const isCEDH = targetPower >= 9;
@@ -242,7 +278,7 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
   };
 
   const deck: Card[] = [];
-  const byName = new Map(cards.map(c => [c.name.toLowerCase(), c]));
+  const byName = new Map(budgetFilteredCards.map(c => [c.name.toLowerCase(), c]));
   const used = new Set<string>();
 
   // Helper to add card by name if it exists

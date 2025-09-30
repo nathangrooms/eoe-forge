@@ -273,6 +273,19 @@ ${analysisType === 'power-breakdown' ? `
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Gemini API error:', response.status, errorText);
+    // Surface rate limit and payment errors explicitly to the client
+    if (response.status === 429) {
+      return new Response(JSON.stringify({ error: 'Rate limits exceeded, please try again shortly.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (response.status === 402) {
+      return new Response(JSON.stringify({ error: 'Payment required, please add credits to Lovable AI workspace.' }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     throw new Error(`AI analysis failed: ${response.status}`);
   }
 

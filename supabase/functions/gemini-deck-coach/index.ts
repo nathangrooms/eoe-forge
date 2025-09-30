@@ -85,7 +85,15 @@ serve(async (req) => {
   }
 
   try {
-    const request: CoachRequest = await req.json();
+    const body = await req.json();
+    
+    // Check if this is an analytics request (not a deck building request)
+    if (body.analysisType) {
+      return handleAnalyticsRequest(body);
+    }
+    
+    // Original deck building logic
+    const request: CoachRequest = body;
     console.log('Building deck with Gemini coaching for:', request.commander.name);
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -159,6 +167,80 @@ serve(async (req) => {
     });
   }
 });
+
+// Handle analytics requests separately
+async function handleAnalyticsRequest(body: any) {
+  const { powerData, deckData, analysisType } = body;
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY not configured');
+  }
+
+  const systemPrompt = `You are DeckMatrix AI, an expert Magic: The Gathering deck analyst with deep knowledge of Commander gameplay, power levels, and deck construction.
+
+**Your Role**: Provide clear, actionable insights in a conversational DeckMatrix brand tone - knowledgeable yet friendly, precise yet approachable.
+
+**Brand Voice**: Think of yourself as a seasoned player coaching a friend. Be enthusiastic about strong plays, honest about weaknesses, and always solution-oriented. Use MTG terminology naturally but explain complex concepts when needed.
+
+**Analysis Focus**:
+${analysisType === 'power-breakdown' ? `
+- Explain what each power subscore means in practical gameplay terms
+- Connect scores to real game scenarios
+- Prioritize the top 3 most impactful factors
+- Suggest specific improvements with 2-3 concrete card recommendations
+` : analysisType === 'mana-analysis' ? `
+- Analyze mana curve efficiency and color consistency
+- Identify ramp weaknesses or mana flooding risks
+- Recommend specific land count adjustments
+- Suggest 2-3 specific mana rocks or lands to add
+` : analysisType === 'archetype' ? `
+- Identify the deck's primary strategy and win conditions
+- Explain how the commander synergizes with the strategy
+- Highlight the deck's gameplan across early/mid/late game
+- Compare to known archetypes and suggest 1-2 cards that reinforce the strategy
+` : ''}
+
+**Format**: 2-4 concise paragraphs, conversational language, and prioritize actionable advice.`;
+
+  const userMessage = analysisType === 'power-breakdown' ? 
+    `Analyze this deck's power level breakdown:\n\nPower Level: ${powerData.power}/10 (${powerData.band})\n\nSubscores:\n${Object.entries(powerData.subscores || {}).map(([k, v]) => `- ${k}: ${v}/100`).join('\n')}\n\nStrengths:\n${(powerData.drivers || []).map((d: string) => `- ${d}`).join('\n')}\n\nWeaknesses:\n${(powerData.drags || []).map((d: string) => `- ${d}`).join('\n')}\n\nDeck size: ${deckData.totalCards} cards\nCommander: ${deckData.commander?.name || 'None'}` 
+  : analysisType === 'mana-analysis' ?
+    `Analyze this deck's mana base:\n\nTotal cards: ${deckData.totalCards}\nLands: ${deckData.lands}\nAvg CMC: ${deckData.avgCMC}\nColors: ${deckData.colors?.join(', ')}\nMana Score: ${powerData.subscores?.mana || 0}/100\n\nMana sources by color:\n${Object.entries(deckData.manaSources || {}).map(([c, n]) => `${c}: ${n}`).join(', ')}`
+  : analysisType === 'archetype' ?
+    `Identify the archetype and strategy for this deck:\n\nCommander: ${deckData.commander?.name}\nColors: ${deckData.colors?.join('/')}\nCreatures: ${deckData.creatures}\nInstants: ${deckData.instants}\nSorceries: ${deckData.sorceries}\nArtifacts: ${deckData.artifacts}\nEnchantments: ${deckData.enchantments}\n\nTop cards by CMC:\n${deckData.topCards?.slice(0, 10).join(', ') || 'N/A'}`
+  : 'Provide general deck analysis';
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 800,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API error:', response.status, errorText);
+    throw new Error(`AI analysis failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const insight = data.choices?.[0]?.message?.content || 'Analysis unavailable';
+
+  return new Response(
+    JSON.stringify({ insight }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
 
 // Helper: Calculate total deck value
 function calculateDeckValue(deck: Card[]): number {

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
+import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
 import { CardGallery } from '@/components/deck-builder/CardGallery';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
@@ -446,45 +446,11 @@ const DeckBuilder = () => {
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
-              <>
-                {(() => {
-                  const displayCards = deck.cards.map((card: any) => ({
-                    id: card.id,
-                    name: card.name,
-                    image_uris: { normal: `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image` },
-                    cmc: card.cmc || 0,
-                    type_line: card.type_line || '',
-                    quantity: card.quantity || 1,
-                    is_commander: (card as any).is_commander,
-                    prices: { usd: (card as any).price_usd },
-                  }));
-
-                  const groups = [
-                    { title: 'Commander', cards: displayCards.filter((c: any) => c.is_commander) },
-                    { title: 'Creatures', cards: displayCards.filter((c: any) => !c.is_commander && c.type_line?.includes('Creature')) },
-                    { title: 'Instants & Sorceries', cards: displayCards.filter((c: any) => c.type_line?.includes('Instant') || c.type_line?.includes('Sorcery')) },
-                    { title: 'Artifacts', cards: displayCards.filter((c: any) => c.type_line?.includes('Artifact') && !c.type_line?.includes('Creature')) },
-                    { title: 'Enchantments', cards: displayCards.filter((c: any) => c.type_line?.includes('Enchantment') && !c.type_line?.includes('Creature')) },
-                    { title: 'Planeswalkers', cards: displayCards.filter((c: any) => c.type_line?.includes('Planeswalker')) },
-                    { title: 'Lands', cards: displayCards.filter((c: any) => c.type_line?.includes('Land')) },
-                  ].filter((g: any) => g.cards.length > 0);
-
-                  return (
-                    <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6">
-                      <div className="space-y-4">
-                        <EnhancedDeckAnalysisPanel 
-                          deck={deck.cards as any}
-                          format={deck.format || 'standard'}
-                          commander={deck.commander}
-                        />
-                      </div>
-                      <div className="space-y-4">
-                        <CardGallery groups={groups as any} />
-                      </div>
-                    </div>
-                  );
-                })()}
-              </>
+              <ComprehensiveAnalytics 
+                deck={deck.cards as any}
+                format={deck.format || 'standard'}
+                commander={deck.commander}
+              />
             ) : (
               <div className="text-center p-8">
                 <p className="text-muted-foreground mb-4">Add cards to your deck to see AI-powered analysis</p>

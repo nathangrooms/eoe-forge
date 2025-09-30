@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from "@/lib/api/shareAPI";
-import { EnhancedDeckAnalysisPanel } from "@/components/deck-builder/EnhancedDeckAnalysis";
+import { ComprehensiveAnalytics } from "@/components/deck-builder/ComprehensiveAnalytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Copy, Download, ExternalLink, DollarSign, ChevronDown, ChevronRight, Crown, Users, Mountain, Sparkles, Scroll, Gem, Shield, Swords, Skull } from "lucide-react";
+import { Eye, Copy, Download, ExternalLink, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { exportDeckToText } from "@/lib/deckExport";
 import { UniversalCardModal } from "@/components/enhanced/UniversalCardModal";
@@ -19,7 +19,6 @@ export default function PublicDeck() {
   const [tracked, setTracked] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Commander', 'Creatures', 'Instants & Sorceries']));
 
   useEffect(() => {
     if (!slug) return;
@@ -74,16 +73,6 @@ export default function PublicDeck() {
   const handleCardClick = (card: any) => {
     setSelectedCard(card);
     setShowCardModal(true);
-  };
-
-  const toggleCategory = (category: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
-    }
-    setExpandedCategories(newExpanded);
   };
 
   if (loading) {
@@ -165,17 +154,7 @@ export default function PublicDeck() {
     mechanics: card.keywords || []
   }));
 
-  // Group cards by type for display with icons
-  const CATEGORY_CONFIG: Record<string, { icon: any, color: string }> = {
-    'Commander': { icon: Crown, color: 'border-l-yellow-500 bg-yellow-500/10' },
-    'Creatures': { icon: Users, color: 'border-l-green-500 bg-green-500/10' },
-    'Instants & Sorceries': { icon: Sparkles, color: 'border-l-blue-500 bg-blue-500/10' },
-    'Artifacts': { icon: Shield, color: 'border-l-gray-500 bg-gray-500/10' },
-    'Enchantments': { icon: Gem, color: 'border-l-purple-500 bg-purple-500/10' },
-    'Planeswalkers': { icon: Swords, color: 'border-l-pink-500 bg-pink-500/10' },
-    'Lands': { icon: Mountain, color: 'border-l-orange-500 bg-orange-500/10' },
-  };
-
+  // Group cards by type for display
   const cardGroups = [
     { title: 'Commander', cards: displayCards.filter((c: any) => c.is_commander) },
     { title: 'Creatures', cards: displayCards.filter((c: any) => !c.is_commander && c.type_line?.includes('Creature')) },
@@ -267,7 +246,7 @@ export default function PublicDeck() {
           <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6">
             {/* Analysis Sidebar */}
             <div className="space-y-4">
-              <EnhancedDeckAnalysisPanel 
+              <ComprehensiveAnalytics 
                 deck={transformedCards} 
                 format={deck.format}
                 commander={commander ? transformedCards.find(c => c.is_commander) : undefined}
@@ -276,7 +255,7 @@ export default function PublicDeck() {
 
             {/* Visual Deck Display */}
             <div className="space-y-4">
-              <CardGallery groups={cardGroups as any} onCardClick={handleCardClick} defaultExpanded={Array.from(expandedCategories)} />
+              <CardGallery groups={cardGroups as any} onCardClick={handleCardClick} />
             </div>
           </div>
         </div>

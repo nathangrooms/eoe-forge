@@ -85,16 +85,36 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const raw = await req.text();
+    let body: any = {};
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.warn('Invalid JSON body for gemini-deck-coach');
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Log minimal payload diagnostics
+    try {
+      const diag = {
+        hasAnalysisType: !!body?.analysisType,
+        hasCommander: !!body?.commander,
+        commanderName: body?.commander?.name ?? null,
+      };
+      console.log('gemini-deck-coach request:', diag);
+    } catch (_) {}
     
     // Check if this is an analytics request (not a deck building request)
-    if (body.analysisType) {
+    if (body?.analysisType) {
       return handleAnalyticsRequest(body);
     }
     
     // Original deck building logic
-    const request: CoachRequest = body;
-    if (!request?.commander?.name) {
+    const request: CoachRequest = body as CoachRequest;
+    if (!request || !request.commander || typeof request.commander.name !== 'string' || !request.commander.name) {
       console.warn('Deck build request missing commander; returning 400');
       return new Response(JSON.stringify({ error: 'Missing commander in request' }), {
         status: 400,

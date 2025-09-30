@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useDeckStore } from '@/stores/deckStore';
 import { EDHPowerCalculator } from '@/lib/deckbuilder/score/edh-power-calculator';
+import { PowerLevelFlags } from './deck-builder/PowerLevelFlags';
 
 interface PowerScore {
   power: number;
@@ -164,6 +165,14 @@ export function PowerScoringEngine({ deck, format }: PowerScoringEngineProps) {
         </div>
         
         <Progress value={scoreData.power * 10} className="h-3 mb-4" />
+        
+        {(scoreData as any).flags && (scoreData as any).diagnostics && (
+          <PowerLevelFlags 
+            flags={(scoreData as any).flags}
+            diagnostics={(scoreData as any).diagnostics}
+            targetPower={scoreData.power}
+          />
+        )}
 
         {/* Playability Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

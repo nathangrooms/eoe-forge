@@ -1,0 +1,85 @@
+{
+  "compact_combo": [
+    {
+      "name": "Thassa's Oracle",
+      "requires": ["Demonic Consultation", "Tainted Pact"]
+    },
+    {
+      "name": "Isochron Scepter",
+      "requires": ["Dramatic Reversal"]
+    },
+    {
+      "name": "Dockside Extortionist",
+      "requires": ["Temur Sabertooth", "Cloudstone Curio", "Deadeye Navigator"]
+    },
+    {
+      "name": "Kiki-Jiki, Mirror Breaker",
+      "requires": ["Deceiver Exarch", "Pestermite", "Felidar Guardian", "Zealous Conscripts"]
+    },
+    {
+      "name": "Splinter Twin",
+      "requires": ["Deceiver Exarch", "Pestermite"]
+    },
+    {
+      "name": "Underworld Breach",
+      "requires": ["Brain Freeze", "Lion's Eye Diamond"]
+    },
+    {
+      "name": "Food Chain",
+      "requires": ["Eternal Scourge", "Misthollow Griffin", "Squee, the Immortal"]
+    },
+    {
+      "name": "Protean Hulk",
+      "requires": []
+    }
+  ],
+  "finisher_bomb": {
+    "cards": [
+      "Craterhoof Behemoth",
+      "Torment of Hailfire",
+      "Exsanguinate",
+      "Aetherflux Reservoir",
+      "Approach of the Second Sun",
+      "Finale of Devastation",
+      "Crackle with Power",
+      "Expropriate",
+      "Insurrection",
+      "Triumph of the Hordes"
+    ],
+    "conditional": {
+      "Aetherflux Reservoir": {"min_inst_sorc": 25},
+      "Craterhoof Behemoth": {"min_creatures": 20},
+      "Torment of Hailfire": {"min_ramp": 12},
+      "Exsanguinate": {"min_ramp": 12}
+    }
+  },
+  "inevitability_engine": {
+    "cards": [
+      "Rhystic Study",
+      "Mystic Remora",
+      "Bolas's Citadel",
+      "The Gitrog Monster",
+      "Dark Confidant",
+      "Necropotence",
+      "Phyrexian Arena",
+      "Ad Nauseam",
+      "Thrasios, Triton Hero",
+      "Kinnan, Bonder Prodigy"
+    ]
+  },
+  "massive_swing": {
+    "cards": [
+      "Cyclonic Rift",
+      "Time Warp",
+      "Nexus of Fate",
+      "Temporal Manipulation",
+      "Capture of Jingzhou",
+      "Time Stretch",
+      "Aggravated Assault",
+      "Savage Beating",
+      "Waves of Aggression",
+      "Insurrection",
+      "Expropriate"
+    ]
+  }
+}

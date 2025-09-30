@@ -1,0 +1,63 @@
+{
+  "broad": {
+    "weight": 1.0,
+    "cards": [
+      "Demonic Tutor",
+      "Vampiric Tutor",
+      "Imperial Seal",
+      "Diabolic Intent",
+      "Grim Tutor",
+      "Cruel Tutor",
+      "Profane Tutor"
+    ]
+  },
+  "category_high": {
+    "weight": 0.85,
+    "cards": [
+      "Enlightened Tutor",
+      "Mystical Tutor",
+      "Worldly Tutor",
+      "Gamble",
+      "Burning Wish",
+      "Living Wish"
+    ]
+  },
+  "category_mid": {
+    "weight": 0.7,
+    "cards": [
+      "Idyllic Tutor",
+      "Fabricate",
+      "Steelshaper's Gift",
+      "Chord of Calling",
+      "Green Sun's Zenith",
+      "Finale of Devastation",
+      "Eladamri's Call",
+      "Congregation at Dawn"
+    ]
+  },
+  "narrow": {
+    "weight": 0.5,
+    "cards": [
+      "Expedition Map",
+      "Muddle the Mixture",
+      "Dimir Infiltrator",
+      "Drift of Phantasms",
+      "Perplex",
+      "Dizzy Spell",
+      "Merchant Scroll",
+      "Mystical Teachings",
+      "Shred Memory"
+    ]
+  },
+  "pseudo": {
+    "weight": 0.35,
+    "cards": [
+      "Dig Through Time",
+      "Treasure Cruise",
+      "Intuition",
+      "Impulse",
+      "Fact or Fiction",
+      "Brainstorm"
+    ]
+  }
+}

@@ -17,6 +17,27 @@ export interface EDHPowerScore {
     stax_pressure: number;
     synergy: number;
   };
+  flags: {
+    no_tutors: boolean;
+    no_game_changers: boolean;
+  };
+  diagnostics: {
+    tutors: {
+      count_raw: number;
+      count_quality: number;
+      list: Array<{name: string; quality: string; mv: number}>;
+    };
+    game_changers: {
+      count: number;
+      classes: {
+        compact_combo: number;
+        finisher_bombs: number;
+        inevitability_engines: number;
+        massive_swing: number;
+      };
+      list: Array<{name: string; class: string; reason: string}>;
+    };
+  };
   playability: PlayabilityMetrics;
   goldfish: GoldfishMetrics;
   legality: {
@@ -93,16 +114,47 @@ export class EDHPowerCalculator {
     const features = FeatureExtractor.extractFeatures(deck, commander);
     
     // Calculate subscores (0-100 scale)
-    const subscores = this.calculateSubscores(features, deck, commander);
+    let subscores = this.calculateSubscores(features, deck, commander);
     
     // Calculate raw weighted score
     const rawScore = this.calculateWeightedScore(subscores, config.weights);
     
     // Convert to 1-10 power scale using logistic function
-    const power = this.mapToPowerScale(rawScore, config.logistic_params);
+    let power = this.mapToPowerScale(rawScore, config.logistic_params);
     
-    // Determine band
+    // Determine band (before adjustments for threshold checks)
     const band = this.determineBand(power, config.thresholds);
+    
+    // Detect flags based on band thresholds
+    const tutorThreshold = band === 'cedh' ? 6.0 : (band === 'high' ? 3.0 : 1.5);
+    const gcThreshold = (band === 'cedh' || band === 'high') ? 2 : 1;
+    
+    const no_tutors = features.tutorQuality < tutorThreshold;
+    const no_game_changers = features.gameChangerCount < gcThreshold;
+    
+    // Apply penalties if flags are true
+    let powerAdjustment = 0;
+    
+    if (no_tutors) {
+      subscores = { ...subscores, tutors: Math.min(subscores.tutors, 35) };
+      powerAdjustment -= band === 'cedh' ? 1.0 : 0.6;
+    }
+    
+    if (no_game_changers) {
+      subscores = {
+        ...subscores,
+        speed: Math.max(0, subscores.speed - 8),
+        resilience: Math.max(0, subscores.resilience - 6)
+      };
+      powerAdjustment -= band === 'cedh' ? 1.4 : 0.8;
+    }
+    
+    // Recalculate power with adjusted subscores
+    if (powerAdjustment !== 0) {
+      const adjustedRawScore = this.calculateWeightedScore(subscores, config.weights);
+      power = this.mapToPowerScale(adjustedRawScore, config.logistic_params) + powerAdjustment;
+      power = Math.max(1, Math.min(10, power)); // Clamp to 1-10
+    }
     
     // Calculate playability metrics
     const playability = PlayabilitySimulator.simulatePlayability(deck, seed);
@@ -132,6 +184,27 @@ export class EDHPowerCalculator {
       power: Math.round(power * 10) / 10,
       band,
       subscores,
+      flags: {
+        no_tutors,
+        no_game_changers
+      },
+      diagnostics: {
+        tutors: {
+          count_raw: features.tutorDetails.length,
+          count_quality: features.tutorQuality,
+          list: features.tutorDetails
+        },
+        game_changers: {
+          count: features.gameChangerCount,
+          classes: {
+            compact_combo: features.gameChangerDetails.compact_combo,
+            finisher_bombs: features.gameChangerDetails.finisher_bombs,
+            inevitability_engines: features.gameChangerDetails.inevitability_engines,
+            massive_swing: features.gameChangerDetails.massive_swing
+          },
+          list: features.gameChangerDetails.list
+        }
+      },
       playability,
       goldfish,
       legality,

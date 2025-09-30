@@ -1,6 +1,8 @@
 import { Card } from '@/lib/deckbuilder/types';
 import staplesData from './staples.json';
 import combosData from './combos.json';
+import tutorCatalog from './catalog.tutors.json';
+import gameChangerCatalog from './catalog.gamechangers.json';
 
 export interface FeatureExtraction {
   fastManaIndex: number;
@@ -14,11 +16,23 @@ export interface FeatureExtraction {
   synergyScore: number;
   staxPressure: number;
   cardAdvantageEngines: number;
+  tutorQuality: number;
+  gameChangerCount: number;
+  tutorDetails: Array<{name: string; quality: string; mv: number}>;
+  gameChangerDetails: {
+    compact_combo: number;
+    finisher_bombs: number;
+    inevitability_engines: number;
+    massive_swing: number;
+    list: Array<{name: string; class: string; reason: string}>;
+  };
 }
 
 export class FeatureExtractor {
   static extractFeatures(deck: Card[], commander?: Card): FeatureExtraction {
     const allCards = commander ? [commander, ...deck] : deck;
+    const tutorAnalysis = this.detectTutors(allCards);
+    const gameChangerAnalysis = this.detectGameChangers(allCards);
     
     return {
       fastManaIndex: this.calculateFastManaIndex(allCards),
@@ -31,7 +45,11 @@ export class FeatureExtractor {
       consistencyMetrics: this.calculateConsistencyMetrics(allCards),
       synergyScore: this.calculateSynergyScore(allCards, commander),
       staxPressure: this.calculateStaxPressure(allCards),
-      cardAdvantageEngines: this.calculateCardAdvantageEngines(allCards)
+      cardAdvantageEngines: this.calculateCardAdvantageEngines(allCards),
+      tutorQuality: tutorAnalysis.quality,
+      gameChangerCount: gameChangerAnalysis.count,
+      tutorDetails: tutorAnalysis.list,
+      gameChangerDetails: gameChangerAnalysis
     };
   }
 
@@ -404,5 +422,158 @@ export class FeatureExtractor {
     });
 
     return Math.min(engines, 100);
+  }
+
+  private static detectTutors(cards: Card[]): {quality: number; count: number; list: Array<{name: string; quality: string; mv: number}>} {
+    const tutorList: Array<{name: string; quality: string; mv: number; weight: number}> = [];
+    
+    // Check against catalog
+    Object.entries(tutorCatalog).forEach(([tier, data]) => {
+      const weight = (data as any).weight;
+      const tierCards = (data as any).cards || [];
+      tierCards.forEach((tutorName: string) => {
+        const card = cards.find(c => c.name === tutorName);
+        if (card) {
+          tutorList.push({
+            name: card.name,
+            quality: tier,
+            mv: card.cmc,
+            weight
+          });
+        }
+      });
+    });
+    
+    // Also check oracle text for tutor keywords
+    cards.forEach(card => {
+      if (tutorList.some(t => t.name === card.name)) return;
+      
+      const text = card.oracle_text?.toLowerCase() || '';
+      if (text.includes('search your library') || text.includes('tutor')) {
+        let quality = 'narrow';
+        let weight = 0.5;
+        
+        if (text.includes('search your library for a card')) {
+          quality = 'broad';
+          weight = 1.0;
+        } else if (text.includes('search your library for a creature') || 
+                   text.includes('search your library for an enchantment') ||
+                   text.includes('search your library for an artifact')) {
+          quality = 'category_mid';
+          weight = 0.7;
+        }
+        
+        tutorList.push({
+          name: card.name,
+          quality,
+          mv: card.cmc,
+          weight
+        });
+      }
+    });
+    
+    const totalQuality = tutorList.reduce((sum, t) => sum + t.weight, 0);
+    
+    return {
+      quality: Math.round(totalQuality * 10) / 10,
+      count: tutorList.length,
+      list: tutorList.map(({name, quality, mv}) => ({name, quality, mv}))
+    };
+  }
+
+  private static detectGameChangers(cards: Card[]): {
+    count: number;
+    compact_combo: number;
+    finisher_bombs: number;
+    inevitability_engines: number;
+    massive_swing: number;
+    list: Array<{name: string; class: string; reason: string}>;
+  } {
+    const result = {
+      compact_combo: 0,
+      finisher_bombs: 0,
+      inevitability_engines: 0,
+      massive_swing: 0,
+      list: [] as Array<{name: string; class: string; reason: string}>
+    };
+    
+    // Detect compact combos
+    (gameChangerCatalog.compact_combo as any[]).forEach((combo: any) => {
+      const hasMain = cards.some(c => c.name === combo.name);
+      if (hasMain) {
+        const hasPiece = combo.requires.length === 0 || 
+                        combo.requires.some((req: string) => cards.some(c => c.name === req));
+        if (hasPiece) {
+          result.compact_combo++;
+          result.list.push({
+            name: combo.name,
+            class: 'compact_combo',
+            reason: combo.requires.length > 0 ? `with ${combo.requires[0]}` : 'enabler present'
+          });
+        }
+      }
+    });
+    
+    // Detect finisher bombs
+    const instSorcCount = cards.filter(c => c.type_line.includes('Instant') || c.type_line.includes('Sorcery')).length;
+    const creatureCount = cards.filter(c => c.type_line.includes('Creature')).length;
+    const rampCount = cards.filter(c => c.oracle_text?.toLowerCase().includes('add') && c.oracle_text?.toLowerCase().includes('mana')).length;
+    
+    ((gameChangerCatalog.finisher_bomb as any).cards as string[]).forEach((finisher: string) => {
+      const card = cards.find(c => c.name === finisher);
+      if (card) {
+        let valid = true;
+        const conditions = ((gameChangerCatalog.finisher_bomb as any).conditional as any)[finisher];
+        
+        if (conditions) {
+          if (conditions.min_inst_sorc && instSorcCount < conditions.min_inst_sorc) valid = false;
+          if (conditions.min_creatures && creatureCount < conditions.min_creatures) valid = false;
+          if (conditions.min_ramp && rampCount < conditions.min_ramp) valid = false;
+        }
+        
+        if (valid) {
+          result.finisher_bombs++;
+          result.list.push({
+            name: finisher,
+            class: 'finisher_bomb',
+            reason: 'density requirements met'
+          });
+        }
+      }
+    });
+    
+    // Detect inevitability engines
+    ((gameChangerCatalog.inevitability_engine as any).cards as string[]).forEach((engine: string) => {
+      if (cards.some(c => c.name === engine)) {
+        result.inevitability_engines++;
+        result.list.push({
+          name: engine,
+          class: 'inevitability_engine',
+          reason: 'long-term value engine'
+        });
+      }
+    });
+    
+    // Detect massive swings
+    ((gameChangerCatalog.massive_swing as any).cards as string[]).forEach((swing: string) => {
+      if (cards.some(c => c.name === swing)) {
+        result.massive_swing++;
+        result.list.push({
+          name: swing,
+          class: 'massive_swing',
+          reason: 'game-swinging effect'
+        });
+      }
+    });
+    
+    // Cap each class at 3
+    result.compact_combo = Math.min(result.compact_combo, 3);
+    result.finisher_bombs = Math.min(result.finisher_bombs, 3);
+    result.inevitability_engines = Math.min(result.inevitability_engines, 3);
+    result.massive_swing = Math.min(result.massive_swing, 3);
+    
+    const count = result.compact_combo + result.finisher_bombs + result.inevitability_engines + result.massive_swing;
+    
+    return { ...result, count };
   }
 }

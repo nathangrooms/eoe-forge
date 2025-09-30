@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
+import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import { CardGallery } from '@/components/deck-builder/CardGallery';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
@@ -446,11 +446,12 @@ const DeckBuilder = () => {
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
-              <ComprehensiveAnalytics 
+              <EnhancedDeckAnalysisPanel 
                 deck={deck.cards as any}
                 format={deck.format || 'standard'}
                 commander={deck.commander}
                 deckId={selectedDeckId || undefined}
+                deckName={deck.name}
               />
             ) : (
               <div className="text-center p-8">

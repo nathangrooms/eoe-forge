@@ -451,7 +451,6 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
     deck.push(...availableCards.slice(0, remainingSlots));
   }
 
-  const finalLandCount = deck.filter(c => c.type_line.toLowerCase().includes('land')).length;
   // Simulate playability and adjust if needed
   const playabilityResult = simulatePlayability(deck, playabilityTargets);
   console.log(`Playability check: Keepable7=${playabilityResult.keepable7_pct}%, T1 hit=${playabilityResult.t1_color_hit_pct}%, Untapped=${playabilityResult.untapped_land_ratio}%`);

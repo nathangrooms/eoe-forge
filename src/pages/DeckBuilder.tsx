@@ -450,6 +450,7 @@ const DeckBuilder = () => {
                 deck={deck.cards as any}
                 format={deck.format || 'standard'}
                 commander={deck.commander}
+                deckId={selectedDeckId || undefined}
               />
             ) : (
               <div className="text-center p-8">

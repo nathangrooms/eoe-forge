@@ -250,6 +250,7 @@ export default function PublicDeck() {
                 deck={transformedCards} 
                 format={deck.format}
                 commander={commander ? transformedCards.find(c => c.is_commander) : undefined}
+                deckId={deck.id}
               />
             </div>
 

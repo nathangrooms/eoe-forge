@@ -662,6 +662,7 @@ export type Database = {
       }
       user_decks: {
         Row: {
+          archetype: string | null
           colors: string[]
           created_at: string
           description: string | null
@@ -679,6 +680,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archetype?: string | null
           colors?: string[]
           created_at?: string
           description?: string | null
@@ -696,6 +698,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archetype?: string | null
           colors?: string[]
           created_at?: string
           description?: string | null

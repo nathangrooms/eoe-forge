@@ -86,14 +86,14 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
       
       try {
         const { data } = await supabase
-          .from('decks')
+          .from('user_decks')
           .select('archetype')
           .eq('id', deckId)
-          .single();
+          .maybeSingle();
         
         if (data?.archetype) {
-          setArchetype(data.archetype);
-          setAiInsights(prev => ({ ...prev, archetype: data.archetype }));
+          setArchetype(data.archetype as string);
+          setAiInsights(prev => ({ ...prev, archetype: data.archetype as string }));
         }
       } catch (err) {
         console.error('Failed to load archetype:', err);
@@ -147,8 +147,8 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
         setArchetype(archetypeLabel);
         
         await supabase
-          .from('decks')
-          .update({ archetype: archetypeLabel })
+          .from('user_decks')
+          .update({ archetype: archetypeLabel } as any)
           .eq('id', deckId);
       }
     } catch (err) {

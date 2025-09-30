@@ -191,24 +191,40 @@ ${analysisType === 'power-breakdown' ? `
 - Suggest specific improvements with 2-3 concrete card recommendations
 ` : analysisType === 'mana-analysis' ? `
 - Analyze mana curve efficiency and color consistency
-- Identify ramp weaknesses or mana flooding risks
+- Identify ramp weaknesses or mana flooding risks  
 - Recommend specific land count adjustments
 - Suggest 2-3 specific mana rocks or lands to add
 ` : analysisType === 'archetype' ? `
 - Identify the deck's primary strategy and win conditions
 - Explain how the commander synergizes with the strategy
 - Highlight the deck's gameplan across early/mid/late game
-- Compare to known archetypes and suggest 1-2 cards that reinforce the strategy
+- Compare to known archetypes (e.g., combo, stax, midrange, aggro, control)
+- Provide a clear 1-2 sentence archetype label
+` : analysisType === 'recommendations' ? `
+- Provide 5-8 specific, purchasable Magic cards by name
+- Explain why each card fits the deck's strategy
+- Prioritize cards that address the weakest subscores
+- Include a mix of creatures, spells, and lands
+- Format: "Card Name - Brief reason why it improves the deck"
 ` : ''}
 
 **Format**: 2-4 concise paragraphs, conversational language, and prioritize actionable advice.`;
 
+  const commanderName = deckData.commander?.name || 'No Commander';
+  const commanderColors = deckData.commander?.colors?.join('/') || deckData.colors?.join('/') || 'Colorless';
+
   const userMessage = analysisType === 'power-breakdown' ? 
-    `Analyze this deck's power level breakdown:\n\nPower Level: ${powerData.power}/10 (${powerData.band})\n\nSubscores:\n${Object.entries(powerData.subscores || {}).map(([k, v]) => `- ${k}: ${v}/100`).join('\n')}\n\nStrengths:\n${(powerData.drivers || []).map((d: string) => `- ${d}`).join('\n')}\n\nWeaknesses:\n${(powerData.drags || []).map((d: string) => `- ${d}`).join('\n')}\n\nDeck size: ${deckData.totalCards} cards\nCommander: ${deckData.commander?.name || 'None'}` 
+    `Analyze this deck's power level breakdown:\n\nPower Level: ${powerData.power}/10 (${powerData.band})\n\nSubscores:\n${Object.entries(powerData.subscores || {}).map(([k, v]) => `- ${k}: ${v}/100`).join('\n')}\n\nStrengths:\n${(powerData.drivers || []).map((d: string) => `- ${d}`).join('\n')}\n\nWeaknesses:\n${(powerData.drags || []).map((d: string) => `- ${d}`).join('\n')}\n\nDeck size: ${deckData.totalCards} cards\nCommander: ${commanderName}` 
   : analysisType === 'mana-analysis' ?
-    `Analyze this deck's mana base:\n\nTotal cards: ${deckData.totalCards}\nLands: ${deckData.lands}\nAvg CMC: ${deckData.avgCMC}\nColors: ${deckData.colors?.join(', ')}\nMana Score: ${powerData.subscores?.mana || 0}/100\n\nMana sources by color:\n${Object.entries(deckData.manaSources || {}).map(([c, n]) => `${c}: ${n}`).join(', ')}`
+    `Analyze this deck's mana base:\n\nTotal cards: ${deckData.totalCards}\nLands: ${deckData.lands}\nAvg CMC: ${deckData.avgCMC}\nColors: ${commanderColors}\nMana Score: ${powerData.subscores?.mana || 0}/100\n\nKeepable hands: ${powerData.playability?.keepable7_pct || 0}%\nT1 color hit: ${powerData.playability?.t1_color_hit_pct || 0}%\nUntapped lands: ${powerData.playability?.untapped_land_ratio || 0}%`
   : analysisType === 'archetype' ?
-    `Identify the archetype and strategy for this deck:\n\nCommander: ${deckData.commander?.name}\nColors: ${deckData.colors?.join('/')}\nCreatures: ${deckData.creatures}\nInstants: ${deckData.instants}\nSorceries: ${deckData.sorceries}\nArtifacts: ${deckData.artifacts}\nEnchantments: ${deckData.enchantments}\n\nTop cards by CMC:\n${deckData.topCards?.slice(0, 10).join(', ') || 'N/A'}`
+    `Identify the archetype and strategy for this deck:\n\nCommander: ${commanderName}\nColors: ${commanderColors}\nCreatures: ${deckData.creatures}\nInstants: ${deckData.instants}\nSorceries: ${deckData.sorceries}\nArtifacts: ${deckData.artifacts}\nEnchantments: ${deckData.enchantments}\n\nTop cards:\n${deckData.topCards?.slice(0, 10).join(', ') || 'N/A'}`
+  : analysisType === 'recommendations' ?
+    `Provide 5-8 specific card recommendations to improve this deck:\n\nCommander: ${commanderName}\nColors: ${commanderColors}\nPower Level: ${powerData.power}/10 (${powerData.band})\nAvg CMC: ${deckData.avgCMC}\n\nCurrent composition:\n- Creatures: ${deckData.creatures}\n- Instants: ${deckData.instants}\n- Sorceries: ${deckData.sorceries}\n- Artifacts: ${deckData.artifacts}\n- Enchantments: ${deckData.enchantments}\n- Lands: ${deckData.lands}\n\nWeakest subscores:\n${Object.entries(powerData.subscores || {})
+  .sort(([,a], [,b]) => (a as number) - (b as number))
+  .slice(0, 3)
+  .map(([k, v]) => `- ${k}: ${v}/100`)
+  .join('\n')}`
   : 'Provide general deck analysis';
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

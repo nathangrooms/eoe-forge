@@ -199,7 +199,21 @@ export class DeckAPI {
               .eq('deck_id', deck.id)
               .single();
 
-            // 6) Build summary for UI (power from EDH model)
+            // 6) Compute total priceUSD from card prices
+            const totalPrice = playable.reduce((sum, dc) => {
+              const c = cardMap.get(dc.card_id);
+              const usd = c?.prices?.usd;
+              let price = 0;
+              if (typeof usd === 'string') {
+                const parsed = parseFloat(usd);
+                price = isNaN(parsed) ? 0 : parsed;
+              } else if (typeof usd === 'number') {
+                price = usd;
+              }
+              return sum + price * (dc.quantity || 1);
+            }, 0);
+
+            // 7) Build summary for UI (power from EDH model)
             return {
               id: deck.id,
               name: deck.name,
@@ -218,7 +232,7 @@ export class DeckAPI {
               },
               legality: { ok: true, issues: [] },
               power: { score: Math.round(power.power * 10) / 10, band: power.band as any, drivers: power.drivers, drags: power.drags },
-              economy: { priceUSD: 0, ownedPct: 0, missing: 0 },
+              economy: { priceUSD: totalPrice, ownedPct: 0, missing: 0 },
               tags: [],
               updatedAt: deck.updated_at,
               favorite: !!fav

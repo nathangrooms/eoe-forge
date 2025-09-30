@@ -459,7 +459,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         }
       });
 
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI coach timed out')), 42000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI coach timed out')), 50000));
       const { data, error } = await Promise.race([coachCall, timeoutPromise]) as any;
 
       setBuildProgress(80);

@@ -440,14 +440,37 @@ export const useDeckStore = create<DeckState>()(
           let commander: Card | undefined;
 
           if (deckCards) {
-            for (const dbCard of deckCards) {
-              // Fetch real card data from Scryfall API
+            // Create a cache for API responses to avoid duplicate calls
+            const cardCache = new Map<string, any>();
+            
+            // Group cards by name to avoid duplicate API calls
+            const uniqueCardNames = [...new Set(deckCards.map(card => card.card_name))];
+            
+            // Fetch all unique cards in parallel
+            const cardPromises = uniqueCardNames.map(async (cardName) => {
               try {
-                const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(dbCard.card_name)}`);
-                
+                const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
                 if (response.ok) {
                   const apiCard = await response.json();
-                  
+                  cardCache.set(cardName, apiCard);
+                } else {
+                  cardCache.set(cardName, null);
+                }
+              } catch (error) {
+                console.error(`Error fetching ${cardName}:`, error);
+                cardCache.set(cardName, null);
+              }
+            });
+
+            // Wait for all API calls to complete
+            await Promise.all(cardPromises);
+
+            // Process each deck card using the cached data
+            for (const dbCard of deckCards) {
+              try {
+                const apiCard = cardCache.get(dbCard.card_name);
+                
+                if (apiCard) {
                   // Determine category based on type line and commander status
                   let category: Card['category'] = 'other';
                   const typeLine = apiCard.type_line?.toLowerCase() || '';
@@ -549,9 +572,6 @@ export const useDeckStore = create<DeckState>()(
                     cards.push(cardData);
                   }
                 }
-                
-                // Add small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 50));
                 
               } catch (error) {
                 console.error(`Error processing ${dbCard.card_name}:`, error);

@@ -445,7 +445,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     try {
       setBuildProgress(20);
       
-      const { data, error } = await supabase.functions.invoke('gemini-deck-coach', {
+      // Call Gemini deck coach with a UI timeout so it never hangs
+      const coachCall = supabase.functions.invoke('gemini-deck-coach', {
         body: {
           format: 'commander',
           commander: commander,
@@ -455,9 +456,11 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           powerTarget: buildData.powerLevel,
           budget: buildData.budget < 50 ? 'low' : buildData.budget < 200 ? 'med' : 'high',
           customInstructions: buildData.customPrompt,
-          seed: Math.floor(Math.random() * 10000)
         }
       });
+
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI coach timed out')), 26000));
+      const { data, error } = await Promise.race([coachCall, timeoutPromise]) as any;
 
       setBuildProgress(80);
 

@@ -102,29 +102,39 @@ serve(async (req) => {
     console.log(`Initial power: ${currentPower.power} (target: ${request.powerTarget})`);
     
     let iterations = 0;
-    const maxIterations = 5;
+    const maxIterations = 3;
+    const startedAt = Date.now();
+    const maxMillis = 25000; // 25s wall clock
     
     // 3. Coaching loop with Gemini
-    while (Math.abs(currentPower.power - request.powerTarget) > 0.5 && iterations < maxIterations) {
+    while (Math.abs(currentPower.power - request.powerTarget) > 0.5 && iterations < maxIterations && (Date.now() - startedAt) < maxMillis) {
       iterations++;
       console.log(`Coaching iteration ${iterations}...`);
       
-      // Get coaching recommendations from Gemini
-      const coachingPrompt = buildCoachingPrompt(
-        request, 
-        currentDeck, 
-        currentPower, 
-        request.powerTarget
-      );
-      
-      const geminiResponse = await callGemini(LOVABLE_API_KEY, coachingPrompt);
-      const recommendations = parseGeminiRecommendations(geminiResponse);
-      
-      // Apply recommendations
-      currentDeck = await applyRecommendations(currentDeck, recommendations, request, rng);
-      currentPower = await analyzeWithEDHCalculator(currentDeck, request.commander, request.format);
-      
-      console.log(`After iteration ${iterations}: power ${currentPower.power}`);
+      try {
+        // Get coaching recommendations from Gemini
+        const coachingPrompt = buildCoachingPrompt(
+          request, 
+          currentDeck, 
+          currentPower, 
+          request.powerTarget
+        );
+        
+        const geminiResponse = await callGemini(LOVABLE_API_KEY, coachingPrompt);
+        const recommendations = parseGeminiRecommendations(geminiResponse);
+        
+        // Apply recommendations
+        currentDeck = await applyRecommendations(currentDeck, recommendations, request, rng);
+        currentPower = await analyzeWithEDHCalculator(currentDeck, request.commander, request.format);
+        
+        console.log(`After iteration ${iterations}: power ${currentPower.power}`);
+      } catch (e) {
+        console.error('Coaching iteration failed, using fallback recommendations:', e);
+        const recommendations = getDefaultRecommendations();
+        currentDeck = await applyRecommendations(currentDeck, recommendations, request, rng);
+        currentPower = await analyzeWithEDHCalculator(currentDeck, request.commander, request.format);
+        break; // stop loop on failure to keep latency bounded
+      }
     }
     
     // 4. Generate final analysis
@@ -363,49 +373,84 @@ Format your response as a JSON object with this structure:
 }
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert Magic: The Gathering deck builder with deep knowledge of the EDH format and power level optimization. Provide specific, actionable deck building advice.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.3
-    }),
-  });
+  // Add a hard timeout so the UI never hangs forever
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000); // 20s safety
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Gemini API error:', error);
-    throw new Error(`Gemini API error: ${response.status}`);
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert Magic: The Gathering deck builder with deep knowledge of the EDH format and power level optimization. Provide specific, actionable deck building advice. Answer in valid JSON only, no commentary.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      }),
+      signal: controller.signal
+    });
+  
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Gemini API error:', error);
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+  
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  } catch (e) {
+    if ((e as any).name === 'AbortError') {
+      console.error('Gemini call timed out');
+      throw new Error('Gemini request timed out');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 function parseGeminiRecommendations(geminiResponse: string): any[] {
   try {
-    // Extract JSON from the response
-    const jsonMatch = geminiResponse.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.log('No JSON found in Gemini response, using fallback');
-      return getDefaultRecommendations();
+    if (!geminiResponse) return getDefaultRecommendations();
+
+    // Prefer JSON code block if present
+    const fenced = geminiResponse.match(/```json\s*([\s\S]*?)```/i) || geminiResponse.match(/```\s*([\s\S]*?)```/i);
+    if (fenced && fenced[1]) {
+      const trimmed = fenced[1].trim();
+      const parsedFenced = JSON.parse(trimmed);
+      return parsedFenced.recommendations || parsedFenced?.data?.recommendations || getDefaultRecommendations();
     }
-    
-    const parsed = JSON.parse(jsonMatch[0]);
-    return parsed.recommendations || [];
+
+    // Fallback: try to extract the first balanced JSON object
+    const firstBrace = geminiResponse.indexOf('{');
+    if (firstBrace !== -1) {
+      let depth = 0;
+      for (let i = firstBrace; i < geminiResponse.length; i++) {
+        const ch = geminiResponse[i];
+        if (ch === '{') depth++;
+        else if (ch === '}') depth--;
+        if (depth === 0) {
+          const candidate = geminiResponse.slice(firstBrace, i + 1);
+          try {
+            const parsed = JSON.parse(candidate);
+            return parsed.recommendations || getDefaultRecommendations();
+          } catch {}
+        }
+      }
+    }
+
+    console.log('No JSON found in Gemini response, using fallback');
+    return getDefaultRecommendations();
   } catch (error) {
     console.error('Failed to parse Gemini recommendations:', error);
     return getDefaultRecommendations();

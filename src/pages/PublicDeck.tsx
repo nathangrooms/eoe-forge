@@ -10,6 +10,7 @@ import { Eye, Copy, Download, ExternalLink, DollarSign, ChevronDown, ChevronRigh
 import { toast } from "sonner";
 import { exportDeckToText } from "@/lib/deckExport";
 import { UniversalCardModal } from "@/components/enhanced/UniversalCardModal";
+import { CardGallery } from "@/components/deck-builder/CardGallery";
 
 export default function PublicDeck() {
   const { slug } = useParams<{ slug: string }>();
@@ -274,90 +275,8 @@ export default function PublicDeck() {
             </div>
 
             {/* Visual Deck Display */}
-            <div className="space-y-4">{/* cards will go here */}
-              {cardGroups.map((group) => {
-                const config = CATEGORY_CONFIG[group.title];
-                const Icon = config?.icon || Users;
-                const isExpanded = expandedCategories.has(group.title);
-                const totalCards = group.cards.reduce((sum: number, c: any) => sum + c.quantity, 0);
-
-                return (
-                  <Card key={group.title} className={`border-l-4 ${config?.color || ''}`}>
-                    <CardHeader 
-                      className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => toggleCategory(group.title)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <Icon className="h-5 w-5 text-primary" />
-                          <CardTitle className="text-lg">{group.title}</CardTitle>
-                          <Badge variant="secondary">{totalCards}</Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    
-                    {isExpanded && (
-                      <CardContent className="pt-0">
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {group.cards.map((card: any, index: number) => (
-                            <div 
-                              key={`${card.id}-${index}`} 
-                              className="relative group cursor-pointer"
-                              onClick={() => handleCardClick(card)}
-                            >
-                              <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-all duration-200 shadow-sm group-hover:shadow-lg">
-                                {card.image_uris?.normal ? (
-                                  <img 
-                                    src={card.image_uris.normal} 
-                                    alt={card.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-muted">
-                                    <Icon className="h-8 w-8 text-muted-foreground" />
-                                  </div>
-                                )}
-                                
-                                {/* Quantity Badge */}
-                                {card.quantity > 1 && (
-                                  <div className="absolute top-2 left-2">
-                                    <Badge className="bg-background/90 text-foreground border font-bold">
-                                      {card.quantity}x
-                                    </Badge>
-                                  </div>
-                                )}
-
-                                {/* Price Badge */}
-                                {card.prices?.usd && (
-                                  <div className="absolute top-2 right-2">
-                                    <Badge className="bg-background/90 text-foreground border text-xs">
-                                      ${parseFloat(card.prices.usd).toFixed(2)}
-                                    </Badge>
-                                  </div>
-                                )}
-
-                                {/* View Details Overlay */}
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                  <div className="text-white text-sm font-medium flex items-center gap-2">
-                                    <Eye className="h-4 w-4" />
-                                    View Details
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="mt-2 text-center">
-                                <div className="font-medium text-sm line-clamp-1">{card.name}</div>
-                                <div className="text-xs text-muted-foreground">CMC {card.cmc}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                );
-              })}
+            <div className="space-y-4">
+              <CardGallery groups={cardGroups as any} onCardClick={handleCardClick} defaultExpanded={Array.from(expandedCategories)} />
             </div>
           </div>
         </div>

@@ -104,7 +104,7 @@ serve(async (req) => {
     let iterations = 0;
     const maxIterations = 3;
     const startedAt = Date.now();
-    const maxMillis = 25000; // 25s wall clock
+    const maxMillis = 40000; // 40s wall clock
     
     // 3. Coaching loop with Gemini
     while (Math.abs(currentPower.power - request.powerTarget) > 0.5 && iterations < maxIterations && (Date.now() - startedAt) < maxMillis) {
@@ -375,7 +375,7 @@ Format your response as a JSON object with this structure:
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
   // Add a hard timeout so the UI never hangs forever
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000); // 20s safety
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s safety
 
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -423,33 +423,48 @@ function parseGeminiRecommendations(geminiResponse: string): any[] {
   try {
     if (!geminiResponse) return getDefaultRecommendations();
 
+    // Clean the response by removing comments and invalid JSON patterns
+    let cleanResponse = geminiResponse;
+    
+    // Remove JavaScript-style comments
+    cleanResponse = cleanResponse.replace(/\/\/.*$/gm, '');
+    cleanResponse = cleanResponse.replace(/\/\*[\s\S]*?\*\//g, '');
+    
     // Prefer JSON code block if present
-    const fenced = geminiResponse.match(/```json\s*([\s\S]*?)```/i) || geminiResponse.match(/```\s*([\s\S]*?)```/i);
+    const fenced = cleanResponse.match(/```json\s*([\s\S]*?)```/i) || cleanResponse.match(/```\s*([\s\S]*?)```/i);
     if (fenced && fenced[1]) {
-      const trimmed = fenced[1].trim();
-      const parsedFenced = JSON.parse(trimmed);
-      return parsedFenced.recommendations || parsedFenced?.data?.recommendations || getDefaultRecommendations();
+      const trimmed = fenced[1].trim().replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      try {
+        const parsedFenced = JSON.parse(trimmed);
+        return parsedFenced.recommendations || parsedFenced?.data?.recommendations || getDefaultRecommendations();
+      } catch (e) {
+        console.error('Failed to parse fenced JSON:', e);
+      }
     }
 
     // Fallback: try to extract the first balanced JSON object
-    const firstBrace = geminiResponse.indexOf('{');
+    const firstBrace = cleanResponse.indexOf('{');
     if (firstBrace !== -1) {
       let depth = 0;
-      for (let i = firstBrace; i < geminiResponse.length; i++) {
-        const ch = geminiResponse[i];
+      for (let i = firstBrace; i < cleanResponse.length; i++) {
+        const ch = cleanResponse[i];
         if (ch === '{') depth++;
         else if (ch === '}') depth--;
         if (depth === 0) {
-          const candidate = geminiResponse.slice(firstBrace, i + 1);
+          let candidate = cleanResponse.slice(firstBrace, i + 1);
+          // Clean the candidate JSON
+          candidate = candidate.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
           try {
             const parsed = JSON.parse(candidate);
             return parsed.recommendations || getDefaultRecommendations();
-          } catch {}
+          } catch (e) {
+            console.error('Failed to parse extracted JSON:', e);
+          }
         }
       }
     }
 
-    console.log('No JSON found in Gemini response, using fallback');
+    console.log('No valid JSON found in Gemini response, using fallback');
     return getDefaultRecommendations();
   } catch (error) {
     console.error('Failed to parse Gemini recommendations:', error);

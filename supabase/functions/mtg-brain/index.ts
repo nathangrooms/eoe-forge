@@ -293,7 +293,14 @@ serve(async (req) => {
 **Staple Cards:** ${JSON.stringify(MTG_KNOWLEDGE.STAPLE_CARDS, null, 2)}
 
 ## CURRENT DECK CONTEXT
-${deckContext ? `The user is currently working on: ${JSON.stringify(deckContext, null, 2)}` : 'No deck currently loaded.'}`;
+${deckContext ? `The user is currently working on: ${JSON.stringify(deckContext, null, 2)}
+
+${deckContext.cards && deckContext.cards.length > 0 ? 
+  `**Deck Cards (${deckContext.cards.length}):**\n${deckContext.cards.map((c: any) => 
+    `- ${c.name} ${c.mana_cost || ''} (CMC: ${c.cmc || '?'}) - ${c.type_line || 'Unknown type'}${c.quantity > 1 ? ` x${c.quantity}` : ''}`
+  ).join('\n')}` 
+  : '**Note:** Full card list not available. If the user asks for mana curve or specific card analysis, explain you need access to the full deck list to provide accurate analysis.'}` 
+  : 'No deck currently loaded.'}`;
 
     // Add card context if cards were mentioned
     if (cardContext) {

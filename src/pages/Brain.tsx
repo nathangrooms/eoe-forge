@@ -191,10 +191,20 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
   // Call MTG Brain API
   const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
+      // Enrich deck context with actual card list if available
+      const enrichedDeckContext = selectedDeck ? {
+        ...selectedDeck,
+        cards: deckCards.map(dc => ({
+          name: dc.card_name,
+          quantity: dc.quantity || 1,
+          is_commander: dc.is_commander
+        }))
+      } : null;
+      
       const response = await supabase.functions.invoke('mtg-brain', {
         body: {
           message,
-          deckContext: selectedDeck,
+          deckContext: enrichedDeckContext,
           conversationHistory: messages.slice(-6),
           responseStyle: detailedResponses ? 'detailed' : 'concise'
         },

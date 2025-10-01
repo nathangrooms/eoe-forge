@@ -119,10 +119,28 @@ const optimizations = useMemo(() => {
       suggestions: "Provide top 5 targeted improvements. Use a table comparing current vs upgrade cards (Card, Current, Upgrade, Cost, Benefit). Finish with: Referenced Cards: ...",
     };
     const message = promptMap[aiAnalysisFocus] || 'Provide analysis.';
+    
+    // Include actual deck cards for AI analysis
+    const deckCards = deck.map(card => ({
+      name: card.name,
+      mana_cost: card.mana_cost,
+      cmc: card.cmc,
+      type_line: card.type_line,
+      colors: card.colors,
+      quantity: card.quantity || 1
+    }));
+    
     supabase.functions.invoke('mtg-brain', {
       body: {
         message,
-        deckContext: { id: deckId, name: deckName, format, counts: { total: deck.length + (commander ? 1 : 0) } },
+        deckContext: { 
+          id: deckId, 
+          name: deckName, 
+          format, 
+          commander: commander ? { name: commander.name, type_line: commander.type_line, colors: commander.colors } : undefined,
+          cards: deckCards,
+          counts: { total: deck.length + (commander ? 1 : 0) } 
+        },
         responseStyle: 'concise'
       }
     }).then(({ data, error }) => {
@@ -815,7 +833,20 @@ const optimizations = useMemo(() => {
               deckFormat={format}
               deckSummary={{
                 power: { score: 0 },
-                counts: { total: deck.length + (commander ? 1 : 0) }
+                counts: { total: deck.length + (commander ? 1 : 0) },
+                commander: commander ? { 
+                  name: commander.name, 
+                  type_line: commander.type_line, 
+                  colors: commander.colors 
+                } : undefined,
+                cards: deck.map(card => ({
+                  name: card.name,
+                  mana_cost: card.mana_cost,
+                  cmc: card.cmc,
+                  type_line: card.type_line,
+                  colors: card.colors,
+                  quantity: card.quantity || 1
+                }))
               }}
             />
           ) : (

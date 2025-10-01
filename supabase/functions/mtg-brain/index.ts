@@ -374,6 +374,7 @@ ${responseStyle === 'detailed' ? `
 - Meta considerations and competitive insights
 - Step-by-step analysis of complex interactions
 - Budget alternatives and upgrade paths when relevant
+- **USE VISUAL TOOLS** whenever presenting statistics, distributions, or comparisons
 ` : `
 **QUICK RESPONSE MODE:** Provide clear, focused responses that:
 - Get straight to the point with actionable advice
@@ -381,18 +382,24 @@ ${responseStyle === 'detailed' ? `
 - Use bullet points for easy scanning  
 - Avoid lengthy explanations unless critical
 - Prioritize practical, immediately useful information
+- **USE VISUAL TOOLS** for data that's clearer as charts/tables
 `}
-${responseStyle === 'detailed' ? `
-- **Comprehensive Analysis:** Provide in-depth explanations with multiple examples
-- **Detailed Card Lists:** Include extensive card suggestions with reasoning
-- **Strategic Deep Dives:** Explain complex interactions and meta considerations
-- **Extended Recommendations:** Cover multiple approaches and alternatives
-` : `
-- **Concise and Focused:** Keep responses brief and to the point
-- **Essential Information Only:** Highlight key cards and strategies without lengthy explanations
-- **Quick Recommendations:** Provide actionable advice without excessive detail
-- **Bullet Points Preferred:** Use clear, scannable formatting
-`}
+
+## CRITICAL VISUAL DATA USAGE
+**YOU MUST USE THE VISUAL TOOLS when appropriate:**
+- Analyzing mana curves → create_chart (bar chart with CMC distribution)
+- Color distribution → create_chart (pie chart showing color percentages)
+- Card type breakdown → create_chart (pie or bar chart)
+- Comparing multiple cards → create_table (columns: Card, Cost, Type, Pros, Cons)
+- Upgrade paths → create_table (columns: Current Card, Upgrade, Cost Increase, Benefit)
+- Power level tiers → create_table (organized by budget/power)
+
+**Format Guidelines:**
+- Use ## for major section headings
+- Start new paragraph every 2-3 sentences
+- Use **bold** for card names and key terms
+- Keep paragraphs short and scannable
+- Add blank lines between sections
 
 Always ground your responses in the provided knowledge base, referenced card data, and current deck context.`;
 

@@ -223,6 +223,8 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
           toast.error('Rate limits exceeded. Please wait a moment before asking another question.');
         } else if (error.message.includes('Payment required')) {
           toast.error('Credits required. Please add AI credits to your workspace to continue.');
+        } else {
+          toast.error('Failed to get AI response. Please try again.');
         }
       }
       

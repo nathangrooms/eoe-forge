@@ -43,6 +43,7 @@ import { SynergyEngine } from '@/lib/magic/synergy';
 import { FormatValidator, ALL_FORMATS } from '@/lib/magic/formats';
 import { Card as DeckCard } from '@/stores/deckStore';
 import { AIAnalysisPanel } from './AIAnalysisPanel';
+import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
@@ -67,7 +68,7 @@ const COLORS = {
 
 export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, deckName }: EnhancedDeckAnalysisPanelProps) {
   const [aiAnalysisFocus, setAiAnalysisFocus] = useState<string | null>(null);
-  const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[] }>({ text: '', cards: [] });
+  const [inlineAI, setInlineAI] = useState<{ text: string; cards: CardData[]; visualData?: VisualData }>({ text: '', cards: [] });
   const [inlineLoading, setInlineLoading] = useState(false);
 
   const analysis = useMemo(() => {
@@ -111,11 +112,11 @@ const optimizations = useMemo(() => {
     setInlineLoading(true);
     setInlineAI({ text: '', cards: [] });
     const promptMap: Record<string, string> = {
-      curve: "Analyze my deck's mana curve. Call out curve issues and concrete card swaps. Finish with: Referenced Cards: ...",
-      lands: "Analyze my deck's mana base and color sources. Recommend lands and counts. Finish with: Referenced Cards: ...",
-      synergy: "Analyze synergies and combos in my deck and missing pieces. Finish with: Referenced Cards: ...",
-      validation: "Check format legality issues and fixes. Finish with: Referenced Cards: ...",
-      suggestions: "Provide top 5 targeted improvements with card suggestions. Finish with: Referenced Cards: ...",
+      curve: "Analyze my deck's mana curve. Show a bar chart of CMC distribution if relevant. Call out curve issues and concrete card swaps. Finish with: Referenced Cards: ...",
+      lands: "Analyze my deck's mana base and color sources. Use a pie chart for color distribution if helpful. Recommend specific lands and counts. Finish with: Referenced Cards: ...",
+      synergy: "Analyze synergies and combos in my deck. Use a table to compare synergy pieces if relevant. Identify missing pieces. Finish with: Referenced Cards: ...",
+      validation: "Check format legality issues. Use a table to organize illegal cards and their replacements. Finish with: Referenced Cards: ...",
+      suggestions: "Provide top 5 targeted improvements. Use a table comparing current vs upgrade cards (Card, Current, Upgrade, Cost, Benefit). Finish with: Referenced Cards: ...",
     };
     const message = promptMap[aiAnalysisFocus] || 'Provide analysis.';
     supabase.functions.invoke('mtg-brain', {
@@ -129,7 +130,11 @@ const optimizations = useMemo(() => {
         toast.error(error?.message || data?.error || 'AI analysis failed');
         return;
       }
-      setInlineAI({ text: data.message || '', cards: data.cards || [] });
+      setInlineAI({ 
+        text: data.message || '', 
+        cards: data.cards || [],
+        visualData: data.visualData || undefined
+      });
     }).finally(() => setInlineLoading(false));
   }, [aiAnalysisFocus, deckId, deckName, format, deck.length, commander]);
 
@@ -260,8 +265,11 @@ const optimizations = useMemo(() => {
                           <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
                         </div>
                       </div>
-                      {inlineAI.cards?.length > 0 && (
+                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                      {inlineAI.visualData && (
+                        <AIVisualDisplay data={inlineAI.visualData} compact />
                       )}
                     </div>
                   ) : null}
@@ -374,6 +382,9 @@ const optimizations = useMemo(() => {
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                      {inlineAI.visualData && (
+                        <AIVisualDisplay data={inlineAI.visualData} compact />
                       )}
                     </div>
                   ) : null}
@@ -489,6 +500,9 @@ const optimizations = useMemo(() => {
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                      {inlineAI.visualData && (
+                        <AIVisualDisplay data={inlineAI.visualData} compact />
                       )}
                     </div>
                   ) : null}
@@ -610,6 +624,9 @@ const optimizations = useMemo(() => {
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
                       )}
+                      {inlineAI.visualData && (
+                        <AIVisualDisplay data={inlineAI.visualData} compact />
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -718,6 +735,9 @@ const optimizations = useMemo(() => {
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
+                      )}
+                      {inlineAI.visualData && (
+                        <AIVisualDisplay data={inlineAI.visualData} compact />
                       )}
                     </div>
                   ) : null}

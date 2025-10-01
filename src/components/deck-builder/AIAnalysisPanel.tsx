@@ -128,6 +128,8 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
           toast.error('Rate limits exceeded. Please wait before asking another question.');
         } else if (error.message.includes('Payment required')) {
           toast.error('Credits required. Please add AI credits to continue.');
+        } else {
+          toast.error('Failed to get AI response. Please try again.');
         }
       }
       

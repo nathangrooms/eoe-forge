@@ -93,8 +93,6 @@ export default function Brain() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalCard, setModalCard] = useState<any>(null);
-  const [showMessageCardsModal, setShowMessageCardsModal] = useState(false);
-  const [messageCards, setMessageCards] = useState<CardData[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -286,202 +284,6 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
     }
   };
 
-  const extractCardsFromMessage = async (messageText: string) => {
-    if (isLoading) return; // Prevent multiple simultaneous calls
-    
-    try {
-      // More comprehensive card name patterns
-      const patterns = [
-        // Quoted card names
-        /"([^"]+)"/g,
-        // Card names with common formats: Name, Title or Name of Location
-        /\b[A-Z][a-z]+(?:\s[A-Z][a-z]*)*(?:\s(?:of|the|from)\s[A-Z][a-z]+(?:\s[A-Z][a-z]*)*)?/g,
-        // Legendary/planeswalker patterns with commas
-        /\b[A-Z][a-z]+(?:\s[A-Z][a-z]*)*,\s[A-Z][a-z]+(?:\s[A-Z][a-z]*)*(?:\s[A-Z][a-z]+)*/g,
-      ];
-      
-      const potentialCards = new Set<string>();
-      
-      // Extract potential card names using all patterns
-      patterns.forEach(pattern => {
-        const matches = messageText.match(pattern) || [];
-        matches.forEach(match => {
-          let cleanName = match.replace(/["""]/g, '').trim();
-          // Filter out common non-card words
-          const skipWords = ['Magic', 'Card', 'Deck', 'Commander', 'Player', 'Game', 'Turn', 'Mana', 'Library', 'Hand', 'Battlefield', 'Graveyard'];
-          if (cleanName.length >= 3 && cleanName.length <= 50 && !skipWords.includes(cleanName)) {
-            potentialCards.add(cleanName);
-          }
-        });
-      });
-      
-      const foundCards: CardData[] = [];
-      const searchPromises: Promise<void>[] = [];
-      
-      // Limit to prevent too many API calls
-      const cardsToSearch = Array.from(potentialCards).slice(0, 10);
-      
-      for (const cardName of cardsToSearch) {
-        const searchPromise = (async () => {
-          try {
-            // Use Scryfall's fuzzy search for better matching
-            const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
-            if (searchResponse.ok) {
-              const cardData = await searchResponse.json();
-              
-              // Only add if we haven't found this card already
-              if (!foundCards.some(c => c.name === cardData.name)) {
-                foundCards.push({
-                  name: cardData.name,
-                  image_uri: cardData.image_uris?.normal,
-                  mana_cost: cardData.mana_cost,
-                  type_line: cardData.type_line,
-                  oracle_text: cardData.oracle_text,
-                  power: cardData.power,
-                  toughness: cardData.toughness,
-                  cmc: cardData.cmc,
-                  colors: cardData.colors,
-                  rarity: cardData.rarity
-                });
-              }
-            } else if (searchResponse.status === 404) {
-              // If fuzzy search fails, try autocomplete for partial matches
-              try {
-                const autocompleteResponse = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(cardName)}`);
-                if (autocompleteResponse.ok) {
-                  const suggestions = await autocompleteResponse.json();
-                  if (suggestions.data && suggestions.data.length > 0) {
-                    // Try the first suggestion
-                    const exactResponse = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(suggestions.data[0])}`);
-                    if (exactResponse.ok) {
-                      const cardData = await exactResponse.json();
-                      if (!foundCards.some(c => c.name === cardData.name)) {
-                        foundCards.push({
-                          name: cardData.name,
-                          image_uri: cardData.image_uris?.normal,
-                          mana_cost: cardData.mana_cost,
-                          type_line: cardData.type_line,
-                          oracle_text: cardData.oracle_text,
-                          power: cardData.power,
-                          toughness: cardData.toughness,
-                          cmc: cardData.cmc,
-                          colors: cardData.colors,
-                          rarity: cardData.rarity
-                        });
-                      }
-                    }
-                  }
-                }
-              } catch (autocompleteError) {
-                // Skip if autocomplete also fails
-                console.log(`Could not find card: ${cardName}`);
-              }
-            }
-          } catch (error) {
-            // Skip if both methods fail
-            console.log(`Error searching for card: ${cardName}`, error);
-          }
-        })();
-        
-        searchPromises.push(searchPromise);
-      }
-      
-      // Wait for all searches to complete
-      await Promise.all(searchPromises);
-      
-      // Always try to show something, even if no cards found initially
-      if (foundCards.length === 0) {
-        // Try AI-enhanced extraction as fallback
-        console.log('No cards found with basic patterns, trying DeckMatrix AI...');
-        
-        try {
-          const response = await supabase.functions.invoke('mtg-brain', {
-            body: {
-              message: `Analyze this text and extract any Magic: The Gathering card names you can identify, even if they're misspelled or incomplete. Be intelligent about context and card references:
-
-"${messageText}"
-
-List only the actual card names you can confidently identify, separated by semicolons. If no Magic cards are mentioned, respond with "No cards found".`,
-              deckContext: null,
-              conversationHistory: [],
-              responseStyle: 'concise'
-            },
-          });
-
-          const { data } = response;
-          
-          if (data?.cards && data.cards.length > 0) {
-            setMessageCards(data.cards);
-            setShowMessageCardsModal(true);
-            toast.success(`DeckMatrix AI found ${data.cards.length} Magic card${data.cards.length === 1 ? '' : 's'}!`);
-            return;
-          } else if (data?.message && !data.message.toLowerCase().includes('no cards found')) {
-            // Try to parse AI response for card names
-            const aiResponse = data.message;
-            const cardMatches = aiResponse.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
-            if (cardMatches) {
-              const aiCardNames = cardMatches[1]
-                .split(/[;\n]/)
-                .map(name => name.trim().replace(/^[\-•]\s*/, ''))
-                .filter(name => name.length > 2)
-                .slice(0, 5);
-              
-              if (aiCardNames.length > 0) {
-                const aiFoundCards: CardData[] = [];
-                
-                for (const cardName of aiCardNames) {
-                  try {
-                    const searchResponse = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
-                    if (searchResponse.ok) {
-                      const cardData = await searchResponse.json();
-                      if (!aiFoundCards.some(c => c.name === cardData.name)) {
-                        aiFoundCards.push({
-                          name: cardData.name,
-                          image_uri: cardData.image_uris?.normal,
-                          mana_cost: cardData.mana_cost,
-                          type_line: cardData.type_line,
-                          oracle_text: cardData.oracle_text,
-                          power: cardData.power,
-                          toughness: cardData.toughness,
-                          cmc: cardData.cmc,
-                          colors: cardData.colors,
-                          rarity: cardData.rarity
-                        });
-                      }
-                    }
-                  } catch {}
-                }
-                
-                if (aiFoundCards.length > 0) {
-                  setMessageCards(aiFoundCards);
-                  setShowMessageCardsModal(true);
-                  toast.success(`DeckMatrix AI found ${aiFoundCards.length} Magic card${aiFoundCards.length === 1 ? '' : 's'}!`);
-                  return;
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.log('AI fallback also failed:', error);
-        }
-        
-        // If still no cards found, show modal anyway with helpful message
-        setMessageCards([]);
-        setShowMessageCardsModal(true);
-        toast.info('DeckMatrix could not identify Magic cards in this text. Try asking the AI for card recommendations!');
-      } else {
-        setMessageCards(foundCards);
-        setShowMessageCardsModal(true);
-        toast.success(`Found ${foundCards.length} Magic card${foundCards.length === 1 ? '' : 's'} in the message!`);
-      }
-    } catch (error) {
-      console.error('Error extracting cards from message:', error);
-      // Show modal even on error with helpful message
-      setMessageCards([]);
-      setShowMessageCardsModal(true);
-      toast.error('Error analyzing text. Try asking DeckMatrix AI for card suggestions instead!');
-    }
-  };
 
   const handleQuickAction = (action: any) => {
     setInput(action.prompt);
@@ -587,102 +389,31 @@ List only the actual card names you can confidently identify, separated by semic
                                )}
                              </div>
                           
-                           {/* Display referenced cards or show option to find cards */}
-                          {message.type === 'assistant' && (
-                            <div className="mt-4 space-y-3">
-                              {/* Visual Data Display */}
-                              {message.visualData && (
-                                <AIVisualDisplay data={message.visualData} />
-                              )}
-                              
-                              {message.cards && message.cards.length > 0 ? (
-                                <>
-                                  <div className="flex items-center justify-between border-t pt-3">
-                                    <div className="text-xs font-medium text-muted-foreground">
-                                      Referenced Cards:
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-xs h-6 px-2"
-                                      onClick={() => extractCardsFromMessage(message.content)}
-                                    >
-                                      <Eye className="h-3 w-3 mr-1" />
-                                      Find more cards
-                                    </Button>
-                                  </div>
-                                   <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2 md:gap-3">
-                                    {message.cards.map((card, cardIndex) => (
-                                      <div
-                                        key={cardIndex}
-                                        className="bg-background/80 border rounded-lg p-2 md:p-3 text-xs space-y-2 hover:shadow-md transition-shadow"
-                                     >
-                                       {card.image_uri && (
-                                         <img
-                                           src={card.image_uri}
-                                           alt={card.name}
-                                           className="w-full h-auto rounded aspect-[5/7] object-cover"
-                                         />
-                                       )}
-                                       <div className="space-y-1">
-                                         <div className="font-semibold text-foreground">{card.name}</div>
-                                         <div className="text-muted-foreground">
-                                           {card.mana_cost} • CMC {card.cmc}
-                                         </div>
-                                         <div className="text-muted-foreground">{card.type_line}</div>
-                                         {card.power && card.toughness && (
-                                           <div className="text-muted-foreground font-mono">
-                                             {card.power}/{card.toughness}
-                                           </div>
-                                         )}
-                                          <div className="text-xs text-muted-foreground line-clamp-3">
-                                            {card.oracle_text}
-                                          </div>
-                                            
-                                             {/* Actions */}
-                                             <div className="pt-2 grid grid-cols-2 gap-2">
-                                               <CardAddModal card={{
-                                                 ...(card as any),
-                                                 image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                               }} compact />
-                                               <Button
-                                                 variant="outline"
-                                                 size="sm"
-                                                 className="w-full text-xs h-7"
-                                                 onClick={() => {
-                                                   const normalized = {
-                                                     ...card,
-                                                     image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                                   };
-                                                   setModalCard(normalized);
-                                                   setModalOpen(true);
-                                                 }}
-                                               >
-                                                 <Eye className="h-3 w-3 mr-1" />
-                                                 <span className="hidden sm:inline">View details</span>
-                                                 <span className="sm:hidden">View</span>
-                                               </Button>
-                                             </div>
-                                       </div>
-                                     </div>
-                                   ))}
-                                 </div>
-                                </>
-                              ) : (
-                                <div className="border-t pt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs h-8"
-                                    onClick={() => extractCardsFromMessage(message.content)}
-                                  >
-                                    <Eye className="h-3 w-3 mr-2" />
-                                    Find Magic cards in this message
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            {/* Display referenced cards */}
+                           {message.type === 'assistant' && (
+                             <div className="mt-4 space-y-3">
+                               {/* Visual Data Display */}
+                               {message.visualData && (
+                                 <AIVisualDisplay data={message.visualData} />
+                               )}
+                               
+                               {/* Always show cards using CardRecommendationDisplay */}
+                               {message.cards && message.cards.length > 0 && (
+                                 <CardRecommendationDisplay
+                                   cards={message.cards}
+                                   onCardClick={(card) => {
+                                     const normalized = {
+                                       ...card,
+                                       image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                     };
+                                     setModalCard(normalized);
+                                     setModalOpen(true);
+                                   }}
+                                   compact={false}
+                                 />
+                               )}
+                             </div>
+                           )}
                            
                            <div className="text-xs opacity-60 mt-2">
                              {message.timestamp.toLocaleTimeString()}
@@ -781,90 +512,6 @@ List only the actual card names you can confidently identify, separated by semic
             showAddButton={false}
             showWishlistButton={false}
           />
-        )}
-        
-        {/* Message Cards Modal */}
-        {showMessageCardsModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-background rounded-lg max-w-6xl w-full max-h-[80vh] overflow-hidden">
-              <div className="p-4 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Cards Found in Message</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowMessageCardsModal(false)}
-                  >
-                    ✕
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="p-4 max-h-[60vh]">
-                {messageCards.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    No Magic cards detected in this message.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {messageCards.map((card, cardIndex) => (
-                      <div
-                        key={cardIndex}
-                        className="bg-background/80 border rounded-lg p-3 space-y-2 hover:shadow-md transition-shadow"
-                      >
-                        {card.image_uri && (
-                          <img
-                            src={card.image_uri}
-                            alt={card.name}
-                            className="w-full h-auto rounded aspect-[5/7] object-cover"
-                          />
-                        )}
-                        <div className="space-y-1">
-                          <div className="font-semibold text-foreground text-sm">{card.name}</div>
-                          <div className="text-muted-foreground text-xs">
-                            {card.mana_cost} • CMC {card.cmc}
-                          </div>
-                          <div className="text-muted-foreground text-xs">{card.type_line}</div>
-                          {card.power && card.toughness && (
-                            <div className="text-muted-foreground font-mono text-xs">
-                              {card.power}/{card.toughness}
-                            </div>
-                          )}
-                          <div className="text-xs text-muted-foreground line-clamp-3">
-                            {card.oracle_text}
-                          </div>
-                          
-                          {/* Actions */}
-                          <div className="pt-2 grid grid-cols-2 gap-2">
-                            <CardAddModal card={{
-                              ...(card as any),
-                              image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                            }} compact />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs h-7"
-                              onClick={() => {
-                                const normalized = {
-                                  ...card,
-                                  image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                };
-                                setModalCard(normalized);
-                                setModalOpen(true);
-                                setShowMessageCardsModal(false);
-                              }}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          </div>
         )}
       </div>
     </div>

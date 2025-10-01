@@ -581,37 +581,33 @@ export function AIGeneratedDeckList({
         )}
         <Button 
           variant="outline" 
-          onClick={() => {
-            // Generate deck list export
+          onClick={async () => {
+            // Generate deck list export (same format as DeckImportExport)
             let output = '';
             
             // Commander
             if (commander) {
-              output += `Commander\n1 ${commander.name}\n\n`;
+              output += `1x ${commander.name} (Commander)\n\n`;
             }
             
-            // Deck
-            output += 'Deck\n';
+            // Main deck
             Object.entries(groupedCards).forEach(([category, categoryCards]) => {
               (categoryCards as any[]).forEach(card => {
-                output += `${card.quantity || 1} ${card.name}\n`;
+                output += `${card.quantity || 1}x ${card.name}\n`;
               });
             });
             
-            // Create and download
-            const blob = new Blob([output], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${deckName.replace(/[^a-z0-9]/gi, '_')}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Copy to clipboard
+            try {
+              await navigator.clipboard.writeText(output);
+              showSuccess("Copied to Clipboard", "Deck list copied successfully");
+            } catch (error) {
+              showSuccess("Export Failed", "Could not copy to clipboard");
+            }
           }}
         >
           <Download className="h-4 w-4 mr-2" />
-          Export .txt
+          Copy Decklist
         </Button>
         <Button variant="outline" onClick={onStartOver}>
           <RotateCcw className="h-4 w-4 mr-2" />

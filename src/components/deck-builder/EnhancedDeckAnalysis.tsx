@@ -840,12 +840,15 @@ const optimizations = useMemo(() => {
                   colors: commander.colors 
                 } : undefined,
                 cards: deck.map(card => ({
-                  name: card.name,
-                  mana_cost: card.mana_cost,
-                  cmc: card.cmc,
-                  type_line: card.type_line,
-                  colors: card.colors,
-                  quantity: card.quantity || 1
+                  card_name: card.name,
+                  quantity: card.quantity || 1,
+                  is_commander: commander?.name === card.name,
+                  card_data: {
+                    mana_cost: card.mana_cost,
+                    cmc: card.cmc,
+                    type_line: card.type_line,
+                    colors: card.colors
+                  }
                 }))
               }}
             />

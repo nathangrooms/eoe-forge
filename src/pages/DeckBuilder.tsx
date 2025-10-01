@@ -450,7 +450,7 @@ const DeckBuilder = () => {
                 deck={deck.cards as any}
                 format={deck.format || 'standard'}
                 commander={deck.commander}
-                deckId={selectedDeckId || undefined}
+                deckId={selectedDeckId || deck.currentDeckId || undefined}
                 deckName={deck.name}
               />
             ) : (

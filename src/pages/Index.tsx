@@ -1,208 +1,248 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Sparkles, Target, Zap, Activity, Globe, Cpu, ArrowRight, Package, BarChart3, Brain } from 'lucide-react';
+import { 
+  Sparkles, 
+  Brain, 
+  Wand2,
+  Package, 
+  BarChart3, 
+  Search,
+  Target,
+  Layers,
+  Globe,
+  Zap,
+  ArrowRight,
+  CheckCircle,
+  Crown,
+  Eye,
+  TrendingUp
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
 
 const Index = () => {
+  const features = [
+    {
+      icon: Brain,
+      title: 'DeckMatrix AI Super Brain',
+      description: 'Advanced AI assistant with deep MTG knowledge for comprehensive deck analysis, strategic insights, and expert recommendations.',
+      badge: 'AI-Powered',
+      highlight: true
+    },
+    {
+      icon: Wand2,
+      title: 'AI Deck Builder',
+      description: 'Generate optimized decks using intelligent algorithms that analyze synergies, mana curves, and power levels for any format.',
+      badge: 'Smart Build'
+    },
+    {
+      icon: Package,
+      title: 'Collection Manager',
+      description: 'Track your entire collection with value tracking, analytics, and intelligent deck building from owned cards.',
+      badge: 'Organize'
+    },
+    {
+      icon: BarChart3,
+      title: 'Advanced Analytics',
+      description: 'Comprehensive deck analysis with mana curves, color distribution, synergy detection, and power level assessment.',
+      badge: 'Insights'
+    },
+    {
+      icon: Search,
+      title: 'Universal Card Search',
+      description: 'Search through every Magic card with advanced filters for sets, formats, mechanics, colors, and rarity.',
+      badge: 'Complete'
+    },
+    {
+      icon: Target,
+      title: 'Power Level Control',
+      description: 'Transparent power scoring from casual to competitive with explainable suggestions and automatic tuning.',
+      badge: 'Balanced'
+    }
+  ];
+
+  const formats = [
+    { name: 'Standard', icon: Sparkles, description: 'Current rotation' },
+    { name: 'Commander', icon: Crown, description: '100-card singleton' },
+    { name: 'Modern', icon: Zap, description: 'Non-rotating' },
+    { name: 'Legacy', icon: TrendingUp, description: 'Eternal format' },
+    { name: 'Vintage', icon: Globe, description: 'Most powerful' }
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative py-24 px-4">
-        <div className="container mx-auto text-center relative z-10">
+      <section className="relative py-20 px-4">
+        <div className="absolute inset-0 bg-gradient-to-br from-spacecraft/5 via-celestial/5 to-cosmic/5 pointer-events-none" />
+        <div className="container mx-auto text-center relative z-10 max-w-5xl">
           <div className="flex items-center justify-center mb-6">
-            <Wand2 className="h-12 w-12 text-primary animate-pulse mr-4" />
-            <h1 className="text-5xl font-bold">
-              MTG Deck Builder
-            </h1>
+            <div className="w-16 h-16 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
+              <Sparkles className="h-8 w-8 text-white" />
+            </div>
           </div>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Build, analyze, and perfect your Magic: The Gathering decks with AI-powered optimization.
-            Search every card ever printed and create competitive decks for any format.
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-cosmic bg-clip-text text-transparent">
+            DeckMatrix
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
+            The ultimate Magic: The Gathering deck builder powered by advanced AI. 
+            Build, analyze, and perfect your decks with intelligent optimization and comprehensive analytics.
           </p>
-          <div className="flex items-center justify-center space-x-4">
-            <Link to="/decks">
-              <Button size="lg" className="animate-pulse">
+          <div className="flex items-center justify-center gap-4">
+            <Link to="/auth">
+              <Button size="lg" className="bg-gradient-cosmic hover:opacity-90">
                 <Sparkles className="h-5 w-5 mr-2" />
-                Start Building
+                Get Started Free
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
             </Link>
-            <Link to="/collection">
+            <Link to="/cards">
               <Button variant="outline" size="lg">
-                <Package className="h-5 w-5 mr-2" />
-                Manage Collection
+                <Search className="h-5 w-5 mr-2" />
+                Browse Cards
               </Button>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Features */}
+      {/* AI Feature Highlight */}
+      <section className="py-12 px-4 bg-gradient-to-r from-spacecraft/5 via-celestial/5 to-cosmic/5">
+        <div className="container mx-auto max-w-6xl">
+          <Card className="border-spacecraft/30 shadow-lg">
+            <CardContent className="p-8">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-20 h-20 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow flex-shrink-0">
+                  <Brain className="h-10 w-10 text-white" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="text-3xl font-bold mb-3 flex items-center justify-center md:justify-start gap-3">
+                    DeckMatrix AI Super Brain
+                    <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Powered by Gemini
+                    </Badge>
+                  </h2>
+                  <p className="text-muted-foreground mb-4">
+                    Get expert deck analysis, strategic insights, and personalized recommendations from our advanced AI. 
+                    Ask questions, optimize your builds, and discover new strategies with comprehensive MTG knowledge at your fingertips.
+                  </p>
+                  <div className="flex items-center justify-center md:justify-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-spacecraft" />
+                    <span className="text-sm">Real-time deck analysis</span>
+                    <CheckCircle className="h-4 w-4 text-spacecraft ml-3" />
+                    <span className="text-sm">Strategic guidance</span>
+                    <CheckCircle className="h-4 w-4 text-spacecraft ml-3" />
+                    <span className="text-sm">Card recommendations</span>
+                  </div>
+                </div>
+                <Link to="/auth">
+                  <Button size="lg" className="bg-gradient-cosmic hover:opacity-90">
+                    <Brain className="h-5 w-5 mr-2" />
+                    Try AI Brain
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Features Grid */}
       <section className="py-16 px-4">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Master Magic: The Gathering
-          </h2>
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-3">Everything You Need to Build Better Decks</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Professional-grade tools for deck building, collection management, and competitive play
+            </p>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Brain className="h-6 w-6 mr-3 text-primary" />
-                  MTG Super Brain
-                </CardTitle>
-                <CardDescription>
-                  Comprehensive AI assistant with deep MTG knowledge for strategy, analysis,
-                  and deck optimization insights.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Wand2 className="h-6 w-6 mr-3 text-primary" />
-                  AI Deck Builder
-                </CardTitle>
-                <CardDescription>
-                  Generate optimized decks using advanced algorithms that analyze card synergies,
-                  mana curves, and power levels for any format.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Globe className="h-6 w-6 mr-3 text-primary" />
-                  Universal Card Search
-                </CardTitle>
-                <CardDescription>
-                  Search through every Magic card ever printed with advanced filters
-                  for sets, formats, mechanics, and more.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BarChart3 className="h-6 w-6 mr-3 text-primary" />
-                  Deck Analysis
-                </CardTitle>
-                <CardDescription>
-                  Comprehensive deck analysis with mana curve, color distribution,
-                  interaction density, and power level assessment.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Package className="h-6 w-6 mr-3 text-primary" />
-                  Collection Management
-                </CardTitle>
-                <CardDescription>
-                  Track your card collection with value tracking, completion statistics,
-                  and intelligent deck building from owned cards.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Target className="h-6 w-6 mr-3 text-primary" />
-                  Power Level Control
-                </CardTitle>
-                <CardDescription>
-                  Transparent power level control from casual to competitive
-                  with explainable suggestions and automatic tuning.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Cpu className="h-6 w-6 mr-3 text-primary" />
-                  Format Support
-                </CardTitle>
-                <CardDescription>
-                  Support for all major MTG formats including Standard, Commander,
-                  Modern, Legacy, and custom formats with legality checking.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, index) => (
+              <Card 
+                key={index} 
+                className={`hover:shadow-lg transition-all duration-300 ${
+                  feature.highlight ? 'border-spacecraft/30 bg-gradient-to-br from-spacecraft/5 to-celestial/5' : ''
+                }`}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`p-3 rounded-lg ${
+                      feature.highlight 
+                        ? 'bg-gradient-cosmic shadow-cosmic-glow' 
+                        : 'bg-muted'
+                    }`}>
+                      <feature.icon className={`h-6 w-6 ${
+                        feature.highlight ? 'text-white' : 'text-foreground'
+                      }`} />
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {feature.badge}
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-lg">{feature.title}</CardTitle>
+                  <CardDescription className="text-sm leading-relaxed">
+                    {feature.description}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
           </div>
+        </div>
+      </section>
 
-          {/* Favorite Decks Section */}
-          <div className="mb-12">
-            <FavoriteDecksPreview />
+      {/* Formats Section */}
+      <section className="py-16 px-4 bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-3">All Major Formats Supported</h2>
+            <p className="text-muted-foreground">
+              Build decks for any format with format-specific validation and optimization
+            </p>
           </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
-            <Card className="group hover:shadow-xl transition-all duration-300">
-              <CardHeader className="text-center pb-4">
-                <Package className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
-                <CardTitle className="text-2xl mb-2">Collection Manager</CardTitle>
-                <p className="text-muted-foreground">
-                  Track your entire MTG collection with advanced analytics and deck building tools
-                </p>
-              </CardHeader>
-              <CardContent className="text-center">
-                <Link to="/collection">
-                  <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
-                    <Package className="h-5 w-5 mr-2" />
-                    Manage Collection
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="group hover:shadow-xl transition-all duration-300">
-              <CardHeader className="text-center pb-4">
-                <Wand2 className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
-                <CardTitle className="text-2xl mb-2">AI Deck Builder</CardTitle>
-                <p className="text-muted-foreground">
-                  Build optimized decks with intelligent synergy analysis and power level tuning
-                </p>
-              </CardHeader>
-              <CardContent className="text-center">
-                <Link to="/decks">
-                  <Button size="lg" className="w-full group-hover:scale-105 transition-transform">
-                    <Wand2 className="h-5 w-5 mr-2" />
-                    Build Decks
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Formats Overview */}
-          <div className="bg-card/50 backdrop-blur-sm rounded-lg p-8 border border-border">
-            <h3 className="text-2xl font-bold mb-6 text-center">Supported Formats</h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {[
-                { name: 'Standard', description: 'Current rotation cards', icon: Sparkles },
-                { name: 'Commander', description: '100-card singleton format', icon: Target },
-                { name: 'Modern', description: 'Non-rotating competitive', icon: Zap },
-                { name: 'Legacy', description: 'Eternal format with history', icon: Activity },
-                { name: 'Vintage', description: 'Most powerful cards legal', icon: Globe }
-              ].map((format, index) => (
-                <div key={index} className="text-center p-4 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <format.icon className="h-8 w-8 mx-auto mb-2 text-primary" />
+          
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {formats.map((format, index) => (
+              <Card 
+                key={index} 
+                className="text-center hover:shadow-md transition-all cursor-pointer group"
+              >
+                <CardContent className="p-6">
+                  <format.icon className="h-8 w-8 mx-auto mb-3 text-muted-foreground group-hover:text-spacecraft transition-colors" />
                   <Badge variant="outline" className="mb-2">
                     {format.name}
                   </Badge>
                   <p className="text-xs text-muted-foreground">{format.description}</p>
-                </div>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto max-w-4xl text-center">
+          <div className="w-16 h-16 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow mx-auto mb-6">
+            <Wand2 className="h-8 w-8 text-white" />
+          </div>
+          <h2 className="text-4xl font-bold mb-4">Ready to Build Better Decks?</h2>
+          <p className="text-xl text-muted-foreground mb-8">
+            Join thousands of players using DeckMatrix to create competitive decks
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Link to="/auth">
+              <Button size="lg" className="bg-gradient-cosmic hover:opacity-90">
+                <Sparkles className="h-5 w-5 mr-2" />
+                Start Building Free
+              </Button>
+            </Link>
+            <Link to="/cards">
+              <Button variant="outline" size="lg">
+                <Eye className="h-5 w-5 mr-2" />
+                Explore Features
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

@@ -332,8 +332,24 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - Use bullet points for lists and recommendations
 - **Bold** key terms and card names for emphasis
 - Add spacing between sections for visual clarity
-- When presenting data, statistics, or comparisons, USE THE VISUAL TOOLS (create_chart or create_table) instead of plain text
 - Keep paragraphs short and scannable
+
+## MARKDOWN TABLE FORMAT FOR CARD COMPARISONS
+When comparing or recommending cards (upgrades, cuts, alternatives), **ALWAYS use this exact markdown table format**:
+
+| Card (Slot) | Current Card | Upgrade Card | Cost (Approx. USD) | Benefit | | Category |
+|-------------|--------------|--------------|-------------------|---------|--|----------|
+| Mockingbird | Dockside Extortionist | Ragavan, Nimble Pilferer | $60-80 | Provides early game pressure, mana, and card advantage. A cEDH staple. | | **Creature** |
+| Simian Spirit Guide | **Ragavan, Nimble Pilferer** | $60-80 | Provides early game pressure, mana, and card advantage. | | **Creature** |
+
+**Key rules for tables:**
+- First column: Card slot or position
+- Use **bold** for card names in the table
+- Include approximate USD cost
+- Add benefit/reasoning
+- End with || **Category** | to show card type
+- Use pipe separators consistently
+- Leave blank cells with just spaces when no current card exists
 
 ## WHEN TO USE VISUAL TOOLS
 - **Charts**: For mana curves, color distribution, CMC breakdowns, card type percentages
@@ -467,6 +483,18 @@ Always ground your responses in the provided knowledge base, referenced card dat
       }
     ];
     
+    // Build messages array with full conversation history
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.map((msg: any) => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: 'user', content: message }
+    ];
+    
+    console.log(`Sending ${messages.length} messages to AI (including ${conversationHistory.length} history messages)`);
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -475,10 +503,7 @@ Always ground your responses in the provided knowledge base, referenced card dat
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
+        messages,
         temperature,
         max_tokens,
         tools

@@ -329,7 +329,19 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4 [&>strong]:font-semibold [&>strong]:text-spacecraft">
+                        <div className="prose prose-sm max-w-none dark:prose-invert 
+                          [&>p]:mb-3 [&>p]:leading-relaxed 
+                          [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h1]:mt-4
+                          [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h2]:mt-3
+                          [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>h3]:mt-2
+                          [&>ul]:space-y-1 [&>ul]:my-2
+                          [&>ol]:space-y-1 [&>ol]:my-2
+                          [&>ul>li]:ml-4 [&>ol>li]:ml-4 
+                          [&>strong]:font-semibold [&>strong]:text-spacecraft
+                          [&>table]:w-full [&>table]:my-4 [&>table]:border-collapse
+                          [&>table>thead]:bg-muted [&>table>thead>tr>th]:border [&>table>thead>tr>th]:p-2 [&>table>thead>tr>th]:text-left [&>table>thead>tr>th]:font-semibold
+                          [&>table>tbody>tr>td]:border [&>table>tbody>tr>td]:p-2
+                          [&>table>tbody>tr:nth-child(even)]:bg-muted/50">
                           <ReactMarkdown>{message.content}</ReactMarkdown>
                         </div>
                       </div>

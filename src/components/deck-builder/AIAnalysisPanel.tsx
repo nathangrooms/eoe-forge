@@ -101,10 +101,27 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
 
   const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
+      // Enrich deck context with actual card list from deckSummary
+      const enrichedDeckContext = deckSummary ? {
+        id: deckId,
+        name: deckName,
+        format: deckFormat,
+        ...deckSummary,
+        cards: deckSummary.cards?.map((dc: any) => ({
+          name: dc.card_name,
+          mana_cost: dc.card_data?.mana_cost,
+          cmc: dc.card_data?.cmc,
+          type_line: dc.card_data?.type_line,
+          colors: dc.card_data?.colors,
+          quantity: dc.quantity || 1,
+          is_commander: dc.is_commander
+        })) || []
+      } : { id: deckId, name: deckName, format: deckFormat };
+
       const response = await supabase.functions.invoke('mtg-brain', {
         body: {
           message,
-          deckContext: { id: deckId, name: deckName, format: deckFormat, ...deckSummary },
+          deckContext: enrichedDeckContext,
           conversationHistory: messages.slice(-6),
           responseStyle: detailedResponses ? 'detailed' : 'concise'
         },
@@ -302,7 +319,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
                     : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
                 }`}
               >
-                <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
+                <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
                   {message.type === 'assistant' ? (
                     <div className="space-y-4">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
@@ -312,29 +329,40 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4">
+                        <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4 [&>strong]:font-semibold [&>strong]:text-spacecraft">
                           <ReactMarkdown>{message.content}</ReactMarkdown>
                         </div>
                       </div>
-                      
-                      {/* Visual Data */}
-                      {message.visualData && (
-                        <AIVisualDisplay data={message.visualData} compact />
-                      )}
                     </div>
                   ) : (
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
                   )}
                 </div>
 
-                {/* Card Display */}
-                {message.cards && message.cards.length > 0 && (
-                  <CardRecommendationDisplay
-                    cards={message.cards}
-                    onCardClick={onCardClick}
-                    onAddCard={onAddCard}
-                    compact
-                  />
+                {/* Display Visual Data and Cards for Assistant Messages */}
+                {message.type === 'assistant' && (
+                  <div className="mt-4 space-y-3">
+                    {/* Visual Data Display */}
+                    {message.visualData && (
+                      <AIVisualDisplay data={message.visualData} compact />
+                    )}
+                    
+                    {/* Card Display */}
+                    {message.cards && message.cards.length > 0 && (
+                      <CardRecommendationDisplay
+                        cards={message.cards}
+                        onCardClick={onCardClick}
+                        onAddCard={onAddCard}
+                        compact={false}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </div>

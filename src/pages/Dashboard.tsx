@@ -159,10 +159,13 @@ const Dashboard = () => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="hover:shadow-md transition-all">
+          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-station to-station/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Collection Value</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-station/10">
+                <DollarSign className="h-4 w-4 text-station" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{asUSD(dashboardData?.collection.totalValueUSD)}</div>
@@ -172,10 +175,13 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-all">
+          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-spacecraft to-spacecraft/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Cards</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-spacecraft/10">
+                <Package className="h-4 w-4 text-spacecraft" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{dashboardData?.collection.totalCards.toLocaleString()}</div>
@@ -185,10 +191,13 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-all">
+          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warp to-warp/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Decks</CardTitle>
-              <Layers className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-warp/10">
+                <Layers className="h-4 w-4 text-warp" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{dashboardData?.decks.count}</div>
@@ -198,10 +207,13 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-all">
+          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-void to-void/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
-              <Heart className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-void/10">
+                <Heart className="h-4 w-4 text-void" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist.valueUSD)}</div>
@@ -220,32 +232,52 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Link to="/deck-builder">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2 hover:bg-muted">
-                  <Wand2 className="h-5 w-5" />
-                  <span className="text-sm font-medium">Build Deck</span>
-                </Button>
+              <Link to="/deck-builder" className="group">
+                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warp to-warp/50" />
+                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
+                    <div className="p-3 rounded-lg bg-warp/10 group-hover:bg-warp/20 transition-colors">
+                      <Wand2 className="h-5 w-5 text-warp" />
+                    </div>
+                    <span className="text-sm font-medium">Build Deck</span>
+                  </div>
+                </div>
               </Link>
               
-              <Link to="/cards">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2 hover:bg-muted">
-                  <Search className="h-5 w-5" />
-                  <span className="text-sm font-medium">Search Cards</span>
-                </Button>
+              <Link to="/cards" className="group">
+                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft to-spacecraft/50" />
+                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
+                    <div className="p-3 rounded-lg bg-spacecraft/10 group-hover:bg-spacecraft/20 transition-colors">
+                      <Search className="h-5 w-5 text-spacecraft" />
+                    </div>
+                    <span className="text-sm font-medium">Search Cards</span>
+                  </div>
+                </div>
               </Link>
               
-              <Link to="/collection">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2 hover:bg-muted">
-                  <Package className="h-5 w-5" />
-                  <span className="text-sm font-medium">Collection</span>
-                </Button>
+              <Link to="/collection" className="group">
+                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-planet to-planet/50" />
+                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
+                    <div className="p-3 rounded-lg bg-planet/10 group-hover:bg-planet/20 transition-colors">
+                      <Package className="h-5 w-5 text-planet" />
+                    </div>
+                    <span className="text-sm font-medium">Collection</span>
+                  </div>
+                </div>
               </Link>
               
-              <Link to="/brain">
-                <Button variant="outline" className="w-full h-auto py-4 flex flex-col gap-2 hover:bg-muted border-spacecraft/30">
-                  <Brain className="h-5 w-5 text-spacecraft" />
-                  <span className="text-sm font-medium">AI Brain</span>
-                </Button>
+              <Link to="/brain" className="group">
+                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-cosmic" />
+                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
+                    <div className="p-3 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 transition-colors">
+                      <Brain className="h-5 w-5 bg-gradient-cosmic bg-clip-text text-transparent" />
+                    </div>
+                    <span className="text-sm font-medium">AI Brain</span>
+                  </div>
+                </div>
               </Link>
             </div>
           </CardContent>
@@ -286,21 +318,22 @@ const Dashboard = () => {
                 {favorites.slice(0, 8).map((deck) => (
                   <Card 
                     key={deck.id}
-                    className="hover:shadow-md transition-all cursor-pointer group"
+                    className="relative overflow-hidden hover:shadow-md transition-all cursor-pointer group"
                     onClick={() => handleDeckClick(deck.id, deck.name)}
                   >
-                    <CardContent className="p-4">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft via-warp to-spacecraft" />
+                    <CardContent className="p-4 pt-5">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium truncate text-sm group-hover:text-spacecraft transition-colors">
                             {deck.name}
                           </h4>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs border-spacecraft/30">
                               {deck.format}
                             </Badge>
                             {deck.format === 'commander' && (
-                              <Crown className="h-3 w-3 text-yellow-500" />
+                              <Crown className="h-3 w-3 text-station" />
                             )}
                           </div>
                         </div>
@@ -310,14 +343,14 @@ const Dashboard = () => {
                           className="h-6 w-6"
                           onClick={(e) => handleFavoriteToggle(e, deck.id, deck.name)}
                         >
-                          <Heart className="h-4 w-4 text-red-500 fill-current" />
+                          <Heart className="h-4 w-4 text-void fill-current" />
                         </Button>
                       </div>
                       
                       <div className="flex items-center justify-between mt-3">
                         {deck.colors.length > 0 && getColorIndicator(deck.colors)}
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3" />
+                          <TrendingUp className="h-3 w-3 text-warp" />
                           Power {deck.power_level}
                         </div>
                       </div>

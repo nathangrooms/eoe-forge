@@ -23,9 +23,11 @@ import {
   RotateCcw,
   TrendingUp,
   DollarSign,
-  Hash
+  Hash,
+  Download
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { showSuccess } from '@/components/ui/toast-helpers';
 
 type ViewMode = 'list' | 'visual';
 type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles';
@@ -577,6 +579,40 @@ export function AIGeneratedDeckList({
             Open in Deck Builder
           </Button>
         )}
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // Generate deck list export
+            let output = '';
+            
+            // Commander
+            if (commander) {
+              output += `Commander\n1 ${commander.name}\n\n`;
+            }
+            
+            // Deck
+            output += 'Deck\n';
+            Object.entries(groupedCards).forEach(([category, categoryCards]) => {
+              (categoryCards as any[]).forEach(card => {
+                output += `${card.quantity || 1} ${card.name}\n`;
+              });
+            });
+            
+            // Create and download
+            const blob = new Blob([output], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${deckName.replace(/[^a-z0-9]/gi, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export .txt
+        </Button>
         <Button variant="outline" onClick={onStartOver}>
           <RotateCcw className="h-4 w-4 mr-2" />
           Build Another Deck

@@ -285,16 +285,16 @@ const DeckBuilder = () => {
               loadDeck(selectedDeck);
             }
           }}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-80 max-w-md">
               <SelectValue placeholder="Select a deck..." />
             </SelectTrigger>
-            <SelectContent>
-              {allDecks.map((deck) => (
-                <SelectItem key={deck.id} value={deck.id}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{deck.name}</span>
-                    <Badge variant="outline" className="ml-2">
-                      {deck.format}
+            <SelectContent className="bg-popover z-50 max-w-md">
+              {allDecks.map((deckItem) => (
+                <SelectItem key={deckItem.id} value={deckItem.id}>
+                  <div className="flex items-center justify-between gap-2 max-w-full">
+                    <span className="truncate flex-1 text-left">{deckItem.name}</span>
+                    <Badge variant="outline" className="ml-2 shrink-0">
+                      {deckItem.format}
                     </Badge>
                   </div>
                 </SelectItem>

@@ -397,82 +397,25 @@ export function RefreshedDeckTile({
 
             {/* Detailed Card Type Breakdown */}
             <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground mb-2">Card Types</div>
-              <div className="grid grid-cols-4 gap-2 text-xs">
-                <div className="flex items-center justify-between p-2 rounded bg-green-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span>Creatures</span>
+              <div className="text-xs font-medium text-muted-foreground mb-2">Composition</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {typeData.map((item) => (
+                  <div key={item.type} className="flex items-center justify-between p-2 rounded-md bg-muted/20">
+                    <span className="text-muted-foreground">{item.type}</span>
+                    <Badge variant="outline" className="text-xs font-mono h-5">
+                      {item.count}
+                    </Badge>
                   </div>
-                  <span className="font-bold">{deckSummary.counts.creatures}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-amber-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>Lands</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.lands}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-blue-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span>Instants</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.instants}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-red-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span>Sorceries</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.sorceries}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-gray-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-gray-500" />
-                    <span>Artifacts</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.artifacts}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-purple-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span>Enchant.</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.enchantments}</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 rounded bg-pink-500/10">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-pink-500" />
-                    <span>Walkers</span>
-                  </div>
-                  <span className="font-bold">{deckSummary.counts.planeswalkers}</span>
-                </div>
-
-                {deckSummary.counts.battles > 0 && (
-                  <div className="flex items-center justify-between p-2 rounded bg-cyan-500/10">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full bg-cyan-500" />
-                      <span>Battles</span>
-                    </div>
-                    <span className="font-bold">{deckSummary.counts.battles}</span>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
 
             {/* Advanced Analytics */}
             <div className="grid grid-cols-2 gap-3">
               {/* Enhanced Mana Curve */}
-              <div className="p-3 rounded-lg bg-muted/20">
+              <div className="relative overflow-hidden p-3 rounded-lg bg-muted/20 border-l-2 border-spacecraft">
                 <div className="flex items-center gap-2 mb-2">
-                  <BarChart3 className="h-3 w-3 text-primary" />
+                  <BarChart3 className="h-3 w-3 text-spacecraft" />
                   <span className="text-xs font-medium">Mana Curve</span>
                 </div>
                 <div className="flex items-end gap-1 h-12 mb-1">
@@ -481,59 +424,40 @@ export function RefreshedDeckTile({
                     return (
                       <div key={cmc} className="flex-1 flex flex-col items-center justify-end relative group">
                         <div 
-                          className="bg-gradient-to-t from-primary/60 to-primary/20 w-full rounded-sm transition-all duration-200 hover:from-primary/80 hover:to-primary/40"
+                          className="bg-gradient-to-t from-spacecraft/60 to-spacecraft/20 w-full rounded-sm transition-all duration-200 hover:from-spacecraft/80 hover:to-spacecraft/40"
                           style={{ height: `${height}%` }}
                           title={`CMC ${cmc}: ${count} cards`}
                         />
-                        <span className="text-xs text-muted-foreground mt-1">{cmc}</span>
+                        <span className="text-[10px] text-muted-foreground mt-1">{cmc}</span>
                       </div>
                     );
                   })}
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0-1</span>
-                  <span>2-3</span>
-                  <span>4-5</span>
-                  <span>6+</span>
+                <div className="text-[10px] text-muted-foreground text-center mt-1">
+                  Avg: {(curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1)).toFixed(1)} CMC
                 </div>
               </div>
 
-              {/* Mana Base Analysis */}
-              <div className="p-3 rounded-lg bg-muted/20">
+              {/* Strategy Keywords */}
+              <div className="relative overflow-hidden p-3 rounded-lg bg-muted/20 border-l-2 border-warp">
                 <div className="flex items-center gap-2 mb-2">
-                  <Crown className="h-3 w-3 text-primary" />
-                  <span className="text-xs font-medium">Mana Base ({deckSummary.counts.lands})</span>
+                  <Target className="h-3 w-3 text-warp" />
+                  <span className="text-xs font-medium">Strategy Tags</span>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-center gap-1 mb-2">
-                    {Object.entries(deckSummary.mana?.sources || {})
-                      .filter(([_, count]) => Number(count) > 0)
-                      .slice(0, 5)
-                      .map(([color, count]) => (
-                        <div key={color} className="text-center">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            color === 'W' ? 'bg-yellow-200 border-yellow-400' :
-                            color === 'U' ? 'bg-blue-200 border-blue-400' :
-                            color === 'B' ? 'bg-gray-700 border-gray-500' :
-                            color === 'R' ? 'bg-red-200 border-red-400' :
-                            color === 'G' ? 'bg-green-200 border-green-400' : 'bg-gray-200 border-gray-400'
-                          } mx-auto mb-1`} />
-                          <span className="text-xs font-bold">{count}</span>
-                        </div>
-                      ))}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs">T1 Untapped</span>
-                      <span className="text-xs font-bold">{Math.round((deckSummary.mana.untappedPctByTurn?.t1 || 0) * 100)}%</span>
-                    </div>
-                    <Progress value={(deckSummary.mana.untappedPctByTurn?.t1 || 0) * 100} className="h-1" />
-                  </div>
+                <div className="flex flex-wrap gap-1">
+                  {deckSummary.tags.slice(0, 6).map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0.5">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {deckSummary.tags.length === 0 && (
+                    <span className="text-[10px] text-muted-foreground">No tags yet</span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Status and Actions */}
+            {/* Format and Power Band Badges */}
             <div className="flex items-center justify-between pt-2 border-t border-muted">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge 

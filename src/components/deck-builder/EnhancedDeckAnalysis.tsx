@@ -256,7 +256,9 @@ const optimizations = useMemo(() => {
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
+                        </div>
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
@@ -366,7 +368,9 @@ const optimizations = useMemo(() => {
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
+                        </div>
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
@@ -479,7 +483,9 @@ const optimizations = useMemo(() => {
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
+                        </div>
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
@@ -597,7 +603,9 @@ const optimizations = useMemo(() => {
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
+                        </div>
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />
@@ -704,7 +712,9 @@ const optimizations = useMemo(() => {
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown className="prose prose-sm dark:prose-invert">{inlineAI.text}</ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown>{inlineAI.text}</ReactMarkdown>
+                        </div>
                       </div>
                       {inlineAI.cards?.length > 0 && (
                         <CardRecommendationDisplay cards={inlineAI.cards} compact />

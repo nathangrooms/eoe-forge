@@ -565,13 +565,33 @@ Always ground your responses in the provided knowledge base, referenced card dat
         }
       }
     }
+
+    // Auto-build visuals from deck context when relevant or if the model didn't call tools
+    try {
+      const wantCurve = /(curve|mana curve|cmc)/i.test(message || '');
+      const curveBins = (deckContext?.curve?.bins || deckContext?.curve) as Record<string, number> | undefined;
+      if (curveBins && (visualData.charts.length === 0 || wantCurve)) {
+        const chartData = Object.entries(curveBins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) }));
+        visualData.charts.push({ type: 'bar', title: 'CMC Distribution', data: chartData });
+      }
+
+      const wantColors = /(color|pip|mana sources|color distribution)/i.test(message || '');
+      const src = deckContext?.mana?.sources as Record<string, number> | undefined;
+      if (src && (visualData.charts.length < 2 || wantColors)) {
+        const keys = ['W','U','B','R','G','C'];
+        const data = keys.filter(k => src[k] !== undefined).map(k => ({ name: k, value: Number(src[k] || 0) }));
+        if (data.length) visualData.charts.push({ type: 'pie', title: 'Mana Sources by Color', data });
+      }
+    } catch (e) {
+      console.log('Auto-visual generation failed (non-fatal):', e);
+    }
     
     if (!assistantMessage) {
       throw new Error('No response content from AI');
     }
 
     // Re-detect cards from the assistant's response STRICTLY from the "Referenced Cards:" section
-    const responseCardMentions = detectReferencedCardsStrict(assistantMessage);
+    let responseCardMentions = detectReferencedCardsStrict(assistantMessage);
     console.log('Cards detected from AI response (strict):', responseCardMentions);
     
     // Always clear any previously collected card data to avoid mismatches
@@ -632,7 +652,41 @@ Always ground your responses in the provided knowledge base, referenced card dat
         }
       }
     } else {
-      console.log('No "Referenced Cards" section found in AI response. Returning empty card list to ensure exact match.');
+      // Fallback: try general detection from the assistant message body and fetch cards
+      const fallbackNames = detectCardMentions(assistantMessage).slice(0, 12);
+      console.log('No strict list found. Fallback detected names:', fallbackNames);
+      for (const name of fallbackNames) {
+        try {
+          const c = await scryfallAPI.getCardByName(name);
+          cardData.push({
+            id: c.id,
+            set: c.set,
+            collector_number: c.collector_number,
+            name: c.name,
+            image_uri: c.image_uris?.normal || c.image_uris?.large,
+            image_uris: c.image_uris || null,
+            mana_cost: c.mana_cost,
+            type_line: c.type_line,
+            oracle_text: c.oracle_text,
+            power: c.power,
+            toughness: c.toughness,
+            cmc: c.cmc,
+            colors: c.colors,
+            rarity: c.rarity,
+          });
+        } catch (_) {
+          console.log(`Fallback could not find card: ${name}`);
+        }
+      }
+
+      if (cardData.length === 0) {
+        console.log('No cards could be extracted from message.');
+      } else {
+        // Ensure the assistant message ends with a Referenced Cards section so the UI can parse next time
+        if (!/Referenced Cards?:/i.test(assistantMessage)) {
+          assistantMessage = `${assistantMessage.trim()}\n\nReferenced Cards: ${cardData.map((c:any) => c.name).join('; ')}`;
+        }
+      }
     }
 
     // If the user asked about commanders, ensure we only surface legal commanders

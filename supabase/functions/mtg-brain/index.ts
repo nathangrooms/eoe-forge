@@ -316,6 +316,25 @@ You are an expert MTG strategist, deck builder, and rules advisor. Provide:
 - **Deck Building Advice:** Apply Rule of 9, mana curves, and archetype knowledge
 - **Practical Recommendations:** Suggest specific cards and strategies
 - **Card Searches:** When users ask for specific card recommendations (e.g., "show me white legendary creatures under 5 mana"), provide detailed lists with explanations
+- **Visual Insights:** Use charts and tables to make data clearer when analyzing deck stats, card distributions, or comparisons
+
+## FORMATTING GUIDELINES
+**CRITICAL**: Structure your responses for maximum readability:
+- Use **clear headings** (##) to organize main sections
+- Start new paragraphs frequently - **every 2-3 sentences max**
+- Use bullet points for lists and recommendations
+- **Bold** key terms and card names for emphasis
+- Add spacing between sections for visual clarity
+- When presenting data, statistics, or comparisons, USE THE VISUAL TOOLS (create_chart or create_table) instead of plain text
+- Keep paragraphs short and scannable
+
+## WHEN TO USE VISUAL TOOLS
+- **Charts**: For mana curves, color distribution, CMC breakdowns, card type percentages
+- **Tables**: For card comparisons, upgrade paths, budget vs premium options, synergy matrices
+- Examples:
+  - "Show mana curve" → Use create_chart with bar chart
+  - "Compare these cards" → Use create_table with columns for each attribute
+  - "Analyze color distribution" → Use create_chart with pie chart
 
 ## CRITICAL: COLOR IDENTITY RESTRICTIONS
 When users specify color requirements (e.g., "white black only", "mono red", "green blue commanders"):
@@ -382,6 +401,58 @@ Always ground your responses in the provided knowledge base, referenced card dat
     const temperature = responseStyle === 'detailed' ? 0.8 : 0.2;
     const max_tokens = responseStyle === 'detailed' ? 2000 : 600;
     
+    // Define visual tools for structured output
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "create_chart",
+          description: "Create a chart visualization (bar, pie, or line chart) for deck statistics or analysis data",
+          parameters: {
+            type: "object",
+            properties: {
+              chart_type: { type: "string", enum: ["bar", "pie", "line"] },
+              title: { type: "string", description: "Chart title" },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    value: { type: "number" }
+                  },
+                  required: ["name", "value"]
+                }
+              }
+            },
+            required: ["chart_type", "title", "data"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_table",
+          description: "Create a data table for card comparisons, deck breakdowns, or structured lists",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Table title" },
+              headers: { type: "array", items: { type: "string" } },
+              rows: {
+                type: "array",
+                items: {
+                  type: "array",
+                  items: { type: "string" }
+                }
+              }
+            },
+            required: ["title", "headers", "rows"]
+          }
+        }
+      }
+    ];
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -395,7 +466,8 @@ Always ground your responses in the provided knowledge base, referenced card dat
           { role: 'user', content: message }
         ],
         temperature,
-        max_tokens
+        max_tokens,
+        tools
       }),
     });
 
@@ -430,6 +502,30 @@ Always ground your responses in the provided knowledge base, referenced card dat
     console.log('AI response received:', aiResponse?.choices?.[0]?.message?.content?.substring(0, 100) + '...');
 
     let assistantMessage = aiResponse.choices?.[0]?.message?.content;
+    const toolCalls = aiResponse.choices?.[0]?.message?.tool_calls;
+    
+    // Process tool calls for visual data
+    const visualData: any = { charts: [], tables: [] };
+    if (toolCalls && Array.isArray(toolCalls)) {
+      console.log('Processing tool calls for visual data:', toolCalls.length);
+      for (const toolCall of toolCalls) {
+        if (toolCall.function?.name === 'create_chart') {
+          const args = JSON.parse(toolCall.function.arguments);
+          visualData.charts.push({
+            type: args.chart_type,
+            title: args.title,
+            data: args.data
+          });
+        } else if (toolCall.function?.name === 'create_table') {
+          const args = JSON.parse(toolCall.function.arguments);
+          visualData.tables.push({
+            title: args.title,
+            headers: args.headers,
+            rows: args.rows
+          });
+        }
+      }
+    }
     
     if (!assistantMessage) {
       throw new Error('No response content from AI');
@@ -530,6 +626,7 @@ Always ground your responses in the provided knowledge base, referenced card dat
     return new Response(JSON.stringify({ 
       message: assistantMessage,
       cards: cardData,
+      visualData: (visualData.charts.length > 0 || visualData.tables.length > 0) ? visualData : null,
       success: true 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

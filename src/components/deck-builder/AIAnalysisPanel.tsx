@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CardRecommendationDisplay, type CardData } from '@/components/shared/CardRecommendationDisplay';
+import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import { scryfallAPI } from '@/lib/api/scryfall';
 
 interface Message {
@@ -21,6 +22,7 @@ interface Message {
   content: string;
   timestamp: Date;
   cards?: CardData[];
+  visualData?: VisualData;
 }
 
 interface AIAnalysisPanelProps {
@@ -97,7 +99,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
     }
   }, [deckName, deckFormat]);
 
-  const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[] }> => {
+  const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
       const response = await supabase.functions.invoke('mtg-brain', {
         body: {
@@ -113,7 +115,11 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
       if (error) throw new Error(error.message || 'Failed to get response');
       if (data?.error) throw new Error(data.error);
 
-      return { message: data.message || 'No response received', cards: data.cards || [] };
+      return { 
+        message: data.message || 'No response received', 
+        cards: data.cards || [],
+        visualData: data.visualData || null
+      };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
       
@@ -164,7 +170,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
     setShowQuickActions(false);
 
     try {
-      const { message: responseText, cards } = await generateResponse(text);
+      const { message: responseText, cards, visualData } = await generateResponse(text);
 
       let finalCards: CardData[] = cards || [];
       if (!finalCards || finalCards.length === 0) {
@@ -197,6 +203,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
         content: responseText,
         timestamp: new Date(),
         cards: finalCards,
+        visualData: visualData || undefined,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -303,20 +310,15 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => <p className="mb-3 last:mb-0 text-foreground/90">{children}</p>,
-                            h1: ({ children }) => <h1 className="text-lg font-bold text-spacecraft mb-2">{children}</h1>,
-                            h2: ({ children }) => <h2 className="text-base font-semibold text-spacecraft/90 mb-2">{children}</h2>,
-                            h3: ({ children }) => <h3 className="text-sm font-medium text-spacecraft/80 mb-1">{children}</h3>,
-                            strong: ({ children }) => <strong className="font-semibold text-spacecraft">{children}</strong>,
-                            ul: ({ children }) => <ul className="space-y-1 text-foreground/90">{children}</ul>,
-                            li: ({ children }) => <li className="flex items-start gap-2"><span className="text-spacecraft mt-1">•</span><span>{children}</span></li>
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
+                        <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
                       </div>
+                      
+                      {/* Visual Data */}
+                      {message.visualData && (
+                        <AIVisualDisplay data={message.visualData} compact />
+                      )}
                     </div>
                   ) : (
                     <ReactMarkdown>{message.content}</ReactMarkdown>

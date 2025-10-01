@@ -16,6 +16,7 @@ import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { CardAddModal } from '@/components/brain/CardAddModal';
 import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
+import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 
 interface CardData extends SharedCardData {}
 
@@ -25,6 +26,7 @@ interface Message {
   content: string;
   timestamp: Date;
   cards?: CardData[];
+  visualData?: VisualData;
 }
 
 const QUICK_ACTIONS = [
@@ -187,7 +189,7 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
   }, [selectedDeck]);
 
   // Call MTG Brain API
-  const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[] }> => {
+  const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
       const response = await supabase.functions.invoke('mtg-brain', {
         body: {
@@ -208,7 +210,11 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
         throw new Error(data.error || 'MTG Brain returned an error');
       }
 
-      return { message: data.message || 'No response received from MTG Brain', cards: data.cards || [] };
+      return { 
+        message: data.message || 'No response received from MTG Brain', 
+        cards: data.cards || [],
+        visualData: data.visualData || null
+      };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
       
@@ -240,14 +246,15 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
     setShowQuickActions(false);
 
     try {
-      const { message: responseText, cards } = await generateResponse(input.trim());
+      const { message: responseText, cards, visualData } = await generateResponse(input.trim());
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseText,
         timestamp: new Date(),
-        cards
+        cards,
+        visualData: visualData || undefined
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -542,45 +549,40 @@ List only the actual card names you can confidently identify, separated by semic
                                  : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
                              }`}
                            >
-                           <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
-                              {message.type === 'assistant' ? (
-                                <div className="space-y-4">
-                                  <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                                        <span className="text-xs font-bold text-white">DM</span>
-                                      </div>
-                                      <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                                    </div>
-                                    <ReactMarkdown
-                                      components={{
-                                        p: ({ children }) => <p className="mb-3 last:mb-0 text-foreground/90">{children}</p>,
-                                        h1: ({ children }) => <h1 className="text-lg font-bold text-spacecraft mb-2">{children}</h1>,
-                                        h2: ({ children }) => <h2 className="text-base font-semibold text-spacecraft/90 mb-2">{children}</h2>,
-                                        h3: ({ children }) => <h3 className="text-sm font-medium text-spacecraft/80 mb-1">{children}</h3>,
-                                        strong: ({ children }) => <strong className="font-semibold text-spacecraft">{children}</strong>,
-                                        ul: ({ children }) => <ul className="space-y-1 text-foreground/90">{children}</ul>,
-                                        li: ({ children }) => <li className="flex items-start gap-2"><span className="text-spacecraft mt-1">•</span><span>{children}</span></li>
-                                      }}
-                                    >
-                                      {message.content}
-                                    </ReactMarkdown>
-                                  </div>
-                                </div>
-                              ) : (
-                                <ReactMarkdown
-                                  components={{
-                                    p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                                  }}
-                                >
-                                  {message.content}
-                                </ReactMarkdown>
-                              )}
-                            </div>
+                            <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
+                               {message.type === 'assistant' ? (
+                                 <div className="space-y-4">
+                                   <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
+                                     <div className="flex items-center gap-2 mb-2">
+                                       <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                                         <span className="text-xs font-bold text-white">DM</span>
+                                       </div>
+                                       <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
+                                     </div>
+                                     <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4 [&>strong]:font-semibold [&>strong]:text-spacecraft">
+                                       <ReactMarkdown>{message.content}</ReactMarkdown>
+                                     </div>
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <ReactMarkdown
+                                   components={{
+                                     p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                                   }}
+                                 >
+                                   {message.content}
+                                 </ReactMarkdown>
+                               )}
+                             </div>
                           
-                          {/* Display referenced cards or show option to find cards */}
+                           {/* Display referenced cards or show option to find cards */}
                           {message.type === 'assistant' && (
                             <div className="mt-4 space-y-3">
+                              {/* Visual Data Display */}
+                              {message.visualData && (
+                                <AIVisualDisplay data={message.visualData} />
+                              )}
+                              
                               {message.cards && message.cards.length > 0 ? (
                                 <>
                                   <div className="flex items-center justify-between border-t pt-3">

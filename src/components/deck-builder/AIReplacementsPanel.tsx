@@ -44,6 +44,7 @@ export function AIReplacementsPanel({
   const [suggestions, setSuggestions] = useState<ReplacementSuggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const generateReplacements = async () => {
     if (!deckId || !deckName) {
@@ -53,6 +54,7 @@ export function AIReplacementsPanel({
 
     setIsGenerating(true);
     setSuggestions([]);
+    setErrorMsg(null);
 
     try {
       const deckCards = deckSummary?.cards?.map((dc: any) => ({
@@ -104,11 +106,17 @@ Format as a clear list. Finish with: Referenced Cards: [list all cards mentioned
       console.error('Error generating replacements:', error);
       const msg = String(error?.message || error);
       if (/402|credit|payment/i.test(msg)) {
-        toast.error('AI credits required. Please add credits and try again.');
+        const m = 'AI credits required. Please add credits and try again.';
+        setErrorMsg(m);
+        toast.error(m);
       } else if (/429|rate/i.test(msg)) {
-        toast.error('Rate limit reached. Please wait and try again.');
+        const m = 'Rate limit reached. Please wait and try again.';
+        setErrorMsg(m);
+        toast.error(m);
       } else {
-        toast.error('Failed to generate replacements. Please try again.');
+        const m = 'Failed to generate replacements. Please try again.';
+        setErrorMsg(m);
+        toast.error(m);
       }
     } finally {
       setIsGenerating(false);
@@ -267,8 +275,17 @@ Format as a clear list. Finish with: Referenced Cards: [list all cards mentioned
         <CardContent>
           {suggestions.length === 0 && !isGenerating && (
             <div className="text-center p-8 text-muted-foreground">
-              <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Click "Generate Suggestions" to get AI-powered replacement recommendations</p>
+              {errorMsg ? (
+                <>
+                  <div className="mb-2 text-destructive font-medium">{errorMsg}</div>
+                  <p className="text-sm">You can retry in a moment. The rest of the builder remains usable.</p>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Click "Generate Suggestions" to get AI-powered replacement recommendations</p>
+                </>
+              )}
             </div>
           )}
 

@@ -210,13 +210,8 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
       const { data, error } = response;
       
-      if (error) {
-        throw new Error(error.message || 'Failed to get response from MTG Brain');
-      }
-      
-      if (data?.error) {
-        throw new Error(data.error || 'MTG Brain returned an error');
-      }
+      if (error) throw new Error(error.message || 'Failed to get response from MTG Brain');
+      if (data?.error) throw new Error(data.error || 'MTG Brain returned an error');
 
       return { 
         message: data.message || 'No response received from MTG Brain', 
@@ -225,18 +220,40 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
       };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
-      
-      if (error instanceof Error) {
-        if (error.message.includes('Rate limits exceeded')) {
-          toast.error('Rate limits exceeded. Please wait a moment before asking another question.');
-        } else if (error.message.includes('Payment required')) {
-          toast.error('Credits required. Please add AI credits to your workspace to continue.');
-        } else {
-          toast.error('Failed to get AI response. Please try again.');
-        }
+
+      const errMsg = (error instanceof Error ? error.message : String(error || ''));
+      const lower = errMsg.toLowerCase();
+      if (lower.includes('rate') || lower.includes('429')) {
+        toast.error('Rate limits exceeded. Please wait before asking another question.');
+      } else if (lower.includes('payment') || lower.includes('credit') || lower.includes('402')) {
+        toast.error('Credits required. Please add AI credits to continue.');
+      } else {
+        toast.error('Failed to get AI response. Showing local analysis instead.');
       }
-      
-      throw error;
+
+      // Fallback: build local visuals and summary so UI remains useful
+      const visualData: VisualData = { charts: [], tables: [] } as any;
+      try {
+        const curveBins = (selectedDeck as any)?.curve?.bins || (selectedDeck as any)?.curve;
+        if (curveBins && typeof curveBins === 'object') {
+          const chartData = Object.entries(curveBins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) }));
+          (visualData.charts as any).push({ type: 'bar', title: 'CMC Distribution', data: chartData });
+        }
+        const manaSources = (selectedDeck as any)?.mana?.sources;
+        if (manaSources && typeof manaSources === 'object') {
+          const keys = ['W','U','B','R','G','C'];
+          const data = keys.filter(k => manaSources[k] !== undefined).map(k => ({ name: k, value: Number(manaSources[k] || 0) }));
+          if (data.length) (visualData.charts as any).push({ type: 'pie', title: 'Mana Sources by Color', data });
+        }
+      } catch {}
+
+      const counts = (selectedDeck as any)?.counts;
+      const power = (selectedDeck as any)?.power?.score;
+      const fallbackText = `### AI temporarily unavailable\n\nHere are local insights computed from your deck data:${
+        counts ? `\n\n- Total cards: ${counts.total} (Lands: ${counts.lands}, Creatures: ${counts.creatures}, Instants: ${counts.instants}, Sorceries: ${counts.sorceries})` : ''
+      }${ power ? `\n- Current power score: ${power}/10` : '' }\n\nYou can retry in a moment or add AI credits to continue full analysis.`;
+
+      return { message: fallbackText, cards: [], visualData: (visualData.charts && (visualData.charts as any).length) ? visualData : undefined };
     }
   };
 

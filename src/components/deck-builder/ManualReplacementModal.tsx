@@ -78,14 +78,14 @@ export function ManualReplacementModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl max-h-[85vh] p-0">
-        <DialogHeader className="px-4 pt-4">
+      <DialogContent className="w-[95vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="sticky top-0 z-10 bg-background px-4 pt-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             Find Replacement for {currentCard.name}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-4 pb-4 overflow-y-auto space-y-4">
+        <div className="px-4 pb-4 overflow-y-auto space-y-4 flex-1">
           {/* Current Card Display */}
           <div className="p-4 border rounded-lg bg-muted/30">
             <div className="flex items-center gap-4">
@@ -177,7 +177,7 @@ export function ManualReplacementModal({
           )}
         </div>
 
-        <DialogFooter className="flex gap-2">
+        <DialogFooter className="sticky bottom-0 z-10 bg-background px-4 py-3 border-t flex gap-2">
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>

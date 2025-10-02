@@ -300,12 +300,10 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
       }
     }
 
-        // Phase 4: Post-build validation with MTG Brain
-        console.log('\nPhase 4: Validating deck quality with MTG Brain...');
+        // Phase 4: Post-build validation with MTG Brain (optimized)
+        console.log('\nPhase 4: Quick quality check...');
         
         if (buildRequest.useAIPlanning !== false && lovableApiKey) {
-          const deckList = result.deck.map(c => c.name).join('\n');
-          
           // Count key metrics for validation
           const rampCount = result.deck.filter((c: any) => c.tags?.has('ramp')).length;
           const drawCount = result.deck.filter((c: any) => c.tags?.has('draw')).length;
@@ -314,26 +312,28 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
           ).length;
           const avgCMC = result.deck.reduce((sum: number, c: any) => sum + (c.cmc || 0), 0) / result.deck.length;
           
-          const validationPrompt = `You are a professional Magic: The Gathering deck analyst. Review this ${buildRequest.commander.name} Commander deck critically.
+          // OPTIMIZED: Send only stats and top cards, not full deck list
+          const topCards = result.deck
+            .sort((a: any, b: any) => (b.cmc || 0) - (a.cmc || 0))
+            .slice(0, 15)
+            .map((c: any) => c.name)
+            .join(', ');
+          
+          const validationPrompt = `Review ${buildRequest.commander.name} ${buildRequest.archetype} deck.
 
-**Deck Metrics:**
-- Total cards: ${result.deck.length}
-- Ramp: ${rampCount} cards
-- Card Draw: ${drawCount} cards  
-- Removal: ${removalCount} cards
-- Average CMC: ${avgCMC.toFixed(2)}
+**Metrics:**
+- Cards: ${result.deck.length} | Ramp: ${rampCount} | Draw: ${drawCount} | Removal: ${removalCount}
+- Avg CMC: ${avgCMC.toFixed(2)} | Power Target: ${buildRequest.powerLevel}/10
 
-**Deck List:**
-${deckList}
+**Top Cards:** ${topCards}
 
-**Analysis Required:**
-1. Does it properly execute the ${buildRequest.archetype} strategy?
-2. Are the card quotas optimal for Commander? (Should have 10-14 ramp, 10-15 draw, 10-15 interaction)
-3. Is the mana curve appropriate? (Should average 2.8-3.5 CMC)
-4. Does it have clear, achievable win conditions?
-5. Quality score (1-10) and ONE key improvement needed
+**Analysis (max 150 words):**
+1. Proper ${buildRequest.archetype} execution?
+2. Card quotas OK? (need 10-14 ramp, 10-15 draw, 10-15 interaction)
+3. CMC appropriate? (should be 2.8-3.5)
+4. Quality score (1-10) + ONE key improvement
 
-Be BRUTALLY HONEST. If the deck is bad, say so and explain why. Maximum 250 words.`;
+Be HONEST. If bad, say why.`;
 
           try {
             const validationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -347,11 +347,12 @@ Be BRUTALLY HONEST. If the deck is bad, say so and explain why. Maximum 250 word
                 messages: [
                   { 
                     role: 'system', 
-                    content: 'You are an expert Magic: The Gathering deck analyst. Be critical, precise, and constructive. Focus on actual gameplay viability.' 
+                    content: 'MTG deck analyst. Be critical, precise, constructive. Focus on gameplay viability.' 
                   },
                   { role: 'user', content: validationPrompt }
                 ],
                 temperature: 0.3,
+                max_tokens: 400, // Reduced from no limit
               }),
             });
 

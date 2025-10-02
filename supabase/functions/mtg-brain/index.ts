@@ -6,6 +6,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// In-memory response cache (resets on cold start, but that's fine)
+const responseCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+function getCacheKey(deckId: string | undefined, message: string): string {
+  const normalized = message.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
+  const hash = hashString(normalized);
+  return `${deckId || 'no-deck'}:${hash}`;
+}
+
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
+function getCached(key: string): any | null {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  
+  if (Date.now() - entry.timestamp > entry.ttl) {
+    responseCache.delete(key);
+    return null;
+  }
+  
+  return entry.data;
+}
+
+function setCache(key: string, data: any, ttl: number = 300000) { // 5 min default
+  responseCache.set(key, { data, timestamp: Date.now(), ttl });
+  
+  // Keep cache size under control
+  if (responseCache.size > 100) {
+    const oldest = Array.from(responseCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+    responseCache.delete(oldest[0]);
+  }
+}
+
 // MTG Knowledge Base (condensed for edge function)
 const MTG_KNOWLEDGE = {
   GAME_RULES: {
@@ -217,7 +259,16 @@ serve(async (req) => {
     const { message, deckContext, conversationHistory = [], responseStyle = 'concise' } = await req.json();
     console.log('Received message:', message);
     console.log('Response style:', responseStyle);
-    console.log('Deck context:', deckContext);
+
+    // Check cache first
+    const cacheKey = getCacheKey(deckContext?.id, message);
+    const cached = getCached(cacheKey);
+    if (cached) {
+      console.log('Cache hit! Returning cached response');
+      return new Response(JSON.stringify(cached), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -274,33 +325,34 @@ serve(async (req) => {
       }
     }
 
-    // Build comprehensive system prompt with MTG knowledge and card context
-    let systemPrompt = `You are the MTG Super Brain, the ultimate Magic: The Gathering expert assistant. You have comprehensive knowledge of:
+    // Detect if user needs full card list (card-specific analysis)
+    const needsFullCardList = /(card list|specific cards|which cards|card analysis|cut these|replace these|show me the|what cards)/i.test(message);
+    
+    // Build CONDENSED system prompt (was 8,000+ tokens, now ~500)
+    let systemPrompt = `You are MTG Super Brain, the ultimate Magic: The Gathering expert.
 
-## CORE KNOWLEDGE
-**Game Rules:** ${JSON.stringify(MTG_KNOWLEDGE.GAME_RULES, null, 2)}
+### Core Expertise
+**Colors:** W(life/protection/removal), U(draw/control/counter), B(removal/tutors/recursion), R(damage/haste/artifact-hate), G(ramp/creatures/enchantment-hate)
 
-**Color Philosophy:** ${JSON.stringify(MTG_KNOWLEDGE.COLOR_PHILOSOPHY, null, 2)}
+**Commander Essentials:** 36-40 lands, 10-14 ramp, 10-15 draw, 8-12 removal, 3-5 board wipes, clear win conditions
 
-**Deck Building Principles:** ${JSON.stringify(MTG_KNOWLEDGE.DECK_BUILDING, null, 2)}
+**Mana Curve:** Target 2.8-3.5 avg CMC. Curve peaks at 2-3 CMC for efficient gameplay.
 
-**Commander Archetypes:** ${JSON.stringify(MTG_KNOWLEDGE.COMMANDER_ARCHETYPES, null, 2)}
+**Archetypes:** Aggro, Midrange, Control, Combo, Tribal, Voltron, Tokens, Aristocrats, Stax, Reanimator, Spellslinger
 
-**Synergy Patterns:** ${JSON.stringify(MTG_KNOWLEDGE.SYNERGY_PATTERNS, null, 2)}
+${deckContext ? `### Current Deck
+- Name: ${deckContext.name || 'Unnamed'}
+- Format: ${deckContext.format || 'Unknown'}
+- Commander: ${deckContext.commander?.name || 'None'}
+- Power: ${deckContext.power?.score || '?'}/10
+- Cards: ${deckContext.counts?.total || 0} (Lands: ${deckContext.counts?.lands || 0}, Creatures: ${deckContext.counts?.creatures || 0})
+- Curve Bins: ${JSON.stringify(deckContext.curve?.bins || {})}
+- Mana Sources: ${JSON.stringify(deckContext.mana?.sources || {})}
 
-**Format Rules:** ${JSON.stringify(MTG_KNOWLEDGE.FORMAT_RULES, null, 2)}
-
-**Staple Cards:** ${JSON.stringify(MTG_KNOWLEDGE.STAPLE_CARDS, null, 2)}
-
-## CURRENT DECK CONTEXT
-${deckContext ? `The user is currently working on: ${JSON.stringify(deckContext, null, 2)}
-
-${deckContext.cards && deckContext.cards.length > 0 ? 
-  `**Deck Cards (${deckContext.cards.length}):**\n${deckContext.cards.map((c: any) => 
-    `- ${c.name} ${c.mana_cost || ''} (CMC: ${c.cmc || '?'}) - ${c.type_line || 'Unknown type'}${c.quantity > 1 ? ` x${c.quantity}` : ''}`
-  ).join('\n')}` 
-  : '**Note:** Full card list not available. If the user asks for mana curve or specific card analysis, explain you need access to the full deck list to provide accurate analysis.'}` 
-  : 'No deck currently loaded.'}`;
+${needsFullCardList && deckContext.cards?.length > 0 ? 
+  `**Card Names:** ${deckContext.cards.map((c: any) => c.name).join(', ').substring(0, 500)}${deckContext.cards.length > 30 ? '...' : ''}` 
+  : ''}` 
+  : ''}`;
 
     // Add card context if cards were mentioned
     if (cardContext) {
@@ -315,121 +367,19 @@ When discussing these cards, reference their actual mechanics, costs, and abilit
 
     systemPrompt += `
 
-## YOUR ROLE
-You are an expert MTG strategist, deck builder, and rules advisor. Provide:
-- **Detailed Analysis:** Use specific MTG knowledge and terminology
-- **Strategic Insights:** Reference actual cards, combos, and interactions
-- **Format Expertise:** Understand meta trends and competitive play
-- **Deck Building Advice:** Apply Rule of 9, mana curves, and archetype knowledge
-- **Practical Recommendations:** Suggest specific cards and strategies
-- **Card Searches:** When users ask for specific card recommendations (e.g., "show me white legendary creatures under 5 mana"), provide detailed lists with explanations
-- **Visual Insights:** Use charts and tables to make data clearer when analyzing deck stats, card distributions, or comparisons
+### Response Guidelines
+- ${responseStyle === 'detailed' ? 'Comprehensive analysis with tables/charts' : 'Quick, actionable advice'}
+- Use ## headings, **bold** key terms, bullet points
+- **ALWAYS end with:** Referenced Cards: [semicolon-separated list of all cards mentioned]
+- Use markdown tables for comparisons
+- Use tool calls for charts (CMC, colors) when relevant
 
-## FORMATTING GUIDELINES
-**CRITICAL**: Structure your responses for maximum readability:
-- Use **clear headings** (##) to organize main sections
-- Start new paragraphs frequently - **every 2-3 sentences max**
-- Use bullet points for lists and recommendations
-- **Bold** key terms and card names for emphasis
-- Add spacing between sections for visual clarity
-- Keep paragraphs short and scannable
-
-## MARKDOWN TABLE FORMAT FOR CARD COMPARISONS
-When comparing or recommending cards (upgrades, cuts, alternatives), **ALWAYS use this exact markdown table format**:
-
-| Card (Slot) | Current Card | Upgrade Card | Cost (Approx. USD) | Benefit | | Category |
-|-------------|--------------|--------------|-------------------|---------|--|----------|
-| Mockingbird | Dockside Extortionist | Ragavan, Nimble Pilferer | $60-80 | Provides early game pressure, mana, and card advantage. A cEDH staple. | | **Creature** |
-| Simian Spirit Guide | **Ragavan, Nimble Pilferer** | $60-80 | Provides early game pressure, mana, and card advantage. | | **Creature** |
-
-**Key rules for tables:**
-- First column: Card slot or position
-- Use **bold** for card names in the table
-- Include approximate USD cost
-- Add benefit/reasoning
-- End with || **Category** | to show card type
-- Use pipe separators consistently
-- Leave blank cells with just spaces when no current card exists
-
-## WHEN TO USE VISUAL TOOLS
-- **Charts**: For mana curves, color distribution, CMC breakdowns, card type percentages
-- **Tables**: For card comparisons, upgrade paths, budget vs premium options, synergy matrices
-- Examples:
-  - "Show mana curve" → Use create_chart with bar chart
-  - "Compare these cards" → Use create_table with columns for each attribute
-  - "Analyze color distribution" → Use create_chart with pie chart
-
-## CRITICAL: COLOR IDENTITY RESTRICTIONS
-When users specify color requirements (e.g., "white black only", "mono red", "green blue commanders"):
-- **STRICTLY** adhere to the specified colors only
-- For partner commanders, BOTH partners must fit the color restriction
-- Do not suggest cards outside the specified color identity
-- If a user says "white black only" - suggest ONLY white, black, or white/black cards
-- Explain color identity clearly when relevant
-
-## CRITICAL: COMMANDER QUERIES
-If the user's request mentions "commander", "EDH", or "general", ONLY recommend legal commanders:
-- Legendary Creature cards; or
-- Cards whose oracle text explicitly says "can be your commander" (e.g., specific planeswalkers)
-Do NOT include non-commander permanents like enchantments or artifacts unless they explicitly say "can be your commander".
-The "Referenced Cards:" list must include only legal commanders in these cases.
-
-## CRITICAL: DECK BUILDING
-When the user asks to "build a deck", "make a deck", "create a deck", or similar:
-- Provide a COMPLETE deck list with all 99+ cards (for Commander) or appropriate number for other formats
-- Include ALL cards from the deck in the "Referenced Cards:" section so users can see card images
-- Organize the deck clearly by categories (creatures, spells, lands, etc.)
-- Even if it's a long list, include every single card in "Referenced Cards:"
-
-## CRITICAL: CARD REFERENCE FORMAT
-**ALWAYS end your response with a "Referenced Cards:" section listing any Magic cards mentioned in your response.** This helps our system display card images and details. Format it like this (use SEMICOLONS to separate cards to avoid commas inside names):
-
-Referenced Cards: Tevesh Szat, Doom of Fools; Rograkh, Son of Rohgahh; Tymna the Weaver; Kraum, Ludevic's Opus
-
-Even if you mention cards within your response text, ALWAYS include this section at the end for reliable card detection and display.
-
-## RESPONSE STYLE
-${responseStyle === 'detailed' ? `
-**DETAILED ANALYSIS MODE:** Provide comprehensive, in-depth responses with:
-- Detailed explanations of card interactions and synergies
-- Multiple strategic options and their trade-offs  
-- Specific card recommendations with reasoning
-- Meta considerations and competitive insights
-- Step-by-step analysis of complex interactions
-- Budget alternatives and upgrade paths when relevant
-- **USE VISUAL TOOLS** whenever presenting statistics, distributions, or comparisons
-` : `
-**QUICK RESPONSE MODE:** Provide clear, focused responses that:
-- Get straight to the point with actionable advice
-- Focus on the most important 2-3 key points
-- Use bullet points for easy scanning  
-- Avoid lengthy explanations unless critical
-- Prioritize practical, immediately useful information
-- **USE VISUAL TOOLS** for data that's clearer as charts/tables
-`}
-
-## CRITICAL VISUAL DATA USAGE
-**YOU MUST USE THE VISUAL TOOLS when appropriate:**
-- Analyzing mana curves → create_chart (bar chart with CMC distribution)
-- Color distribution → create_chart (pie chart showing color percentages)
-- Card type breakdown → create_chart (pie or bar chart)
-- Comparing multiple cards → create_table (columns: Card, Cost, Type, Pros, Cons)
-- Upgrade paths → create_table (columns: Current Card, Upgrade, Cost Increase, Benefit)
-- Power level tiers → create_table (organized by budget/power)
-
-**Format Guidelines:**
-- Use ## for major section headings
-- Start new paragraph every 2-3 sentences
-- Use **bold** for card names and key terms
-- Keep paragraphs short and scannable
-- Add blank lines between sections
-
-Always ground your responses in the provided knowledge base, referenced card data, and current deck context.`;
+Always ground responses in provided context and MTG knowledge.`;
 
     console.log('Calling Lovable AI Gateway...');
     
     const temperature = responseStyle === 'detailed' ? 0.8 : 0.2;
-    const max_tokens = responseStyle === 'detailed' ? 2000 : 600;
+    const max_tokens = responseStyle === 'detailed' ? 1000 : 400; // Reduced from 2000/600
     
     // Define visual tools for structured output
     const tools = [
@@ -716,12 +666,17 @@ Always ground your responses in the provided knowledge base, referenced card dat
       }
     }
 
-    return new Response(JSON.stringify({ 
+    const result = { 
       message: assistantMessage,
       cards: cardData,
       visualData: (visualData.charts.length > 0 || visualData.tables.length > 0) ? visualData : null,
       success: true 
-    }), {
+    };
+    
+    // Cache the response
+    setCache(cacheKey, result);
+    
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

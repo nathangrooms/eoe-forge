@@ -114,12 +114,6 @@ const Dashboard = () => {
               Your command center for deck building, collection management, and AI-powered insights
             </p>
           </div>
-          <Avatar className="h-12 w-12 ring-2 ring-spacecraft/20">
-            <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-gradient-cosmic text-primary-foreground">
-              {user?.email?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
         </div>
 
         {/* AI Feature Strip */}
@@ -276,8 +270,8 @@ const Dashboard = () => {
                 <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-cosmic" />
                   <div className="p-4 pt-5 flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 group-hover:from-primary/20 group-hover:to-accent/20 transition-colors">
-                      <Brain className="h-5 w-5 bg-gradient-cosmic bg-clip-text text-transparent" />
+                    <div className="p-3 rounded-lg bg-gradient-cosmic group-hover:shadow-cosmic-glow transition-all">
+                      <Brain className="h-5 w-5 text-primary-foreground" />
                     </div>
                     <span className="text-sm font-medium">AI Brain</span>
                   </div>

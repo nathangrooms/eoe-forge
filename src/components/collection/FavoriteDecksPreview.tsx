@@ -179,9 +179,18 @@ export function FavoriteDecksPreview() {
           return (
             <Card 
               key={deck.id} 
-              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 overflow-hidden"
               onClick={() => handleDeckClick(deck)}
             >
+              {deck.commander?.image && (
+                <div className="w-full h-32 overflow-hidden bg-muted">
+                  <img 
+                    src={deck.commander.image} 
+                    alt={deck.commander.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">

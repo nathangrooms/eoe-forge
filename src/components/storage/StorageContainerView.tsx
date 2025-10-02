@@ -7,7 +7,7 @@ import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageQuickActions } from './StorageQuickActions';
 import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';
-import { CollectionSearch } from '@/components/collection/CollectionSearch';
+import { UniversalLocalSearch } from '@/components/universal/UniversalLocalSearch';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 interface StorageContainerViewProps {
@@ -21,9 +21,7 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showQuickActions, setShowQuickActions] = useState(false);
   
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<any>({});
+  // Filter state is managed by UniversalLocalSearch
 
   useEffect(() => {
     loadItems();
@@ -60,21 +58,7 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
     storageItemId: item.id
   }));
 
-  // Apply filters
-  const filteredCards = transformedCards.filter(card => {
-    if (searchQuery && !card.name?.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-    if (filters.rarity && filters.rarity !== card.rarity) {
-      return false;
-    }
-    if (filters.colors && filters.colors.length > 0) {
-      if (!filters.colors.some((c: string) => card.colors?.includes(c))) {
-        return false;
-      }
-    }
-    return true;
-  });
+  // Filtering handled within UniversalLocalSearch
 
   const totalCards = items.reduce((sum, item) => sum + item.qty, 0);
   const totalValue = items.reduce((sum, item) => {
@@ -140,65 +124,26 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
         </div>
       </div>
 
-      {/* Search/Filters */}
-      <div className="border-b px-6 py-3">
-        <CollectionSearch
-          onSearchChange={setSearchQuery}
-          onFiltersChange={setFilters}
-          totalResults={filteredCards.length}
+      <div className="flex-1 overflow-auto">
+        <UniversalLocalSearch
+          cards={transformedCards}
+          loading={loading}
+          initialViewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onCardClick={(card) => {
+            console.log('Card clicked:', card);
+          }}
+          onCardAdd={(card) => {
+            const item = items.find(i => i.card_id === card.id);
+            if (item) handleUnassign(item, 1);
+          }}
+          showWishlistButton={false}
+          emptyState={{
+            title: 'Container is empty',
+            description: 'Start adding cards to this container',
+            action: () => setShowQuickActions(true)
+          }}
         />
-      </div>
-
-      {/* Card Display */}
-      <div className="flex-1 overflow-auto px-6 py-6">
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-4">
-                  <div className="aspect-[63/88] bg-muted rounded mb-3"></div>
-                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredCards.length === 0 ? (
-          <Card className="border-dashed border-2">
-            <CardContent className="p-12 text-center">
-              <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">
-                {searchQuery || Object.keys(filters).length > 0 ? 'No matching cards' : 'Container is empty'}
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                {searchQuery || Object.keys(filters).length > 0
-                  ? 'Try adjusting your search or filters'
-                  : 'Start adding cards to this container'
-                }
-              </p>
-              {!(searchQuery || Object.keys(filters).length > 0) && (
-                <Button onClick={() => setShowQuickActions(true)} size="lg">
-                  <Zap className="h-4 w-4 mr-2" />
-                  Quick Add Cards
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <UniversalCardDisplay
-            cards={filteredCards}
-            viewMode={viewMode}
-            onCardClick={(card) => {
-              // Handle card click
-              console.log('Card clicked:', card);
-            }}
-            onCardAdd={(card) => {
-              const item = items.find(i => i.card_id === card.id);
-              if (item) handleUnassign(item, 1);
-            }}
-            showWishlistButton={false}
-          />
-        )}
       </div>
 
       {/* Quick Actions Modal */}

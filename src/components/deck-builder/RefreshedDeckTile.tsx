@@ -263,85 +263,66 @@ export function RefreshedDeckTile({
   return (
     <Card className={cn("group hover:shadow-xl transition-all duration-300 overflow-hidden border-2 hover:border-primary/30", className)}>
       <CardContent className="p-0">
-        <div className="flex min-h-[280px]">
-          {/* Left: Full Height Commander Section - Much Wider */}
-          <div className="w-80 flex-shrink-0 relative p-4">
+        <div className="flex h-[220px]">
+          {/* Left: Commander Preview - Reduced Width */}
+          <div className="w-48 flex-shrink-0 relative overflow-hidden">
             {deckSummary.commander ? (
-              <div className="h-full flex flex-col">
-                {/* Commander Image Container */}
-                <div className="flex-1 relative rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg mb-3">
-                  <img 
-                    src={(deckSummary.commander as any)?.image_uris?.normal || 
-                         (deckSummary.commander as any)?.image_uris?.large || 
-                         deckSummary.commander.image || 
-                         '/placeholder.svg'} 
-                    alt={deckSummary.commander.name}
-                    className="w-full h-full object-cover rounded-xl"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder.svg';
-                    }}
-                  />
-                </div>
-                
-                {/* Commander Info Below Image */}
-                <div className="bg-gradient-to-r from-purple-500/10 to-yellow-500/10 rounded-lg p-3 border border-primary/20">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Crown className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Commander</span>
-                    <Crown className="h-4 w-4 text-yellow-500" />
+              <div className="h-full relative">
+                <img 
+                  src={(deckSummary.commander as any)?.image_uris?.normal || 
+                       (deckSummary.commander as any)?.image_uris?.large || 
+                       deckSummary.commander.image || 
+                       '/placeholder.svg'} 
+                  alt={deckSummary.commander.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                  }}
+                />
+                {/* Commander badge overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-2">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <Crown className="h-3 w-3 text-yellow-500" />
+                    <span className="text-[10px] font-medium text-white uppercase tracking-wide">Commander</span>
                   </div>
-                  <h4 className="text-center font-semibold text-sm leading-tight">{deckSummary.commander.name}</h4>
-                  <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Package className="h-3 w-3" />
-                      <span>{deckSummary.counts.total} cards</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Target className="h-3 w-3" />
-                      <span>Power {deckSummary.power.score}</span>
-                    </div>
-                  </div>
+                  <h4 className="text-center font-semibold text-xs leading-tight text-white line-clamp-2">{deckSummary.commander.name}</h4>
                 </div>
               </div>
             ) : (
-              <div className="h-full rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
-                <div className="text-center text-muted-foreground">
-                  <Crown className="h-16 w-16 mx-auto mb-4" />
-                  <div className="text-lg font-medium">No Commander</div>
-                  <div className="text-sm mt-2">Set in Builder</div>
+              <div className="h-full bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center border-r border-dashed border-muted-foreground/20">
+                <div className="text-center text-muted-foreground p-2">
+                  <Crown className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <div className="text-[10px] font-medium">No Commander</div>
                 </div>
               </div>
             )}
-
           </div>
 
-          {/* Right: Comprehensive Stats Section */}
-          <div className="flex-1 p-4 space-y-4">
-            {/* Header with Name and Key Info */}
-            <div className="flex items-start justify-between">
+          {/* Right: Compact Stats Section */}
+          <div className="flex-1 p-3 space-y-2">
+            {/* Header Row */}
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge className={cn("text-xs font-bold", powerBandColors[deckSummary.power.band])}>
+                  <Badge className={cn("text-[10px] font-bold px-1.5 py-0", powerBandColors[deckSummary.power.band])}>
                     {deckSummary.power.score}/10
                   </Badge>
-                  <div className="flex gap-1">
+                  <Badge variant="outline" className={cn("text-[10px] capitalize px-1.5 py-0", formatColors[deckSummary.format as keyof typeof formatColors])}>
+                    {deckSummary.format}
+                  </Badge>
+                  <div className="flex gap-0.5">
                     {getColorIndicator(deckSummary.colors)}
                   </div>
                 </div>
                 
-                <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors truncate">
+                <h3 className="font-bold text-base mb-0.5 group-hover:text-primary transition-colors truncate">
                   {deckSummary.name}
                 </h3>
                 
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{new Date(deckSummary.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Package className="h-3 w-3" />
-                    <span>{deckSummary.counts.total} total, {deckSummary.counts.unique} unique</span>
-                  </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>{new Date(deckSummary.updatedAt).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{deckSummary.counts.total} total ({deckSummary.counts.unique} unique)</span>
                 </div>
               </div>
 
@@ -350,110 +331,76 @@ export function RefreshedDeckTile({
                 size="sm"
                 onClick={handleFavoriteToggle}
                 disabled={favoriteLoading}
-                className="text-yellow-500 hover:text-yellow-600 h-8 w-8 p-0 shrink-0"
+                className="text-yellow-500 hover:text-yellow-600 h-6 w-6 p-0 shrink-0"
               >
                 {favoriteLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : isFavorite ? (
-                  <Star className="h-4 w-4 fill-current" />
+                  <Star className="h-3 w-3 fill-current" />
                 ) : (
-                  <StarOff className="h-4 w-4" />
+                  <StarOff className="h-3 w-3" />
                 )}
               </Button>
             </div>
 
-            {/* Core Metrics Grid */}
-            <div className="grid grid-cols-5 gap-2">
-              <div className="text-center p-2 rounded-md bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onAnalysis}>
-                <Target className="h-3 w-3 text-primary mx-auto mb-1" />
-                <div className="text-sm font-bold">{deckSummary.power.score}</div>
-                <div className="text-xs text-muted-foreground">Power</div>
+            {/* Compact Metrics Grid */}
+            <div className="grid grid-cols-5 gap-1.5">
+              <div className="text-center p-1.5 rounded bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onMissingCards}>
+                <Package className="h-3 w-3 text-blue-500 mx-auto mb-0.5" />
+                <div className="text-xs font-bold">{deckSummary.counts.total - deckSummary.economy.missing}/{deckSummary.counts.total}</div>
+                <div className="text-[9px] text-muted-foreground leading-none">Own</div>
               </div>
 
-              <div className="text-center p-2 rounded-md bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onMissingCards}>
-                <Package className="h-3 w-3 text-blue-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">{deckSummary.counts.total - deckSummary.economy.missing} / {deckSummary.counts.total}</div>
-                <div className="text-xs text-muted-foreground">Owned</div>
+              <div className="text-center p-1.5 rounded bg-muted/30">
+                <DollarSign className="h-3 w-3 text-green-500 mx-auto mb-0.5" />
+                <div className="text-xs font-bold">${Math.round(deckSummary.economy.priceUSD)}</div>
+                <div className="text-[9px] text-muted-foreground leading-none">Value</div>
               </div>
 
-              <div className="text-center p-2 rounded-md bg-muted/30">
-                <DollarSign className="h-3 w-3 text-green-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">${Math.round(deckSummary.economy.priceUSD)}</div>
-                <div className="text-xs text-muted-foreground">Value</div>
+              <div className="text-center p-1.5 rounded bg-muted/30">
+                <BarChart3 className="h-3 w-3 text-purple-500 mx-auto mb-0.5" />
+                <div className="text-xs font-bold">{Math.round(curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1) * 10) / 10}</div>
+                <div className="text-[9px] text-muted-foreground leading-none">CMC</div>
               </div>
 
-              <div className="text-center p-2 rounded-md bg-muted/30">
-                <BarChart3 className="h-3 w-3 text-purple-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">{Math.round(curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1) * 10) / 10}</div>
-                <div className="text-xs text-muted-foreground">Avg CMC</div>
+              <div className="text-center p-1.5 rounded bg-muted/30">
+                <TrendingUp className="h-3 w-3 text-orange-500 mx-auto mb-0.5" />
+                <div className="text-xs font-bold">{deckSummary.counts.lands}</div>
+                <div className="text-[9px] text-muted-foreground leading-none">Lands</div>
               </div>
-
-              <div className="text-center p-2 rounded-md bg-muted/30">
-                <TrendingUp className="h-3 w-3 text-orange-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">{Math.round((deckSummary.counts.lands / deckSummary.counts.total) * 100)}%</div>
-                <div className="text-xs text-muted-foreground">Lands</div>
-              </div>
-            </div>
-
-            {/* Detailed Card Type Breakdown */}
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground mb-2">Composition</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {typeData.map((item) => (
-                  <div key={item.type} className="flex items-center justify-between p-2 rounded-md bg-muted/20">
-                    <span className="text-muted-foreground">{item.type}</span>
-                    <Badge variant="outline" className="text-xs font-mono h-5">
-                      {item.count}
-                    </Badge>
-                  </div>
-                ))}
+              
+              <div className="text-center p-1.5 rounded bg-muted/30">
+                <Target className="h-3 w-3 text-primary mx-auto mb-0.5" />
+                <div className="text-xs font-bold">{deckSummary.counts.creatures}</div>
+                <div className="text-[9px] text-muted-foreground leading-none">Creat</div>
               </div>
             </div>
 
-            {/* Advanced Analytics */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Enhanced Mana Curve */}
-              <div className="relative overflow-hidden p-3 rounded-lg bg-muted/20 border-l-2 border-spacecraft">
-                <div className="flex items-center gap-2 mb-2">
-                  <BarChart3 className="h-3 w-3 text-spacecraft" />
-                  <span className="text-xs font-medium">Mana Curve</span>
-                </div>
-                <div className="flex items-end gap-1 h-12 mb-1">
-                  {curveData.map(({ cmc, count }) => {
-                    const height = maxCurveCount > 0 ? Math.max((count / maxCurveCount) * 100, count > 0 ? 8 : 0) : 0;
-                    return (
-                      <div key={cmc} className="flex-1 flex flex-col items-center justify-end relative group">
-                        <div 
-                          className="bg-gradient-to-t from-spacecraft/60 to-spacecraft/20 w-full rounded-sm transition-all duration-200 hover:from-spacecraft/80 hover:to-spacecraft/40"
-                          style={{ height: `${height}%` }}
-                          title={`CMC ${cmc}: ${count} cards`}
-                        />
-                        <span className="text-[10px] text-muted-foreground mt-1">{cmc}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="text-[10px] text-muted-foreground text-center mt-1">
-                  Avg: {(curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1)).toFixed(1)} CMC
-                </div>
+            {/* Mana Curve Chart */}
+            <div className="relative overflow-hidden p-2 rounded bg-muted/20">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <BarChart3 className="h-3 w-3 text-spacecraft" />
+                <span className="text-[10px] font-medium">Mana Curve</span>
               </div>
-
-              {/* Strategy Keywords */}
-              <div className="relative overflow-hidden p-3 rounded-lg bg-muted/20 border-l-2 border-warp">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-3 w-3 text-warp" />
-                  <span className="text-xs font-medium">Strategy Tags</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {deckSummary.tags.slice(0, 6).map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0.5">
-                      {tag}
-                    </Badge>
-                  ))}
-                  {deckSummary.tags.length === 0 && (
-                    <span className="text-[10px] text-muted-foreground">No tags yet</span>
-                  )}
-                </div>
+              <div className="flex items-end gap-0.5 h-10">
+                {curveData.length > 0 ? curveData.map(({ cmc, count }) => {
+                  const height = maxCurveCount > 0 ? Math.max((count / maxCurveCount) * 100, count > 0 ? 10 : 0) : 0;
+                  const cmcLabel = cmc.includes('+') ? cmc.replace('+', '') + '+' : cmc;
+                  return (
+                    <div key={cmc} className="flex-1 flex flex-col items-center justify-end group/bar" title={`${cmcLabel} CMC: ${count} cards`}>
+                      <div 
+                        className="bg-gradient-to-t from-spacecraft/70 to-spacecraft/30 w-full rounded-t transition-all hover:from-spacecraft/90 hover:to-spacecraft/50"
+                        style={{ height: `${height}%`, minHeight: count > 0 ? '4px' : '0' }}
+                      />
+                      <div className="text-[9px] text-muted-foreground mt-0.5 leading-none">{cmcLabel}</div>
+                    </div>
+                  );
+                }) : (
+                  <div className="flex-1 text-center text-[10px] text-muted-foreground py-2">No curve data</div>
+                )}
+              </div>
+              <div className="text-[9px] text-muted-foreground text-center mt-1">
+                Avg: {(curveData.length > 0 ? curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1) : 0).toFixed(1)} CMC
               </div>
             </div>
 

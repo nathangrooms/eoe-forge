@@ -19,10 +19,13 @@ import {
   Mountain,
   Users,
   Skull,
-  Eye
+  Eye,
+  ArrowRightLeft,
+  Bookmark
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
+import { ManualReplacementModal } from './ManualReplacementModal';
 
 type ViewMode = 'list' | 'visual';
 type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles';
@@ -57,6 +60,8 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
   const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [replacementModalOpen, setReplacementModalOpen] = useState(false);
+  const [cardToReplace, setCardToReplace] = useState<any>(null);
   
   const deck = useDeckStore();
   const { activeDeck, updateCardQuantity, removeCardFromDeck, decks } = useDeckManagementStore();
@@ -184,7 +189,7 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
             {viewMode === 'list' ? (
               <div className="space-y-2">
                 {categoryCards.map((card, index) => (
-                  <div key={`${card.id}-${index}`} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors">
+                  <div key={`${card.id}-${index}`} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors group">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex items-center gap-2 min-w-[80px]">
                         <Button
@@ -207,7 +212,15 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
                       </div>
                       
                       <div className="flex-1">
-                        <div className="font-medium">{card.name}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {card.name}
+                          {deck.replacements.find(r => r.originalCardId === card.id) && (
+                            <Badge variant="outline" className="text-xs">
+                              <Bookmark className="h-3 w-3 mr-1" />
+                              Future
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground">{card.type_line}</div>
                       </div>
                       
@@ -227,6 +240,17 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
                             ))}
                           </div>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCardToReplace(card);
+                            setReplacementModalOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -343,6 +367,40 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Manual Replacement Modal */}
+      {cardToReplace && (
+        <ManualReplacementModal
+          isOpen={replacementModalOpen}
+          onClose={() => {
+            setReplacementModalOpen(false);
+            setCardToReplace(null);
+          }}
+          currentCard={{
+            name: cardToReplace.name,
+            image: cardToReplace.image_uris?.normal
+          }}
+          onReplace={(newCardName) => {
+            deck.addReplacement(
+              cardToReplace.id,
+              { ...cardToReplace, name: newCardName } as any,
+              1,
+              'Manual replacement - Replace now'
+            );
+            
+            // Auto-remove old card
+            deck.removeCard(cardToReplace.id);
+          }}
+          onMarkFuture={(newCardName) => {
+            deck.addReplacement(
+              cardToReplace.id,
+              { ...cardToReplace, name: newCardName } as any,
+              2,
+              'Manual replacement - Future'
+            );
+          }}
+        />
       )}
     </div>
   );

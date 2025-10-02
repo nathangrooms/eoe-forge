@@ -9,7 +9,8 @@ import { CardGallery } from '@/components/deck-builder/CardGallery';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
-import { ReplacementsPanel } from '@/components/deck-builder/ReplacementsPanel';
+import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
+import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
@@ -380,7 +381,7 @@ const DeckBuilder = () => {
               value="replacements"
               className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
             >
-              Replacements ({deck.replacements.length})
+              AI Replacements
             </TabsTrigger>
             <TabsTrigger 
               value="import-export"
@@ -461,13 +462,53 @@ const DeckBuilder = () => {
             )}
           </TabsContent>
 
-          {/* Replacements Tab */}
+          {/* AI Replacements Tab */}
           <TabsContent value="replacements" className="h-full overflow-auto px-6 py-4 m-0">
-            {deck.name ? (
-              <ReplacementsPanel />
+            {deck.name && deck.cards.length > 0 ? (
+              <AIReplacementsPanel
+                deckId={selectedDeckId || deck.currentDeckId || ''}
+                deckName={deck.name}
+                deckSummary={{
+                  format: deck.format,
+                  commander: deck.commander,
+                  cards: deck.cards.map(card => ({
+                    card_name: card.name,
+                    quantity: card.quantity,
+                    card_data: {
+                      mana_cost: card.mana_cost,
+                      cmc: card.cmc,
+                      type_line: card.type_line,
+                      colors: card.colors,
+                      prices: card.prices
+                    }
+                  })),
+                  power: { score: deck.powerLevel }
+                }}
+                onApplyReplacements={(replacements) => {
+                  replacements.forEach(async ({ remove, add }) => {
+                    const cardToRemove = deck.cards.find(c => c.name === remove);
+                    if (cardToRemove) {
+                      deck.removeCard(cardToRemove.id);
+                    }
+                    
+                    try {
+                      const newCard = await scryfallAPI.getCardByName(add);
+                      handleAddCardToDeck(newCard);
+                    } catch (error) {
+                      console.error(`Failed to add ${add}:`, error);
+                    }
+                  });
+                  
+                  if (deck.currentDeckId) {
+                    setTimeout(() => {
+                      deck.updateDeck(deck.currentDeckId!);
+                    }, 1000);
+                  }
+                }}
+              />
             ) : (
               <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">Select a deck first to manage replacements</p>
+                <p className="text-muted-foreground mb-4">Add cards to your deck to get AI replacement suggestions</p>
               </div>
             )}
           </TabsContent>

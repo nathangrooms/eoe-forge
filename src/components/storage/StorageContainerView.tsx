@@ -72,44 +72,46 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const uniqueCards = new Set(items.map(item => item.card_id)).size;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-auto px-6 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={onBack} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-sm"
-              style={{ backgroundColor: container.color || '#6366F1' }}
-            >
-              <Package className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">{container.name}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="capitalize">{container.type}</Badge>
-                <span className="text-sm text-muted-foreground">•</span>
-                <span className="text-sm text-muted-foreground">{totalCards} cards</span>
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={onBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-sm"
+                style={{ backgroundColor: container.color || '#6366F1' }}
+              >
+                <Package className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">{container.name}</h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="capitalize">{container.type}</Badge>
+                  <span className="text-sm text-muted-foreground">•</span>
+                  <span className="text-sm text-muted-foreground">{totalCards} cards</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-          >
-            {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
-          </Button>
-          <Button onClick={() => setShowQuickActions(true)} className="gap-2">
-            <Zap className="h-4 w-4" />
-            Quick Add
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            >
+              {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
+            </Button>
+            <Button onClick={() => setShowQuickActions(true)} className="gap-2">
+              <Zap className="h-4 w-4" />
+              Quick Add
+            </Button>
+          </div>
         </div>
       </div>
 

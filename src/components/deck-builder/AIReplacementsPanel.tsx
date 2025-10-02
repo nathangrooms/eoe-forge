@@ -100,9 +100,16 @@ Format as a clear list. Finish with: Referenced Cards: [list all cards mentioned
       } else {
         toast.success(`Generated ${parsed.length} replacement suggestions`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating replacements:', error);
-      toast.error('Failed to generate replacements');
+      const msg = String(error?.message || error);
+      if (/402|credit|payment/i.test(msg)) {
+        toast.error('AI credits required. Please add credits and try again.');
+      } else if (/429|rate/i.test(msg)) {
+        toast.error('Rate limit reached. Please wait and try again.');
+      } else {
+        toast.error('Failed to generate replacements. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -148,17 +155,19 @@ Format as a clear list. Finish with: Referenced Cards: [list all cards mentioned
           (await fetchCardData(newCard));
 
         if (currentCardData && newCardData) {
+          const curPrice = Number(currentCardData.prices?.usd) || 0;
+          const newPrice = Number(newCardData.prices?.usd) || 0;
           suggestions.push({
             currentCard: {
               name: currentCard,
               image: currentCardData.image_uri || '/placeholder.svg',
-              price: parseFloat(currentCardData.prices?.usd || '0'),
+              price: curPrice,
               reason: reason.replace(/^[-*•]\s*/, '')
             },
             newCard: {
               name: newCard,
               image: newCardData.image_uri || '/placeholder.svg',
-              price: parseFloat(newCardData.prices?.usd || '0'),
+              price: newPrice,
               benefit: benefit.replace(/^[-*•]\s*/, '')
             },
             selected: true // Selected by default

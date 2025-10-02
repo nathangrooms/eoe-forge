@@ -257,7 +257,7 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {categoryCards.map((card, index) => (
                   <div key={`${card.id}-${index}`} className="relative group">
                     <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-colors">
@@ -272,6 +272,22 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
                           <Icon className="h-8 w-8 text-muted-foreground" />
                         </div>
                       )}
+
+                      {/* Replace Action (visual mode) */}
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Replace card"
+                          onClick={() => {
+                            setCardToReplace(card);
+                            setReplacementModalOpen(true);
+                          }}
+                        >
+                          <ArrowRightLeft className="h-3 w-3" />
+                        </Button>
+                      </div>
                       
                       {/* Quantity Badge */}
                       <div className="absolute top-2 left-2">

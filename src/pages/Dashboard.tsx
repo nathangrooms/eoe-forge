@@ -320,6 +320,16 @@ const Dashboard = () => {
                     onClick={() => handleDeckClick(deck.id, deck.name)}
                   >
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft via-warp to-spacecraft" />
+                    {deck.commanderArt && (
+                      <div className="w-full h-28 bg-muted/50">
+                        <img
+                          src={deck.commanderArt}
+                          alt={`${deck.name} commander art`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
                     <CardContent className="p-4 pt-5">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">

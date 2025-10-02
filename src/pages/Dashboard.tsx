@@ -324,8 +324,8 @@ const Dashboard = () => {
                     {deck.commanderArt && (
                       <AspectRatio ratio={63 / 88} className="bg-muted/50 rounded-sm overflow-hidden">
                         <img
-                          src={deck.commanderArt}
-                          alt={`${deck.name} commander art`}
+                          src={deck.commanderImage || deck.commanderArt}
+                          alt={`${deck.name} commander`}
                           className="w-full h-full object-contain"
                           loading="lazy"
                         />

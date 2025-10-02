@@ -265,6 +265,7 @@ export function useFavoriteDecks() {
             .limit(1);
 
           let commanderArt = null;
+          let commanderImage = null;
           if (commanderCards && commanderCards.length > 0) {
             const { data: cardData } = await supabase
               .from('cards')
@@ -273,18 +274,21 @@ export function useFavoriteDecks() {
               .single();
             
             try {
-              const imageUris = typeof cardData?.image_uris === 'string' 
-                ? JSON.parse(cardData.image_uris) 
+              const imageUris = typeof cardData?.image_uris === 'string'
+                ? JSON.parse(cardData.image_uris)
                 : cardData?.image_uris;
+              commanderImage = imageUris?.normal || imageUris?.large || imageUris?.small || null;
               commanderArt = imageUris?.art_crop || null;
             } catch (e) {
               commanderArt = null;
+              commanderImage = null;
             }
           }
 
           return {
             ...fav.user_decks,
-            commanderArt
+            commanderArt,
+            commanderImage
           };
         }).filter(Boolean) || []
       );

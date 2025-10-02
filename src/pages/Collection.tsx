@@ -61,7 +61,6 @@ export default function Collection() {
   // Collection search state
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
   const [collectionFilters, setCollectionFilters] = useState<any>({});
-  const [collectionStats, setCollectionStats] = useState<CollectionStats | null>(null);
 
   // Deck Addition Panel state
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
@@ -113,7 +112,7 @@ export default function Collection() {
   }, [cards, collectionSearchQuery]);
 
   // Calculate collection stats
-  const calculateStats = useMemo(() => {
+  const collectionStats = useMemo(() => {
     if (!cards || cards.length === 0) {
       return {
         totalCards: 0,
@@ -203,11 +202,6 @@ export default function Collection() {
 
     return stats;
   }, [cards]);
-
-  // Update stats when calculation changes
-  useEffect(() => {
-    setCollectionStats(calculateStats);
-  }, [calculateStats]);
 
   const handleCardClick = (item: any) => {
     setSelectedCard(item.card);

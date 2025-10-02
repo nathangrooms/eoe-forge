@@ -49,11 +49,11 @@ export function Hero() {
           {/* Main Headline */}
           <div className="space-y-6">
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold leading-tight">
-              <span className="bg-gradient-primary bg-clip-text text-transparent animate-fade-in">
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-fade-in">
                 DeckMatrix
               </span>
             </h1>
-            <h2 className="text-xl md:text-3xl lg:text-4xl font-semibold text-foreground/90">
+            <h2 className="text-xl md:text-3xl lg:text-4xl font-semibold text-foreground">
               Master Your Magic: The Gathering Universe
             </h2>
           </div>

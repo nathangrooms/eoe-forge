@@ -71,12 +71,12 @@ All colors MUST be HSL.
     --void: 320 50% 45%;
     --planet: 120 40% 50%;
 
-    /* MTG Mana Colors */
-    --mana-white: 251 248 229; /* #FFFBD5 */
-    --mana-blue: 14 104 171; /* #0E68AB */
-    --mana-black: 21 11 0; /* #150B00 */
-    --mana-red: 211 32 42; /* #D3202A */
-    --mana-green: 0 115 62; /* #00733E */
+    /* MTG Mana Colors (HSL format) */
+    --mana-white: 56 100% 94%; /* #FFFBD5 - Light cream */
+    --mana-blue: 201 85% 36%; /* #0E68AB - Deep blue */
+    --mana-black: 33 100% 4%; /* #150B00 - Near black */
+    --mana-red: 356 73% 48%; /* #D3202A - Bright red */
+    --mana-green: 162 100% 23%; /* #00733E - Forest green */
 
     /* Card Type Colors */
     --type-commander: 45 93% 47%; /* Golden yellow for commanders */

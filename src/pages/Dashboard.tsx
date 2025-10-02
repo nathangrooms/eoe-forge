@@ -103,8 +103,10 @@ const Dashboard = () => {
         {/* Welcome Header */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-cosmic bg-clip-text text-transparent">
-              Welcome back, Planeswalker
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                Welcome back, Planeswalker
+              </span>
             </h1>
             <p className="text-muted-foreground">
               Your command center for deck building, collection management, and AI-powered insights
@@ -112,7 +114,7 @@ const Dashboard = () => {
           </div>
           <Avatar className="h-12 w-12 ring-2 ring-spacecraft/20">
             <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-gradient-cosmic text-white">
+            <AvatarFallback className="bg-gradient-cosmic text-primary-foreground">
               {user?.email?.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -124,7 +126,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-                  <Brain className="h-6 w-6 text-white" />
+                  <Brain className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg flex items-center gap-2">

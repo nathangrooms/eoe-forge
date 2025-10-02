@@ -60,57 +60,139 @@ serve(async (req) => {
     if (buildRequest.useAIPlanning !== false && lovableApiKey) {
       console.log('Phase 1: Consulting MTG Brain for deck strategy...');
       
-      const planningPrompt = `You are an expert Magic: The Gathering deck builder specializing in Commander format. Analyze this commander and create a comprehensive, tournament-viable deck building plan following EDH best practices.
+      console.log('Phase 1: Consulting MTG Brain for deck strategy...');
+      
+      const planningPrompt = `You are a world-class Magic: The Gathering deck architect with deep expertise in Commander format. Your task is to create a mathematically sound, strategically coherent deck building blueprint for tournament-viable play.
 
-Commander: ${buildRequest.commander.name}
-Type: ${buildRequest.commander.type_line}
-Colors: ${buildRequest.commander.color_identity.join(', ')}
-Abilities: ${buildRequest.commander.oracle_text}
+## COMMANDER ANALYSIS
+**Name:** ${buildRequest.commander.name}
+**Type:** ${buildRequest.commander.type_line}
+**Colors:** ${buildRequest.commander.color_identity.join(', ')}
+**Abilities:** ${buildRequest.commander.oracle_text}
 
-Target Archetype: ${buildRequest.archetype}
-Target Power Level: ${buildRequest.powerLevel}/10
+## DECK PARAMETERS
+**Target Archetype:** ${buildRequest.archetype}
+**Power Level:** ${buildRequest.powerLevel}/10
+- 1-3: Precon/Casual (unoptimized, theme-first, win turn 12+)
+- 4-6: Focused/Optimized (good mana, some tutors, win turn 9-11)
+- 7-8: High Power (excellent mana, compact combos, win turn 6-8)
+- 9-10: cEDH (perfect mana, all tutors, win turn 3-5)
 
-CRITICAL REQUIREMENTS FOR FUNCTIONAL COMMANDER DECKS:
+## STRATEGIC FRAMEWORK
 
-**Core Deck Structure** (99 cards total):
-- Lands: 36-40 (adjust based on curve and ramp)
-- Ramp: 10-14 cards (mana rocks, land ramp, dorks)  
-- Card Draw: 10-15 cards (engines and one-shots)
-- Spot Removal: 6-10 cards (destroy/exile target permanent)
-- Board Wipes: 2-4 cards (mass removal for emergencies)
-- Protection: 3-6 cards (counterspells, indestructible, hexproof)
-- Win Conditions: 3-5 clear paths to victory
-- Synergy Pieces: 15-25 cards that directly support commander's strategy
+### Step 1: Commander Win Condition Identification
+**Analyze the commander's text to identify:**
+1. **Primary Mechanic:** What does this commander DO? (e.g., draw cards, make tokens, deal damage, tutor, ramp)
+2. **Scaling Factor:** How does it snowball? (per creature, per spell cast, per land drop, per mana spent)
+3. **Natural Win Paths:** What are the 2-3 most efficient ways this commander closes games?
+4. **Enabler Requirements:** What MUST be in play for this commander to function? (e.g., creatures for Edric, artifacts for Jhoira, spells for Kalamax)
 
-**Mana Curve Guidelines:**
-- Avoid too many 0-1 CMC cards (causes weak mid-game)
-- Sweet spot: 2-4 CMC for most spells
-- Average CMC: 2.8-3.5 for optimal gameplay
-- High CMC spells (6+): Only if they win games or are essential synergy
+### Step 2: Archetype-Specific Construction Blueprint
+**Match the archetype to these proven patterns:**
 
-**Commander-Specific Strategy:**
-Analyze ${buildRequest.commander.name}'s abilities and determine:
-1. What does this commander DO? (core mechanic)
-2. What cards MAXIMIZE this ability? (best synergies)
-3. How does this deck WIN? (specific win conditions)
-4. What are the WEAKNESSES? (what to protect against)
+**VOLTRON (Power 7-8):**
+- Win via 21 commander damage with equipment/auras
+- QUOTAS: 12-15 equipment/auras, 8-10 protection spells, 6-8 evasion enablers
+- KEY CARDS: Colossus Hammer, Swiftfoot Boots, Teferi's Protection, Deflecting Swat
+- CURVE: Low (2.5-3.0 avg CMC) - need to deploy commander early and protect
+- MANA: 34-36 lands, 10-12 ramp (prioritize artifact ramp for redundancy)
 
-**Key Cards Identification:**
-List 10-15 specific high-impact cards that are ESSENTIAL for this strategy.
-These should be cards that directly synergize with the commander or enable key combos.
-Include their approximate CMC to ensure curve awareness.
+**ARISTOCRATS (Power 7-9):**
+- Win via death triggers + infinite sacrifice loops
+- QUOTAS: 4-6 Blood Artist effects, 4-6 free sac outlets, 10-15 token generators, 3-5 combo pieces
+- KEY CARDS: Blood Artist, Zulaport Cutthroat, Ashnod's Altar, Phyrexian Altar, Bitterblossom
+- COMBOS: Mikaeus + Triskelion, Persist creature + sac outlet + Blood Artist
+- CURVE: Medium (3.0-3.5 avg CMC) - need engine pieces online by turn 4-5
+- MANA: 35-37 lands, 10-12 ramp
 
-**Common Pitfalls to Avoid:**
-- Don't build "goodstuff" without synergy
-- Don't ignore interaction (removal/counterspells)
-- Don't have unclear win conditions
-- Don't  build too low or too high on the curve
-- Don't include cards that don't support the strategy
+**SPELLSLINGER (Power 7-8):**
+- Win via storm count, copy effects, or commander damage from spell triggers
+- QUOTAS: 25-35 instants/sorceries, 6-8 cost reduction, 4-6 copy effects, 3-5 recursion
+- KEY CARDS: Thousand-Year Storm, Arcane Denial, Counterspell, Snapcaster Mage, Underworld Breach
+- CURVE: Low-Med (2.8-3.3 avg CMC) - need to cast multiple spells per turn
+- MANA: 34-36 lands, 12-14 ramp (emphasize ritual effects)
 
-Respond with ONLY valid JSON (no markdown, no code blocks):
+**COMBO (Power 9-10, cEDH):**
+- Win via 2-3 card infinite loops by turn 3-5
+- QUOTAS: 8-12 tutors, 6-10 counterspells, 10-15 fast mana, 2-4 compact combos
+- KEY CARDS: Demonic Tutor, Vampiric Tutor, Mana Crypt, Force of Will, Pact of Negation
+- COMBOS: Thassa's Oracle + Demonic Consultation, Dramatic Reversal + Isochron Scepter
+- CURVE: Very Low (2.0-2.5 avg CMC) - every card must be hyper-efficient
+- MANA: 28-32 lands, 15-20 fast mana/ramp
+
+**STAX (Power 8-10):**
+- Win via resource lock + slow incremental advantage
+- QUOTAS: 12-18 stax pieces (tax, lock, denial), 8-12 asymmetric effects, 3-5 win conditions
+- KEY CARDS: Winter Orb, Static Orb, Rule of Law, Aven Mindcensor, Cursed Totem
+- CURVE: Low (2.5-3.0 avg CMC) - deploy locks early
+- MANA: 30-34 lands, 12-16 fast mana (need to break parity)
+
+**LANDFALL/RAMP (Power 6-8):**
+- Win via landfall triggers + big mana payoffs
+- QUOTAS: 10-15 extra land drops, 8-12 land recursion, 6-10 landfall payoffs, 5-8 big finishers
+- KEY CARDS: Azusa, Oracle of Mul Daya, Crucible of Worlds, Avenger of Zendikar, Scute Swarm
+- CURVE: Medium-High (3.5-4.0 avg CMC) - can support high curve with ramp
+- MANA: 38-42 lands, 8-12 ramp
+
+### Step 3: Critical Card Quotas (NON-NEGOTIABLE for functional decks)
+**These quotas ensure the deck actually works:**
+
+**RAMP (10-14 pieces):**
+- Tier S: Sol Ring, Mana Crypt, Arcane Signet, Fellwar Stone
+- Tier A: Nature's Lore, Three Visits, Farseek (green), Talismans, Signets
+- Tier B: Cultivate, Kodama's Reach, Commander's Sphere
+- TARGET: Turn 1-2 ramp to accelerate commander deployment
+
+**CARD DRAW (10-15 engines):**
+- Tier S: Rhystic Study, Mystic Remora, Esper Sentinel, Trouble in Pairs
+- Tier A: Phyrexian Arena, Sylvan Library, Guardian Project, Greed
+- Tier B: Harmonize, Night's Whisper, Sign in Blood
+- TARGET: Draw 2+ cards per turn cycle by mid-game
+
+**REMOVAL (10-15 total: 6-10 spot, 2-4 board wipes):**
+- Spot (Tier S): Swords to Plowshares, Path to Exile, Beast Within, Chaos Warp
+- Spot (Tier A): Generous Gift, Assassin's Trophy, Anguished Unmaking
+- Wipes (Tier S): Cyclonic Rift, Toxic Deluge, Blasphemous Act, Damnation
+- Wipes (Tier A): Wrath of God, Supreme Verdict, Delayed Blast Fireball
+- TARGET: Answer any threat at instant speed, reset board when behind
+
+**PROTECTION (3-6 pieces):**
+- Tier S: Teferi's Protection, Flawless Maneuver, Heroic Intervention, Deflecting Swat
+- Tier A: Counterspell, Arcane Denial, Boros Charm, Imp's Mischief
+- TARGET: Protect combo turn or commander from removal
+
+### Step 4: Mana Curve Construction
+**Build curve to match archetype speed:**
+- Aggro/Voltron: Peak at 2-3 CMC, avg 2.5-3.0
+- Midrange/Value: Peak at 3-4 CMC, avg 3.0-3.5  
+- Control/Combo: Peak at 2 CMC (interaction), avg 2.5-3.0
+- Ramp/Big: Peak at 3-4 CMC, avg 3.5-4.0
+
+**Avoid These Common Mistakes:**
+- Too many 6+ CMC cards (causes clunky hands, slow starts)
+- Too few 1-2 CMC cards (no early plays, fall behind)
+- Uneven distribution (e.g., nothing at 3 CMC, then 10 cards at 5 CMC)
+
+### Step 5: Synergy Web Construction
+**Identify 10-15 "must-include" cards that directly enable the strategy:**
+- List specific card names (not "add card draw" → "Rhystic Study, Mystic Remora")
+- Include CMC for each card
+- Explain HOW each card synergizes with the commander
+- Categorize: Enablers (make commander work), Payoffs (win with commander), Protection (keep commander alive)
+
+### Step 6: Win Condition Clarity
+**Define 3-5 explicit ways this deck wins:**
+- Primary Win: [Most common path, e.g., "Commander damage via Voltron"]
+- Secondary Win: [Backup plan, e.g., "Combat damage from pumped tokens"]
+- Combo Win: [If applicable, e.g., "Infinite mana → Ballista for lethal"]
+- Value Win: [Grind plan, e.g., "Outvalue via card advantage engines"]
+
+## OUTPUT FORMAT (STRICT JSON)
+Respond with ONLY valid JSON (no markdown, no code blocks, no explanations):
+
 {
-  "strategy": "2-3 sentence summary of optimal game plan and primary win condition",
-  "keyCards": ["Card Name 1", "Card Name 2", ...],
+  "strategy": "2-3 sentence summary of optimal gameplan and primary win condition",
+  "keyCards": ["Card Name 1 (CMC)", "Card Name 2 (CMC)", ...10-15 cards],
   "cardQuotas": {
     "ramp": {"min": 10, "max": 14},
     "card_draw": {"min": 10, "max": 15},
@@ -123,11 +205,11 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
   },
   "synergies": ["primary_synergy_1", "primary_synergy_2", "primary_synergy_3"],
   "winConditions": ["Win condition 1", "Win condition 2", "Win condition 3"],
-  "warnings": ["Avoid X because Y", "Watch out for Z"],
-  "recommendations": ["Include A for B reason", "Prioritize C"],
+  "warnings": ["Avoid X because Y", "Watch out for Z weakness"],
+  "recommendations": ["Include A for B reason", "Prioritize C over D"],
   "manaCurve": {
     "avgCMC": 3.0,
-    "distribution": "Description of ideal curve",
+    "distribution": "Front-loaded curve peaking at 2-3 CMC for early tempo",
     "landCount": 37
   }
 }`;

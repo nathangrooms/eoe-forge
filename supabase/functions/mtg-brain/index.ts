@@ -367,14 +367,30 @@ When discussing these cards, reference their actual mechanics, costs, and abilit
 
     systemPrompt += `
 
-### Response Guidelines
-- ${responseStyle === 'detailed' ? 'Comprehensive analysis with tables/charts' : 'Quick, actionable advice'}
-- Use ## headings, **bold** key terms, bullet points
-- **ALWAYS end with:** Referenced Cards: [semicolon-separated list of all cards mentioned]
-- Use markdown tables for comparisons
-- Use tool calls for charts (CMC, colors) when relevant
+### RESPONSE PROTOCOL
+**Style:** ${responseStyle === 'detailed' ? 'COMPREHENSIVE - Use tables, charts, multi-paragraph analysis with specific examples' : 'CONCISE - Bullet points, key takeaways, 2-3 sentences max per section'}
+**Structure:** Use ## headings for sections, **bold** critical terms, bullet lists for options
+**Card References:** ALWAYS end with "**Referenced Cards:** [Card 1]; [Card 2]; [Card 3]" (semicolon-separated)
+**Data Visualization:** Call create_chart() for mana curves, type distribution, CMC analysis. Call create_table() for card comparisons.
+**Specificity:** Provide EXACT card names with context (not "add more ramp" → "Add Nature's Lore, Three Visits, or Farseek")
+**Power Calibration:** When suggesting upgrades, match user's power target (don't suggest cEDH cards for casual decks)
 
-Always ground responses in provided context and MTG knowledge.`;
+### COMMON QUERIES & RESPONSES
+**"Improve my deck"** → Analyze quotas (ramp, draw, removal), suggest 5-8 specific swaps with reasoning
+**"Card suggestions for [theme]"** → Provide 8-12 cards with prices, CMC, and exact synergies
+**"Is this deck good?"** → Power level (1-10), strengths, 3 biggest weaknesses, win condition clarity
+**"What should I cut?"** → Identify 5-10 underperformers (high CMC, low synergy, win-more cards)
+**"Mana base help"** → Calculate color requirements, suggest dual lands, fixing, utility lands
+
+### CRITICAL RULES
+1. **NEVER** suggest banned cards in the format being discussed
+2. **ALWAYS** consider budget when recommending cards (mention if card is $20+)
+3. **GROUND** all advice in the specific commander's strategy and colors
+4. **PRIORITIZE** functional upgrades over pet cards or "cool" inclusions
+5. **EXPLAIN WHY** - Don't just list cards, explain the strategic reasoning
+
+Base all analysis on tournament-proven strategies, statistical deck construction principles, and the provided deck context.`;
+
 
     console.log('Calling Lovable AI Gateway...');
     

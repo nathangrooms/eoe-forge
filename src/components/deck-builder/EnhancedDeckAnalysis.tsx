@@ -130,6 +130,21 @@ const optimizations = useMemo(() => {
       quantity: card.quantity || 1
     }));
     
+    // Provide curve bins and mana sources to enable auto-generated visuals server-side
+    const curveBins = analysis.manaCurve.curve.reduce((acc: Record<string, number>, p) => {
+      const key = p.cmc === 99 ? '10+' : String(p.cmc);
+      acc[key] = (acc[key] || 0) + (p.count || 0);
+      return acc;
+    }, {} as Record<string, number>);
+    const manaSources = {
+      W: analysis.landBase?.statistics?.totalSources?.W || 0,
+      U: analysis.landBase?.statistics?.totalSources?.U || 0,
+      B: analysis.landBase?.statistics?.totalSources?.B || 0,
+      R: analysis.landBase?.statistics?.totalSources?.R || 0,
+      G: analysis.landBase?.statistics?.totalSources?.G || 0,
+      C: analysis.landBase?.statistics?.totalSources?.C || 0,
+    };
+    
     supabase.functions.invoke('mtg-brain', {
       body: {
         message,
@@ -139,7 +154,9 @@ const optimizations = useMemo(() => {
           format, 
           commander: commander ? { name: commander.name, type_line: commander.type_line, colors: commander.colors } : undefined,
           cards: deckCards,
-          counts: { total: deck.length + (commander ? 1 : 0) } 
+          counts: { total: deck.length + (commander ? 1 : 0) },
+          curve: curveBins,
+          mana: { sources: manaSources }
         },
         responseStyle: 'concise'
       }

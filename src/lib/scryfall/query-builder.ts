@@ -48,8 +48,11 @@ const range = (key: string, r?: { min?: number, max?: number }) =>
 export function buildScryfallQuery(s: CardSearchState): { q: string, params: Record<string, string> } {
   const tokens: string[] = [];
 
-  // text: treat as name or oracle, prefer quoted if spaces
-  if (s.text && s.text.trim()) tokens.push(esc(s.text.trim()));
+  // text: remove commas for more flexible searching, then escape if needed
+  if (s.text && s.text.trim()) {
+    const normalized = s.text.trim().replace(/,/g, '');
+    tokens.push(esc(normalized));
+  }
 
   s.types?.forEach(t => tokens.push(`t:${esc(t)}`));
   s.supertypes?.forEach(t => tokens.push(`t:${esc(t)}`));

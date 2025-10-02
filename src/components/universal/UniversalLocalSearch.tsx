@@ -107,14 +107,18 @@ export function UniversalLocalSearch({
     };
 
   const filteredCards = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase().replace(/,/g, ''); // Remove commas for flexible matching
 
     return cards.filter((card: any) => {
-      // Text query
+      // Text query - normalize both search and card name by removing commas
       if (q) {
-        const inName = card.name?.toLowerCase().includes(q);
-        const inType = card.type_line?.toLowerCase().includes(q);
-        const inSet = card.set_code?.toLowerCase().includes(q);
+        const normalizedName = (card.name || '').toLowerCase().replace(/,/g, '');
+        const normalizedType = (card.type_line || '').toLowerCase().replace(/,/g, '');
+        const normalizedSet = (card.set_code || '').toLowerCase().replace(/,/g, '');
+        
+        const inName = normalizedName.includes(q);
+        const inType = normalizedType.includes(q);
+        const inSet = normalizedSet.includes(q);
         if (!inName && !inType && !inSet) return false;
       }
 

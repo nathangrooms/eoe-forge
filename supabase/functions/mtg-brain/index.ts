@@ -524,7 +524,7 @@ Always ground your responses in the provided knowledge base, referenced card dat
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ 
-          error: 'AI usage credits exhausted. Please add credits to your workspace.',
+          error: 'Payment required: AI usage credits exhausted. Please add credits to your workspace.',
           type: 'payment_required' 
         }), {
           status: 402,

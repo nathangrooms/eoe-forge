@@ -139,18 +139,40 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
       };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
-      
-      if (error instanceof Error) {
-        if (error.message.includes('Rate limits exceeded')) {
-          toast.error('Rate limits exceeded. Please wait before asking another question.');
-        } else if (error.message.includes('Payment required')) {
-          toast.error('Credits required. Please add AI credits to continue.');
-        } else {
-          toast.error('Failed to get AI response. Please try again.');
-        }
+
+      const errMsg = (error instanceof Error ? error.message : String(error || ''));
+      const lower = errMsg.toLowerCase();
+      if (lower.includes('rate') || lower.includes('429')) {
+        toast.error('Rate limits exceeded. Please wait before asking another question.');
+      } else if (lower.includes('payment') || lower.includes('credit') || lower.includes('402')) {
+        toast.error('Credits required. Please add AI credits to continue.');
+      } else {
+        toast.error('Failed to get AI response. Showing local analysis instead.');
       }
-      
-      throw error;
+
+      // Fallback: build local visuals from deckSummary so the UI isn’t empty
+      const visualData: VisualData = { charts: [], tables: [] };
+      try {
+        const curveBins = (deckSummary as any)?.curve?.bins || (deckSummary as any)?.curve;
+        if (curveBins && typeof curveBins === 'object') {
+          const chartData = Object.entries(curveBins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) }));
+          visualData.charts!.push({ type: 'bar', title: 'CMC Distribution', data: chartData } as any);
+        }
+        const manaSources = (deckSummary as any)?.mana?.sources;
+        if (manaSources && typeof manaSources === 'object') {
+          const keys = ['W','U','B','R','G','C'];
+          const data = keys.filter(k => manaSources[k] !== undefined).map(k => ({ name: k, value: Number(manaSources[k] || 0) }));
+          if (data.length) visualData.charts!.push({ type: 'pie', title: 'Mana Sources by Color', data } as any);
+        }
+      } catch {}
+
+      const counts = (deckSummary as any)?.counts;
+      const power = (deckSummary as any)?.power?.score;
+      const fallbackText = `### AI temporarily unavailable\n\nHere are local insights computed from your deck data:${
+        counts ? `\n\n- Total cards: ${counts.total} (Lands: ${counts.lands}, Creatures: ${counts.creatures}, Instants: ${counts.instants}, Sorceries: ${counts.sorceries})` : ''
+      }${ power ? `\n- Current power score: ${power}/10` : '' }\n\nYou can retry in a moment or add AI credits to continue full analysis.`;
+
+      return { message: fallbackText, cards: [], visualData: (visualData.charts && visualData.charts.length) ? visualData : undefined };
     }
   };
 

@@ -57,14 +57,17 @@ Keep it actionable and strategic. Format with clear sections.`;
 
       if (fnError) throw fnError;
       
-      if (data?.text) {
-        setInsights(data.text);
+      // Check for response in multiple possible formats
+      const responseText = data?.text || data?.response || data?.message;
+      
+      if (responseText && typeof responseText === 'string' && responseText.trim()) {
+        setInsights(responseText);
       } else {
-        throw new Error('No insights generated');
+        throw new Error('No insights generated - empty response from AI');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('AI insights error:', err);
-      setError('Failed to generate insights. Please try again.');
+      setError(err?.message || 'Failed to generate insights. Please try again.');
     } finally {
       setLoading(false);
     }

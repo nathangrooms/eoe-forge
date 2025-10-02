@@ -14,10 +14,7 @@ import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniv
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
 import { CollectionSearch } from '@/components/collection/CollectionSearch';
-import { StorageManagement } from '@/components/storage/StorageManagement';
-import { StorageSidebar } from '@/components/storage/StorageSidebar';
-import { FullScreenAssignment } from '@/components/storage/FullScreenAssignment';
-import { StorageContainerView } from '@/components/storage/StorageContainerView';
+import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
@@ -52,11 +49,6 @@ export default function Collection() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [sellCard, setSellCard] = useState<any>(null);
-
-  // Storage state
-  const [selectedContainer, setSelectedContainer] = useState<StorageContainer | null>(null);
-  const [showAssignment, setShowAssignment] = useState(false);
-  const [assignmentContainerId, setAssignmentContainerId] = useState<string>('');
   
   // Collection search state
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
@@ -343,15 +335,6 @@ export default function Collection() {
     }
   };
 
-  // Storage handlers
-  const handleContainerSelect = (container: StorageContainer) => {
-    setSelectedContainer(container);
-  };
-
-  const handleBackToStorage = () => {
-    setSelectedContainer(null);
-  };
-
   if (error) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -359,17 +342,6 @@ export default function Collection() {
           <p className="text-destructive">Error loading collection: {error}</p>
           <Button onClick={refresh}>Retry</Button>
         </div>
-      </div>
-    );
-  }
-
-  if (selectedContainer) {
-    return (
-      <div className="h-screen">
-        <StorageContainerView 
-          container={selectedContainer}
-          onBack={handleBackToStorage}
-        />
       </div>
     );
   }
@@ -507,11 +479,8 @@ export default function Collection() {
           </TabsContent>
 
           {/* Storage Tab */}
-          <TabsContent value="storage" className="h-full overflow-auto px-6 py-4 m-0">
-            <StorageManagement
-              onContainerSelect={handleContainerSelect}
-              selectedContainerId={selectedContainer?.id}
-            />
+          <TabsContent value="storage" className="h-full m-0">
+            <StorageTab />
           </TabsContent>
         </Tabs>
       </div>

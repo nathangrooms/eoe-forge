@@ -26,6 +26,7 @@ import { useDashboardSummary, useFavoriteDecks, trackDeckOpen } from '@/features
 import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { AIDeckRecommendations } from '@/components/dashboard/AIDeckRecommendations';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -396,7 +397,8 @@ const Dashboard = () => {
           />
         )}
 
-        {/* Recent Activity - Removed as not in DashboardSummary type */}
+        {/* Recent Activity */}
+        <RecentActivity />
       </div>
     </div>
   );

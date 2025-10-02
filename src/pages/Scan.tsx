@@ -8,6 +8,7 @@ import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { AIScanHelper } from '@/components/scan/AIScanHelper';
 
 export default function Scan() {
   const [showScanDrawer, setShowScanDrawer] = useState(false);
@@ -42,6 +43,11 @@ export default function Scan() {
       }
     >
       <div className="space-y-6 pb-safe"> {/* Add padding for mobile safe area */}
+        {/* AI Scan Helper */}
+        {recentScans.length > 0 && (
+          <AIScanHelper recentScans={recentScans} />
+        )}
+
         {/* Mobile-Optimized Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="touch-friendly">

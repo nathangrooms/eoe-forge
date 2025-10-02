@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Crown, Heart, Plus, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -183,13 +184,14 @@ export function FavoriteDecksPreview() {
               onClick={() => handleDeckClick(deck)}
             >
               {deck.commander?.image && (
-                <div className="w-full h-40 bg-muted flex items-center justify-center">
-                  <img 
-                    src={deck.commander.image} 
+                <AspectRatio ratio={63 / 88} className="bg-muted rounded-sm overflow-hidden">
+                  <img
+                    src={deck.commander.image}
                     alt={deck.commander.name}
-                    className="max-w-full max-h-full object-contain"
+                    className="w-full h-full object-contain"
+                    loading="lazy"
                   />
-                </div>
+                </AspectRatio>
               )}
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">

@@ -320,7 +320,7 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-                        <Sparkles className="h-6 w-6 text-white" />
+                        <Sparkles className="h-6 w-6 text-primary-foreground" />
                       </div>
                       <div>
                         <h2 className="font-bold text-xl bg-gradient-cosmic bg-clip-text text-transparent">DeckMatrix AI</h2>
@@ -386,7 +386,7 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
                                    <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                                      <div className="flex items-center gap-2 mb-2">
                                        <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                                         <span className="text-xs font-bold text-white">DM</span>
+                                         <span className="text-xs font-bold text-primary-foreground">DM</span>
                                        </div>
                                        <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                                      </div>

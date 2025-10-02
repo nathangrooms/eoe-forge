@@ -237,7 +237,7 @@ export function DeckAnalysisModal({
                           className={`${type.color} rounded-full h-6 transition-all duration-300 flex items-center justify-end pr-2`}
                           style={{ width: `${(type.count / deckSummary.counts.total) * 100}%` }}
                         >
-                          <span className="text-xs font-medium text-white">
+                          <span className="text-xs font-medium text-primary-foreground">
                             {type.count}
                           </span>
                         </div>

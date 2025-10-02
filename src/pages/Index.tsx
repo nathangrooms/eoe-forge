@@ -77,7 +77,7 @@ const Index = () => {
         <div className="container mx-auto text-center relative z-10 max-w-5xl">
           <div className="flex items-center justify-center mb-6">
             <div className="w-16 h-16 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-              <Sparkles className="h-8 w-8 text-white" />
+              <Sparkles className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-cosmic bg-clip-text text-transparent">
@@ -112,7 +112,7 @@ const Index = () => {
             <CardContent className="p-8">
               <div className="flex flex-col md:flex-row items-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow flex-shrink-0">
-                  <Brain className="h-10 w-10 text-white" />
+                  <Brain className="h-10 w-10 text-primary-foreground" />
                 </div>
                 <div className="flex-1 text-center md:text-left">
                   <h2 className="text-3xl font-bold mb-3 flex items-center justify-center md:justify-start gap-3">
@@ -173,7 +173,7 @@ const Index = () => {
                         : 'bg-muted'
                     }`}>
                       <feature.icon className={`h-6 w-6 ${
-                        feature.highlight ? 'text-white' : 'text-foreground'
+                        feature.highlight ? 'text-primary-foreground' : 'text-foreground'
                       }`} />
                     </div>
                     <Badge variant="secondary" className="text-xs">
@@ -224,7 +224,7 @@ const Index = () => {
       <section className="py-20 px-4">
         <div className="container mx-auto max-w-4xl text-center">
           <div className="w-16 h-16 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow mx-auto mb-6">
-            <Wand2 className="h-8 w-8 text-white" />
+            <Wand2 className="h-8 w-8 text-primary-foreground" />
           </div>
           <h2 className="text-4xl font-bold mb-4">Ready to Build Better Decks?</h2>
           <p className="text-xl text-muted-foreground mb-8">

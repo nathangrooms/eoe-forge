@@ -254,7 +254,7 @@ const optimizations = useMemo(() => {
           <TabsTrigger value="synergy">Synergy</TabsTrigger>
           <TabsTrigger value="validation">Validation</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-          <TabsTrigger value="ai" className="bg-gradient-cosmic text-white border-spacecraft data-[state=active]:bg-gradient-cosmic">
+          <TabsTrigger value="ai" className="bg-gradient-cosmic text-primary-foreground border-spacecraft data-[state=active]:bg-gradient-cosmic">
             <span className="flex items-center gap-1">
               <Brain className="h-4 w-4" />
               AI Analysis
@@ -292,7 +292,7 @@ const optimizations = useMemo(() => {
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">DM</span>
+                            <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
@@ -407,7 +407,7 @@ const optimizations = useMemo(() => {
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">DM</span>
+                            <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
@@ -525,7 +525,7 @@ const optimizations = useMemo(() => {
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">DM</span>
+                            <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
@@ -648,7 +648,7 @@ const optimizations = useMemo(() => {
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">DM</span>
+                            <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>
@@ -760,7 +760,7 @@ const optimizations = useMemo(() => {
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">DM</span>
+                            <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
                         </div>

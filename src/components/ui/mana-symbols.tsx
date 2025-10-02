@@ -76,7 +76,7 @@ export function PowerLevelBadge({ level, className }: PowerLevelBadgeProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white",
+        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-primary-foreground",
         className
       )}
       style={{ backgroundColor: getColorFromLevel(level) }}

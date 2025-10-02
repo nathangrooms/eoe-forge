@@ -397,15 +397,15 @@ export default function DeckInterface() {
                 ? `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${cardsByType.commanders[0].card.image_uris.art_crop})`
                 : undefined,
               backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          >
-            <div className="p-6 text-white">
-              <div className="flex items-center mb-2">
-                <Crown className="h-6 w-6 text-yellow-400 mr-2" />
-                <h1 className="text-2xl font-bold">{cardsByType.commanders[0].card_name}</h1>
-              </div>
-              <p className="text-white/80">{cardsByType.commanders[0].card?.type_line}</p>
+            backgroundPosition: 'center'
+          }}
+        >
+          <div className="p-6 text-foreground">
+            <div className="flex items-center mb-2">
+              <Crown className="h-6 w-6 text-yellow-400 mr-2" />
+              <h1 className="text-2xl font-bold">{cardsByType.commanders[0].card_name}</h1>
+            </div>
+            <p className="text-foreground/80">{cardsByType.commanders[0].card?.type_line}</p>
             </div>
           </div>
         </Card>

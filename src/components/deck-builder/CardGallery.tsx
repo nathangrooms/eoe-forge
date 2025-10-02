@@ -134,8 +134,8 @@ export function CardGallery({ groups, onCardClick, defaultExpanded = ["Commander
                           </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="text-white text-sm font-medium flex items-center gap-2">
+                        <div className="absolute inset-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                          <div className="text-foreground text-sm font-medium flex items-center gap-2">
                             <Eye className="h-4 w-4" />
                             View Details
                           </div>

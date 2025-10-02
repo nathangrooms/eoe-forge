@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageQuickActions } from './StorageQuickActions';
-import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';
+import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
 import { UniversalLocalSearch } from '@/components/universal/UniversalLocalSearch';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
@@ -20,6 +20,8 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<any | null>(null);
+  const [showCardModal, setShowCardModal] = useState(false);
   
   // Filter state is managed by UniversalLocalSearch
 
@@ -131,11 +133,22 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
           initialViewMode={viewMode}
           onViewModeChange={setViewMode}
           onCardClick={(card) => {
-            console.log('Card clicked:', card);
+            setSelectedCard(card);
+            setShowCardModal(true);
           }}
-          onCardAdd={(card) => {
-            const item = items.find(i => i.card_id === card.id);
-            if (item) handleUnassign(item, 1);
+          onCardAdd={async (card) => {
+            try {
+              await StorageAPI.assignCard({
+                container_id: container.id,
+                card_id: card.id,
+                qty: 1,
+                foil: !!card.storageFoil,
+              });
+              showSuccess('Added', `Added 1 ${card.name} to ${container.name}`);
+              loadItems();
+            } catch (error: any) {
+              showError('Error', error.message || 'Failed to add card');
+            }
           }}
           showWishlistButton={false}
           emptyState={{
@@ -155,6 +168,22 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
           setShowQuickActions(false);
           loadItems();
         }}
+      />
+
+      <UniversalCardModal
+        card={selectedCard}
+        open={showCardModal}
+        onOpenChange={setShowCardModal}
+        onCardAdd={async (card) => {
+          try {
+            await StorageAPI.assignCard({ container_id: container.id, card_id: card.id, qty: 1, foil: !!card.storageFoil });
+            showSuccess('Added', `Added 1 ${card.name} to ${container.name}`);
+            loadItems();
+          } catch (error: any) {
+            showError('Error', error.message || 'Failed to add card');
+          }
+        }}
+        showWishlistButton={false}
       />
     </div>
   );

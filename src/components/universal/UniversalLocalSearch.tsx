@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+
 import { Grid2x2, List, Rows, Filter, Zap } from 'lucide-react';
 import { UniversalFilterPanel } from '@/components/universal/UniversalFilterPanel';
 import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';

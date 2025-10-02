@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { 
   Sparkles,
   Package, 
@@ -321,14 +322,14 @@ const Dashboard = () => {
                   >
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft via-warp to-spacecraft" />
                     {deck.commanderArt && (
-                      <div className="w-full h-40 bg-muted/50 flex items-center justify-center">
+                      <AspectRatio ratio={63 / 88} className="bg-muted/50 rounded-sm overflow-hidden">
                         <img
                           src={deck.commanderArt}
                           alt={`${deck.name} commander art`}
-                          className="max-w-full max-h-full object-contain"
+                          className="w-full h-full object-contain"
                           loading="lazy"
                         />
-                      </div>
+                      </AspectRatio>
                     )}
                     <CardContent className="p-4 pt-5">
                       <div className="flex items-start justify-between mb-2">

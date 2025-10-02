@@ -67,7 +67,8 @@ export default function AIBuilder() {
   const deck = useDeckStore();
   
   // UI State
-  const [step, setStep] = useState(1); // 1: Archetype, 2: Commander, 3: Configure, 4: Results
+  const [step, setStep] = useState(0); // 0: Choose workflow, 1: Archetype/Commander, 2: Commander/Archetype, 3: Configure, 4: Results
+  const [workflow, setWorkflow] = useState<'archetype-first' | 'commander-first' | null>(null);
   const [selectedArchetype, setSelectedArchetype] = useState<typeof COMMANDER_ARCHETYPES[0] | null>(null);
   const [selectedCommander, setSelectedCommander] = useState<any>(null);
   const [commanderSearch, setCommanderSearch] = useState('');
@@ -143,13 +144,25 @@ export default function AIBuilder() {
   const handleArchetypeSelect = (archetype: typeof COMMANDER_ARCHETYPES[0]) => {
     setSelectedArchetype(archetype);
     loadPopularCommanders(archetype);
-    setStep(2);
+    setStep(workflow === 'archetype-first' ? 2 : 3);
+  };
+
+  // Handle workflow selection
+  const handleWorkflowSelect = (selectedWorkflow: 'archetype-first' | 'commander-first') => {
+    setWorkflow(selectedWorkflow);
+    setStep(1);
   };
 
   // Handle commander selection
   const handleCommanderSelect = (commander: any) => {
     setSelectedCommander(commander);
-    setStep(3);
+    
+    // If commander-first workflow and no archetype selected, show archetype options
+    if (workflow === 'commander-first' && !selectedArchetype) {
+      setStep(2);
+    } else {
+      setStep(3);
+    }
   };
 
   // Build deck
@@ -289,8 +302,9 @@ export default function AIBuilder() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-center gap-2">
             {[
-              { num: 1, label: 'Archetype' },
-              { num: 2, label: 'Commander' },
+              { num: 0, label: 'Workflow' },
+              { num: 1, label: workflow === 'archetype-first' ? 'Archetype' : 'Commander' },
+              { num: 2, label: workflow === 'archetype-first' ? 'Commander' : 'Archetype' },
               { num: 3, label: 'Configure' },
               { num: 4, label: 'Results' }
             ].map(({ num, label }, idx) => (
@@ -299,13 +313,13 @@ export default function AIBuilder() {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                     step >= num ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
-                    {step > num ? <CheckCircle2 className="h-5 w-5" /> : num}
+                    {step > num ? <CheckCircle2 className="h-5 w-5" /> : num + 1}
                   </div>
                   <span className={`text-sm font-medium ${step >= num ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {label}
                   </span>
                 </div>
-                {idx < 3 && (
+                {idx < 4 && (
                   <ArrowRight className={`mx-3 h-4 w-4 ${step > num ? 'text-primary' : 'text-muted-foreground'}`} />
                 )}
               </div>
@@ -316,8 +330,69 @@ export default function AIBuilder() {
 
       {/* Main Content */}
       <div className="flex-1 container mx-auto px-6 py-8">
-        {/* Step 1: Select Archetype */}
-        {step === 1 && (
+        {/* Step 0: Choose Workflow */}
+        {step === 0 && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold">How would you like to build?</h2>
+              <p className="text-muted-foreground">Choose your preferred workflow</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card
+                className="cursor-pointer hover:border-primary hover:shadow-xl transition-all p-8"
+                onClick={() => handleWorkflowSelect('archetype-first')}
+              >
+                <CardContent className="space-y-4 p-0">
+                  <div className="flex justify-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-primary" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-bold">Start with Archetype</h3>
+                    <p className="text-muted-foreground">
+                      Choose a deck strategy first, then find the perfect commander for it
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <Badge variant="secondary">Combo</Badge>
+                    <Badge variant="secondary">Voltron</Badge>
+                    <Badge variant="secondary">Tokens</Badge>
+                    <Badge variant="secondary">Control</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer hover:border-primary hover:shadow-xl transition-all p-8"
+                onClick={() => handleWorkflowSelect('commander-first')}
+              >
+                <CardContent className="space-y-4 p-0">
+                  <div className="flex justify-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Crown className="h-8 w-8 text-primary" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-bold">Start with Commander</h3>
+                    <p className="text-muted-foreground">
+                      Find your commander first, then we'll suggest optimal strategies
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <Badge variant="secondary">Popular</Badge>
+                    <Badge variant="secondary">Search</Badge>
+                    <Badge variant="secondary">Browse</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Select Archetype (archetype-first) OR Commander (commander-first) */}
+        {step === 1 && workflow === 'archetype-first' && (
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-bold">Choose Your Archetype</h2>
@@ -350,8 +425,74 @@ export default function AIBuilder() {
           </div>
         )}
 
-        {/* Step 2: Select Commander */}
-        {step === 2 && selectedArchetype && (
+        {/* Step 1: Commander Selection (commander-first workflow) */}
+        {step === 1 && workflow === 'commander-first' && (
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold">Choose Your Commander</h2>
+                <p className="text-muted-foreground">Search or browse popular commanders</p>
+              </div>
+              <Button variant="outline" onClick={() => setStep(0)}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Search for a commander..."
+                className="pl-10 h-12 text-lg"
+                value={commanderSearch}
+                onChange={(e) => {
+                  setCommanderSearch(e.target.value);
+                  searchCommanders(e.target.value);
+                }}
+              />
+            </div>
+
+            {/* Results */}
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+
+            {searchResults.length > 0 ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Search Results</h3>
+                <CardRecommendationDisplay
+                  cards={searchResults.map(c => ({
+                    name: c.name,
+                    image_uri: c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal,
+                    mana_cost: c.mana_cost,
+                    type_line: c.type_line,
+                    oracle_text: c.oracle_text,
+                    power: c.power,
+                    toughness: c.toughness,
+                    cmc: c.cmc,
+                    colors: c.colors,
+                    rarity: c.rarity
+                  }))}
+                  onCardClick={(card) => {
+                    const fullCard = searchResults.find(c => c.name === card.name);
+                    if (fullCard) handleCommanderSelect(fullCard);
+                  }}
+                />
+              </div>
+            ) : commanderSearch === '' && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Popular Commanders</h3>
+                <p className="text-sm text-muted-foreground mb-4">Start typing to search, or browse popular commanders</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 2: Commander Selection (archetype-first) OR Archetype Selection (commander-first) */}
+        {step === 2 && workflow === 'archetype-first' && selectedArchetype && (
           <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -432,6 +573,76 @@ export default function AIBuilder() {
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {/* Step 2: Archetype Selection (commander-first workflow) */}
+        {step === 2 && workflow === 'commander-first' && selectedCommander && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold">Choose Your Strategy</h2>
+                <p className="text-muted-foreground">
+                  Commander: <Badge variant="secondary">{selectedCommander.name}</Badge>
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </div>
+
+            {/* Commander Preview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-yellow-600" />
+                  Your Commander
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-start gap-4">
+                  <img
+                    src={selectedCommander.image_uris?.normal || selectedCommander.card_faces?.[0]?.image_uris?.normal}
+                    alt={selectedCommander.name}
+                    className="w-48 rounded-lg shadow-lg"
+                  />
+                  <div className="flex-1 space-y-2">
+                    <h3 className="text-xl font-bold">{selectedCommander.name}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedCommander.type_line}</p>
+                    <p className="text-sm">{selectedCommander.oracle_text}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Archetype Selection */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Select a Strategy</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {COMMANDER_ARCHETYPES.map((archetype) => (
+                  <Card
+                    key={archetype.value}
+                    className="cursor-pointer hover:border-primary hover:shadow-lg transition-all"
+                    onClick={() => handleArchetypeSelect(archetype)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        {archetype.label}
+                        <div className="flex gap-1">
+                          {archetype.colors.map(color => (
+                            <ColorDot key={color} color={color} />
+                          ))}
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{archetype.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -573,7 +784,8 @@ export default function AIBuilder() {
             <div className="flex items-center justify-between">
               <h2 className="text-3xl font-bold">Your Deck is Ready!</h2>
               <Button variant="outline" onClick={() => {
-                setStep(1);
+                setStep(0);
+                setWorkflow(null);
                 setBuildResult(null);
                 setSelectedCommander(null);
                 setSelectedArchetype(null);
@@ -593,7 +805,8 @@ export default function AIBuilder() {
               changelog={buildResult.changelog}
               onSaveDeck={handleSaveDeck}
               onStartOver={() => {
-                setStep(1);
+                setStep(0);
+                setWorkflow(null);
                 setBuildResult(null);
                 setSelectedCommander(null);
                 setSelectedArchetype(null);

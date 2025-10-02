@@ -25,6 +25,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useDashboardSummary, useFavoriteDecks, trackDeckOpen } from '@/features/dashboard/hooks';
 import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { AIDeckRecommendations } from '@/components/dashboard/AIDeckRecommendations';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -377,6 +378,23 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Deck Recommendations */}
+        {favorites.length > 0 && dashboardData && (
+          <AIDeckRecommendations
+            userDecks={favorites.map(d => ({
+              id: d.id,
+              name: d.name,
+              format: d.format,
+              colors: d.colors,
+              power_level: d.power_level
+            }))}
+            collectionStats={dashboardData.collection ? {
+              totalCards: dashboardData.collection.totalCards,
+              byColor: {}
+            } : undefined}
+          />
+        )}
 
         {/* Recent Activity - Removed as not in DashboardSummary type */}
       </div>

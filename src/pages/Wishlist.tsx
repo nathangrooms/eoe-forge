@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { WishlistCardDisplay } from '@/components/wishlist/WishlistCardDisplay';
+import { AIWishlistSuggestions } from '@/components/wishlist/AIWishlistSuggestions';
 
 interface WishlistItem {
   id: string;
@@ -518,41 +519,48 @@ export default function Wishlist() {
         <div className="flex-1 overflow-hidden">
 
           <TabsContent value="wishlist" className="h-full overflow-auto px-6 py-4 m-0">
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[...Array(8)].map((_, i) => (
-                <Card key={i}>
-                  <div className="aspect-[5/7] bg-muted animate-pulse"></div>
-                  <CardContent className="p-3">
-                    <div className="h-4 bg-muted rounded animate-pulse mb-2"></div>
-                    <div className="h-3 bg-muted rounded animate-pulse"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : wishlistItems.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Heart className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <h3 className="text-lg font-medium mb-2">Your wishlist is empty</h3>
-              <p className="text-muted-foreground mb-4">
-                Start adding cards you want to collect
-              </p>
-              <Button onClick={() => {
-                const searchTab = document.querySelector('[value="search"]') as HTMLElement;
-                searchTab?.click();
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Cards
-              </Button>
-            </Card>
-          ) : (
-            <WishlistCardDisplay
-              items={wishlistItems}
-              viewMode={viewMode}
-              onCardClick={openEditDialog}
-              onAddToCollection={addToCollection}
+          <div className="space-y-6">
+            <AIWishlistSuggestions 
+              wishlistItems={wishlistItems}
+              onAddCard={addToWishlist}
             />
-          )}
+            
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i}>
+                    <div className="aspect-[5/7] bg-muted animate-pulse"></div>
+                    <CardContent className="p-3">
+                      <div className="h-4 bg-muted rounded animate-pulse mb-2"></div>
+                      <div className="h-3 bg-muted rounded animate-pulse"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : wishlistItems.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Heart className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                <h3 className="text-lg font-medium mb-2">Your wishlist is empty</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start adding cards you want to collect
+                </p>
+                <Button onClick={() => {
+                  const searchTab = document.querySelector('[value="search"]') as HTMLElement;
+                  searchTab?.click();
+                }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Cards
+                </Button>
+              </Card>
+            ) : (
+              <WishlistCardDisplay
+                items={wishlistItems}
+                viewMode={viewMode}
+                onCardClick={openEditDialog}
+                onAddToCollection={addToCollection}
+              />
+            )}
+          </div>
           </TabsContent>
 
           {/* By Deck Tab */}

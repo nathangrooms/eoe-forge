@@ -26,6 +26,7 @@ import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
 import { StorageContainer } from '@/types/storage';
+import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
 
 export default function Collection() {
   const {
@@ -464,10 +465,26 @@ export default function Collection() {
           <TabsContent value="analytics" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
               {collectionStats && (
-                <CollectionAnalytics 
-                  stats={collectionStats} 
-                  loading={loading}
-                />
+                <>
+                  <AICollectionInsights 
+                    stats={{
+                      totalCards: collectionStats.totalCards,
+                      uniqueCards: collectionStats.uniqueCards,
+                      totalValue: collectionStats.totalValue,
+                      byColor: collectionStats.colorDistribution,
+                      byRarity: collectionStats.rarityDistribution
+                    }}
+                    topCards={collectionStats.topValueCards?.slice(0, 10).map(c => ({
+                      name: c.card_name,
+                      quantity: c.quantity,
+                      value: c.price_usd
+                    }))}
+                  />
+                  <CollectionAnalytics 
+                    stats={collectionStats} 
+                    loading={loading}
+                  />
+                </>
               )}
             </div>
           </TabsContent>

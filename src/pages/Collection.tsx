@@ -13,7 +13,7 @@ import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
-import { CollectionSearch } from '@/components/collection/CollectionSearch';
+
 import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
@@ -51,8 +51,7 @@ export default function Collection() {
   const [sellCard, setSellCard] = useState<any>(null);
   
   // Collection search state
-  const [collectionSearchQuery, setCollectionSearchQuery] = useState('');
-  const [collectionFilters, setCollectionFilters] = useState<any>({});
+  // Collection filters (removed - now in UniversalLocalSearch)
 
   // Deck Addition Panel state
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
@@ -87,21 +86,7 @@ export default function Collection() {
   const stats = getStats();
   const cards = snapshot?.items || [];
 
-  // Filter cards based on search
-  const filteredCards = useMemo(() => {
-    if (!cards) return [];
-    
-    let filtered = cards;
-    
-    if (collectionSearchQuery) {
-      filtered = filtered.filter(card => 
-        card.card_name.toLowerCase().includes(collectionSearchQuery.toLowerCase()) ||
-        card.set_code.toLowerCase().includes(collectionSearchQuery.toLowerCase())
-      );
-    }
-    
-    return filtered;
-  }, [cards, collectionSearchQuery]);
+  // Removed - filtering now done in UniversalLocalSearch
 
   // Calculate collection stats
   const collectionStats = useMemo(() => {
@@ -409,16 +394,9 @@ export default function Collection() {
               {/* Favorite Decks Preview */}
               <FavoriteDecksPreview />
               
-              {/* Collection Search */}
-              <CollectionSearch
-                onSearchChange={setCollectionSearchQuery}
-                onFiltersChange={setCollectionFilters}
-                totalResults={filteredCards?.length || 0}
-              />
-              
-              {/* Collection Cards */}
+              {/* Collection Cards with integrated search */}
               <CollectionCardDisplay
-                items={filteredCards || []}
+                items={cards || []}
                 viewMode="grid"
                 onCardClick={handleCardClick}
                 onMarkForSale={handleMarkForSale}

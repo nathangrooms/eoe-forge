@@ -180,19 +180,9 @@ export function FavoriteDecksPreview() {
           return (
             <Card 
               key={deck.id} 
-              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 overflow-hidden"
+              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
               onClick={() => handleDeckClick(deck)}
             >
-              {deck.commander?.image && (
-                <AspectRatio ratio={63 / 88} className="bg-muted rounded-sm overflow-hidden">
-                  <img
-                    src={deck.commander.image}
-                    alt={deck.commander.name}
-                    className="w-full h-full object-contain"
-                    loading="lazy"
-                  />
-                </AspectRatio>
-              )}
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">

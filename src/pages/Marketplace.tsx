@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
+import { AIPricingInsights } from '@/components/marketplace/AIPricingInsights';
 import { 
   Package, 
   DollarSign,
@@ -312,6 +313,11 @@ export default function Marketplace() {
       description="Manage your card listings and track sales"
     >
       <div className="space-y-6">
+        {/* AI Pricing Insights */}
+        {myListings.length > 0 && (
+          <AIPricingInsights listings={myListings} />
+        )}
+
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>

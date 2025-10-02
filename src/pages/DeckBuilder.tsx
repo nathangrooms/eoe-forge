@@ -10,6 +10,7 @@ import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
+import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -447,13 +448,22 @@ const DeckBuilder = () => {
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
-              <EnhancedDeckAnalysisPanel 
-                deck={deck.cards as any}
-                format={deck.format || 'standard'}
-                commander={deck.commander}
-                deckId={selectedDeckId || deck.currentDeckId || undefined}
-                deckName={deck.name}
-              />
+              <div className="space-y-6">
+                <AIDeckCoach 
+                  deckCards={deck.cards as any}
+                  deckName={deck.name}
+                  format={deck.format}
+                  commander={deck.commander}
+                  powerLevel={deck.powerLevel}
+                />
+                <EnhancedDeckAnalysisPanel 
+                  deck={deck.cards as any}
+                  format={deck.format || 'standard'}
+                  commander={deck.commander}
+                  deckId={selectedDeckId || deck.currentDeckId || undefined}
+                  deckName={deck.name}
+                />
+              </div>
             ) : (
               <div className="text-center p-8">
                 <p className="text-muted-foreground mb-4">Add cards to your deck to see AI-powered analysis</p>

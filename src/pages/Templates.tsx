@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { AITemplateRecommendations } from '@/components/templates/AITemplateRecommendations';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ManaSymbols } from '@/components/ui/mana-symbols';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,6 +112,32 @@ const templates = [
 export default function Templates() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
+  const [userDecks, setUserDecks] = useState<any[]>([]);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      loadUserDecks();
+    }
+  }, [user]);
+
+  const loadUserDecks = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_decks')
+        .select('name, format, colors')
+        .eq('user_id', user.id)
+        .limit(10);
+
+      if (!error && data) {
+        setUserDecks(data);
+      }
+    } catch (error) {
+      console.error('Error loading user decks:', error);
+    }
+  };
 
   const handleUseTemplate = (template: any) => {
     showSuccess("Template Selected", `Building deck from ${template.name} template`);
@@ -121,6 +150,14 @@ export default function Templates() {
           title="Deck Templates"
           description="Start with proven archetypes and customize to your playstyle"
         />
+
+        {/* AI Template Recommendations */}
+        <div className="mb-6">
+          <AITemplateRecommendations 
+            selectedFormat={selectedFormat !== 'all' ? selectedFormat : undefined}
+            userDecks={userDecks}
+          />
+        </div>
 
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">

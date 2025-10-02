@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Brain, Settings, Zap, BarChart3, Code, Database, AlertCircle, CheckCircle2, FileText } from "lucide-react";
+import { Brain, Settings, Zap, BarChart3, Code, Database, AlertCircle, CheckCircle2, FileText, Network } from "lucide-react";
 import { ScryfallSyntaxReference } from "./ScryfallSyntaxReference";
 import { PromptEditor } from "./PromptEditor";
+import { AIFunctionMapper } from "./AIFunctionMapper";
 
 interface AIFunctionConfig {
   name: string;
@@ -107,14 +108,29 @@ export function AISystemAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="functions">Functions</TabsTrigger>
+          <TabsTrigger value="map">Function Map</TabsTrigger>
+          <TabsTrigger value="functions">Config</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="scryfall">Scryfall</TabsTrigger>
-          <TabsTrigger value="optimization">Optimization</TabsTrigger>
+          <TabsTrigger value="optimization">Optimize</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="map" className="space-y-4">
+          <Alert>
+            <Network className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Complete AI Architecture</strong>
+              <p className="mt-2 text-sm">
+                This map shows every AI function and where it's used across DeckMatrix. Use this to understand credit consumption, identify optimization opportunities, and ensure all AI touchpoints are monitored.
+              </p>
+            </AlertDescription>
+          </Alert>
+          
+          <AIFunctionMapper />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">

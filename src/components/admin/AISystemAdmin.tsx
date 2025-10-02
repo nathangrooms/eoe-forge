@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Brain, Settings, Zap, BarChart3, Code, Database, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Brain, Settings, Zap, BarChart3, Code, Database, AlertCircle, CheckCircle2, FileText } from "lucide-react";
+import { ScryfallSyntaxReference } from "./ScryfallSyntaxReference";
+import { PromptEditor } from "./PromptEditor";
 
 interface AIFunctionConfig {
   name: string;
@@ -105,12 +107,13 @@ export function AISystemAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="functions">Functions</TabsTrigger>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
+          <TabsTrigger value="scryfall">Scryfall</TabsTrigger>
           <TabsTrigger value="optimization">Optimization</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -290,58 +293,38 @@ export function AISystemAdmin() {
 
         <TabsContent value="prompts" className="space-y-4">
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <FileText className="h-4 w-4" />
             <AlertDescription>
-              System prompts are optimized for token efficiency. Changes require edge function deployment.
+              <strong>Prompt Engineering Control Center</strong>
+              <p className="mt-2 text-sm">
+                Customize how each AI function responds. Edit prompts, templates, and response styles to fine-tune AI behavior.
+              </p>
             </AlertDescription>
           </Alert>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>mtg-brain System Prompt</CardTitle>
-              <CardDescription>Current: ~500 tokens (was 8,000+)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea 
-                className="font-mono text-sm min-h-[300px]"
-                disabled
-                value={`You are MTG Super Brain, the ultimate Magic: The Gathering expert.
+          <Tabs defaultValue="mtg-brain">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="mtg-brain">MTG Brain</TabsTrigger>
+              <TabsTrigger value="ai-deck-builder-v2">Deck Builder</TabsTrigger>
+              <TabsTrigger value="gemini-deck-coach">Deck Coach</TabsTrigger>
+            </TabsList>
 
-### Core Expertise
-**Colors:** W(life/protection/removal), U(draw/control/counter), B(removal/tutors/recursion), R(damage/haste/artifact-hate), G(ramp/creatures/enchantment-hate)
+            <TabsContent value="mtg-brain">
+              <PromptEditor functionName="mtg-brain" />
+            </TabsContent>
 
-**Commander Essentials:** 36-40 lands, 10-14 ramp, 10-15 draw, 8-12 removal, 3-5 board wipes, clear win conditions
+            <TabsContent value="ai-deck-builder-v2">
+              <PromptEditor functionName="ai-deck-builder-v2" />
+            </TabsContent>
 
-**Mana Curve:** Target 2.8-3.5 avg CMC. Curve peaks at 2-3 CMC for efficient gameplay.
+            <TabsContent value="gemini-deck-coach">
+              <PromptEditor functionName="gemini-deck-coach" />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
 
-**Archetypes:** Aggro, Midrange, Control, Combo, Tribal, Voltron, Tokens, Aristocrats, Stax, Reanimator`}
-              />
-              <div className="flex justify-between items-center text-sm text-muted-foreground">
-                <span>Optimized for token efficiency</span>
-                <Button variant="outline" size="sm" disabled>
-                  Edit Prompt
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Knowledge Base Reference</CardTitle>
-              <CardDescription>Detailed MTG knowledge available on-demand</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm"><strong>Location:</strong> supabase/functions/mtg-brain/index.ts</p>
-                <p className="text-sm"><strong>Size:</strong> ~500 lines (not sent in every request)</p>
-                <p className="text-sm"><strong>Categories:</strong> Game Rules, Color Philosophy, Deck Building, Archetypes, Synergy Patterns, Format Rules, Staple Cards</p>
-                <Button variant="outline" className="mt-4" disabled>
-                  <Database className="h-4 w-4 mr-2" />
-                  View Knowledge Base
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="scryfall" className="space-y-4">
+          <ScryfallSyntaxReference />
         </TabsContent>
 
         <TabsContent value="optimization" className="space-y-4">

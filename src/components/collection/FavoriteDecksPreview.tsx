@@ -183,11 +183,11 @@ export function FavoriteDecksPreview() {
               onClick={() => handleDeckClick(deck)}
             >
               {deck.commander?.image && (
-                <div className="w-full h-32 overflow-hidden bg-muted">
+                <div className="w-full h-40 bg-muted flex items-center justify-center">
                   <img 
                     src={deck.commander.image} 
                     alt={deck.commander.name}
-                    className="w-full h-full object-cover"
+                    className="max-w-full max-h-full object-contain"
                   />
                 </div>
               )}

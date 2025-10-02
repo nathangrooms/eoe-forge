@@ -321,11 +321,11 @@ const Dashboard = () => {
                   >
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft via-warp to-spacecraft" />
                     {deck.commanderArt && (
-                      <div className="w-full h-28 bg-muted/50">
+                      <div className="w-full h-40 bg-muted/50 flex items-center justify-center">
                         <img
                           src={deck.commanderArt}
                           alt={`${deck.name} commander art`}
-                          className="w-full h-full object-cover"
+                          className="max-w-full max-h-full object-contain"
                           loading="lazy"
                         />
                       </div>
@@ -384,25 +384,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* AI Deck Recommendations */}
-        {favorites.length > 0 && dashboardData && (
-          <AIDeckRecommendations
-            userDecks={favorites.map(d => ({
-              id: d.id,
-              name: d.name,
-              format: d.format,
-              colors: d.colors,
-              power_level: d.power_level
-            }))}
-            collectionStats={dashboardData.collection ? {
-              totalCards: dashboardData.collection.totalCards,
-              byColor: {}
-            } : undefined}
-          />
-        )}
+        {/* Removed AI Deck Recommendations and Recent Activity per request */}
 
-        {/* Recent Activity */}
-        <RecentActivity />
       </div>
     </div>
   );

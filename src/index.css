@@ -204,6 +204,14 @@ All colors MUST be HSL.
     background: var(--gradient-cosmic);
   }
 
+  /* Backwards-compatible aliases */
+  .bg-gradient-cosmic {
+    background: var(--gradient-cosmic);
+  }
+  .shadow-cosmic-glow {
+    box-shadow: var(--shadow-glow-elegant);
+  }
+
   .text-spacecraft {
     color: hsl(var(--spacecraft));
   }

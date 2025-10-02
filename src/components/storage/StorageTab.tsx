@@ -6,27 +6,23 @@ import { StorageContainer } from '@/types/storage';
 export function StorageTab() {
   const [selectedContainer, setSelectedContainer] = useState<StorageContainer | null>(null);
 
-  const handleContainerSelect = (container: StorageContainer) => {
-    setSelectedContainer(container);
-  };
-
-  const handleBackToStorage = () => {
-    setSelectedContainer(null);
-  };
-
   if (selectedContainer) {
     return (
-      <StorageContainerView 
-        container={selectedContainer}
-        onBack={handleBackToStorage}
-      />
+      <div className="h-full">
+        <StorageContainerView 
+          container={selectedContainer}
+          onBack={() => setSelectedContainer(null)}
+        />
+      </div>
     );
   }
 
   return (
-    <StorageManagement
-      onContainerSelect={handleContainerSelect}
-      selectedContainerId={selectedContainer?.id}
-    />
+    <div className="h-full">
+      <StorageManagement
+        onContainerSelect={(container) => setSelectedContainer(container)}
+        selectedContainerId={undefined}
+      />
+    </div>
   );
 }

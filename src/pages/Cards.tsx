@@ -7,6 +7,7 @@ import { useCollectionStore } from '@/stores/collectionStore';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { AIFeaturedCard } from '@/components/cards/AIFeaturedCard';
 
 export default function Cards() {
   const [searchParams] = useSearchParams();
@@ -125,17 +126,23 @@ export default function Cards() {
         <div className="flex-1 overflow-hidden">
           {/* Simple Search Tab */}
           <TabsContent value="simple" className="h-full overflow-auto px-6 py-4 m-0">
-            <EnhancedUniversalCardSearch
-              onCardAdd={addToCollection}
-              onCardSelect={(card) => console.log('Selected:', card)}
-              onCardWishlist={addToWishlist}
-              placeholder="Search Magic: The Gathering cards..."
-              showFilters={false}
-              showAddButton={true}
-              showWishlistButton={true}
-              showViewModes={true}
-              initialQuery={initialQuery}
-            />
+            <div className="space-y-6">
+              {/* AI Featured Card */}
+              <AIFeaturedCard />
+              
+              {/* Search Component */}
+              <EnhancedUniversalCardSearch
+                onCardAdd={addToCollection}
+                onCardSelect={(card) => console.log('Selected:', card)}
+                onCardWishlist={addToWishlist}
+                placeholder="Search Magic: The Gathering cards..."
+                showFilters={false}
+                showAddButton={true}
+                showWishlistButton={true}
+                showViewModes={true}
+                initialQuery={initialQuery}
+              />
+            </div>
           </TabsContent>
 
           {/* Advanced Search Tab */}

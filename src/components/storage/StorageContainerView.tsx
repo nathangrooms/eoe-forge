@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Package, Search, Zap, FolderOpen, Grid, List } from 'lucide-react';
+import { ArrowLeft, Zap, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageQuickActions } from './StorageQuickActions';
-import { useToast } from '@/hooks/use-toast';
+import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';
+import { CollectionSearch } from '@/components/collection/CollectionSearch';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 interface StorageContainerViewProps {
   container: StorageContainer;
@@ -18,10 +18,12 @@ interface StorageContainerViewProps {
 export function StorageContainerView({ container, onBack }: StorageContainerViewProps) {
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showQuickActions, setShowQuickActions] = useState(false);
-  const { toast } = useToast();
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<any>({});
 
   useEffect(() => {
     loadItems();
@@ -33,36 +35,46 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
       setItems(data);
     } catch (error) {
       console.error('Failed to load container items:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load container items",
-        variant: "destructive"
-      });
+      showError('Error', 'Failed to load container items');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUnassign = async (itemId: string, qty: number) => {
+  const handleUnassign = async (item: StorageItemWithCard, qty: number = 1) => {
     try {
-      await StorageAPI.unassignCard({ item_id: itemId, qty });
-      toast({
-        title: "Success",
-        description: "Card removed from container"
-      });
+      await StorageAPI.unassignCard({ item_id: item.id, qty });
+      showSuccess('Success', `Removed ${qty} card${qty > 1 ? 's' : ''} from ${container.name}`);
       loadItems();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to remove card",
-        variant: "destructive"
-      });
+      showError('Error', error.message || 'Failed to remove card');
     }
   };
 
-  const filteredItems = items.filter(item => 
-    item.card?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Transform storage items to card format for UniversalCardDisplay
+  const transformedCards = items.map(item => ({
+    ...item.card,
+    id: item.card_id,
+    storageQty: item.qty,
+    storageFoil: item.foil,
+    storageItemId: item.id
+  }));
+
+  // Apply filters
+  const filteredCards = transformedCards.filter(card => {
+    if (searchQuery && !card.name?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (filters.rarity && filters.rarity !== card.rarity) {
+      return false;
+    }
+    if (filters.colors && filters.colors.length > 0) {
+      if (!filters.colors.some((c: string) => card.colors?.includes(c))) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const totalCards = items.reduce((sum, item) => sum + item.qty, 0);
   const totalValue = items.reduce((sum, item) => {
@@ -72,10 +84,10 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const uniqueCards = new Set(items.map(item => item.card_id)).size;
 
   return (
-    <div className="h-full overflow-auto px-6 py-6 space-y-6">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pb-4">
-        <div className="flex items-center justify-between">
+      <div className="border-b px-6 py-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={onBack} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
@@ -89,7 +101,7 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
                 <Package className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">{container.name}</h1>
+                <h1 className="text-2xl font-bold">{container.name}</h1>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline" className="capitalize">{container.type}</Badge>
                   <span className="text-sm text-muted-foreground">•</span>
@@ -99,180 +111,95 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            >
-              {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
-            </Button>
-            <Button onClick={() => setShowQuickActions(true)} className="gap-2">
-              <Zap className="h-4 w-4" />
-              Quick Add
-            </Button>
-          </div>
+          <Button onClick={() => setShowQuickActions(true)} className="gap-2">
+            <Zap className="h-4 w-4" />
+            Quick Add
+          </Button>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="border-primary/20">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold">{totalCards}</div>
+              <div className="text-sm text-muted-foreground">Total Cards</div>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/20">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold">{uniqueCards}</div>
+              <div className="text-sm text-muted-foreground">Unique Cards</div>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/20">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-500">${totalValue.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">Total Value</div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">{totalCards}</div>
-            <div className="text-sm text-muted-foreground">Total Cards</div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">{uniqueCards}</div>
-            <div className="text-sm text-muted-foreground">Unique Cards</div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">${totalValue.toFixed(2)}</div>
-            <div className="text-sm text-muted-foreground">Total Value</div>
-          </CardContent>
-        </Card>
+      {/* Search/Filters */}
+      <div className="border-b px-6 py-3">
+        <CollectionSearch
+          onSearchChange={setSearchQuery}
+          onFiltersChange={setFilters}
+          totalResults={filteredCards.length}
+        />
       </div>
 
-      {/* Search and Filters */}
-      <Card className="border-border/50">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search cards in this container..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredItems.length} of {items.length} cards
-            </div>
+      {/* Card Display */}
+      <div className="flex-1 overflow-auto px-6 py-6">
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-4">
+                  <div className="aspect-[63/88] bg-muted rounded mb-3"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Content */}
-      {loading ? (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i} className="animate-pulse border-border/50">
-              <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted/50 rounded"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted/50 rounded w-3/4"></div>
-                    <div className="h-3 bg-muted/50 rounded w-1/2"></div>
-                    <div className="h-3 bg-muted/50 rounded w-1/4"></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <Card className="border-dashed border-2 border-muted">
-          <CardContent className="p-12 text-center">
-            <div className="mx-auto w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-              <FolderOpen className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">
-              {searchQuery ? 'No matching cards' : 'Container is empty'}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {searchQuery 
-                ? `No cards match "${searchQuery}". Try a different search term.`
-                : 'Start organizing your collection by adding cards, decks, or bulk imports.'
-              }
-            </p>
-            {!searchQuery && (
-              <Button onClick={() => setShowQuickActions(true)} size="lg" className="gap-2">
-                <Zap className="h-4 w-4" />
-                Quick Add Cards
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className={viewMode === 'grid' 
-          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' 
-          : 'space-y-2'
-        }>
-          {filteredItems.map((item) => (
-            <Card key={item.id} className={`group hover:shadow-md transition-all duration-200 border-border/50 ${viewMode === 'list' ? 'hover:bg-muted/30' : ''}`}>
-              <CardContent className={viewMode === 'grid' ? 'p-4' : 'p-3'}>
-                <div className={`flex gap-3 ${viewMode === 'list' ? 'items-center' : ''}`}>
-                  {/* Card Image */}
-                  <div className={`bg-muted/50 rounded overflow-hidden flex-shrink-0 border border-border/30 ${viewMode === 'grid' ? 'w-16 h-16' : 'w-12 h-12'}`}>
-                    {item.card?.image_uris?.small ? (
-                      <img
-                        src={item.card.image_uris.small}
-                        alt={item.card.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Card Info */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className={`font-semibold truncate mb-1 ${viewMode === 'grid' ? 'text-sm' : 'text-base'}`}>
-                      {item.card?.name || 'Unknown Card'}
-                    </h4>
-                    <p className={`text-muted-foreground mb-2 ${viewMode === 'grid' ? 'text-xs' : 'text-sm'}`}>
-                      {item.card?.set_code?.toUpperCase()} • {item.card?.rarity}
-                    </p>
-                    
-                    <div className={`flex items-center gap-2 ${viewMode === 'grid' ? 'flex-col items-start space-y-2' : 'justify-between'}`}>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={item.foil ? "default" : "secondary"} className="text-xs">
-                          {item.qty}x {item.foil ? 'Foil' : 'Normal'}
-                        </Badge>
-                        {item.card?.prices?.usd && (
-                          <span className="text-xs text-green-600 font-medium">
-                            ${(parseFloat(item.card.prices.usd) * item.qty).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7 px-2"
-                          onClick={() => handleUnassign(item.id, 1)}
-                          disabled={item.qty <= 0}
-                        >
-                          -1
-                        </Button>
-                        {item.qty > 1 && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 px-2"
-                            onClick={() => handleUnassign(item.id, item.qty)}
-                          >
-                            Remove All
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+        ) : filteredCards.length === 0 ? (
+          <Card className="border-dashed border-2">
+            <CardContent className="p-12 text-center">
+              <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">
+                {searchQuery || Object.keys(filters).length > 0 ? 'No matching cards' : 'Container is empty'}
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {searchQuery || Object.keys(filters).length > 0
+                  ? 'Try adjusting your search or filters'
+                  : 'Start adding cards to this container'
+                }
+              </p>
+              {!(searchQuery || Object.keys(filters).length > 0) && (
+                <Button onClick={() => setShowQuickActions(true)} size="lg">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Quick Add Cards
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <UniversalCardDisplay
+            cards={filteredCards}
+            viewMode={viewMode}
+            onCardClick={(card) => {
+              // Handle card click
+              console.log('Card clicked:', card);
+            }}
+            onCardAdd={(card) => {
+              const item = items.find(i => i.card_id === card.id);
+              if (item) handleUnassign(item, 1);
+            }}
+            showWishlistButton={false}
+          />
+        )}
+      </div>
 
       {/* Quick Actions Modal */}
       <StorageQuickActions

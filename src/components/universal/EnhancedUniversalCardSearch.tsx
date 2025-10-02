@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { UniversalCardDisplay } from './UniversalCardDisplay';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { AdvancedFilterPanel } from '@/components/filters/AdvancedFilterPanel';
-import { AutocompleteSearchInput } from '@/components/search/AutocompleteSearchInput';
+
 import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SearchResultsSkeleton } from '@/components/ui/loading-skeleton';
@@ -229,13 +229,19 @@ export function EnhancedUniversalCardSearch({
 
         {/* Search Input */}
         <div className="flex gap-2">
-          <div className="flex-1">
-            <AutocompleteSearchInput
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
               value={searchState.text || ''}
-              onChange={(value) => handleStateChange({ text: value })}
-              onSubmit={() => {}}
+              onChange={(e) => handleStateChange({ text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                }
+              }}
               placeholder={placeholder}
-              className="w-full"
+              className="pl-10 w-full"
             />
           </div>
 

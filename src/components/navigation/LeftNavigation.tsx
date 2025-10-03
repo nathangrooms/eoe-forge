@@ -156,7 +156,7 @@ export function LeftNavigation() {
   };
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-background/95">
+    <div className="flex h-full w-64 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
         <Link to="/deck-builder" className="flex items-center gap-2 font-semibold">
           <Plus className="h-5 w-5" />

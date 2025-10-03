@@ -108,7 +108,6 @@ export default function AIBuilder() {
     colorIdentity: '',
     archetype: '',
     powerLevel: 6,
-    budget: 100,
     maxBudget: 500,
     customPrompt: '',
     includeLands: true,
@@ -774,7 +773,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       colorIdentity: '',
       archetype: '',
       powerLevel: 6,
-      budget: 100,
       maxBudget: 500,
       customPrompt: '',
       includeLands: true,
@@ -1275,13 +1273,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         );
 
       case 4:
-        const getBudgetLabel = (budget: number) => {
-          if (budget <= 50) return 'Budget';
-          if (budget <= 150) return 'Mid-Range';
-          if (budget <= 500) return 'High-End';
-          return 'Premium';
-        };
-
         const getTotalBudgetLabel = (total: number) => {
           if (total <= 300) return 'Budget';
           if (total <= 1000) return 'Mid-Range';
@@ -1319,32 +1310,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   <span className="text-primary">Competitive</span>
                   <span className="text-accent">cEDH</span>
                 </div>
-              </div>
-
-              {/* Per-Card Budget */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-lg font-semibold">Per-Card Budget: ${buildData.budget}</Label>
-                  <Badge className="bg-gradient-to-r from-spacecraft to-station border-0 text-base px-3 py-1">
-                    {getBudgetLabel(buildData.budget)} (${buildData.budget > 2000 ? '2000+' : buildData.budget} max/card)
-                  </Badge>
-                </div>
-                <Slider
-                  value={[buildData.budget]}
-                  onValueChange={(value) => setBuildData(prev => ({ ...prev, budget: value[0] }))}
-                  min={25}
-                  max={2000}
-                  step={25}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                  <span>$25</span>
-                  <span>$500</span>
-                  <span>$2000+</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Filters individual card prices to stay within your total budget.
-                </p>
               </div>
 
               {/* Total Deck Budget */}
@@ -1442,7 +1407,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   <p><strong>Colors:</strong> {commander?.color_identity?.join(', ') || 'None'}</p>
                   <p><strong>Archetype:</strong> {currentArchetypes.find(a => a.value === buildData.archetype)?.label}</p>
                   <p><strong>Power Level:</strong> {buildData.powerLevel}/10</p>
-                  <p><strong>Per-Card Budget:</strong> ${buildData.budget}</p>
                   <p><strong>Total Budget:</strong> ${buildData.maxBudget}</p>
                 </div>
               </div>

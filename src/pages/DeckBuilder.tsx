@@ -447,26 +447,37 @@ const DeckBuilder = () => {
             {deck.name ? (
               <div className="space-y-6">
                 {/* EDH Power Level Display */}
-                {deck.format === 'commander' && edhPowerLevel !== null && (
+                {deck.format === 'commander' && (
                   <div className="bg-muted/50 p-4 rounded-lg border">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">EDH Power Level (edhpowerlevel.com)</p>
-                        <p className="text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
+                        {loadingEdhPower ? (
+                          <p className="text-sm text-muted-foreground mt-1">Calculating...</p>
+                        ) : edhPowerLevel !== null ? (
+                          <p className="text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground mt-1">Click button to check</p>
+                        )}
                       </div>
-                      {edhPowerUrl && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
-                            View Details
-                          </a>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => deck.currentDeckId && checkEdhPowerLevel(deck.currentDeckId)}
+                          disabled={loadingEdhPower || !deck.currentDeckId}
+                        >
+                          {loadingEdhPower ? 'Checking...' : 'Get EDH Power Level'}
                         </Button>
-                      )}
+                        {edhPowerUrl && (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
+                              View Details
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {loadingEdhPower && (
-                  <div className="bg-muted/50 p-4 rounded-lg border">
-                    <p className="text-sm text-muted-foreground">Calculating EDH power level...</p>
                   </div>
                 )}
                 

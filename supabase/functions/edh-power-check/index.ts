@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,26 +60,21 @@ serve(async (req) => {
         const renderedHtml = await renderResponse.text();
         console.log('Rendered HTML length:', renderedHtml.length);
         
-        // Parse the rendered HTML
-        const doc = new DOMParser().parseFromString(renderedHtml, 'text/html');
-        
-        // Look for the power level in the rendered content
-        // Try to find elements with specific text patterns
-        const allText = doc.body?.textContent || '';
-        
-        // Look for "Power Level: X.XX" or similar patterns
+        // Extract power level from the rendered HTML using regex on the raw string
+        const content = renderedHtml;
         const powerPatterns = [
           /power\s*level[:\s]+(\d+\.?\d*)/i,
           /rating[:\s]+(\d+\.?\d*)\s*\/\s*10/i,
           /score[:\s]+(\d+\.?\d*)/i,
+          /(\d+\.?\d*)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
         ];
         
-        let powerLevel = null;
+        let powerLevel = null as number | null;
         for (const pattern of powerPatterns) {
-          const match = allText.match(pattern);
+          const match = content.match(pattern);
           if (match && match[1]) {
             const val = parseFloat(match[1]);
-            if (val >= 0 && val <= 10) {
+            if (!Number.isNaN(val) && val >= 0 && val <= 10) {
               powerLevel = val;
               console.log('Found power level in rendered content:', powerLevel);
               break;

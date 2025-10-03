@@ -39,7 +39,76 @@ serve(async (req) => {
     const url = `https://edhpowerlevel.com/?d=${decklistParam}`;
     console.log('EDH Power Level URL:', url);
 
-    // Try fetching with different user agents and wait for JS to render
+    // Use a headless browser service to render JavaScript and get the power level
+    // We'll use browserless.io's free tier endpoint
+    console.log('Attempting to render page with JavaScript execution...');
+    
+    try {
+      // Try using a rendering service that executes JavaScript
+      const renderResponse = await fetch('https://chrome.browserless.io/content?token=free', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: url,
+          waitFor: 5000, // Wait 5 seconds for JavaScript to execute
+        })
+      });
+
+      if (renderResponse.ok) {
+        const renderedHtml = await renderResponse.text();
+        console.log('Rendered HTML length:', renderedHtml.length);
+        
+        // Parse the rendered HTML
+        const doc = new DOMParser().parseFromString(renderedHtml, 'text/html');
+        
+        // Look for the power level in the rendered content
+        // Try to find elements with specific text patterns
+        const allText = doc.body?.textContent || '';
+        
+        // Look for "Power Level: X.XX" or similar patterns
+        const powerPatterns = [
+          /power\s*level[:\s]+(\d+\.?\d*)/i,
+          /rating[:\s]+(\d+\.?\d*)\s*\/\s*10/i,
+          /score[:\s]+(\d+\.?\d*)/i,
+        ];
+        
+        let powerLevel = null;
+        for (const pattern of powerPatterns) {
+          const match = allText.match(pattern);
+          if (match && match[1]) {
+            const val = parseFloat(match[1]);
+            if (val >= 0 && val <= 10) {
+              powerLevel = val;
+              console.log('Found power level in rendered content:', powerLevel);
+              break;
+            }
+          }
+        }
+        
+        if (powerLevel !== null) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              powerLevel,
+              url,
+              source: 'edhpowerlevel.com'
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      } else {
+        console.error('Rendering service failed:', renderResponse.status);
+      }
+    } catch (renderError) {
+      console.error('Error using rendering service:', renderError);
+    }
+
+    // Fallback: Try direct fetch and aggressive pattern matching
+    console.log('Falling back to direct fetch...');
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -56,78 +125,41 @@ serve(async (req) => {
     const html = await response.text();
     console.log('HTML length:', html.length);
     
-    // Parse HTML with DOMParser
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    
     let powerLevel = null;
 
-    // Strategy 1: Look for data attributes or specific IDs
-    const powerElements = doc?.querySelectorAll('[data-power], [id*="power"], [class*="power"]');
-    console.log('Found power-related elements:', powerElements?.length || 0);
-
-    // Strategy 2: Look in script tags for JSON data
-    const scripts = doc?.querySelectorAll('script');
-    if (scripts) {
-      for (const script of scripts) {
-        const content = script.textContent || '';
-        
-        // Look for JSON data with power level
-        const jsonMatch = content.match(/["']?powerLevel["']?\s*:\s*(\d+\.?\d*)/i);
-        if (jsonMatch && jsonMatch[1]) {
-          powerLevel = parseFloat(jsonMatch[1]);
-          console.log('Found power level in script JSON:', powerLevel);
-          break;
-        }
-        
-        // Look for window.data or similar patterns
-        const windowDataMatch = content.match(/window\.(data|state|__INITIAL_STATE__)\s*=\s*({[\s\S]*?});/);
-        if (windowDataMatch) {
-          try {
-            const dataStr = windowDataMatch[2];
-            // Try to extract power level from the data string
-            const pwrMatch = dataStr.match(/["']?(?:power|score|rating)["']?\s*:\s*(\d+\.?\d*)/i);
-            if (pwrMatch) {
-              powerLevel = parseFloat(pwrMatch[1]);
-              console.log('Found power level in window data:', powerLevel);
-              break;
-            }
-          } catch (e) {
-            console.error('Error parsing window data:', e);
-          }
-        }
-      }
-    }
-
-    // Strategy 3: Simple regex patterns on the full HTML
-    if (!powerLevel) {
+    // Try extracting from script tags - edhpowerlevel likely calculates it in JS
+    const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+    for (const match of scriptMatches) {
+      const scriptContent = match[1];
+      
+      // Look for power level assignments or calculations
       const patterns = [
-        /power[- ]?level["\s:]+(\d+\.?\d*)/i,
-        /score["\s:]+(\d+\.?\d*)/i,
-        /rating["\s:]+(\d+\.?\d*)/i,
-        /(\d+\.?\d*)\s*\/\s*10/,
-        /"power"\s*:\s*(\d+\.?\d*)/i,
-        /data-power=["'](\d+\.?\d*)["']/i
+        /powerLevel\s*[=:]\s*(\d+\.?\d*)/i,
+        /power\s*[=:]\s*(\d+\.?\d*)/i,
+        /"power":\s*(\d+\.?\d*)/i,
+        /'power':\s*(\d+\.?\d*)/i,
       ];
-
+      
       for (const pattern of patterns) {
-        const match = html.match(pattern);
-        if (match && match[1]) {
-          const val = parseFloat(match[1]);
-          // Validate it's a reasonable power level (1-10)
-          if (val >= 1 && val <= 10) {
+        const valueMatch = scriptContent.match(pattern);
+        if (valueMatch && valueMatch[1]) {
+          const val = parseFloat(valueMatch[1]);
+          if (val >= 0 && val <= 10) {
             powerLevel = val;
-            console.log('Found power level with pattern:', pattern, '=', powerLevel);
+            console.log('Found power level in script:', powerLevel);
             break;
           }
         }
       }
+      if (powerLevel !== null) break;
     }
 
     console.log('Final extracted power level:', powerLevel);
 
-    // If we still couldn't find it, log part of the HTML for debugging
-    if (!powerLevel) {
-      console.log('Sample HTML (first 500 chars):', html.substring(0, 500));
+    // If we still couldn't find it, log for debugging
+    if (powerLevel === null) {
+      console.log('Could not extract power level. URL:', url);
+      console.log('Sample HTML (first 1000 chars):', html.substring(0, 1000));
     }
 
     return new Response(

@@ -827,11 +827,14 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   )}
                   
                   <div>
-                    <h4 className="font-medium mb-3">Popular Commanders</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <h4 className="font-medium mb-4 text-lg flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-primary" />
+                      Popular Commanders
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                       {[
                         { 
-                          name: 'Syr Vondam, Sunstar Exemplar', 
+                          name: 'Syr Vondam, Sunstar Exemplar',
                           colors: ['W', 'B'],
                           color_identity: ['W', 'B'],
                           type_line: 'Legendary Creature — Human Knight',
@@ -905,9 +908,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                         ].map((popularCommander) => (
                           <div
                             key={popularCommander.name}
-                            className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
+                            className="group cursor-pointer transition-all duration-300 hover:scale-105"
                             onClick={async () => {
-                              // Fetch the actual card from Scryfall to get the real ID
                               try {
                                 const response = await fetch(
                                   `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(popularCommander.name)}`
@@ -917,7 +919,6 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                                   setCommander(card);
                                   analyzeCommander(card);
                                 } else {
-                                  // Fallback if fetch fails
                                   const commanderWithId = {
                                     ...popularCommander,
                                     id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
@@ -935,35 +936,19 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                                 analyzeCommander(commanderWithId);
                               }
                             }}
-                         >
-                           <img 
-                             src={popularCommander.image_uris?.normal || '/placeholder.svg'} 
-                             alt={popularCommander.name}
-                             className="w-12 h-12 rounded object-cover"
-                           />
-                           <div className="flex-1 min-w-0">
-                             <div className="font-medium text-sm truncate">{popularCommander.name}</div>
-                             <div className="text-xs text-muted-foreground truncate">{popularCommander.type_line}</div>
-                             <div className="flex space-x-1 mt-1">
-                               {popularCommander.color_identity.map(color => (
-                                 <div
-                                   key={color}
-                                   className="w-3 h-3 rounded-full border"
-                                   style={{
-                                     backgroundColor: {
-                                      W: '#fffbd5',
-                                      U: '#0e68ab',
-                                      B: '#150b00', 
-                                      R: '#d3202a',
-                                      G: '#00733e'
-                                    }[color] || '#ccc'
-                                  }}
-                                />
-                              ))}
-                             </div>
-                           </div>
-                         </div>
-                      ))}
+                          >
+                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
+                              <img 
+                                src={popularCommander.image_uris?.normal || '/placeholder.svg'} 
+                                alt={popularCommander.name}
+                                className="w-full h-auto"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                <p className="text-white text-xs font-bold truncate">{popularCommander.name}</p>
+                              </div>
+                            </div>
+                          </div>
+                       ))}
                     </div>
                   </div>
                 </div>

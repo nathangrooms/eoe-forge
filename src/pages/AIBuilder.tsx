@@ -199,7 +199,7 @@ export default function AIBuilder() {
     }
   };
 
-  // Build deck
+  // Build deck using gemini-deck-coach (existing working function)
   const handleBuild = async () => {
     if (!selectedCommander || !selectedArchetype) return;
     
@@ -209,26 +209,22 @@ export default function AIBuilder() {
     try {
       setBuildProgress(30);
       
-      // Use ai-deck-builder-v2 which connects to admin panel prompts
-      const { data, error } = await supabase.functions.invoke('ai-deck-builder-v2', {
+      // Use gemini-deck-coach which is working and deployed
+      const { data, error } = await supabase.functions.invoke('gemini-deck-coach', {
         body: {
           commander: {
-            id: selectedCommander.id,
             name: selectedCommander.name,
-            oracle_text: selectedCommander.oracle_text,
-            type_line: selectedCommander.type_line,
+            colors: selectedCommander.color_identity || [],
             color_identity: selectedCommander.color_identity || [],
-            colors: selectedCommander.colors || []
+            type_line: selectedCommander.type_line,
+            oracle_text: selectedCommander.oracle_text
           },
-          preferences: {
-            archetype: selectedArchetype.value,
-            powerLevel,
-            budget,
-            format: 'commander'
-          },
-          archetype: selectedArchetype.value,
-          powerLevel,
-          useAIPlanning: true
+          format: 'commander',
+          themeId: selectedArchetype.value,
+          powerTarget: powerLevel,
+          budget: budget < 50 ? 'low' : budget < 200 ? 'med' : 'high',
+          maxBudget: budget * 100, // Convert per-card budget to total deck budget estimate
+          seed: Date.now()
         }
       });
 
@@ -236,21 +232,22 @@ export default function AIBuilder() {
 
       if (error) throw error;
 
-      // Handle response from ai-deck-builder-v2
-      if (data?.status === 'complete') {
+      // Handle response from gemini-deck-coach
+      if (data && data.decklist) {
         setBuildResult({
-          cards: data.result.deck,
+          cards: data.decklist,
           metadata: {
-            powerLevel,
-            strategy: data.plan?.strategy,
-            validation: data.result.validation
-          }
+            powerLevel: data.power,
+            strategy: data.analysis
+          },
+          totalValue: data.totalValue,
+          analysis: data.analysis
         });
         setStep(4);
         setBuildProgress(100);
-        showSuccess('Deck Built!', `${data.result.deck.length} cards added`);
+        showSuccess('Deck Built!', `${data.decklist.length} cards added`);
       } else {
-        throw new Error('Unexpected response format');
+        throw new Error('No deck data returned');
       }
       
     } catch (error: any) {

@@ -185,23 +185,23 @@ export default function AIBuilder() {
       // Add archetype-based oracle text filters
       if (finderArchetype) {
         const archetypeKeywords: Record<string, string> = {
-          'aggro': 'haste OR first strike OR double strike',
-          'voltron': 'equipment OR aura OR enchant',
-          'tribal': 'creature type',
-          'control': 'counter OR destroy OR exile',
-          'combo': 'whenever OR sacrifice',
-          'tokens': 'create token',
-          'artifacts': 'artifact',
-          'spellslinger': 'instant OR sorcery',
-          'lifegain': 'gain life OR lifelink',
-          'graveyard': 'graveyard OR return from',
-          'ramp': 'land OR mana',
-          'draw': 'draw card'
+          'aggro': '(o:haste OR o:"first strike" OR o:"double strike")',
+          'voltron': '(o:equipment OR o:aura OR o:attach)',
+          'tribal': '(o:choose OR o:"creature type")',
+          'control': '(o:counter OR o:destroy OR o:exile)',
+          'combo': '(o:whenever OR o:sacrifice)',
+          'tokens': '(o:token)',
+          'artifacts': '(o:artifact)',
+          'spellslinger': '(o:instant OR o:sorcery OR o:spell)',
+          'lifegain': '(o:"gain life" OR o:lifelink)',
+          'graveyard': '(o:graveyard OR o:"return from")',
+          'ramp': '(o:"search your library for" OR o:"put a land")',
+          'draw': '(o:"draw card" OR o:"draw a card")'
         };
         
         const keyword = archetypeKeywords[finderArchetype];
         if (keyword) {
-          query += ` (o:${keyword})`;
+          query += ` ${keyword}`;
         }
       }
       
@@ -847,7 +847,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   </div>
                   
                   {commanderSearch && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
                       {searchingCommanders ? (
                         <div className="col-span-full text-center text-muted-foreground py-8">
                           <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
@@ -857,37 +857,21 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                         commanderSearchResults.slice(0, 12).map((card: any) => (
                           <div
                             key={card.id}
-                            className="p-3 rounded border hover:border-primary/50 cursor-pointer transition-all flex items-center space-x-3"
+                            className="group cursor-pointer transition-all duration-300 hover:scale-105"
                             onClick={() => {
                               setCommander(card);
                               setCommanderSearch('');
                               analyzeCommander(card);
                             }}
                           >
-                            <img 
-                              src={card.image_uris?.small || card.image_uris?.normal || '/placeholder.svg'} 
-                              alt={card.name}
-                              className="w-12 h-12 rounded object-cover"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{card.name}</div>
-                              <div className="text-xs text-muted-foreground truncate">{card.type_line}</div>
-                              <div className="flex space-x-1 mt-1">
-                                {(card.color_identity || []).map((color: string) => (
-                                  <div
-                                    key={color}
-                                    className="w-3 h-3 rounded-full border"
-                                    style={{
-                                      backgroundColor: {
-                                        W: '#fffbd5',
-                                        U: '#0e68ab',
-                                        B: '#150b00',
-                                        R: '#d3202a',
-                                        G: '#00733e'
-                                      }[color] || '#ccc'
-                                    }}
-                                  />
-                                ))}
+                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
+                              <img 
+                                src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
+                                alt={card.name}
+                                className="w-full h-auto"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                <p className="text-white text-xs font-bold truncate">{card.name}</p>
                               </div>
                             </div>
                           </div>

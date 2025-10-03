@@ -861,14 +861,23 @@ async function getCardPool(format: string, colors: string[], constraints?: any):
     
     // Color identity filter for Commander
     if (format === 'commander' && colors.length > 0) {
-      // Only include cards whose color_identity is a subset of the commander's identity
-      // Use containedBy (<@) instead of overlaps (&&)
-      // If containedBy is not supported on this column type, we'll post-filter after fetch
-      // @ts-ignore - supabase-js supports containedBy for array/jsonb
-      query = (query as any).containedBy('color_identity', colors);
+      // Use overlaps for now (containedBy doesn't work on arrays)
+      query = query.overlaps('color_identity', colors);
     }
     
-    // Apply constraints
+    // Apply budget constraints based on tier
+    const budgetTier = constraints?.budget || 'med';
+    if (budgetTier === 'low') {
+      query = query.lte('prices->>usd', '3'); // Max $3 per card
+    } else if (budgetTier === 'med') {
+      query = query.lte('prices->>usd', '15'); // Max $15 per card
+    } else if (budgetTier === 'high') {
+      query = query.lte('prices->>usd', '50'); // Max $50 per card
+    }
+    // Filter out cards with invalid prices
+    query = query.not('prices->>usd', 'is', null);
+    
+    // Apply ban list
     if (constraints?.ban) {
       query = query.not('name', 'in', `(${constraints.ban.join(',')})`);
     }
@@ -877,7 +886,31 @@ async function getCardPool(format: string, colors: string[], constraints?: any):
     
     if (error) throw error;
     
-    return data || [];
+    // Post-filter: Strict color identity enforcement (card colors must be subset of commander)
+    let pool = data || [];
+    if (format === 'commander' && colors.length > 0) {
+      pool = pool.filter(card => {
+        const cardIdentity = card.color_identity || [];
+        // Every color in the card must be in the commander's identity
+        return cardIdentity.every((color: string) => colors.includes(color));
+      });
+    }
+    
+    // Prioritize high-playability cards
+    pool.sort((a, b) => {
+      // Prefer lower CMC (more playable)
+      const cmcDiff = (a.cmc || 99) - (b.cmc || 99);
+      if (Math.abs(cmcDiff) > 2) return cmcDiff;
+      
+      // Prefer cards with keywords (more interactive/powerful)
+      const aKeywords = (a.keywords?.length || 0);
+      const bKeywords = (b.keywords?.length || 0);
+      return bKeywords - aKeywords;
+    });
+    
+    console.log(`Filtered card pool: ${pool.length} cards (strict color identity, budget: ${budgetTier})`);
+    
+    return pool;
   } catch (error) {
     console.error('Error fetching card pool:', error);
     return [];

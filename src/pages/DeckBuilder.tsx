@@ -45,6 +45,9 @@ const DeckBuilder = () => {
   const [allDecks, setAllDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [edhPowerLevel, setEdhPowerLevel] = useState<number | null>(null);
+  const [edhPowerUrl, setEdhPowerUrl] = useState<string | null>(null);
+  const [loadingEdhPower, setLoadingEdhPower] = useState(false);
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -181,6 +184,47 @@ const DeckBuilder = () => {
     showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);
   };
 
+  const checkEdhPowerLevel = async (deckId: string) => {
+    setLoadingEdhPower(true);
+    try {
+      // Fetch deck summary to get all cards
+      const { data: summaryData, error: summaryError } = await supabase.rpc('compute_deck_summary', {
+        deck_id: deckId
+      });
+
+      if (summaryError || !summaryData) {
+        console.error('Failed to fetch deck summary:', summaryError);
+        return;
+      }
+
+      const summary = summaryData as any;
+      const cards = summary.cards || [];
+      const commander = summary.commander;
+
+      // Call EDH power check function
+      const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
+        body: {
+          decklist: {
+            commander: commander ? { name: commander.name } : null,
+            cards: cards.map((c: any) => ({ name: c.card_name, quantity: c.quantity }))
+          }
+        }
+      });
+
+      if (!powerError && powerData?.success && powerData?.powerLevel) {
+        setEdhPowerLevel(powerData.powerLevel);
+        setEdhPowerUrl(powerData.url);
+      } else {
+        setEdhPowerLevel(null);
+        setEdhPowerUrl(null);
+      }
+    } catch (error) {
+      console.error('Error checking EDH power level:', error);
+    } finally {
+      setLoadingEdhPower(false);
+    }
+  };
+
   const loadDeck = async (deckData: Deck) => {
     try {
       const isLocalDeck = deckData.name.includes('(Local)');
@@ -213,6 +257,9 @@ const DeckBuilder = () => {
           // Set the current deck ID for auto-saving
           deck.setCurrentDeckId(deckData.id);
           setSelectedDeckId(deckData.id);
+          
+          // Check EDH power level
+          checkEdhPowerLevel(deckData.id);
           
           toast({
             title: "Deck Loaded",
@@ -399,6 +446,30 @@ const DeckBuilder = () => {
           <TabsContent value="deck" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name ? (
               <div className="space-y-6">
+                {/* EDH Power Level Display */}
+                {deck.format === 'commander' && edhPowerLevel !== null && (
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">EDH Power Level (edhpowerlevel.com)</p>
+                        <p className="text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
+                      </div>
+                      {edhPowerUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
+                            View Details
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {loadingEdhPower && (
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <p className="text-sm text-muted-foreground">Calculating EDH power level...</p>
+                  </div>
+                )}
+                
                 {/* Commander Section - Only for Commander format */}
                 {deck.format === 'commander' && (
                   <div className="mb-6">

@@ -847,7 +847,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   </div>
                   
                   {commanderSearch && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto overflow-x-hidden p-1">
                       {searchingCommanders ? (
                         <div className="col-span-full text-center text-muted-foreground py-8">
                           <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
@@ -857,14 +857,14 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                         commanderSearchResults.slice(0, 12).map((card: any) => (
                           <div
                             key={card.id}
-                            className="group cursor-pointer transition-all duration-300 hover:scale-105"
+                            className="group cursor-pointer transition-all duration-300"
                             onClick={() => {
                               setCommander(card);
                               setCommanderSearch('');
                               analyzeCommander(card);
                             }}
                           >
-                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
+                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/30 transition-all transform group-hover:scale-[1.03]">
                               <img 
                                 src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
                                 alt={card.name}

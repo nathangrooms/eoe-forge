@@ -62,6 +62,8 @@ interface AIGeneratedDeckListProps {
   cards: any[];
   commander?: any;
   power?: number;
+  edhPowerLevel?: number | null;
+  edhPowerUrl?: string | null;
   totalValue?: number;
   analysis?: any;
   changelog?: any[];
@@ -75,6 +77,8 @@ export function AIGeneratedDeckList({
   cards, 
   commander, 
   power, 
+  edhPowerLevel,
+  edhPowerUrl,
   totalValue, 
   analysis,
   changelog,
@@ -329,7 +333,31 @@ export function AIGeneratedDeckList({
                 <TrendingUp className="h-4 w-4 text-primary" />
                 <div className="text-2xl font-bold">{Math.round(power || 0)}/10</div>
               </div>
-              <div className="text-sm text-muted-foreground">Power Score</div>
+              <div className="text-sm text-muted-foreground">AI Power Score</div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <ExternalLink className="h-4 w-4 text-blue-600" />
+                <div className="text-2xl font-bold text-blue-600">
+                  {edhPowerLevel !== null && edhPowerLevel !== undefined 
+                    ? `${edhPowerLevel.toFixed(1)}/10` 
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {edhPowerUrl ? (
+                  <a 
+                    href={edhPowerUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-blue-600 hover:underline"
+                  >
+                    EDH Power Level
+                  </a>
+                ) : (
+                  'EDH Power Level'
+                )}
+              </div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
@@ -344,13 +372,6 @@ export function AIGeneratedDeckList({
                 <div className="text-2xl font-bold">{totalCards}</div>
               </div>
               <div className="text-sm text-muted-foreground">Total Cards</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Mountain className="h-4 w-4 text-orange-600" />
-                <div className="text-2xl font-bold">{avgCmc.toFixed(1)}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Avg CMC</div>
             </div>
           </div>
         </CardContent>
@@ -593,16 +614,6 @@ export function AIGeneratedDeckList({
 
       {/* Action Buttons */}
       <div className="flex flex-col gap-2">
-        {/* EDH Power Level Check Button */}
-        <Button 
-          variant="secondary" 
-          className="w-full"
-          onClick={() => window.open(generateEDHPowerLevelURL(), '_blank')}
-        >
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Check Power Level on edhpowerlevel.com
-        </Button>
-        
         <div className="flex gap-2">
           <Button onClick={onSaveDeck} className="flex-1">
             <Save className="h-4 w-4 mr-2" />

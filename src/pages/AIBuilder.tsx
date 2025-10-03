@@ -508,133 +508,148 @@ Focus on archetypes that specifically leverage this commander's unique abilities
   };
 
   const handleBuild = async () => {
-    if (!commander) {
-      showError('Commander Required', 'Please select a commander first');
+    if (!buildData.format || !buildData.archetype) {
+      showError('Missing Information', 'Please select a format and archetype.');
       return;
     }
-    
+
     setBuilding(true);
-    setBuildProgress(10);
-    
+    setBuildProgress(0);
+
     try {
-      setBuildProgress(20);
+      console.log('Starting deck build with v2 builder...');
       
-      // Use new AI-powered deck builder with MTG Brain integration
-      console.log('Starting AI deck build with MTG Brain planning...');
-      
-      // Try V2 builder first
-      let v2Data: any = null;
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setBuildProgress(prev => Math.min(prev + 5, 90));
+      }, 500);
+
       try {
-        const buildCall = supabase.functions.invoke('ai-deck-builder-v2', {
+        // Try v2 builder first with 90s timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+        const { data, error } = await supabase.functions.invoke('ai-deck-builder-v2', {
           body: {
-            commander: {
+            commander: commander ? {
               id: commander.id,
               name: commander.name,
-              oracle_text: commander.oracle_text || '',
-              type_line: commander.type_line || '',
+              oracle_text: commander.oracle_text,
+              type_line: commander.type_line,
               color_identity: commander.color_identity || [],
               colors: commander.colors || []
-            },
+            } : undefined,
             archetype: buildData.archetype,
             powerLevel: buildData.powerLevel,
-            useAIPlanning: buildData.prioritizeSynergy
+            useAIPlanning: true
           }
         });
 
-        setBuildProgress(40);
+        clearTimeout(timeoutId);
+        clearInterval(progressInterval);
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Build timed out - try a simpler archetype')), 90000)
-        );
-
-        const { data, error } = await Promise.race([buildCall, timeoutPromise]) as any;
         if (error) throw error;
-        v2Data = data;
-      } catch (e) {
-        console.warn('V2 builder failed, falling back to v1:', e);
-      }
+        if (!data) throw new Error('No data returned from v2 builder');
 
-      setBuildProgress(60);
+        console.log('V2 builder response:', data);
 
-      if (v2Data?.result) {
-        const result = v2Data.result;
-        setBuildResult({
-          deckName: `${commander.name} - ${buildData.archetype}`,
-          cards: result.deck || [],
-          analysis: {
-            power: result.analysis?.power || buildData.powerLevel,
-            band: result.analysis?.power <= 3 ? 'casual' :
-                  result.analysis?.power <= 6 ? 'mid' :
-                  result.analysis?.power <= 8 ? 'high' : 'cEDH',
-            subscores: result.analysis?.subscores || {},
-            playability: {},
-            drivers: [],
-            drags: [],
-            recommendations: result.changeLog || [],
-            iterations: 1,
-            text: v2Data.plan?.strategy || `AI-built ${buildData.archetype} deck using MTG Brain guidance`
-          },
-          changelog: result.changeLog || [],
-          power: result.analysis?.power || buildData.powerLevel,
-          totalValue: result.deck?.reduce((sum: number, card: any) =>
-            sum + (parseFloat(card.prices?.usd || '0')), 0
-          ) || 0,
-          cardCount: result.deck?.length || 0
+        // Check power level on edhpowerlevel.com
+        setBuildProgress(95);
+        console.log('Checking EDH power level...');
+        
+        const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
+          body: {
+            decklist: {
+              commander: commander,
+              cards: data.cards || []
+            }
+          }
         });
 
+        console.log('EDH power check result:', powerCheckData);
+
         setBuildProgress(100);
+
+        const result = {
+          deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
+          cards: data.cards || [],
+          power: data.power || buildData.powerLevel,
+          edhPowerLevel: powerCheckData?.powerLevel || null,
+          edhPowerUrl: powerCheckData?.url || null,
+          totalValue: data.cards?.reduce((sum: number, card: any) => {
+            const price = parseFloat(card.prices?.usd || '0');
+            return sum + (price * (card.quantity || 1));
+          }, 0) || 0,
+          analysis: data.analysis || {},
+          changelog: data.changelog || []
+        };
+
+        setBuildResult(result);
         setStep(6);
-        const planMessage = v2Data.plan ? 'with AI strategic planning' : 'using algorithmic optimization';
-        showSuccess('Deck Built!', `Created ${buildData.archetype} deck ${planMessage}`);
-        return;
-      }
+        showSuccess('Deck Built!', 'Your AI-generated deck is ready!');
+      } catch (v2Error) {
+        console.error('V2 builder failed, falling back to V1:', v2Error);
+        clearInterval(progressInterval);
+        
+        // Fallback to v1 builder
+        setBuildProgress(50);
+        const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
+          body: {
+            format: buildData.format,
+            identity: buildData.colorIdentity ? 
+              COLOR_COMBINATIONS.find(c => c.value === buildData.colorIdentity)?.colors || [] : 
+              commander?.color_identity || [],
+            themeId: buildData.archetype,
+            powerTarget: buildData.powerLevel
+          }
+        });
 
-      // Fallback to v1 builder
-      setBuildProgress(65);
-      const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
-        body: {
-          format: 'commander',
-          identity: commander.color_identity || [],
-          themeId: buildData.archetype,
-          powerTarget: buildData.powerLevel,
-        }
-      });
-      if (v1Error || !v1Data) throw v1Error || new Error('Fallback builder failed');
+        if (v1Error) throw v1Error;
+        if (!v1Data?.success) throw new Error('V1 builder failed');
 
-      setBuildProgress(85);
+        // Check power level on edhpowerlevel.com
+        setBuildProgress(95);
+        console.log('Checking EDH power level...');
+        
+        const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
+          body: {
+            decklist: {
+              commander: commander,
+              cards: v1Data.deck || []
+            }
+          }
+        });
 
-      setBuildResult({
-        deckName: `${commander.name} - ${buildData.archetype}`,
-        cards: v1Data.deck || [],
-        analysis: {
+        console.log('EDH power check result:', powerCheckData);
+
+        setBuildProgress(100);
+        clearInterval(progressInterval);
+
+        const result = {
+          deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
+          cards: v1Data.deck || [],
           power: v1Data.power || buildData.powerLevel,
-          band: (v1Data.power || buildData.powerLevel) <= 3 ? 'casual' :
-                (v1Data.power || buildData.powerLevel) <= 6 ? 'mid' :
-                (v1Data.power || buildData.powerLevel) <= 8 ? 'high' : 'cEDH',
-          subscores: v1Data.subscores || {},
-          playability: {},
-          drivers: [],
-          drags: [],
-          recommendations: v1Data.changelog || [],
-          iterations: 1,
-          text: v1Data.analysis?.suggestions?.join(' • ') || `AI-built ${buildData.archetype} deck`
-        },
-        changelog: v1Data.changelog || [],
-        power: v1Data.power || buildData.powerLevel,
-        totalValue: v1Data.metadata?.totalValue || 0,
-        cardCount: v1Data.metadata?.cardCount || (v1Data.deck?.length || 0)
-      });
+          edhPowerLevel: powerCheckData?.powerLevel || null,
+          edhPowerUrl: powerCheckData?.url || null,
+          totalValue: v1Data.deck?.reduce((sum: number, card: any) => {
+            const price = parseFloat(card.prices?.usd || '0');
+            return sum + (price * (card.quantity || 1));
+          }, 0) || 0,
+          analysis: {},
+          changelog: []
+        };
 
-      setBuildProgress(100);
-      setStep(6);
-      showSuccess('Deck Built!', `Created ${buildData.archetype} deck with fallback builder`);
-      
+        setBuildResult(result);
+        setStep(6);
+        showSuccess('Deck Built!', 'Your AI-generated deck is ready (using v1 builder)!');
+      }
     } catch (error) {
-      console.error('Deck building error:', error);
-      showError('Build Failed', error instanceof Error ? error.message : 'Failed to generate deck. Please try again.');
-    } finally {
+      console.error('Build error:', error);
+      showError('Build Failed', 'Could not build deck. Please try again.');
       setBuilding(false);
       setBuildProgress(0);
+    } finally {
+      setBuilding(false);
     }
   };
 
@@ -1449,6 +1464,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               cards={buildResult.cards || []}
               commander={commander}
               power={buildResult.power}
+              edhPowerLevel={buildResult.edhPowerLevel}
+              edhPowerUrl={buildResult.edhPowerUrl}
               totalValue={buildResult.totalValue}
               analysis={buildResult.analysis}
               changelog={buildResult.changelog}

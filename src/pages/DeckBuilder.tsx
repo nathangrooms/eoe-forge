@@ -201,24 +201,51 @@ const DeckBuilder = () => {
       const cards = summary.cards || [];
       const commander = summary.commander;
 
-      // Build the edhpowerlevel.com URL immediately so user always has a link
-      const encodeName = (name: string) =>
-        encodeURIComponent(name.replace(/\s*\(commander\)\s*$/i, '').trim()).replace(/%20/g, '+');
+// Build the edhpowerlevel.com URL immediately so user always has a link
+const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
+const encodeName = (name: string) =>
+  encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
 
-      let decklistParam = '';
-      if (commander?.name) {
-        decklistParam += `1x+${encodeName(commander.name)}~~`;
-      }
-      if (Array.isArray(cards)) {
-        for (const c of cards) {
-          if (!c?.card_name) continue;
-          const quantity = c.quantity || 1;
-          decklistParam += `${quantity}x+${encodeName(c.card_name)}~`;
-        }
-      }
-      if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
-      const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
-      setEdhPowerUrl(fallbackUrl);
+// Aggregate by name, exclude commander and sum quantities
+const parts: string[] = [];
+const seen = new Map<string, { name: string; qty: number }>();
+const commanderNameRaw = commander?.name ? cleanName(commander.name) : null;
+
+if (Array.isArray(cards)) {
+  for (const c of cards) {
+    if (!c?.card_name) continue;
+    const cleaned = cleanName(c.card_name);
+    if (commanderNameRaw && cleaned.toLowerCase() === commanderNameRaw.toLowerCase()) continue;
+    const key = cleaned.toLowerCase();
+    const qty = c.quantity || 1;
+    if (!seen.has(key)) seen.set(key, { name: cleaned, qty });
+    else seen.get(key)!.qty += qty;
+  }
+}
+
+// Commander first with double tilde
+let header = '';
+if (commander?.name) {
+  header = `1x+${encodeName(commander.name)}~~`;
+}
+
+// Preserve insertion order
+for (const { name, qty } of seen.values()) {
+  parts.push(`${qty}x+${encodeName(name)}`);
+}
+
+// Cap to typical EDH size and safe URL length
+const MAX_ITEMS = 100;
+let limitedParts = parts.slice(0, MAX_ITEMS);
+const MAX_LEN = 7000;
+let decklistParam = header + limitedParts.join('~');
+while (decklistParam.length > MAX_LEN && limitedParts.length > 0) {
+  limitedParts.pop();
+  decklistParam = header + limitedParts.join('~');
+}
+
+const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
+setEdhPowerUrl(fallbackUrl);
 
       // Call EDH power check function to try scraping the power level
       const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {

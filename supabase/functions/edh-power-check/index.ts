@@ -28,31 +28,51 @@ serve(async (req) => {
     console.log('Checking EDH power level for decklist');
 
     // Build the edhpowerlevel.com URL
-    let decklistParam = '';
-    
-    // Helper to encode names with + for spaces and strip trailing (commander)
-    const encodeName = (name: string) =>
-      encodeURIComponent(name.replace(/\s*\(commander\)\s*$/i, '').trim()).replace(/%20/g, '+');
-    
-    // Commander first with double tilde separator
-    if (decklist.commander?.name) {
-      const commanderName = encodeName(decklist.commander.name);
-      decklistParam += `1x+${commanderName}~~`;
-    }
-    
-    // Cards
-    if (decklist.cards && Array.isArray(decklist.cards)) {
-      decklist.cards.forEach((card: any) => {
-        if (!card?.name) return;
-        const quantity = card.quantity || 1;
-        decklistParam += `${quantity}x+${encodeName(card.name)}~`;
-      });
-    }
-    
-    // Remove trailing ~
-    if (decklistParam.endsWith('~')) {
-      decklistParam = decklistParam.slice(0, -1);
-    }
+let decklistParam = '';
+
+// Helpers: clean and encode names, replace spaces with + and strip trailing (commander)
+const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
+const encodeName = (name: string) =>
+  encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
+
+// Aggregate cards by name (sum quantities), exclude commander to avoid duplicates
+const parts: string[] = [];
+const seen = new Map<string, { name: string; qty: number }>();
+const commanderNameRaw = decklist.commander?.name ? cleanName(decklist.commander.name) : null;
+if (decklist.cards && Array.isArray(decklist.cards)) {
+  for (const card of decklist.cards) {
+    if (!card?.name) continue;
+    const cleaned = cleanName(card.name);
+    if (commanderNameRaw && cleaned.toLowerCase() === commanderNameRaw.toLowerCase()) continue;
+    const key = cleaned.toLowerCase();
+    const qty = card.quantity || 1;
+    if (!seen.has(key)) seen.set(key, { name: cleaned, qty });
+    else seen.get(key)!.qty += qty;
+  }
+}
+
+// Commander first with double tilde separator
+if (decklist.commander?.name) {
+  const commanderName = encodeName(decklist.commander.name);
+  decklistParam += `1x+${commanderName}~~`;
+}
+
+// Build parts preserving insertion order
+for (const { name, qty } of seen.values()) {
+  parts.push(`${qty}x+${encodeName(name)}`);
+}
+
+// Cap items and URL length to avoid browser cut-offs
+const MAX_ITEMS = 100; // EDH typical size
+let limitedParts = parts.slice(0, MAX_ITEMS);
+const MAX_LEN = 7000;
+let combined = decklistParam + limitedParts.join('~');
+while (combined.length > MAX_LEN && limitedParts.length > 0) {
+  limitedParts.pop();
+  combined = decklistParam + limitedParts.join('~');
+}
+
+decklistParam = combined;
     
     const url = `https://edhpowerlevel.com/?d=${decklistParam}`;
     console.log('EDH Power Level URL:', url);

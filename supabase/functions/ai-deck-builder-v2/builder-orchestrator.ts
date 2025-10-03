@@ -430,7 +430,7 @@ export class BuilderOrchestrator {
   }
   
   /**
-   * Analyze completed deck
+   * Analyze completed deck with proper power calculation
    */
   private static analyzeDeck(deck: Card[], context: BuildContext): any {
     const curve: Record<string, number> = {};
@@ -453,19 +453,111 @@ export class BuilderOrchestrator {
       });
     }
     
+    // Calculate actual power based on deck composition
+    const power = this.calculateActualPower(deck, context);
+    const subscores = this.calculateSubscores(deck);
+    
     return {
-      power: context.powerTarget,
-      subscores: {
-        speed: 0,
-        interaction: 0,
-        tutors: 0,
-        wincon: 0,
-        mana: 0,
-        consistency: 0
-      },
+      power,
+      subscores,
       curve,
       colorDistribution: colors,
       tags
+    };
+  }
+  
+  /**
+   * Calculate actual power level based on deck composition
+   */
+  private static calculateActualPower(deck: Card[], context: BuildContext): number {
+    const subscores = this.calculateSubscores(deck);
+    
+    // Weight different aspects
+    const weights = {
+      speed: 1.5,
+      interaction: 1.4,
+      tutors: 1.6,
+      fastMana: 1.7,
+      efficiency: 1.5,
+      combo: 1.4,
+      draw: 1.3,
+      protection: 1.1
+    };
+    
+    let weightedScore = 0;
+    let totalWeight = 0;
+    
+    for (const [key, weight] of Object.entries(weights)) {
+      weightedScore += (subscores[key] || 0) * weight;
+      totalWeight += weight;
+    }
+    
+    const normalizedScore = weightedScore / totalWeight;
+    
+    // Map 0-100 subscore average to 1-10 power scale with better distribution
+    // Base of 3 + up to 7 points from deck quality
+    const calculatedPower = 3 + (normalizedScore / 100) * 7;
+    
+    // Blend target with calculated (70% calculated, 30% target)
+    const blendedPower = (calculatedPower * 0.7) + (context.powerTarget * 0.3);
+    
+    return Math.max(1, Math.min(10, Math.round(blendedPower * 10) / 10));
+  }
+  
+  /**
+   * Calculate subscores for power components
+   */
+  private static calculateSubscores(deck: Card[]): Record<string, number> {
+    const fastMana = deck.filter(c => c.tags.has('fast-mana')).length;
+    const tutors = deck.filter(c => c.tags.has('tutor-broad') || c.tags.has('tutor-narrow')).length;
+    const removal = deck.filter(c => c.tags.has('removal-spot') || c.tags.has('removal-sweeper')).length;
+    const counterspells = deck.filter(c => c.tags.has('counterspell')).length;
+    const draw = deck.filter(c => c.tags.has('draw')).length;
+    const ramp = deck.filter(c => c.tags.has('ramp')).length;
+    const protection = deck.filter(c => c.tags.has('protection')).length;
+    const combos = deck.filter(c => c.tags.has('combo-piece')).length;
+    const wincons = deck.filter(c => c.tags.has('wincon')).length;
+    
+    // Calculate average CMC for efficiency
+    const nonLands = deck.filter(c => !c.type_line.toLowerCase().includes('land'));
+    const avgCMC = nonLands.reduce((sum, c) => sum + c.cmc, 0) / Math.max(nonLands.length, 1);
+    
+    // Speed score (0-100) - based on fast mana and low curve
+    const lowCost = deck.filter(c => c.cmc <= 2 && !c.type_line.toLowerCase().includes('land')).length;
+    const speedScore = Math.min(100, (fastMana * 25) + (lowCost * 2));
+    
+    // Interaction score (0-100)
+    const interactionScore = Math.min(100, (removal * 7) + (counterspells * 10));
+    
+    // Tutor score (0-100)
+    const broadTutors = deck.filter(c => c.tags.has('tutor-broad')).length;
+    const tutorScore = Math.min(100, (tutors * 12) + (broadTutors * 15));
+    
+    // Fast mana score (0-100)
+    const fastManaScore = Math.min(100, fastMana * 30);
+    
+    // Efficiency score (0-100) - lower CMC = higher efficiency
+    const efficiencyScore = Math.max(0, Math.min(100, 100 - ((avgCMC - 2.5) * 30)));
+    
+    // Combo score (0-100)
+    const comboScore = Math.min(100, (combos * 20) + (wincons * 15));
+    
+    // Draw score (0-100)
+    const drawScore = Math.min(100, draw * 9);
+    
+    // Protection score (0-100)
+    const protectionScore = Math.min(100, protection * 15);
+    
+    return {
+      speed: speedScore,
+      interaction: interactionScore,
+      tutors: tutorScore,
+      fastMana: fastManaScore,
+      efficiency: efficiencyScore,
+      combo: comboScore,
+      draw: drawScore,
+      protection: protectionScore,
+      wincon: Math.min(100, wincons * 20)
     };
   }
   
@@ -609,20 +701,25 @@ export class BuilderOrchestrator {
   private static scoreCard(card: Card): number {
     let score = 0;
     
-    // Rarity
-    if (card.rarity === 'mythic') score += 3;
-    else if (card.rarity === 'rare') score += 2;
+    // Rarity - powerful cards tend to be rare/mythic
+    if (card.rarity === 'mythic') score += 5;
+    else if (card.rarity === 'rare') score += 3;
     else if (card.rarity === 'uncommon') score += 1;
     
-    // Price
+    // Price - expensive cards are usually powerful
     const price = parseFloat(card.prices?.usd || '0');
-    if (price > 10) score += 3;
-    else if (price > 5) score += 2;
+    if (price > 50) score += 8;
+    else if (price > 20) score += 6;
+    else if (price > 10) score += 4;
+    else if (price > 5) score += 3;
     else if (price > 1) score += 1;
-    else if (price < 0.1) score -= 3; // Penalize bulk
+    else if (price < 0.1) score -= 5; // Heavily penalize bulk
     
-    // CMC sweet spot
-    if (card.cmc >= 2 && card.cmc <= 4) score += 2;
+    // CMC sweet spot for competitive play (2-4 is ideal)
+    if (card.cmc <= 1) score += 4; // Fast cards are great
+    else if (card.cmc >= 2 && card.cmc <= 4) score += 3;
+    else if (card.cmc === 5) score += 1;
+    else if (card.cmc >= 6) score -= 2; // Penalize expensive cards
     
     return score;
   }

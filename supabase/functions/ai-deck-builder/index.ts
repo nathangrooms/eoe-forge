@@ -404,7 +404,8 @@ function calculatePowerScore(deck: Card[], format: string): { power: number; sub
   }, 0) / Object.values(weights).reduce((a, b) => a + b, 0);
 
   // More aggressive power scaling - competitive decks should score higher
-  const power = Math.max(1, Math.min(10, 2 + (weightedScore / 100) * 8));
+  // Changed from 2 + (score/100)*8 to 3.5 + (score/100)*6.5 for higher baseline
+  const power = Math.max(1, Math.min(10, 3.5 + (weightedScore / 100) * 6.5));
   
   return { power, subscores };
 }
@@ -416,24 +417,28 @@ function calculateSpeedScore(deck: Card[]): number {
   const fastMana = deck.filter(c => isFastMana(c)).length;
   
   // Enhanced speed calculation emphasizing early game explosiveness
-  const speedScore = (zeroCost * 8) + (oneCost * 4) + (lowCost * 2) + (fastMana * 20);
+  // Increased multipliers for more generous scoring
+  const speedScore = (zeroCost * 12) + (oneCost * 6) + (lowCost * 3) + (fastMana * 25);
   return Math.min(100, speedScore);
 }
 
 function calculateInteractionScore(deck: Card[]): number {
   const removal = deck.filter(c => isRemoval(c)).length;
   const counterspells = deck.filter(c => isCounterspell(c)).length;
-  return Math.min(100, (removal * 8) + (counterspells * 10));
+  // Increased multipliers for higher scores
+  return Math.min(100, (removal * 10) + (counterspells * 12));
 }
 
 function calculateRampScore(deck: Card[]): number {
   const ramp = deck.filter(c => isRamp(c)).length;
-  return Math.min(100, ramp * 12);
+  // Increased from 12 to 15
+  return Math.min(100, ramp * 15);
 }
 
 function calculateCardAdvantageScore(deck: Card[]): number {
   const draw = deck.filter(c => isCardDraw(c)).length;
-  return Math.min(100, draw * 10);
+  // Increased from 10 to 12
+  return Math.min(100, draw * 12);
 }
 
 function calculateTutorScore(deck: Card[]): number {
@@ -444,7 +449,8 @@ function calculateTutorScore(deck: Card[]): number {
   }).length;
   
   // Weight broad tutors more heavily as they're more powerful
-  return Math.min(100, (tutors * 15) + (broadTutors * 10));
+  // Increased from 15/10 to 18/12
+  return Math.min(100, (tutors * 18) + (broadTutors * 12));
 }
 
 function calculateWinconScore(deck: Card[]): number {

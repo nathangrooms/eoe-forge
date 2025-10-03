@@ -24,7 +24,8 @@ import {
   TrendingUp,
   DollarSign,
   Hash,
-  Download
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { showSuccess } from '@/components/ui/toast-helpers';
@@ -286,6 +287,29 @@ export function AIGeneratedDeckList({
         )}
       </Card>
     );
+  };
+
+  // Generate EDH Power Level URL
+  const generateEDHPowerLevelURL = () => {
+    let decklistParam = '';
+    
+    // Add commander
+    if (commander) {
+      decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+    }
+    
+    // Add all other cards
+    cards.forEach(card => {
+      const quantity = card.quantity || 1;
+      decklistParam += `${quantity}x+${encodeURIComponent(card.name)}~`;
+    });
+    
+    // Remove trailing ~
+    if (decklistParam.endsWith('~')) {
+      decklistParam = decklistParam.slice(0, -1);
+    }
+    
+    return `https://edhpowerlevel.com/?d=${decklistParam}`;
   };
 
   return (
@@ -568,51 +592,67 @@ export function AIGeneratedDeckList({
       </Tabs>
 
       {/* Action Buttons */}
-      <div className="flex gap-2">
-        <Button onClick={onSaveDeck} className="flex-1">
-          <Save className="h-4 w-4 mr-2" />
-          Save to My Decks
-        </Button>
-        {onApplyToDeckBuilder && (
-          <Button variant="outline" onClick={onApplyToDeckBuilder} className="flex-1">
-            <Swords className="h-4 w-4 mr-2" />
-            Open in Deck Builder
-          </Button>
-        )}
+      <div className="flex flex-col gap-2">
+        {/* EDH Power Level Check Button */}
         <Button 
-          variant="outline" 
-          onClick={async () => {
-            // Generate deck list export (same format as DeckImportExport)
-            let output = '';
-            
-            // Commander
-            if (commander) {
-              output += `1x ${commander.name} (Commander)\n\n`;
-            }
-            
-            // Main deck
-            Object.entries(groupedCards).forEach(([category, categoryCards]) => {
-              (categoryCards as any[]).forEach(card => {
-                output += `${card.quantity || 1}x ${card.name}\n`;
-              });
-            });
-            
-            // Copy to clipboard
-            try {
-              await navigator.clipboard.writeText(output);
-              showSuccess("Copied to Clipboard", "Deck list copied successfully");
-            } catch (error) {
-              showSuccess("Export Failed", "Could not copy to clipboard");
-            }
-          }}
+          variant="secondary" 
+          className="w-full"
+          onClick={() => window.open(generateEDHPowerLevelURL(), '_blank')}
         >
-          <Download className="h-4 w-4 mr-2" />
-          Copy Decklist
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Check Power Level on edhpowerlevel.com
         </Button>
-        <Button variant="outline" onClick={onStartOver}>
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Build Another Deck
-        </Button>
+        
+        <div className="flex gap-2">
+          <Button onClick={onSaveDeck} className="flex-1">
+            <Save className="h-4 w-4 mr-2" />
+            Save to My Decks
+          </Button>
+          {onApplyToDeckBuilder && (
+            <Button variant="outline" onClick={onApplyToDeckBuilder} className="flex-1">
+              <Swords className="h-4 w-4 mr-2" />
+              Open in Deck Builder
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={async () => {
+              // Generate deck list export (same format as DeckImportExport)
+              let output = '';
+              
+              // Commander
+              if (commander) {
+                output += `1x ${commander.name} (Commander)\n\n`;
+              }
+              
+              // Main deck
+              Object.entries(groupedCards).forEach(([category, categoryCards]) => {
+                (categoryCards as any[]).forEach(card => {
+                  output += `${card.quantity || 1}x ${card.name}\n`;
+                });
+              });
+              
+              // Copy to clipboard
+              try {
+                await navigator.clipboard.writeText(output);
+                showSuccess("Copied to Clipboard", "Deck list copied successfully");
+              } catch (error) {
+                showSuccess("Export Failed", "Could not copy to clipboard");
+              }
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Copy Decklist
+          </Button>
+          <Button variant="outline" onClick={onStartOver} className="flex-1">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Build Another Deck
+          </Button>
+        </div>
       </div>
     </div>
   );

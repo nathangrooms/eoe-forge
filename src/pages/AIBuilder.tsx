@@ -109,7 +109,7 @@ export default function AIBuilder() {
     archetype: '',
     powerLevel: 6,
     budget: 100,
-    maxBudget: 500, // Maximum total deck price
+    maxBudget: 500,
     customPrompt: '',
     includeLands: true,
     prioritizeSynergy: true,
@@ -120,6 +120,12 @@ export default function AIBuilder() {
   const [commanderSearchResults, setCommanderSearchResults] = useState<any[]>([]);
   const [searchingCommanders, setSearchingCommanders] = useState(false);
   const [buildProgress, setBuildProgress] = useState(0);
+  
+  // Commander finder state
+  const [finderColors, setFinderColors] = useState<string[]>([]);
+  const [finderArchetype, setFinderArchetype] = useState('');
+  const [finderResults, setFinderResults] = useState<any[]>([]);
+  const [searchingFinder, setSearchingFinder] = useState(false);
 
   
   // Search for commanders
@@ -161,6 +167,74 @@ export default function AIBuilder() {
     
     return () => clearTimeout(timer);
   }, [commanderSearch]);
+
+  // Commander finder search
+  const searchCommandersByFilters = async () => {
+    if (finderColors.length === 0 && !finderArchetype) return;
+    
+    setSearchingFinder(true);
+    try {
+      let query = 't:legendary t:creature';
+      
+      // Add color identity filter
+      if (finderColors.length > 0) {
+        const colorString = finderColors.sort().join('');
+        query += ` id:${colorString}`;
+      }
+      
+      // Add archetype-based oracle text filters
+      if (finderArchetype) {
+        const archetypeKeywords: Record<string, string> = {
+          'aggro': 'haste OR first strike OR double strike',
+          'voltron': 'equipment OR aura OR enchant',
+          'tribal': 'creature type',
+          'control': 'counter OR destroy OR exile',
+          'combo': 'whenever OR sacrifice',
+          'tokens': 'create token',
+          'artifacts': 'artifact',
+          'spellslinger': 'instant OR sorcery',
+          'lifegain': 'gain life OR lifelink',
+          'graveyard': 'graveyard OR return from',
+          'ramp': 'land OR mana',
+          'draw': 'draw card'
+        };
+        
+        const keyword = archetypeKeywords[finderArchetype];
+        if (keyword) {
+          query += ` (o:${keyword})`;
+        }
+      }
+      
+      const response = await fetch(
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=edhrec`
+      );
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setFinderResults([]);
+          return;
+        }
+        throw new Error('Search failed');
+      }
+      
+      const data = await response.json();
+      setFinderResults((data.data || []).slice(0, 12));
+    } catch (error) {
+      console.error('Commander finder search error:', error);
+      setFinderResults([]);
+      showError('Search Failed', 'Could not find commanders with those filters');
+    } finally {
+      setSearchingFinder(false);
+    }
+  };
+
+  const toggleFinderColor = (color: string) => {
+    setFinderColors(prev => 
+      prev.includes(color) 
+        ? prev.filter(c => c !== color)
+        : [...prev, color]
+    );
+  };
 
   const currentArchetypes = useMemo(() => {
     return suggestedArchetypes.length > 0 ? suggestedArchetypes : (ARCHETYPES[buildData.format as keyof typeof ARCHETYPES] || ARCHETYPES.standard);
@@ -985,6 +1059,132 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                             </div>
                           </div>
                        ))}
+                    </div>
+                  </div>
+
+                  {/* Commander Finder Section */}
+                  <div className="mt-8 p-6 border-2 border-dashed border-primary/30 rounded-xl bg-gradient-to-br from-accent/5 to-primary/5">
+                    <h4 className="font-medium mb-4 text-lg flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-accent" />
+                      Don't know what commander to pick?
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Filter commanders by colors and playstyle to find your perfect match
+                    </p>
+
+                    <div className="space-y-4">
+                      {/* Color Selector */}
+                      <div>
+                        <Label className="text-sm font-medium mb-3 block">Color Identity</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { color: 'W', name: 'White', bg: 'hsl(var(--mana-white))', text: '#000' },
+                            { color: 'U', name: 'Blue', bg: 'hsl(var(--mana-blue))', text: '#fff' },
+                            { color: 'B', name: 'Black', bg: 'hsl(var(--mana-black))', text: '#fff' },
+                            { color: 'R', name: 'Red', bg: 'hsl(var(--mana-red))', text: '#fff' },
+                            { color: 'G', name: 'Green', bg: 'hsl(var(--mana-green))', text: '#fff' }
+                          ].map(({ color, name, bg, text }) => (
+                            <Button
+                              key={color}
+                              variant={finderColors.includes(color) ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => toggleFinderColor(color)}
+                              className={finderColors.includes(color) ? '' : 'hover:scale-105'}
+                              style={finderColors.includes(color) ? {
+                                backgroundColor: bg,
+                                color: text,
+                                borderColor: bg
+                              } : {}}
+                            >
+                              {name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Archetype Selector */}
+                      <div>
+                        <Label className="text-sm font-medium mb-3 block">Playstyle</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {[
+                            { value: 'aggro', label: 'Aggro' },
+                            { value: 'voltron', label: 'Voltron' },
+                            { value: 'tribal', label: 'Tribal' },
+                            { value: 'control', label: 'Control' },
+                            { value: 'combo', label: 'Combo' },
+                            { value: 'tokens', label: 'Tokens' },
+                            { value: 'artifacts', label: 'Artifacts' },
+                            { value: 'spellslinger', label: 'Spellslinger' },
+                            { value: 'lifegain', label: 'Lifegain' },
+                            { value: 'graveyard', label: 'Graveyard' },
+                            { value: 'ramp', label: 'Ramp' },
+                            { value: 'draw', label: 'Card Draw' }
+                          ].map((archetype) => (
+                            <Button
+                              key={archetype.value}
+                              variant={finderArchetype === archetype.value ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setFinderArchetype(archetype.value === finderArchetype ? '' : archetype.value)}
+                              className="hover:scale-105 transition-transform"
+                            >
+                              {archetype.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Search Button */}
+                      <Button
+                        onClick={searchCommandersByFilters}
+                        disabled={finderColors.length === 0 && !finderArchetype}
+                        className="w-full bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90"
+                      >
+                        {searchingFinder ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2" />
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <Target className="w-4 h-4 mr-2" />
+                            Find Commanders
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Results */}
+                      {finderResults.length > 0 && (
+                        <div className="mt-6">
+                          <h5 className="font-medium mb-3 text-sm">Found {finderResults.length} Commanders</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {finderResults.map((card) => (
+                              <div
+                                key={card.id}
+                                className="group cursor-pointer transition-all duration-300 hover:scale-105"
+                                onClick={async () => {
+                                  setCommander(card);
+                                  analyzeCommander(card);
+                                  // Reset finder
+                                  setFinderResults([]);
+                                  setFinderColors([]);
+                                  setFinderArchetype('');
+                                }}
+                              >
+                                <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-accent group-hover:shadow-lg group-hover:shadow-accent/30 transition-all">
+                                  <img 
+                                    src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
+                                    alt={card.name}
+                                    className="w-full h-auto"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                    <p className="text-white text-xs font-bold truncate">{card.name}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

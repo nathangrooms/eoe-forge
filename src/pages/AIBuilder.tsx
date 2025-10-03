@@ -298,7 +298,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       // Auto-advance to archetype selection if we got suggestions
       if (archetypes.length > 0) {
         setStep(3);
-        showSuccess('Commander Analyzed', `Found ${archetypes.length} synergistic archetypes for ${selectedCommander.name}`);
+        // Removed blocking toast to avoid covering navigation
+        console.log(`Commander analyzed: ${archetypes.length} archetypes found for ${selectedCommander.name}`);
       }
       
     } catch (error) {

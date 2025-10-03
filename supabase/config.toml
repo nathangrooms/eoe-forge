@@ -19,3 +19,6 @@ verify_jwt = false
 
 [functions.mtg-brain]
 verify_jwt = false
+
+[functions.edh-power-check]
+verify_jwt = false

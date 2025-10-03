@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -112,6 +112,7 @@ const SECTIONS = {
 
 export function LeftNavigation() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
@@ -155,13 +156,33 @@ export function LeftNavigation() {
     );
   };
 
+  const handleQuickBuild = () => {
+    // Create a new empty deck and navigate to deck builder
+    const newDeck = {
+      id: crypto.randomUUID(),
+      name: 'New Deck',
+      format: 'commander',
+      cards: [],
+      commander: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Store in localStorage for the deck builder to pick up
+    localStorage.setItem('pendingDeck', JSON.stringify(newDeck));
+    navigate('/deck-builder');
+  };
+
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-background">
+    <div className="flex h-full w-64 flex-col border-r bg-background pt-4">
       <div className="flex h-14 items-center border-b px-4">
-        <Link to="/deck-builder" className="flex items-center gap-2 font-semibold">
+        <button 
+          onClick={handleQuickBuild}
+          className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+        >
           <Plus className="h-5 w-5" />
           Quick Build
-        </Link>
+        </button>
       </div>
       
       <div className="flex-1 overflow-auto py-4 px-3 space-y-6">

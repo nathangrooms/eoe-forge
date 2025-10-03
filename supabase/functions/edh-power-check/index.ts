@@ -29,16 +29,22 @@ serve(async (req) => {
     // Build the edhpowerlevel.com URL
     let decklistParam = '';
     
-    // Commander
-    if (decklist.commander) {
-      decklistParam += `1x+${encodeURIComponent(decklist.commander.name)}~`;
+    // Helper to encode names with + for spaces and strip trailing (commander)
+    const encodeName = (name: string) =>
+      encodeURIComponent(name.replace(/\s*\(commander\)\s*$/i, '').trim()).replace(/%20/g, '+');
+    
+    // Commander first with double tilde separator
+    if (decklist.commander?.name) {
+      const commanderName = encodeName(decklist.commander.name);
+      decklistParam += `1x+${commanderName}~~`;
     }
     
     // Cards
     if (decklist.cards && Array.isArray(decklist.cards)) {
       decklist.cards.forEach((card: any) => {
+        if (!card?.name) return;
         const quantity = card.quantity || 1;
-        decklistParam += `${quantity}x+${encodeURIComponent(card.name)}~`;
+        decklistParam += `${quantity}x+${encodeName(card.name)}~`;
       });
     }
     

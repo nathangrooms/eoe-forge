@@ -212,11 +212,11 @@ const DeckBuilder = () => {
       });
 
       if (!powerError && powerData?.success && typeof powerData?.powerLevel === 'number') {
+        if (powerData?.url) setEdhPowerUrl(powerData.url);
         setEdhPowerLevel(powerData.powerLevel);
-        setEdhPowerUrl(powerData.url);
       } else {
+        if (powerData?.url) setEdhPowerUrl(powerData.url);
         setEdhPowerLevel(null);
-        setEdhPowerUrl(null);
         showError('EDH Power Level', 'Unable to fetch from edhpowerlevel.com');
       }
     } catch (error) {

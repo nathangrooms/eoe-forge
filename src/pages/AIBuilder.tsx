@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
+// Toast helpers disabled on this page
 import { useDeckStore } from '@/stores/deckStore';
 import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
 import { 
@@ -29,6 +29,10 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
+
+// Toasts disabled on AI Builder page per UX request
+const showSuccess = (_title?: string, _description?: string) => {};
+const showError = (_title?: string, _description?: string) => {};
 
 const FORMATS = [
   { value: 'standard', label: 'Standard', description: '60-card competitive format' },

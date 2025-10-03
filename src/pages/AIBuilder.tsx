@@ -1275,17 +1275,37 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         );
 
       case 4:
+        const getBudgetLabel = (budget: number) => {
+          if (budget <= 50) return 'Budget';
+          if (budget <= 150) return 'Mid-Range';
+          if (budget <= 500) return 'High-End';
+          return 'Premium';
+        };
+
+        const getTotalBudgetLabel = (total: number) => {
+          if (total <= 300) return 'Budget';
+          if (total <= 1000) return 'Mid-Range';
+          if (total <= 3000) return 'High-End';
+          return 'Premium';
+        };
+
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <DollarSign className="h-5 w-5 mr-2" />
+          <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
+            <CardHeader className="border-b border-border/50">
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent">
+                  <DollarSign className="w-6 h-6 text-primary-foreground" />
+                </div>
                 Power Level & Budget
               </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">Define your deck's competitiveness and spending limits</p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <Label>Power Level: {buildData.powerLevel}/10</Label>
+            <CardContent className="space-y-8 pt-8">
+              {/* Power Level */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-lg font-semibold">Power Level: {buildData.powerLevel}/10</Label>
+                </div>
                 <Slider
                   value={[buildData.powerLevel]}
                   onValueChange={(value) => setBuildData(prev => ({ ...prev, powerLevel: value[0] }))}
@@ -1294,18 +1314,19 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   step={1}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Casual</span>
-                  <span>Competitive</span>
-                  <span>cEDH</span>
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="text-muted-foreground">Casual</span>
+                  <span className="text-primary">Competitive</span>
+                  <span className="text-accent">cEDH</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              {/* Per-Card Budget */}
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Per-Card Budget: ${buildData.budget}</Label>
-                  <Badge variant={buildData.budget < 50 ? 'secondary' : buildData.budget < 200 ? 'default' : 'destructive'}>
-                    {buildData.budget < 50 ? 'Budget ($3 max/card)' : buildData.budget < 200 ? 'Mid-Range ($15 max/card)' : 'High-End ($100 max/card)'}
+                  <Label className="text-lg font-semibold">Per-Card Budget: ${buildData.budget}</Label>
+                  <Badge className="bg-gradient-to-r from-spacecraft to-station border-0 text-base px-3 py-1">
+                    {getBudgetLabel(buildData.budget)} (${buildData.budget > 2000 ? '2000+' : buildData.budget} max/card)
                   </Badge>
                 </div>
                 <Slider
@@ -1316,7 +1337,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   step={25}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-sm font-medium text-muted-foreground">
                   <span>$25</span>
                   <span>$500</span>
                   <span>$2000+</span>
@@ -1326,11 +1347,12 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                 </p>
               </div>
 
-              <div className="space-y-3">
+              {/* Total Deck Budget */}
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Total Deck Budget: ${buildData.maxBudget}</Label>
-                  <Badge variant={buildData.maxBudget < 300 ? 'secondary' : buildData.maxBudget < 1000 ? 'default' : 'destructive'}>
-                    {buildData.maxBudget < 300 ? 'Budget' : buildData.maxBudget < 1000 ? 'Mid-Range' : 'High-End'}
+                  <Label className="text-lg font-semibold">Total Deck Budget: ${buildData.maxBudget}</Label>
+                  <Badge variant="outline" className="border-primary/30 text-base px-3 py-1">
+                    {getTotalBudgetLabel(buildData.maxBudget)}
                   </Badge>
                 </div>
                 <Slider
@@ -1341,7 +1363,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                   step={100}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-sm font-medium text-muted-foreground">
                   <span>$100</span>
                   <span>$1000</span>
                   <span>$5000+</span>
@@ -1351,32 +1373,42 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
+              {/* Checkboxes */}
+              <div className="space-y-3 pt-4 border-t border-border/50">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     id="synergy"
                     checked={buildData.prioritizeSynergy}
                     onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, prioritizeSynergy: !!checked }))}
+                    className="border-primary data-[state=checked]:bg-primary"
                   />
-                  <Label htmlFor="synergy">Prioritize synergy over power</Label>
+                  <Label htmlFor="synergy" className="text-sm font-medium cursor-pointer">
+                    Prioritize synergy over power
+                  </Label>
                 </div>
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     id="lands"
                     checked={buildData.includeLands}
                     onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeLands: !!checked }))}
+                    className="border-primary data-[state=checked]:bg-primary"
                   />
-                  <Label htmlFor="lands">Include manabase</Label>
+                  <Label htmlFor="lands" className="text-sm font-medium cursor-pointer">
+                    Include manabase
+                  </Label>
                 </div>
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     id="basics"
                     checked={buildData.includeBasics}
                     onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeBasics: !!checked }))}
+                    className="border-primary data-[state=checked]:bg-primary"
                   />
-                  <Label htmlFor="basics">Include basic lands</Label>
+                  <Label htmlFor="basics" className="text-sm font-medium cursor-pointer">
+                    Include basic lands
+                  </Label>
                 </div>
               </div>
             </CardContent>

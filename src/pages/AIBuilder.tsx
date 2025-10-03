@@ -81,6 +81,10 @@ export default function AIBuilder() {
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showCardModal, setShowCardModal] = useState(false);
   
+  // AI Archetype Analysis
+  const [analyzingArchetypes, setAnalyzingArchetypes] = useState(false);
+  const [archetypeAnalysis, setArchetypeAnalysis] = useState<any>(null);
+  
   // Build Config
   const [powerLevel, setPowerLevel] = useState(6);
   const [budget, setBudget] = useState(100);
@@ -165,6 +169,36 @@ export default function AIBuilder() {
     }
   };
 
+  // Get AI archetype analysis for commander
+  const analyzeArchetypes = async () => {
+    if (!selectedCommander) return;
+    
+    setAnalyzingArchetypes(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-deck-coach', {
+        body: {
+          type: 'archetype-analysis',
+          commander: {
+            name: selectedCommander.name,
+            oracle_text: selectedCommander.oracle_text,
+            type_line: selectedCommander.type_line,
+            color_identity: selectedCommander.color_identity
+          }
+        }
+      });
+
+      if (error) throw error;
+      
+      setArchetypeAnalysis(data);
+      showSuccess('Analysis Complete', 'AI has analyzed best archetypes');
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      showError('Analysis Failed', error.message);
+    } finally {
+      setAnalyzingArchetypes(false);
+    }
+  };
+
   // Build deck
   const handleBuild = async () => {
     if (!selectedCommander || !selectedArchetype) return;
@@ -175,21 +209,26 @@ export default function AIBuilder() {
     try {
       setBuildProgress(30);
       
+      // Use ai-deck-builder-v2 which connects to admin panel prompts
       const { data, error } = await supabase.functions.invoke('ai-deck-builder-v2', {
         body: {
           commander: {
             id: selectedCommander.id,
             name: selectedCommander.name,
-            colors: selectedCommander.color_identity || [],
-            type: selectedCommander.type_line,
-            text: selectedCommander.oracle_text
+            oracle_text: selectedCommander.oracle_text,
+            type_line: selectedCommander.type_line,
+            color_identity: selectedCommander.color_identity || [],
+            colors: selectedCommander.colors || []
           },
           preferences: {
             archetype: selectedArchetype.value,
             powerLevel,
             budget,
             format: 'commander'
-          }
+          },
+          archetype: selectedArchetype.value,
+          powerLevel,
+          useAIPlanning: true
         }
       });
 
@@ -197,10 +236,22 @@ export default function AIBuilder() {
 
       if (error) throw error;
 
-      setBuildResult(data);
-      setStep(4);
-      setBuildProgress(100);
-      showSuccess('Deck Built!', `${data.cards?.length || 0} cards added`);
+      // Handle response from ai-deck-builder-v2
+      if (data?.status === 'complete') {
+        setBuildResult({
+          cards: data.result.deck,
+          metadata: {
+            powerLevel,
+            strategy: data.plan?.strategy,
+            validation: data.result.validation
+          }
+        });
+        setStep(4);
+        setBuildProgress(100);
+        showSuccess('Deck Built!', `${data.result.deck.length} cards added`);
+      } else {
+        throw new Error('Unexpected response format');
+      }
       
     } catch (error: any) {
       console.error('Build error:', error);
@@ -576,7 +627,7 @@ export default function AIBuilder() {
           </div>
         )}
 
-        {/* Step 2: Archetype Selection (commander-first workflow) */}
+        {/* Step 2: Archetype Selection with AI Analysis (commander-first workflow) */}
         {step === 2 && workflow === 'commander-first' && selectedCommander && (
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -586,11 +637,56 @@ export default function AIBuilder() {
                   Commander: <Badge variant="secondary">{selectedCommander.name}</Badge>
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setStep(1)}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={analyzeArchetypes}
+                  disabled={analyzingArchetypes}
+                >
+                  {analyzingArchetypes ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      AI Archetype Analysis
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={() => setStep(1)}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+              </div>
             </div>
+
+            {/* AI Analysis Results */}
+            {archetypeAnalysis && (
+              <Card className="border-primary/50 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    AI Archetype Recommendations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="whitespace-pre-wrap">{archetypeAnalysis.analysis || archetypeAnalysis.message}</p>
+                  </div>
+                  {archetypeAnalysis.topArchetypes && (
+                    <div className="flex flex-wrap gap-2">
+                      {archetypeAnalysis.topArchetypes.map((arch: string) => (
+                        <Badge key={arch} variant="secondary" className="text-sm">
+                          {arch}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Commander Preview */}
             <Card>

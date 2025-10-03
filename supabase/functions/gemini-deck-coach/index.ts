@@ -112,11 +112,6 @@ serve(async (req) => {
       return handleAnalyticsRequest(body);
     }
     
-    // Handle archetype analysis for AI Builder
-    if (body?.type === 'archetype-analysis' && body?.commander) {
-      return handleArchetypeAnalysis(body);
-    }
-    
     // Original deck building logic
     const request: CoachRequest = body as CoachRequest;
     if (!request || !request.commander || typeof request.commander.name !== 'string' || !request.commander.name) {
@@ -199,85 +194,6 @@ serve(async (req) => {
     });
   }
 });
-
-// Handle archetype analysis for AI Builder
-async function handleArchetypeAnalysis(body: any) {
-  const { commander } = body;
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const analysisPrompt = `Analyze this Magic: The Gathering Commander and recommend optimal archetypes:
-
-**Commander:** ${commander.name}
-**Type:** ${commander.type_line}
-**Colors:** ${commander.color_identity?.join(', ') || 'Colorless'}
-**Abilities:** ${commander.oracle_text}
-
-Based on this commander's abilities and mechanics, recommend:
-
-1. **Top 3 Best Archetypes** (in order of synergy strength)
-   - For each archetype: Explain WHY it fits this commander
-   - Rate synergy: High/Medium/Low
-   - Mention 2-3 key cards for each archetype
-
-2. **Strategic Analysis** (2-3 sentences)
-   - What is this commander's core mechanic?
-   - How does it win games?
-   - What playstyle does it support?
-
-Format as conversational analysis, not JSON. Be specific and practical.`;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are DeckMatrix AI, an elite Magic: The Gathering strategist specializing in Commander deck optimization and archetype identification. Provide tournament-caliber insights with practical, actionable recommendations.' 
-        },
-        { role: 'user', content: analysisPrompt }
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 429) {
-      return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (response.status === 402) {
-      return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    throw new Error(`AI gateway error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const analysis = data.choices[0].message.content;
-
-  console.log('Archetype analysis complete');
-
-  return new Response(
-    JSON.stringify({ 
-      success: true,
-      analysis,
-      commander: commander.name
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
 
 // Handle analytics requests separately
 async function handleAnalyticsRequest(body: any) {

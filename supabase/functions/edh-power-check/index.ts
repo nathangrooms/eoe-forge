@@ -62,14 +62,17 @@ for (const { name, qty } of seen.values()) {
   parts.push(`${qty}x+${encodeName(name)}`);
 }
 
-// Cap items and URL length to avoid browser cut-offs
+// Cap items and URL length to avoid browser cut-offs, always end with sentinel
 const MAX_ITEMS = 100; // EDH typical size
 let limitedParts = parts.slice(0, MAX_ITEMS);
 const MAX_LEN = 7000;
-let combined = decklistParam + limitedParts.join('~');
-while (combined.length > MAX_LEN && limitedParts.length > 0) {
+const sentinel = '~Z~';
+let combinedBody = limitedParts.join('~');
+let combined = decklistParam + combinedBody + sentinel;
+while ((decklistParam.length + combinedBody.length + sentinel.length) > MAX_LEN && limitedParts.length > 0) {
   limitedParts.pop();
-  combined = decklistParam + limitedParts.join('~');
+  combinedBody = limitedParts.join('~');
+  combined = decklistParam + combinedBody + sentinel;
 }
 
 decklistParam = combined;

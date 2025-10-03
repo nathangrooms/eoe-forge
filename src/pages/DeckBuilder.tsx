@@ -238,10 +238,13 @@ for (const { name, qty } of seen.values()) {
 const MAX_ITEMS = 100;
 let limitedParts = parts.slice(0, MAX_ITEMS);
 const MAX_LEN = 7000;
-let decklistParam = header + limitedParts.join('~');
-while (decklistParam.length > MAX_LEN && limitedParts.length > 0) {
+const sentinel = '~Z~';
+let body = limitedParts.join('~');
+let decklistParam = header + body + sentinel;
+while ((header.length + body.length + sentinel.length) > MAX_LEN && limitedParts.length > 0) {
   limitedParts.pop();
-  decklistParam = header + limitedParts.join('~');
+  body = limitedParts.join('~');
+  decklistParam = header + body + sentinel;
 }
 
 const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;

@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import { MobileNavigation } from "@/components/navigation/MobileNavigation";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import Collection from "./pages/Collection";
 import Index from "./pages/Index";
 import Homepage from "./pages/Homepage";
@@ -90,7 +91,8 @@ function AppContent() {
         </div>
         
         {/* Main Content Area - Offset by left nav width on desktop */}
-        <main className="flex-1 min-h-[calc(100vh-3.5rem)] w-full md:ml-64 overflow-x-hidden">
+        <main className="flex-1 min-h-[calc(100vh-3.5rem)] w-full md:ml-64 overflow-x-hidden pt-4">
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

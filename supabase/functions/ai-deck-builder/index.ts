@@ -861,7 +861,11 @@ async function getCardPool(format: string, colors: string[], constraints?: any):
     
     // Color identity filter for Commander
     if (format === 'commander' && colors.length > 0) {
-      query = query.overlaps('color_identity', colors);
+      // Only include cards whose color_identity is a subset of the commander's identity
+      // Use containedBy (<@) instead of overlaps (&&)
+      // If containedBy is not supported on this column type, we'll post-filter after fetch
+      // @ts-ignore - supabase-js supports containedBy for array/jsonb
+      query = (query as any).containedBy('color_identity', colors);
     }
     
     // Apply constraints

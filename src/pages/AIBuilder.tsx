@@ -579,7 +579,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
           cards: data.cards || [],
           power: data.power || buildData.powerLevel,
-          edhPowerLevel: (powerCheckData?.powerLevel ?? (data.power || buildData.powerLevel)),
+          edhPowerLevel: powerCheckData?.powerLevel ?? null,
           edhPowerUrl: powerCheckData?.url || null,
           totalValue: data.cards?.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');

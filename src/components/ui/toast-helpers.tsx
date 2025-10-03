@@ -5,6 +5,7 @@ export const showSuccess = (title: string, description?: string) => {
     title,
     description,
     variant: "default",
+    duration: 3000, // Auto-dismiss after 3 seconds
   });
 };
 
@@ -13,6 +14,7 @@ export const showError = (title: string, description?: string) => {
     title,
     description,
     variant: "destructive",
+    duration: 5000, // Errors stay a bit longer
   });
 };
 
@@ -20,7 +22,7 @@ export const showLoading = (title: string, description?: string) => {
   return toast({
     title,
     description,
-    duration: 0, // Don't auto-dismiss
+    duration: Infinity, // Don't auto-dismiss loading toasts
   });
 };
 

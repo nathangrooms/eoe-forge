@@ -201,7 +201,26 @@ const DeckBuilder = () => {
       const cards = summary.cards || [];
       const commander = summary.commander;
 
-      // Call EDH power check function
+      // Build the edhpowerlevel.com URL immediately so user always has a link
+      const encodeName = (name: string) =>
+        encodeURIComponent(name.replace(/\s*\(commander\)\s*$/i, '').trim()).replace(/%20/g, '+');
+
+      let decklistParam = '';
+      if (commander?.name) {
+        decklistParam += `1x+${encodeName(commander.name)}~~`;
+      }
+      if (Array.isArray(cards)) {
+        for (const c of cards) {
+          if (!c?.card_name) continue;
+          const quantity = c.quantity || 1;
+          decklistParam += `${quantity}x+${encodeName(c.card_name)}~`;
+        }
+      }
+      if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+      const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
+      setEdhPowerUrl(fallbackUrl);
+
+      // Call EDH power check function to try scraping the power level
       const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
         body: {
           decklist: {
@@ -211,17 +230,26 @@ const DeckBuilder = () => {
         }
       });
 
+      if (powerError) {
+        console.error('EDH power check error:', powerError);
+      }
+
+      if (powerData?.url) setEdhPowerUrl(powerData.url);
+
       if (!powerError && powerData?.success && typeof powerData?.powerLevel === 'number') {
-        if (powerData?.url) setEdhPowerUrl(powerData.url);
         setEdhPowerLevel(powerData.powerLevel);
       } else {
-        if (powerData?.url) setEdhPowerUrl(powerData.url);
         setEdhPowerLevel(null);
-        showError('EDH Power Level', 'Unable to fetch from edhpowerlevel.com');
+        if (!powerError) {
+          // We reached the function but couldn't parse a score
+          console.warn('EDH power level not found; using direct URL');
+          showError('EDH Power Level', 'Could not extract score. Open the EDH link for details.');
+        }
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
-      showError('EDH Power Level', 'Request failed. Please try again.');
+      // Keep the fallback URL so the user can still open the page
+      showError('EDH Power Level', 'Request failed. You can open the EDH link instead.');
     } finally {
       setLoadingEdhPower(false);
     }

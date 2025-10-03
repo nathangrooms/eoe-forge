@@ -599,12 +599,20 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         // Fallback to v1 builder
         setBuildProgress(50);
         const budgetTier = buildData.maxBudget <= 300 ? 'low' : buildData.maxBudget <= 1000 ? 'med' : 'high';
+
+        // Derive color identity safely
+        const derivedIdentity = buildData.colorIdentity ?
+          (COLOR_COMBINATIONS.find(c => c.value === buildData.colorIdentity)?.colors || []) :
+          (commander?.color_identity || []);
+
+        if (!derivedIdentity || derivedIdentity.length === 0) {
+          throw new Error('Please select a color identity or a commander before building.');
+        }
+
         const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
           body: {
             format: buildData.format,
-            identity: buildData.colorIdentity ? 
-              COLOR_COMBINATIONS.find(c => c.value === buildData.colorIdentity)?.colors || [] : 
-              commander?.color_identity || [],
+            identity: derivedIdentity,
             themeId: buildData.archetype,
             powerTarget: buildData.powerLevel,
             budget: budgetTier

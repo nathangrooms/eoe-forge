@@ -296,32 +296,96 @@ export class BuilderOrchestrator {
   }
   
   /**
-   * Quality threshold check
+   * Quality threshold check - STRICT filtering for competitive decks
    */
   private static meetsQualityThreshold(card: Card): boolean {
-    // Always include lands
-    if (card.type_line.includes('Land')) return true;
-    
+    const text = (card.oracle_text || '').toLowerCase();
+    const type = card.type_line.toLowerCase();
     const price = parseFloat(card.prices?.usd || '0');
-    const text = card.oracle_text || '';
     
-    // Reject obvious bulk junk
-    if (price < 0.10 && card.rarity === 'common') {
-      // Weak equipment
-      if (card.type_line.includes('Equipment') && 
-          /^equipped creature gets \+[01]\/\+[01]\.?$/i.test(text.trim())) {
-        return false;
-      }
-      // Vanilla cantrips
-      if (/^(tap: draw a card|sacrifice.*: draw a card)\.?$/i.test(text.trim())) {
+    // Always include powerful staples and lands
+    if (type.includes('land')) return true;
+    
+    // STAPLE DETECTION - Always include known staples
+    const staplePatterns = [
+      /sol ring|mana crypt|mana vault|grim monolith|mox/i,
+      /demonic tutor|vampiric tutor|mystical tutor|enlightened tutor/i,
+      /counterspell|force of will|mana drain|swan song|arcane denial/i,
+      /swords to plowshares|path to exile|assassin's trophy/i,
+      /rhystic study|mystic remora|sylvan library|phyrexian arena/i,
+      /cyclonic rift|toxic deluge|wrath of god|damnation/i,
+      /eternal witness|sun titan|craterhoof behemoth/i
+    ];
+    if (staplePatterns.some(pattern => pattern.test(card.name))) {
+      return true;
+    }
+    
+    // REJECT BULK COMMONS - Less than $0.15 and common = probably junk
+    if (price < 0.15 && card.rarity === 'common') {
+      // Allow if it has powerful effects
+      const powerfulEffects = [
+        /destroy target|exile target|counter target spell/,
+        /search your library/,
+        /draw.*card/,
+        /add.*mana/,
+        /win the game|lose the game/
+      ];
+      if (!powerfulEffects.some(pattern => pattern.test(text))) {
         return false;
       }
     }
     
-    // Reject overcosted vanilla creatures
-    if (card.type_line.includes('Creature') && !text && card.cmc > 3) {
-      const stats = parseInt(card.power || '0') + parseInt(card.toughness || '0');
-      if (stats < card.cmc * 2) return false;
+    // REJECT VANILLA CREATURES - No abilities and CMC > 2
+    if (type.includes('creature') && !text && card.cmc > 2) {
+      const power = parseInt(card.power || '0');
+      const toughness = parseInt(card.toughness || '0');
+      const stats = power + toughness;
+      
+      // Vanilla creatures need exceptional stats (>= CMC * 2.5)
+      if (stats < card.cmc * 2.5) return false;
+    }
+    
+    // REJECT WEAK CREATURES - No synergy keywords/abilities
+    if (type.includes('creature') && card.cmc > 1) {
+      const hasGoodAbilities = [
+        /flying|first strike|double strike|deathtouch|lifelink|vigilance|trample|haste/,
+        /draw|destroy|exile|counter|search|tutor/,
+        /when.*enters|whenever|dies|attacks|etb/,
+        /\+1\/\+1 counter|token|proliferate|sacrifice/
+      ].some(pattern => pattern.test(text));
+      
+      if (!hasGoodAbilities && price < 0.25) {
+        return false;
+      }
+    }
+    
+    // REJECT BAD EQUIPMENT - Weak stat boosts
+    if (type.includes('equipment')) {
+      if (/equipped creature gets \+[01]\/\+[01]\.?$/i.test(text)) {
+        return false;
+      }
+    }
+    
+    // REJECT OVERCOSTED SPELLS - CMC > 5 needs to be impactful
+    if (card.cmc > 5 && !type.includes('land')) {
+      const impactful = [
+        /destroy all|exile all|each opponent/,
+        /extra turn|win the game/,
+        /return all.*from.*graveyard/,
+        /draw.*\d+.*card/
+      ].some(pattern => pattern.test(text));
+      
+      if (!impactful && price < 0.50) {
+        return false;
+      }
+    }
+    
+    // REQUIRE MINIMUM QUALITY for legendaries
+    if (type.includes('legendary') && !type.includes('land')) {
+      // Legendary creatures/permanents should be at least $0.20 or rare+
+      if (price < 0.20 && card.rarity === 'uncommon') {
+        return false;
+      }
     }
     
     return true;
@@ -702,24 +766,42 @@ export class BuilderOrchestrator {
     let score = 0;
     
     // Rarity - powerful cards tend to be rare/mythic
-    if (card.rarity === 'mythic') score += 5;
-    else if (card.rarity === 'rare') score += 3;
-    else if (card.rarity === 'uncommon') score += 1;
+    if (card.rarity === 'mythic') score += 8;
+    else if (card.rarity === 'rare') score += 5;
+    else if (card.rarity === 'uncommon') score += 2;
+    else score -= 2; // Penalize commons
     
-    // Price - expensive cards are usually powerful
+    // Price - expensive cards are usually powerful (MAJOR factor)
     const price = parseFloat(card.prices?.usd || '0');
-    if (price > 50) score += 8;
-    else if (price > 20) score += 6;
-    else if (price > 10) score += 4;
-    else if (price > 5) score += 3;
-    else if (price > 1) score += 1;
-    else if (price < 0.1) score -= 5; // Heavily penalize bulk
+    if (price > 100) score += 20;
+    else if (price > 50) score += 15;
+    else if (price > 20) score += 12;
+    else if (price > 10) score += 10;
+    else if (price > 5) score += 7;
+    else if (price > 2) score += 5;
+    else if (price > 1) score += 3;
+    else if (price > 0.50) score += 1;
+    else if (price < 0.15) score -= 15; // HEAVILY penalize bulk trash
     
-    // CMC sweet spot for competitive play (2-4 is ideal)
-    if (card.cmc <= 1) score += 4; // Fast cards are great
-    else if (card.cmc >= 2 && card.cmc <= 4) score += 3;
-    else if (card.cmc === 5) score += 1;
-    else if (card.cmc >= 6) score -= 2; // Penalize expensive cards
+    // CMC efficiency - lower is better for consistency
+    if (card.cmc === 0) score += 8; // Free spells/moxen are amazing
+    else if (card.cmc === 1) score += 6;
+    else if (card.cmc === 2) score += 4;
+    else if (card.cmc === 3) score += 2;
+    else if (card.cmc === 4) score += 1;
+    else if (card.cmc >= 7) score -= 5; // Heavily penalize expensive cards
+    
+    // Known staples get huge bonus
+    const staples = [
+      /sol ring|mana crypt|arcane signet|chromatic lantern/i,
+      /demonic tutor|vampiric tutor|mystical tutor/i,
+      /rhystic study|mystic remora|sylvan library/i,
+      /cyclonic rift|swords to plowshares|path to exile/i,
+      /counterspell|force of will|swan song/i
+    ];
+    if (staples.some(pattern => pattern.test(card.name))) {
+      score += 25;
+    }
     
     return score;
   }

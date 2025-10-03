@@ -526,7 +526,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       
       // Simulate progress
       const progressInterval = setInterval(() => {
-        setBuildProgress(prev => Math.min(prev + 5, 90));
+        setBuildProgress(prev => Math.min(prev + 2, 85));
       }, 500);
 
       try {
@@ -579,7 +579,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
           cards: data.cards || [],
           power: data.power || buildData.powerLevel,
-          edhPowerLevel: powerCheckData?.powerLevel || null,
+          edhPowerLevel: (powerCheckData?.powerLevel ?? (data.power || buildData.powerLevel)),
           edhPowerUrl: powerCheckData?.url || null,
           totalValue: data.cards?.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');
@@ -598,6 +598,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         
         // Fallback to v1 builder
         setBuildProgress(50);
+        const budgetTier = buildData.maxBudget <= 300 ? 'low' : buildData.maxBudget <= 1000 ? 'med' : 'high';
         const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
           body: {
             format: buildData.format,
@@ -605,7 +606,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
               COLOR_COMBINATIONS.find(c => c.value === buildData.colorIdentity)?.colors || [] : 
               commander?.color_identity || [],
             themeId: buildData.archetype,
-            powerTarget: buildData.powerLevel
+            powerTarget: buildData.powerLevel,
+            budget: budgetTier
           }
         });
 
@@ -634,7 +636,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
           cards: v1Data.deck || [],
           power: v1Data.power || buildData.powerLevel,
-          edhPowerLevel: powerCheckData?.powerLevel || null,
+          edhPowerLevel: (powerCheckData?.powerLevel ?? (v1Data.power || buildData.powerLevel)),
           edhPowerUrl: powerCheckData?.url || null,
           totalValue: v1Data.deck?.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');

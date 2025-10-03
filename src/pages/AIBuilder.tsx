@@ -522,60 +522,49 @@ Focus on archetypes that specifically leverage this commander's unique abilities
       // Use new AI-powered deck builder with MTG Brain integration
       console.log('Starting AI deck build with MTG Brain planning...');
       
-      const buildCall = supabase.functions.invoke('ai-deck-builder-v2', {
-        body: {
-          commander: {
-            id: commander.id,
-            name: commander.name,
-            oracle_text: commander.oracle_text || '',
-            type_line: commander.type_line || '',
-            color_identity: commander.color_identity || [],
-            colors: commander.colors || []
-          },
-          archetype: buildData.archetype,
-          powerLevel: buildData.powerLevel,
-          useAIPlanning: buildData.prioritizeSynergy // Use AI planning for better quality
-        }
-      });
+      // Try V2 builder first
+      let v2Data: any = null;
+      try {
+        const buildCall = supabase.functions.invoke('ai-deck-builder-v2', {
+          body: {
+            commander: {
+              id: commander.id,
+              name: commander.name,
+              oracle_text: commander.oracle_text || '',
+              type_line: commander.type_line || '',
+              color_identity: commander.color_identity || [],
+              colors: commander.colors || []
+            },
+            archetype: buildData.archetype,
+            powerLevel: buildData.powerLevel,
+            useAIPlanning: buildData.prioritizeSynergy
+          }
+        });
 
-      setBuildProgress(40);
-      
-      // Give it more time for quality builds
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Build timed out - try a simpler archetype')), 90000)
-      );
-      
-      const { data, error } = await Promise.race([buildCall, timeoutPromise]) as any;
+        setBuildProgress(40);
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Build timed out - try a simpler archetype')), 90000)
+        );
+
+        const { data, error } = await Promise.race([buildCall, timeoutPromise]) as any;
+        if (error) throw error;
+        v2Data = data;
+      } catch (e) {
+        console.warn('V2 builder failed, falling back to v1:', e);
+      }
 
       setBuildProgress(60);
 
-      if (error) throw error;
-
-      // Check if we got a background task response
-      if (data?.status === 'building' && data?.usePolling) {
-        console.log('Build started in background, polling for completion...');
-        showSuccess('Building Deck', 'Creating high-quality deck with AI guidance. This may take 30-60 seconds...');
-        
-        // Poll for completion (simplified - in production you'd check a status endpoint)
-        await new Promise(resolve => setTimeout(resolve, 45000));
-        setBuildProgress(90);
-        
-        showError('Build Timeout', 'Deck build is taking longer than expected. Please try again with a simpler configuration.');
-        throw new Error('Background build not fully implemented yet - please use simpler configuration');
-      }
-
-      setBuildProgress(85);
-
-      if (data?.result) {
-        const result = data.result;
-        
+      if (v2Data?.result) {
+        const result = v2Data.result;
         setBuildResult({
           deckName: `${commander.name} - ${buildData.archetype}`,
           cards: result.deck || [],
           analysis: {
             power: result.analysis?.power || buildData.powerLevel,
-            band: result.analysis?.power <= 3 ? 'casual' : 
-                  result.analysis?.power <= 6 ? 'mid' : 
+            band: result.analysis?.power <= 3 ? 'casual' :
+                  result.analysis?.power <= 6 ? 'mid' :
                   result.analysis?.power <= 8 ? 'high' : 'cEDH',
             subscores: result.analysis?.subscores || {},
             playability: {},
@@ -583,24 +572,62 @@ Focus on archetypes that specifically leverage this commander's unique abilities
             drags: [],
             recommendations: result.changeLog || [],
             iterations: 1,
-            text: data.plan?.strategy || `AI-built ${buildData.archetype} deck using MTG Brain guidance`
+            text: v2Data.plan?.strategy || `AI-built ${buildData.archetype} deck using MTG Brain guidance`
           },
           changelog: result.changeLog || [],
           power: result.analysis?.power || buildData.powerLevel,
-          totalValue: result.deck?.reduce((sum: number, card: any) => 
+          totalValue: result.deck?.reduce((sum: number, card: any) =>
             sum + (parseFloat(card.prices?.usd || '0')), 0
           ) || 0,
           cardCount: result.deck?.length || 0
         });
-        
+
         setBuildProgress(100);
         setStep(6);
-        
-        const planMessage = data.plan ? 'with AI strategic planning' : 'using algorithmic optimization';
+        const planMessage = v2Data.plan ? 'with AI strategic planning' : 'using algorithmic optimization';
         showSuccess('Deck Built!', `Created ${buildData.archetype} deck ${planMessage}`);
-      } else {
-        throw new Error('Invalid response from deck builder');
+        return;
       }
+
+      // Fallback to v1 builder
+      setBuildProgress(65);
+      const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
+        body: {
+          format: 'commander',
+          identity: commander.color_identity || [],
+          themeId: buildData.archetype,
+          powerTarget: buildData.powerLevel,
+        }
+      });
+      if (v1Error || !v1Data) throw v1Error || new Error('Fallback builder failed');
+
+      setBuildProgress(85);
+
+      setBuildResult({
+        deckName: `${commander.name} - ${buildData.archetype}`,
+        cards: v1Data.deck || [],
+        analysis: {
+          power: v1Data.power || buildData.powerLevel,
+          band: (v1Data.power || buildData.powerLevel) <= 3 ? 'casual' :
+                (v1Data.power || buildData.powerLevel) <= 6 ? 'mid' :
+                (v1Data.power || buildData.powerLevel) <= 8 ? 'high' : 'cEDH',
+          subscores: v1Data.subscores || {},
+          playability: {},
+          drivers: [],
+          drags: [],
+          recommendations: v1Data.changelog || [],
+          iterations: 1,
+          text: v1Data.analysis?.suggestions?.join(' • ') || `AI-built ${buildData.archetype} deck`
+        },
+        changelog: v1Data.changelog || [],
+        power: v1Data.power || buildData.powerLevel,
+        totalValue: v1Data.metadata?.totalValue || 0,
+        cardCount: v1Data.metadata?.cardCount || (v1Data.deck?.length || 0)
+      });
+
+      setBuildProgress(100);
+      setStep(6);
+      showSuccess('Deck Built!', `Created ${buildData.archetype} deck with fallback builder`);
       
     } catch (error) {
       console.error('Deck building error:', error);

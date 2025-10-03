@@ -89,7 +89,7 @@ decklistParam = combined;
       const renderResponse = await fetchWithTimeout('https://chrome.browserless.io/content?token=free', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, waitFor: 3000 })
+        body: JSON.stringify({ url, waitFor: 6000 })
       }, 6000);
 
       if (renderResponse.ok) {
@@ -99,22 +99,55 @@ decklistParam = combined;
         // Extract power level from the rendered HTML using regex on the raw string
         const content = renderedHtml;
         const powerPatterns = [
-          /power\s*level[:\s]+(\d+\.?\d*)/i,
-          /rating[:\s]+(\d+\.?\d*)\s*\/\s*10/i,
-          /score[:\s]+(\d+\.?\d*)/i,
-          /(\d+\.?\d*)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
+          /power\s*level[^0-9]{0,10}(\d+(?:[.,]\d+)?)/i,
+          /rating[^0-9]{0,10}(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+          /score[^0-9]{0,10}(\d+(?:[.,]\d+)?)/i,
+          /(\d+(?:[.,]\d+)?)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
+          /"powerLevel"\s*:\s*(\d+(?:\.\d+)?)/i,
+          /"rating"\s*:\s*(\d+(?:\.\d+)?)/i,
+          /"score"\s*:\s*(\d+(?:\.\d+)?)/i,
         ];
         
         let powerLevel = null as number | null;
         for (const pattern of powerPatterns) {
           const match = content.match(pattern);
           if (match && match[1]) {
-            const val = parseFloat(match[1]);
+            const normalized = match[1].replace(',', '.');
+            const val = parseFloat(normalized);
             if (!Number.isNaN(val) && val >= 0 && val <= 10) {
               powerLevel = val;
               console.log('Found power level in rendered content:', powerLevel);
               break;
             }
+          }
+        }
+
+        // Also scan any inline scripts for JSON/state variables if not found yet
+        if (powerLevel === null) {
+          const scriptMatches = renderedHtml.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+          for (const m of scriptMatches) {
+            const sc = m[1];
+            const scriptPatterns = [
+              /powerLevel\s*[=:\s]\s*(\d+(?:\.\d+)?)/i,
+              /\"powerLevel\"\s*:\s*(\d+(?:\.\d+)?)/i,
+              /rating\s*[=:\s]\s*(\d+(?:\.\d+)?)/i,
+              /\"rating\"\s*:\s*(\d+(?:\.\d+)?)/i,
+              /score\s*[=:\s]\s*(\d+(?:\.\d+)?)/i,
+              /\"score\"\s*:\s*(\d+(?:\.\d+)?)/i,
+              /(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+            ];
+            for (const p of scriptPatterns) {
+              const mm = sc.match(p);
+              if (mm && mm[1]) {
+                const val = parseFloat(mm[1].replace(',', '.'));
+                if (!Number.isNaN(val) && val >= 0 && val <= 10) {
+                  powerLevel = val;
+                  console.log('Found power level in rendered script:', powerLevel);
+                  break;
+                }
+              }
+            }
+            if (powerLevel !== null) break;
           }
         }
         
@@ -154,66 +187,96 @@ decklistParam = combined;
       html = await response.text();
       console.log('HTML length:', html.length);
       
-      // Try extracting from script tags - edhpowerlevel likely calculates it in JS
-      const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
-      for (const match of scriptMatches) {
-        const scriptContent = match[1];
-        
-        // Look for power level assignments or calculations
-        const patterns = [
-          /powerLevel\s*[=:]\s*(\d+\.?\d*)/i,
-          /power\s*[=:]\s*(\d+\.?\d*)/i,
-          /"power":\s*(\d+\.?\d*)/i,
-          /'power':\s*(\d+\.?\d*)/i,
-        ];
-        
-        for (const pattern of patterns) {
-          const valueMatch = scriptContent.match(pattern);
-          if (valueMatch && valueMatch[1]) {
-            const val = parseFloat(valueMatch[1]);
-            if (val >= 0 && val <= 10) {
-              powerLevel = val;
-              console.log('Found power level in script:', powerLevel);
-              break;
-            }
+      // First, scan the whole HTML for obvious patterns
+      const htmlPatterns = [
+        /power\s*level[^0-9]{0,10}(\d+(?:[.,]\d+)?)/i,
+        /rating[^0-9]{0,10}(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+        /(\d+(?:[.,]\d+)?)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
+        /"powerLevel"\s*:\s*(\d+(?:\.\d+)?)/i,
+        /"rating"\s*:\s*(\d+(?:\.\d+)?)/i,
+        /"score"\s*:\s*(\d+(?:\.\d+)?)/i,
+      ];
+      for (const p of htmlPatterns) {
+        const m = html.match(p);
+        if (m && m[1]) {
+          const val = parseFloat(m[1].replace(',', '.'));
+          if (!Number.isNaN(val) && val >= 0 && val <= 10) {
+            powerLevel = val;
+            console.log('Found power level in HTML:', powerLevel);
+            break;
           }
         }
-        if (powerLevel !== null) break;
+      }
+      
+      // Try extracting from script tags - edhpowerlevel likely calculates it in JS
+      if (powerLevel === null) {
+        const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+        for (const match of scriptMatches) {
+          const scriptContent = match[1];
+          
+          // Look for power level assignments or calculations
+          const patterns = [
+            /powerLevel\s*[=:\s]\s*(\d+(?:\.\d+)?)/i,
+            /power\s*[=:\s]\s*(\d+(?:\.\d+)?)/i,
+            /\"powerLevel\"\s*:\s*(\d+(?:\.\d+)?)/i,
+            /\"power\"\s*:\s*(\d+(?:\.\d+)?)/i,
+            /\"rating\"\s*:\s*(\d+(?:\.\d+)?)/i,
+            /\"score\"\s*:\s*(\d+(?:\.\d+)?)/i,
+            /(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+          ];
+          
+          for (const pattern of patterns) {
+            const valueMatch = scriptContent.match(pattern);
+            if (valueMatch && valueMatch[1]) {
+              const val = parseFloat(valueMatch[1].replace(',', '.'));
+              if (val >= 0 && val <= 10) {
+                powerLevel = val;
+                console.log('Found power level in script:', powerLevel);
+                break;
+              }
+            }
+          }
+          if (powerLevel !== null) break;
+        }
       }
     } else {
       console.error('Direct fetch failed');
     }
 
-    // Third fallback: use r.jina.ai text reader
-    if (powerLevel === null) {
-      try {
-        console.log('Trying r.jina.ai fallback...');
-        const jinaRes = await fetchWithTimeout(`https://r.jina.ai/http://edhpowerlevel.com/?d=${decklistParam}`, {}, 8000);
-        if (jinaRes.ok) {
-          const text = await jinaRes.text();
-          const powerPatterns = [
-            /power\s*level[:\s]+(\d+\.?\d*)/i,
-            /rating[:\s]+(\d+\.?\d*)\s*\/\s*10/i,
-            /(\d+\.?\d*)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
-          ];
-          for (const pattern of powerPatterns) {
-            const match = text.match(pattern);
-            if (match && match[1]) {
-              const val = parseFloat(match[1]);
-              if (!Number.isNaN(val) && val >= 0 && val <= 10) {
-                powerLevel = val;
-                console.log('Found power level via r.jina.ai:', powerLevel);
-                break;
-              }
-            }
+// Third fallback: use r.jina.ai text reader
+if (powerLevel === null) {
+  try {
+    console.log('Trying r.jina.ai fallback...');
+    const jinaUrls = [
+      `https://r.jina.ai/http://edhpowerlevel.com/?d=${decklistParam}`,
+      `https://r.jina.ai/https://edhpowerlevel.com/?d=${decklistParam}`,
+    ];
+    for (const ju of jinaUrls) {
+      const jinaRes = await fetchWithTimeout(ju, {}, 8000);
+      if (!jinaRes.ok) continue;
+      const text = await jinaRes.text();
+      const powerPatterns = [
+        /power\s*level[^0-9]{0,10}(\d+(?:[.,]\d+)?)/i,
+        /rating[^0-9]{0,10}(\d+(?:[.,]\d+)?)\s*\/\s*10/i,
+        /(\d+(?:[.,]\d+)?)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
+      ];
+      for (const pattern of powerPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const val = parseFloat(match[1].replace(',', '.'));
+          if (!Number.isNaN(val) && val >= 0 && val <= 10) {
+            powerLevel = val;
+            console.log('Found power level via r.jina.ai:', powerLevel);
+            break;
           }
-        } else {
-          console.error('r.jina.ai request failed');
         }
-      } catch (e) {
-        console.error('r.jina.ai error:', e);
       }
+      if (powerLevel !== null) break;
     }
+  } catch (e) {
+    console.error('r.jina.ai error:', e);
+  }
+}
 
     console.log('Final extracted power level:', powerLevel);
 

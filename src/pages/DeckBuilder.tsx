@@ -211,15 +211,17 @@ const DeckBuilder = () => {
         }
       });
 
-      if (!powerError && powerData?.success && powerData?.powerLevel) {
+      if (!powerError && powerData?.success && typeof powerData?.powerLevel === 'number') {
         setEdhPowerLevel(powerData.powerLevel);
         setEdhPowerUrl(powerData.url);
       } else {
         setEdhPowerLevel(null);
         setEdhPowerUrl(null);
+        showError('EDH Power Level', 'Unable to fetch from edhpowerlevel.com');
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
+      showError('EDH Power Level', 'Request failed. Please try again.');
     } finally {
       setLoadingEdhPower(false);
     }

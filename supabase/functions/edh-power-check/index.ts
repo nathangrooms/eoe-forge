@@ -6,6 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const fetchWithTimeout = async (resource: string | URL, options: any = {}, timeout = 8000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(resource as any, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -45,16 +56,11 @@ serve(async (req) => {
     
     try {
       // Try using a rendering service that executes JavaScript
-      const renderResponse = await fetch('https://chrome.browserless.io/content?token=free', {
+      const renderResponse = await fetchWithTimeout('https://chrome.browserless.io/content?token=free', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: url,
-          waitFor: 5000, // Wait 5 seconds for JavaScript to execute
-        })
-      });
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, waitFor: 3000 })
+      }, 6000);
 
       if (renderResponse.ok) {
         const renderedHtml = await renderResponse.text();
@@ -104,58 +110,82 @@ serve(async (req) => {
 
     // Fallback: Try direct fetch and aggressive pattern matching
     console.log('Falling back to direct fetch...');
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       }
-    });
+    }, 8000);
 
-    if (!response.ok) {
-      console.error('Failed to fetch:', response.status, response.statusText);
-      throw new Error(`Failed to fetch: ${response.status}`);
-    }
-
-    const html = await response.text();
-    console.log('HTML length:', html.length);
-    
-    let powerLevel = null;
-
-    // Try extracting from script tags - edhpowerlevel likely calculates it in JS
-    const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
-    for (const match of scriptMatches) {
-      const scriptContent = match[1];
+    let html = '';
+    let powerLevel: number | null = null;
+    if (response && response.ok) {
+      html = await response.text();
+      console.log('HTML length:', html.length);
       
-      // Look for power level assignments or calculations
-      const patterns = [
-        /powerLevel\s*[=:]\s*(\d+\.?\d*)/i,
-        /power\s*[=:]\s*(\d+\.?\d*)/i,
-        /"power":\s*(\d+\.?\d*)/i,
-        /'power':\s*(\d+\.?\d*)/i,
-      ];
-      
-      for (const pattern of patterns) {
-        const valueMatch = scriptContent.match(pattern);
-        if (valueMatch && valueMatch[1]) {
-          const val = parseFloat(valueMatch[1]);
-          if (val >= 0 && val <= 10) {
-            powerLevel = val;
-            console.log('Found power level in script:', powerLevel);
-            break;
+      // Try extracting from script tags - edhpowerlevel likely calculates it in JS
+      const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+      for (const match of scriptMatches) {
+        const scriptContent = match[1];
+        
+        // Look for power level assignments or calculations
+        const patterns = [
+          /powerLevel\s*[=:]\s*(\d+\.?\d*)/i,
+          /power\s*[=:]\s*(\d+\.?\d*)/i,
+          /"power":\s*(\d+\.?\d*)/i,
+          /'power':\s*(\d+\.?\d*)/i,
+        ];
+        
+        for (const pattern of patterns) {
+          const valueMatch = scriptContent.match(pattern);
+          if (valueMatch && valueMatch[1]) {
+            const val = parseFloat(valueMatch[1]);
+            if (val >= 0 && val <= 10) {
+              powerLevel = val;
+              console.log('Found power level in script:', powerLevel);
+              break;
+            }
           }
         }
+        if (powerLevel !== null) break;
       }
-      if (powerLevel !== null) break;
+    } else {
+      console.error('Direct fetch failed');
+    }
+
+    // Third fallback: use r.jina.ai text reader
+    if (powerLevel === null) {
+      try {
+        console.log('Trying r.jina.ai fallback...');
+        const jinaRes = await fetchWithTimeout(`https://r.jina.ai/http://edhpowerlevel.com/?d=${decklistParam}`, {}, 8000);
+        if (jinaRes.ok) {
+          const text = await jinaRes.text();
+          const powerPatterns = [
+            /power\s*level[:\s]+(\d+\.?\d*)/i,
+            /rating[:\s]+(\d+\.?\d*)\s*\/\s*10/i,
+            /(\d+\.?\d*)\s*\/\s*10\s*\(?\s*power\s*level\s*\)?/i,
+          ];
+          for (const pattern of powerPatterns) {
+            const match = text.match(pattern);
+            if (match && match[1]) {
+              const val = parseFloat(match[1]);
+              if (!Number.isNaN(val) && val >= 0 && val <= 10) {
+                powerLevel = val;
+                console.log('Found power level via r.jina.ai:', powerLevel);
+                break;
+              }
+            }
+          }
+        } else {
+          console.error('r.jina.ai request failed');
+        }
+      } catch (e) {
+        console.error('r.jina.ai error:', e);
+      }
     }
 
     console.log('Final extracted power level:', powerLevel);
-
-    // If we still couldn't find it, log for debugging
-    if (powerLevel === null) {
-      console.log('Could not extract power level. URL:', url);
-      console.log('Sample HTML (first 1000 chars):', html.substring(0, 1000));
-    }
 
     return new Response(
       JSON.stringify({

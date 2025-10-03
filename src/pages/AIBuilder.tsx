@@ -831,19 +831,10 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                       <Crown className="w-5 h-5 text-primary" />
                       Popular Commanders
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {[
                         { 
-                          name: 'Syr Vondam, Sunstar Exemplar',
-                          colors: ['W', 'B'],
-                          color_identity: ['W', 'B'],
-                          type_line: 'Legendary Creature — Human Knight',
-                          cmc: 4,
-                          oracle_text: 'Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/3/93b18a1f-b8f8-4f5f-93f9-6e088cc4bf4c.jpg?1732145509' }
-                        },
-                        { 
-                          name: 'Atraxa, Praetors\' Voice', 
+                          name: 'Atraxa, Praetors\' Voice',
                           colors: ['W', 'U', 'B', 'G'],
                           color_identity: ['W', 'U', 'B', 'G'],
                           type_line: 'Legendary Creature — Phyrexian Angel Horror',
@@ -904,6 +895,51 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                            cmc: 4,
                            oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.',
                            image_uris: { normal: 'https://cards.scryfall.io/normal/front/e/f/ef1b62ff-dbb3-4500-9d64-a3047ce193ec.jpg' }
+                         },
+                         { 
+                           name: 'The Ur-Dragon', 
+                           colors: ['W', 'U', 'B', 'R', 'G'],
+                           color_identity: ['W', 'U', 'B', 'R', 'G'],
+                           type_line: 'Legendary Creature — Dragon Avatar',
+                           cmc: 9,
+                           oracle_text: 'Eminence — As long as The Ur-Dragon is in the command zone or on the battlefield, other Dragon spells you cast cost {1} less to cast.\nFlying\nWhenever one or more Dragons you control attack, draw that many cards, then you may put a permanent card from your hand onto the battlefield.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg' }
+                         },
+                         { 
+                           name: 'Yuriko, the Tiger\'s Shadow', 
+                           colors: ['U', 'B'],
+                           color_identity: ['U', 'B'],
+                           type_line: 'Legendary Creature — Human Ninja',
+                           cmc: 2,
+                           oracle_text: 'Commander ninjutsu {U}{B}\nWhenever a Ninja you control deals combat damage to a player, reveal the top card of your library and put that card into your hand. Each opponent loses life equal to that card\'s mana value.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/b/3bd81ae6-e628-447a-a36b-597e63ede295.jpg' }
+                         },
+                         { 
+                           name: 'Nekusar, the Mindrazer', 
+                           colors: ['U', 'B', 'R'],
+                           color_identity: ['U', 'B', 'R'],
+                           type_line: 'Legendary Creature — Zombie Wizard',
+                           cmc: 5,
+                           oracle_text: 'At the beginning of each player\'s draw step, that player draws an additional card.\nWhenever an opponent draws a card, Nekusar, the Mindrazer deals 1 damage to that player.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/f/3f7f2417-12de-4e57-9714-d878880a1208.jpg' }
+                         },
+                         { 
+                           name: 'Korvold, Fae-Cursed King', 
+                           colors: ['B', 'R', 'G'],
+                           color_identity: ['B', 'R', 'G'],
+                           type_line: 'Legendary Creature — Dragon Noble',
+                           cmc: 5,
+                           oracle_text: 'Flying\nWhenever Korvold, Fae-Cursed King enters the battlefield or attacks, sacrifice another permanent.\nWhenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/2/92ea1575-eb64-43b5-b604-c6e23054f228.jpg' }
+                         },
+                         { 
+                           name: 'Thrasios, Triton Hero', 
+                           colors: ['G', 'U'],
+                           color_identity: ['G', 'U'],
+                           type_line: 'Legendary Creature — Merfolk Wizard',
+                           cmc: 2,
+                           oracle_text: '{4}: Scry 1, then reveal the top card of your library. If it\'s a land card, put it onto the battlefield tapped. Otherwise, draw a card.\nPartner',
+                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/2/1/21a1620f-2d24-44dd-91da-6ca8f31e2c3c.jpg' }
                          }
                         ].map((popularCommander) => (
                           <div

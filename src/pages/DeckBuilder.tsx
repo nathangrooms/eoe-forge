@@ -184,78 +184,74 @@ const DeckBuilder = () => {
     showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);
   };
 
-  const checkEdhPowerLevel = async (deckId: string) => {
+  const checkEdhPowerLevel = async (deckId?: string) => {
     setLoadingEdhPower(true);
     try {
-      // Fetch deck summary to get all cards
-      const { data: summaryData, error: summaryError } = await supabase.rpc('compute_deck_summary', {
-        deck_id: deckId
-      });
+      // Prefer in-memory deck state; fall back to DB summary if available
+      let listCommander: { name: string } | null = deck.commander ? { name: (deck.commander as any).name } : null;
+      let listCards: { name: string; quantity: number }[] = (deck.cards as any[]).map((c: any) => ({ name: c.name, quantity: c.quantity || 1 }));
 
-      if (summaryError || !summaryData) {
-        console.error('Failed to fetch deck summary:', summaryError);
-        return;
+      if (deckId) {
+        const { data: summaryData, error: summaryError } = await supabase.rpc('compute_deck_summary', {
+          deck_id: deckId
+        });
+        if (!summaryError && summaryData) {
+          const summary = summaryData as any;
+          listCards = (summary.cards || []).map((c: any) => ({ name: c.card_name, quantity: c.quantity }));
+          listCommander = summary.commander ? { name: summary.commander.name } : listCommander;
+        } else if (summaryError) {
+          console.warn('Deck summary failed, using in-memory deck:', summaryError);
+        }
       }
 
-      const summary = summaryData as any;
-      const cards = summary.cards || [];
-      const commander = summary.commander;
+      // Build a fallback EDH Power Level URL immediately
+      const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
+      const encodeName = (name: string) => encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
 
-// Build the edhpowerlevel.com URL immediately so user always has a link
-const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
-const encodeName = (name: string) =>
-  encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
+      const parts: string[] = [];
+      const seen = new Map<string, { name: string; qty: number }>();
+      const commanderNameRaw = listCommander?.name ? cleanName(listCommander.name) : null;
 
-// Aggregate by name, exclude commander and sum quantities
-const parts: string[] = [];
-const seen = new Map<string, { name: string; qty: number }>();
-const commanderNameRaw = commander?.name ? cleanName(commander.name) : null;
+      for (const c of listCards) {
+        if (!c?.name) continue;
+        const cleaned = cleanName(c.name);
+        if (commanderNameRaw && cleaned.toLowerCase() === commanderNameRaw.toLowerCase()) continue;
+        const key = cleaned.toLowerCase();
+        const qty = c.quantity || 1;
+        if (!seen.has(key)) seen.set(key, { name: cleaned, qty });
+        else seen.get(key)!.qty += qty;
+      }
 
-if (Array.isArray(cards)) {
-  for (const c of cards) {
-    if (!c?.card_name) continue;
-    const cleaned = cleanName(c.card_name);
-    if (commanderNameRaw && cleaned.toLowerCase() === commanderNameRaw.toLowerCase()) continue;
-    const key = cleaned.toLowerCase();
-    const qty = c.quantity || 1;
-    if (!seen.has(key)) seen.set(key, { name: cleaned, qty });
-    else seen.get(key)!.qty += qty;
-  }
-}
+      let header = '';
+      if (listCommander?.name) {
+        header = `1x+${encodeName(listCommander.name)}~~`;
+      }
 
-// Commander first with double tilde
-let header = '';
-if (commander?.name) {
-  header = `1x+${encodeName(commander.name)}~~`;
-}
+      for (const { name, qty } of seen.values()) {
+        parts.push(`${qty}x+${encodeName(name)}`);
+      }
 
-// Preserve insertion order
-for (const { name, qty } of seen.values()) {
-  parts.push(`${qty}x+${encodeName(name)}`);
-}
+      const MAX_ITEMS = 100;
+      let limitedParts = parts.slice(0, MAX_ITEMS);
+      const MAX_LEN = 7000;
+      const sentinel = '~Z~';
+      let body = limitedParts.join('~');
+      let decklistParam = header + body + sentinel;
+      while ((header.length + body.length + sentinel.length) > MAX_LEN && limitedParts.length > 0) {
+        limitedParts.pop();
+        body = limitedParts.join('~');
+        decklistParam = header + body + sentinel;
+      }
 
-// Cap to typical EDH size and safe URL length
-const MAX_ITEMS = 100;
-let limitedParts = parts.slice(0, MAX_ITEMS);
-const MAX_LEN = 7000;
-const sentinel = '~Z~';
-let body = limitedParts.join('~');
-let decklistParam = header + body + sentinel;
-while ((header.length + body.length + sentinel.length) > MAX_LEN && limitedParts.length > 0) {
-  limitedParts.pop();
-  body = limitedParts.join('~');
-  decklistParam = header + body + sentinel;
-}
+      const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
+      setEdhPowerUrl(fallbackUrl);
 
-const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
-setEdhPowerUrl(fallbackUrl);
-
-      // Call EDH power check function to try scraping the power level
+      // Try the edge function to extract an actual score
       const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
         body: {
           decklist: {
-            commander: commander ? { name: commander.name } : null,
-            cards: cards.map((c: any) => ({ name: c.card_name, quantity: c.quantity }))
+            commander: listCommander,
+            cards: Array.from(seen.values()).map(({ name, qty }) => ({ name, quantity: qty }))
           }
         }
       });
@@ -270,11 +266,6 @@ setEdhPowerUrl(fallbackUrl);
         setEdhPowerLevel(powerData.powerLevel);
       } else {
         setEdhPowerLevel(null);
-        if (!powerError) {
-          // We reached the function but couldn't parse a score
-          console.warn('EDH power level not found; using direct URL');
-          showError('EDH Power Level', 'Could not extract score. Open the EDH link for details.');
-        }
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
@@ -524,8 +515,8 @@ setEdhPowerUrl(fallbackUrl);
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => deck.currentDeckId && checkEdhPowerLevel(deck.currentDeckId)}
-                          disabled={loadingEdhPower || !deck.currentDeckId}
+                          onClick={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId)}
+                          disabled={loadingEdhPower}
                         >
                           {loadingEdhPower ? 'Checking...' : 'Get EDH Power Level'}
                         </Button>

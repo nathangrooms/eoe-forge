@@ -575,12 +575,28 @@ Focus on archetypes that specifically leverage this commander's unique abilities
 
         setBuildProgress(100);
 
+        // Fallback EDH URL if function fails or returns no URL
+        const fallbackEdhUrl = (() => {
+          try {
+            let decklistParam = '';
+            if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+            (data.cards || []).forEach((card: any) => {
+              const qty = card.quantity || 1;
+              decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
+            });
+            if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+            return `https://edhpowerlevel.com/?d=${decklistParam}`;
+          } catch {
+            return null;
+          }
+        })();
+
         const result = {
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
           cards: data.cards || [],
           power: data.power || buildData.powerLevel,
           edhPowerLevel: powerCheckData?.powerLevel ?? null,
-          edhPowerUrl: powerCheckData?.url || null,
+          edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
           totalValue: data.cards?.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');
             return sum + (price * (card.quantity || 1));
@@ -640,12 +656,28 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         setBuildProgress(100);
         clearInterval(progressInterval);
 
+        // Fallback EDH URL if function fails or returns no URL
+        const fallbackEdhUrl = (() => {
+          try {
+            let decklistParam = '';
+            if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+            (v1Data.deck || []).forEach((card: any) => {
+              const qty = card.quantity || 1;
+              decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
+            });
+            if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+            return `https://edhpowerlevel.com/?d=${decklistParam}`;
+          } catch {
+            return null;
+          }
+        })();
+
         const result = {
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
           cards: v1Data.deck || [],
           power: v1Data.power || buildData.powerLevel,
           edhPowerLevel: (powerCheckData?.powerLevel ?? (v1Data.power || buildData.powerLevel)),
-          edhPowerUrl: powerCheckData?.url || null,
+          edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
           totalValue: v1Data.deck?.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');
             return sum + (price * (card.quantity || 1));

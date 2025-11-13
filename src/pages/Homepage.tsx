@@ -1,6 +1,6 @@
 import { Hero } from '@/components/marketing/Hero';
-import { FeatureVisuals } from '@/components/marketing/FeatureVisuals';
-import { CTASection } from '@/components/marketing/CTASection';
+import { Features } from '@/components/marketing/Features';
+import { FeatureShowcase } from '@/components/marketing/FeatureShowcase';
 import { Pricing } from '@/components/marketing/Pricing';
 import { Testimonials } from '@/components/marketing/Testimonials';
 import { Footer } from '@/components/marketing/Footer';
@@ -11,8 +11,10 @@ export default function Homepage() {
     <div className="min-h-screen bg-background">
       <PublicNavigation />
       <Hero />
-      <FeatureVisuals />
-      <CTASection />
+      <div id="features">
+        <Features />
+      </div>
+      <FeatureShowcase />
       <div id="pricing">
         <Pricing />
       </div>

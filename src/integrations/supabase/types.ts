@@ -758,18 +758,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      compute_deck_summary: {
-        Args: { deck_id: string }
-        Returns: Json
-      }
+      compute_deck_summary: { Args: { deck_id: string }; Returns: Json }
       get_deck_wishlist_count: {
         Args: { deck_id_param: string }
         Returns: number
       }
-      get_favorite_decks: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_favorite_decks: { Args: never; Returns: Json }
       get_missing_cards_for_deck: {
         Args: { deck_id_param: string; user_id_param: string }
         Returns: {
@@ -778,18 +772,9 @@ export type Database = {
           quantity: number
         }[]
       }
-      get_public_deck: {
-        Args: { deck_slug: string }
-        Returns: Json
-      }
-      increment_share_views: {
-        Args: { deck_slug: string }
-        Returns: undefined
-      }
-      toggle_deck_favorite: {
-        Args: { deck_id: string }
-        Returns: Json
-      }
+      get_public_deck: { Args: { deck_slug: string }; Returns: Json }
+      increment_share_views: { Args: { deck_slug: string }; Returns: undefined }
+      toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

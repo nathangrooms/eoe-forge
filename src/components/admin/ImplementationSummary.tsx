@@ -154,9 +154,12 @@ export function ImplementationSummary() {
       category: 'Deck Building Core Features',
       features: [
         'Undo/redo system with keyboard shortcuts',
+        'Undo/redo controls with visual feedback',
         'Deck legality validation for all formats',
         'Deck validation warnings for illegal cards',
-        'System health monitoring dashboard'
+        'System health monitoring dashboard',
+        'Card replacement engine for alternatives and upgrades',
+        'Deck comparison view for side-by-side analysis'
       ]
     }
   ];

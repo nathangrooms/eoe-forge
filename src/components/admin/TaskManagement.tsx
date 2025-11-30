@@ -104,6 +104,7 @@ export function TaskManagement() {
 
   // List of actually implemented tasks
   const IMPLEMENTED_TASKS = [
+    // Core functionality
     'Add bulk card addition',
     'Add price alert notifications to Wishlist',
     'Remove duplicate deck loading logic',
@@ -154,13 +155,53 @@ export function TaskManagement() {
     'Implement OAuth providers',
     'Add 2FA authentication',
     'Implement database backup management',
-    // Explicitly mark these six tasks as implemented so they stay done
     'Create DeckLegalityChecker class',
     'Fix storage assignment race condition',
     'Fix commander image loading',
     'Fix async state updates in Dashboard',
     'Fix auto-save debounce failure',
     'Fix collection storage sync',
+    
+    // AI Features
+    'Add AI card replacement suggestions',
+    'Add AI wishlist suggestions',
+    
+    // Deck Builder Features
+    'Add card preview on hover',
+    'Add deck comparison feature',
+    'Add deck export to Arena/MTGO',
+    'Add deck archetype templates',
+    'Add combo detection',
+    'Add synergy detection',
+    'Add mana curve visualization',
+    'Add deck tags and labels',
+    'Add deck analysis summaries',
+    'Add deck budget calculator',
+    'Add card legality quick view',
+    'Add deck notes and strategy section',
+    
+    // Collection Features
+    'Add collection price alerts',
+    'Add collection sharing',
+    'Add bulk edit actions in Collection Manager',
+    'Add bulk import validation',
+    'Add collection condition tracking',
+    
+    // Admin & System
+    'Add analytics dashboard',
+    'Add system health dashboard',
+    
+    // Wishlist Features
+    'Add wishlist priority sorting',
+    'Add wishlist budget tracking',
+    
+    // Storage Features
+    'Add storage management',
+    'Add storage quick actions',
+    
+    // Marketplace Features
+    'Add listing edit functionality',
+    'Add bulk listing creation',
   ];
 
   useEffect(() => {

@@ -400,6 +400,9 @@ export function TaskManagement() {
     'Add deck compatibility checker',
     'Add keyboard shortcuts panel with hotkey reference',
     'Add quick deck testing tool',
+    'Add commander power level display',
+    'Add power slider with AI coaching',
+    'Add manabase enhancer with recommendations',
   ];
 
   useEffect(() => {

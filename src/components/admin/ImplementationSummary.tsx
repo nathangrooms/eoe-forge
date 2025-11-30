@@ -46,7 +46,10 @@ export function ImplementationSummary() {
         'Deck proxy generator for printable cards',
         'Deck notes and comments system',
         'Comprehensive match analytics with insights',
-        'Enhanced deck export with multiple formats'
+        'Enhanced deck export with multiple formats',
+        'Commander power level display with metrics',
+        'Power slider with AI coaching for optimization',
+        'Manabase enhancer with land recommendations'
       ]
     },
     {

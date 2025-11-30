@@ -22,6 +22,7 @@ import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTra
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { CardReplacementEngine } from '@/components/deck-builder/CardReplacementEngine';
+import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -689,6 +690,15 @@ const DeckBuilder = () => {
                   commander={deck.commander?.name}
                   cardCount={deck.totalCards}
                 />
+                
+                {/* Social Features */}
+                {deck.currentDeckId && (
+                  <DeckSocialFeatures 
+                    deckId={deck.currentDeckId}
+                    deckName={deck.name}
+                    isPublic={true}
+                  />
+                )}
               </div>
             ) : (
               <div className="text-center p-8">

@@ -32,6 +32,7 @@ import Brain from "./pages/Brain";
 import Marketplace from "./pages/Marketplace";
 import PublicDeck from "./pages/PublicDeck";
 import Simulate from "./pages/Simulate";
+import Tournament from "./pages/Tournament";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,7 @@ function AppContent() {
             <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/simulate" element={<ProtectedRoute><Simulate /></ProtectedRoute>} />
+            <Route path="/tournament" element={<ProtectedRoute><Tournament /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/p/:slug" element={<PublicDeck />} />

@@ -16,7 +16,8 @@ import {
   Camera,
   ShoppingCart,
   Brain,
-  Swords
+  Swords,
+  Trophy
 } from 'lucide-react';
 
 interface NavItem {
@@ -94,6 +95,13 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Deck Simulation',
     href: '/simulate',
     icon: Swords,
+    badge: 'New',
+    section: 'tools'
+  },
+  {
+    title: 'Tournaments',
+    href: '/tournament',
+    icon: Trophy,
     badge: 'New',
     section: 'tools'
   },

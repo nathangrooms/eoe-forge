@@ -187,24 +187,28 @@ const DeckBuilder = () => {
   const checkEdhPowerLevel = async (deckId?: string) => {
     setLoadingEdhPower(true);
     try {
-      // Prefer in-memory deck state; fall back to DB summary if available
+      const targetDeckId = deckId || selectedDeckId || deck.currentDeckId;
+      
+      if (!targetDeckId) {
+        showError('No Deck Selected', 'Please select or load a deck first.');
+        return;
+      }
+
+      // Build fallback EDH Power Level URL
       let listCommander: { name: string } | null = deck.commander ? { name: (deck.commander as any).name } : null;
       let listCards: { name: string; quantity: number }[] = (deck.cards as any[]).map((c: any) => ({ name: c.name, quantity: c.quantity || 1 }));
 
-      if (deckId) {
+      if (targetDeckId) {
         const { data: summaryData, error: summaryError } = await supabase.rpc('compute_deck_summary', {
-          deck_id: deckId
+          deck_id: targetDeckId
         });
         if (!summaryError && summaryData) {
           const summary = summaryData as any;
           listCards = (summary.cards || []).map((c: any) => ({ name: c.card_name, quantity: c.quantity }));
           listCommander = summary.commander ? { name: summary.commander.name } : listCommander;
-        } else if (summaryError) {
-          console.warn('Deck summary failed, using in-memory deck:', summaryError);
         }
       }
 
-      // Build a fallback EDH Power Level URL immediately
       const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
       const encodeName = (name: string) => encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
 
@@ -246,30 +250,23 @@ const DeckBuilder = () => {
       const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
       setEdhPowerUrl(fallbackUrl);
 
-      // Try the edge function to extract an actual score
-      const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
-        body: {
-          decklist: {
-            commander: listCommander,
-            cards: Array.from(seen.values()).map(({ name, qty }) => ({ name, quantity: qty }))
-          }
-        }
+      // Call the new calculate-deck-power edge function
+      const { data: powerData, error: powerError } = await supabase.functions.invoke('calculate-deck-power', {
+        body: { deck_id: targetDeckId }
       });
 
       if (powerError) {
-        console.error('EDH power check error:', powerError);
-      }
-
-      if (powerData?.url) setEdhPowerUrl(powerData.url);
-
-      if (!powerError && powerData?.success && typeof powerData?.powerLevel === 'number') {
-        setEdhPowerLevel(powerData.powerLevel);
+        console.error('EDH power calculation error:', powerError);
+        showError('Power Calculation Failed', 'Could not calculate deck power. Using fallback URL.');
+        setEdhPowerLevel(null);
+      } else if (powerData && typeof powerData.power === 'number') {
+        setEdhPowerLevel(powerData.power);
+        showSuccess('Power Calculated', `Deck power: ${powerData.power}/10 (${powerData.band})`);
       } else {
         setEdhPowerLevel(null);
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
-      // Keep the fallback URL so the user can still open the page
       showError('EDH Power Level', 'Request failed. You can open the EDH link instead.');
     } finally {
       setLoadingEdhPower(false);

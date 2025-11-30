@@ -44,10 +44,17 @@ export default function Simulate() {
   const [cinematicMode, setCinematicMode] = useState<
     | null
     | {
-        type: 'attack' | 'block' | 'destroy';
+        type: 'attack' | 'block' | 'destroy' | 'cast' | 'ability' | 'tokens' | 'ramp' | 'exile';
         attackers?: string[];
         blockers?: string[];
         destroyed?: string[];
+        castCardId?: string;
+        abilitySourceId?: string;
+        abilityDescription?: string;
+        tokens?: Array<{ name: string; count: number }>;
+        rampedLandIds?: string[];
+        exiledCardIds?: string[];
+        playerName?: string;
       }
   >(null);
 
@@ -235,21 +242,111 @@ export default function Simulate() {
         
         // Trigger cinematic overlays for key events
         if (result.events.length > 0) {
+          let shouldShowCinematic = false;
+
           result.events.forEach((event) => {
+            // Combat events
             if (event.type === 'attack_declared' && event.attackerIds?.length) {
               setCinematicMode({ type: 'attack', attackers: event.attackerIds });
+              shouldShowCinematic = true;
             }
             if (event.type === 'blockers_declared' && event.blocks?.length) {
               const blockers = event.blocks.map((b: any) => b.blocker).filter(Boolean);
               setCinematicMode({ type: 'block', blockers });
+              shouldShowCinematic = true;
             }
             if (event.type === 'creature_dies') {
               setCinematicMode({ type: 'destroy', destroyed: [event.cardId] });
+              shouldShowCinematic = true;
+            }
+
+            // Spell casting
+            if (event.type === 'cast_spell' && event.cardId) {
+              const playerName = event.player === 'player1' ? result.state.player1.name : result.state.player2.name;
+              setCinematicMode({
+                type: 'cast',
+                castCardId: event.cardId,
+                playerName,
+              });
+              shouldShowCinematic = true;
+            }
+
+            // Token creation
+            if (event.type === 'token_created' && event.tokenIds?.length) {
+              // Group tokens by name
+              const tokenCards = event.tokenIds
+                .map((id: string) => {
+                  return (
+                    result.state.player1.battlefield.find((c) => c.instanceId === id) ||
+                    result.state.player2.battlefield.find((c) => c.instanceId === id)
+                  );
+                })
+                .filter(Boolean);
+
+              const tokenGroups = tokenCards.reduce((acc: any, card: any) => {
+                const existing = acc.find((g: any) => g.name === card.name);
+                if (existing) {
+                  existing.count++;
+                } else {
+                  acc.push({ name: card.name, count: 1 });
+                }
+                return acc;
+              }, []);
+
+              if (tokenGroups.length > 0) {
+                setCinematicMode({ type: 'tokens', tokens: tokenGroups });
+                shouldShowCinematic = true;
+              }
+            }
+
+            // Exile events
+            if (event.type === 'card_exiled' && event.cardId) {
+              setCinematicMode({ type: 'exile', exiledCardIds: [event.cardId] });
+              shouldShowCinematic = true;
             }
           });
 
-          if (result.events.some((e) => e.type === 'attack_declared' || e.type === 'blockers_declared' || e.type === 'creature_dies')) {
-            setTimeout(() => setCinematicMode(null), 1800);
+          // Check log for ability triggers (since they're logged not evented directly)
+          const lastLog = result.state.log[result.state.log.length - 1];
+          if (lastLog && lastLog.type === 'ability_triggered' && lastLog.cardName) {
+            // Find the source card
+            const sourceCard =
+              result.state.player1.battlefield.find((c) => c.name === lastLog.cardName) ||
+              result.state.player2.battlefield.find((c) => c.name === lastLog.cardName) ||
+              result.state.player1.graveyard.find((c) => c.name === lastLog.cardName) ||
+              result.state.player2.graveyard.find((c) => c.name === lastLog.cardName);
+
+            if (sourceCard) {
+              // Check what type of ability it is
+              const desc = lastLog.description.toLowerCase();
+              
+              // Ramp abilities
+              if (desc.includes('search') && desc.includes('land')) {
+                const lands = result.state[lastLog.player].battlefield.filter(
+                  (c) => c.type_line.includes('Land') && c.wasPlayedThisTurn
+                );
+                if (lands.length > 0) {
+                  setCinematicMode({
+                    type: 'ramp',
+                    rampedLandIds: lands.map((l) => l.instanceId),
+                  });
+                  shouldShowCinematic = true;
+                }
+              }
+              // Other abilities (damage, life gain, etc.)
+              else {
+                setCinematicMode({
+                  type: 'ability',
+                  abilitySourceId: sourceCard.instanceId,
+                  abilityDescription: lastLog.description,
+                });
+                shouldShowCinematic = true;
+              }
+            }
+          }
+
+          if (shouldShowCinematic) {
+            setTimeout(() => setCinematicMode(null), 2000);
           }
         }
         
@@ -325,21 +422,106 @@ export default function Simulate() {
       const result = simulator.step();
 
       if (result.events.length > 0) {
+        let shouldShowCinematic = false;
+
         result.events.forEach((event) => {
+          // Combat events
           if (event.type === 'attack_declared' && event.attackerIds?.length) {
             setCinematicMode({ type: 'attack', attackers: event.attackerIds });
+            shouldShowCinematic = true;
           }
           if (event.type === 'blockers_declared' && event.blocks?.length) {
             const blockers = event.blocks.map((b: any) => b.blocker).filter(Boolean);
             setCinematicMode({ type: 'block', blockers });
+            shouldShowCinematic = true;
           }
           if (event.type === 'creature_dies') {
             setCinematicMode({ type: 'destroy', destroyed: [event.cardId] });
+            shouldShowCinematic = true;
+          }
+
+          // Spell casting
+          if (event.type === 'cast_spell' && event.cardId) {
+            const playerName =
+              event.player === 'player1' ? result.state.player1.name : result.state.player2.name;
+            setCinematicMode({
+              type: 'cast',
+              castCardId: event.cardId,
+              playerName,
+            });
+            shouldShowCinematic = true;
+          }
+
+          // Token creation
+          if (event.type === 'token_created' && event.tokenIds?.length) {
+            const tokenCards = event.tokenIds
+              .map((id: string) => {
+                return (
+                  result.state.player1.battlefield.find((c) => c.instanceId === id) ||
+                  result.state.player2.battlefield.find((c) => c.instanceId === id)
+                );
+              })
+              .filter(Boolean);
+
+            const tokenGroups = tokenCards.reduce((acc: any, card: any) => {
+              const existing = acc.find((g: any) => g.name === card.name);
+              if (existing) {
+                existing.count++;
+              } else {
+                acc.push({ name: card.name, count: 1 });
+              }
+              return acc;
+            }, []);
+
+            if (tokenGroups.length > 0) {
+              setCinematicMode({ type: 'tokens', tokens: tokenGroups });
+              shouldShowCinematic = true;
+            }
+          }
+
+          // Exile events
+          if (event.type === 'card_exiled' && event.cardId) {
+            setCinematicMode({ type: 'exile', exiledCardIds: [event.cardId] });
+            shouldShowCinematic = true;
           }
         });
 
-        if (result.events.some((e) => e.type === 'attack_declared' || e.type === 'blockers_declared' || e.type === 'creature_dies')) {
-          setTimeout(() => setCinematicMode(null), 1800);
+        // Check log for ability triggers
+        const lastLog = result.state.log[result.state.log.length - 1];
+        if (lastLog && lastLog.type === 'ability_triggered' && lastLog.cardName) {
+          const sourceCard =
+            result.state.player1.battlefield.find((c) => c.name === lastLog.cardName) ||
+            result.state.player2.battlefield.find((c) => c.name === lastLog.cardName) ||
+            result.state.player1.graveyard.find((c) => c.name === lastLog.cardName) ||
+            result.state.player2.graveyard.find((c) => c.name === lastLog.cardName);
+
+          if (sourceCard) {
+            const desc = lastLog.description.toLowerCase();
+
+            if (desc.includes('search') && desc.includes('land')) {
+              const lands = result.state[lastLog.player].battlefield.filter(
+                (c) => c.type_line.includes('Land') && c.wasPlayedThisTurn
+              );
+              if (lands.length > 0) {
+                setCinematicMode({
+                  type: 'ramp',
+                  rampedLandIds: lands.map((l) => l.instanceId),
+                });
+                shouldShowCinematic = true;
+              }
+            } else {
+              setCinematicMode({
+                type: 'ability',
+                abilitySourceId: sourceCard.instanceId,
+                abilityDescription: lastLog.description,
+              });
+              shouldShowCinematic = true;
+            }
+          }
+        }
+
+        if (shouldShowCinematic) {
+          setTimeout(() => setCinematicMode(null), 2000);
         }
       }
       
@@ -422,6 +604,75 @@ export default function Simulate() {
           />
         )}
       </AnimatePresence>
+
+      {cinematicMode && gameState && (
+        <SimulationCinematicOverlay
+          mode={cinematicMode.type}
+          attackerCards={
+            cinematicMode.attackers
+              ?.map((id) =>
+                gameState.player1.battlefield.concat(gameState.player2.battlefield).find((c) => c.instanceId === id)
+              )
+              .filter(Boolean) as any
+          }
+          blockerCards={
+            cinematicMode.blockers
+              ?.map((id) =>
+                gameState.player1.battlefield.concat(gameState.player2.battlefield).find((c) => c.instanceId === id)
+              )
+              .filter(Boolean) as any
+          }
+          destroyedCards={
+            cinematicMode.destroyed
+              ?.map((id) =>
+                gameState.player1.graveyard
+                  .concat(gameState.player2.graveyard)
+                  .concat(gameState.player1.exile)
+                  .concat(gameState.player2.exile)
+                  .find((c) => c.instanceId === id)
+              )
+              .filter(Boolean) as any
+          }
+          castCard={
+            cinematicMode.castCardId
+              ? gameState.player1.battlefield
+                  .concat(gameState.player2.battlefield)
+                  .concat(gameState.player1.graveyard)
+                  .concat(gameState.player2.graveyard)
+                  .concat(gameState.player1.hand)
+                  .concat(gameState.player2.hand)
+                  .find((c) => c.instanceId === cinematicMode.castCardId)
+              : undefined
+          }
+          abilitySource={
+            cinematicMode.abilitySourceId
+              ? gameState.player1.battlefield
+                  .concat(gameState.player2.battlefield)
+                  .concat(gameState.player1.graveyard)
+                  .concat(gameState.player2.graveyard)
+                  .find((c) => c.instanceId === cinematicMode.abilitySourceId)
+              : undefined
+          }
+          abilityDescription={cinematicMode.abilityDescription}
+          tokensCreated={cinematicMode.tokens}
+          ramppedLands={
+            cinematicMode.rampedLandIds
+              ?.map((id) =>
+                gameState.player1.battlefield.concat(gameState.player2.battlefield).find((c) => c.instanceId === id)
+              )
+              .filter(Boolean) as any
+          }
+          exiledCards={
+            cinematicMode.exiledCardIds
+              ?.map((id) =>
+                gameState.player1.exile.concat(gameState.player2.exile).find((c) => c.instanceId === id)
+              )
+              .filter(Boolean) as any
+          }
+          playerName={cinematicMode.playerName}
+        />
+      )}
+
       {!gameState ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <Card className="p-8 max-w-2xl w-full space-y-6">

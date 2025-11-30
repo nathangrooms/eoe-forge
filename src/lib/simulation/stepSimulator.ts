@@ -133,7 +133,8 @@ export class StepSimulator {
         activePlayer.landPlaysRemaining = 1;
         activePlayer.hasPlayedLand = false;
         // Check ETB triggers
-        checkETBTriggers(this.state);
+        const etbEvents = checkETBTriggers(this.state);
+        events.push(...etbEvents);
         break;
 
       case 'combat_begin':
@@ -196,7 +197,8 @@ export class StepSimulator {
         });
         
         // Check attack triggers
-        checkAttackTriggers(this.state);
+        const attackTriggerEvents = checkAttackTriggers(this.state);
+        events.push(...attackTriggerEvents);
       }
     }
 
@@ -294,7 +296,8 @@ export class StepSimulator {
             if (canAffordSpell(card, this.state)) {
               this.payManaCost(card, playerId);
               
-              checkCastTriggers(this.state, card, playerId);
+              const castTriggerEvents = checkCastTriggers(this.state, card, playerId);
+              events.push(...castTriggerEvents);
               
               const destination = card.type_line.includes('Instant') || card.type_line.includes('Sorcery') 
                 ? 'graveyard' 
@@ -310,7 +313,8 @@ export class StepSimulator {
               });
               
               if (destination === 'battlefield') {
-                checkETBTriggers(this.state);
+                const etbEvents = checkETBTriggers(this.state);
+                events.push(...etbEvents);
               }
               
               this.state.log.push({

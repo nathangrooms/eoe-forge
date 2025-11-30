@@ -30,7 +30,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Pencil, Trash2, Plus, CheckCircle2, Filter, ListTodo, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Pencil, Trash2, Plus, CheckCircle2, Filter, ListTodo, CheckCircle, Clock, AlertCircle, Search } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
@@ -92,6 +92,7 @@ export function TaskManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -242,9 +243,18 @@ export function TaskManagement() {
     setEditingTask(null);
   };
 
-  const filteredTasks = showCompleted 
-    ? tasks 
-    : tasks.filter(task => task.status !== 'done');
+  const filteredTasks = tasks
+    .filter(task => showCompleted || task.status !== 'done')
+    .filter(task => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        task.title.toLowerCase().includes(query) ||
+        task.category.toLowerCase().includes(query) ||
+        task.app_section.toLowerCase().includes(query) ||
+        (task.description && task.description.toLowerCase().includes(query))
+      );
+    });
 
   const completedCount = tasks.filter(t => t.status === 'done').length;
   const activeCount = tasks.length - completedCount;
@@ -307,18 +317,29 @@ export function TaskManagement() {
         </Card>
       </div>
 
-      {/* Filter */}
+      {/* Search and Filter */}
       <Card>
-        <CardContent className="flex items-center gap-3 pt-6">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Label htmlFor="show-completed" className="text-sm font-medium cursor-pointer flex-1">
-            Show completed tasks
-          </Label>
-          <Switch 
-            id="show-completed"
-            checked={showCompleted} 
-            onCheckedChange={setShowCompleted}
-          />
+        <CardContent className="pt-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks by title, category, or section..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-3 pt-2 border-t">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="show-completed" className="text-sm font-medium cursor-pointer flex-1">
+              Show completed tasks
+            </Label>
+            <Switch 
+              id="show-completed"
+              checked={showCompleted} 
+              onCheckedChange={setShowCompleted}
+            />
+          </div>
         </CardContent>
       </Card>
 

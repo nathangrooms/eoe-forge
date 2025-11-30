@@ -30,6 +30,7 @@ import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
 import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
 import { InsuranceReport } from '@/components/collection/InsuranceReport';
+import { PriceHistoryChart } from '@/components/collection/PriceHistoryChart';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -493,6 +494,13 @@ export default function Collection() {
                       name: c.card_name,
                       quantity: c.quantity,
                       value: c.price_usd
+                    }))}
+                  />
+                  <PriceHistoryChart 
+                    collectionCards={(snapshot?.items || []).map(card => ({
+                      ...card,
+                      quantity: card.quantity || 1,
+                      price_usd: card.price_usd || '0'
                     }))}
                   />
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

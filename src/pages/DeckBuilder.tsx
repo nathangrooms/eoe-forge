@@ -19,6 +19,7 @@ import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPan
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
 import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
+import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -632,6 +633,13 @@ const DeckBuilder = () => {
                 
                 {/* Power Level Consistency Analysis */}
                 <PowerLevelConsistency 
+                  deckCards={deck.cards as any}
+                  commander={deck.commander}
+                  format={deck.format || 'standard'}
+                />
+                
+                {/* Archetype Detection */}
+                <ArchetypeDetection 
                   deckCards={deck.cards as any}
                   commander={deck.commander}
                   format={deck.format || 'standard'}

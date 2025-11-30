@@ -149,6 +149,55 @@ export async function markTasksComplete() {
       category: 'bug',
       priority: 'high',
       app_section: 'dashboard'
+    },
+    {
+      title: 'Create EditListingModal component',
+      description: 'Implemented listing edit functionality with price, quantity, and condition updates',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'marketplace'
+    },
+    {
+      title: 'Create color compatibility checker',
+      description: 'Built color identity validation system for Commander deck building with violation detection',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create optimized collection search',
+      description: 'Implemented debounced search with caching, pagination, and request cancellation for large collections',
+      category: 'improvement',
+      priority: 'high',
+      app_section: 'collection'
+    },
+    {
+      title: 'Create undo/redo system',
+      description: 'Built history management system for deck building with keyboard shortcuts and state persistence',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create price drop alert system',
+      description: 'Implemented edge function for monitoring wishlist prices and sending notifications when targets are met',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'wishlist'
+    },
+    {
+      title: 'Create system health dashboard',
+      description: 'Built real-time health monitoring for database, APIs, and performance metrics',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'dashboard'
+    },
+    {
+      title: 'Create AI card replacement system',
+      description: 'Implemented AI-powered card suggestion system for deck optimization',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
     }
   ];
 

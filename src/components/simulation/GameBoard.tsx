@@ -11,9 +11,9 @@ interface GameBoardProps {
 
 export const GameBoard = ({ state }: GameBoardProps) => {
   return (
-    <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-background via-background/95 to-background">
+    <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-background to-muted/20">
       {/* Opponent's zone (top) */}
-      <div className="flex-1 border-b-2 border-primary/20 overflow-y-auto">
+      <div className="flex-1 border-b-4 border-primary/30 overflow-y-auto bg-gradient-to-b from-muted/10 to-transparent">
         <DetailedPlayerZone
           player={state.player2}
           isActive={state.activePlayer === 'player2'}
@@ -23,16 +23,16 @@ export const GameBoard = ({ state }: GameBoardProps) => {
       </div>
 
       {/* Middle section: Phase info and Stack */}
-      <div className="relative flex flex-col items-center gap-2 bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5 py-4 border-y border-border">
+      <div className="relative flex flex-col items-center gap-3 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 py-6 border-y-4 border-primary/30 shadow-xl">
         {/* Turn and active player */}
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="text-xl px-5 py-2 bg-background/80 backdrop-blur font-bold">
+        <div className="flex items-center gap-6">
+          <Badge variant="outline" className="text-2xl px-6 py-3 bg-background/90 backdrop-blur font-bold border-2 shadow-md">
             Turn {state.turn}
           </Badge>
-          <Badge variant="secondary" className="text-lg px-4 py-2">
+          <Badge variant="secondary" className="text-xl px-5 py-2.5 font-bold shadow-md">
             {state.activePlayer === 'player1' ? state.player1.name : state.player2.name}'s Turn
           </Badge>
-          <Badge className="text-lg px-4 py-2 bg-primary/20 border-primary">
+          <Badge className="text-xl px-5 py-2.5 bg-primary/30 border-2 border-primary font-bold shadow-md">
             {state.phase.replace(/_/g, ' ').toUpperCase()}
           </Badge>
         </div>
@@ -45,15 +45,15 @@ export const GameBoard = ({ state }: GameBoardProps) => {
 
         {/* Stack viewer */}
         {state.stack.length > 0 && (
-          <div className="absolute right-4 top-4">
+          <div className="absolute right-6 top-6">
             <StackViewer stack={state.stack} />
           </div>
         )}
 
         {/* Combat indicator */}
         {state.combat.isActive && (
-          <div className="absolute left-4 top-4">
-            <Badge variant="destructive" className="text-xl px-6 py-3 animate-pulse font-bold shadow-lg">
+          <div className="absolute left-6 top-6">
+            <Badge variant="destructive" className="text-2xl px-8 py-4 animate-pulse font-bold shadow-2xl border-2">
               ⚔️ COMBAT PHASE
             </Badge>
           </div>
@@ -61,7 +61,7 @@ export const GameBoard = ({ state }: GameBoardProps) => {
       </div>
 
       {/* Player's zone (bottom) */}
-      <div className="flex-1 border-t-2 border-primary/20 overflow-y-auto">
+      <div className="flex-1 border-t-4 border-primary/30 overflow-y-auto bg-gradient-to-t from-muted/10 to-transparent">
         <DetailedPlayerZone
           player={state.player1}
           isActive={state.activePlayer === 'player1'}

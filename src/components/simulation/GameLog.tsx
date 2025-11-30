@@ -1,5 +1,7 @@
 import { GameEvent } from '@/lib/simulation/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 
@@ -35,61 +37,50 @@ export const GameLog = ({ events, autoScroll = true }: GameLogProps) => {
     }
   };
 
-  const getEventColor = (type: GameEvent['type']) => {
-    switch (type) {
-      case 'game_over': return 'bg-primary/20 border-primary text-primary font-bold';
-      case 'damage': return 'bg-destructive/10 text-destructive';
-      case 'attack': return 'bg-orange-500/10 text-orange-600';
-      case 'block': return 'bg-blue-500/10 text-blue-600';
-      case 'cast_spell': return 'bg-purple-500/10 text-purple-600';
-      case 'phase_change': return 'text-muted-foreground text-xs';
-      default: return '';
-    }
-  };
-
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-1 p-4">
-        {events.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                No events yet. Start the simulation to see the game log.
-              </div>
-        ) : (
-          <>
-            {events.map((event, index) => (
+    <Card className="h-full flex flex-col border-2 shadow-xl">
+      <div className="p-5 border-b-2 bg-muted/30">
+        <h3 className="font-bold text-xl">Game Log</h3>
+        <p className="text-sm text-muted-foreground mt-1">Live updates • Turn {events[events.length - 1]?.turn || 1}</p>
+      </div>
+      <ScrollArea className="flex-1" ref={scrollRef}>
+        <div className="p-4 space-y-2.5">
+          {events.map((event, idx) => {
+            const icon = getEventIcon(event.type);
+
+            return (
               <div
-                key={index}
+                key={idx}
                 className={cn(
-                  "flex items-start gap-3 p-2 rounded-lg text-sm transition-all",
-                  getEventColor(event.type),
-                  index === events.length - 1 && "ring-2 ring-primary/50 animate-pulse"
+                  "flex items-start gap-3 p-3 rounded-lg transition-all border-2",
+                  event.type === 'phase_change' && "bg-muted/40 border-border/50",
+                  event.type === 'damage' && "bg-destructive/10 border-destructive/30",
+                  event.type === 'game_over' && "bg-primary/20 border-primary font-bold",
+                  idx === events.length - 1 && "animate-fade-in ring-2 ring-primary/50"
                 )}
               >
-                <span className="text-lg flex-shrink-0">{getEventIcon(event.type)}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-muted-foreground font-mono">
-                      T{event.turn}
+                <div className="text-xl">{icon}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Badge variant="outline" className="text-xs font-semibold">
+                      Turn {event.turn}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {event.phase.replace(/_/g, ' ')}
                     </span>
-                    {event.cardName && (
-                      <span className="text-xs font-semibold text-primary truncate">
-                        {event.cardName}
-                      </span>
-                    )}
-                    {event.type !== 'phase_change' && (
-                      <span className="text-xs text-muted-foreground">
-                        • {event.phase.replace(/_/g, ' ')}
-                      </span>
-                    )}
                   </div>
-                  <div className="break-words">{event.description}</div>
+                  <p className={cn(
+                    "text-sm leading-relaxed",
+                    event.type === 'game_over' && "font-bold text-base"
+                  )}>
+                    {event.description}
+                  </p>
                 </div>
               </div>
-            ))}
-            <div ref={scrollRef} />
-          </>
-        )}
-      </div>
-    </ScrollArea>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </Card>
   );
 };

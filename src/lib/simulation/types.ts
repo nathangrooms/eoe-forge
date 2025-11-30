@@ -16,6 +16,7 @@ export interface GameCard extends Card {
   attachedTo?: string;
   summoningSick: boolean;
   wasPlayedThisTurn: boolean;
+  isCommander: boolean; // Track if this card is a commander
   // Modifiers that affect power/toughness
   powerModifier: number;
   toughnessModifier: number;

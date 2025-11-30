@@ -20,6 +20,7 @@ import { Loader2, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
 import { SimulationCinematicOverlay } from '@/components/simulation/SimulationCinematicOverlay';
+import { TurnOverview } from '@/components/simulation/TurnOverview';
 
 interface DeckOption {
   id: string;
@@ -40,6 +41,8 @@ export default function Simulate() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(1); // 1x speed for good viewing
+  const [showTurnOverview, setShowTurnOverview] = useState(false);
+  const [turnDamage, setTurnDamage] = useState({ toPlayer1: 0, toPlayer2: 0, player1Commander: 0, player2Commander: 0 });
   const [cinematicMode, setCinematicMode] = useState<
     | null
     | {
@@ -97,14 +100,14 @@ export default function Simulate() {
   };
 
   const loadDeckCards = async (deckId: string) => {
-    // Fetch deck cards
+    // Fetch deck cards with commander info
     const { data: deckCards, error: deckCardsError } = await supabase
       .from('deck_cards')
-      .select('card_id, quantity, card_name')
+      .select('card_id, quantity, card_name, is_commander')
       .eq('deck_id', deckId);
 
     if (deckCardsError) throw deckCardsError;
-    if (!deckCards || deckCards.length === 0) return [];
+    if (!deckCards || deckCards.length === 0) return { cards: [], commanderId: undefined };
 
     // Get unique card IDs
     const cardIds = [...new Set(deckCards.map(dc => dc.card_id))];
@@ -120,18 +123,24 @@ export default function Simulate() {
     // Create a map for quick lookup
     const cardMap = new Map(cardsData?.map(card => [card.id, card]) || []);
 
+    // Find commander
+    const commanderEntry = deckCards.find(dc => dc.is_commander);
+    const commanderId = commanderEntry?.card_id;
+
     // Expand cards by quantity
     const cards: any[] = [];
     deckCards.forEach((dc) => {
       const cardData = cardMap.get(dc.card_id);
       if (cardData) {
-        for (let i = 0; i < dc.quantity; i++) {
+        // Only add 1 copy of commander (it starts in command zone)
+        const quantity = dc.is_commander ? 1 : dc.quantity;
+        for (let i = 0; i < quantity; i++) {
           cards.push(cardData);
         }
       }
     });
 
-    return cards;
+    return { cards, commanderId };
   };
 
   const startSimulation = async () => {
@@ -172,10 +181,15 @@ export default function Simulate() {
       setIntroDeckNames({ deck1: deck1Info.name || 'Deck A', deck2: deck2Info.name || 'Deck B' });
 
       // Load cards
-      const [deck1Cards, deck2Cards] = await Promise.all([
+      const [deck1Result, deck2Result] = await Promise.all([
         loadDeckCards(deck1Id),
         loadDeckCards(deck2Id),
       ]);
+
+      const deck1Cards = deck1Result.cards;
+      const deck2Cards = deck2Result.cards;
+      const deck1CommanderId = deck1Result.commanderId;
+      const deck2CommanderId = deck2Result.commanderId;
 
       if (deck1Cards.length === 0) {
         toast.error(`${deck1Info.name} is empty or has no valid cards`);
@@ -201,7 +215,10 @@ export default function Simulate() {
             deck2Cards,
             deck1Info.name || 'Deck A',
             deck2Info.name || 'Deck B',
-            deck1Info.format || 'commander'
+            deck1Info.format || 'commander',
+            30,
+            deck1CommanderId,
+            deck2CommanderId
           );
           setSimulator(sim);
           setGameState(sim.getState());
@@ -234,6 +251,11 @@ export default function Simulate() {
           pause();
           return;
         }
+
+        // Track life at start of turn for damage calculation
+        const startLifeP1 = gameState.player1.life;
+        const startLifeP2 = gameState.player2.life;
+        const startTurn = gameState.turn;
 
         // Step through one action/phase at a time
         const prevPhase = gameState.phase;
@@ -352,11 +374,27 @@ export default function Simulate() {
         // Process animation events
         processEvents(result.events);
         
+        // Check for turn end and show damage overview
+        const turnChanged = result.state.turn > gameState.turn;
+        const damageP1 = gameState.player1.life - result.state.player1.life;
+        const damageP2 = gameState.player2.life - result.state.player2.life;
         
         // Update state
         setGameState({ ...result.state });
-        
-        if (!result.shouldContinue || result.state.gameOver) {
+
+        // Show turn overview if damage was dealt and turn ended
+        if (turnChanged && (damageP1 > 0 || damageP2 > 0)) {
+          setTurnDamage({
+            toPlayer1: damageP1,
+            toPlayer2: damageP2,
+            player1Commander: 0,
+            player2Commander: 0,
+          });
+          setShowTurnOverview(true);
+          setTimeout(() => setShowTurnOverview(false), 2500);
+        }
+      
+      if (!result.shouldContinue || result.state.gameOver) {
           pause();
           
           if (result.state.winner) {
@@ -522,8 +560,25 @@ export default function Simulate() {
         // Process animation events
         processEvents(result.events);
         
+        // Check for turn end and show damage overview
+        const turnChanged = result.state.turn > gameState.turn;
+        const damageP1 = gameState.player1.life - result.state.player1.life;
+        const damageP2 = gameState.player2.life - result.state.player2.life;
+        
         // Update state
         setGameState({ ...result.state });
+
+        // Show turn overview if damage was dealt and turn ended
+        if (turnChanged && (damageP1 > 0 || damageP2 > 0)) {
+          setTurnDamage({
+            toPlayer1: damageP1,
+            toPlayer2: damageP2,
+            player1Commander: 0, // Could track commander damage separately
+            player2Commander: 0,
+          });
+          setShowTurnOverview(true);
+          setTimeout(() => setShowTurnOverview(false), 2500);
+        }
       
       if (!result.shouldContinue || result.state.gameOver) {
         if (result.state.winner) {
@@ -799,6 +854,9 @@ export default function Simulate() {
           </div>
         </div>
       )}
+
+      {/* Turn Overview */}
+      <TurnOverview show={showTurnOverview} state={gameState} damageDealt={turnDamage} />
     </div>
   );
 }

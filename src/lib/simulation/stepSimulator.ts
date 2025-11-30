@@ -25,9 +25,19 @@ export class StepSimulator {
     player1Name: string = 'Deck A',
     player2Name: string = 'Deck B',
     format: string = 'commander',
-    maxTurns: number = 30
+    maxTurns: number = 30,
+    deck1CommanderId?: string,
+    deck2CommanderId?: string
   ) {
-    this.state = createInitialGameState(deck1, deck2, player1Name, player2Name, format);
+    this.state = createInitialGameState(
+      deck1, 
+      deck2, 
+      player1Name, 
+      player2Name, 
+      format,
+      deck1CommanderId,
+      deck2CommanderId
+    );
     this.ai1 = new AIPlayer();
     this.ai2 = new AIPlayer();
     this.maxTurns = maxTurns;

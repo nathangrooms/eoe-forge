@@ -30,6 +30,7 @@ import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { KeyboardShortcutsPanel } from '@/components/dashboard/KeyboardShortcutsPanel';
 import { SearchHistory } from '@/components/dashboard/SearchHistory';
+import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 
 // Lazy load heavy components for better initial load performance
 const AIDeckRecommendations = lazy(() => import('@/components/dashboard/AIDeckRecommendations').then(m => ({ default: m.AIDeckRecommendations })));
@@ -437,11 +438,11 @@ const Dashboard = () => {
   );
 };
 
-// Wrap Dashboard with ErrorBoundary
+// Wrap Dashboard with specialized error boundary
 const DashboardWithErrorBoundary = () => (
-  <ErrorBoundary>
+  <DashboardErrorBoundary>
     <Dashboard />
-  </ErrorBoundary>
+  </DashboardErrorBoundary>
 );
 
 export default DashboardWithErrorBoundary;

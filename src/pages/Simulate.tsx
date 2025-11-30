@@ -30,7 +30,7 @@ export default function Simulate() {
   const [showIntro, setShowIntro] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(0.5); // Start slower for better viewing
 
   useEffect(() => {
     loadDecks();
@@ -235,7 +235,7 @@ export default function Simulate() {
     };
 
     // Calculate interval based on speed (lower number = faster)
-    const baseInterval = 1500; // 1.5 seconds at 1x speed
+    const baseInterval = 3000; // 3 seconds at 1x speed for better viewing
     const interval = setInterval(runTurn, baseInterval / speed);
     setSimulationInterval(interval);
   };
@@ -347,8 +347,8 @@ export default function Simulate() {
             <div className="text-center space-y-2">
               <Swords className="h-16 w-16 mx-auto text-primary" />
               <h1 className="text-4xl font-bold">Deck Simulation</h1>
-              <p className="text-muted-foreground">
-                Run realistic MTG simulations between two decks with full rules engine
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in real-time.
               </p>
             </div>
 
@@ -408,8 +408,26 @@ export default function Simulate() {
             </div>
 
             {decks.length < 2 && (
-              <div className="text-center text-sm text-muted-foreground">
-                You need at least 2 decks to run a simulation
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  You need at least 2 decks to run a simulation.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Go to Deck Builder to create decks first.
+                </p>
+              </div>
+            )}
+
+            {decks.length >= 2 && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm space-y-2">
+                <div className="font-semibold text-primary">Simulation Features:</div>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li>• Full MTG rules: lands, creatures, spells, combat</li>
+                  <li>• Real-time card tracking with power/toughness updates</li>
+                  <li>• Detailed zones: battlefield, hand, graveyard, exile</li>
+                  <li>• Live game log with every action recorded</li>
+                  <li>• Speed controls: 0.25x to 2x playback</li>
+                </ul>
               </div>
             )}
           </Card>
@@ -417,10 +435,14 @@ export default function Simulate() {
       ) : (
         <>
           <div className="flex-1 flex overflow-hidden">
-            <div className="flex-[2] overflow-hidden">
+            <div className="flex-[3] overflow-hidden border-r border-border">
               <GameBoard state={gameState} />
             </div>
-            <div className="flex-1 border-l border-border">
+            <div className="flex-1 bg-background/50 backdrop-blur">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-lg font-bold">Game Log</h3>
+                <p className="text-xs text-muted-foreground">Live updates • Turn {gameState.turn}</p>
+              </div>
               <GameLog events={gameState.log} />
             </div>
           </div>

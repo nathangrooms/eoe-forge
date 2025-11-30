@@ -16,6 +16,11 @@ export interface GameCard extends Card {
   attachedTo?: string;
   summoningSick: boolean;
   wasPlayedThisTurn: boolean;
+  // Modifiers that affect power/toughness
+  powerModifier: number;
+  toughnessModifier: number;
+  // Track what abilities have been used this turn
+  abilitiesUsedThisTurn: string[];
 }
 
 export interface Player {

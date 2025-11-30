@@ -11,6 +11,7 @@ import { CompactCommanderSection } from '@/components/deck-builder/CompactComman
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
 import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
+import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';

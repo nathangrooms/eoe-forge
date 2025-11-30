@@ -4,9 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Plus, Search, ShoppingCart, Users } from 'lucide-react';
+import { Package, Plus, Search, ShoppingCart, Users, BarChart3 } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
+import { CollectionBulkImport } from '@/components/collection/CollectionBulkImport';
 import { SellCardModal } from '@/components/collection/SellCardModal';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
@@ -340,14 +341,26 @@ export default function Collection() {
             <h1 className="text-2xl font-semibold">Collection Manager</h1>
             <p className="text-muted-foreground">Organize your Magic: The Gathering collection</p>
           </div>
-          <div className="flex items-center gap-8">
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Total Value</div>
-              <div className="text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2">
+              <CollectionBulkImport onImportComplete={() => {
+                refresh();
+                showSuccess('Collection Updated', 'Import completed successfully');
+              }} />
+              <Button variant="outline" onClick={() => setActiveTab('analytics')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Analytics
+              </Button>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Total Cards</div>
-              <div className="text-xl font-bold">{stats.totalCards}</div>
+            <div className="flex items-center gap-8 pl-4 border-l">
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Total Value</div>
+                <div className="text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Total Cards</div>
+                <div className="text-xl font-bold">{stats.totalCards}</div>
+              </div>
             </div>
           </div>
         </div>

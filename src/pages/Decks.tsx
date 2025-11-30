@@ -326,10 +326,10 @@ export default function Decks() {
   };
 
   const generateAIDeck = async () => {
-    if (!aiArchetype) {
+    if (!aiArchetype || !user) {
       toast({
         title: "Error",
-        description: "Please select an archetype",
+        description: !user ? "Please log in to use AI Builder" : "Please select an archetype",
         variant: "destructive"
       });
       return;
@@ -338,8 +338,77 @@ export default function Decks() {
     setBuildingDeck(true);
     
     try {
-      // Convert collection cards to deck builder format
-      const cardPool = collection.cards.map(collectionCard => ({
+      // Call the AI deck builder edge function
+      const { data: deckData, error: aiError } = await supabase.functions.invoke('ai-deck-builder-v2', {
+        body: {
+          format: aiFormat,
+          archetype: aiArchetype,
+          targetPower: aiPowerLevel,
+          colorRestriction: aiColors.length > 0 ? aiColors : undefined,
+          ownedOnly: false
+        }
+      });
+
+      if (aiError) {
+        console.error('AI Builder error:', aiError);
+        throw new Error(aiError.message || 'Failed to generate deck');
+      }
+
+      if (!deckData || !deckData.deck || deckData.deck.length === 0) {
+        throw new Error('AI returned an empty deck');
+      }
+
+      // Create the deck in the database
+      const deckName = `AI ${availableTemplates.find(t => t.id === aiArchetype)?.name || 'Generated'} Deck`;
+      
+      const { data: newDeck, error: createError } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name: deckName,
+          format: aiFormat,
+          colors: aiColors,
+          power_level: aiPowerLevel,
+          description: `AI-generated ${aiArchetype} deck`
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Add cards to the new deck
+      const deckCards = deckData.deck.map((card: any) => ({
+        deck_id: newDeck.id,
+        card_id: card.id,
+        card_name: card.name,
+        quantity: 1,
+        is_commander: card.isCommander || false,
+        is_sideboard: false
+      }));
+
+      const { error: cardsError } = await supabase
+        .from('deck_cards')
+        .insert(deckCards);
+
+      if (cardsError) throw cardsError;
+
+      toast({
+        title: "Deck Generated!",
+        description: `Created "${deckName}" with ${deckData.deck.length} cards`,
+      });
+      
+      setShowAIDialog(false);
+      
+      // Refresh deck list and navigate to the new deck
+      await loadDeckSummaries();
+      navigate(`/deck-builder?deck=${newDeck.id}`);
+      
+    } catch (error) {
+      console.error('Error generating deck:', error);
+      
+      // Fallback to local generation if AI fails
+      try {
+        const cardPool = collection.cards.map(collectionCard => ({
         id: collectionCard.id,
         oracle_id: collectionCard.id,
         name: collectionCard.name,
@@ -398,21 +467,21 @@ export default function Decks() {
         });
       });
 
-      toast({
-        title: "Deck Generated!",
-        description: `Created ${result.deck.length}-card deck with power level ${result.analysis.power.toFixed(1)}`,
-      });
-      
-      setShowAIDialog(false);
-      setActiveTab('deck-editor');
-      
-    } catch (error) {
-      console.error('Error generating deck:', error);
-      toast({
-        title: "Generation Failed",
-        description: "Could not generate deck. Try adjusting your requirements.",
-        variant: "destructive"
-      });
+        toast({
+          title: "Deck Generated!",
+          description: `Created ${result.deck.length}-card deck (fallback)`,
+        });
+        
+        setShowAIDialog(false);
+        setActiveTab('deck-editor');
+      } catch (fallbackError) {
+        console.error('Fallback generation also failed:', fallbackError);
+        toast({
+          title: "Generation Failed",
+          description: "Could not generate deck. Try adjusting your requirements.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setBuildingDeck(false);
     }

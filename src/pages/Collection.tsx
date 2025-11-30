@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
 import { StorageContainer } from '@/types/storage';
 import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
+import { CategoryManager } from '@/components/collection/CategoryManager';
 
 export default function Collection() {
   const {
@@ -446,6 +447,9 @@ export default function Collection() {
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
             <div className="space-y-6">
+              {/* Category Manager */}
+              <CategoryManager />
+              
               {/* Favorite Decks Preview */}
               <FavoriteDecksPreview />
               

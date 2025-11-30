@@ -9,6 +9,7 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
 import { EditListingModal } from '@/components/marketplace/EditListingModal';
 import { AIPricingInsights } from '@/components/marketplace/AIPricingInsights';
+import { PriceComparison } from '@/components/marketplace/PriceComparison';
 import { 
   Package, 
   DollarSign,
@@ -353,6 +354,9 @@ export default function Marketplace() {
         {myListings.length > 0 && (
           <AIPricingInsights listings={myListings} />
         )}
+
+        {/* Price Comparison */}
+        <PriceComparison />
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

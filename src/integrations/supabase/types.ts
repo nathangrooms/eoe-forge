@@ -221,6 +221,83 @@ export type Database = {
           },
         ]
       }
+      deck_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          position: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          position?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          position?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      deck_maybeboard: {
+        Row: {
+          card_id: string
+          card_name: string
+          created_at: string
+          deck_id: string
+          id: string
+          notes: string | null
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          card_id: string
+          card_name: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_maybeboard_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deck_share_events: {
         Row: {
           created_at: string | null
@@ -252,6 +329,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "deck_share_events_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deck_versions: {
+        Row: {
+          cards: Json
+          created_at: string
+          created_by: string
+          deck_id: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          version_number: number
+        }
+        Insert: {
+          cards?: Json
+          created_at?: string
+          created_by: string
+          deck_id: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          version_number: number
+        }
+        Update: {
+          cards?: Json
+          created_at?: string
+          created_by?: string
+          deck_id?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_versions_deck_id_fkey"
             columns: ["deck_id"]
             isOneToOne: false
             referencedRelation: "user_decks"
@@ -712,6 +833,7 @@ export type Database = {
           colors: string[]
           created_at: string
           description: string | null
+          folder_id: string | null
           format: string
           id: string
           is_public: boolean
@@ -730,6 +852,7 @@ export type Database = {
           colors?: string[]
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           format?: string
           id?: string
           is_public?: boolean
@@ -748,6 +871,7 @@ export type Database = {
           colors?: string[]
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           format?: string
           id?: string
           is_public?: boolean
@@ -761,7 +885,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_decks_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "deck_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wishlist: {
         Row: {

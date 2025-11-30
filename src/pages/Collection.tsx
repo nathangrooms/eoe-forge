@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Plus, Search, ShoppingCart, Users, BarChart3 } from 'lucide-react';
+import { Package, Plus, Search, ShoppingCart, Users, BarChart3, Download } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
 import { CollectionBulkImport } from '@/components/collection/CollectionBulkImport';
@@ -222,6 +222,44 @@ export default function Collection() {
     showSuccess('Added to Queue', 'Card added to deck builder queue');
   };
 
+  const handleExportBackup = async () => {
+    try {
+      if (!snapshot) {
+        showError('No Data', 'No collection data to backup');
+        return;
+      }
+
+      const backup = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        collection: {
+          items: snapshot.items,
+          totals: snapshot.totals
+        },
+        metadata: {
+          totalCards: snapshot.totals.count,
+          uniqueCards: snapshot.totals.unique,
+          totalValue: snapshot.totals.valueUSD
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mtg-collection-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showSuccess('Backup Created', 'Collection backup downloaded successfully');
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      showError('Backup Failed', 'Failed to create collection backup');
+    }
+  };
+
   const addToCollection = async (card: any) => {
     try {
       const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
@@ -347,6 +385,10 @@ export default function Collection() {
                 refresh();
                 showSuccess('Collection Updated', 'Import completed successfully');
               }} />
+              <Button variant="outline" onClick={handleExportBackup}>
+                <Download className="h-4 w-4 mr-2" />
+                Backup
+              </Button>
               <Button variant="outline" onClick={() => setActiveTab('analytics')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics

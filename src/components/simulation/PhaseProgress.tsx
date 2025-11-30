@@ -25,37 +25,39 @@ export const PhaseProgress = ({ currentPhase, activePlayer }: PhaseProgressProps
   const currentIndex = PHASES.findIndex(p => p.phase === currentPhase);
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-background/80 backdrop-blur rounded-lg border border-border">
-      <div className="text-xs text-muted-foreground font-semibold mr-2">
+    <div className="flex flex-col gap-2">
+      <div className="text-xs text-muted-foreground font-semibold">
         {activePlayer}'s Turn
       </div>
-      {PHASES.map((p, index) => (
-        <div
-          key={p.phase}
-          className={cn(
-            "flex flex-col items-center gap-1 transition-all",
-            index === currentIndex && "scale-110"
-          )}
-        >
+      <div className="grid grid-cols-6 gap-2">
+        {PHASES.map((p, index) => (
           <div
+            key={p.phase}
             className={cn(
-              "h-2 w-12 rounded-full transition-all",
-              index < currentIndex && "bg-primary",
-              index === currentIndex && "bg-primary animate-pulse shadow-lg shadow-primary/50",
-              index > currentIndex && "bg-muted"
-            )}
-          />
-          <div
-            className={cn(
-              "text-xs transition-all whitespace-nowrap",
-              index === currentIndex && "font-bold text-primary",
-              index !== currentIndex && "text-muted-foreground"
+              "flex flex-col items-center gap-1 transition-all",
+              index === currentIndex && "scale-105"
             )}
           >
-            {p.label}
+            <div
+              className={cn(
+                "h-1.5 w-full rounded-full transition-all",
+                index < currentIndex && "bg-primary",
+                index === currentIndex && "bg-primary animate-pulse shadow-lg shadow-primary/50",
+                index > currentIndex && "bg-muted"
+              )}
+            />
+            <div
+              className={cn(
+                "text-[9px] transition-all whitespace-nowrap text-center leading-tight",
+                index === currentIndex && "font-bold text-primary",
+                index !== currentIndex && "text-muted-foreground"
+              )}
+            >
+              {p.label}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };

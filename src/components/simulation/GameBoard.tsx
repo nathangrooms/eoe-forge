@@ -14,7 +14,7 @@ export const GameBoard = ({ state, onRegisterCard, damages }: GameBoardProps) =>
   return (
     <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
       {/* Top status bar: both players + turn */}
-      <div className="h-11 border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-3 gap-3 text-[11px]">
+      <div className="h-14 border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-3 gap-3 text-[11px]">
         {/* Opponent summary */}
         <div className="flex items-center gap-2 min-w-[200px]">
           <Badge variant="outline" className="px-2 py-0.5 font-semibold bg-background/80 leading-none">

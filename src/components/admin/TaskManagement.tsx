@@ -335,6 +335,8 @@ export function TaskManagement() {
     'Add wishlist import from URL',
     'Implement audit trail',
     'Implement collection wishlists per deck',
+    'Add Planeswalker badge progression to Dashboard',
+    'Add deck simulation tool to Deck Builder',
   ];
 
   useEffect(() => {

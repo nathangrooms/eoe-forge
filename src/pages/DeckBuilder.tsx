@@ -13,6 +13,7 @@ import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPan
 import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
 import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
+import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -487,6 +488,12 @@ const DeckBuilder = () => {
             >
               Import/Export
             </TabsTrigger>
+            <TabsTrigger 
+              value="deck-tester"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+            >
+              Deck Tester
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -691,6 +698,25 @@ const DeckBuilder = () => {
                 }}
               />
             </div>
+          </TabsContent>
+
+          {/* Deck Tester Tab */}
+          <TabsContent value="deck-tester" className="h-full overflow-auto px-6 py-4 m-0">
+            {deck.cards.length > 0 ? (
+              <QuickDeckTester 
+                deck={deck.cards.map(card => ({
+                  id: card.id,
+                  name: card.name,
+                  cmc: card.cmc,
+                  type_line: card.type_line,
+                  mana_cost: card.mana_cost
+                }))}
+              />
+            ) : (
+              <div className="text-center p-8">
+                <p className="text-muted-foreground mb-4">Add cards to your deck to test opening hands</p>
+              </div>
+            )}
           </TabsContent>
         </div>
       </Tabs>

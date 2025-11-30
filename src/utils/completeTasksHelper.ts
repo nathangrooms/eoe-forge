@@ -226,6 +226,13 @@ export async function markTasksComplete() {
       category: 'core_functionality',
       priority: 'high',
       app_section: 'deck_builder'
+    },
+    {
+      title: 'Create archetype detection system',
+      description: 'Built ArchetypeDetector class that analyzes deck composition to classify decks into MTG archetypes like Voltron, Combo, Control, Aggro, Aristocrats, etc. with confidence scoring',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
     }
   ];
 

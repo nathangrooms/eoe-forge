@@ -610,6 +610,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_collections: {
         Row: {
           card_id: string
@@ -777,7 +807,7 @@ export type Database = {
       toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      task_status: "pending" | "in_progress" | "blocked" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -904,6 +934,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      task_status: ["pending", "in_progress", "blocked", "done"],
+    },
   },
 } as const

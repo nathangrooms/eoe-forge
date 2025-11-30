@@ -3,6 +3,7 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { EnhancedAdminPanel } from '@/components/EnhancedAdminPanel';
 import SyncDashboard from '@/components/SyncDashboard';
 import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
+import { TaskManagement } from '@/components/admin/TaskManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
@@ -11,6 +12,7 @@ const Admin = () => {
       <Tabs defaultValue="ai" className="space-y-6">
         <TabsList>
           <TabsTrigger value="ai">AI Control</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="sync">Card Sync</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="management">Management</TabsTrigger>
@@ -18,6 +20,10 @@ const Admin = () => {
 
         <TabsContent value="ai">
           <AISystemAdmin />
+        </TabsContent>
+
+        <TabsContent value="tasks">
+          <TaskManagement />
         </TabsContent>
 
         <TabsContent value="sync">

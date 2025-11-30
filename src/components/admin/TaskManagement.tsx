@@ -33,6 +33,7 @@ import { Pencil, Trash2, Plus } from 'lucide-react';
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
 type TaskCategory = 'feature' | 'bug' | 'improvement' | 'core_functionality';
+type TaskPriority = 'high' | 'medium' | 'low';
 
 interface Task {
   id: string;
@@ -41,6 +42,7 @@ interface Task {
   description: string | null;
   status: TaskStatus;
   category: TaskCategory;
+  priority: TaskPriority;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +75,18 @@ const categoryLabels: Record<TaskCategory, string> = {
   core_functionality: 'Core Functionality',
 };
 
+const priorityColors: Record<TaskPriority, string> = {
+  high: 'bg-red-500/20 text-red-400 border-red-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  low: 'bg-green-500/20 text-green-400 border-green-500/30',
+};
+
+const priorityLabels: Record<TaskPriority, string> = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+};
+
 export function TaskManagement() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +97,7 @@ export function TaskManagement() {
     description: '',
     status: 'pending' as TaskStatus,
     category: 'feature' as TaskCategory,
+    priority: 'medium' as TaskPriority,
   });
 
   useEffect(() => {
@@ -131,6 +146,7 @@ export function TaskManagement() {
             description: formData.description,
             status: formData.status,
             category: formData.category,
+            priority: formData.priority,
           })
           .eq('id', editingTask.id);
 
@@ -145,6 +161,7 @@ export function TaskManagement() {
             description: formData.description,
             status: formData.status,
             category: formData.category,
+            priority: formData.priority,
           });
 
         if (error) throw error;
@@ -188,6 +205,7 @@ export function TaskManagement() {
       description: task.description || '',
       status: task.status,
       category: task.category,
+      priority: task.priority,
     });
     setEditingTask(task);
     setDialogOpen(true);
@@ -199,6 +217,7 @@ export function TaskManagement() {
       description: '',
       status: 'pending',
       category: 'feature',
+      priority: 'medium',
     });
     setEditingTask(null);
   };
@@ -225,6 +244,7 @@ export function TaskManagement() {
               <TableHead>Title</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -233,13 +253,13 @@ export function TaskManagement() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Loading tasks...
                 </TableCell>
               </TableRow>
             ) : tasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No tasks yet. Create your first task to get started.
                 </TableCell>
               </TableRow>
@@ -253,6 +273,11 @@ export function TaskManagement() {
                   <TableCell>
                     <Badge className={categoryColors[task.category]}>
                       {categoryLabels[task.category]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={priorityColors[task.priority]}>
+                      {priorityLabels[task.priority]}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -345,6 +370,25 @@ export function TaskManagement() {
                     <SelectItem value="bug">Bug</SelectItem>
                     <SelectItem value="improvement">Improvement</SelectItem>
                     <SelectItem value="core_functionality">Core Functionality</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value: TaskPriority) =>
+                    setFormData({ ...formData, priority: value })
+                  }
+                >
+                  <SelectTrigger id="priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { EDHPowerCalculator } from '@/lib/deckbuilder/score/edh-power-calculator';
+import { auditLogger } from '@/lib/audit/auditLogger';
 
 export interface DeckSummary {
   id: string;
@@ -196,6 +197,9 @@ export class DeckAPI {
       if (createError) {
         throw createError;
       }
+
+      // Log deck creation
+      await auditLogger.logDeckCreate(newDeck.id, newDeck.name, newDeck.format);
 
       // Copy deck cards
       const { data: originalCards, error: cardsError } = await supabase

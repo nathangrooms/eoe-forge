@@ -27,6 +27,7 @@ import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { WishlistCardDisplay } from '@/components/wishlist/WishlistCardDisplay';
 import { AIWishlistSuggestions } from '@/components/wishlist/AIWishlistSuggestions';
 import { WishlistPurchaseTracker } from '@/components/wishlist/WishlistPurchaseTracker';
+import { WishlistImportFromURL } from '@/components/wishlist/WishlistImportFromURL';
 
 interface WishlistItem {
   id: string;
@@ -522,6 +523,8 @@ export default function Wishlist() {
 
           <TabsContent value="wishlist" className="h-full overflow-auto px-6 py-4 m-0">
           <div className="space-y-6">
+            <WishlistImportFromURL onImportComplete={loadWishlist} />
+            
             <AIWishlistSuggestions 
               wishlistItems={wishlistItems}
               onAddCard={addToWishlist}

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { scryfallAPI } from './scryfall';
+import { auditLogger } from '@/lib/audit/auditLogger';
 
 export interface BulkImportOptions {
   format: 'arena' | 'csv' | 'txt';
@@ -90,6 +91,11 @@ export class CollectionAPI {
         result.errors.push(`Failed to import ${name}: ${error}`);
         console.error(`Error importing card ${name}:`, error);
       }
+    }
+
+    // Log bulk import operation
+    if (result.success > 0) {
+      await auditLogger.logBulkImport(result.success, options.format);
     }
 
     return result;

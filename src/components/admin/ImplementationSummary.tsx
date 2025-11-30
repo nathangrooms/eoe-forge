@@ -36,7 +36,10 @@ export function ImplementationSummary() {
         'AI-powered archetype detection',
         'Budget tracker with spending analysis',
         'Card replacement engine for alternatives',
-        'Social features with ratings and comments'
+        'Social features with ratings and comments',
+        'Deck comparison tool for side-by-side analysis',
+        'Archetype library with popular templates',
+        'Advanced filter panel with multi-criteria search'
       ]
     },
     {

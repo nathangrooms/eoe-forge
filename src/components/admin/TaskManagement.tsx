@@ -369,8 +369,9 @@ export function TaskManagement() {
     'Add deck recommendations based on collection ownership',
     'Add deck budget tracker with spending analysis',
     'Add card replacement engine for budget alternatives and upgrades',
-    'Add social features for deck ratings and comments',
-    'Add tournament manager with bracket generation and standings',
+    'Add deck comparison tool to analyze differences',
+    'Add archetype library with popular deck templates',
+    'Add advanced filter panel with multi-criteria search',
   ];
 
   useEffect(() => {

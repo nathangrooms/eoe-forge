@@ -4,6 +4,7 @@ import { advancePhase, checkStateBasedActions } from './turnEngine';
 import { AIPlayer } from './aiPlayer';
 import { declareAttackers, declareBlockers, resolveCombatDamage } from './combatSystem';
 import { canPlayLand, canCastSpell, canAffordSpell, produceMana, calculateManaCost } from './cardInterpreter';
+import { checkCastTriggers, checkETBTriggers } from './triggerSystem';
 import { Card } from '@/lib/deckbuilder/types';
 
 export class GameSimulator {
@@ -185,7 +186,10 @@ export class GameSimulator {
         
       case 'cast_spell':
         if (decision.cardInstanceId) {
-          const card = player.hand.find(c => c.instanceId === decision.cardInstanceId);
+          const card = player.hand.find(c => c.instanceId === decision.cardInstanceId) ||
+                      player.commandZone.find(c => c.instanceId === decision.cardInstanceId);
+          const fromZone = player.hand.find(c => c.instanceId === decision.cardInstanceId) ? 'hand' : 'command';
+          
           if (card && canCastSpell(card, this.state)) {
             // Tap lands for mana
             this.tapLandsForMana(playerId);
@@ -194,19 +198,27 @@ export class GameSimulator {
               // Pay mana cost
               this.payManaCost(card, playerId);
               
+              // Check cast triggers before moving card
+              checkCastTriggers(this.state, card, playerId);
+              
               // Move card to battlefield or graveyard
               const destination = card.type_line.includes('Instant') || card.type_line.includes('Sorcery') 
                 ? 'graveyard' 
                 : 'battlefield';
               
-              moveCard(card, 'hand', destination, this.state);
+              moveCard(card, fromZone as any, destination, this.state);
+              
+              // Check ETB triggers after entering battlefield
+              if (destination === 'battlefield') {
+                checkETBTriggers(this.state);
+              }
               
               this.state.log.push({
                 turn: this.state.turn,
                 phase: this.state.phase,
                 type: 'cast_spell',
                 player: playerId,
-                description: `${player.name} casts ${card.name}`,
+                description: `${player.name} casts ${card.name}${fromZone === 'command' ? ' from command zone' : ''}`,
                 cardName: card.name,
                 timestamp: Date.now(),
               });

@@ -73,13 +73,20 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
               </div>
             )}
 
-            {/* Top-left counter badges */}
-            {Object.entries(card.counters).length > 0 && (
+            {/* Top-left: Token badge if it's a token */}
+            {card.layout === 'token' && (
+              <div className="absolute -top-0.5 -left-0.5 bg-primary text-primary-foreground rounded-br-lg rounded-tl-md px-2 py-0.5 text-[9px] font-black shadow-lg border border-primary-foreground/30 z-10">
+                TOKEN
+              </div>
+            )}
+
+            {/* Counter badges */}
+            {Object.entries(card.counters).length > 0 && !card.layout?.includes('token') && (
               <div className="absolute top-1 left-1 flex flex-wrap gap-1 max-w-[80%]">
                 {Object.entries(card.counters).map(([type, count]) => (
                   <div
                     key={type}
-                    className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-lg border border-primary-foreground/20"
+                    className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-bold shadow-lg border border-primary-foreground/20 animate-pulse"
                   >
                     +{count}
                   </div>

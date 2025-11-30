@@ -7,7 +7,9 @@ import { GameBoard } from '@/components/simulation/GameBoard';
 import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { PhaseProgress } from '@/components/simulation/PhaseProgress';
+import { AnimationTestPanel } from '@/components/simulation/AnimationTestPanel';
 import { useGameAnimations } from '@/hooks/useGameAnimations';
+import { clearTriggerTracking } from '@/lib/simulation/triggerSystem';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -299,6 +301,7 @@ export default function Simulate() {
 
   const restart = () => {
     pause();
+    clearTriggerTracking(); // Clear ETB trigger tracking
     setSimulator(null);
     setGameState(null);
     setResult(null);
@@ -479,6 +482,9 @@ export default function Simulate() {
           </div>
         </div>
       )}
+      
+      {/* Dev animation test panel */}
+      {gameState && <AnimationTestPanel />}
     </div>
   );
 }

@@ -93,19 +93,19 @@ const Dashboard = () => {
 
   if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-96" />
-              <Skeleton className="h-6 w-64" />
+      <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-2 w-full sm:w-auto">
+              <Skeleton className="h-8 sm:h-10 w-full sm:w-96" />
+              <Skeleton className="h-5 sm:h-6 w-full sm:w-64" />
             </div>
-            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map(i => (
               <Card key={i}>
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <Skeleton className="h-4 w-24" />
                 </CardHeader>
                 <CardContent>
@@ -121,17 +121,17 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Welcome Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-1 w-full sm:w-auto">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
               <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                 Welcome back, Planeswalker
               </span>
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Your command center for deck building, collection management, and AI-powered insights
             </p>
           </div>
@@ -139,34 +139,34 @@ const Dashboard = () => {
 
         {/* AI Feature Strip */}
         <Card className="border-spacecraft/30 bg-gradient-to-r from-spacecraft/5 via-celestial/5 to-cosmic/5">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-                  <Brain className="h-6 w-6 text-primary-foreground" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow shrink-0">
+                  <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg flex items-center gap-2">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
                     DeckMatrix AI Super Brain
-                    <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft">
+                    <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft text-xs">
                       <Sparkles className="h-3 w-3 mr-1" />
                       Powered by Gemini
                     </Badge>
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Get expert analysis, deck optimization, and strategic insights powered by advanced AI
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Link to="/brain">
-                  <Button variant="outline" className="border-spacecraft/30 hover:bg-spacecraft/10">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Link to="/brain" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full sm:w-auto border-spacecraft/30 hover:bg-spacecraft/10">
                     <Brain className="h-4 w-4 mr-2" />
                     Open AI Brain
                   </Button>
                 </Link>
-                <Link to="/deck-builder">
-                  <Button className="bg-gradient-cosmic hover:opacity-90">
+                <Link to="/deck-builder" className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto bg-gradient-cosmic hover:opacity-90">
                     <Wand2 className="h-4 w-4 mr-2" />
                     AI Deck Builder
                   </Button>
@@ -177,17 +177,17 @@ const Dashboard = () => {
         </Card>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="relative overflow-hidden hover:shadow-md transition-all group">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-station to-station/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Collection Value</CardTitle>
-              <div className="p-2 rounded-lg bg-station/10">
-                <DollarSign className="h-4 w-4 text-station" />
+              <CardTitle className="text-xs sm:text-sm font-medium">Collection Value</CardTitle>
+              <div className="p-1.5 sm:p-2 rounded-lg bg-station/10">
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-station" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{asUSD(dashboardData?.collection?.totalValueUSD)}</div>
+              <div className="text-xl sm:text-2xl font-bold">{asUSD(dashboardData?.collection?.totalValueUSD)}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 {dashboardData?.collection?.uniqueCards || 0} unique cards
               </p>
@@ -197,13 +197,13 @@ const Dashboard = () => {
           <Card className="relative overflow-hidden hover:shadow-md transition-all group">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-spacecraft to-spacecraft/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Cards</CardTitle>
-              <div className="p-2 rounded-lg bg-spacecraft/10">
-                <Package className="h-4 w-4 text-spacecraft" />
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Cards</CardTitle>
+              <div className="p-1.5 sm:p-2 rounded-lg bg-spacecraft/10">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4 text-spacecraft" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{(dashboardData?.collection?.totalCards || 0).toLocaleString()}</div>
+              <div className="text-xl sm:text-2xl font-bold">{(dashboardData?.collection?.totalCards || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Physical collection
               </p>
@@ -213,13 +213,13 @@ const Dashboard = () => {
           <Card className="relative overflow-hidden hover:shadow-md transition-all group">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warp to-warp/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Decks</CardTitle>
-              <div className="p-2 rounded-lg bg-warp/10">
-                <Layers className="h-4 w-4 text-warp" />
+              <CardTitle className="text-xs sm:text-sm font-medium">Active Decks</CardTitle>
+              <div className="p-1.5 sm:p-2 rounded-lg bg-warp/10">
+                <Layers className="h-3 w-3 sm:h-4 sm:w-4 text-warp" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.decks?.count || 0}</div>
+              <div className="text-xl sm:text-2xl font-bold">{dashboardData?.decks?.count || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 {dashboardData?.decks?.favoritesCount || 0} favorites
               </p>
@@ -230,13 +230,13 @@ const Dashboard = () => {
             <Card className="relative overflow-hidden hover:shadow-md transition-all group cursor-pointer">
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-void to-void/50" />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
-                <div className="p-2 rounded-lg bg-void/10">
-                  <Heart className="h-4 w-4 text-void" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Wishlist</CardTitle>
+                <div className="p-1.5 sm:p-2 rounded-lg bg-void/10">
+                  <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-void" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist?.valueUSD)}</div>
+                <div className="text-xl sm:text-2xl font-bold">{asUSD(dashboardData?.wishlist?.valueUSD)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {dashboardData?.wishlist?.totalItems || 0} items desired
                 </p>

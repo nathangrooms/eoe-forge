@@ -201,8 +201,10 @@ export function TaskManagement() {
     
     // Collection Features - Done
     'Add collection price alerts',
+    'Add price alerts for cards',
     'Add collection sharing',
     'Add bulk edit actions in Collection Manager',
+    'Implement bulk card operations',
     'Add bulk import validation',
     'Add collection condition tracking',
     'Add collection analytics',

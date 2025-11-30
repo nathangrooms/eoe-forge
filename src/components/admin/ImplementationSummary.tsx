@@ -15,7 +15,9 @@ export function ImplementationSummary() {
         'TCGPlayer price sync',
         'Price history tracking with charts',
         'Saved filter presets',
-        'Deck recommendations based on ownership'
+        'Deck recommendations based on ownership',
+        'Card condition photo uploads',
+        'Enhanced price alerts with notifications'
       ]
     },
     {
@@ -42,7 +44,8 @@ export function ImplementationSummary() {
         'Advanced filter panel with multi-criteria search',
         'Deck proxy generator for printable cards',
         'Deck notes and comments system',
-        'Comprehensive match analytics with insights'
+        'Comprehensive match analytics with insights',
+        'Enhanced deck export with multiple formats'
       ]
     },
     {

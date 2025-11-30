@@ -34,6 +34,7 @@ import { PriceHistoryChart } from '@/components/collection/PriceHistoryChart';
 import { SavedFilterPresets } from '@/components/collection/SavedFilterPresets';
 import { CollectionDeckRecommendations } from '@/components/collection/CollectionDeckRecommendations';
 import { CollectionValueTrends } from '@/components/collection/CollectionValueTrends';
+import { EnhancedPriceAlerts } from '@/components/collection/EnhancedPriceAlerts';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -526,6 +527,7 @@ export default function Collection() {
                     {user && <CollectionExport userId={user.id} />}
                     {user && <CollectionBackupRestore userId={user.id} />}
                   </div>
+                  <EnhancedPriceAlerts />
                   {collectionStats && (
                     <InsuranceReport 
                       collectionValue={collectionStats.totalValue}

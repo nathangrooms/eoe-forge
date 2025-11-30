@@ -378,6 +378,9 @@ export function TaskManagement() {
     'Add advanced scan options with auto-capture and batch mode',
     'Add deck notes and comments system',
     'Add comprehensive match analytics with win rates',
+    'Add card condition photo tracking with uploads',
+    'Add enhanced price alert system with notifications',
+    'Add enhanced deck export with multiple formats',
   ];
 
   useEffect(() => {

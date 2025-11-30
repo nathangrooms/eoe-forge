@@ -375,6 +375,9 @@ export function TaskManagement() {
     'Add deck proxy generator for printable playtest cards',
     'Add wishlist budget tracker with spending limits',
     'Add collection value trends and analytics dashboard',
+    'Add advanced scan options with auto-capture and batch mode',
+    'Add deck notes and comments system',
+    'Add comprehensive match analytics with win rates',
   ];
 
   useEffect(() => {

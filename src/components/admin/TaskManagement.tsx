@@ -28,8 +28,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Pencil, Trash2, Plus, CheckCircle2, Filter } from 'lucide-react';
+import { Pencil, Trash2, Plus, CheckCircle2, Filter, ListTodo, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
@@ -48,44 +49,24 @@ interface Task {
   updated_at: string;
 }
 
-const statusColors: Record<TaskStatus, string> = {
-  pending: 'bg-muted text-muted-foreground',
-  in_progress: 'bg-primary/20 text-primary',
-  blocked: 'bg-destructive/20 text-destructive',
-  done: 'bg-green-500/20 text-green-400',
+const statusConfig: Record<TaskStatus, { color: string; label: string; icon: any }> = {
+  pending: { color: 'bg-muted/80 text-muted-foreground border-border', label: 'Pending', icon: Clock },
+  in_progress: { color: 'bg-primary/10 text-primary border-primary/20', label: 'In Progress', icon: ListTodo },
+  blocked: { color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Blocked', icon: AlertCircle },
+  done: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: 'Done', icon: CheckCircle },
 };
 
-const statusLabels: Record<TaskStatus, string> = {
-  pending: 'Pending',
-  in_progress: 'In Progress',
-  blocked: 'Blocked',
-  done: 'Done',
+const categoryConfig: Record<TaskCategory, { color: string; label: string }> = {
+  feature: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Feature' },
+  bug: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Bug' },
+  improvement: { color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', label: 'Improvement' },
+  core_functionality: { color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Core' },
 };
 
-const categoryColors: Record<TaskCategory, string> = {
-  feature: 'bg-blue-500/20 text-blue-400',
-  bug: 'bg-red-500/20 text-red-400',
-  improvement: 'bg-purple-500/20 text-purple-400',
-  core_functionality: 'bg-amber-500/20 text-amber-400',
-};
-
-const categoryLabels: Record<TaskCategory, string> = {
-  feature: 'Feature',
-  bug: 'Bug',
-  improvement: 'Improvement',
-  core_functionality: 'Core Functionality',
-};
-
-const priorityColors: Record<TaskPriority, string> = {
-  high: 'bg-red-500/20 text-red-400 border-red-500/30',
-  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  low: 'bg-green-500/20 text-green-400 border-green-500/30',
-};
-
-const priorityLabels: Record<TaskPriority, string> = {
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
+const priorityConfig: Record<TaskPriority, { color: string; label: string }> = {
+  high: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30', label: 'High' },
+  medium: { color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30', label: 'Medium' },
+  low: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30', label: 'Low' },
 };
 
 export function TaskManagement() {
@@ -245,40 +226,87 @@ export function TaskManagement() {
 
   const completedCount = tasks.filter(t => t.status === 'done').length;
   const activeCount = tasks.length - completedCount;
+  const inProgressCount = tasks.filter(t => t.status === 'in_progress').length;
+  const blockedCount = tasks.filter(t => t.status === 'blocked').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Task Management</h2>
-          <p className="text-muted-foreground mt-1">
-            {activeCount} active · {completedCount} completed
+          <h2 className="text-3xl font-bold text-foreground">Task Management</h2>
+          <p className="text-muted-foreground mt-2">
+            Organize and track your development tasks
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={openCreateDialog} size="lg" className="w-full sm:w-auto">
+          <Plus className="mr-2 h-5 w-5" />
           New Task
         </Button>
       </div>
 
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Label htmlFor="show-completed" className="text-sm font-normal cursor-pointer">
-          Show completed tasks
-        </Label>
-        <Switch 
-          id="show-completed"
-          checked={showCompleted} 
-          onCheckedChange={setShowCompleted}
-        />
+      {/* Stats Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Tasks</CardTitle>
+            <ListTodo className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+            <Clock className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">{inProgressCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
+            <AlertCircle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{blockedCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      {/* Filter */}
+      <Card>
+        <CardContent className="flex items-center gap-3 pt-6">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Label htmlFor="show-completed" className="text-sm font-medium cursor-pointer flex-1">
+            Show completed tasks
+          </Label>
+          <Switch 
+            id="show-completed"
+            checked={showCompleted} 
+            onCheckedChange={setShowCompleted}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Desktop Table View */}
+      <Card className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead className="w-[30%]">Title</TableHead>
+              <TableHead className="w-[25%]">Description</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -289,13 +317,13 @@ export function TaskManagement() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                   Loading tasks...
                 </TableCell>
               </TableRow>
             ) : filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                   {tasks.length === 0 
                     ? 'No tasks yet. Create your first task to get started.'
                     : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
@@ -304,34 +332,36 @@ export function TaskManagement() {
             ) : (
               filteredTasks.map((task) => {
                 const isCompleted = task.status === 'done';
+                const StatusIcon = statusConfig[task.status].icon;
                 return (
                   <TableRow key={task.id} className={isCompleted ? 'opacity-60' : ''}>
                     <TableCell className={`font-medium ${isCompleted ? 'line-through' : ''}`}>
                       {task.title}
                     </TableCell>
-                    <TableCell className="max-w-md truncate text-muted-foreground">
+                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                       {task.description || '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge className={categoryColors[task.category]}>
-                        {categoryLabels[task.category]}
+                      <Badge variant="outline" className={categoryConfig[task.category].color}>
+                        {categoryConfig[task.category].label}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={priorityColors[task.priority]}>
-                        {priorityLabels[task.priority]}
+                      <Badge variant="outline" className={priorityConfig[task.priority].color}>
+                        {priorityConfig[task.priority].label}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusColors[task.status]}>
-                        {statusLabels[task.status]}
+                      <Badge variant="outline" className={`${statusConfig[task.status].color} flex items-center gap-1.5 w-fit`}>
+                        <StatusIcon className="h-3 w-3" />
+                        {statusConfig[task.status].label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground">
                       {new Date(task.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
                         {!isCompleted && (
                           <Button
                             variant="ghost"
@@ -339,7 +369,7 @@ export function TaskManagement() {
                             onClick={() => handleComplete(task.id)}
                             title="Mark as complete"
                           >
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                           </Button>
                         )}
                         <Button
@@ -364,25 +394,113 @@ export function TaskManagement() {
             )}
           </TableBody>
         </Table>
+      </Card>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Loading tasks...
+            </CardContent>
+          </Card>
+        ) : filteredTasks.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              {tasks.length === 0 
+                ? 'No tasks yet. Create your first task to get started.'
+                : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
+            </CardContent>
+          </Card>
+        ) : (
+          filteredTasks.map((task) => {
+            const isCompleted = task.status === 'done';
+            const StatusIcon = statusConfig[task.status].icon;
+            return (
+              <Card key={task.id} className={isCompleted ? 'opacity-60' : ''}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className={`text-lg ${isCompleted ? 'line-through' : ''}`}>
+                      {task.title}
+                    </CardTitle>
+                    {!isCompleted && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleComplete(task.id)}
+                        className="shrink-0"
+                      >
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                      </Button>
+                    )}
+                  </div>
+                  {task.description && (
+                    <CardDescription className="line-clamp-2">
+                      {task.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className={`${statusConfig[task.status].color} flex items-center gap-1.5`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {statusConfig[task.status].label}
+                    </Badge>
+                    <Badge variant="outline" className={categoryConfig[task.category].color}>
+                      {categoryConfig[task.category].label}
+                    </Badge>
+                    <Badge variant="outline" className={priorityConfig[task.priority].color}>
+                      {priorityConfig[task.priority].label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(task.created_at).toLocaleDateString()}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(task)}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(task.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px]">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-2xl">
                 {editingTask ? 'Edit Task' : 'Create New Task'}
               </DialogTitle>
               <DialogDescription>
                 {editingTask
                   ? 'Update the task details below'
-                  : 'Add a new task to track your administrative work'}
+                  : 'Add a new task to track your development work'}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
+            <div className="space-y-5 py-6">
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -391,70 +509,74 @@ export function TaskManagement() {
                   }
                   placeholder="Enter task title"
                   required
+                  className="h-11"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-sm font-medium">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  placeholder="Enter task description (optional)"
+                  placeholder="Describe the task in detail (optional)"
                   rows={4}
+                  className="resize-none"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value: TaskCategory) =>
-                    setFormData({ ...formData, category: value })
-                  }
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="feature">Feature</SelectItem>
-                    <SelectItem value="bug">Bug</SelectItem>
-                    <SelectItem value="improvement">Improvement</SelectItem>
-                    <SelectItem value="core_functionality">Core Functionality</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value: TaskCategory) =>
+                      setFormData({ ...formData, category: value })
+                    }
+                  >
+                    <SelectTrigger id="category" className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="feature">Feature</SelectItem>
+                      <SelectItem value="bug">Bug</SelectItem>
+                      <SelectItem value="improvement">Improvement</SelectItem>
+                      <SelectItem value="core_functionality">Core Functionality</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value: TaskPriority) =>
+                      setFormData({ ...formData, priority: value })
+                    }
+                  >
+                    <SelectTrigger id="priority" className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value: TaskPriority) =>
-                    setFormData({ ...formData, priority: value })
-                  }
-                >
-                  <SelectTrigger id="priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status" className="text-sm font-medium">Status *</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value: TaskStatus) =>
                     setFormData({ ...formData, status: value })
                   }
                 >
-                  <SelectTrigger id="status">
+                  <SelectTrigger id="status" className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -467,7 +589,7 @@ export function TaskManagement() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"

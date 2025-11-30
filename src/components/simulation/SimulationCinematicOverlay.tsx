@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameCard } from '@/lib/simulation/types';
+import { FullCardDisplay } from './FullCardDisplay';
 
 interface SimulationCinematicOverlayProps {
   mode: 'attack' | 'block' | 'destroy' | 'cast' | 'ability' | 'tokens' | 'ramp' | 'exile';
@@ -16,28 +17,18 @@ interface SimulationCinematicOverlayProps {
 }
 
 const CardImage = ({ card, delay = 0 }: { card: GameCard; delay?: number }) => {
-  const imageUrl = card.image_uris?.normal || card.image_uris?.large || card.image_uris?.small;
-  
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.5, rotateY: 180 }}
       animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-      transition={{ duration: 0.5, delay, ease: "backOut" }}
+      transition={{ duration: 0.5, delay, ease: 'backOut' }}
       className="relative"
     >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={card.name}
-          className="w-48 h-auto rounded-lg shadow-2xl border-2 border-primary/50"
-        />
-      ) : (
-        <div className="w-48 h-64 rounded-lg bg-muted border-2 border-primary/50 flex items-center justify-center">
-          <span className="text-sm font-bold text-center px-4">{card.name}</span>
-        </div>
-      )}
+      <FullCardDisplay card={card} compact={false} />
       <div className="absolute -bottom-8 left-0 right-0 text-center">
-        <div className="text-sm font-bold text-primary-foreground drop-shadow-lg">{card.name}</div>
+        <div className="text-sm font-bold text-primary-foreground drop-shadow-lg">
+          {card.name}
+        </div>
       </div>
     </motion.div>
   );
@@ -142,21 +133,21 @@ export const SimulationCinematicOverlay = ({
           {[...Array(20)].map((_, i) => (
             <motion.div
               key={i}
-              initial={{ 
-                opacity: 0.6, 
-                x: Math.random() * window.innerWidth, 
-                y: Math.random() * window.innerHeight,
-                scale: Math.random() * 0.5 + 0.5
+              initial={{
+                opacity: 0.6,
+                x: (Math.random() - 0.5) * 400,
+                y: (Math.random() - 0.5) * 300,
+                scale: Math.random() * 0.5 + 0.5,
               }}
-              animate={{ 
+              animate={{
                 opacity: [0.6, 0, 0.6],
                 scale: [1, 1.5, 1],
-                rotate: [0, 180, 360]
+                rotate: [0, 180, 360],
               }}
-              transition={{ 
-                duration: 2, 
+              transition={{
+                duration: 2,
                 repeat: Infinity,
-                delay: i * 0.1
+                delay: i * 0.1,
               }}
               className="absolute w-2 h-2 rounded-full bg-primary/40"
             />

@@ -55,6 +55,14 @@ export async function markTasksComplete() {
     {
       id: '328e1681-4311-4601-a63a-aca930c96b43',
       title: 'Fix deck power level consistency'
+    },
+    {
+      id: 'cd02e65b-1643-4814-8233-397618be682e',
+      title: 'Implement listing edit functionality'
+    },
+    {
+      id: '8bb89e41-43f8-4808-a5b6-f9518b017656',
+      title: 'Fix deck compatibility calculation'
     }
   ];
 

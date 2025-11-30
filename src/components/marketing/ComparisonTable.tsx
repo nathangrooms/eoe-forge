@@ -27,25 +27,25 @@ const features = [
 
 export function ComparisonTable() {
   return (
-    <section className="py-24 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-card/30 to-background" />
+    <section className="py-12 sm:py-20 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-card/20 to-background" />
       
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <motion.div 
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Badge variant="outline" className="mb-4">
+          <Badge variant="outline" className="mb-4 text-foreground border-primary/30">
             <Crown className="h-3 w-3 mr-2" />
             Why Choose Us
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-foreground px-4">
             The Most Complete Platform
           </h2>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-base sm:text-lg md:text-xl text-foreground/70 px-4">
             See how we stack up against the competition
           </p>
         </motion.div>
@@ -57,28 +57,30 @@ export function ComparisonTable() {
           viewport={{ once: true }}
           className="max-w-6xl mx-auto"
         >
-          <div className="overflow-x-auto">
-            <Card className="p-0 overflow-hidden border-2 border-primary/20">
-              <div className="min-w-[800px]">
-                {/* Header Row */}
-                <div className="grid grid-cols-5 gap-4 p-6 bg-card/50 border-b border-border">
-                  <div className="font-bold text-lg">Features</div>
-                  {competitors.map((comp, index) => (
-                    <div key={comp.name} className="text-center">
-                      {comp.isUs ? (
-                        <div className="space-y-2">
-                          <Badge className="bg-gradient-primary">
-                            <Sparkles className="h-3 w-3 mr-1" />
-                            DeckMatrix
-                          </Badge>
-                          <div className="text-xs text-muted-foreground">That's Us!</div>
-                        </div>
-                      ) : (
-                        <div className="font-medium">{comp.name}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+              <Card className="p-0 overflow-hidden border-2 border-primary/20">
+                <div className="min-w-[600px] sm:min-w-[700px]">
+                  {/* Header Row */}
+                  <div className="grid grid-cols-5 gap-2 sm:gap-4 p-3 sm:p-6 bg-card/50 border-b border-border">
+                    <div className="font-bold text-sm sm:text-base md:text-lg text-foreground">Features</div>
+                    {competitors.map((comp) => (
+                      <div key={comp.name} className="text-center">
+                        {comp.isUs ? (
+                          <div className="space-y-1 sm:space-y-2">
+                            <Badge className="bg-gradient-primary text-xs">
+                              <Sparkles className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+                              <span className="hidden xs:inline">DeckMatrix</span>
+                              <span className="xs:hidden">Us</span>
+                            </Badge>
+                            <div className="text-[10px] sm:text-xs text-foreground/60">That's Us!</div>
+                          </div>
+                        ) : (
+                          <div className="font-medium text-xs sm:text-sm text-foreground">{comp.name}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
                 {/* Feature Rows */}
                 {features.map((feature, rowIndex) => (
@@ -118,6 +120,7 @@ export function ComparisonTable() {
               </div>
             </Card>
           </div>
+        </div>
 
           {/* CTA */}
           <motion.div 

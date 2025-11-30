@@ -67,33 +67,33 @@ const features = [
 
 export function BentoFeatures() {
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section className="py-12 sm:py-20 relative overflow-hidden">
       {/* Background effects */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-card/30 to-background" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-card/20 to-background" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
       
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <motion.div 
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Badge variant="outline" className="mb-4">
+          <Badge variant="outline" className="mb-4 text-foreground border-primary/30">
             <Sparkles className="h-3 w-3 mr-2" />
-            Everything You Need
+            Core Features
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-foreground px-4">
             Built for Planeswalkers
           </h2>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-base sm:text-lg md:text-xl text-foreground/70 px-4">
             Professional-grade tools that adapt to your playstyle, from casual to competitive.
           </p>
         </motion.div>
 
         {/* Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-7xl mx-auto">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             const isLarge = feature.size === 'large';
@@ -112,35 +112,37 @@ export function BentoFeatures() {
                 `}
               >
                 <Card className={`
-                  group relative overflow-hidden h-full p-6 
-                  bg-card/50 backdrop-blur-sm border-border/50
+                  group relative overflow-hidden h-full 
+                  p-4 sm:p-6
+                  bg-card/80 backdrop-blur-sm border-border/50
                   hover:border-primary/50 transition-all duration-500
                   hover:shadow-glow-subtle hover:-translate-y-1
-                  ${isLarge ? 'md:p-8' : ''}
+                  ${isLarge ? 'sm:p-6 md:p-8' : ''}
                 `}>
                   {/* Gradient overlay */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
                   
                   {/* Content */}
                   <div className="relative z-10 h-full flex flex-col">
-                    <div className={`flex items-start justify-between mb-4 ${isLarge ? 'mb-6' : ''}`}>
+                    <div className={`flex items-start justify-between mb-3 sm:mb-4 ${isLarge ? 'sm:mb-6' : ''}`}>
                       <div className={`
-                        rounded-xl bg-gradient-to-br ${feature.color} p-3
+                        rounded-lg sm:rounded-xl bg-gradient-to-br ${feature.color} 
+                        p-2.5 sm:p-3
                         group-hover:scale-110 transition-transform duration-300
-                        ${isLarge ? 'p-4' : ''}
+                        ${isLarge ? 'sm:p-4' : ''}
                       `}>
-                        <Icon className={`text-white ${isLarge ? 'h-8 w-8' : 'h-6 w-6'}`} />
+                        <Icon className={`text-white ${isLarge ? 'h-6 w-6 sm:h-8 sm:w-8' : 'h-5 w-5 sm:h-6 sm:w-6'}`} />
                       </div>
                       {isLarge && (
-                        <Badge variant="secondary" className="ml-2">Popular</Badge>
+                        <Badge variant="secondary" className="ml-2 text-xs">Popular</Badge>
                       )}
                     </div>
                     
-                    <h3 className={`font-bold mb-3 ${isLarge ? 'text-3xl' : 'text-xl'}`}>
+                    <h3 className={`font-bold mb-2 sm:mb-3 text-foreground ${isLarge ? 'text-xl sm:text-2xl md:text-3xl' : 'text-base sm:text-lg md:text-xl'}`}>
                       {feature.title}
                     </h3>
                     
-                    <p className={`text-muted-foreground flex-1 ${isLarge ? 'text-lg mb-6' : 'text-sm'}`}>
+                    <p className={`text-foreground/70 flex-1 ${isLarge ? 'text-sm sm:text-base md:text-lg mb-4 sm:mb-6' : 'text-xs sm:text-sm'}`}>
                       {feature.description}
                     </p>
 
@@ -150,7 +152,7 @@ export function BentoFeatures() {
                         <img 
                           src={feature.image} 
                           alt={feature.title}
-                          className="rounded-lg w-full h-48 object-cover border border-border/50"
+                          className="rounded-lg w-full h-32 sm:h-40 md:h-48 object-cover border border-border/50"
                         />
                       </div>
                     )}
@@ -163,15 +165,15 @@ export function BentoFeatures() {
 
         {/* CTA */}
         <motion.div 
-          className="text-center mt-16"
+          className="text-center mt-12 sm:mt-16 px-4"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
           <Link to="/register">
-            <Button size="lg" className="px-8 py-6 text-lg">
+            <Button size="lg" className="px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg w-full sm:w-auto">
               Explore All Features
-              <Sparkles className="ml-2 h-5 w-5" />
+              <Sparkles className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </Link>
         </motion.div>

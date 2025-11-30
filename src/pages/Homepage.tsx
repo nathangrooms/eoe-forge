@@ -1,7 +1,7 @@
 import { EnhancedHero } from '@/components/marketing/EnhancedHero';
 import { BentoFeatures } from '@/components/marketing/BentoFeatures';
+import { ComprehensiveFeatures } from '@/components/marketing/ComprehensiveFeatures';
 import { InteractiveDemo } from '@/components/marketing/InteractiveDemo';
-import { ProductShowcase } from '@/components/marketing/ProductShowcase';
 import { AITechnologySection } from '@/components/marketing/AITechnologySection';
 import { ComparisonTable } from '@/components/marketing/ComparisonTable';
 import { LiveStats } from '@/components/marketing/LiveStats';
@@ -18,11 +18,11 @@ export default function Homepage() {
     <div className="min-h-screen bg-background">
       <PublicNavigation />
       <EnhancedHero />
-      <BentoFeatures />
-      <InteractiveDemo />
       <div id="features">
-        <ProductShowcase />
+        <BentoFeatures />
+        <ComprehensiveFeatures />
       </div>
+      <InteractiveDemo />
       <AITechnologySection />
       <ComparisonTable />
       <LiveStats />

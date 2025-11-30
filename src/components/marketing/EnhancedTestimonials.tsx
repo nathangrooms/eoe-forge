@@ -57,32 +57,34 @@ const testimonials = [
 
 export function EnhancedTestimonials() {
   return (
-    <section className="py-24 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
-      <div className="container mx-auto px-4 relative z-10">
+    <section className="py-12 sm:py-20 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <motion.div 
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Badge variant="outline" className="mb-4">
+          <Badge variant="outline" className="mb-4 text-foreground border-primary/30">
             <Sparkles className="h-3 w-3 mr-2" />
             Trusted by Thousands
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-foreground px-4">
             What Players Are Saying
           </h2>
-          <div className="flex items-center justify-center gap-2 text-2xl font-bold">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="h-8 w-8 fill-primary text-primary" />
-            ))}
-            <span className="ml-2 text-muted-foreground">4.9/5 from 2,500+ reviews</span>
+          <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 text-lg sm:text-2xl font-bold px-4">
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 fill-primary text-primary" />
+              ))}
+            </div>
+            <span className="text-sm sm:text-base md:text-lg text-foreground/70 ml-2">4.9/5 from 2,500+ reviews</span>
           </div>
         </motion.div>
 
         {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-7xl mx-auto">
           {testimonials.map((testimonial, index) => (
             <motion.div
               key={testimonial.name}
@@ -91,37 +93,37 @@ export function EnhancedTestimonials() {
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="p-6 h-full hover:shadow-glow-subtle transition-shadow duration-300 bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/50 relative overflow-hidden group">
+              <Card className="p-4 sm:p-6 h-full hover:shadow-glow-subtle transition-shadow duration-300 bg-card/80 backdrop-blur-sm border-border/50 hover:border-primary/50 relative overflow-hidden group">
                 {/* Quote icon background */}
-                <Quote className="absolute top-4 right-4 h-12 w-12 text-primary/10 group-hover:text-primary/20 transition-colors" />
+                <Quote className="absolute top-3 right-3 sm:top-4 sm:right-4 h-10 w-10 sm:h-12 sm:w-12 text-primary/10 group-hover:text-primary/20 transition-colors" />
                 
                 {/* Rating */}
-                <div className="flex gap-1 mb-4">
+                <div className="flex gap-1 mb-3 sm:mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                    <Star key={i} className="h-3 w-3 sm:h-4 sm:w-4 fill-primary text-primary" />
                   ))}
                 </div>
 
                 {/* Highlight Badge */}
-                <Badge variant="secondary" className="mb-4 bg-primary/10 text-primary border-primary/20">
+                <Badge variant="secondary" className="mb-3 sm:mb-4 bg-primary/10 text-primary border-primary/20 text-xs">
                   {testimonial.highlight}
                 </Badge>
 
                 {/* Testimonial Text */}
-                <p className="text-foreground mb-6 relative z-10 leading-relaxed">
+                <p className="text-foreground text-sm sm:text-base mb-4 sm:mb-6 relative z-10 leading-relaxed">
                   "{testimonial.text}"
                 </p>
 
                 {/* Author */}
-                <div className="flex items-center gap-3 mt-auto pt-4 border-t border-border/50">
-                  <Avatar className="h-12 w-12 border-2 border-primary/20">
-                    <AvatarFallback className="bg-gradient-primary text-white font-bold">
+                <div className="flex items-center gap-2 sm:gap-3 mt-auto pt-3 sm:pt-4 border-t border-border/50">
+                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/20">
+                    <AvatarFallback className="bg-gradient-primary text-white font-bold text-xs sm:text-sm">
                       {testimonial.avatar}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-bold">{testimonial.name}</div>
-                    <div className="text-sm text-muted-foreground">{testimonial.role}</div>
+                    <div className="font-bold text-sm sm:text-base text-foreground">{testimonial.name}</div>
+                    <div className="text-xs sm:text-sm text-foreground/60">{testimonial.role}</div>
                   </div>
                 </div>
               </Card>
@@ -131,29 +133,29 @@ export function EnhancedTestimonials() {
 
         {/* Trust indicators */}
         <motion.div
-          className="mt-16 flex flex-wrap items-center justify-center gap-8 text-muted-foreground"
+          className="mt-12 sm:mt-16 flex flex-wrap items-center justify-center gap-4 sm:gap-6 md:gap-8 text-foreground/70 px-4"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
           <div className="text-center">
-            <div className="text-3xl font-bold text-foreground mb-1">50K+</div>
-            <div className="text-sm">Active Users</div>
+            <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">50K+</div>
+            <div className="text-xs sm:text-sm">Active Users</div>
           </div>
-          <div className="h-12 w-px bg-border" />
+          <div className="h-8 sm:h-12 w-px bg-border" />
           <div className="text-center">
-            <div className="text-3xl font-bold text-foreground mb-1">1M+</div>
-            <div className="text-sm">Cards Tracked</div>
+            <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">1M+</div>
+            <div className="text-xs sm:text-sm">Cards Tracked</div>
           </div>
-          <div className="h-12 w-px bg-border" />
+          <div className="h-8 sm:h-12 w-px bg-border" />
           <div className="text-center">
-            <div className="text-3xl font-bold text-foreground mb-1">100K+</div>
-            <div className="text-sm">Decks Built</div>
+            <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">100K+</div>
+            <div className="text-xs sm:text-sm">Decks Built</div>
           </div>
-          <div className="h-12 w-px bg-border" />
+          <div className="h-8 sm:h-12 w-px bg-border" />
           <div className="text-center">
-            <div className="text-3xl font-bold text-foreground mb-1">98%</div>
-            <div className="text-sm">Satisfaction Rate</div>
+            <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">98%</div>
+            <div className="text-xs sm:text-sm">Satisfaction Rate</div>
           </div>
         </motion.div>
       </div>

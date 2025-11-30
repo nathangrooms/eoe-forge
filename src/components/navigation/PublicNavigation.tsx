@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { Crown, Menu, X, Star } from 'lucide-react';
+import { Menu, X, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import logo from '@/assets/deckmatrix-logo.png';
 
 export function PublicNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,41 +11,32 @@ export function PublicNavigation() {
     <nav className="sticky top-0 z-50 border-b border-primary/20 bg-background/90 backdrop-blur-xl">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Enhanced Logo */}
-          <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity group">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary/20 flex items-center justify-center border border-primary/30 shadow-glow-subtle group-hover:shadow-glow-elegant transition-all duration-300">
-                <Crown className="h-6 w-6 text-primary group-hover:scale-110 transition-transform duration-300" />
-              </div>
-              <div className="absolute -inset-1 bg-gradient-primary opacity-0 group-hover:opacity-20 blur-lg transition-opacity duration-300 rounded-xl" />
-            </div>
-            <div>
-              <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                DeckMatrix
-              </span>
-              <div className="text-[10px] text-muted-foreground/80 -mt-1">
-                MTG MASTERY PLATFORM
-              </div>
-            </div>
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-90 transition-opacity">
+            <img 
+              src={logo} 
+              alt="DeckMatrix Logo" 
+              className="h-10 w-auto sm:h-12"
+            />
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <a 
               href="#features" 
-              className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium"
+              className="text-foreground/80 hover:text-primary transition-colors duration-200 font-medium"
             >
               Features
             </a>
             <a 
               href="#pricing" 
-              className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium"
+              className="text-foreground/80 hover:text-primary transition-colors duration-200 font-medium"
             >
               Pricing
             </a>
             <Link 
               to="/docs" 
-              className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium"
+              className="text-foreground/80 hover:text-primary transition-colors duration-200 font-medium"
             >
               Docs
             </Link>

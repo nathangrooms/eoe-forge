@@ -2,12 +2,58 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Helper function to mark tasks as complete
- * Run this once to update the task statuses for completed work
+ * IMPORTANT: This should only be run ONCE to avoid creating duplicate tasks
  */
 export async function markTasksComplete() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     console.error('Not authenticated');
+    return;
+  }
+
+  // First, check if we've already created these tasks to avoid duplicates
+  const taskTitles = [
+    'Wire AI Deck Builder to backend service',
+    'Create CollectionAPI for bulk operations',
+    'Create DeckCardDisplay component',
+    'Create useDeckLoader hook',
+    'Create DeckSearchFilters component',
+    'Create CollectionStatsCalculator class',
+    'Create DeckValidator class',
+    'Create ErrorBoundary component',
+    'Create EditListingModal component',
+    'Create color compatibility checker',
+    'Create optimized collection search',
+    'Create undo/redo system',
+    'Create price drop alert system',
+    'Create system health dashboard',
+    'Create AI card replacement system',
+    'Create comprehensive deck validation system',
+    'Create missing cards detection drawer',
+    'Refactor collection stats calculator',
+    'Implement comprehensive legality checker',
+    'Create archetype detection system',
+    'Implement automatic deck tagging',
+    'Create performance optimization hooks',
+    'Implement deck export functionality',
+    'Create deck comparison feature',
+    'Implement mana curve optimizer',
+    'Create price alert manager'
+  ];
+
+  // Check for existing tasks
+  const { data: existingTasks } = await supabase
+    .from('tasks')
+    .select('title')
+    .eq('user_id', user.id)
+    .in('title', taskTitles);
+
+  const existingTaskTitles = new Set(existingTasks?.map(t => t.title) || []);
+  
+  console.log(`Found ${existingTaskTitles.size} existing completed tasks`);
+  
+  if (existingTaskTitles.size === taskTitles.length) {
+    console.log('All tasks already exist. Skipping creation.');
     return;
   }
 
@@ -278,7 +324,19 @@ export async function markTasksComplete() {
     }
   ];
 
-  for (const task of newCompletedTasks) {
+  // Only create tasks that don't already exist
+  const tasksToCreate = newCompletedTasks.filter(
+    task => !existingTaskTitles.has(task.title)
+  );
+  
+  if (tasksToCreate.length === 0) {
+    console.log('No new tasks to create');
+    return;
+  }
+
+  console.log(`Creating ${tasksToCreate.length} new completed tasks`);
+
+  for (const task of tasksToCreate) {
     const { error } = await supabase
       .from('tasks')
       .insert([{
@@ -298,7 +356,7 @@ export async function markTasksComplete() {
     }
   }
 
-  console.log('✅ All tasks updated!');
+  console.log(`✅ Task update complete! Created ${tasksToCreate.length} new tasks`);
 }
 
 // Auto-run on import (for testing)

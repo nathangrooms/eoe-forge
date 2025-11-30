@@ -532,13 +532,6 @@ async function buildInitialDeck(request: CoachRequest, rng: () => number): Promi
   
   console.log(`Budget filtering: ${cards.length} -> ${budgetFilteredCards.length} cards available`);
 
-    image_uris: card.image_uris || {},
-    prices: card.prices || {},
-    rarity: card.rarity || 'common',
-    tags: card.tags || [],
-    is_legendary: card.is_legendary || false
-  }));
-
   const commanderColors = new Set((request.commander.color_identity || []).map((c) => c.toUpperCase()));
   const targetPower = request.powerTarget || 7;
   const isCEDH = targetPower >= 9;

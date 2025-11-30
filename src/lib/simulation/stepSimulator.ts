@@ -139,6 +139,9 @@ export class StepSimulator {
 
       case 'combat_begin':
         this.state.combat.isActive = true;
+        this.state.combat.attackers = [];
+        this.state.combat.blockers = [];
+        this.state.combat.damageResolved = false;
         break;
 
       case 'combat_end':
@@ -374,6 +377,13 @@ export class StepSimulator {
 
   private resolveCombat(): SimulationEvent[] {
     const events: SimulationEvent[] = [];
+
+    // Ensure combat damage is only applied once per combat phase
+    if (this.state.combat.damageResolved) {
+      return events;
+    }
+    this.state.combat.damageResolved = true;
+
     const damages: Array<{ cardId: string; amount: number; died?: boolean }> = [];
     
     resolveCombatDamage(this.state);

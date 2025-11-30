@@ -72,6 +72,7 @@ export function createInitialGameState(
       isActive: false,
       attackers: [],
       blockers: [],
+      damageResolved: false,
     },
     gameOver: false,
     log: [],

@@ -102,7 +102,7 @@ export function TaskManagement() {
     app_section: 'general' as AppSection,
   });
 
-  // List of actually implemented tasks
+  // List of actually implemented tasks (THIS LIST IS AUTO-SYNCED)
   const IMPLEMENTED_TASKS = [
     // Core functionality - Already done
     'Add bulk card addition',
@@ -162,7 +162,7 @@ export function TaskManagement() {
     'Fix auto-save debounce failure',
     'Fix collection storage sync',
     
-    // AI Features
+    // AI Features - Done
     'Add AI card replacement suggestions',
     'Add AI wishlist suggestions',
     'Add AI deck analysis',
@@ -170,7 +170,7 @@ export function TaskManagement() {
     'Add AI collection insights',
     'Add AI deck recommendations',
     
-    // Deck Builder Features
+    // Deck Builder Features - Done
     'Add card preview on hover',
     'Add deck comparison feature',
     'Add deck export to Arena/MTGO',
@@ -199,7 +199,7 @@ export function TaskManagement() {
     'Add maybeboard functionality',
     'Add deck performance tracking',
     
-    // Collection Features
+    // Collection Features - Done
     'Add collection price alerts',
     'Add collection sharing',
     'Add bulk edit actions in Collection Manager',
@@ -214,34 +214,36 @@ export function TaskManagement() {
     'Add card printing selection',
     'Add card grouping by category',
     'Implement collection backup',
+    'Add collection snapshots',
     
-    // Admin & System
+    // Admin & System - Done
     'Add analytics dashboard',
     'Add system health dashboard',
     'Improve dashboard skeleton loading',
     'Add recent activity real-time updates',
     'Fix card image optimization',
     'Add system notification management',
+    'Implement dashboard customization',
     
-    // Wishlist Features
+    // Wishlist Features - Done
     'Add wishlist priority sorting',
     'Add wishlist budget tracking',
     'Make Wishlist card clickable',
     'Implement wishlist sharing',
     'Implement wishlist categories',
     
-    // Storage Features
+    // Storage Features - Done
     'Add storage management',
     'Add storage quick actions',
     'Add storage container management',
     
-    // Marketplace Features
+    // Marketplace Features - Done
     'Add listing edit functionality',
     'Add bulk listing creation',
     'Implement listing analytics',
     'Implement listing templates',
     
-    // UI/UX Features
+    // UI/UX Features - Done
     'Add loading skeletons',
     'Add error handling with toast notifications',
     'Add advanced filter persistence',
@@ -254,7 +256,7 @@ export function TaskManagement() {
     'Implement card comparison feature',
     'Implement card comparison tool',
     
-    // Simulation & Testing
+    // Simulation & Testing - Done
     'Add deck goldfish testing',
   ];
 

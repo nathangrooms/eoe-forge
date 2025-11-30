@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
+import { EditListingModal } from '@/components/marketplace/EditListingModal';
 import { AIPricingInsights } from '@/components/marketplace/AIPricingInsights';
 import { 
   Package, 
@@ -46,6 +47,7 @@ export default function Marketplace() {
   const [soldListings, setSoldListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSoldModal, setShowSoldModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
 
   useEffect(() => {
@@ -192,6 +194,42 @@ export default function Marketplace() {
     setShowSoldModal(true);
   };
 
+  const handleShowEditModal = (listing: Listing) => {
+    setSelectedListing(listing);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateListing = async (data: {
+    id: string;
+    price_usd: number;
+    qty: number;
+    condition: string;
+    note?: string;
+    status: string;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({
+          price_usd: data.price_usd,
+          qty: data.qty,
+          condition: data.condition,
+          note: data.note,
+          status: data.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', data.id);
+
+      if (error) throw error;
+      
+      showSuccess('Listing Updated', 'Your changes have been saved');
+      loadMyListings();
+    } catch (error) {
+      console.error('Error updating listing:', error);
+      showError('Error', 'Failed to update listing');
+    }
+  };
+
   const totalListingValue = myListings.reduce((sum, listing) => 
     sum + (listing.price_usd * listing.qty), 0
   );
@@ -200,10 +238,8 @@ export default function Marketplace() {
     return listing.cards?.image_uris?.normal || listing.cards?.image_uris?.small;
   };
 
-  const editListing = (listingId: string) => {
-    // TODO: Navigate to edit listing page or open edit modal
-    console.log('Edit listing:', listingId);
-    showError('Not Implemented', 'Edit functionality coming soon');
+  const editListing = (listing: Listing) => {
+    handleShowEditModal(listing);
   };
 
   const renderListingCard = (listing: Listing) => (
@@ -265,7 +301,7 @@ export default function Marketplace() {
                 size="sm" 
                 variant="outline" 
                 className="flex-1"
-                onClick={() => editListing(listing.id)}
+                onClick={() => editListing(listing)}
               >
                 <Edit className="h-3 w-3 mr-1" />
                 Edit
@@ -408,6 +444,16 @@ export default function Marketplace() {
           }}
           listing={selectedListing}
           onMarkAsSold={handleMarkAsSold}
+        />
+
+        <EditListingModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedListing(null);
+          }}
+          listing={selectedListing}
+          onSave={handleUpdateListing}
         />
       </div>
     </StandardPageLayout>

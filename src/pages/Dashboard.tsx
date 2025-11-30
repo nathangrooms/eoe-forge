@@ -30,6 +30,7 @@ import { AIDeckRecommendations } from '@/components/dashboard/AIDeckRecommendati
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
 import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -407,4 +408,11 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+// Wrap Dashboard with ErrorBoundary
+const DashboardWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <Dashboard />
+  </ErrorBoundary>
+);
+
+export default DashboardWithErrorBoundary;

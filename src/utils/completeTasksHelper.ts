@@ -39,6 +39,14 @@ export async function markTasksComplete() {
     {
       id: '16db0fd8-021c-4cdb-a225-02e955a1d19d',
       title: 'Implement deck legality checker'
+    },
+    {
+      id: '2ec105b5-ebba-45fc-8ecb-d622e9f589ff',
+      title: 'Add error boundary to Dashboard'
+    },
+    {
+      id: '4753a7da-a8df-45d1-b6f3-a9ce4a532d7f',
+      title: 'Implement deck validation warnings'
     }
   ];
 
@@ -105,11 +113,18 @@ export async function markTasksComplete() {
       app_section: 'collection'
     },
     {
-      title: 'Create DeckLegalityChecker class',
-      description: 'Comprehensive deck legality validation for Commander, Standard, Modern, Legacy, Vintage, and Pauper formats',
+      title: 'Create DeckValidator class',
+      description: 'Comprehensive deck validation system with warnings for mana base, curve, card draw, removal, and synergy issues',
       category: 'core_functionality',
       priority: 'high',
       app_section: 'deck_builder'
+    },
+    {
+      title: 'Create ErrorBoundary component',
+      description: 'React error boundary to catch and display errors gracefully, preventing full app crashes',
+      category: 'bug',
+      priority: 'high',
+      app_section: 'dashboard'
     }
   ];
 

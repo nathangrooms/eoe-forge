@@ -27,23 +27,23 @@ export function InteractiveDemo() {
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
 
   return (
-    <section className="py-24 relative overflow-hidden bg-gradient-to-b from-background to-card/30">
-      <div className="container mx-auto px-4 relative z-10">
+    <section className="py-12 sm:py-20 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <motion.div 
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Badge variant="outline" className="mb-4">
+          <Badge variant="outline" className="mb-4 text-foreground border-primary/30">
             <Sparkles className="h-3 w-3 mr-2" />
             Live Demo
           </Badge>
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-foreground px-4">
             See It In Action
           </h2>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-base sm:text-lg md:text-xl text-foreground/70 px-4">
             Experience the power of AI-driven deck building and analysis
           </p>
         </motion.div>
@@ -55,20 +55,23 @@ export function InteractiveDemo() {
           viewport={{ once: true }}
           className="max-w-6xl mx-auto"
         >
-          <Card className="p-6 md:p-8 bg-card/80 backdrop-blur-sm border-2 border-primary/20 shadow-2xl">
+          <Card className="p-4 sm:p-6 md:p-8 bg-card/80 backdrop-blur-sm border-2 border-primary/20 shadow-2xl">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8">
-                <TabsTrigger value="builder" className="flex items-center gap-2">
-                  <Brain className="h-4 w-4" />
-                  <span className="hidden sm:inline">AI Builder</span>
+              <TabsList className="grid w-full grid-cols-3 mb-6 sm:mb-8">
+                <TabsTrigger value="builder" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">AI Builder</span>
+                  <span className="xs:hidden">AI</span>
                 </TabsTrigger>
-                <TabsTrigger value="analysis" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Analysis</span>
+                <TabsTrigger value="analysis" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Analysis</span>
+                  <span className="xs:hidden">Stats</span>
                 </TabsTrigger>
-                <TabsTrigger value="pricing" className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pricing</span>
+                <TabsTrigger value="pricing" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Pricing</span>
+                  <span className="xs:hidden">Price</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -80,12 +83,12 @@ export function InteractiveDemo() {
                     exit={{ opacity: 0, x: 20 }}
                     className="space-y-4"
                   >
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-2xl font-bold">AI Deck Suggestions</h3>
-                      <Badge className="bg-gradient-primary">Live</Badge>
+                    <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 mb-4 sm:mb-6">
+                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">AI Deck Suggestions</h3>
+                      <Badge className="bg-gradient-primary w-fit">Live</Badge>
                     </div>
                     
-                    <div className="grid gap-3">
+                    <div className="grid gap-2 sm:gap-3">
                       {demoCards.map((card, index) => (
                         <motion.div
                           key={card.name}
@@ -95,26 +98,26 @@ export function InteractiveDemo() {
                           whileHover={{ scale: 1.02, x: 4 }}
                           onClick={() => setSelectedCard(index)}
                           className={`
-                            p-4 rounded-lg border-2 cursor-pointer transition-all
+                            p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all
                             ${selectedCard === index 
                               ? 'border-primary bg-primary/10' 
                               : 'border-border bg-card/50 hover:border-primary/50'
                             }
                           `}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center font-bold text-white">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-primary flex items-center justify-center font-bold text-white text-xs sm:text-sm flex-shrink-0">
                                 {card.mana}
                               </div>
-                              <div>
-                                <h4 className="font-bold">{card.name}</h4>
-                                <p className="text-sm text-muted-foreground">{card.type}</p>
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-sm sm:text-base text-foreground truncate">{card.name}</h4>
+                                <p className="text-xs sm:text-sm text-foreground/60">{card.type}</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-primary">{card.power}</div>
-                              <p className="text-xs text-muted-foreground">Power Score</p>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl sm:text-2xl font-bold text-primary">{card.power}</div>
+                              <p className="text-[10px] sm:text-xs text-foreground/60 whitespace-nowrap">Power Score</p>
                             </div>
                           </div>
                         </motion.div>

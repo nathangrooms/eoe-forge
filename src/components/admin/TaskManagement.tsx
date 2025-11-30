@@ -201,10 +201,8 @@ export function TaskManagement() {
     
     // Collection Features - Done
     'Add collection price alerts',
-    'Add price alerts for cards',
     'Add collection sharing',
     'Add bulk edit actions in Collection Manager',
-    'Implement bulk card operations',
     'Add bulk import validation',
     'Add collection condition tracking',
     'Add collection analytics',
@@ -217,10 +215,12 @@ export function TaskManagement() {
     'Add card grouping by category',
     'Implement collection backup',
     'Add collection snapshots',
+    'Implement bulk card operations',
+    'Create price alert manager',
     
     // Admin & System - Done
     'Add analytics dashboard',
-    'Add system health dashboard',
+    'Create system health dashboard',
     'Improve dashboard skeleton loading',
     'Add recent activity real-time updates',
     'Fix card image optimization',
@@ -233,6 +233,13 @@ export function TaskManagement() {
     'Make Wishlist card clickable',
     'Implement wishlist sharing',
     'Implement wishlist categories',
+    
+    // Storage Features - Done (continued)
+    'Implement storage management',
+    
+    // Deck Builder Features - Done (continued)
+    'Implement advanced card filters',
+    'Implement deck comparison view',
     
     // Storage Features - Done
     'Add storage management',

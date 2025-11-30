@@ -53,9 +53,9 @@ export async function markTasksComplete() {
   console.log(`Found ${existingTaskTitles.size} existing completed tasks`);
   
   if (existingTaskTitles.size === taskTitles.length) {
-    console.log('All tasks already exist. Skipping creation.');
-    return;
+    console.log('All tasks already exist. Skipping creation of predefined tasks, proceeding to bulk completion.');
   }
+
 
   const completedTasks = [
     {

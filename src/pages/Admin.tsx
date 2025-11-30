@@ -5,6 +5,7 @@ import SyncDashboard from '@/components/SyncDashboard';
 import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
 import { TaskManagement } from '@/components/admin/TaskManagement';
 import { FeatureFlags } from '@/components/admin/FeatureFlags';
+import { SystemHealthDashboard } from '@/components/dashboard/SystemHealthDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
@@ -15,6 +16,7 @@ const Admin = () => {
           <TabsTrigger value="ai">AI Control</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="features">Feature Flags</TabsTrigger>
+          <TabsTrigger value="health">System Health</TabsTrigger>
           <TabsTrigger value="sync">Card Sync</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="management">Management</TabsTrigger>
@@ -30,6 +32,10 @@ const Admin = () => {
 
         <TabsContent value="features">
           <FeatureFlags />
+        </TabsContent>
+
+        <TabsContent value="health">
+          <SystemHealthDashboard />
         </TabsContent>
 
         <TabsContent value="sync">

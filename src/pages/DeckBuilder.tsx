@@ -15,6 +15,7 @@ import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
+import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -589,6 +590,13 @@ const DeckBuilder = () => {
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
               <div className="space-y-6">
+                {/* Deck Validation Panel */}
+                <DeckValidationPanel 
+                  cards={deck.cards as any}
+                  format={deck.format || 'standard'}
+                  commander={deck.commander}
+                />
+                
                 {/* Commander Power Display */}
                 {deck.format === 'commander' && (
                   <CommanderPowerDisplay

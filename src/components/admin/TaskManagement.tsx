@@ -352,6 +352,12 @@ export function TaskManagement() {
     'Add price alert manager',
     'Add insurance report generator',
     'Add deck primer generator',
+    'Implement listing edit functionality',
+    'Implement deck search and filters',
+    'Implement system health dashboard',
+    'Implement deck validation warnings',
+    'Implement deck legality checker',
+    'Implement undo/redo functionality',
   ];
 
   useEffect(() => {

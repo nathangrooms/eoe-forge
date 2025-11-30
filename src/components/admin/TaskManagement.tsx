@@ -405,6 +405,9 @@ export function TaskManagement() {
     'Add manabase enhancer with recommendations',
     'Add collection snapshot manager',
     'Add maybeboard panel for considering cards',
+    'Add undo/redo controls with keyboard shortcuts',
+    'Add card replacement engine',
+    'Add deck comparison view',
   ];
 
   useEffect(() => {

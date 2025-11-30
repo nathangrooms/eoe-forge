@@ -299,6 +299,12 @@ export function TaskManagement() {
     
     // Collection Features - Done (latest)
     'Implement card grouping by category',
+    
+    // Marketplace Features - Done (latest)
+    'Implement price comparison',
+    
+    // Performance - Done
+    'Optimize dashboard initial load time',
   ];
 
   useEffect(() => {

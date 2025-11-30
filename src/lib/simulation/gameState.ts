@@ -6,7 +6,9 @@ export function createInitialGameState(
   deck2: Card[],
   player1Name: string,
   player2Name: string,
-  format: string = 'commander'
+  format: string = 'commander',
+  deck1CommanderId?: string,
+  deck2CommanderId?: string
 ): GameState {
   const startingLife = format === 'commander' ? 40 : 20;
 
@@ -44,18 +46,26 @@ export function createInitialGameState(
 
   // Move commanders to command zone if commander format
   if (format === 'commander') {
-    const p1Commander = player1.library.find(c => c.is_legendary && c.type_line.includes('Creature'));
-    const p2Commander = player2.library.find(c => c.is_legendary && c.type_line.includes('Creature'));
+    // Find commander by ID if provided, otherwise fall back to first legendary creature
+    let p1Commander = deck1CommanderId 
+      ? player1.library.find(c => c.id === deck1CommanderId)
+      : player1.library.find(c => c.is_legendary && c.type_line.includes('Creature'));
+    
+    let p2Commander = deck2CommanderId
+      ? player2.library.find(c => c.id === deck2CommanderId)
+      : player2.library.find(c => c.is_legendary && c.type_line.includes('Creature'));
     
     if (p1Commander) {
-      player1.library = player1.library.filter(c => c.instanceId !== p1Commander.instanceId);
+      player1.library = player1.library.filter(c => c.instanceId !== p1Commander!.instanceId);
       p1Commander.zone = 'command';
+      p1Commander.isCommander = true; // Mark as commander
       player1.commandZone.push(p1Commander);
     }
     
     if (p2Commander) {
-      player2.library = player2.library.filter(c => c.instanceId !== p2Commander.instanceId);
+      player2.library = player2.library.filter(c => c.instanceId !== p2Commander!.instanceId);
       p2Commander.zone = 'command';
+      p2Commander.isCommander = true; // Mark as commander
       player2.commandZone.push(p2Commander);
     }
   }
@@ -95,6 +105,7 @@ function convertToGameCards(deck: Card[], owner: 'player1' | 'player2'): GameCar
     powerModifier: 0,
     toughnessModifier: 0,
     abilitiesUsedThisTurn: [],
+    isCommander: false,
   }));
 }
 
@@ -157,6 +168,11 @@ export function moveCard(card: GameCard, fromZone: Zone, toZone: Zone, state: Ga
   // Reset certain properties when moving zones
   if (toZone === 'battlefield') {
     card.summoningSick = card.type_line.includes('Creature');
+  } else if (toZone === 'command' && card.isCommander) {
+    // Commander died/exiled, return to command zone
+    card.isTapped = false;
+    card.damageMarked = 0;
+    card.summoningSick = true;
   } else {
     card.isTapped = false;
     card.damageMarked = 0;

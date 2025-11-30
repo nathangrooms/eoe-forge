@@ -122,6 +122,7 @@ export function createToken(
     powerModifier: 0,
     toughnessModifier: 0,
     abilitiesUsedThisTurn: [],
+    isCommander: false,
   };
 }
 

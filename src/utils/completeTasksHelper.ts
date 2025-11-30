@@ -15,6 +15,10 @@ export async function markTasksComplete() {
     {
       id: 'af48fedc-d970-4d75-8912-bf6969e081a8',
       title: 'Add bulk card addition'
+    },
+    {
+      id: 'a27f9647-edb9-415c-9fc0-cfb90bf4ac28',
+      title: 'Add price alert notifications to Wishlist'
     }
   ];
 

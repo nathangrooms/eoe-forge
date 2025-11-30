@@ -208,30 +208,19 @@ export class StorageAPI {
   }
 
   static async assignCard(request: StorageAssignRequest): Promise<StorageItem> {
-    // Check available quantity in collection
-    const { data: collection, error: collectionError } = await supabase
-      .from('user_collections')
-      .select('quantity, foil')
-      .eq('card_id', request.card_id)
-      .single();
+    // Check available quantity using StorageSync
+    const { StorageSync } = await import('@/lib/storageSync');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
 
-    if (collectionError) throw collectionError;
-    if (!collection) throw new Error('Card not found in collection');
+    const available = await StorageSync.getAvailableQuantity(
+      user.id,
+      request.card_id,
+      request.foil
+    );
 
-    // Check already assigned quantity
-    const { data: assigned, error: assignedError } = await supabase
-      .from('storage_items')
-      .select('qty')
-      .eq('card_id', request.card_id)
-      .eq('foil', request.foil);
-
-    if (assignedError) throw assignedError;
-
-    const totalAssigned = assigned?.reduce((sum, item) => sum + item.qty, 0) || 0;
-    const available = request.foil ? collection.foil : collection.quantity;
-    
-    if (totalAssigned + request.qty > available) {
-      throw new Error(`Cannot assign ${request.qty} cards. Only ${available - totalAssigned} available.`);
+    if (request.qty > available) {
+      throw new Error(`Cannot assign ${request.qty} cards. Only ${available} available.`);
     }
 
     // Check if item already exists in this container

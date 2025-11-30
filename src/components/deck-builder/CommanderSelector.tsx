@@ -202,18 +202,22 @@ export function CommanderSelector({ currentCommander }: CommanderSelectorProps) 
           
           <CardContent className="p-6">
             <div className="flex items-start gap-6">
-              {currentCommander.image_uris?.normal && (
-                <div className="relative">
-                  <img 
-                    src={currentCommander.image_uris.normal} 
-                    alt={currentCommander.name}
-                    className="w-32 h-auto rounded-lg shadow-lg border-2 border-primary/30"
-                  />
-                  <div className="absolute -top-3 -right-3 bg-primary rounded-full p-2 shadow-lg">
-                    <Crown className="h-5 w-5 text-primary-foreground" />
-                  </div>
-                </div>
-              )}
+          {currentCommander.image_uris?.normal && (
+            <div className="relative">
+              <img 
+                src={currentCommander.image_uris.normal} 
+                alt={currentCommander.name}
+                className="w-32 h-auto rounded-lg shadow-lg border-2 border-primary/30"
+                onError={(e) => {
+                  e.currentTarget.src = '/placeholder.svg';
+                  e.currentTarget.onerror = null;
+                }}
+              />
+              <div className="absolute -top-3 -right-3 bg-primary rounded-full p-2 shadow-lg">
+                <Crown className="h-5 w-5 text-primary-foreground" />
+              </div>
+            </div>
+          )}
               
               <div className="flex-1 space-y-3">
                 <div>

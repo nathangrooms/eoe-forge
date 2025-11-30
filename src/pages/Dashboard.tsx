@@ -343,6 +343,10 @@ const Dashboard = () => {
                           alt={`${deck.name} commander`}
                           className="w-full h-full object-contain"
                           loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                            e.currentTarget.onerror = null;
+                          }}
                         />
                       </AspectRatio>
                     )}

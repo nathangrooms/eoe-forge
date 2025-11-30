@@ -28,6 +28,8 @@ import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { KeyboardShortcutsPanel } from '@/components/dashboard/KeyboardShortcutsPanel';
+import { SearchHistory } from '@/components/dashboard/SearchHistory';
 
 // Lazy load heavy components for better initial load performance
 const AIDeckRecommendations = lazy(() => import('@/components/dashboard/AIDeckRecommendations').then(m => ({ default: m.AIDeckRecommendations })));
@@ -423,6 +425,12 @@ const Dashboard = () => {
         }>
           <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
         </Suspense>
+
+        {/* Search History */}
+        <SearchHistory />
+
+        {/* Keyboard Shortcuts Panel */}
+        <KeyboardShortcutsPanel />
 
       </div>
     </div>

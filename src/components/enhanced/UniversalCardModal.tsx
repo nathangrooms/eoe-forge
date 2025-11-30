@@ -14,8 +14,10 @@ import {
   Crown,
   Zap,
   Shield,
-  Users
+  Users,
+  Store
 } from 'lucide-react';
+import { StoreAvailabilityCheck } from '@/components/marketplace/StoreAvailabilityCheck';
 
 interface CardModalProps {
   card: any;
@@ -285,10 +287,11 @@ export function UniversalCardModal({
 
             {/* Tabbed Content */}
             <Tabs defaultValue="rulings" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="rulings">Rulings</TabsTrigger>
                 <TabsTrigger value="analysis">Analysis</TabsTrigger>
                 <TabsTrigger value="legality">Legality</TabsTrigger>
+                <TabsTrigger value="stores">Stores</TabsTrigger>
               </TabsList>
 
               <TabsContent value="rulings" className="space-y-3">
@@ -344,6 +347,13 @@ export function UniversalCardModal({
                 ) : (
                   <p className="text-sm text-muted-foreground">Legality information not available.</p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="stores" className="space-y-3">
+                <StoreAvailabilityCheck 
+                  cardName={card.name || ''} 
+                  cardId={card.id || ''} 
+                />
               </TabsContent>
             </Tabs>
 

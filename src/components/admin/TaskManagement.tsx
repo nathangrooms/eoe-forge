@@ -339,6 +339,8 @@ export function TaskManagement() {
     'Add deck simulation tool to Deck Builder',
     'Add buyer messaging system',
     'Add TCGPlayer price sync',
+    'Integrate deck folder management into Decks page',
+    'Add store availability check',
   ];
 
   useEffect(() => {

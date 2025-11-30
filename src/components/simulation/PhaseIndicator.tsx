@@ -24,10 +24,10 @@ export const PhaseIndicator = ({ phase, show }: { phase: Phase; show: boolean })
           initial={{ opacity: 0, scale: 0.5, y: -20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.5, y: 20 }}
-          transition={{ duration: 0.4, ease: "backOut" }}
-          className="fixed top-1/3 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+          transition={{ duration: 0.3, ease: "backOut" }}
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] pointer-events-none"
         >
-          <div className="bg-gradient-to-r from-primary/90 to-primary-glow/90 backdrop-blur-sm px-12 py-6 rounded-2xl shadow-2xl border-2 border-primary-glow">
+          <div className="bg-gradient-to-r from-primary/95 to-accent/95 backdrop-blur-sm px-12 py-6 rounded-2xl shadow-2xl border-2 border-primary">
             <div className="text-4xl font-black text-primary-foreground tracking-wider drop-shadow-lg">
               {PHASE_NAMES[phase]}
             </div>

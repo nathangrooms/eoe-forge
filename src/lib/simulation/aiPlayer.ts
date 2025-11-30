@@ -10,6 +10,9 @@ export class AIPlayer {
 
     // Main phase decisions
     if ((phase === 'precombat_main' || phase === 'postcombat_main') && state.activePlayer === playerId) {
+      // First, tap all lands for mana
+      this.tapLandsForMana(player, state);
+      
       // Priority 1: Play land if available
       const landDecision = this.evaluateLandPlay(player, state);
       if (landDecision) return landDecision;
@@ -256,8 +259,8 @@ export class AIPlayer {
     return impact;
   }
 
-  private evaluateTapForMana(player: Player, state: GameState): void {
-    // Tap all lands for mana
+  private tapLandsForMana(player: Player, state: GameState): void {
+    // Tap all untapped lands for mana at start of main phase
     const lands = player.battlefield.filter(card => 
       card.type_line.includes('Land') && !card.isTapped
     );

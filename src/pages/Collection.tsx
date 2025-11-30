@@ -390,35 +390,37 @@ export default function Collection() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="border-b px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Collection Manager</h1>
-            <p className="text-muted-foreground">Organize your Magic: The Gathering collection</p>
+            <h1 className="text-xl sm:text-2xl font-semibold">Collection Manager</h1>
+            <p className="text-sm text-muted-foreground">Organize your Magic: The Gathering collection</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 lg:gap-4">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <CollectionBulkImport onImportComplete={() => {
                 refresh();
                 showSuccess('Collection Updated', 'Import completed successfully');
               }} />
-              <Button variant="outline" onClick={handleExportBackup}>
+              <Button variant="outline" size="sm" onClick={handleExportBackup}>
                 <Download className="h-4 w-4 mr-2" />
-                Backup
+                <span className="hidden sm:inline">Backup</span>
+                <span className="sm:hidden">Backup</span>
               </Button>
-              <Button variant="outline" onClick={() => setActiveTab('analytics')}>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('analytics')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
-                Analytics
+                <span className="hidden sm:inline">Analytics</span>
+                <span className="sm:hidden">Stats</span>
               </Button>
             </div>
-            <div className="flex items-center gap-8 pl-4 border-l">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Total Value</div>
-                <div className="text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
+            <div className="flex items-center gap-4 sm:gap-8 pl-0 sm:pl-4 sm:border-l w-full sm:w-auto justify-between sm:justify-start">
+              <div className="text-left sm:text-right">
+                <div className="text-xs sm:text-sm text-muted-foreground">Total Value</div>
+                <div className="text-lg sm:text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Total Cards</div>
-                <div className="text-xl font-bold">{stats.totalCards}</div>
+              <div className="text-left sm:text-right">
+                <div className="text-xs sm:text-sm text-muted-foreground">Total Cards</div>
+                <div className="text-lg sm:text-xl font-bold">{stats.totalCards}</div>
               </div>
             </div>
           </div>
@@ -426,30 +428,30 @@ export default function Collection() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b px-6">
+      <div className="border-b px-3 sm:px-6 overflow-x-auto">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-96 grid-cols-4 bg-transparent p-0 h-12">
+          <TabsList className="inline-flex min-w-full sm:grid sm:w-96 grid-cols-4 bg-transparent p-0 h-12">
             <TabsTrigger 
               value="collection" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
             >
               Collection
             </TabsTrigger>
             <TabsTrigger 
               value="analytics"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
             >
               Analytics
             </TabsTrigger>
             <TabsTrigger 
               value="add-cards"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
             >
               Add Cards
             </TabsTrigger>
             <TabsTrigger 
               value="storage"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
             >
               Storage
             </TabsTrigger>
@@ -461,9 +463,8 @@ export default function Collection() {
       <div className="flex-1 overflow-hidden">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
           {/* Collection Tab */}
-          <TabsContent value="collection" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="space-y-6">
-              {/* Category Manager */}
+          <TabsContent value="collection" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
+            <div className="space-y-4 sm:space-y-6">
               <CategoryManager />
               
               {/* Favorite Decks Preview */}
@@ -482,8 +483,8 @@ export default function Collection() {
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="space-y-6">
+          <TabsContent value="analytics" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
+            <div className="space-y-4 sm:space-y-6">
               {collectionStats && (
                 <>
                   <AICollectionInsights
@@ -510,7 +511,7 @@ export default function Collection() {
                   <CollectionValueTrends 
                     collectionCards={snapshot?.items || []}
                   />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                     <SavedFilterPresets 
                       onApplyPreset={(filters) => {
                         // Filter logic would be handled by parent component
@@ -522,7 +523,7 @@ export default function Collection() {
                       collectionCards={snapshot?.items || []}
                     />
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                     <TCGPlayerPriceSync />
                     {user && <CollectionExport userId={user.id} />}
                     {user && <CollectionBackupRestore userId={user.id} />}
@@ -548,8 +549,8 @@ export default function Collection() {
           </TabsContent>
 
           {/* Add Cards Tab */}
-          <TabsContent value="add-cards" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="space-y-6">
+          <TabsContent value="add-cards" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
+            <div className="space-y-4 sm:space-y-6">
               <DeckAdditionPanel 
                 selectedDeckId={deckAdditionConfig.selectedDeckId}
                 selectedBoxId={deckAdditionConfig.selectedBoxId}

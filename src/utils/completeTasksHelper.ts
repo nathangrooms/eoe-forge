@@ -393,7 +393,7 @@ export async function markTasksComplete() {
     ...newCompletedTasks.map(t => t.title),
   ];
 
-  // Ensure all implemented tasks exist and are marked done
+  // Ensure all implemented tasks exist
   const tasksToCreate = newCompletedTasks.filter(
     task => !existingTaskTitles.has(task.title)
   );
@@ -424,20 +424,35 @@ export async function markTasksComplete() {
     console.log('No new implemented tasks to create');
   }
 
-  // Reset all other tasks (not in implemented list) back to pending
-  const { error: resetError } = await supabase
+  // First reset ALL tasks for this user back to pending
+  const { error: resetAllError } = await supabase
     .from('tasks')
     .update({
       status: 'pending',
       updated_at: new Date().toISOString(),
     })
-    .eq('user_id', user.id)
-    .not('title', 'in', implementedTaskTitles);
+    .eq('user_id', user.id);
 
-  if (resetError) {
-    console.error('Failed to reset backlog tasks to pending:', resetError);
+  if (resetAllError) {
+    console.error('Failed to reset tasks to pending:', resetAllError);
   } else {
-    console.log('✅ Reset all non-implemented tasks back to pending');
+    console.log('✅ Reset all tasks to pending');
+  }
+
+  // Then mark only implemented tasks as done
+  const { error: markDoneError } = await supabase
+    .from('tasks')
+    .update({
+      status: 'done',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id)
+    .in('title', implementedTaskTitles);
+
+  if (markDoneError) {
+    console.error('Failed to mark implemented tasks as done:', markDoneError);
+  } else {
+    console.log('✅ Marked implemented tasks as done');
   }
 
   console.log('✅ Task update complete! Implemented tasks marked done, backlog restored to pending');

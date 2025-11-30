@@ -34,83 +34,8 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
  
     return (
       <div className={cn(
-        "h-full flex flex-col gap-1.5"
+        "h-full flex flex-col"
       )}>
-       {/* Compact Player Info Bar */}
-       <div className={cn(
-         "flex items-center justify-between px-3 py-1.5 rounded border transition-all shrink-0",
-         isActive ? "bg-primary/20 border-primary/50" : "bg-muted/30 border-border/50",
-         hasPriority && "ring-1 ring-primary/70"
-       )}>
-         <div className="flex items-center gap-3">
-           <div className="flex flex-col leading-tight">
-             <span className={cn("text-sm font-semibold", isActive && "text-primary")}
-             >
-               {player.name}
-             </span>
-             {commanderName && (
-               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                 <span className={cn(
-                   "inline-flex items-center px-1.5 py-0.5 rounded-full border text-[9px] font-semibold",
-                   commanderOnBattlefield
-                     ? "border-emerald-500 text-emerald-400"
-                     : "border-destructive/60 text-destructive"
-                 )}>
-                   ⭐ CMD {commanderOnBattlefield ? 'in play' : 'off board'}
-                 </span>
-               </span>
-             )}
-           </div>
-           <div className="flex items-center gap-1.5 bg-background/60 px-2 py-0.5 rounded">
-             <Heart className={cn(
-               "h-4 w-4",
-               player.life > 30 ? "text-green-500" :
-               player.life > 20 ? "text-yellow-500" :
-               player.life > 10 ? "text-orange-500" : "text-red-500"
-             )} />
-             <span className="text-xl font-bold">{player.life}</span>
-           </div>
-         </div>
- 
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded">
-            <Library className="h-3 w-3 text-primary" />
-            <span className="font-mono font-bold">{player.library.length}</span>
-          </div>
-          <div className="flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded">
-            <BookOpen className="h-3 w-3 text-primary" />
-            <span className="font-mono"><b>{player.hand.length}</b></span>
-          </div>
-          <div className="bg-background/60 px-1.5 py-0.5 rounded font-mono">
-            GY: <b>{player.graveyard.length}</b>
-          </div>
-          <div className="bg-background/60 px-1.5 py-0.5 rounded font-mono">
-            Ex: <b>{player.exile.length}</b>
-          </div>
-        </div>
-
-        {Object.values(player.manaPool).some(v => v > 0) && (
-          <div className="flex items-center gap-1">
-            {Object.entries(player.manaPool).map(([color, amount]) => {
-              if (amount === 0) return null;
-              const colorMap: Record<string, string> = {
-                W: 'bg-yellow-100 text-yellow-900 border-yellow-400',
-                U: 'bg-blue-100 text-blue-900 border-blue-400',
-                B: 'bg-gray-800 text-white border-gray-600',
-                R: 'bg-red-100 text-red-900 border-red-400',
-                G: 'bg-green-100 text-green-900 border-green-400',
-                C: 'bg-gray-100 text-gray-900 border-gray-400'
-              };
-              return (
-                <div key={color} className={cn("font-bold text-xs px-1.5 py-0.5 rounded border", colorMap[color])}>
-                  {color}{amount > 1 ? amount : ''}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* Main Battlefield Area - Full Width Rows */}
       <div className="flex-1 overflow-auto min-h-0 space-y-1.5 px-2 pb-2">
         {/* Command Zone Row */}

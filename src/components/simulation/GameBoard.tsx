@@ -11,64 +11,59 @@ interface GameBoardProps {
 
 export const GameBoard = ({ state }: GameBoardProps) => {
   return (
-    <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-background to-muted/20">
-      {/* Center strip: turn / phase info */}
-      <div className="relative flex flex-col items-center gap-3 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 py-4 border-b-4 border-primary/30 shadow-xl z-10">
-        <div className="flex items-center gap-6">
-          <Badge variant="outline" className="text-2xl px-6 py-3 bg-background/90 backdrop-blur font-bold border-2 shadow-md">
+    <div className="relative h-full w-full flex flex-col bg-[#0a0a0f]">
+      {/* Opponent Zone - Top */}
+      <div className="h-[35%] border-b border-primary/20 p-3 overflow-hidden">
+        <DetailedPlayerZone
+          player={state.player2}
+          isActive={state.activePlayer === 'player2'}
+          hasPriority={state.priorityPlayer === 'player2'}
+          orientation="top"
+        />
+      </div>
+
+      {/* Center Battle Info */}
+      <div className="h-[90px] bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 border-y border-primary/30 flex items-center justify-between px-6 relative z-10">
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="text-xl px-4 py-2 bg-background/90 backdrop-blur font-bold">
             Turn {state.turn}
           </Badge>
-          <Badge variant="secondary" className="text-xl px-5 py-2.5 font-bold shadow-md">
-            {state.activePlayer === 'player1' ? state.player1.name : state.player2.name}'s Turn
-          </Badge>
-          <Badge className="text-xl px-5 py-2.5 bg-primary/30 border-2 border-primary font-bold shadow-md">
+          <Badge className="text-base px-4 py-1.5 bg-primary/30 font-semibold">
             {state.phase.replace(/_/g, ' ').toUpperCase()}
           </Badge>
+          {state.combat.isActive && (
+            <Badge variant="destructive" className="text-lg px-4 py-2 animate-pulse font-bold">
+              ⚔️ COMBAT
+            </Badge>
+          )}
         </div>
 
-        <PhaseProgress
-          currentPhase={state.phase}
-          activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
-        />
+        <div className="flex-1 mx-8">
+          <PhaseProgress
+            currentPhase={state.phase}
+            activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
+          />
+        </div>
 
-        {/* Stack viewer */}
+        <Badge variant="secondary" className="text-lg px-4 py-2 font-bold">
+          {state.activePlayer === 'player1' ? state.player1.name : state.player2.name}'s Turn
+        </Badge>
+
         {state.stack.length > 0 && (
-          <div className="absolute right-6 top-1/2 -translate-y-1/2">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <StackViewer stack={state.stack} />
-          </div>
-        )}
-
-        {/* Combat indicator */}
-        {state.combat.isActive && (
-          <div className="absolute left-6 top-1/2 -translate-y-1/2">
-            <Badge variant="destructive" className="text-2xl px-8 py-4 animate-pulse font-bold shadow-2xl border-2">
-              ⚔️ COMBAT PHASE
-            </Badge>
           </div>
         )}
       </div>
 
-      {/* Players side by side */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Player 1 - left */}
-        <div className="flex-1 border-r-4 border-primary/30 overflow-y-auto bg-gradient-to-br from-muted/10 to-transparent">
-          <DetailedPlayerZone
-            player={state.player1}
-            isActive={state.activePlayer === 'player1'}
-            hasPriority={state.priorityPlayer === 'player1'}
-            orientation="bottom"
-          />
-        </div>
-
-        {/* Player 2 - right */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-bl from-muted/10 to-transparent">
-          <DetailedPlayerZone
-            player={state.player2}
-            isActive={state.activePlayer === 'player2'}
-            hasPriority={state.priorityPlayer === 'player2'}
-            orientation="top"
-          />
-        </div>
+      {/* Player Zone - Bottom */}
+      <div className="flex-1 p-3 overflow-hidden">
+        <DetailedPlayerZone
+          player={state.player1}
+          isActive={state.activePlayer === 'player1'}
+          hasPriority={state.priorityPlayer === 'player1'}
+          orientation="bottom"
+        />
       </div>
 
       {/* Game over overlay */}

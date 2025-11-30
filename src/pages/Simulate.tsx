@@ -433,32 +433,34 @@ export default function Simulate() {
           </Card>
         </div>
       ) : (
-        <>
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-[3] overflow-hidden border-r border-border">
-              <GameBoard state={gameState} />
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20">
+            <GameBoard state={gameState} />
+            <SimulationControls
+              isPlaying={isPlaying}
+              isComplete={gameState.gameOver}
+              speed={speed}
+              onPlay={play}
+              onPause={pause}
+              onStep={step}
+              onRestart={restart}
+              onExport={exportResults}
+              onSpeedChange={handleSpeedChange}
+            />
+          </div>
+          
+          <div className="w-[320px] flex flex-col bg-[#0f0f14] border-l border-primary/20">
+            <div className="p-4 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent">
+              <h3 className="text-lg font-bold text-foreground">Game Log</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Live updates • Turn {gameState.turn}
+              </p>
             </div>
-            <div className="flex-1 bg-background/50 backdrop-blur">
-              <div className="p-4 border-b border-border">
-                <h3 className="text-lg font-bold">Game Log</h3>
-                <p className="text-xs text-muted-foreground">Live updates • Turn {gameState.turn}</p>
-              </div>
+            <div className="flex-1 overflow-hidden">
               <GameLog events={gameState.log} />
             </div>
           </div>
-
-          <SimulationControls
-            isPlaying={isPlaying}
-            isComplete={gameState.gameOver}
-            speed={speed}
-            onPlay={play}
-            onPause={pause}
-            onStep={step}
-            onRestart={restart}
-            onExport={exportResults}
-            onSpeedChange={handleSpeedChange}
-          />
-        </>
+        </div>
       )}
     </div>
   );

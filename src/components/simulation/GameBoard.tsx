@@ -11,59 +11,94 @@ interface GameBoardProps {
 
 export const GameBoard = ({ state }: GameBoardProps) => {
   return (
-    <div className="relative h-full w-full flex flex-col bg-[#0a0a0f]">
-      {/* Opponent Zone - Top */}
-      <div className="h-[40%] border-b border-primary/20 p-2 overflow-auto">
-        <DetailedPlayerZone
-          player={state.player2}
-          isActive={state.activePlayer === 'player2'}
-          hasPriority={state.priorityPlayer === 'player2'}
-          orientation="top"
-        />
-      </div>
+    <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
+      {/* Top status bar: both players + turn/phase */}
+      <div className="h-[82px] border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-4 gap-4">
+        {/* Opponent summary */}
+        <div className="flex items-center gap-3 min-w-[220px]">
+          <Badge variant="outline" className="px-3 py-1 text-xs font-semibold bg-background/80">
+            OPPONENT
+          </Badge>
+          <div className="flex flex-col text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground truncate max-w-[180px]">
+              {state.player2.name}
+            </span>
+            <span className="flex items-center gap-3 mt-0.5">
+              <span>❤️ {state.player2.life}</span>
+              <span>📚 {state.player2.library.length}</span>
+              <span>✋ {state.player2.hand.length}</span>
+            </span>
+          </div>
+        </div>
 
-      {/* Center Battle Info */}
-      <div className="h-[70px] bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 border-y border-primary/30 flex items-center justify-between px-4 relative z-10 shrink-0">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="text-lg px-3 py-1 bg-background/90 backdrop-blur font-bold">
-            Turn {state.turn}
-          </Badge>
-          <Badge className="text-sm px-3 py-0.5 bg-primary/30 font-semibold">
-            {state.phase.replace(/_/g, ' ').toUpperCase()}
-          </Badge>
-          {state.combat.isActive && (
-            <Badge variant="destructive" className="text-sm px-3 py-1 animate-pulse font-bold">
-              ⚔️ COMBAT
-            </Badge>
+        {/* Center: turn / phase / stack */}
+        <div className="flex-1 flex items-center justify-center gap-4 relative">
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="text-sm px-3 py-1 bg-background/90 backdrop-blur font-bold">
+                Turn {state.turn}
+              </Badge>
+              <Badge className="text-xs px-3 py-0.5 bg-primary/40 font-semibold">
+                {state.phase.replace(/_/g, ' ').toUpperCase()}
+              </Badge>
+              {state.combat.isActive && (
+                <Badge variant="destructive" className="text-xs px-3 py-0.5 animate-pulse font-bold">
+                  ⚔️ COMBAT
+                </Badge>
+              )}
+            </div>
+            <div className="w-full max-w-xl">
+              <PhaseProgress
+                currentPhase={state.phase}
+                activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
+              />
+            </div>
+          </div>
+
+          {state.stack.length > 0 && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <StackViewer stack={state.stack} />
+            </div>
           )}
         </div>
 
-        <div className="flex-1 mx-6">
-          <PhaseProgress
-            currentPhase={state.phase}
-            activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
+        {/* You summary */}
+        <div className="flex items-center gap-3 min-w-[220px] justify-end">
+          <div className="flex flex-col text-xs text-muted-foreground text-right">
+            <span className="font-semibold text-foreground truncate max-w-[180px]">
+              {state.player1.name}
+            </span>
+            <span className="flex items-center gap-3 mt-0.5 justify-end">
+              <span>❤️ {state.player1.life}</span>
+              <span>📚 {state.player1.library.length}</span>
+              <span>✋ {state.player1.hand.length}</span>
+            </span>
+          </div>
+          <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold bg-background/80">
+            {state.activePlayer === 'player1' ? 'YOUR TURN' : "OPPONENT'S TURN"}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Main board: two columns, each scrollable */}
+      <div className="flex-1 grid grid-cols-2 gap-2 p-2 overflow-hidden">
+        <div className="h-full overflow-auto border-r border-primary/15 pr-1">
+          <DetailedPlayerZone
+            player={state.player2}
+            isActive={state.activePlayer === 'player2'}
+            hasPriority={state.priorityPlayer === 'player2'}
+            orientation="top"
           />
         </div>
 
-        <Badge variant="secondary" className="text-sm px-3 py-1 font-bold">
-          {state.activePlayer === 'player1' ? state.player1.name : state.player2.name}'s Turn
-        </Badge>
-
-        {state.stack.length > 0 && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <StackViewer stack={state.stack} />
-          </div>
-        )}
-      </div>
-
-      {/* Player Zone - Bottom */}
-      <div className="flex-1 p-2 overflow-auto">
-        <DetailedPlayerZone
-          player={state.player1}
-          isActive={state.activePlayer === 'player1'}
-          hasPriority={state.priorityPlayer === 'player1'}
-          orientation="bottom"
-        />
+        <div className="h-full overflow-auto pl-1">
+          <DetailedPlayerZone
+            player={state.player1}
+            isActive={state.activePlayer === 'player1'}
+            hasPriority={state.priorityPlayer === 'player1'}
+            orientation="bottom"
+          />
+        </div>
       </div>
 
       {/* Game over overlay */}

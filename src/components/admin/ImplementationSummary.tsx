@@ -27,7 +27,9 @@ export function ImplementationSummary() {
         'Deck legality checker',
         'Deck compatibility checker',
         'Undo/redo functionality',
-        'Deck search and filters'
+        'Deck search and filters',
+        'Power level consistency analysis',
+        'Enhanced match tracker with statistics'
       ]
     },
     {

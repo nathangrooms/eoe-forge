@@ -17,6 +17,8 @@ import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
+import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
+import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -628,7 +630,22 @@ const DeckBuilder = () => {
                   />
                 )}
                 
-                <AIDeckCoach 
+                {/* Power Level Consistency Analysis */}
+                <PowerLevelConsistency 
+                  deckCards={deck.cards as any}
+                  commander={deck.commander}
+                  format={deck.format || 'standard'}
+                />
+                
+                {/* Match Tracking */}
+                {deck.currentDeckId && (
+                  <EnhancedMatchTracker 
+                    deckId={deck.currentDeckId}
+                    deckName={deck.name}
+                  />
+                )}
+                
+                <AIDeckCoach
                   deckCards={deck.cards as any}
                   deckName={deck.name}
                   format={deck.format}

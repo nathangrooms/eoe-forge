@@ -360,6 +360,9 @@ export function TaskManagement() {
     'Implement undo/redo functionality',
     'Fix dashboard stat calculation errors',
     'Fix deck compatibility calculation',
+    'Fix power level consistency across calculators',
+    'Add enhanced match tracking with statistics',
+    'Add power level analysis with detailed metrics',
   ];
 
   useEffect(() => {

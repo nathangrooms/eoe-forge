@@ -127,6 +127,13 @@ export function drawCard(state: GameState, playerId: 'player1' | 'player2'): voi
   card.zone = 'hand';
   player.hand.push(card);
   
+  console.log('[Draw] Card drawn:', {
+    player: playerId,
+    card: card.name,
+    handSize: player.hand.length,
+    librarySize: player.library.length
+  });
+  
   state.log.push({
     turn: state.turn,
     phase: state.phase,

@@ -186,16 +186,13 @@ export class StepSimulator {
     if (phase === 'declare_attackers') {
       const decision = ai.makeDecision(this.state, activePlayerId);
       if (decision && decision.type === 'attack' && decision.targets) {
-        // Tap lands first
-        const tapEvents = this.tapLandsForMana(activePlayerId);
-        events.push(...tapEvents);
-        
+        // Declare attackers (creatures will tap as part of combat rules)
         declareAttackers(this.state, decision.targets);
         events.push({
           type: 'attack_declared',
           attackerIds: decision.targets
         });
-        
+
         // Check attack triggers
         const attackTriggerEvents = checkAttackTriggers(this.state);
         events.push(...attackTriggerEvents);
@@ -289,44 +286,40 @@ export class StepSimulator {
           const fromZone = player.hand.find(c => c.instanceId === decision.cardInstanceId) ? 'hand' : 'command';
           
           if (card && canCastSpell(card, this.state)) {
-            // Tap lands
+            // Tap lands for visual mana usage when casting spells
             const tapEvents = this.tapLandsForMana(playerId);
             events.push(...tapEvents);
             
-            if (canAffordSpell(card, this.state)) {
-              this.payManaCost(card, playerId);
-              
-              const castTriggerEvents = checkCastTriggers(this.state, card, playerId);
-              events.push(...castTriggerEvents);
-              
-              const destination = card.type_line.includes('Instant') || card.type_line.includes('Sorcery') 
-                ? 'graveyard' 
-                : 'battlefield';
-              
-              moveCard(card, fromZone as any, destination, this.state);
-              
-              events.push({
-                type: 'cast_spell',
-                player: playerId,
-                cardId: card.instanceId,
-                fromZone
-              });
-              
-              if (destination === 'battlefield') {
-                const etbEvents = checkETBTriggers(this.state);
-                events.push(...etbEvents);
-              }
-              
-              this.state.log.push({
-                turn: this.state.turn,
-                phase: this.state.phase,
-                type: 'cast_spell',
-                player: playerId,
-                description: `${player.name} casts ${card.name}${fromZone === 'command' ? ' from command zone' : ''}`,
-                cardName: card.name,
-                timestamp: Date.now(),
-              });
+            const castTriggerEvents = checkCastTriggers(this.state, card, playerId);
+            events.push(...castTriggerEvents);
+            
+            const destination = card.type_line.includes('Instant') || card.type_line.includes('Sorcery') 
+              ? 'graveyard' 
+              : 'battlefield';
+            
+            moveCard(card, fromZone as any, destination, this.state);
+            
+            events.push({
+              type: 'cast_spell',
+              player: playerId,
+              cardId: card.instanceId,
+              fromZone
+            });
+            
+            if (destination === 'battlefield') {
+              const etbEvents = checkETBTriggers(this.state);
+              events.push(...etbEvents);
             }
+            
+            this.state.log.push({
+              turn: this.state.turn,
+              phase: this.state.phase,
+              type: 'cast_spell',
+              player: playerId,
+              description: `${player.name} casts ${card.name}${fromZone === 'command' ? ' from command zone' : ''}`,
+              cardName: card.name,
+              timestamp: Date.now(),
+            });
           }
         }
         break;

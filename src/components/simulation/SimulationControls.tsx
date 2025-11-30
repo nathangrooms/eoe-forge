@@ -4,21 +4,25 @@ import { Play, Pause, SkipForward, RotateCcw, Download } from 'lucide-react';
 interface SimulationControlsProps {
   isPlaying: boolean;
   isComplete: boolean;
+  speed: number;
   onPlay: () => void;
   onPause: () => void;
   onStep: () => void;
   onRestart: () => void;
   onExport: () => void;
+  onSpeedChange: (speed: number) => void;
 }
 
 export const SimulationControls = ({
   isPlaying,
   isComplete,
+  speed,
   onPlay,
   onPause,
   onStep,
   onRestart,
   onExport,
+  onSpeedChange,
 }: SimulationControlsProps) => {
   return (
     <div className="flex items-center gap-2 p-4 bg-background border-t border-border">
@@ -44,9 +48,27 @@ export const SimulationControls = ({
         Restart
       </Button>
 
+      {/* Speed control */}
+      <div className="flex items-center gap-2 ml-4">
+        <span className="text-sm text-muted-foreground">Speed:</span>
+        <div className="flex gap-1">
+          {[0.5, 1, 2, 4].map((s) => (
+            <Button
+              key={s}
+              size="sm"
+              variant={speed === s ? "default" : "outline"}
+              onClick={() => onSpeedChange(s)}
+              className="w-12"
+            >
+              {s}x
+            </Button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex-1" />
 
-      <Button onClick={onExport} variant="outline">
+      <Button onClick={onExport} variant="outline" disabled={!isComplete}>
         <Download className="h-4 w-4 mr-2" />
         Export Results
       </Button>

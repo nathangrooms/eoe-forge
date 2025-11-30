@@ -61,6 +61,31 @@ export class GameSimulator {
     };
   }
 
+  // Step through one complete turn for visual playback
+  stepTurn(): boolean {
+    if (this.state.gameOver || this.state.turn >= this.maxTurns) {
+      return false;
+    }
+
+    this.simulateTurn();
+
+    // Check if game is over or max turns reached
+    if (!this.state.gameOver && this.state.turn >= this.maxTurns) {
+      this.state.gameOver = true;
+      this.state.winner = this.state.player1.life > this.state.player2.life ? 'player1' : 'player2';
+      this.state.log.push({
+        turn: this.state.turn,
+        phase: this.state.phase,
+        type: 'game_over',
+        player: this.state.winner,
+        description: `Game ends at turn ${this.maxTurns}. ${this.state[this.state.winner].name} wins by life total.`,
+        timestamp: Date.now(),
+      });
+    }
+
+    return !this.state.gameOver;
+  }
+
   private simulateTurn(): void {
     // Advance through all phases
     while (!this.state.gameOver) {

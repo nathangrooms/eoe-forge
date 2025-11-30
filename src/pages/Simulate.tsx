@@ -30,6 +30,7 @@ export default function Simulate() {
   const [showIntro, setShowIntro] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
+  const [speed, setSpeed] = useState(1);
 
   useEffect(() => {
     loadDecks();
@@ -65,21 +66,37 @@ export default function Simulate() {
   };
 
   const loadDeckCards = async (deckId: string) => {
-    const { data: deckCards, error } = await supabase
+    // Fetch deck cards
+    const { data: deckCards, error: deckCardsError } = await supabase
       .from('deck_cards')
-      .select(`
-        card_id,
-        quantity,
-        cards (*)
-      `)
+      .select('card_id, quantity, card_name')
       .eq('deck_id', deckId);
 
-    if (error) throw error;
+    if (deckCardsError) throw deckCardsError;
+    if (!deckCards || deckCards.length === 0) return [];
 
+    // Get unique card IDs
+    const cardIds = [...new Set(deckCards.map(dc => dc.card_id))];
+
+    // Fetch card details
+    const { data: cardsData, error: cardsError } = await supabase
+      .from('cards')
+      .select('*')
+      .in('id', cardIds);
+
+    if (cardsError) throw cardsError;
+
+    // Create a map for quick lookup
+    const cardMap = new Map(cardsData?.map(card => [card.id, card]) || []);
+
+    // Expand cards by quantity
     const cards: any[] = [];
-    deckCards?.forEach((dc: any) => {
-      for (let i = 0; i < dc.quantity; i++) {
-        cards.push(dc.cards);
+    deckCards.forEach((dc) => {
+      const cardData = cardMap.get(dc.card_id);
+      if (cardData) {
+        for (let i = 0; i < dc.quantity; i++) {
+          cards.push(cardData);
+        }
       }
     });
 
@@ -92,41 +109,82 @@ export default function Simulate() {
       return;
     }
 
+    if (deck1Id === deck2Id) {
+      toast.error('Please select two different decks');
+      return;
+    }
+
     setLoading(true);
     try {
-      const [deck1Cards, deck2Cards, deck1Info, deck2Info] = await Promise.all([
-        loadDeckCards(deck1Id),
-        loadDeckCards(deck2Id),
-        supabase.from('user_decks').select('name, format').eq('id', deck1Id).single(),
-        supabase.from('user_decks').select('name, format').eq('id', deck2Id).single(),
-      ]);
+      // Load deck info first
+      const { data: deck1Info, error: deck1Error } = await supabase
+        .from('user_decks')
+        .select('name, format')
+        .eq('id', deck1Id)
+        .maybeSingle();
 
-      if (deck1Cards.length === 0 || deck2Cards.length === 0) {
-        toast.error('One or both decks are empty');
+      const { data: deck2Info, error: deck2Error } = await supabase
+        .from('user_decks')
+        .select('name, format')
+        .eq('id', deck2Id)
+        .maybeSingle();
+
+      if (deck1Error || deck2Error) {
+        throw new Error('Failed to load deck information');
+      }
+
+      if (!deck1Info || !deck2Info) {
+        toast.error('One or both decks not found');
         return;
       }
+
+      // Load cards
+      const [deck1Cards, deck2Cards] = await Promise.all([
+        loadDeckCards(deck1Id),
+        loadDeckCards(deck2Id),
+      ]);
+
+      if (deck1Cards.length === 0) {
+        toast.error(`${deck1Info.name} is empty or has no valid cards`);
+        return;
+      }
+
+      if (deck2Cards.length === 0) {
+        toast.error(`${deck2Info.name} is empty or has no valid cards`);
+        return;
+      }
+
+      console.log(`Loaded ${deck1Cards.length} cards from ${deck1Info.name}`);
+      console.log(`Loaded ${deck2Cards.length} cards from ${deck2Info.name}`);
 
       // Show battle intro
       setShowIntro(true);
 
       // Create simulator after intro
       setTimeout(() => {
-        const sim = new GameSimulator(
-          deck1Cards,
-          deck2Cards,
-          deck1Info.data?.name || 'Deck A',
-          deck2Info.data?.name || 'Deck B',
-          deck1Info.data?.format || 'commander'
-        );
-        setSimulator(sim);
-        setGameState(sim.getState());
-        setShowIntro(false);
-        toast.success('Simulation ready! Press Play to begin');
+        try {
+          const sim = new GameSimulator(
+            deck1Cards,
+            deck2Cards,
+            deck1Info.name || 'Deck A',
+            deck2Info.name || 'Deck B',
+            deck1Info.format || 'commander'
+          );
+          setSimulator(sim);
+          setGameState(sim.getState());
+          setShowIntro(false);
+          toast.success('Simulation ready! Press Play to begin');
+        } catch (simError) {
+          console.error('Error creating simulator:', simError);
+          setShowIntro(false);
+          toast.error('Failed to initialize simulator');
+        }
       }, 2500);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting simulation:', error);
-      toast.error('Failed to start simulation');
+      toast.error(error?.message || 'Failed to start simulation');
+      setShowIntro(false);
     } finally {
       setLoading(false);
     }
@@ -136,23 +194,49 @@ export default function Simulate() {
     if (!simulator || !gameState) return;
     
     setIsPlaying(true);
-    const interval = setInterval(() => {
-      if (gameState.gameOver) {
-        pause();
-        return;
-      }
+    
+    const runTurn = () => {
+      try {
+        if (gameState.gameOver) {
+          pause();
+          return;
+        }
 
-      // Run one full turn
-      const result = simulator.simulate();
-      setGameState(simulator.getState());
-      
-      if (result.winner) {
-        setResult(result);
+        // Step through one turn at a time
+        const continueSimulation = simulator.stepTurn();
+        const newState = simulator.getState();
+        setGameState({ ...newState }); // Create new reference to trigger re-render
+        
+        if (!continueSimulation || newState.gameOver) {
+          pause();
+          
+          if (newState.winner) {
+            const winnerName = newState.winner === 'player1' 
+              ? newState.player1.name 
+              : newState.player2.name;
+            
+            setResult({
+              winner: newState.winner,
+              turns: newState.turn,
+              player1Life: newState.player1.life,
+              player2Life: newState.player2.life,
+              events: newState.log,
+              finalState: newState,
+            });
+            
+            toast.success(`${winnerName} wins in ${newState.turn} turns!`);
+          }
+        }
+      } catch (error) {
+        console.error('Error during simulation:', error);
         pause();
-        toast.success(`${result.winner === 'player1' ? gameState.player1.name : gameState.player2.name} wins!`);
+        toast.error('Simulation encountered an error');
       }
-    }, 1000); // 1 second per turn
+    };
 
+    // Calculate interval based on speed (lower number = faster)
+    const baseInterval = 1500; // 1.5 seconds at 1x speed
+    const interval = setInterval(runTurn, baseInterval / speed);
     setSimulationInterval(interval);
   };
 
@@ -164,15 +248,47 @@ export default function Simulate() {
     }
   };
 
+  const handleSpeedChange = (newSpeed: number) => {
+    const wasPlaying = isPlaying;
+    if (wasPlaying) {
+      pause();
+    }
+    setSpeed(newSpeed);
+    if (wasPlaying) {
+      // Restart with new speed
+      setTimeout(() => play(), 100);
+    }
+  };
+
   const step = () => {
     if (!simulator || !gameState || gameState.gameOver) return;
     
-    const result = simulator.simulate();
-    setGameState(simulator.getState());
-    
-    if (result.winner) {
-      setResult(result);
-      toast.success(`${result.winner === 'player1' ? gameState.player1.name : gameState.player2.name} wins!`);
+    try {
+      const continueSimulation = simulator.stepTurn();
+      const newState = simulator.getState();
+      setGameState({ ...newState }); // Create new reference to trigger re-render
+      
+      if (!continueSimulation || newState.gameOver) {
+        if (newState.winner) {
+          const winnerName = newState.winner === 'player1' 
+            ? newState.player1.name 
+            : newState.player2.name;
+          
+          setResult({
+            winner: newState.winner,
+            turns: newState.turn,
+            player1Life: newState.player1.life,
+            player2Life: newState.player2.life,
+            events: newState.log,
+            finalState: newState,
+          });
+          
+          toast.success(`${winnerName} wins in ${newState.turn} turns!`);
+        }
+      }
+    } catch (error) {
+      console.error('Error stepping simulation:', error);
+      toast.error('Error stepping through simulation');
     }
   };
 
@@ -312,11 +428,13 @@ export default function Simulate() {
           <SimulationControls
             isPlaying={isPlaying}
             isComplete={gameState.gameOver}
+            speed={speed}
             onPlay={play}
             onPause={pause}
             onStep={step}
             onRestart={restart}
             onExport={exportResults}
+            onSpeedChange={handleSpeedChange}
           />
         </>
       )}

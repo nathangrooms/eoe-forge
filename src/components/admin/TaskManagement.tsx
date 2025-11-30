@@ -398,6 +398,8 @@ export function TaskManagement() {
     'Add tournament manager with bracket generation',
     'Add deck social features with ratings and comments',
     'Add deck compatibility checker',
+    'Add keyboard shortcuts panel with hotkey reference',
+    'Add quick deck testing tool',
   ];
 
   useEffect(() => {

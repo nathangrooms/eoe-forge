@@ -1,6 +1,6 @@
 import { Player } from '@/lib/simulation/types';
 import { Heart, Library, BookOpen } from 'lucide-react';
-import { FullCardDisplay } from './FullCardDisplay';
+import { GroupedCardDisplay } from './GroupedCardDisplay';
 import { cn } from '@/lib/utils';
 
 interface DetailedPlayerZoneProps {
@@ -89,104 +89,77 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
 
       {/* Commander Zone (if exists) */}
       {player.commandZone.length > 0 && (
-        <div className="mb-2">
-          <div className="text-xs font-bold text-primary mb-1">COMMAND ZONE</div>
-          <div className="flex gap-2">
-            {player.commandZone.map(card => (
-              <FullCardDisplay key={card.instanceId} card={card} />
-            ))}
-          </div>
+        <div className="px-2">
+          <div className="text-xs font-bold text-primary mb-1">⭐ COMMAND ZONE</div>
+          <GroupedCardDisplay cards={player.commandZone} />
         </div>
       )}
 
       {/* Main Battlefield Area */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 overflow-y-auto space-y-2 px-2">
         {/* Hand */}
         {player.hand.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase">
+          <div className="bg-background/20 rounded-lg p-2">
+            <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase">
               Hand ({player.hand.length})
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {player.hand.map(card => (
-                <FullCardDisplay 
-                  key={card.instanceId} 
-                  card={card}
-                  faceDown={isTop}
-                  compact
-                />
-              ))}
-            </div>
+            <GroupedCardDisplay 
+              cards={player.hand}
+              faceDown={isTop}
+              compact
+            />
           </div>
         )}
 
         {/* Creatures */}
         {creatures.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-foreground mb-1 uppercase">
+          <div className="bg-background/20 rounded-lg p-2">
+            <div className="text-xs font-semibold text-foreground mb-2 uppercase flex items-center gap-2">
+              <span className="text-red-400">⚔️</span>
               Creatures ({creatures.length})
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {creatures.map(card => (
-                <FullCardDisplay key={card.instanceId} card={card} />
-              ))}
-            </div>
+            <GroupedCardDisplay cards={creatures} />
           </div>
         )}
 
         {/* Lands */}
         {lands.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-green-400 mb-1 uppercase">
+          <div className="bg-background/20 rounded-lg p-2">
+            <div className="text-xs font-semibold text-green-400 mb-2 uppercase flex items-center gap-2">
+              <span>🏔️</span>
               Lands ({lands.length})
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {lands.map(card => (
-                <FullCardDisplay key={card.instanceId} card={card} compact />
-              ))}
-            </div>
+            <GroupedCardDisplay cards={lands} compact />
           </div>
         )}
 
-        {/* Other Permanents Row */}
+        {/* Other Permanents */}
         {(artifacts.length > 0 || enchantments.length > 0 || planeswalkers.length > 0) && (
-          <div className="flex gap-4">
+          <div className="grid grid-cols-3 gap-2">
             {artifacts.length > 0 && (
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/20 rounded-lg p-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
                   Artifacts ({artifacts.length})
                 </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {artifacts.map(card => (
-                    <FullCardDisplay key={card.instanceId} card={card} compact />
-                  ))}
-                </div>
+                <GroupedCardDisplay cards={artifacts} compact />
               </div>
             )}
 
             {enchantments.length > 0 && (
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/20 rounded-lg p-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
                   Enchantments ({enchantments.length})
                 </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {enchantments.map(card => (
-                    <FullCardDisplay key={card.instanceId} card={card} compact />
-                  ))}
-                </div>
+                <GroupedCardDisplay cards={enchantments} compact />
               </div>
             )}
 
             {planeswalkers.length > 0 && (
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/20 rounded-lg p-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
                   Planeswalkers ({planeswalkers.length})
                 </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {planeswalkers.map(card => (
-                    <FullCardDisplay key={card.instanceId} card={card} />
-                  ))}
-                </div>
+                <GroupedCardDisplay cards={planeswalkers} compact />
               </div>
             )}
           </div>
@@ -194,29 +167,21 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
 
         {/* Graveyard & Exile */}
         {(player.graveyard.length > 0 || player.exile.length > 0) && (
-          <div className="flex gap-2 pt-2 border-t border-border/30">
+          <div className="grid grid-cols-2 gap-2">
             {player.graveyard.length > 0 && (
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/20 rounded-lg p-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
                   Graveyard ({player.graveyard.length})
                 </div>
-                <div className="flex gap-1">
-                  {player.graveyard.slice(-3).map(card => (
-                    <FullCardDisplay key={card.instanceId} card={card} compact />
-                  ))}
-                </div>
+                <GroupedCardDisplay cards={player.graveyard.slice(-5)} compact />
               </div>
             )}
             {player.exile.length > 0 && (
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/20 rounded-lg p-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
                   Exile ({player.exile.length})
                 </div>
-                <div className="flex gap-1">
-                  {player.exile.slice(-3).map(card => (
-                    <FullCardDisplay key={card.instanceId} card={card} compact />
-                  ))}
-                </div>
+                <GroupedCardDisplay cards={player.exile.slice(-5)} compact />
               </div>
             )}
           </div>

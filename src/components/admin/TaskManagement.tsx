@@ -345,72 +345,41 @@ export function TaskManagement() {
 
       {/* Desktop Table View */}
       <Card className="hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[25%]">Title</TableHead>
-              <TableHead className="w-[20%]">Description</TableHead>
-              <TableHead>App Section</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                  Loading tasks...
-                </TableCell>
-              </TableRow>
-            ) : filteredTasks.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                  {tasks.length === 0 
-                    ? 'No tasks yet. Create your first task to get started.'
-                    : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredTasks.map((task) => {
-                const isCompleted = task.status === 'done';
-                const StatusIcon = statusConfig[task.status].icon;
-                return (
-                  <TableRow key={task.id} className={isCompleted ? 'opacity-60' : ''}>
-                    <TableCell className={`font-medium ${isCompleted ? 'line-through' : ''}`}>
-                      {task.title}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                      {task.description || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={appSectionConfig[task.app_section].color}>
-                        {appSectionConfig[task.app_section].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={categoryConfig[task.category].color}>
-                        {categoryConfig[task.category].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={priorityConfig[task.priority].color}>
-                        {priorityConfig[task.priority].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`${statusConfig[task.status].color} flex items-center gap-1.5 w-fit`}>
+        <div className="divide-y divide-border">
+          {loading ? (
+            <div className="text-center text-muted-foreground py-12">
+              Loading tasks...
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">
+              {tasks.length === 0 
+                ? 'No tasks yet. Create your first task to get started.'
+                : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
+            </div>
+          ) : (
+            filteredTasks.map((task) => {
+              const isCompleted = task.status === 'done';
+              const StatusIcon = statusConfig[task.status].icon;
+              return (
+                <div key={task.id} className={`p-4 hover:bg-muted/50 transition-colors ${isCompleted ? 'opacity-60' : ''}`}>
+                  {/* Row 1: Title, Status, Actions */}
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`font-medium text-base ${isCompleted ? 'line-through' : ''}`}>
+                        {task.title}
+                      </h3>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className={`${statusConfig[task.status].color} flex items-center gap-1.5`}>
                         <StatusIcon className="h-3 w-3" />
                         {statusConfig[task.status].label}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(task.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex gap-1">
                         {!isCompleted && (
                           <Button
                             variant="ghost"
@@ -436,13 +405,31 @@ export function TaskManagement() {
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                    </div>
+                  </div>
+                  
+                  {/* Row 2: Badges and Date */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className={appSectionConfig[task.app_section].color}>
+                        {appSectionConfig[task.app_section].label}
+                      </Badge>
+                      <Badge variant="outline" className={categoryConfig[task.category].color}>
+                        {categoryConfig[task.category].label}
+                      </Badge>
+                      <Badge variant="outline" className={priorityConfig[task.priority].color}>
+                        {priorityConfig[task.priority].label}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(task.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </Card>
 
       {/* Mobile Card View */}

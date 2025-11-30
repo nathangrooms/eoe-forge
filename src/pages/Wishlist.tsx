@@ -35,6 +35,9 @@ interface WishlistItem {
   priority: string;
   note?: string;
   created_at: string;
+  target_price_usd?: number;
+  alert_enabled?: boolean;
+  last_notified_at?: string;
   card?: {
     id?: string;
     name: string;
@@ -82,6 +85,17 @@ export default function Wishlist() {
       loadWishlist();
       loadUserDecks();
     }
+    
+    // Listen for wishlist updates from child components
+    const handleWishlistUpdate = () => {
+      loadWishlist();
+    };
+    
+    window.addEventListener('wishlist-updated', handleWishlistUpdate);
+    
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistUpdate);
+    };
   }, [user]);
 
   const loadWishlist = async () => {
@@ -219,14 +233,16 @@ export default function Wishlist() {
     }
   };
 
-  const updateWishlistItem = async (id: string, quantity: number, priority: string, note: string) => {
+  const updateWishlistItem = async (id: string, quantity: number, priority: string, note: string, targetPrice?: number, alertEnabled?: boolean) => {
     try {
       const { error } = await (supabase as any)
         .from('wishlist')
         .update({
           quantity,
           priority,
-          note: note || null
+          note: note || null,
+          target_price_usd: targetPrice || null,
+          alert_enabled: alertEnabled !== undefined ? alertEnabled : true
         })
         .eq('id', id);
 
@@ -414,6 +430,8 @@ export default function Wishlist() {
       wishlistPriority: item.priority,
       wishlistNote: item.note,
       wishlistId: item.id,
+      wishlistTargetPrice: item.target_price_usd,
+      wishlistAlertEnabled: item.alert_enabled,
       // Ensure we have the required fields
       type_line: item.card?.type_line || 'Unknown',
       colors: item.card?.colors || [],

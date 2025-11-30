@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Plus, Minus, ShoppingCart, Bell, BellOff, TrendingDown } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 interface WishlistItem {
   id: string;
@@ -12,6 +15,9 @@ interface WishlistItem {
   priority: string;
   note?: string;
   created_at: string;
+  target_price_usd?: number;
+  alert_enabled?: boolean;
+  last_notified_at?: string;
   card?: any;
 }
 
@@ -29,6 +35,8 @@ export function WishlistCardDisplay({
   viewMode
 }: WishlistCardDisplayProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [targetPrices, setTargetPrices] = useState<Record<string, string>>({});
+  const [updatingAlert, setUpdatingAlert] = useState<Record<string, boolean>>({});
 
   const getGridClasses = () => {
     switch (viewMode) {
@@ -65,6 +73,51 @@ export function WishlistCardDisplay({
     const quantity = getQuantity(item.id);
     const modifiedItem = { ...item, quantity };
     onAddToCollection(modifiedItem);
+  };
+
+  const updateTargetPrice = async (itemId: string, targetPrice: string) => {
+    try {
+      const priceValue = targetPrice ? parseFloat(targetPrice) : null;
+      const { error } = await supabase
+        .from('wishlist')
+        .update({ 
+          target_price_usd: priceValue,
+          alert_enabled: priceValue !== null 
+        })
+        .eq('id', itemId);
+
+      if (error) throw error;
+      showSuccess('Price Alert Set', 'You will be notified when price drops below target');
+    } catch (error) {
+      console.error('Error updating target price:', error);
+      showError('Failed to update price alert');
+    }
+  };
+
+  const toggleAlert = async (itemId: string, currentStatus: boolean) => {
+    setUpdatingAlert(prev => ({ ...prev, [itemId]: true }));
+    try {
+      const { error } = await supabase
+        .from('wishlist')
+        .update({ alert_enabled: !currentStatus })
+        .eq('id', itemId);
+
+      if (error) throw error;
+      showSuccess(!currentStatus ? 'Alert Enabled' : 'Alert Disabled');
+      // Trigger parent reload by dispatching custom event
+      window.dispatchEvent(new Event('wishlist-updated'));
+    } catch (error) {
+      console.error('Error toggling alert:', error);
+      showError('Failed to toggle alert');
+    } finally {
+      setUpdatingAlert(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const isPriceBelowTarget = (item: WishlistItem) => {
+    if (!item.target_price_usd || !item.card?.prices?.usd) return false;
+    const currentPrice = parseFloat(item.card.prices.usd);
+    return currentPrice <= item.target_price_usd;
   };
 
   if (viewMode === 'list') {
@@ -109,11 +162,47 @@ export function WishlistCardDisplay({
                   </div>
                 </div>
 
-                {/* Price */}
-                <div className="text-right flex-shrink-0">
-                  <div className="font-medium text-green-600">
+                {/* Price & Alert */}
+                <div className="text-right flex-shrink-0 space-y-1">
+                  <div className={`font-medium ${isPriceBelowTarget(item) ? 'text-green-500' : 'text-muted-foreground'}`}>
                     {item.card?.prices?.usd ? `$${item.card.prices.usd}` : 'N/A'}
                   </div>
+                  {isPriceBelowTarget(item) && (
+                    <Badge variant="default" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                      Target Hit!
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Price Alert Input */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Target $"
+                    value={targetPrices[item.id] ?? item.target_price_usd?.toString() ?? ''}
+                    onChange={(e) => setTargetPrices(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    onBlur={(e) => {
+                      if (e.target.value !== (item.target_price_usd?.toString() ?? '')) {
+                        updateTargetPrice(item.id, e.target.value);
+                      }
+                    }}
+                    className="w-24 h-9"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleAlert(item.id, item.alert_enabled ?? false)}
+                    disabled={updatingAlert[item.id]}
+                    className={item.alert_enabled && item.target_price_usd ? 'text-primary' : ''}
+                  >
+                    {item.alert_enabled && item.target_price_usd ? (
+                      <Bell className="h-4 w-4" />
+                    ) : (
+                      <BellOff className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
 
                 {/* Quantity Controls */}
@@ -181,14 +270,51 @@ export function WishlistCardDisplay({
               <h3 className="font-medium text-sm truncate cursor-pointer" onClick={() => onCardClick(item)}>
                 {item.card_name}
               </h3>
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-1 mt-1 flex-wrap">
                 <Badge variant="outline" className="text-xs">
                   {item.card?.rarity || 'common'}
                 </Badge>
                 {item.card?.prices?.usd && (
-                  <span className="text-xs text-green-600 font-medium">${item.card.prices.usd}</span>
+                  <span className={`text-xs font-medium ${isPriceBelowTarget(item) ? 'text-green-500' : 'text-muted-foreground'}`}>
+                    ${item.card.prices.usd}
+                  </span>
+                )}
+                {isPriceBelowTarget(item) && (
+                  <Badge variant="default" className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
+                    <TrendingDown className="h-3 w-3" />
+                  </Badge>
                 )}
               </div>
+            </div>
+
+            {/* Price Alert */}
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Target price"
+                value={targetPrices[item.id] ?? item.target_price_usd?.toString() ?? ''}
+                onChange={(e) => setTargetPrices(prev => ({ ...prev, [item.id]: e.target.value }))}
+                onBlur={(e) => {
+                  if (e.target.value !== (item.target_price_usd?.toString() ?? '')) {
+                    updateTargetPrice(item.id, e.target.value);
+                  }
+                }}
+                className="flex-1 h-8 text-xs"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleAlert(item.id, item.alert_enabled ?? false)}
+                disabled={updatingAlert[item.id]}
+                className={`h-8 w-8 p-0 ${item.alert_enabled && item.target_price_usd ? 'text-primary' : ''}`}
+              >
+                {item.alert_enabled && item.target_price_usd ? (
+                  <Bell className="h-3 w-3" />
+                ) : (
+                  <BellOff className="h-3 w-3" />
+                )}
+              </Button>
             </div>
 
             {/* Quantity Controls */}

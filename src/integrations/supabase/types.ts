@@ -758,35 +758,44 @@ export type Database = {
       }
       wishlist: {
         Row: {
+          alert_enabled: boolean | null
           card_id: string
           card_name: string
           created_at: string
           id: string
+          last_notified_at: string | null
           note: string | null
           priority: string
           quantity: number
+          target_price_usd: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          alert_enabled?: boolean | null
           card_id: string
           card_name: string
           created_at?: string
           id?: string
+          last_notified_at?: string | null
           note?: string | null
           priority?: string
           quantity?: number
+          target_price_usd?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          alert_enabled?: boolean | null
           card_id?: string
           card_name?: string
           created_at?: string
           id?: string
+          last_notified_at?: string | null
           note?: string | null
           priority?: string
           quantity?: number
+          target_price_usd?: number | null
           updated_at?: string
           user_id?: string
         }

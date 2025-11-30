@@ -102,7 +102,9 @@ export function ImplementationSummary() {
         'Collection wishlists per deck',
         'AI deck recommendations',
         'Deck simulation tool',
-        'Null-safe stat calculations'
+        'Null-safe stat calculations',
+        'Keyboard shortcuts panel',
+        'Quick deck testing tool'
       ]
     },
     {

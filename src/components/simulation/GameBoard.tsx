@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 interface GameBoardProps {
   state: GameState;
   onRegisterCard?: (instanceId: string, element: HTMLElement | null) => void;
+  damages: Map<string, Array<{ id: string; amount: number; timestamp: number }>>;
 }
 
-export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
+export const GameBoard = ({ state, onRegisterCard, damages }: GameBoardProps) => {
   return (
     <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
       {/* Top status bar: both players + turn */}
@@ -91,6 +92,9 @@ export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
             hasPriority={state.priorityPlayer === 'player2'}
             orientation="top"
             onRegisterCard={onRegisterCard}
+            damages={damages}
+            attackers={state.combat.attackers}
+            blockers={state.combat.blockers}
           />
         </div>
 
@@ -101,6 +105,9 @@ export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
             hasPriority={state.priorityPlayer === 'player1'}
             orientation="bottom"
             onRegisterCard={onRegisterCard}
+            damages={damages}
+            attackers={state.combat.attackers}
+            blockers={state.combat.blockers}
           />
         </div>
       </div>

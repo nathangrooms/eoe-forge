@@ -8,6 +8,9 @@ interface GroupedCardDisplayProps {
   compact?: boolean;
   faceDown?: boolean;
   onRegisterCard?: (instanceId: string, element: HTMLElement | null) => void;
+  damages?: Map<string, Array<{ id: string; amount: number; timestamp: number }>>;
+  attackers?: any[];
+  blockers?: any[];
 }
 
 interface CardGroup {
@@ -16,7 +19,15 @@ interface CardGroup {
   cards: GameCard[];
 }
 
-export const GroupedCardDisplay = ({ cards, compact = false, faceDown = false, onRegisterCard }: GroupedCardDisplayProps) => {
+export const GroupedCardDisplay = ({ 
+  cards, 
+  compact = false, 
+  faceDown = false, 
+  onRegisterCard, 
+  damages = new Map(), 
+  attackers = [], 
+  blockers = [] 
+}: GroupedCardDisplayProps) => {
   // Group cards by name
   const groupedCards = cards.reduce((acc, card) => {
     const existing = acc.find(g => g.card.name === card.name);
@@ -35,21 +46,29 @@ export const GroupedCardDisplay = ({ cards, compact = false, faceDown = false, o
 
   return (
     <div className="flex gap-2 flex-wrap">
-      {groupedCards.map((group) => (
-        <div key={group.card.instanceId} className="relative">
-          <AnimatedCard
-            card={group.card} 
-            compact={compact}
-            faceDown={faceDown}
-            onRegister={onRegisterCard}
-          />
-          {group.count > 1 && (
-            <div className="absolute -top-1 -right-1 bg-background border-2 border-primary rounded-full w-7 h-7 flex items-center justify-center font-bold text-xs shadow-lg z-20">
-              ×{group.count}
-            </div>
-          )}
-        </div>
-      ))}
+      {groupedCards.map((group) => {
+        const isAttacking = attackers.some(a => a.instanceId === group.card.instanceId);
+        const isBlocking = blockers.some(b => b.blocker === group.card.instanceId);
+        
+        return (
+          <div key={group.card.instanceId} className="relative">
+            <AnimatedCard
+              card={group.card} 
+              compact={compact}
+              faceDown={faceDown}
+              onRegister={onRegisterCard}
+              damages={damages.get(group.card.instanceId)}
+              isAttacking={isAttacking}
+              isBlocking={isBlocking}
+            />
+            {group.count > 1 && (
+              <div className="absolute -top-1 -right-1 bg-background border-2 border-primary rounded-full w-7 h-7 flex items-center justify-center font-bold text-xs shadow-lg z-20">
+                ×{group.count}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

@@ -7,13 +7,16 @@ interface AnimatedCardProps {
   compact?: boolean;
   faceDown?: boolean;
   onRegister?: (instanceId: string, element: HTMLElement | null) => void;
+  damages?: Array<{ id: string; amount: number; timestamp: number }>;
+  isAttacking?: boolean;
+  isBlocking?: boolean;
 }
 
 /**
  * Wrapper around FullCardDisplay that registers itself for animations
  */
 export const AnimatedCard = forwardRef<HTMLDivElement, AnimatedCardProps>(
-  ({ card, compact, faceDown, onRegister }, ref) => {
+  ({ card, compact, faceDown, onRegister, damages, isAttacking, isBlocking }, ref) => {
     const handleRef = (element: HTMLDivElement | null) => {
       if (onRegister) {
         onRegister(card.instanceId, element);
@@ -31,6 +34,9 @@ export const AnimatedCard = forwardRef<HTMLDivElement, AnimatedCardProps>(
         card={card} 
         compact={compact} 
         faceDown={faceDown}
+        damages={damages}
+        isAttacking={isAttacking}
+        isBlocking={isBlocking}
       />
     );
   }

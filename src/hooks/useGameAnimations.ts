@@ -4,8 +4,14 @@ import { AnimationManager } from '@/lib/simulation/animations';
 
 /**
  * Hook that triggers animations based on simulation events
+ * Also provides callbacks for damage numbers, triggers, etc.
  */
-export const useGameAnimations = (gameState: GameState | null, speed: number) => {
+export const useGameAnimations = (
+  gameState: GameState | null, 
+  speed: number,
+  onDamage?: (cardId: string, amount: number) => void,
+  onTrigger?: (cardName: string, ability: string) => void
+) => {
   const previousStateRef = useRef<GameState | null>(null);
   const cardRefsRef = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -32,6 +38,7 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
             const el = cardRefsRef.current.get(cardId);
             if (el) {
               AnimationManager.battleDamage({ cardElement: el, damage: amount });
+              onDamage?.(cardId, amount);
             }
           });
           break;
@@ -225,6 +232,16 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
       AnimationManager.killAll();
     };
   }, []);
+
+  // Check for ability triggers in log
+  useEffect(() => {
+    if (!gameState || !onTrigger) return;
+    
+    const lastLog = gameState.log[gameState.log.length - 1];
+    if (lastLog && lastLog.type === 'ability_triggered' && lastLog.cardName) {
+      onTrigger(lastLog.cardName, lastLog.description);
+    }
+  }, [gameState?.log.length, onTrigger, gameState]);
 
   return { registerCard, processEvents };
 };

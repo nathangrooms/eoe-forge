@@ -1,5 +1,5 @@
 import { GameState, AIDecision, GameCard, Player } from './types';
-import { canPlayLand, canCastSpell, canAffordSpell, produceMana, calculateManaCost } from './cardInterpreter';
+import { canPlayLand, canCastSpell } from './cardInterpreter';
 import { canAttack } from './combatSystem';
 
 export class AIPlayer {
@@ -10,9 +10,6 @@ export class AIPlayer {
 
     // Main phase decisions
     if ((phase === 'precombat_main' || phase === 'postcombat_main') && state.activePlayer === playerId) {
-      // First, tap all lands for mana
-      this.tapLandsForMana(player, state);
-      
       // Priority 1: Play land if available
       const landDecision = this.evaluateLandPlay(player, state);
       if (landDecision) return landDecision;
@@ -66,9 +63,11 @@ export class AIPlayer {
     const rampSpells = player.hand.filter(card => {
       if (!canCastSpell(card, state)) return false;
       const text = card.oracle_text?.toLowerCase() || '';
-      return text.includes('search') && text.includes('land') ||
-             text.includes('add') && text.includes('mana') ||
-             (card.type_line.includes('Artifact') && text.includes('mana'));
+      return (
+        (text.includes('search') && text.includes('land')) ||
+        (text.includes('add') && text.includes('mana')) ||
+        (card.type_line.includes('Artifact') && text.includes('mana'))
+      );
     });
 
     for (const spell of rampSpells) {
@@ -240,11 +239,15 @@ export class AIPlayer {
   }
 
   private canAffordAndWorthCasting(card: GameCard, player: Player, state: GameState): boolean {
-    if (!canAffordSpell(card, state)) return false;
+    // Estimate affordability based on untapped lands plus any floating mana.
+    const untappedLands = player.battlefield.filter(c => c.type_line.includes('Land') && !c.isTapped).length;
+    const floatingMana = Object.values(player.manaPool).reduce((sum, val) => sum + val, 0);
+    const potentialMana = untappedLands + floatingMana;
 
-    // Simple heuristic: cast if CMC <= available mana
-    const availableMana = Object.values(player.manaPool).reduce((sum, val) => sum + val, 0);
-    return card.cmc <= availableMana;
+    if (card.cmc > potentialMana) return false;
+
+    // Simple heuristic: if we can reasonably pay the cost, it's worth casting.
+    return true;
   }
 
   private evaluateCreatureImpact(creature: GameCard): number {
@@ -257,17 +260,5 @@ export class AIPlayer {
     if (creature.is_legendary) impact += 1;
     
     return impact;
-  }
-
-  private tapLandsForMana(player: Player, state: GameState): void {
-    // Tap all untapped lands for mana at start of main phase
-    const lands = player.battlefield.filter(card => 
-      card.type_line.includes('Land') && !card.isTapped
-    );
-
-    lands.forEach(land => {
-      land.isTapped = true;
-      produceMana(land, state);
-    });
   }
 }

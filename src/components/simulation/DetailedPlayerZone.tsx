@@ -8,9 +8,10 @@ interface DetailedPlayerZoneProps {
   isActive: boolean;
   hasPriority: boolean;
   orientation: 'top' | 'bottom';
+  onRegisterCard?: (instanceId: string, element: HTMLElement | null) => void;
 }
 
-export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation }: DetailedPlayerZoneProps) => {
+export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation, onRegisterCard }: DetailedPlayerZoneProps) => {
   const isTop = orientation === 'top';
 
   // Separate battlefield by permanent type
@@ -96,7 +97,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
             {player.commandZone.length > 0 && (
               <div className="bg-background/20 rounded p-1.5">
                 <div className="text-[10px] font-bold text-primary mb-1">⭐ COMMANDER</div>
-                <GroupedCardDisplay cards={player.commandZone} compact />
+                <GroupedCardDisplay cards={player.commandZone} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
             
@@ -109,6 +110,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                   cards={player.hand}
                   faceDown={isTop}
                   compact
+                  onRegisterCard={onRegisterCard}
                 />
               </div>
             )}
@@ -121,7 +123,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                 <div className="text-[10px] font-semibold text-red-400 mb-1 uppercase flex items-center gap-1">
                   <span>⚔️</span> Creatures ({creatures.length})
                 </div>
-                <GroupedCardDisplay cards={creatures} compact />
+                <GroupedCardDisplay cards={creatures} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
 
@@ -130,7 +132,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                 <div className="text-[10px] font-semibold text-green-400 mb-1 uppercase flex items-center gap-1">
                   <span>🏔️</span> Lands ({lands.length})
                 </div>
-                <GroupedCardDisplay cards={lands} compact />
+                <GroupedCardDisplay cards={lands} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
 
@@ -141,7 +143,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                     <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                       Artifacts ({artifacts.length})
                     </div>
-                    <GroupedCardDisplay cards={artifacts} compact />
+                    <GroupedCardDisplay cards={artifacts} compact onRegisterCard={onRegisterCard} />
                   </div>
                 )}
                 {enchantments.length > 0 && (
@@ -149,7 +151,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                     <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                       Enchantments ({enchantments.length})
                     </div>
-                    <GroupedCardDisplay cards={enchantments} compact />
+                    <GroupedCardDisplay cards={enchantments} compact onRegisterCard={onRegisterCard} />
                   </div>
                 )}
                 {planeswalkers.length > 0 && (
@@ -157,7 +159,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                     <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                       Planeswalkers ({planeswalkers.length})
                     </div>
-                    <GroupedCardDisplay cards={planeswalkers} compact />
+                    <GroupedCardDisplay cards={planeswalkers} compact onRegisterCard={onRegisterCard} />
                   </div>
                 )}
               </div>
@@ -171,7 +173,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                 <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                   GY ({player.graveyard.length})
                 </div>
-                <GroupedCardDisplay cards={player.graveyard.slice(-3)} compact />
+                <GroupedCardDisplay cards={player.graveyard.slice(-3)} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
             {player.exile.length > 0 && (
@@ -179,7 +181,7 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                 <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                   Exile ({player.exile.length})
                 </div>
-                <GroupedCardDisplay cards={player.exile.slice(-3)} compact />
+                <GroupedCardDisplay cards={player.exile.slice(-3)} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
           </div>

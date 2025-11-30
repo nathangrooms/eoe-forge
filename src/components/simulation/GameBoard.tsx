@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 
 interface GameBoardProps {
   state: GameState;
+  onRegisterCard?: (instanceId: string, element: HTMLElement | null) => void;
 }
 
-export const GameBoard = ({ state }: GameBoardProps) => {
+export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
   return (
     <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
       {/* Top status bar: both players + turn */}
@@ -79,6 +80,7 @@ export const GameBoard = ({ state }: GameBoardProps) => {
             isActive={state.activePlayer === 'player2'}
             hasPriority={state.priorityPlayer === 'player2'}
             orientation="top"
+            onRegisterCard={onRegisterCard}
           />
         </div>
 
@@ -88,6 +90,7 @@ export const GameBoard = ({ state }: GameBoardProps) => {
             isActive={state.activePlayer === 'player1'}
             hasPriority={state.priorityPlayer === 'player1'}
             orientation="bottom"
+            onRegisterCard={onRegisterCard}
           />
         </div>
       </div>

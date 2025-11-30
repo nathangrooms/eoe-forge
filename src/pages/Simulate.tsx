@@ -7,6 +7,7 @@ import { GameBoard } from '@/components/simulation/GameBoard';
 import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { PhaseProgress } from '@/components/simulation/PhaseProgress';
+import { useGameAnimations } from '@/hooks/useGameAnimations';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,6 +33,9 @@ export default function Simulate() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(0.5); // Start slower for better viewing
+
+  // Setup animation system
+  const { registerCard } = useGameAnimations(gameState, speed);
 
   useEffect(() => {
     loadDecks();
@@ -436,7 +440,7 @@ export default function Simulate() {
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20">
-            <GameBoard state={gameState} />
+            <GameBoard state={gameState} onRegisterCard={registerCard} />
           </div>
           
           <div className="w-[340px] flex flex-col bg-[#0f0f14] border-l border-primary/20">

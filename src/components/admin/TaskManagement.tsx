@@ -102,7 +102,6 @@ export function TaskManagement() {
     app_section: 'general' as AppSection,
   });
 
-  // List of actually implemented tasks (THIS LIST IS AUTO-SYNCED)
   const IMPLEMENTED_TASKS = [
     // Core functionality - Already done
     'Add bulk card addition',

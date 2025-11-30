@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GameSimulator } from '@/lib/simulation/simulator';
+import { StepSimulator } from '@/lib/simulation/stepSimulator';
 import { GameState, SimulationResult } from '@/lib/simulation/types';
 import { BattleIntro } from '@/components/simulation/BattleIntro';
 import { GameBoard } from '@/components/simulation/GameBoard';
@@ -28,16 +28,16 @@ export default function Simulate() {
   const [deck1Id, setDeck1Id] = useState<string>('');
   const [deck2Id, setDeck2Id] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [simulator, setSimulator] = useState<GameSimulator | null>(null);
+  const [simulator, setSimulator] = useState<StepSimulator | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [showIntro, setShowIntro] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
-  const [speed, setSpeed] = useState(0.5); // Start slower for better viewing
+  const [speed, setSpeed] = useState(1); // 1x speed for good viewing
 
   // Setup animation system
-  const { registerCard } = useGameAnimations(gameState, speed);
+  const { registerCard, processEvents } = useGameAnimations(gameState, speed);
 
   useEffect(() => {
     loadDecks();
@@ -170,7 +170,7 @@ export default function Simulate() {
       // Create simulator after intro
       setTimeout(() => {
         try {
-          const sim = new GameSimulator(
+          const sim = new StepSimulator(
             deck1Cards,
             deck2Cards,
             deck1Info.name || 'Deck A',
@@ -202,36 +202,40 @@ export default function Simulate() {
     
     setIsPlaying(true);
     
-    const runTurn = () => {
+    const runStep = () => {
       try {
         if (gameState.gameOver) {
           pause();
           return;
         }
 
-        // Step through one turn at a time
-        const continueSimulation = simulator.stepTurn();
-        const newState = simulator.getState();
-        setGameState({ ...newState }); // Create new reference to trigger re-render
+        // Step through one action/phase at a time
+        const result = simulator.step();
         
-        if (!continueSimulation || newState.gameOver) {
+        // Process animation events
+        processEvents(result.events);
+        
+        // Update state
+        setGameState({ ...result.state });
+        
+        if (!result.shouldContinue || result.state.gameOver) {
           pause();
           
-          if (newState.winner) {
-            const winnerName = newState.winner === 'player1' 
-              ? newState.player1.name 
-              : newState.player2.name;
+          if (result.state.winner) {
+            const winnerName = result.state.winner === 'player1' 
+              ? result.state.player1.name 
+              : result.state.player2.name;
             
             setResult({
-              winner: newState.winner,
-              turns: newState.turn,
-              player1Life: newState.player1.life,
-              player2Life: newState.player2.life,
-              events: newState.log,
-              finalState: newState,
+              winner: result.state.winner,
+              turns: result.state.turn,
+              player1Life: result.state.player1.life,
+              player2Life: result.state.player2.life,
+              events: result.state.log,
+              finalState: result.state,
             });
             
-            toast.success(`${winnerName} wins in ${newState.turn} turns!`);
+            toast.success(`${winnerName} wins in ${result.state.turn} turns!`);
           }
         }
       } catch (error) {
@@ -241,9 +245,9 @@ export default function Simulate() {
       }
     };
 
-    // Calculate interval based on speed (lower number = faster)
-    const baseInterval = 3000; // 3 seconds at 1x speed for better viewing
-    const interval = setInterval(runTurn, baseInterval / speed);
+    // Calculate interval based on speed - each step is one action/phase
+    const baseInterval = 600; // 600ms base for good visibility
+    const interval = setInterval(runStep, baseInterval / speed);
     setSimulationInterval(interval);
   };
 
@@ -271,26 +275,30 @@ export default function Simulate() {
     if (!simulator || !gameState || gameState.gameOver) return;
     
     try {
-      const continueSimulation = simulator.stepTurn();
-      const newState = simulator.getState();
-      setGameState({ ...newState }); // Create new reference to trigger re-render
+      const result = simulator.step();
       
-      if (!continueSimulation || newState.gameOver) {
-        if (newState.winner) {
-          const winnerName = newState.winner === 'player1' 
-            ? newState.player1.name 
-            : newState.player2.name;
+      // Process animation events
+      processEvents(result.events);
+      
+      // Update state
+      setGameState({ ...result.state });
+      
+      if (!result.shouldContinue || result.state.gameOver) {
+        if (result.state.winner) {
+          const winnerName = result.state.winner === 'player1' 
+            ? result.state.player1.name 
+            : result.state.player2.name;
           
           setResult({
-            winner: newState.winner,
-            turns: newState.turn,
-            player1Life: newState.player1.life,
-            player2Life: newState.player2.life,
-            events: newState.log,
-            finalState: newState,
+            winner: result.state.winner,
+            turns: result.state.turn,
+            player1Life: result.state.player1.life,
+            player2Life: result.state.player2.life,
+            events: result.state.log,
+            finalState: result.state,
           });
           
-          toast.success(`${winnerName} wins in ${newState.turn} turns!`);
+          toast.success(`${winnerName} wins in ${result.state.turn} turns!`);
         }
       }
     } catch (error) {

@@ -384,6 +384,14 @@ export function TaskManagement() {
     'Add password reset flow',
     'Implement session timeout handling',
     'Implement price drop alerts',
+    'Add rate limiting',
+    'Add user management interface',
+    'Implement deck search and filters',
+    'Implement undo/redo functionality',
+    'Implement system health dashboard',
+    'Implement deck legality checker',
+    'Implement deck validation warnings',
+    'Implement listing edit functionality',
   ];
 
   useEffect(() => {

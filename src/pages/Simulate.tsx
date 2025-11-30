@@ -6,6 +6,7 @@ import { BattleIntro } from '@/components/simulation/BattleIntro';
 import { GameBoard } from '@/components/simulation/GameBoard';
 import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
+import { PhaseProgress } from '@/components/simulation/PhaseProgress';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -436,28 +437,40 @@ export default function Simulate() {
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20">
             <GameBoard state={gameState} />
-            <SimulationControls
-              isPlaying={isPlaying}
-              isComplete={gameState.gameOver}
-              speed={speed}
-              onPlay={play}
-              onPause={pause}
-              onStep={step}
-              onRestart={restart}
-              onExport={exportResults}
-              onSpeedChange={handleSpeedChange}
-            />
           </div>
           
-          <div className="w-[320px] flex flex-col bg-[#0f0f14] border-l border-primary/20">
-            <div className="p-4 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent">
-              <h3 className="text-lg font-bold text-foreground">Game Log</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Live updates • Turn {gameState.turn}
-              </p>
+          <div className="w-[340px] flex flex-col bg-[#0f0f14] border-l border-primary/20">
+            <div className="p-4 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Game Log</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Live updates • Turn {gameState.turn}
+                  </p>
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                <PhaseProgress
+                  currentPhase={gameState.phase}
+                  activePlayer={gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name}
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-hidden">
               <GameLog events={gameState.log} />
+            </div>
+            <div className="border-t border-primary/20">
+              <SimulationControls
+                isPlaying={isPlaying}
+                isComplete={gameState.gameOver}
+                speed={speed}
+                onPlay={play}
+                onPause={pause}
+                onStep={step}
+                onRestart={restart}
+                onExport={exportResults}
+                onSpeedChange={handleSpeedChange}
+              />
             </div>
           </div>
         </div>

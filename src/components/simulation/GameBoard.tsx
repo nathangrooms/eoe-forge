@@ -1,7 +1,6 @@
 import { GameState } from '@/lib/simulation/types';
 import { DetailedPlayerZone } from './DetailedPlayerZone';
 import { StackViewer } from './StackViewer';
-import { PhaseProgress } from './PhaseProgress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -12,18 +11,18 @@ interface GameBoardProps {
 export const GameBoard = ({ state }: GameBoardProps) => {
   return (
     <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
-      {/* Top status bar: both players + turn/phase */}
-      <div className="h-[82px] border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-4 gap-4">
+      {/* Top status bar: both players + turn */}
+      <div className="h-[64px] border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-4 gap-4 text-xs">
         {/* Opponent summary */}
         <div className="flex items-center gap-3 min-w-[220px]">
-          <Badge variant="outline" className="px-3 py-1 text-xs font-semibold bg-background/80">
+          <Badge variant="outline" className="px-3 py-1 font-semibold bg-background/80">
             OPPONENT
           </Badge>
-          <div className="flex flex-col text-xs text-muted-foreground">
+          <div className="flex flex-col text-muted-foreground leading-tight">
             <span className="font-semibold text-foreground truncate max-w-[180px]">
               {state.player2.name}
             </span>
-            <span className="flex items-center gap-3 mt-0.5">
+            <span className="flex items-center gap-2 mt-0.5">
               <span>❤️ {state.player2.life}</span>
               <span>📚 {state.player2.library.length}</span>
               <span>✋ {state.player2.hand.length}</span>
@@ -31,32 +30,24 @@ export const GameBoard = ({ state }: GameBoardProps) => {
           </div>
         </div>
 
-        {/* Center: turn / phase / stack */}
-        <div className="flex-1 flex items-center justify-center gap-4 relative">
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-sm px-3 py-1 bg-background/90 backdrop-blur font-bold">
-                Turn {state.turn}
+        {/* Center: turn + simple phase label; detailed tracker lives in Game Log */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="px-3 py-1 bg-background/90 backdrop-blur font-bold text-sm">
+              Turn {state.turn}
+            </Badge>
+            <Badge className="px-3 py-0.5 bg-primary/40 font-semibold text-[11px] tracking-wide">
+              {state.phase.replace(/_/g, ' ').toUpperCase()}
+            </Badge>
+            {state.combat.isActive && (
+              <Badge variant="destructive" className="px-3 py-0.5 animate-pulse font-bold text-[11px]">
+                ⚔️ COMBAT
               </Badge>
-              <Badge className="text-xs px-3 py-0.5 bg-primary/40 font-semibold">
-                {state.phase.replace(/_/g, ' ').toUpperCase()}
-              </Badge>
-              {state.combat.isActive && (
-                <Badge variant="destructive" className="text-xs px-3 py-0.5 animate-pulse font-bold">
-                  ⚔️ COMBAT
-                </Badge>
-              )}
-            </div>
-            <div className="w-full max-w-xl">
-              <PhaseProgress
-                currentPhase={state.phase}
-                activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
-              />
-            </div>
+            )}
           </div>
 
           {state.stack.length > 0 && (
-            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <StackViewer stack={state.stack} />
             </div>
           )}
@@ -64,17 +55,17 @@ export const GameBoard = ({ state }: GameBoardProps) => {
 
         {/* You summary */}
         <div className="flex items-center gap-3 min-w-[220px] justify-end">
-          <div className="flex flex-col text-xs text-muted-foreground text-right">
+          <div className="flex flex-col text-muted-foreground text-right leading-tight">
             <span className="font-semibold text-foreground truncate max-w-[180px]">
               {state.player1.name}
             </span>
-            <span className="flex items-center gap-3 mt-0.5 justify-end">
+            <span className="flex items-center gap-2 mt-0.5 justify-end">
               <span>❤️ {state.player1.life}</span>
               <span>📚 {state.player1.library.length}</span>
               <span>✋ {state.player1.hand.length}</span>
             </span>
           </div>
-          <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold bg-background/80">
+          <Badge variant="secondary" className="px-3 py-1 font-semibold bg-background/80">
             {state.activePlayer === 'player1' ? 'YOUR TURN' : "OPPONENT'S TURN"}
           </Badge>
         </div>

@@ -35,7 +35,8 @@ export function ImplementationSummary() {
         'Enhanced match tracker with statistics',
         'AI-powered archetype detection',
         'Budget tracker with spending analysis',
-        'Card replacement engine for alternatives'
+        'Card replacement engine for alternatives',
+        'Social features with ratings and comments'
       ]
     },
     {
@@ -69,6 +70,15 @@ export function ImplementationSummary() {
         'AI deck recommendations',
         'Deck simulation tool',
         'Null-safe stat calculations'
+      ]
+    },
+    {
+      category: 'Tournament Features',
+      features: [
+        'Tournament manager with bracket generation',
+        'Swiss and elimination formats',
+        'Real-time standings tracking',
+        'Match result recording'
       ]
     }
   ];

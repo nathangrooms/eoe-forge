@@ -25,6 +25,7 @@ import { CardReplacementEngine } from '@/components/deck-builder/CardReplacement
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
 import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
+import { EnhancedDeckExport } from '@/components/deck-builder/EnhancedDeckExport';
 import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -692,6 +693,14 @@ const DeckBuilder = () => {
                     deckName={deck.name}
                   />
                 )}
+                
+                {/* Enhanced Export */}
+                <EnhancedDeckExport 
+                  deckName={deck.name}
+                  deckCards={deck.cards as any}
+                  commander={deck.commander}
+                  format={deck.format}
+                />
                 
                 <AIDeckCoach
                   deckCards={deck.cards as any}

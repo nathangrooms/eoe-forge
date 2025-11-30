@@ -43,18 +43,12 @@ export class AIPlayer {
 
   private evaluateLandPlay(player: Player, state: GameState): AIDecision | null {
     const lands = player.hand.filter(card => canPlayLand(card, state));
-    console.log('[AI] Evaluating land play:', {
-      handsSize: player.hand.length,
-      landsInHand: lands.length,
-      landPlaysRemaining: player.landPlaysRemaining
-    });
     
     if (lands.length === 0 || player.landPlaysRemaining === 0) return null;
 
     // Prioritize lands that produce colors we need
     const bestLand = this.selectBestLand(lands, player);
     if (bestLand) {
-      console.log('[AI] Playing land:', bestLand.name);
       return {
         type: 'play_land',
         cardInstanceId: bestLand.instanceId,
@@ -92,12 +86,6 @@ export class AIPlayer {
       card.type_line.includes('Creature') && canCastSpell(card, state)
     );
 
-    console.log('[AI] Evaluating creatures:', {
-      handsSize: player.hand.length,
-      creaturesInHand: creatures.length,
-      manaPool: player.manaPool
-    });
-
     // Sort by CMC (play cheaper first, but prioritize impactful cards)
     const sorted = creatures.sort((a, b) => {
       const impactA = this.evaluateCreatureImpact(a);
@@ -108,7 +96,6 @@ export class AIPlayer {
 
     for (const creature of sorted) {
       if (this.canAffordAndWorthCasting(creature, player, state)) {
-        console.log('[AI] Casting creature:', creature.name);
         return {
           type: 'cast_spell',
           cardInstanceId: creature.instanceId,

@@ -206,21 +206,23 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-void to-void/50" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
-              <div className="p-2 rounded-lg bg-void/10">
-                <Heart className="h-4 w-4 text-void" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist.valueUSD)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dashboardData?.wishlist.totalItems} items desired
-              </p>
-            </CardContent>
-          </Card>
+          <Link to="/wishlist">
+            <Card className="relative overflow-hidden hover:shadow-md transition-all group cursor-pointer">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-void to-void/50" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
+                <div className="p-2 rounded-lg bg-void/10">
+                  <Heart className="h-4 w-4 text-void" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist.valueUSD)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dashboardData?.wishlist.totalItems} items desired
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Quick Actions Strip */}

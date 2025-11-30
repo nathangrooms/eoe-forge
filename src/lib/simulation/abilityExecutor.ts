@@ -30,7 +30,7 @@ export function executeAbility(
         state.log.push({
           turn: state.turn,
           phase: state.phase,
-          type: 'trigger',
+          type: 'ability_triggered',
           player: controller,
           description: `${source.name} creates a ${tokenDef.name}`,
           cardName: source.name,
@@ -58,7 +58,7 @@ export function executeAbility(
           state.log.push({
             turn: state.turn,
             phase: state.phase,
-            type: 'trigger',
+            type: 'ability_triggered',
             player: controller,
             description: `${source.name} destroys ${target.name}`,
             cardName: source.name,
@@ -86,7 +86,7 @@ export function executeAbility(
           state.log.push({
             turn: state.turn,
             phase: state.phase,
-            type: 'trigger',
+            type: 'ability_triggered',
             player: controller,
             description: `${source.name} exiles ${target.name}`,
             cardName: source.name,
@@ -110,7 +110,7 @@ export function executeAbility(
         state.log.push({
           turn: state.turn,
           phase: state.phase,
-          type: 'trigger',
+          type: 'ability_triggered',
           player: controller,
           description: `${source.name} deals ${effect.amount} damage to ${opponent.name}`,
           cardName: source.name,
@@ -126,7 +126,7 @@ export function executeAbility(
           state.log.push({
             turn: state.turn,
             phase: state.phase,
-            type: 'trigger',
+            type: 'ability_triggered',
             player: controller,
             description: `${source.name} deals ${effect.amount} damage to ${target.name}`,
             cardName: source.name,
@@ -142,7 +142,7 @@ export function executeAbility(
       state.log.push({
         turn: state.turn,
         phase: state.phase,
-        type: 'trigger',
+        type: 'ability_triggered',
         player: controller,
         description: `${player.name} gains ${effect.amount} life`,
         cardName: source.name,
@@ -166,7 +166,7 @@ export function executeAbility(
         state.log.push({
           turn: state.turn,
           phase: state.phase,
-          type: 'trigger',
+          type: 'ability_triggered',
           player: controller,
           description: `${source.name} gets ${effect.count} ${counterType} counter(s)`,
           cardName: source.name,
@@ -199,7 +199,7 @@ export function executeAbility(
         state.log.push({
           turn: state.turn,
           phase: state.phase,
-          type: 'trigger',
+          type: 'ability_triggered',
           player: controller,
           description: `${source.name} searches for ${count} land(s)`,
           cardName: source.name,

@@ -432,6 +432,15 @@ export function TaskManagement() {
     'Add collection value trends',
     'Add advanced scan options',
     'Add storage management system',
+    'Add collection bulk import',
+    'Add bulk operations toolbar',
+    'Add deck import/export functionality',
+    'Add deck share drawer with QR codes',
+    'Add missing cards drawer',
+    'Add deck export options with multiple formats',
+    'Add recent activity feed',
+    'Add badge display system',
+    'Add dashboard customization',
   ];
 
   useEffect(() => {

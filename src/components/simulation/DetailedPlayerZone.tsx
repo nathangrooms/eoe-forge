@@ -15,43 +15,64 @@ interface DetailedPlayerZoneProps {
 }
 
 export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation, onRegisterCard, damages, attackers, blockers }: DetailedPlayerZoneProps) => {
-  const isTop = orientation === 'top';
-
-  // Separate battlefield by permanent type
-  const lands = player.battlefield.filter(c => c.type_line.includes('Land'));
-  const creatures = player.battlefield.filter(c => c.type_line.includes('Creature'));
-  const artifacts = player.battlefield.filter(c => 
-    c.type_line.includes('Artifact') && !c.type_line.includes('Creature')
-  );
-  const enchantments = player.battlefield.filter(c => c.type_line.includes('Enchantment'));
-  const planeswalkers = player.battlefield.filter(c => c.type_line.includes('Planeswalker'));
-
-  return (
-    <div className={cn(
-      "h-full flex flex-col gap-1.5",
-      isTop ? "flex-col" : "flex-col-reverse"
-    )}>
-      {/* Compact Player Info Bar */}
-      <div className={cn(
-        "flex items-center justify-between px-3 py-1.5 rounded border transition-all shrink-0",
-        isActive ? "bg-primary/20 border-primary/50" : "bg-muted/30 border-border/50",
-        hasPriority && "ring-1 ring-primary/70"
-      )}>
-        <div className="flex items-center gap-3">
-          <span className={cn("text-base font-bold", isActive && "text-primary")}>
-            {player.name}
-          </span>
-          <div className="flex items-center gap-1.5 bg-background/60 px-2 py-0.5 rounded">
-            <Heart className={cn(
-              "h-4 w-4",
-              player.life > 30 ? "text-green-500" :
-              player.life > 20 ? "text-yellow-500" :
-              player.life > 10 ? "text-orange-500" : "text-red-500"
-            )} />
-            <span className="text-xl font-bold">{player.life}</span>
-          </div>
-        </div>
-
+   const isTop = orientation === 'top';
+ 
+   // Separate battlefield by permanent type
+   const lands = player.battlefield.filter(c => c.type_line.includes('Land'));
+   const creatures = player.battlefield.filter(c => c.type_line.includes('Creature'));
+   const artifacts = player.battlefield.filter(c => 
+     c.type_line.includes('Artifact') && !c.type_line.includes('Creature')
+   );
+   const enchantments = player.battlefield.filter(c => c.type_line.includes('Enchantment'));
+   const planeswalkers = player.battlefield.filter(c => c.type_line.includes('Planeswalker'));
+ 
+   // Commander status (alive = on battlefield)
+   const commanderName = player.commandZone[0]?.name;
+   const commanderOnBattlefield = commanderName
+     ? player.battlefield.some(c => c.name === commanderName)
+     : false;
+ 
+   return (
+     <div className={cn(
+       "h-full flex flex-col gap-1.5",
+       isTop ? "flex-col" : "flex-col-reverse"
+     )}>
+       {/* Compact Player Info Bar */}
+       <div className={cn(
+         "flex items-center justify-between px-3 py-1.5 rounded border transition-all shrink-0",
+         isActive ? "bg-primary/20 border-primary/50" : "bg-muted/30 border-border/50",
+         hasPriority && "ring-1 ring-primary/70"
+       )}>
+         <div className="flex items-center gap-3">
+           <div className="flex flex-col leading-tight">
+             <span className={cn("text-sm font-semibold", isActive && "text-primary")}
+             >
+               {player.name}
+             </span>
+             {commanderName && (
+               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                 <span className={cn(
+                   "inline-flex items-center px-1.5 py-0.5 rounded-full border text-[9px] font-semibold",
+                   commanderOnBattlefield
+                     ? "border-emerald-500 text-emerald-400"
+                     : "border-destructive/60 text-destructive"
+                 )}>
+                   ⭐ CMD {commanderOnBattlefield ? 'in play' : 'off board'}
+                 </span>
+               </span>
+             )}
+           </div>
+           <div className="flex items-center gap-1.5 bg-background/60 px-2 py-0.5 rounded">
+             <Heart className={cn(
+               "h-4 w-4",
+               player.life > 30 ? "text-green-500" :
+               player.life > 20 ? "text-yellow-500" :
+               player.life > 10 ? "text-orange-500" : "text-red-500"
+             )} />
+             <span className="text-xl font-bold">{player.life}</span>
+           </div>
+         </div>
+ 
         <div className="flex items-center gap-2 text-xs">
           <div className="flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded">
             <Library className="h-3 w-3 text-primary" />

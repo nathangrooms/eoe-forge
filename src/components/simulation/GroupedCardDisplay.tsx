@@ -45,11 +45,11 @@ export const GroupedCardDisplay = ({
   }, [] as CardGroup[]);
 
   return (
-    <div className="flex gap-1.5 flex-wrap items-start">
+    <div className="flex gap-1.5 items-start flex-row flex-nowrap">
       {groupedCards.map((group) => {
         const isAttacking = attackers.some(a => a.instanceId === group.card.instanceId);
         const isBlocking = blockers.some(b => b.blocker === group.card.instanceId);
-        
+
         return (
           <div key={group.card.instanceId} className="relative shrink-0">
             <AnimatedCard

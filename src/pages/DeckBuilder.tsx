@@ -14,6 +14,7 @@ import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
 import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
+import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -615,6 +616,11 @@ const DeckBuilder = () => {
                   commander={deck.commander}
                   deckId={selectedDeckId || deck.currentDeckId || undefined}
                   deckName={deck.name}
+                />
+                <DeckPrimerGenerator 
+                  deckName={deck.name}
+                  commander={deck.commander?.name}
+                  cardCount={deck.totalCards}
                 />
               </div>
             ) : (

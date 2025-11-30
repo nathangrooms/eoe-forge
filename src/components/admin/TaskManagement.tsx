@@ -349,6 +349,9 @@ export function TaskManagement() {
     'Add deck synergy analyzer',
     'Add collection backup and restore',
     'Add opening hand simulator',
+    'Add price alert manager',
+    'Add insurance report generator',
+    'Add deck primer generator',
   ];
 
   useEffect(() => {

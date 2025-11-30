@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-import { Grid2x2, List, Rows, Filter, Zap } from 'lucide-react';
+import { Grid2x2, List, Rows, Filter, Zap, CheckSquare, Square } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { UniversalFilterPanel } from '@/components/universal/UniversalFilterPanel';
 import { UniversalCardDisplay } from '@/components/universal/UniversalCardDisplay';
 
@@ -38,6 +39,10 @@ interface UniversalLocalSearchProps {
   onCardAdd?: (card: any) => void;
   showWishlistButton?: boolean;
   emptyState?: EmptyState;
+  selectionMode?: boolean;
+  selectedCards?: Set<string>;
+  onToggleSelectionMode?: () => void;
+  onSelectAll?: () => void;
 }
 
 export function UniversalLocalSearch({
@@ -50,6 +55,10 @@ export function UniversalLocalSearch({
   onCardAdd,
   showWishlistButton = true,
   emptyState,
+  selectionMode = false,
+  selectedCards = new Set(),
+  onToggleSelectionMode,
+  onSelectAll,
 }: UniversalLocalSearchProps) {
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState<Filters>({
@@ -187,6 +196,23 @@ export function UniversalLocalSearch({
       {/* Top controls */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="px-6 py-3 flex items-center gap-3">
+          {onToggleSelectionMode && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={selectionMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={onToggleSelectionMode}
+              >
+                {selectionMode ? <CheckSquare className="h-4 w-4 mr-1" /> : <Square className="h-4 w-4 mr-1" />}
+                Select
+              </Button>
+              {selectionMode && onSelectAll && (
+                <Button variant="outline" size="sm" onClick={onSelectAll}>
+                  Select All
+                </Button>
+              )}
+            </div>
+          )}
           <div className="flex-1">
             <Input
               placeholder="Search cards by name, type, or set..."
@@ -261,6 +287,8 @@ export function UniversalLocalSearch({
               onCardClick={onCardClick}
               onCardAdd={onCardAdd}
               showWishlistButton={showWishlistButton}
+              selectionMode={selectionMode}
+              selectedCards={selectedCards}
             />
           </>
         )}

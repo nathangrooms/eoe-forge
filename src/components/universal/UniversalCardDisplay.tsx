@@ -10,8 +10,10 @@ import {
   TrendingUp,
   DollarSign,
   Zap,
-  Shield
+  Shield,
+  Check
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface UniversalCardDisplayProps {
   cards: any[];
@@ -21,6 +23,8 @@ interface UniversalCardDisplayProps {
   onCardWishlist?: (card: any) => void;
   showWishlistButton?: boolean;
   compact?: boolean;
+  selectionMode?: boolean;
+  selectedCards?: Set<string>;
 }
 
 export function UniversalCardDisplay({
@@ -30,7 +34,9 @@ export function UniversalCardDisplay({
   onCardAdd,
   onCardWishlist,
   showWishlistButton = false,
-  compact = false
+  compact = false,
+  selectionMode = false,
+  selectedCards = new Set()
 }: UniversalCardDisplayProps) {
   const getGridClasses = () => {
     if (compact) return "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3";
@@ -87,101 +93,119 @@ export function UniversalCardDisplay({
   if (viewMode === 'list') {
     return (
       <div className={getGridClasses()}>
-        {cards.map((card) => (
-          <Card 
-            key={card.id} 
-            className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] group"
-            onClick={() => onCardClick(card)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-4">
-                {/* Card Image */}
-                <div className="w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
-                  {card.image_uris?.small && (
-                    <img 
-                      src={card.image_uris.small}
-                      alt={card.name}
-                      className="w-full h-full object-cover"
-                    />
+        {cards.map((card) => {
+          const isSelected = selectedCards.has(card.collectionItemId || card.id);
+          
+          return (
+            <Card 
+              key={card.id} 
+              className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] group ${
+                isSelected ? 'ring-2 ring-primary' : ''
+              }`}
+              onClick={() => onCardClick(card)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-4">
+                  {/* Selection Checkbox */}
+                  {selectionMode && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onCardClick(card)}
+                      />
+                    </div>
                   )}
-                </div>
+                  
+                  {/* Card Image */}
+                  <div className="w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
+                    {card.image_uris?.small && (
+                      <img 
+                        src={card.image_uris.small}
+                        alt={card.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
 
-                {/* Card Info */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium truncate">{card.name}</h3>
-                    <div className="flex items-center gap-1">
-                      {getColorIndicator(card.colors)}
+                  {/* Card Info */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium truncate">{card.name}</h3>
+                      <div className="flex items-center gap-1">
+                        {getColorIndicator(card.colors)}
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground truncate">
+                      {card.type_line}
+                    </p>
+                    
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge variant="outline" className="text-xs">
+                        {card.set?.toUpperCase()}
+                      </Badge>
+                      <Badge variant="outline" className={`text-xs ${getRarityColor(card.rarity)}`}>
+                        {card.rarity}
+                      </Badge>
+                      <span className="text-muted-foreground">CMC {card.cmc}</span>
                     </div>
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground truncate">
-                    {card.type_line}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 text-xs">
-                    <Badge variant="outline" className="text-xs">
-                      {card.set?.toUpperCase()}
-                    </Badge>
-                    <Badge variant="outline" className={`text-xs ${getRarityColor(card.rarity)}`}>
-                      {card.rarity}
-                    </Badge>
-                    <span className="text-muted-foreground">CMC {card.cmc}</span>
-                  </div>
-                </div>
 
-                {/* Price */}
-                <div className="text-right flex-shrink-0">
-                  <div className="font-medium">
-                    {card.prices?.usd ? `$${card.prices.usd}` : 'N/A'}
+                  {/* Price */}
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-medium">
+                      {card.prices?.usd ? `$${card.prices.usd}` : 'N/A'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {card.power && card.toughness ? `${card.power}/${card.toughness}` : ''}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {card.power && card.toughness ? `${card.power}/${card.toughness}` : ''}
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCardClick(card);
-                    }}
-                  >
-                    <Eye className="h-3 w-3" />
-                  </Button>
-                  
-                  {onCardAdd && (
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCardAdd(card);
-                      }}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  )}
-                  
-                  {showWishlistButton && onCardWishlist && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCardWishlist(card);
-                      }}
-                    >
-                      <Heart className="h-3 w-3" />
-                    </Button>
+                  {/* Actions */}
+                  {!selectionMode && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCardClick(card);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      
+                      {onCardAdd && (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCardAdd(card);
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      )}
+                      
+                      {showWishlistButton && onCardWishlist && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCardWishlist(card);
+                          }}
+                        >
+                          <Heart className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   }
@@ -189,94 +213,113 @@ export function UniversalCardDisplay({
   // Grid and Compact modes
   return (
     <div className={getGridClasses()}>
-      {cards.map((card) => (
-        <div key={card.id} className="relative group">
-          <Card 
-            className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 overflow-hidden"
-            onClick={() => onCardClick(card)}
-          >
-            <div className={compact ? "aspect-[5/7]" : "aspect-[5/7]"}>
-              {card.image_uris?.normal ? (
-                <img 
-                  src={compact ? card.image_uris.small : card.image_uris.normal}
-                  alt={card.name}
-                  className="w-full h-full object-cover"
+      {cards.map((card) => {
+        const isSelected = selectedCards.has(card.collectionItemId || card.id);
+        
+        return (
+          <div key={card.id} className="relative group">
+            {/* Selection Checkbox Overlay */}
+            {selectionMode && (
+              <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onCardClick(card)}
+                  className="bg-background border-2 shadow-md"
                 />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-                  <div className="text-center p-2">
-                    <p className="text-xs font-medium truncate">{card.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{card.type_line}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {!compact && (
-              <CardContent className="p-3">
-                <div className="space-y-2">
-                  <h3 className="font-medium text-sm truncate">{card.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {getColorIndicator(card.colors)}
-                    </div>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {card.cmc}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {card.rarity}
-                    </Badge>
-                    <span className="text-xs font-medium">
-                      {card.prices?.usd ? `$${card.prices.usd}` : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
+              </div>
             )}
-          </Card>
-
-          {/* Action Overlay */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCardClick(card);
-              }}
+            
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 overflow-hidden ${
+                isSelected ? 'ring-2 ring-primary' : ''
+              }`}
+              onClick={() => onCardClick(card)}
             >
-              <Eye className="h-4 w-4" />
-            </Button>
-            
-            {onCardAdd && (
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCardAdd(card);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-            
-            {showWishlistButton && onCardWishlist && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCardWishlist(card);
-                }}
-              >
-                <Heart className="h-4 w-4" />
-              </Button>
+              <div className={compact ? "aspect-[5/7]" : "aspect-[5/7]"}>
+                {card.image_uris?.normal ? (
+                  <img 
+                    src={compact ? card.image_uris.small : card.image_uris.normal}
+                    alt={card.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
+                    <div className="text-center p-2">
+                      <p className="text-xs font-medium truncate">{card.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{card.type_line}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!compact && (
+                <CardContent className="p-3">
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-sm truncate">{card.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {getColorIndicator(card.colors)}
+                      </div>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {card.cmc}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {card.rarity}
+                      </Badge>
+                      <span className="text-xs font-medium">
+                        {card.prices?.usd ? `$${card.prices.usd}` : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Action Overlay */}
+            {!selectionMode && (
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCardClick(card);
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                
+                {onCardAdd && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCardAdd(card);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+                
+                {showWishlistButton && onCardWishlist && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCardWishlist(card);
+                    }}
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

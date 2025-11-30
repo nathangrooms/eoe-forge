@@ -44,26 +44,32 @@ export function parseCardAbilities(card: GameCard): CardAbility[] {
 }
 
 export function canCastSpell(card: GameCard, state: GameState): boolean {
-  const player = state[card.controller];
+  // Check if it's the right timing
   const phase = state.phase;
+  const isMyTurn = state.activePlayer === card.controller;
 
-  // Check if it's the right time to cast
+  // Instants can be cast any time
   if (card.type_line.includes('Instant')) {
-    return true; // Can cast anytime with priority
+    return true;
   }
 
-  if (card.type_line.includes('Sorcery') || 
-      card.type_line.includes('Creature') ||
-      card.type_line.includes('Enchantment') ||
-      card.type_line.includes('Artifact') ||
-      card.type_line.includes('Planeswalker')) {
-    // Can only cast during main phase with empty stack
-    return (phase === 'precombat_main' || phase === 'postcombat_main') && 
-           state.stack.length === 0 &&
-           state.activePlayer === card.controller;
+  // Sorceries, creatures, artifacts, enchantments - only during main phases on your turn
+  if (!isMyTurn || (phase !== 'precombat_main' && phase !== 'postcombat_main')) {
+    return false;
   }
 
-  return false;
+  return true;
+}
+
+export function getCommanderCost(card: GameCard, state: GameState): number {
+  if (!card.isCommander || card.zone !== 'command') {
+    return card.cmc || 0;
+  }
+  
+  // Commander tax: add 2 colorless mana for each time it was cast
+  const player = state[card.controller];
+  const tax = player.commanderCastCount * 2;
+  return (card.cmc || 0) + tax;
 }
 
 export function canPlayLand(card: GameCard, state: GameState): boolean {

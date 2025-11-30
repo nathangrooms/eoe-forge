@@ -26,7 +26,7 @@ const CardImage = ({ card, delay = 0 }: { card: GameCard; delay?: number }) => {
     >
       <FullCardDisplay card={card} compact={false} />
       <div className="absolute -bottom-12 left-0 right-0 text-center">
-        <div className="text-lg font-bold text-primary-foreground drop-shadow-lg">
+        <div className="text-lg font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
           {card.name}
         </div>
       </div>
@@ -184,7 +184,7 @@ export const SimulationCinematicOverlay = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-lg text-muted-foreground"
+              className="text-lg text-white drop-shadow-lg"
             >
               {config.subtitle}
             </motion.p>
@@ -195,7 +195,7 @@ export const SimulationCinematicOverlay = ({
             <div className="flex flex-col gap-8">
               {attackerCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-red-400">⚔️ Attackers</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">⚔️ Attackers</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {attackerCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -206,7 +206,7 @@ export const SimulationCinematicOverlay = ({
               
               {blockerCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-blue-400">🛡️ Blockers</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">🛡️ Blockers</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {blockerCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -217,7 +217,7 @@ export const SimulationCinematicOverlay = ({
               
               {destroyedCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-destructive">💀 Destroyed</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">💀 Destroyed</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {destroyedCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -246,7 +246,7 @@ export const SimulationCinematicOverlay = ({
                     transition={{ delay: 0.3 }}
                     className="bg-accent/20 border border-accent/40 rounded-lg px-6 py-3 max-w-md"
                   >
-                    <div className="text-sm font-medium text-accent-foreground italic">"{abilityDescription}"</div>
+                    <div className="text-sm font-medium text-white drop-shadow-lg italic">"{abilityDescription}"</div>
                   </motion.div>
                 )}
               </div>
@@ -264,8 +264,8 @@ export const SimulationCinematicOverlay = ({
                     className="bg-primary/20 border-2 border-primary rounded-xl px-8 py-6 flex flex-col items-center gap-2"
                   >
                     <div className="text-7xl font-black text-primary drop-shadow-lg">{token.count}×</div>
-                    <div className="text-xl font-bold text-primary-foreground">{token.name}</div>
-                    <div className="text-sm text-muted-foreground uppercase tracking-wide">Token</div>
+                    <div className="text-xl font-bold text-white drop-shadow-lg">{token.name}</div>
+                    <div className="text-sm text-white/80 uppercase tracking-wide">Token</div>
                   </motion.div>
                 ))}
               </div>
@@ -296,8 +296,8 @@ export const SimulationCinematicOverlay = ({
             transition={{ delay: 0.4 }}
             className="mt-8 text-center max-w-2xl mx-auto"
           >
-            <div className="bg-accent/10 border border-accent/30 rounded-lg px-6 py-4">
-              <p className="text-base text-accent-foreground font-medium">
+            <div className="bg-black/30 border border-white/30 rounded-lg px-6 py-4 backdrop-blur-sm">
+              <p className="text-base text-white font-medium drop-shadow-lg">
                 {config.subtitle}
               </p>
             </div>

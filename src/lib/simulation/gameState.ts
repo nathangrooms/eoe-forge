@@ -26,6 +26,7 @@ export function createInitialGameState(
     landPlaysRemaining: 1,
     hasPlayedLand: false,
     commanderDamage: {},
+    commanderCastCount: 0,
   };
 
   const player2: Player = {
@@ -42,6 +43,7 @@ export function createInitialGameState(
     landPlaysRemaining: 1,
     hasPlayedLand: false,
     commanderDamage: {},
+    commanderCastCount: 0,
   };
 
   // Move commanders to command zone if commander format
@@ -168,6 +170,16 @@ export function moveCard(card: GameCard, fromZone: Zone, toZone: Zone, state: Ga
   // Reset certain properties when moving zones
   if (toZone === 'battlefield') {
     card.summoningSick = card.type_line.includes('Creature');
+    
+    // Check if land enters tapped
+    if (card.type_line.includes('Land')) {
+      const text = card.oracle_text?.toLowerCase() || '';
+      if (text.includes('enters the battlefield tapped') || 
+          text.includes('enters tapped') ||
+          text.includes('etb tapped')) {
+        card.isTapped = true;
+      }
+    }
   } else if (toZone === 'command' && card.isCommander) {
     // Commander died/exiled, return to command zone
     card.isTapped = false;

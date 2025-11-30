@@ -822,23 +822,13 @@ export default function Simulate() {
           
           <div className="w-96 flex flex-col bg-[#0f0f14] border-l border-primary/20">
             <div className="p-3 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent shrink-0">
-              <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center justify-between gap-2 mb-3">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">Game Log</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">Live updates • Turn {gameState.turn}</p>
                 </div>
               </div>
-              <PhaseProgress
-                currentPhase={gameState.phase}
-                activePlayer={
-                  gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name
-                }
-              />
-            </div>
-            <div className="flex-1 overflow-auto min-h-0">
-              <GameLog events={gameState.log} />
-            </div>
-            <div className="border-t border-primary/20 shrink-0">
+              
               <SimulationControls
                 isPlaying={isPlaying}
                 isComplete={gameState.gameOver}
@@ -850,13 +840,30 @@ export default function Simulate() {
                 onExport={exportResults}
                 onSpeedChange={handleSpeedChange}
               />
+              
+              <div className="mt-3">
+                <PhaseProgress
+                  currentPhase={gameState.phase}
+                  activePlayer={
+                    gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name
+                  }
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+            <div className="flex-1 overflow-auto min-h-0">
+              <GameLog events={gameState.log} />
+            </div>
+            <div className="border-t border-primary/20 shrink-0 p-3">
+              <div className="text-xs text-muted-foreground text-center">
+                {gameState.log.length} events logged
+              </div>
+             </div>
+           </div>
+         </div>
+       )}
 
-      {/* Turn Overview */}
-      <TurnOverview show={showTurnOverview} state={gameState} damageDealt={turnDamage} />
-    </div>
-  );
-}
+       {/* Turn Overview */}
+       <TurnOverview show={showTurnOverview} state={gameState} damageDealt={turnDamage} />
+     </div>
+   );
+ }

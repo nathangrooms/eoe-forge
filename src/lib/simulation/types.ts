@@ -38,6 +38,7 @@ export interface Player {
   landPlaysRemaining: number;
   hasPlayedLand: boolean;
   commanderDamage: Record<string, number>;
+  commanderCastCount: number; // Track how many times commander was cast for tax
 }
 
 export interface StackObject {

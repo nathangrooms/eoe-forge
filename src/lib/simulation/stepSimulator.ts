@@ -310,6 +310,11 @@ export class StepSimulator {
               ? 'graveyard' 
               : 'battlefield';
             
+            // Track commander casts for tax
+            if (card.isCommander && fromZone === 'command') {
+              player.commanderCastCount++;
+            }
+
             moveCard(card, fromZone as any, destination, this.state);
             
             events.push({

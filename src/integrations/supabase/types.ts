@@ -257,6 +257,50 @@ export type Database = {
         }
         Relationships: []
       }
+      deck_matches: {
+        Row: {
+          created_at: string
+          deck_id: string
+          id: string
+          notes: string | null
+          opponent_commander: string | null
+          opponent_deck_name: string | null
+          played_at: string
+          result: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deck_id: string
+          id?: string
+          notes?: string | null
+          opponent_commander?: string | null
+          opponent_deck_name?: string | null
+          played_at?: string
+          result: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deck_id?: string
+          id?: string
+          notes?: string | null
+          opponent_commander?: string | null
+          opponent_deck_name?: string | null
+          played_at?: string
+          result?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_matches_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "user_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deck_maybeboard: {
         Row: {
           card_id: string
@@ -717,6 +761,42 @@ export type Database = {
         }
         Relationships: []
       }
+      system_notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       tag_overrides: {
         Row: {
           oracle_id: string
@@ -900,6 +980,7 @@ export type Database = {
           alert_enabled: boolean | null
           card_id: string
           card_name: string
+          category: string | null
           created_at: string
           id: string
           last_notified_at: string | null
@@ -914,6 +995,7 @@ export type Database = {
           alert_enabled?: boolean | null
           card_id: string
           card_name: string
+          category?: string | null
           created_at?: string
           id?: string
           last_notified_at?: string | null
@@ -928,6 +1010,7 @@ export type Database = {
           alert_enabled?: boolean | null
           card_id?: string
           card_name?: string
+          category?: string | null
           created_at?: string
           id?: string
           last_notified_at?: string | null
@@ -937,6 +1020,39 @@ export type Database = {
           target_price_usd?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      wishlist_shares: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean
+          share_slug: string
+          title: string
+          user_id: string
+          view_count: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          share_slug: string
+          title: string
+          user_id: string
+          view_count?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          share_slug?: string
+          title?: string
+          user_id?: string
+          view_count?: number
         }
         Relationships: []
       }

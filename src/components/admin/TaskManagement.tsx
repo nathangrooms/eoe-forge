@@ -197,6 +197,7 @@ export function TaskManagement() {
     'Implement deck versioning',
     'Implement deck folder grouping',
     'Add maybeboard functionality',
+    'Add deck performance tracking',
     
     // Collection Features
     'Add collection price alerts',
@@ -220,11 +221,14 @@ export function TaskManagement() {
     'Improve dashboard skeleton loading',
     'Add recent activity real-time updates',
     'Fix card image optimization',
+    'Add system notification management',
     
     // Wishlist Features
     'Add wishlist priority sorting',
     'Add wishlist budget tracking',
     'Make Wishlist card clickable',
+    'Implement wishlist sharing',
+    'Implement wishlist categories',
     
     // Storage Features
     'Add storage management',

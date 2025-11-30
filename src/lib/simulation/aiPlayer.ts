@@ -310,18 +310,19 @@ export class AIPlayer {
       return { type: 'pass', priority: 0 };
     }
 
-    // Calculate if we need to block to survive
+    // Calculate incoming damage
     const incomingDamage = state.combat.attackers.reduce((sum, a) => {
       const card = opponent.battlefield.find(c => c.instanceId === a.instanceId);
       return sum + parseInt(card?.power || '0');
     }, 0);
 
     const mustBlockToSurvive = incomingDamage >= player.life;
+    const shouldBlockHeavily = player.life <= 10; // Block more conservatively when low
 
     const blocks: Array<{ blocker: string; attacker: string }> = [];
     const usedBlockers = new Set<string>();
 
-    // Sort attackers by threat (power, abilities, etc.)
+    // Sort attackers by threat level (highest first)
     const sortedAttackers = [...state.combat.attackers].sort((a, b) => {
       const cardA = opponent.battlefield.find(c => c.instanceId === a.instanceId);
       const cardB = opponent.battlefield.find(c => c.instanceId === b.instanceId);
@@ -330,42 +331,94 @@ export class AIPlayer {
       return threatB - threatA;
     });
 
-    // Assign blockers
+    // Assign blockers intelligently
     for (const attacker of sortedAttackers) {
       const attackerCard = opponent.battlefield.find(c => c.instanceId === attacker.instanceId);
       if (!attackerCard) continue;
 
       const attackerPower = parseInt(attackerCard.power || '0');
       const attackerToughness = parseInt(attackerCard.toughness || '0');
+      const attackerText = attackerCard.oracle_text?.toLowerCase() || '';
+      const attackerValue = this.evaluateThreatLevel(attackerCard);
 
-      // Find best blocker for this attacker
+      // Find available blockers
       const availableBlockers = blockers.filter(b => !usedBlockers.has(b.instanceId));
       if (availableBlockers.length === 0) break;
 
-      // Prefer blockers that can kill the attacker without dying
-      let bestBlocker = availableBlockers.find(b => {
-        const blockerPower = parseInt(b.power || '0');
-        const blockerToughness = parseInt(b.toughness || '0');
-        return blockerPower >= attackerToughness && attackerPower < blockerToughness;
+      // Check if attacker has evasion
+      const hasFlying = attackerText.includes('flying');
+      const hasUnblockable = attackerText.includes("can't be blocked") || attackerText.includes('unblockable');
+      
+      if (hasUnblockable) continue; // Can't block
+
+      // Filter blockers by evasion
+      let validBlockers = availableBlockers.filter(b => {
+        const blockerText = b.oracle_text?.toLowerCase() || '';
+        if (hasFlying) {
+          return blockerText.includes('flying') || blockerText.includes('reach');
+        }
+        return true;
       });
 
-      // If no perfect blocker, prefer favorable trades
-      if (!bestBlocker) {
-        bestBlocker = availableBlockers.find(b => {
+      if (validBlockers.length === 0) continue;
+
+      // Decision logic: should we block this attacker?
+      let shouldBlock = false;
+      let bestBlocker: any = null;
+
+      // ALWAYS block if we'll die
+      if (mustBlockToSurvive) {
+        shouldBlock = true;
+      }
+      // Block large threats when low on life
+      else if (shouldBlockHeavily && attackerPower >= 3) {
+        shouldBlock = true;
+      }
+      // Block high-value threats (commanders, big creatures, abilities)
+      else if (attackerValue >= 8) {
+        shouldBlock = true;
+      }
+      // Block if we can kill without dying
+      else {
+        const favorableBlocker = validBlockers.find(b => {
           const blockerPower = parseInt(b.power || '0');
           const blockerToughness = parseInt(b.toughness || '0');
-          return blockerPower >= attackerToughness;
+          return blockerPower >= attackerToughness && attackerPower < blockerToughness;
         });
+        if (favorableBlocker) {
+          shouldBlock = true;
+          bestBlocker = favorableBlocker;
+        }
       }
 
-      // Block large threats even if unfavorable (if must survive)
-      if (!bestBlocker && (mustBlockToSurvive || attackerPower >= 5)) {
-        bestBlocker = availableBlockers[0];
-      }
+      if (shouldBlock) {
+        // Find best blocker if not already chosen
+        if (!bestBlocker) {
+          // Prefer blockers that trade evenly or favorably
+          bestBlocker = validBlockers.find(b => {
+            const blockerPower = parseInt(b.power || '0');
+            const blockerToughness = parseInt(b.toughness || '0');
+            const blockerValue = this.evaluateThreatLevel(b);
+            
+            // Good trade: kill attacker without dying, or trade equal value
+            return (blockerPower >= attackerToughness && attackerPower < blockerToughness) ||
+                   (blockerPower >= attackerToughness && blockerValue <= attackerValue);
+          });
+          
+          // If no favorable trade, use smallest blocker (chump block)
+          if (!bestBlocker && (mustBlockToSurvive || shouldBlockHeavily)) {
+            bestBlocker = validBlockers.sort((a, b) => {
+              const valueA = this.evaluateThreatLevel(a);
+              const valueB = this.evaluateThreatLevel(b);
+              return valueA - valueB;
+            })[0];
+          }
+        }
 
-      if (bestBlocker) {
-        blocks.push({ blocker: bestBlocker.instanceId, attacker: attacker.instanceId });
-        usedBlockers.add(bestBlocker.instanceId);
+        if (bestBlocker) {
+          blocks.push({ blocker: bestBlocker.instanceId, attacker: attacker.instanceId });
+          usedBlockers.add(bestBlocker.instanceId);
+        }
       }
     }
 
@@ -486,14 +539,22 @@ export class AIPlayer {
     const toughness = parseInt(card.toughness || '0');
     const text = card.oracle_text?.toLowerCase() || '';
     
-    let threat = power + toughness;
+    let threat = power * 1.5 + toughness; // Weight power more
     
     // High-impact abilities
     if (text.includes('flying')) threat += 2;
     if (text.includes('trample')) threat += 2;
-    if (text.includes('first strike') || text.includes('double strike')) threat += 3;
-    if (text.includes('when') && text.includes('combat damage')) threat += 3;
-    if (card.is_legendary || card.isCommander) threat += 3;
+    if (text.includes('first strike') || text.includes('double strike')) threat += 4;
+    if (text.includes('deathtouch')) threat += 3;
+    if (text.includes('lifelink')) threat += 2;
+    if (text.includes('when') && text.includes('combat damage')) threat += 4;
+    if (text.includes('whenever') && text.includes('attack')) threat += 3;
+    if (text.includes('whenever') && text.includes('damage')) threat += 3;
+    if (card.is_legendary) threat += 2;
+    if (card.isCommander) threat += 5;
+    
+    // Tokens are less valuable
+    if (card.name.includes('Token')) threat *= 0.6;
     
     return threat;
   }

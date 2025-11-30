@@ -172,10 +172,10 @@ export const SimulationCinematicOverlay = ({
             >
               <span className="text-6xl drop-shadow-2xl">{config.icon}</span>
               <div>
-                <div className="text-sm font-bold tracking-[0.3em] uppercase text-primary">
+                <div className="text-sm font-bold tracking-[0.3em] uppercase text-primary drop-shadow-lg">
                   {config.badge}
                 </div>
-                <h2 className="text-6xl font-black tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent drop-shadow-2xl">
+                <h2 className="text-6xl font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
                   {config.title}
                 </h2>
               </div>
@@ -184,7 +184,7 @@ export const SimulationCinematicOverlay = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-lg text-white drop-shadow-lg"
+              className="text-xl font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
             >
               {config.subtitle}
             </motion.p>

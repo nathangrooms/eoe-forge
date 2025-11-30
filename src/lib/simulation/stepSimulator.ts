@@ -317,6 +317,11 @@ export class StepSimulator {
 
             moveCard(card, fromZone as any, destination, this.state);
             
+            // Apply summoning sickness to creatures entering battlefield
+            if (destination === 'battlefield' && card.type_line.includes('Creature')) {
+              card.summoningSick = true;
+            }
+            
             events.push({
               type: 'cast_spell',
               player: playerId,
@@ -435,11 +440,35 @@ export class StepSimulator {
       });
 
       deadCreatures.forEach(creature => {
-        events.push({
-          type: 'creature_dies',
-          player: player.id,
-          cardId: creature.instanceId
-        });
+        // Move creature from battlefield to appropriate zone
+        const index = player.battlefield.findIndex(c => c.instanceId === creature.instanceId);
+        if (index !== -1) {
+          player.battlefield.splice(index, 1);
+          
+          // Commanders return to command zone, others go to graveyard
+          if (creature.isCommander) {
+            creature.zone = 'command';
+            player.commandZone.push(creature);
+            // Reset damage and modifiers
+            creature.damageMarked = 0;
+            creature.powerModifier = 0;
+            creature.toughnessModifier = 0;
+            creature.counters = {};
+          } else {
+            creature.zone = 'graveyard';
+            player.graveyard.push(creature);
+          }
+          
+          events.push({
+            type: 'creature_dies',
+            player: player.id,
+            cardId: creature.instanceId
+          });
+          
+          // Check dies triggers for all permanents on battlefield
+          const diesTriggerEvents = this.checkDiesTriggersForAll(creature, player.id);
+          events.push(...diesTriggerEvents);
+        }
       });
     });
 
@@ -466,6 +495,17 @@ export class StepSimulator {
       description: `Game ends at turn ${this.maxTurns}. ${this.state[this.state.winner].name} wins by life total.`,
       timestamp: Date.now(),
     });
+  }
+
+  private checkDiesTriggersForAll(deadCard: any, controller: 'player1' | 'player2'): SimulationEvent[] {
+    const events: SimulationEvent[] = [];
+    
+    // Import trigger checking
+    const { checkDiesTriggers } = require('./triggerSystem');
+    const diesEvents = checkDiesTriggers(this.state, deadCard, controller);
+    events.push(...diesEvents);
+    
+    return events;
   }
 
   getState(): GameState {

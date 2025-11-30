@@ -21,11 +21,14 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
 
   if (faceDown) {
     return (
-      <div className={cn(
-        "relative rounded-md border border-border/50 bg-gradient-to-br from-muted/30 to-muted/50",
-        compact ? "w-16 h-22" : "w-28 h-40",
-        "flex items-center justify-center shadow-md"
-      )}>
+      <div 
+        ref={ref}
+        className={cn(
+          "relative rounded-md border border-border/50 bg-gradient-to-br from-muted/30 to-muted/50",
+          compact ? "w-16 h-22" : "w-28 h-40",
+          "flex items-center justify-center shadow-md"
+        )}
+      >
         <div className="text-4xl opacity-40">🂠</div>
       </div>
     );
@@ -50,9 +53,9 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
               "animate-fade-in"
             )}
             style={{
-              transform: card.isTapped ? 'rotate(90deg)' : 'none',
+              transform: card.isTapped ? 'rotate(90deg)' : 'rotate(0deg)',
               transformOrigin: 'center center',
-              transition: 'all 0.2s ease-out'
+              transition: 'transform 0.3s ease-out'
             }}
           >
             {/* Card image */}

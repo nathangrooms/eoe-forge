@@ -34,15 +34,27 @@ Deno.serve(async (req) => {
       throw wishlistError;
     }
 
-    if (!wishlistItems || wishlistItems.length === 0) {
+    // Also get price alerts from dedicated price_alerts table
+    const { data: priceAlerts, error: alertsError } = await supabase
+      .from('price_alerts')
+      .select('*')
+      .eq('is_active', true);
+
+    if (alertsError) {
+      throw alertsError;
+    }
+
+    const allAlerts = [...(wishlistItems || []), ...(priceAlerts || [])];
+
+    if (allAlerts.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No wishlist items with alerts enabled', checked: 0 }),
+        JSON.stringify({ message: 'No alerts enabled', checked: 0 }),
         { headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get unique card IDs
-    const cardIds = [...new Set(wishlistItems.map(item => item.card_id))];
+    // Get unique card IDs from both sources
+    const cardIds = [...new Set(allAlerts.map(item => item.card_id))];
 
     // Fetch current prices for all cards
     const { data: cards, error: cardsError } = await supabase
@@ -79,33 +91,66 @@ Deno.serve(async (req) => {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    for (const item of wishlistItems) {
+    for (const item of allAlerts) {
       const currentPrice = priceMap.get(item.card_id);
       
       // Skip if no current price available
       if (!currentPrice) continue;
 
       // Skip if already notified in last 24 hours
-      if (item.last_notified_at) {
-        const lastNotified = new Date(item.last_notified_at);
-        if (lastNotified > oneDayAgo) continue;
+      const lastNotified = item.last_notified_at || item.last_triggered_at;
+      if (lastNotified) {
+        const lastNotifiedDate = new Date(lastNotified);
+        if (lastNotifiedDate > oneDayAgo) continue;
       }
 
-      // Check if price dropped below target
-      if (currentPrice <= item.target_price_usd) {
+      // Check if price meets alert condition
+      const targetPrice = item.target_price_usd || item.target_price;
+      const alertType = item.alert_type || 'below';
+      let shouldAlert = false;
+
+      if (alertType === 'below' && currentPrice <= targetPrice) {
+        shouldAlert = true;
+      } else if (alertType === 'above' && currentPrice >= targetPrice) {
+        shouldAlert = true;
+      } else if (!alertType && currentPrice <= targetPrice) {
+        // Default to below for wishlist items
+        shouldAlert = true;
+      }
+
+      if (shouldAlert) {
         notifications.push({
           userId: item.user_id,
           cardName: item.card_name,
-          targetPrice: item.target_price_usd,
+          targetPrice,
           currentPrice,
           itemId: item.id
         });
 
-        // Update last_notified_at
-        await supabase
-          .from('wishlist')
-          .update({ last_notified_at: now.toISOString() })
-          .eq('id', item.id);
+        // Update last_notified_at or last_triggered_at
+        if ('last_notified_at' in item) {
+          await supabase
+            .from('wishlist')
+            .update({ last_notified_at: now.toISOString() })
+            .eq('id', item.id);
+        } else {
+          await supabase
+            .from('price_alerts')
+            .update({ last_triggered_at: now.toISOString() })
+            .eq('id', item.id);
+          
+          // Create system notification
+          await supabase
+            .from('system_notifications')
+            .insert({
+              user_id: item.user_id,
+              type: 'price_alert',
+              title: `Price Alert: ${item.card_name}`,
+              message: `${item.card_name} is now $${currentPrice.toFixed(2)}! Your target was $${targetPrice.toFixed(2)}.`,
+              action_url: `/cards?search=${encodeURIComponent(item.card_name)}`,
+              is_read: false,
+            });
+        }
       }
     }
 
@@ -152,7 +197,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        checked: wishlistItems.length,
+        checked: allAlerts.length,
         alerts: notifications.length,
         emails_sent: sentEmails.length,
         recipients: sentEmails

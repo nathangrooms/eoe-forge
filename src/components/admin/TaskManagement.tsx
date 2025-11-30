@@ -363,6 +363,8 @@ export function TaskManagement() {
     'Fix power level consistency across calculators',
     'Add enhanced match tracking with statistics',
     'Add power level analysis with detailed metrics',
+    'Add archetype detection for deck strategies',
+    'Add price history tracking with charts',
   ];
 
   useEffect(() => {

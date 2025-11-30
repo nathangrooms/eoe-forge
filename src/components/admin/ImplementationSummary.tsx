@@ -12,7 +12,8 @@ export function ImplementationSummary() {
         'Collection export (CSV, JSON, Moxfield)',
         'Insurance report generator',
         'Price alert manager',
-        'TCGPlayer price sync'
+        'TCGPlayer price sync',
+        'Price history tracking with charts'
       ]
     },
     {
@@ -29,7 +30,8 @@ export function ImplementationSummary() {
         'Undo/redo functionality',
         'Deck search and filters',
         'Power level consistency analysis',
-        'Enhanced match tracker with statistics'
+        'Enhanced match tracker with statistics',
+        'AI-powered archetype detection'
       ]
     },
     {

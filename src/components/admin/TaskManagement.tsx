@@ -286,6 +286,13 @@ export function TaskManagement() {
     
     // Simulation & Testing - Done
     'Add deck goldfish testing',
+    'Add deck testing simulator',
+    
+    // Deck Builder Features - Done (latest)
+    'Implement drag-and-drop deck building',
+    
+    // Search & UI - Done (latest)
+    'Fix search result pagination',
   ];
 
   useEffect(() => {

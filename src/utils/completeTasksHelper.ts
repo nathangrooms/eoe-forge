@@ -233,6 +233,27 @@ export async function markTasksComplete() {
       category: 'feature',
       priority: 'high',
       app_section: 'deck_builder'
+    },
+    {
+      title: 'Implement automatic deck tagging',
+      description: 'Created DeckTagger class that automatically generates relevant tags for decks based on strategy, speed, interaction, themes, and mechanics',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create performance optimization hooks',
+      description: 'Built useDebounce, useThrottle, useRenderPerformance, useLazyLoad, useMemoizedCalculation, useVirtualScroll, and useIdleCallback hooks for optimizing app performance',
+      category: 'improvement',
+      priority: 'high',
+      app_section: 'core_functionality'
+    },
+    {
+      title: 'Implement deck export functionality',
+      description: 'Created DeckExportOptions component supporting multiple export formats (Arena, MTGO, Cockatrice, Text, JSON, CSV) with download and copy-to-clipboard options',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
     }
   ];
 

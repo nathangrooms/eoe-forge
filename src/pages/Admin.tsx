@@ -17,6 +17,19 @@ const Admin = () => {
     window.location.reload();
   };
 
+  // Auto-mark completed tasks on mount
+  React.useEffect(() => {
+    const autoMarkComplete = async () => {
+      try {
+        await markTasksComplete();
+        console.log('Auto-completed tasks');
+      } catch (error) {
+        console.error('Error auto-completing tasks:', error);
+      }
+    };
+    autoMarkComplete();
+  }, []);
+
   return (
     <div className="container mx-auto py-6 px-4">
       <Tabs defaultValue="ai" className="space-y-6">

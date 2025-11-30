@@ -25,6 +25,7 @@ export function ImplementationSummary() {
         'Deck primer generator',
         'Deck validation warnings',
         'Deck legality checker',
+        'Deck compatibility checker',
         'Undo/redo functionality',
         'Deck search and filters'
       ]
@@ -58,7 +59,8 @@ export function ImplementationSummary() {
         'Planeswalker badge progression',
         'Collection wishlists per deck',
         'AI deck recommendations',
-        'Deck simulation tool'
+        'Deck simulation tool',
+        'Null-safe stat calculations'
       ]
     }
   ];

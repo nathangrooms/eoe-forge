@@ -63,6 +63,14 @@ export async function markTasksComplete() {
     {
       id: '8bb89e41-43f8-4808-a5b6-f9518b017656',
       title: 'Fix deck compatibility calculation'
+    },
+    {
+      id: 'd64f6730-9628-453a-b49e-8085c1a7479f',
+      title: 'Improve collection search performance'
+    },
+    {
+      id: '1b0947b1-3b62-4fdb-8c18-99c5aae20582',
+      title: 'Implement undo/redo functionality'
     }
   ];
 

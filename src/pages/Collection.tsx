@@ -29,6 +29,7 @@ import { CategoryManager } from '@/components/collection/CategoryManager';
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
 import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
+import { InsuranceReport } from '@/components/collection/InsuranceReport';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -499,6 +500,16 @@ export default function Collection() {
                     {user && <CollectionExport userId={user.id} />}
                     {user && <CollectionBackupRestore userId={user.id} />}
                   </div>
+                  {collectionStats && (
+                    <InsuranceReport 
+                      collectionValue={collectionStats.totalValue}
+                      cardCount={collectionStats.totalCards}
+                      topCards={collectionStats.topValueCards?.map(c => ({
+                        name: c.card_name,
+                        value: c.price_usd
+                      }))}
+                    />
+                  )}
                   <CollectionAnalytics 
                     stats={collectionStats} 
                     loading={loading}

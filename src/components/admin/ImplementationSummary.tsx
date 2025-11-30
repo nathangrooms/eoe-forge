@@ -13,7 +13,9 @@ export function ImplementationSummary() {
         'Insurance report generator',
         'Price alert manager',
         'TCGPlayer price sync',
-        'Price history tracking with charts'
+        'Price history tracking with charts',
+        'Saved filter presets',
+        'Deck recommendations based on ownership'
       ]
     },
     {
@@ -31,7 +33,9 @@ export function ImplementationSummary() {
         'Deck search and filters',
         'Power level consistency analysis',
         'Enhanced match tracker with statistics',
-        'AI-powered archetype detection'
+        'AI-powered archetype detection',
+        'Budget tracker with spending analysis',
+        'Card replacement engine for alternatives'
       ]
     },
     {

@@ -392,6 +392,9 @@ export function TaskManagement() {
     'Implement deck legality checker',
     'Implement deck validation warnings',
     'Implement listing edit functionality',
+    'Implement CSRF protection',
+    'Implement input sanitization',
+    'Implement audit logging system',
   ];
 
   useEffect(() => {

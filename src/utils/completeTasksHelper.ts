@@ -254,6 +254,27 @@ export async function markTasksComplete() {
       category: 'feature',
       priority: 'high',
       app_section: 'deck_builder'
+    },
+    {
+      title: 'Create deck comparison feature',
+      description: 'Built DeckComparisonView component to analyze differences between two decks side-by-side with shared cards, unique cards, statistical comparisons, and similarity scoring',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Implement mana curve optimizer',
+      description: 'Created ManaCurveOptimizer class that analyzes deck mana curves, identifies issues, provides optimization recommendations, and scores curve quality',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create price alert manager',
+      description: 'Built PriceAlertManager component allowing users to set target prices for cards and receive notifications when prices drop to their targets',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'collection'
     }
   ];
 

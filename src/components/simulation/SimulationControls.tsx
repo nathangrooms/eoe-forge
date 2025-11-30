@@ -51,15 +51,15 @@ export const SimulationControls = ({
 
       {/* Speed control */}
       <div className="flex items-center gap-2 ml-4">
-        <span className="text-sm text-muted-foreground">Speed:</span>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">Speed:</span>
         <div className="flex gap-1">
-          {[0.25, 0.5, 1, 2].map((s) => (
+          {[0.25, 0.5, 1, 2, 4].map((s) => (
             <Button
               key={s}
               size="sm"
               variant={speed === s ? "default" : "outline"}
               onClick={() => onSpeedChange(s)}
-              className="w-12"
+              className="w-10 text-xs px-2"
             >
               {s}x
             </Button>

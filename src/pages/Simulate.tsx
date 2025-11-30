@@ -520,16 +520,16 @@ export default function Simulate() {
           }
         }
 
-        if (shouldShowCinematic) {
-          setTimeout(() => setCinematicMode(null), 2000);
+          if (shouldShowCinematic) {
+            setTimeout(() => setCinematicMode(null), 1500);
+          }
         }
-      }
-      
-      // Process animation events
-      processEvents(result.events);
-      
-      // Update state
-      setGameState({ ...result.state });
+        
+        // Process animation events
+        processEvents(result.events);
+        
+        // Update state
+        setGameState({ ...result.state });
       
       if (!result.shouldContinue || result.state.gameOver) {
         if (result.state.winner) {
@@ -772,7 +772,7 @@ export default function Simulate() {
             <AbilityTriggerPopup triggers={triggers} />
           </div>
           
-          <div className="w-[340px] flex flex-col bg-[#0f0f14] border-l border-primary/20">
+          <div className="w-96 flex flex-col bg-[#0f0f14] border-l border-primary/20">
             <div className="p-3 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent shrink-0">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div>

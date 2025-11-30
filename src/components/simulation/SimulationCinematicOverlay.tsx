@@ -15,6 +15,34 @@ interface SimulationCinematicOverlayProps {
   playerName?: string;
 }
 
+const CardImage = ({ card, delay = 0 }: { card: GameCard; delay?: number }) => {
+  const imageUrl = card.image_uris?.normal || card.image_uris?.large || card.image_uris?.small;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5, rotateY: 180 }}
+      animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+      transition={{ duration: 0.5, delay, ease: "backOut" }}
+      className="relative"
+    >
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={card.name}
+          className="w-48 h-auto rounded-lg shadow-2xl border-2 border-primary/50"
+        />
+      ) : (
+        <div className="w-48 h-64 rounded-lg bg-muted border-2 border-primary/50 flex items-center justify-center">
+          <span className="text-sm font-bold text-center px-4">{card.name}</span>
+        </div>
+      )}
+      <div className="absolute -bottom-8 left-0 right-0 text-center">
+        <div className="text-sm font-bold text-primary-foreground drop-shadow-lg">{card.name}</div>
+      </div>
+    </motion.div>
+  );
+};
+
 export const SimulationCinematicOverlay = ({
   mode,
   attackerCards = [],
@@ -106,204 +134,184 @@ export const SimulationCinematicOverlay = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="fixed inset-0 z-[80] bg-background/95 backdrop-blur-xl flex items-center justify-center pointer-events-none"
+        transition={{ duration: 0.3 }}
+        className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-md flex items-center justify-center pointer-events-none"
       >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          className="relative max-w-5xl w-full mx-4 rounded-3xl border border-primary/40 bg-gradient-to-br from-background via-primary/10 to-background shadow-2xl overflow-hidden"
-        >
-          <div className="absolute inset-0 opacity-30 pointer-events-none">
-            <div className="absolute -left-16 -top-16 w-64 h-64 rounded-full bg-primary/40 blur-3xl" />
-            <div className="absolute -right-10 -bottom-10 w-72 h-72 rounded-full bg-accent/40 blur-3xl" />
-          </div>
+        {/* Particle effects */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ 
+                opacity: 0.6, 
+                x: Math.random() * window.innerWidth, 
+                y: Math.random() * window.innerHeight,
+                scale: Math.random() * 0.5 + 0.5
+              }}
+              animate={{ 
+                opacity: [0.6, 0, 0.6],
+                scale: [1, 1.5, 1],
+                rotate: [0, 180, 360]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                delay: i * 0.1
+              }}
+              className="absolute w-2 h-2 rounded-full bg-primary/40"
+            />
+          ))}
+        </div>
 
-          <div className="relative px-8 pt-8 pb-6 flex flex-col gap-6">
-            <div className="flex items-baseline justify-between gap-4">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0, rotateX: -30 }}
+          animate={{ scale: 1, opacity: 1, rotateX: 0 }}
+          exit={{ scale: 0.8, opacity: 0, rotateX: 30 }}
+          transition={{ duration: 0.4, ease: "backOut" }}
+          className="relative max-w-7xl w-full mx-4"
+          style={{ perspective: 1000 }}
+        >
+          {/* Title Section */}
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, ease: "backOut" }}
+              className="flex items-center justify-center gap-4 mb-4"
+            >
+              <span className="text-6xl drop-shadow-2xl">{config.icon}</span>
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{config.icon}</span>
-                  <div className="text-xs font-semibold tracking-[0.25em] uppercase text-muted-foreground">
-                    {config.badge}
-                  </div>
+                <div className="text-sm font-bold tracking-[0.3em] uppercase text-primary">
+                  {config.badge}
                 </div>
-                <h2 className="text-3xl font-black tracking-tight bg-gradient-to-r from-primary via-accent to-primary-foreground bg-clip-text text-transparent">
+                <h2 className="text-6xl font-black tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent drop-shadow-2xl">
                   {config.title}
                 </h2>
-                <p className="mt-2 text-sm text-muted-foreground max-w-md">{config.subtitle}</p>
               </div>
-              <div className="text-right text-xs text-muted-foreground hidden sm:block">
-                <div className="font-semibold">Cinematic View</div>
-                <div className="opacity-80">Auto-plays on key moments</div>
-              </div>
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-lg text-muted-foreground"
+            >
+              {config.subtitle}
+            </motion.p>
+          </div>
+
+          {/* Combat modes with card images */}
+          {(mode === 'attack' || mode === 'block' || mode === 'destroy') && (
+            <div className="flex flex-col gap-8">
+              {attackerCards.length > 0 && (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-sm font-bold uppercase tracking-wide text-red-400">⚔️ Attackers</div>
+                  <div className="flex flex-wrap justify-center gap-6">
+                    {attackerCards.slice(0, 5).map((card, i) => (
+                      <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {blockerCards.length > 0 && (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-sm font-bold uppercase tracking-wide text-blue-400">🛡️ Blockers</div>
+                  <div className="flex flex-wrap justify-center gap-6">
+                    {blockerCards.slice(0, 5).map((card, i) => (
+                      <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {destroyedCards.length > 0 && (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-sm font-bold uppercase tracking-wide text-destructive">💀 Destroyed</div>
+                  <div className="flex flex-wrap justify-center gap-6">
+                    {destroyedCards.slice(0, 5).map((card, i) => (
+                      <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Combat modes */}
-            {(mode === 'attack' || mode === 'block' || mode === 'destroy') && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch">
-                <div className="sm:col-span-1 flex flex-col gap-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Attackers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {attackerCards.map((card) => (
-                      <div
-                        key={card.instanceId}
-                        className="px-3 py-1.5 rounded-full bg-primary/15 border border-primary/40 text-xs font-semibold text-primary-foreground/90"
-                      >
-                        {card.name}
-                      </div>
-                    ))}
-                    {attackerCards.length === 0 && (
-                      <div className="text-xs text-muted-foreground italic">No attackers</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="sm:col-span-1 flex flex-col gap-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Blockers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {blockerCards.map((card) => (
-                      <div
-                        key={card.instanceId}
-                        className="px-3 py-1.5 rounded-full bg-accent/20 border border-accent/40 text-xs font-semibold text-accent-foreground/90"
-                      >
-                        {card.name}
-                      </div>
-                    ))}
-                    {blockerCards.length === 0 && (
-                      <div className="text-xs text-muted-foreground italic">No blockers assigned</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="sm:col-span-1 flex flex-col gap-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {mode === 'destroy' ? 'Destroyed' : 'At Risk'}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {destroyedCards.map((card) => (
-                      <div
-                        key={card.instanceId}
-                        className="px-3 py-1.5 rounded-full bg-destructive/20 border border-destructive/40 text-xs font-semibold text-destructive/90"
-                      >
-                        {card.name}
-                      </div>
-                    ))}
-                    {destroyedCards.length === 0 && (
-                      <div className="text-xs text-muted-foreground italic">No creatures destroyed yet</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+          )}
 
             {/* Cast spell mode */}
             {mode === 'cast' && castCard && (
-              <div className="space-y-3">
-                <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Spell Details
-                  </div>
-                  <div className="text-lg font-bold text-primary-foreground">{castCard.name}</div>
-                  <div className="text-sm text-muted-foreground mt-1">{castCard.type_line}</div>
-                  {castCard.mana_cost && (
-                    <div className="text-xs text-accent mt-2 font-mono">{castCard.mana_cost}</div>
-                  )}
-                  {castCard.oracle_text && (
-                    <div className="text-xs text-muted-foreground mt-3 line-clamp-3">{castCard.oracle_text}</div>
-                  )}
-                </div>
+              <div className="flex justify-center">
+                <CardImage card={castCard} delay={0} />
               </div>
             )}
 
             {/* Ability trigger mode */}
             {mode === 'ability' && abilitySource && (
-              <div className="space-y-3">
-                <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Triggered By
-                  </div>
-                  <div className="text-lg font-bold text-accent-foreground">{abilitySource.name}</div>
-                  <div className="text-sm text-muted-foreground mt-1">{abilitySource.type_line}</div>
-                  {abilityDescription && (
-                    <div className="mt-3 text-sm text-accent-foreground/90 italic">"{abilityDescription}"</div>
-                  )}
-                </div>
+              <div className="flex flex-col items-center gap-4">
+                <CardImage card={abilitySource} delay={0} />
+                {abilityDescription && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-accent/20 border border-accent/40 rounded-lg px-6 py-3 max-w-md"
+                  >
+                    <div className="text-sm font-medium text-accent-foreground italic">"{abilityDescription}"</div>
+                  </motion.div>
+                )}
               </div>
             )}
 
             {/* Token creation mode */}
             {mode === 'tokens' && tokensCreated.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  Tokens Created
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {tokensCreated.map((token, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-primary/10 border border-primary/30 rounded-lg px-4 py-3 flex items-center gap-3"
-                    >
-                      <div className="text-3xl font-black text-primary">{token.count}×</div>
-                      <div>
-                        <div className="text-sm font-bold text-primary-foreground">{token.name}</div>
-                        <div className="text-xs text-muted-foreground">Token</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex flex-wrap justify-center gap-8">
+                {tokensCreated.map((token, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: idx * 0.15, duration: 0.5, ease: "backOut" }}
+                    className="bg-primary/20 border-2 border-primary rounded-xl px-8 py-6 flex flex-col items-center gap-2"
+                  >
+                    <div className="text-7xl font-black text-primary drop-shadow-lg">{token.count}×</div>
+                    <div className="text-xl font-bold text-primary-foreground">{token.name}</div>
+                    <div className="text-sm text-muted-foreground uppercase tracking-wide">Token</div>
+                  </motion.div>
+                ))}
               </div>
             )}
 
             {/* Ramp mode */}
             {mode === 'ramp' && ramppedLands.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  Lands Enter Tapped
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {ramppedLands.map((land) => (
-                    <div
-                      key={land.instanceId}
-                      className="px-3 py-1.5 rounded-full bg-green-500/15 border border-green-500/40 text-xs font-semibold text-green-300"
-                    >
-                      {land.name}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex justify-center flex-wrap gap-6">
+                {ramppedLands.slice(0, 5).map((land, i) => (
+                  <CardImage key={land.instanceId} card={land} delay={i * 0.1} />
+                ))}
               </div>
             )}
 
             {/* Exile mode */}
             {mode === 'exile' && exiledCards.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                  Banished Forever
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {exiledCards.map((card) => (
-                    <div
-                      key={card.instanceId}
-                      className="px-3 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/40 text-xs font-semibold text-purple-300"
-                    >
-                      {card.name}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex justify-center flex-wrap gap-6">
+                {exiledCards.slice(0, 5).map((card, i) => (
+                  <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
+                ))}
               </div>
             )}
 
-            <div className="relative mt-2 h-1 overflow-hidden rounded-full bg-muted/60">
-              <motion.div
-                initial={{ width: '0%' }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 1.8, ease: 'linear' }}
-                className="h-full bg-gradient-to-r from-primary via-accent to-primary-foreground"
-              />
-            </div>
-          </div>
+          {/* Progress bar */}
+          <motion.div 
+            className="mt-8 h-2 overflow-hidden rounded-full bg-background/50 max-w-md mx-auto"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: "100%" }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.div
+              initial={{ width: '0%' }}
+              animate={{ width: '100%' }}
+              transition={{ duration: 1.2, ease: 'linear' }}
+              className="h-full bg-gradient-to-r from-primary via-accent to-primary"
+            />
+          </motion.div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

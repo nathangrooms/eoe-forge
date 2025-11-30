@@ -28,12 +28,24 @@ import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { AIDeckRecommendations } from '@/components/dashboard/AIDeckRecommendations';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
+import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: dashboardData, loading: dashboardLoading, error, refetch } = useDashboardSummary();
   const { favorites, loading: favoritesLoading, toggleFavorite } = useFavoriteDecks();
+
+  // Calculate badge progress
+  const badgeProgress = calculateBadgeProgress({
+    decksCount: dashboardData?.decks.count || 0,
+    uniqueCards: dashboardData?.collection.uniqueCards || 0,
+    collectionValue: dashboardData?.collection.totalValueUSD || 0,
+    totalCards: dashboardData?.collection.totalCards || 0,
+  });
+  const earnedBadges = getEarnedBadges(badgeProgress);
+  const inProgressBadges = getInProgressBadges(badgeProgress);
 
   const handleDeckClick = (deckId: string, name: string) => {
     trackDeckOpen(deckId, name);
@@ -387,7 +399,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Removed AI Deck Recommendations and Recent Activity per request */}
+        {/* Badge System */}
+        <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
 
       </div>
     </div>

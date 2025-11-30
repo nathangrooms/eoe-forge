@@ -1,5 +1,5 @@
 import { GameState, AIDecision, GameCard, Player } from './types';
-import { canPlayLand, canCastSpell, calculateManaCost } from './cardInterpreter';
+import { canPlayLand, canCastSpell, calculateManaCost, getCommanderCost } from './cardInterpreter';
 import { canAttack } from './combatSystem';
 
 /**
@@ -8,6 +8,7 @@ import { canAttack } from './combatSystem';
  * - Mana efficiency and curve considerations
  * - Combat math and threat assessment
  * - Card advantage evaluation
+ * - Commander tax awareness
  */
 export class AIPlayer {
   makeDecision(state: GameState, playerId: 'player1' | 'player2'): AIDecision | null {
@@ -34,15 +35,19 @@ export class AIPlayer {
         if (rampDecision) return rampDecision;
       }
 
-      // Priority 3: Cast creatures on curve
+      // Priority 3: Cast commanders first if affordable
+      const commanderDecision = this.evaluateCommander(player, state);
+      if (commanderDecision) return commanderDecision;
+
+      // Priority 4: Cast creatures on curve
       const creatureDecision = this.evaluateCreatureSpells(player, opponent, state);
       if (creatureDecision) return creatureDecision;
 
-      // Priority 4: Cast non-instant sorcery-speed spells
+      // Priority 5: Cast non-instant sorcery-speed spells
       const sorceryDecision = this.evaluateSorcerySpells(player, opponent, state);
       if (sorceryDecision) return sorceryDecision;
 
-      // Priority 5: Save mana for instants if we have them (postcombat only)
+      // Priority 6: Save mana for instants if we have them (postcombat only)
       if (phase === 'postcombat_main') {
         const hasInstants = player.hand.some(c => c.type_line.includes('Instant'));
         if (hasInstants) {
@@ -66,6 +71,28 @@ export class AIPlayer {
   }
 
   /**
+   * Evaluate casting commander
+   */
+  private evaluateCommander(player: Player, state: GameState): AIDecision | null {
+    const commander = player.commandZone.find(c => c.isCommander && canCastSpell(c, state));
+    
+    if (!commander) return null;
+
+    // Calculate cost with tax
+    const cost = getCommanderCost(commander, state);
+    
+    if (this.canAffordSpell(commander, player, state)) {
+      return {
+        type: 'cast_spell',
+        cardInstanceId: commander.instanceId,
+        priority: 95, // Very high priority for commanders
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Evaluate instant-speed responses during opponent's turn
    */
   private evaluateInstantResponse(player: Player, opponent: Player, state: GameState): AIDecision | null {
@@ -74,7 +101,7 @@ export class AIPlayer {
     );
 
     for (const instant of instants) {
-      if (this.canAffordSpell(instant, player)) {
+      if (this.canAffordSpell(instant, player, state)) {
         const text = instant.oracle_text?.toLowerCase() || '';
         
         // Removal instants when opponent has threats
@@ -138,7 +165,7 @@ export class AIPlayer {
     const sorted = rampSpells.sort((a, b) => a.cmc - b.cmc);
 
     for (const spell of sorted) {
-      if (this.canAffordSpell(spell, player)) {
+      if (this.canAffordSpell(spell, player, state)) {
         return {
           type: 'cast_spell',
           cardInstanceId: spell.instanceId,
@@ -151,32 +178,26 @@ export class AIPlayer {
   }
 
   private evaluateCreatureSpells(player: Player, opponent: Player, state: GameState): AIDecision | null {
-    // Check both hand and command zone for creatures
+    // Only check hand for creatures (commanders handled separately)
     const creaturesInHand = player.hand.filter(card => 
       card.type_line.includes('Creature') && 
       canCastSpell(card, state) &&
-      !card.type_line.includes('Instant') // Skip creature instants for now
+      !card.type_line.includes('Instant')
     );
     
-    const commandersInZone = player.commandZone.filter(card =>
-      card.type_line.includes('Creature') && canCastSpell(card, state)
-    );
-    
-    const creatures = [...creaturesInHand, ...commandersInZone];
-
     // Evaluate creatures by impact vs cost
-    const sorted = creatures.sort((a, b) => {
+    const sorted = creaturesInHand.sort((a, b) => {
       const valueA = this.evaluateCreatureValue(a, player, opponent, state);
       const valueB = this.evaluateCreatureValue(b, player, opponent, state);
       return valueB - valueA;
     });
 
     for (const creature of sorted) {
-      if (this.canAffordSpell(creature, player)) {
+      if (this.canAffordSpell(creature, player, state)) {
         return {
           type: 'cast_spell',
           cardInstanceId: creature.instanceId,
-          priority: creature.zone === 'command' ? 85 : 70,
+          priority: 70,
         };
       }
     }
@@ -201,7 +222,7 @@ export class AIPlayer {
     });
 
     for (const spell of sorted) {
-      if (this.canAffordSpell(spell, player)) {
+      if (this.canAffordSpell(spell, player, state)) {
         return {
           type: 'cast_spell',
           cardInstanceId: spell.instanceId,
@@ -365,9 +386,12 @@ export class AIPlayer {
 
   private selectBestLand(lands: GameCard[], player: Player): GameCard | null {
     // Prefer untapped lands
-    const untapped = lands.filter(land => 
-      !land.oracle_text?.toLowerCase().includes('enters the battlefield tapped')
-    );
+    const untapped = lands.filter(land => {
+      const text = land.oracle_text?.toLowerCase() || '';
+      return !text.includes('enters the battlefield tapped') && 
+             !text.includes('enters tapped') &&
+             !text.includes('etb tapped');
+    });
 
     // Prefer lands that produce colors we need
     const handColors = this.getColorsInHand(player.hand);
@@ -381,20 +405,32 @@ export class AIPlayer {
     return lands[0];
   }
 
-  private canAffordSpell(card: GameCard, player: Player): boolean {
+  private canAffordSpell(card: GameCard, player: Player, state: GameState): boolean {
     const untappedLands = player.battlefield.filter(c => 
       c.type_line.includes('Land') && !c.isTapped
     ).length;
     const floatingMana = Object.values(player.manaPool).reduce((sum, val) => sum + val, 0);
     const availableMana = untappedLands + floatingMana;
 
-    return card.cmc <= availableMana;
+    // Check commander tax if casting from command zone
+    let cost = card.cmc;
+    if (card.isCommander && card.zone === 'command') {
+      const tax = player.commanderCastCount * 2;
+      cost = cost + tax;
+    }
+
+    return cost <= availableMana;
   }
 
   private evaluateCreatureValue(creature: GameCard, player: Player, opponent: Player, state: GameState): number {
     const power = parseInt(creature.power || '0');
     const toughness = parseInt(creature.toughness || '0');
-    const cmc = creature.cmc || 0;
+    let cmc = creature.cmc || 0;
+    
+    // Add commander tax to cost evaluation
+    if (creature.isCommander && creature.zone === 'command') {
+      cmc += player.commanderCastCount * 2;
+    }
     
     let value = (power + toughness) * 2 - cmc; // Base value
     
@@ -457,7 +493,7 @@ export class AIPlayer {
     if (text.includes('trample')) threat += 2;
     if (text.includes('first strike') || text.includes('double strike')) threat += 3;
     if (text.includes('when') && text.includes('combat damage')) threat += 3;
-    if (card.is_legendary) threat += 2;
+    if (card.is_legendary || card.isCommander) threat += 3;
     
     return threat;
   }

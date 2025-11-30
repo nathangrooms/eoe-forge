@@ -472,6 +472,62 @@ export class CollectionAPI {
     }
     return null;
   }
+
+  // Bulk update quantities
+  static async bulkUpdateQuantity(itemIds: string[], delta: number): Promise<ApiResponse<void>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { error: 'User not authenticated' };
+      }
+
+      for (const itemId of itemIds) {
+        const { data: existing } = await supabase
+          .from('user_collections')
+          .select('quantity')
+          .eq('id', itemId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (existing) {
+          const newQuantity = Math.max(0, existing.quantity + delta);
+          await supabase
+            .from('user_collections')
+            .update({ quantity: newQuantity })
+            .eq('id', itemId)
+            .eq('user_id', user.id);
+        }
+      }
+
+      return { data: undefined };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Bulk delete items
+  static async bulkDelete(itemIds: string[]): Promise<ApiResponse<void>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { error: 'User not authenticated' };
+      }
+
+      const { error } = await supabase
+        .from('user_collections')
+        .delete()
+        .in('id', itemIds)
+        .eq('user_id', user.id);
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { data: undefined };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
 }
 
 // Transform database card to our Card type

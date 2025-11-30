@@ -401,6 +401,7 @@ export default function Collection() {
                 onCardClick={handleCardClick}
                 onMarkForSale={handleMarkForSale}
                 onAddToDeck={handleAddToDeck}
+                onBulkUpdate={refresh}
               />
             </div>
           </TabsContent>

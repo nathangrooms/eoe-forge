@@ -1,6 +1,22 @@
 import gsap from 'gsap';
 
-export type CardAnimationType = 
+// Screen shake utility
+export const screenShake = (intensity: number = 10) => {
+  const body = document.body;
+  gsap.to(body, {
+    x: `+=${Math.random() * intensity - intensity / 2}`,
+    y: `+=${Math.random() * intensity - intensity / 2}`,
+    duration: 0.05,
+    repeat: 3,
+    yoyo: true,
+    ease: "power2.inOut",
+    onComplete: () => {
+      gsap.set(body, { x: 0, y: 0 });
+    }
+  });
+};
+
+export type CardAnimationType =
   | 'CAST_SPELL'
   | 'ATTACK_START'
   | 'ATTACK_RESOLVE'
@@ -167,12 +183,17 @@ export class AnimationManager {
       return Promise.resolve();
     }
 
+    // Screen shake for high damage
+    if (damage >= 5) {
+      screenShake(damage * 2);
+    }
+
     const timeline = gsap.timeline();
     this.activeAnimations.push(timeline);
 
     // Create damage number that floats up
     const damageNumber = document.createElement('div');
-    damageNumber.className = 'absolute text-2xl font-bold text-red-500 pointer-events-none z-50';
+    damageNumber.className = 'absolute text-3xl font-black text-red-500 pointer-events-none z-50';
     damageNumber.textContent = `-${damage}`;
     damageNumber.style.left = `${cardElement.offsetLeft + cardElement.offsetWidth / 2}px`;
     damageNumber.style.top = `${cardElement.offsetTop}px`;
@@ -181,28 +202,39 @@ export class AnimationManager {
     return new Promise((resolve) => {
       timeline
         .set(cardElement, { willChange: 'transform' })
-        // Flash red
+        // Intense flash red with glow
         .to(cardElement, {
-          backgroundColor: 'rgba(239, 68, 68, 0.3)',
+          backgroundColor: 'rgba(239, 68, 68, 0.6)',
+          boxShadow: '0 0 30px 10px rgba(239, 68, 68, 0.8)',
           duration: 0.1
         })
-        // Shake
+        // Violent shake
         .to(cardElement, {
-          x: -5,
-          duration: 0.05,
-          repeat: 3,
+          x: -8,
+          y: -5,
+          duration: 0.04,
+          repeat: 6,
           yoyo: true
+        })
+        // Recoil
+        .to(cardElement, {
+          scale: 0.85,
+          duration: 0.08
         })
         .to(cardElement, {
           backgroundColor: 'transparent',
+          boxShadow: '0 0 0 0 transparent',
           x: 0,
-          duration: 0.1
+          y: 0,
+          scale: 1,
+          duration: 0.15
         })
-        // Float damage number
+        // Float damage number dramatically
         .to(damageNumber, {
-          y: -50,
+          y: -60,
+          scale: 1.5,
           opacity: 0,
-          duration: 0.8,
+          duration: 1,
           ease: 'power2.out'
         }, 0)
         .set(cardElement, { clearProps: 'willChange' })
@@ -225,14 +257,17 @@ export class AnimationManager {
       return Promise.resolve();
     }
 
+    // Medium screen shake
+    screenShake(8);
+
     const timeline = gsap.timeline();
     this.activeAnimations.push(timeline);
 
-    // Create shatter effect
+    // Create shatter effect with more particles
     const shards: HTMLElement[] = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 16; i++) {
       const shard = document.createElement('div');
-      shard.className = 'absolute w-3 h-3 bg-destructive/80 pointer-events-none';
+      shard.className = 'absolute w-3 h-3 bg-destructive/80 pointer-events-none rounded-sm';
       shard.style.left = '50%';
       shard.style.top = '50%';
       cardElement.parentElement?.appendChild(shard);
@@ -242,39 +277,41 @@ export class AnimationManager {
     return new Promise((resolve) => {
       timeline
         .set(cardElement, { willChange: 'transform, opacity' })
-        // Violent shake
+        // Violent shake and flash
         .to(cardElement, {
-          rotation: -10,
-          duration: 0.04,
-          repeat: 8,
+          rotation: -15,
+          scale: 1.1,
+          filter: 'brightness(0.3)',
+          duration: 0.03,
+          repeat: 10,
           yoyo: true,
           ease: 'none'
         })
-        // Explode shards
+        // Explode shards violently
         .to(shards, {
-          x: (i) => (Math.cos(i * Math.PI / 6) * 100) + (Math.random() * 40 - 20),
-          y: (i) => (Math.sin(i * Math.PI / 6) * 100) + (Math.random() * 40 - 20),
-          rotation: () => Math.random() * 720 - 360,
+          x: (i) => (Math.cos(i * Math.PI / 8) * 120) + (Math.random() * 50 - 25),
+          y: (i) => (Math.sin(i * Math.PI / 8) * 120) + (Math.random() * 50 - 25),
+          rotation: () => Math.random() * 1080 - 540,
           opacity: 0,
           scale: 0,
-          duration: 0.8,
+          duration: 1,
           ease: 'power2.out'
         }, 0.3)
-        // Card crumbles and fades
+        // Card crumbles and darkens
         .to(cardElement, {
-          scale: 0.8,
-          opacity: 0.5,
-          filter: 'brightness(0.3) grayscale(1)',
+          scale: 0.6,
+          opacity: 0.3,
+          filter: 'brightness(0.2) grayscale(1) blur(2px)',
           duration: 0.3
         }, 0.3)
-        // Fly to graveyard
+        // Spin and fly to graveyard dramatically
         .to(cardElement, {
           x: targetElement ? targetElement.offsetLeft - cardElement.offsetLeft : 0,
-          y: targetElement ? targetElement.offsetTop - cardElement.offsetTop : 150,
-          scale: 0.3,
-          rotation: 360,
+          y: targetElement ? targetElement.offsetTop - cardElement.offsetTop : 200,
+          scale: 0.2,
+          rotation: 720,
           opacity: 0,
-          duration: 0.6,
+          duration: 0.8,
           ease: 'power3.in'
         })
         .set(cardElement, { clearProps: 'all' })

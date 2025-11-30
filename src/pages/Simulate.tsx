@@ -8,6 +8,9 @@ import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { PhaseProgress } from '@/components/simulation/PhaseProgress';
 import { AnimationTestPanel } from '@/components/simulation/AnimationTestPanel';
+import { PhaseIndicator } from '@/components/simulation/PhaseIndicator';
+import { AbilityTriggerPopup, useAbilityTriggers } from '@/components/simulation/AbilityTriggerPopup';
+import { useDamageNumbers } from '@/components/simulation/FloatingDamage';
 import { useGameAnimations } from '@/hooks/useGameAnimations';
 import { clearTriggerTracking } from '@/lib/simulation/triggerSystem';
 import { Button } from '@/components/ui/button';
@@ -35,9 +38,13 @@ export default function Simulate() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(1); // 1x speed for good viewing
+  const [showPhase, setShowPhase] = useState(false);
+
+  const { damages, showDamage } = useDamageNumbers();
+  const { triggers, showTrigger } = useAbilityTriggers();
 
   // Setup animation system
-  const { registerCard, processEvents } = useGameAnimations(gameState, speed);
+  const { registerCard, processEvents } = useGameAnimations(gameState, speed, showDamage, showTrigger);
 
   useEffect(() => {
     loadDecks();
@@ -210,10 +217,17 @@ export default function Simulate() {
         }
 
         // Step through one action/phase at a time
+        const prevPhase = gameState.phase;
         const result = simulator.step();
         
         // Process animation events
         processEvents(result.events);
+        
+        // Show phase indicator on phase change
+        if (prevPhase !== result.state.phase) {
+          setShowPhase(true);
+          setTimeout(() => setShowPhase(false), 1200);
+        }
         
         // Update state
         setGameState({ ...result.state });
@@ -450,8 +464,10 @@ export default function Simulate() {
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20">
-            <GameBoard state={gameState} onRegisterCard={registerCard} />
+          <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20 relative">
+            <GameBoard state={gameState} onRegisterCard={registerCard} damages={damages} />
+            {gameState && <PhaseIndicator phase={gameState.phase} show={showPhase} />}
+            <AbilityTriggerPopup triggers={triggers} />
           </div>
           
           <div className="w-[340px] flex flex-col bg-[#0f0f14] border-l border-primary/20">

@@ -9,9 +9,12 @@ interface DetailedPlayerZoneProps {
   hasPriority: boolean;
   orientation: 'top' | 'bottom';
   onRegisterCard?: (instanceId: string, element: HTMLElement | null) => void;
+  damages: Map<string, Array<{ id: string; amount: number; timestamp: number }>>;
+  attackers: any[];
+  blockers: any[];
 }
 
-export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation, onRegisterCard }: DetailedPlayerZoneProps) => {
+export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation, onRegisterCard, damages, attackers, blockers }: DetailedPlayerZoneProps) => {
   const isTop = orientation === 'top';
 
   // Separate battlefield by permanent type
@@ -122,7 +125,14 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
                 <div className="text-[9px] font-semibold text-red-400 mb-0.5 uppercase flex items-center gap-1">
                   <span>⚔️</span> Creatures ({creatures.length})
                 </div>
-                <GroupedCardDisplay cards={creatures} compact onRegisterCard={onRegisterCard} />
+                <GroupedCardDisplay 
+                  cards={creatures} 
+                  compact 
+                  onRegisterCard={onRegisterCard}
+                  damages={damages}
+                  attackers={attackers}
+                  blockers={blockers}
+                />
               </div>
             )}
 

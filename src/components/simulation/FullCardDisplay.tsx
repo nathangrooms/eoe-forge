@@ -3,15 +3,19 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { forwardRef } from 'react';
+import { FloatingDamage } from './FloatingDamage';
 
 interface FullCardDisplayProps {
   card: GameCard;
   compact?: boolean;
   faceDown?: boolean;
+  damages?: Array<{ id: string; amount: number; timestamp: number }>;
+  isAttacking?: boolean;
+  isBlocking?: boolean;
 }
 
 export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
-  ({ card, compact = false, faceDown = false }, ref) => {
+  ({ card, compact = false, faceDown = false, damages = [], isAttacking, isBlocking }, ref) => {
   const isCreature = card.type_line.includes('Creature');
   const isLand = card.type_line.includes('Land');
   const basePower = parseInt(card.power || '0');
@@ -50,7 +54,9 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
               "shadow-lg hover:shadow-2xl hover:scale-[1.15] hover:z-30",
               card.isTapped && "opacity-75",
               isLand ? "border-green-500/70" : card.summoningSick ? "border-yellow-500" : "border-primary/70",
-              "animate-fade-in"
+              "animate-fade-in",
+              isAttacking && "ring-4 ring-red-500 ring-offset-2",
+              isBlocking && "ring-4 ring-blue-500 ring-offset-2"
             )}
             style={{
               transform: card.isTapped ? 'rotate(90deg)' : 'rotate(0deg)',
@@ -140,6 +146,11 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
                   ATK
                 </div>
               </div>
+            )}
+
+            {/* Floating damage numbers */}
+            {damages.length > 0 && (
+              <FloatingDamage cardId={card.instanceId} damages={damages} />
             )}
           </div>
         </TooltipTrigger>

@@ -70,7 +70,7 @@ export interface CombatState {
 export interface GameEvent {
   turn: number;
   phase: Phase;
-  type: 'draw' | 'play_land' | 'cast_spell' | 'attack' | 'block' | 'damage' | 'trigger' | 'phase_change' | 'game_over';
+  type: 'draw' | 'play_land' | 'cast_spell' | 'attack' | 'block' | 'damage' | 'trigger' | 'phase_change' | 'game_over' | 'ability_triggered';
   player: 'player1' | 'player2';
   description: string;
   cardName?: string;

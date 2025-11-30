@@ -441,6 +441,21 @@ export function TaskManagement() {
     'Add recent activity feed',
     'Add badge display system',
     'Add dashboard customization',
+    'Add system notifications',
+    'Add API key management',
+    'Add feature flags system',
+    'Add user management dashboard',
+    'Add system health dashboard',
+    'Add database backup manager',
+    'Add AI deck recommendations',
+    'Add AI collection insights',
+    'Add AI wishlist suggestions',
+    'Add listing templates',
+    'Add shipping calculator',
+    'Add messaging drawer for buyers',
+    'Add commander selector',
+    'Add deck selector',
+    'Add card gallery view',
   ];
 
   useEffect(() => {

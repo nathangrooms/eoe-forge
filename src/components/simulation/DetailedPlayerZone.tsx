@@ -32,11 +32,10 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
      ? player.battlefield.some(c => c.name === commanderName)
      : false;
  
-   return (
-     <div className={cn(
-       "h-full flex flex-col gap-1.5",
-       isTop ? "flex-col" : "flex-col-reverse"
-     )}>
+    return (
+      <div className={cn(
+        "h-full flex flex-col gap-1.5"
+      )}>
        {/* Compact Player Info Bar */}
        <div className={cn(
          "flex items-center justify-between px-3 py-1.5 rounded border transition-all shrink-0",
@@ -113,29 +112,13 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
       </div>
 
       {/* Main Battlefield Area - Full Width Rows */}
-      <div className="flex-1 overflow-auto min-h-0 space-y-1.5 px-2">
+      <div className="flex-1 overflow-auto min-h-0 space-y-1.5 px-2 pb-2">
         {/* Command Zone Row */}
         {player.commandZone.length > 0 && (
           <div className="bg-background/15 rounded p-2 border border-primary/20 w-full">
             <div className="text-[10px] font-bold text-primary mb-1.5 uppercase">⭐ Commander</div>
             <div className="overflow-x-auto overflow-y-hidden">
               <GroupedCardDisplay cards={player.commandZone} compact onRegisterCard={onRegisterCard} />
-            </div>
-          </div>
-        )}
-        
-        {/* Hand Row */}
-        {player.hand.length > 0 && (
-          <div className="bg-background/15 rounded p-2 border border-primary/10 w-full">
-            <div className="text-[10px] font-bold text-blue-400 mb-1.5 uppercase">
-              ✋ Hand ({player.hand.length})
-            </div>
-            <div className="overflow-x-auto overflow-y-hidden">
-              <GroupedCardDisplay 
-                cards={player.hand}
-                compact
-                onRegisterCard={onRegisterCard}
-              />
             </div>
           </div>
         )}
@@ -147,9 +130,9 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
               <span>⚔️</span> Creatures ({creatures.length})
             </div>
             <div className="overflow-x-auto overflow-y-hidden">
-              <GroupedCardDisplay 
-                cards={creatures} 
-                compact 
+              <GroupedCardDisplay
+                cards={creatures}
+                compact
                 onRegisterCard={onRegisterCard}
                 damages={damages}
                 attackers={attackers}
@@ -227,6 +210,22 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
             </div>
             <div className="overflow-x-auto overflow-y-hidden">
               <GroupedCardDisplay cards={player.exile.slice(-5)} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
+
+        {/* Hand Row - always last / bottom */}
+        {player.hand.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-primary/10 w-full mt-1">
+            <div className="text-[10px] font-bold text-blue-400 mb-1.5 uppercase">
+              ✋ Hand ({player.hand.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay
+                cards={player.hand}
+                compact
+                onRegisterCard={onRegisterCard}
+              />
             </div>
           </div>
         )}

@@ -190,6 +190,10 @@ export function TaskManagement() {
     'Add card type distribution chart',
     'Add deck building keyboard shortcuts',
     'Add real-time deck count updates',
+    'Implement card rulings display',
+    'Fix card search in deck builder',
+    'Fix deck deletion confirmation',
+    'Improve commander selection UX',
     
     // Collection Features
     'Add collection price alerts',
@@ -202,15 +206,21 @@ export function TaskManagement() {
     'Add collection duplicate detection',
     'Add collection image gallery view',
     'Add bulk card addition',
+    'Add card quantity bulk edit',
+    'Add card printing selection',
+    'Add card grouping by category',
     
     // Admin & System
     'Add analytics dashboard',
     'Add system health dashboard',
     'Improve dashboard skeleton loading',
+    'Add recent activity real-time updates',
+    'Fix card image optimization',
     
     // Wishlist Features
     'Add wishlist priority sorting',
     'Add wishlist budget tracking',
+    'Make Wishlist card clickable',
     
     // Storage Features
     'Add storage management',
@@ -220,7 +230,7 @@ export function TaskManagement() {
     // Marketplace Features
     'Add listing edit functionality',
     'Add bulk listing creation',
-    'Add listing analytics',
+    'Implement listing analytics',
     'Implement listing templates',
     
     // UI/UX Features
@@ -229,12 +239,15 @@ export function TaskManagement() {
     'Add advanced filter persistence',
     'Add recent searches history',
     'Implement saved search filters',
-    'Add card quantity bulk edit',
-    'Add card printing selection',
-    'Add card grouping by category',
     'Add favorite deck quick actions',
     'Add quick deck creation from dashboard',
     'Add dashboard keyboard shortcuts',
+    'Implement search history feature',
+    'Implement card comparison feature',
+    'Implement card comparison tool',
+    
+    // Simulation & Testing
+    'Add deck goldfish testing',
   ];
 
   useEffect(() => {

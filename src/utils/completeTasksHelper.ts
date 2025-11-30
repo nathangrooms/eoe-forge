@@ -19,6 +19,18 @@ export async function markTasksComplete() {
     {
       id: 'a27f9647-edb9-415c-9fc0-cfb90bf4ac28',
       title: 'Add price alert notifications to Wishlist'
+    },
+    {
+      id: '3e80f3da-c579-4f7a-a177-0a774a51221c',
+      title: 'Remove duplicate deck loading logic'
+    },
+    {
+      id: '0145bf31-31b1-476e-b539-07cd3c03ac35',
+      title: 'Implement deck search and filters'
+    },
+    {
+      id: 'dca19f18-92f5-492b-8a32-a7020683c002',
+      title: 'Fix EDH power level calculation'
     }
   ];
 
@@ -61,6 +73,20 @@ export async function markTasksComplete() {
       description: 'Built new component for better deck visualization with quantity controls and card grouping',
       category: 'improvement',
       priority: 'medium',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create useDeckLoader hook',
+      description: 'Consolidated duplicate deck loading logic from multiple pages into a single reusable custom hook',
+      category: 'improvement',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create DeckSearchFilters component',
+      description: 'Implemented comprehensive deck search and filter system with format, color, and power level filters',
+      category: 'feature',
+      priority: 'high',
       app_section: 'deck_builder'
     }
   ];

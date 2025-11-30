@@ -219,6 +219,13 @@ export async function markTasksComplete() {
       category: 'improvement',
       priority: 'high',
       app_section: 'collection'
+    },
+    {
+      title: 'Implement comprehensive legality checker',
+      description: 'Built LegalityChecker class with banned card detection, singleton rule validation, deck size checks, and color identity enforcement for all major formats',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'deck_builder'
     }
   ];
 

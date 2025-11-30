@@ -372,6 +372,9 @@ export function TaskManagement() {
     'Add deck comparison tool to analyze differences',
     'Add archetype library with popular deck templates',
     'Add advanced filter panel with multi-criteria search',
+    'Add deck proxy generator for printable playtest cards',
+    'Add wishlist budget tracker with spending limits',
+    'Add collection value trends and analytics dashboard',
   ];
 
   useEffect(() => {

@@ -22,6 +22,7 @@ import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTra
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { CardReplacementEngine } from '@/components/deck-builder/CardReplacementEngine';
+import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -669,6 +670,12 @@ const DeckBuilder = () => {
                     deck.removeCard(oldCardId);
                     deck.addCard(newCard);
                   }}
+                />
+                
+                {/* Proxy Generator */}
+                <DeckProxyGenerator 
+                  deckCards={deck.cards as any}
+                  deckName={deck.name}
                 />
                 
                 <AIDeckCoach

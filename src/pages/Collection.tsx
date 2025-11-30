@@ -33,6 +33,7 @@ import { InsuranceReport } from '@/components/collection/InsuranceReport';
 import { PriceHistoryChart } from '@/components/collection/PriceHistoryChart';
 import { SavedFilterPresets } from '@/components/collection/SavedFilterPresets';
 import { CollectionDeckRecommendations } from '@/components/collection/CollectionDeckRecommendations';
+import { CollectionValueTrends } from '@/components/collection/CollectionValueTrends';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -504,6 +505,9 @@ export default function Collection() {
                       quantity: card.quantity || 1,
                       price_usd: card.price_usd || '0'
                     }))}
+                  />
+                  <CollectionValueTrends 
+                    collectionCards={snapshot?.items || []}
                   />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <SavedFilterPresets 

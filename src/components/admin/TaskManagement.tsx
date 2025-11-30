@@ -345,6 +345,10 @@ export function TaskManagement() {
     'Enhance deck performance tracking',
     'Add collection export feature',
     'Add card printing comparison tool',
+    'Add advanced card condition tracking',
+    'Add deck synergy analyzer',
+    'Add collection backup and restore',
+    'Add opening hand simulator',
   ];
 
   useEffect(() => {

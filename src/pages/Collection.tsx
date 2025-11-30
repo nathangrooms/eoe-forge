@@ -28,6 +28,7 @@ import { AICollectionInsights } from '@/components/collection/AICollectionInsigh
 import { CategoryManager } from '@/components/collection/CategoryManager';
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
+import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -493,9 +494,10 @@ export default function Collection() {
                       value: c.price_usd
                     }))}
                   />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <TCGPlayerPriceSync />
                     {user && <CollectionExport userId={user.id} />}
+                    {user && <CollectionBackupRestore userId={user.id} />}
                   </div>
                   <CollectionAnalytics 
                     stats={collectionStats} 

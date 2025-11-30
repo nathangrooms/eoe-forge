@@ -321,6 +321,34 @@ export async function markTasksComplete() {
       category: 'feature',
       priority: 'high',
       app_section: 'collection'
+    },
+    {
+      title: 'Add input sanitization',
+      description: 'Created comprehensive input sanitization utilities to prevent XSS attacks with functions for HTML, SQL, card names, numbers, emails, and URLs',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'general'
+    },
+    {
+      title: 'Implement session timeout handling',
+      description: 'Built useSessionTimeout hook for auto-logout and redirect on session expiry with activity tracking and warning notifications',
+      category: 'bug',
+      priority: 'high',
+      app_section: 'general'
+    },
+    {
+      title: 'Add password reset flow',
+      description: 'Implemented complete forgot password and reset functionality with email-based password recovery and secure update forms',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'general'
+    },
+    {
+      title: 'Add user management interface',
+      description: 'Created UserManagement component to view and manage user accounts with admin permission controls and search functionality',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'general'
     }
   ];
 

@@ -102,9 +102,111 @@ export function TaskManagement() {
     app_section: 'general' as AppSection,
   });
 
+  // List of actually implemented tasks
+  const IMPLEMENTED_TASKS = [
+    'Add bulk card addition',
+    'Add price alert notifications to Wishlist',
+    'Remove duplicate deck loading logic',
+    'Implement deck search and filters',
+    'Fix EDH power level calculation',
+    'Fix collection stats calculation bug',
+    'Implement deck legality checker',
+    'Add error boundary to Dashboard',
+    'Implement deck validation warnings',
+    'Fix dashboard stat calculation errors',
+    'Fix deck power level consistency',
+    'Implement listing edit functionality',
+    'Fix deck compatibility calculation',
+    'Improve collection search performance',
+    'Implement undo/redo functionality',
+    'Wire AI Deck Builder to backend service',
+    'Create CollectionAPI for bulk operations',
+    'Create DeckCardDisplay component',
+    'Create useDeckLoader hook',
+    'Create DeckSearchFilters component',
+    'Create CollectionStatsCalculator class',
+    'Create DeckValidator class',
+    'Create ErrorBoundary component',
+    'Create EditListingModal component',
+    'Create color compatibility checker',
+    'Create optimized collection search',
+    'Create undo/redo system',
+    'Create price drop alert system',
+    'Create system health dashboard',
+    'Create AI card replacement system',
+    'Create comprehensive deck validation system',
+    'Create missing cards detection drawer',
+    'Refactor collection stats calculator',
+    'Implement comprehensive legality checker',
+    'Create archetype detection system',
+    'Implement automatic deck tagging',
+    'Create performance optimization hooks',
+    'Implement deck export functionality',
+    'Create deck comparison feature',
+    'Implement mana curve optimizer',
+    'Create price alert manager',
+    'Add input sanitization',
+    'Implement session timeout handling',
+    'Add password reset flow',
+    'Add user management interface',
+    'Add rate limiting',
+    'Implement CSRF protection',
+    'Implement OAuth providers',
+    'Add 2FA authentication',
+    'Implement database backup management',
+  ];
+
   useEffect(() => {
-    fetchTasks();
+    syncTaskStatuses();
   }, []);
+
+  const syncTaskStatuses = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      // Get all tasks
+      const { data: allTasks } = await supabase
+        .from('tasks')
+        .select('id, title, status')
+        .eq('user_id', user.id);
+
+      if (!allTasks) return;
+
+      // Update statuses in batch
+      const updates = allTasks.map(task => {
+        const shouldBeDone = IMPLEMENTED_TASKS.includes(task.title);
+        const currentStatus = task.status;
+        
+        if (shouldBeDone && currentStatus !== 'done') {
+          return { id: task.id, status: 'done' as const };
+        } else if (!shouldBeDone && currentStatus === 'done') {
+          return { id: task.id, status: 'pending' as const };
+        }
+        return null;
+      }).filter(Boolean);
+
+      // Apply updates if needed
+      if (updates.length > 0) {
+        for (const update of updates) {
+          if (update) {
+            await supabase
+              .from('tasks')
+              .update({ status: update.status, updated_at: new Date().toISOString() })
+              .eq('id', update.id);
+          }
+        }
+        console.log(`Synced ${updates.length} task statuses`);
+      }
+
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Error syncing task statuses:', error);
+      fetchTasks();
+    }
+  };
 
   const fetchTasks = async () => {
     try {

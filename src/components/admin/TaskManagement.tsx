@@ -325,9 +325,16 @@ export function TaskManagement() {
     'Fix deck list sorting options',
     'Fix collection analytics color distribution',
     'Fix sold listing sync',
+    'Fix collection stats calculation bug',
     
     // AI Features - Restored
     'Restore AI Deck Recommendations',
+    'Fix AI wishlist suggestions',
+    
+    // New Features - Done
+    'Add wishlist import from URL',
+    'Implement audit trail',
+    'Implement collection wishlists per deck',
   ];
 
   useEffect(() => {

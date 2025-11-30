@@ -65,7 +65,8 @@ export class CollectionStatsCalculator {
   private static calculateTotalValue(cards: CollectionCard[]): number {
     return cards.reduce((sum, card) => {
       const price = card.price_usd || 0;
-      return sum + (price * card.quantity);
+      const quantity = card.quantity || 0;
+      return sum + (price * quantity);
     }, 0);
   }
 
@@ -76,7 +77,8 @@ export class CollectionStatsCalculator {
     return cards.reduce((sum, card) => {
       if (!card.foil) return sum;
       const price = card.price_usd || 0;
-      return sum + (price * card.foil);
+      const foilQty = card.foil || 0;
+      return sum + (price * foilQty);
     }, 0);
   }
 

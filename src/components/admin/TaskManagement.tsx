@@ -403,6 +403,8 @@ export function TaskManagement() {
     'Add commander power level display',
     'Add power slider with AI coaching',
     'Add manabase enhancer with recommendations',
+    'Add collection snapshot manager',
+    'Add maybeboard panel for considering cards',
   ];
 
   useEffect(() => {

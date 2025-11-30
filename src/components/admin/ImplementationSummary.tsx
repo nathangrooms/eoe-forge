@@ -17,7 +17,9 @@ export function ImplementationSummary() {
         'Saved filter presets',
         'Deck recommendations based on ownership',
         'Card condition photo uploads',
-        'Enhanced price alerts with notifications'
+        'Enhanced price alerts with notifications',
+        'Collection snapshot manager with versioning',
+        'Collection comparison for tracking changes'
       ]
     },
     {
@@ -49,7 +51,8 @@ export function ImplementationSummary() {
         'Enhanced deck export with multiple formats',
         'Commander power level display with metrics',
         'Power slider with AI coaching for optimization',
-        'Manabase enhancer with land recommendations'
+        'Manabase enhancer with land recommendations',
+        'Maybeboard panel for considering cards'
       ]
     },
     {

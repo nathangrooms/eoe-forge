@@ -293,6 +293,12 @@ export function TaskManagement() {
     
     // Search & UI - Done (latest)
     'Fix search result pagination',
+    
+    // Settings & Configuration - Done
+    'Add API key management',
+    
+    // Collection Features - Done (latest)
+    'Implement card grouping by category',
   ];
 
   useEffect(() => {

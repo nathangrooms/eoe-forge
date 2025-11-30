@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ const BadgesSection = lazy(() => import('@/components/dashboard/BadgeDisplay').t
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  useSessionTimeout();
   const { data: dashboardData, loading: dashboardLoading, error, refetch } = useDashboardSummary();
   const { favorites, loading: favoritesLoading, toggleFavorite } = useFavoriteDecks();
 

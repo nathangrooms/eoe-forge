@@ -33,6 +33,7 @@ import Marketplace from "./pages/Marketplace";
 import PublicDeck from "./pages/PublicDeck";
 import Simulate from "./pages/Simulate";
 import Tournament from "./pages/Tournament";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,8 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/p/:slug" element={<PublicDeck />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -120,6 +123,8 @@ function AppContent() {
             <Route path="/auth" element={<Navigate to="/" replace />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
+            <Route path="/reset-password" element={<Navigate to="/" replace />} />
+            <Route path="/forgot-password" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

@@ -381,6 +381,9 @@ export function TaskManagement() {
     'Add card condition photo tracking with uploads',
     'Add enhanced price alert system with notifications',
     'Add enhanced deck export with multiple formats',
+    'Add password reset flow',
+    'Implement session timeout handling',
+    'Implement price drop alerts',
   ];
 
   useEffect(() => {

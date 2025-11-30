@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { sanitizeEmail } from '@/lib/security/inputSanitization';
 import { Mail, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface PasswordResetFlowProps {
   onBack?: () => void;
@@ -22,7 +23,7 @@ export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
     
     const sanitizedEmail = sanitizeEmail(email);
     if (!sanitizedEmail || !sanitizedEmail.includes('@')) {
-      toast.error('Please enter a valid email address');
+      showError('Invalid email', 'Please enter a valid email address');
       return;
     }
 
@@ -36,9 +37,9 @@ export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
       if (error) throw error;
 
       setSent(true);
-      toast.success('Password reset email sent! Check your inbox.');
+      showSuccess('Reset email sent', 'Check your inbox for the password reset link');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send reset email');
+      showError('Reset failed', error.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
     }
@@ -60,12 +61,12 @@ export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
           <p className="text-sm text-muted-foreground">
             Click the link in the email to reset your password. The link will expire in 1 hour.
           </p>
-          {onBack && (
-            <Button variant="outline" onClick={onBack} className="w-full">
+          <Link to="/login">
+            <Button variant="outline" className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Login
             </Button>
-          )}
+          </Link>
         </CardContent>
       </Card>
     );
@@ -94,22 +95,16 @@ export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
             />
           </div>
 
-          <div className="flex gap-2">
-            {onBack && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onBack}
-                disabled={loading}
-                className="flex-1"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            )}
-            <Button type="submit" disabled={loading} className="flex-1">
+          <div className="space-y-2">
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Sending...' : 'Send Reset Link'}
             </Button>
+            <Link to="/login" className="block">
+              <Button type="button" variant="ghost" className="w-full">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Login
+              </Button>
+            </Link>
           </div>
         </form>
       </CardContent>

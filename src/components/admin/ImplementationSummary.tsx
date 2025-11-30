@@ -112,6 +112,14 @@ export function ImplementationSummary() {
         'Real-time standings tracking',
         'Match result recording'
       ]
+    },
+    {
+      category: 'Authentication Features',
+      features: [
+        'Password reset flow with email verification',
+        'Session timeout handling with auto-logout',
+        'Price drop alert notifications via email'
+      ]
     }
   ];
 

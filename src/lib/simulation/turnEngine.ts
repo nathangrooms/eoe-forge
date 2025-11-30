@@ -49,13 +49,8 @@ function handlePhaseActions(state: GameState): void {
   switch (state.phase) {
     case 'untap':
       // Untap all permanents
-      console.log('[Turn] Untapping permanents for:', state.activePlayer);
       activePlayer.battlefield.forEach(card => {
-        const wasTapped = card.isTapped;
         card.isTapped = false;
-        if (wasTapped) {
-          console.log('[Turn] Untapped:', card.name);
-        }
         if (card.type_line.includes('Creature')) {
           card.summoningSick = false;
         }
@@ -69,7 +64,6 @@ function handlePhaseActions(state: GameState): void {
     case 'draw':
       // Skip draw on turn 1 for starting player
       if (state.turn > 0 || state.activePlayer === 'player2') {
-        console.log('[Turn] Drawing card for:', state.activePlayer);
         drawCard(state, state.activePlayer);
       }
       break;

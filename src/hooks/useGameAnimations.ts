@@ -18,7 +18,6 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
   const registerCard = (instanceId: string, element: HTMLElement | null) => {
     if (element) {
       cardRefsRef.current.set(instanceId, element);
-      console.log('[Animation] Card registered:', instanceId);
     } else {
       cardRefsRef.current.delete(instanceId);
     }
@@ -34,22 +33,9 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
     const prevState = previousStateRef.current;
     const newState = gameState;
 
-    console.log('[Animation] State change detected', {
-      turn: newState.turn,
-      phase: newState.phase,
-      p1Battlefield: newState.player1.battlefield.length,
-      p2Battlefield: newState.player2.battlefield.length,
-      p1Hand: newState.player1.hand.length,
-      p2Hand: newState.player2.hand.length,
-    });
-
     // Helper to find card element
     const getCardElement = (instanceId: string) => {
-      const el = cardRefsRef.current.get(instanceId);
-      if (!el) {
-        console.log('[Animation] Card element not found:', instanceId);
-      }
-      return el;
+      return cardRefsRef.current.get(instanceId);
     };
 
     // Check for zone changes
@@ -111,12 +97,6 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
         const newCard = newCards.find(c => c.instanceId === prevCard.instanceId);
         if (newCard && prevCard.isTapped !== newCard.isTapped) {
           const element = getCardElement(newCard.instanceId);
-          console.log('[Animation] Tap state changed:', {
-            card: newCard.name,
-            wasTapped: prevCard.isTapped,
-            isTapped: newCard.isTapped,
-            hasElement: !!element
-          });
           if (element) {
             if (newCard.isTapped) {
               AnimationManager.tap({ cardElement: element });

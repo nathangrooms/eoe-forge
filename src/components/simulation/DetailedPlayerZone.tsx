@@ -104,11 +104,10 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
             {player.hand.length > 0 && (
               <div className="bg-background/20 rounded p-1.5 flex-1 min-h-0 overflow-auto">
                 <div className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase">
-                  Hand ({player.hand.length}) {isTop && '(Hidden)'}
+                  Hand ({player.hand.length})
                 </div>
                 <GroupedCardDisplay 
                   cards={player.hand}
-                  faceDown={isTop}
                   compact
                   onRegisterCard={onRegisterCard}
                 />

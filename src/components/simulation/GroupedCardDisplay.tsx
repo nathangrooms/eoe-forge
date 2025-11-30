@@ -17,12 +17,6 @@ interface CardGroup {
 }
 
 export const GroupedCardDisplay = ({ cards, compact = false, faceDown = false, onRegisterCard }: GroupedCardDisplayProps) => {
-  console.log('[GroupedCardDisplay] Rendering:', {
-    cardCount: cards.length,
-    compact,
-    faceDown,
-    sampleCard: cards[0]?.name
-  });
   // Group cards by name
   const groupedCards = cards.reduce((acc, card) => {
     const existing = acc.find(g => g.card.name === card.name);

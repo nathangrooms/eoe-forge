@@ -90,13 +90,10 @@ export default function Wishlist() {
     try {
       setLoading(true);
       
-      // Load wishlist items with joined card data from cards table
+      // Load wishlist items
       const { data: wishlistData, error: wishlistError } = await supabase
         .from('wishlist')
-        .select(`
-          *,
-          card:cards!wishlist_card_id_fkey(*)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -107,21 +104,46 @@ export default function Wishlist() {
         return;
       }
 
-      // Transform the joined data
-      const transformedData = wishlistData.map((item: any) => ({
-        ...item,
-        card: item.card || {
-          id: item.card_id,
-          name: item.card_name,
-          type_line: 'Unknown',
-          colors: [],
-          color_identity: [],
-          rarity: 'common',
-          image_uris: {},
-          prices: { usd: '0.00' },
-          set_code: 'UNK'
-        }
-      }));
+      // Get unique card IDs
+      const cardIds = [...new Set(wishlistData.map(item => item.card_id))];
+
+      // Fetch card details
+      const { data: cardsData, error: cardsError } = await supabase
+        .from('cards')
+        .select('*')
+        .in('id', cardIds);
+
+      if (cardsError) {
+        console.error('Error loading card details:', cardsError);
+        // Continue without card details
+      }
+
+      // Create a map of card data by ID
+      const cardsMap = new Map();
+      if (cardsData) {
+        cardsData.forEach(card => {
+          cardsMap.set(card.id, card);
+        });
+      }
+
+      // Transform the data with card details
+      const transformedData = wishlistData.map((item: any) => {
+        const cardData = cardsMap.get(item.card_id);
+        return {
+          ...item,
+          card: cardData || {
+            id: item.card_id,
+            name: item.card_name,
+            type_line: 'Unknown',
+            colors: [],
+            color_identity: [],
+            rarity: 'common',
+            image_uris: {},
+            prices: { usd: '0.00' },
+            set_code: 'UNK'
+          }
+        };
+      });
       
       setWishlistItems(transformedData);
     } catch (error) {

@@ -24,49 +24,49 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
 
   return (
     <div className={cn(
-      "h-full flex flex-col gap-2",
+      "h-full flex flex-col gap-1.5",
       isTop ? "flex-col" : "flex-col-reverse"
     )}>
       {/* Compact Player Info Bar */}
       <div className={cn(
-        "flex items-center justify-between px-4 py-2 rounded-lg border transition-all",
+        "flex items-center justify-between px-3 py-1.5 rounded border transition-all shrink-0",
         isActive ? "bg-primary/20 border-primary/50" : "bg-muted/30 border-border/50",
-        hasPriority && "ring-2 ring-primary/70"
+        hasPriority && "ring-1 ring-primary/70"
       )}>
-        <div className="flex items-center gap-4">
-          <span className={cn("text-lg font-bold", isActive && "text-primary")}>
+        <div className="flex items-center gap-3">
+          <span className={cn("text-base font-bold", isActive && "text-primary")}>
             {player.name}
           </span>
-          <div className="flex items-center gap-2 bg-background/60 px-3 py-1 rounded-md">
+          <div className="flex items-center gap-1.5 bg-background/60 px-2 py-0.5 rounded">
             <Heart className={cn(
-              "h-5 w-5",
+              "h-4 w-4",
               player.life > 30 ? "text-green-500" :
               player.life > 20 ? "text-yellow-500" :
               player.life > 10 ? "text-orange-500" : "text-red-500"
             )} />
-            <span className="text-2xl font-bold">{player.life}</span>
+            <span className="text-xl font-bold">{player.life}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-1.5 bg-background/60 px-2 py-1 rounded">
-            <Library className="h-4 w-4 text-primary" />
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded">
+            <Library className="h-3 w-3 text-primary" />
             <span className="font-mono font-bold">{player.library.length}</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-background/60 px-2 py-1 rounded">
-            <BookOpen className="h-4 w-4 text-primary" />
-            <span className="font-mono">Hand: <b>{player.hand.length}</b></span>
+          <div className="flex items-center gap-1 bg-background/60 px-1.5 py-0.5 rounded">
+            <BookOpen className="h-3 w-3 text-primary" />
+            <span className="font-mono"><b>{player.hand.length}</b></span>
           </div>
-          <div className="bg-background/60 px-2 py-1 rounded font-mono">
+          <div className="bg-background/60 px-1.5 py-0.5 rounded font-mono">
             GY: <b>{player.graveyard.length}</b>
           </div>
-          <div className="bg-background/60 px-2 py-1 rounded font-mono">
-            Exile: <b>{player.exile.length}</b>
+          <div className="bg-background/60 px-1.5 py-0.5 rounded font-mono">
+            Ex: <b>{player.exile.length}</b>
           </div>
         </div>
 
         {Object.values(player.manaPool).some(v => v > 0) && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {Object.entries(player.manaPool).map(([color, amount]) => {
               if (amount === 0) return null;
               const colorMap: Record<string, string> = {
@@ -78,8 +78,8 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
                 C: 'bg-gray-100 text-gray-900 border-gray-400'
               };
               return (
-                <div key={color} className={cn("font-bold text-xs px-2 py-1 rounded border-2", colorMap[color])}>
-                  {color}{amount > 1 ? `×${amount}` : ''}
+                <div key={color} className={cn("font-bold text-xs px-1.5 py-0.5 rounded border", colorMap[color])}>
+                  {color}{amount > 1 ? amount : ''}
                 </div>
               );
             })}
@@ -87,105 +87,103 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
         )}
       </div>
 
-      {/* Commander Zone (if exists) */}
-      {player.commandZone.length > 0 && (
-        <div className="px-2">
-          <div className="text-xs font-bold text-primary mb-1">⭐ COMMAND ZONE</div>
-          <GroupedCardDisplay cards={player.commandZone} />
-        </div>
-      )}
-
-      {/* Main Battlefield Area */}
-      <div className="flex-1 overflow-y-auto space-y-2 px-2">
-        {/* Hand */}
-        {player.hand.length > 0 && (
-          <div className="bg-background/20 rounded-lg p-2">
-            <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase">
-              Hand ({player.hand.length})
-            </div>
-            <GroupedCardDisplay 
-              cards={player.hand}
-              faceDown={isTop}
-              compact
-            />
-          </div>
-        )}
-
-        {/* Creatures */}
-        {creatures.length > 0 && (
-          <div className="bg-background/20 rounded-lg p-2">
-            <div className="text-xs font-semibold text-foreground mb-2 uppercase flex items-center gap-2">
-              <span className="text-red-400">⚔️</span>
-              Creatures ({creatures.length})
-            </div>
-            <GroupedCardDisplay cards={creatures} />
-          </div>
-        )}
-
-        {/* Lands */}
-        {lands.length > 0 && (
-          <div className="bg-background/20 rounded-lg p-2">
-            <div className="text-xs font-semibold text-green-400 mb-2 uppercase flex items-center gap-2">
-              <span>🏔️</span>
-              Lands ({lands.length})
-            </div>
-            <GroupedCardDisplay cards={lands} compact />
-          </div>
-        )}
-
-        {/* Other Permanents */}
-        {(artifacts.length > 0 || enchantments.length > 0 || planeswalkers.length > 0) && (
-          <div className="grid grid-cols-3 gap-2">
-            {artifacts.length > 0 && (
-              <div className="bg-background/20 rounded-lg p-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Artifacts ({artifacts.length})
-                </div>
-                <GroupedCardDisplay cards={artifacts} compact />
+      {/* Main Battlefield Area - Horizontal Scrolling */}
+      <div className="flex-1 overflow-auto min-h-0">
+        <div className="grid grid-cols-[auto_1fr_auto] gap-1.5 h-full">
+          
+          {/* LEFT COLUMN: Command Zone + Hand */}
+          <div className="flex flex-col gap-1.5 w-[180px]">
+            {player.commandZone.length > 0 && (
+              <div className="bg-background/20 rounded p-1.5">
+                <div className="text-[10px] font-bold text-primary mb-1">⭐ COMMANDER</div>
+                <GroupedCardDisplay cards={player.commandZone} compact />
               </div>
             )}
-
-            {enchantments.length > 0 && (
-              <div className="bg-background/20 rounded-lg p-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Enchantments ({enchantments.length})
+            
+            {player.hand.length > 0 && (
+              <div className="bg-background/20 rounded p-1.5 flex-1 min-h-0 overflow-auto">
+                <div className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase">
+                  Hand ({player.hand.length})
                 </div>
-                <GroupedCardDisplay cards={enchantments} compact />
-              </div>
-            )}
-
-            {planeswalkers.length > 0 && (
-              <div className="bg-background/20 rounded-lg p-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Planeswalkers ({planeswalkers.length})
-                </div>
-                <GroupedCardDisplay cards={planeswalkers} compact />
+                <GroupedCardDisplay 
+                  cards={player.hand}
+                  faceDown={isTop}
+                  compact
+                />
               </div>
             )}
           </div>
-        )}
 
-        {/* Graveyard & Exile */}
-        {(player.graveyard.length > 0 || player.exile.length > 0) && (
-          <div className="grid grid-cols-2 gap-2">
+          {/* CENTER: Battlefield */}
+          <div className="flex flex-col gap-1.5 overflow-auto">
+            {creatures.length > 0 && (
+              <div className="bg-background/20 rounded p-1.5">
+                <div className="text-[10px] font-semibold text-red-400 mb-1 uppercase flex items-center gap-1">
+                  <span>⚔️</span> Creatures ({creatures.length})
+                </div>
+                <GroupedCardDisplay cards={creatures} compact />
+              </div>
+            )}
+
+            {lands.length > 0 && (
+              <div className="bg-background/20 rounded p-1.5">
+                <div className="text-[10px] font-semibold text-green-400 mb-1 uppercase flex items-center gap-1">
+                  <span>🏔️</span> Lands ({lands.length})
+                </div>
+                <GroupedCardDisplay cards={lands} compact />
+              </div>
+            )}
+
+            {(artifacts.length > 0 || enchantments.length > 0 || planeswalkers.length > 0) && (
+              <div className="flex gap-1.5">
+                {artifacts.length > 0 && (
+                  <div className="bg-background/20 rounded p-1.5 flex-1">
+                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                      Artifacts ({artifacts.length})
+                    </div>
+                    <GroupedCardDisplay cards={artifacts} compact />
+                  </div>
+                )}
+                {enchantments.length > 0 && (
+                  <div className="bg-background/20 rounded p-1.5 flex-1">
+                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                      Enchantments ({enchantments.length})
+                    </div>
+                    <GroupedCardDisplay cards={enchantments} compact />
+                  </div>
+                )}
+                {planeswalkers.length > 0 && (
+                  <div className="bg-background/20 rounded p-1.5 flex-1">
+                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                      Planeswalkers ({planeswalkers.length})
+                    </div>
+                    <GroupedCardDisplay cards={planeswalkers} compact />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: Graveyard + Exile */}
+          <div className="flex flex-col gap-1.5 w-[120px]">
             {player.graveyard.length > 0 && (
-              <div className="bg-background/20 rounded-lg p-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Graveyard ({player.graveyard.length})
+              <div className="bg-background/20 rounded p-1.5 flex-1">
+                <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                  GY ({player.graveyard.length})
                 </div>
-                <GroupedCardDisplay cards={player.graveyard.slice(-5)} compact />
+                <GroupedCardDisplay cards={player.graveyard.slice(-3)} compact />
               </div>
             )}
             {player.exile.length > 0 && (
-              <div className="bg-background/20 rounded-lg p-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
+              <div className="bg-background/20 rounded p-1.5 flex-1">
+                <div className="text-[10px] font-semibold text-muted-foreground mb-1">
                   Exile ({player.exile.length})
                 </div>
-                <GroupedCardDisplay cards={player.exile.slice(-5)} compact />
+                <GroupedCardDisplay cards={player.exile.slice(-3)} compact />
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

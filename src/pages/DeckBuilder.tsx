@@ -20,6 +20,8 @@ import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatib
 import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
+import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
+import { CardReplacementEngine } from '@/components/deck-builder/CardReplacementEngine';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -652,6 +654,21 @@ const DeckBuilder = () => {
                     deckName={deck.name}
                   />
                 )}
+                
+                {/* Budget Tracking */}
+                <DeckBudgetTracker 
+                  deckCards={deck.cards as any}
+                  targetBudget={200}
+                />
+                
+                {/* Card Replacement Engine */}
+                <CardReplacementEngine 
+                  deckCards={deck.cards as any}
+                  onReplaceCard={(oldCardId, newCard) => {
+                    deck.removeCard(oldCardId);
+                    deck.addCard(newCard);
+                  }}
+                />
                 
                 <AIDeckCoach
                   deckCards={deck.cards as any}

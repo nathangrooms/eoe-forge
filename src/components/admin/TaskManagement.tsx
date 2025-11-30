@@ -365,6 +365,10 @@ export function TaskManagement() {
     'Add power level analysis with detailed metrics',
     'Add archetype detection for deck strategies',
     'Add price history tracking with charts',
+    'Add saved filter presets for collection search',
+    'Add deck recommendations based on collection ownership',
+    'Add deck budget tracker with spending analysis',
+    'Add card replacement engine for budget alternatives and upgrades',
   ];
 
   useEffect(() => {

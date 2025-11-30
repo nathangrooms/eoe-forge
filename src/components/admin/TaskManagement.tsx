@@ -358,6 +358,8 @@ export function TaskManagement() {
     'Implement deck validation warnings',
     'Implement deck legality checker',
     'Implement undo/redo functionality',
+    'Fix dashboard stat calculation errors',
+    'Fix deck compatibility calculation',
   ];
 
   useEffect(() => {

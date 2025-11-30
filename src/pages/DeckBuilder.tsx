@@ -16,6 +16,7 @@ import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerD
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
+import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -590,6 +591,22 @@ const DeckBuilder = () => {
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
               <div className="space-y-6">
+                {/* Color Compatibility Check (Commander only) */}
+                {deck.format === 'commander' && deck.commander && (
+                  <DeckCompatibilityChecker 
+                    cards={deck.cards as any}
+                    commander={deck.commander}
+                    format={deck.format || 'standard'}
+                    onRemoveCard={(cardId) => {
+                      const card = deck.cards.find(c => c.id === cardId);
+                      if (card) {
+                        deck.removeCard(cardId);
+                        showSuccess('Card Removed', `${card.name} removed due to color identity mismatch`);
+                      }
+                    }}
+                  />
+                )}
+                
                 {/* Deck Validation Panel */}
                 <DeckValidationPanel 
                   cards={deck.cards as any}

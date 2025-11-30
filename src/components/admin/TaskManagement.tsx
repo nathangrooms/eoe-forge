@@ -309,6 +309,20 @@ export function TaskManagement() {
     // New Features - Done
     'Implement feature flags',
     'Add wishlist purchase tracking',
+    
+    // Error Handling - Done
+    'Add error boundary to Dashboard',
+    
+    // UI Components - Done  
+    'Create DeckCardDisplay component',
+    
+    // Performance - Done
+    'Fix collection tab switching',
+    'Improve collection search performance',
+    
+    // Bug Fixes - Done
+    'Fix missing cards drawer',
+    'Fix deck list sorting options',
   ];
 
   useEffect(() => {

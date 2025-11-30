@@ -86,19 +86,31 @@ export function MissingCardsDrawer({
         ownedCardsMap.set(card.card_id, card.quantity);
       });
 
-      // Find missing cards
+      // Find missing cards with accurate count
       const missing: MissingCard[] = [];
+      const cardDetailsCache = new Map();
+      
       for (const deckCard of deckCards) {
         const owned = ownedCardsMap.get(deckCard.card_id) || 0;
-        const needed = deckCard.quantity - owned;
+        const needed = Math.max(0, deckCard.quantity - owned);
         
         if (needed > 0) {
-          // Get card details
-          const { data: cardDetails, error: cardError } = await supabase
-            .from('cards')
-            .select('rarity, type_line, image_uris, prices')
-            .eq('id', deckCard.card_id)
-            .single();
+          // Check cache first
+          let cardDetails = cardDetailsCache.get(deckCard.card_id);
+          
+          if (!cardDetails) {
+            // Get card details
+            const { data, error: cardError } = await supabase
+              .from('cards')
+              .select('rarity, type_line, image_uris, prices')
+              .eq('id', deckCard.card_id)
+              .single();
+            
+            if (!cardError && data) {
+              cardDetails = data;
+              cardDetailsCache.set(deckCard.card_id, data);
+            }
+          }
 
           const prices = cardDetails?.prices as any;
           const estimatedPrice = prices?.usd 

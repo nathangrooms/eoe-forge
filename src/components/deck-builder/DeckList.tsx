@@ -17,10 +17,12 @@ import {
   Mountain,
   Users,
   Skull,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ArrowUpDown
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { CardReplacementModal } from './CardReplacementModal';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const CATEGORY_ICONS = {
   commander: Crown,
@@ -61,6 +63,7 @@ interface DeckCategory {
 
 export const DeckList = () => {
   const deck = useDeckStore();
+  const [sortBy, setSortBy] = useState<'name' | 'cmc' | 'type' | 'color'>('type');
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     creatures: true,
     lands: true,
@@ -256,11 +259,46 @@ export const DeckList = () => {
 
   const categories = ['creatures', 'lands', 'instants', 'sorceries', 'enchantments', 'artifacts', 'planeswalkers', 'battles'];
 
+  // Sort cards based on selected sort option
+  const sortCards = (cards: any[]) => {
+    return [...cards].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'cmc':
+          return (a.cmc || 0) - (b.cmc || 0);
+        case 'color':
+          return (a.colors?.[0] || 'Z').localeCompare(b.colors?.[0] || 'Z');
+        case 'type':
+        default:
+          return 0; // Keep category grouping
+      }
+    });
+  };
+
   return (
     <div className="space-y-1">
+      {/* Sort Controls */}
+      <div className="flex items-center gap-2 mb-4 px-1">
+        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+        <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+          <SelectTrigger className="w-[180px] h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="type">Sort by Type</SelectItem>
+            <SelectItem value="name">Sort by Name</SelectItem>
+            <SelectItem value="cmc">Sort by CMC</SelectItem>
+            <SelectItem value="color">Sort by Color</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {categories.map((category) => {
         const cards = groupedCards[category] || [];
         if (cards.length === 0) return null;
+        
+        const sortedCards = sortCards(cards);
         
         return (
           <div key={category}>
@@ -268,8 +306,8 @@ export const DeckList = () => {
             {expandedCategories[category] && (
               <div className="pb-2">
                 {category === 'creatures' ? 
-                  renderCreatureBuckets(cards) : 
-                  renderCardList(cards)
+                  renderCreatureBuckets(sortedCards) : 
+                  renderCardList(sortedCards)
                 }
               </div>
             )}

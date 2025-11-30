@@ -64,10 +64,15 @@ export default function Collection() {
     addToBox: false,
   });
 
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   useEffect(() => {
-    // Load collection once on mount to avoid effect loops if `load` has unstable identity
-    load();
-  }, []);
+    // Only load collection on initial mount
+    if (isInitialLoad) {
+      load();
+      setIsInitialLoad(false);
+    }
+  }, [isInitialLoad]);
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';

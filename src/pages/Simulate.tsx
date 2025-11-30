@@ -7,7 +7,6 @@ import { GameBoard } from '@/components/simulation/GameBoard';
 import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { PhaseProgress } from '@/components/simulation/PhaseProgress';
-import { AnimationTestPanel } from '@/components/simulation/AnimationTestPanel';
 import { PhaseIndicator } from '@/components/simulation/PhaseIndicator';
 import { AbilityTriggerPopup, useAbilityTriggers } from '@/components/simulation/AbilityTriggerPopup';
 import { useDamageNumbers } from '@/components/simulation/FloatingDamage';
@@ -510,9 +509,6 @@ export default function Simulate() {
           </div>
         </div>
       )}
-      
-      {/* Dev animation test panel */}
-      {gameState && <AnimationTestPanel />}
     </div>
   );
 }

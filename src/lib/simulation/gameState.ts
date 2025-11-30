@@ -91,6 +91,9 @@ function convertToGameCards(deck: Card[], owner: 'player1' | 'player2'): GameCar
     damageMarked: 0,
     summoningSick: true,
     wasPlayedThisTurn: false,
+    powerModifier: 0,
+    toughnessModifier: 0,
+    abilitiesUsedThisTurn: [],
   }));
 }
 

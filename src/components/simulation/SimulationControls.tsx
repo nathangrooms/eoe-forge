@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Play, Pause, SkipForward, RotateCcw, Download } from 'lucide-react';
+import { SimulationLegend } from './SimulationLegend';
 
 interface SimulationControlsProps {
   isPlaying: boolean;
@@ -52,7 +53,7 @@ export const SimulationControls = ({
       <div className="flex items-center gap-2 ml-4">
         <span className="text-sm text-muted-foreground">Speed:</span>
         <div className="flex gap-1">
-          {[0.5, 1, 2, 4].map((s) => (
+          {[0.25, 0.5, 1, 2].map((s) => (
             <Button
               key={s}
               size="sm"
@@ -67,6 +68,8 @@ export const SimulationControls = ({
       </div>
 
       <div className="flex-1" />
+
+      <SimulationLegend />
 
       <Button onClick={onExport} variant="outline" disabled={!isComplete}>
         <Download className="h-4 w-4 mr-2" />

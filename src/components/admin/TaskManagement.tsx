@@ -29,7 +29,8 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, CheckCircle2, Filter } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
 type TaskCategory = 'feature' | 'bug' | 'improvement' | 'core_functionality';
@@ -92,6 +93,7 @@ export function TaskManagement() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showCompleted, setShowCompleted] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -176,6 +178,21 @@ export function TaskManagement() {
     }
   };
 
+  const handleComplete = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'done' })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      showSuccess('Task marked as complete');
+      fetchTasks();
+    } catch (error: any) {
+      showError('Failed to complete task', error.message);
+    }
+  };
+
   const handleDelete = async (taskId: string) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
 
@@ -222,19 +239,38 @@ export function TaskManagement() {
     setEditingTask(null);
   };
 
+  const filteredTasks = showCompleted 
+    ? tasks 
+    : tasks.filter(task => task.status !== 'done');
+
+  const completedCount = tasks.filter(t => t.status === 'done').length;
+  const activeCount = tasks.length - completedCount;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Task Management</h2>
           <p className="text-muted-foreground mt-1">
-            Manage your administrative tasks and track progress
+            {activeCount} active · {completedCount} completed
           </p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
           New Task
         </Button>
+      </div>
+
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Label htmlFor="show-completed" className="text-sm font-normal cursor-pointer">
+          Show completed tasks
+        </Label>
+        <Switch 
+          id="show-completed"
+          checked={showCompleted} 
+          onCheckedChange={setShowCompleted}
+        />
       </div>
 
       <div className="rounded-lg border border-border bg-card">
@@ -257,57 +293,74 @@ export function TaskManagement() {
                   Loading tasks...
                 </TableCell>
               </TableRow>
-            ) : tasks.length === 0 ? (
+            ) : filteredTasks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No tasks yet. Create your first task to get started.
+                  {tasks.length === 0 
+                    ? 'No tasks yet. Create your first task to get started.'
+                    : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
                 </TableCell>
               </TableRow>
             ) : (
-              tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">{task.title}</TableCell>
-                  <TableCell className="max-w-md truncate text-muted-foreground">
-                    {task.description || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={categoryColors[task.category]}>
-                      {categoryLabels[task.category]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={priorityColors[task.priority]}>
-                      {priorityLabels[task.priority]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusColors[task.status]}>
-                      {statusLabels[task.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(task.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(task)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(task.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              filteredTasks.map((task) => {
+                const isCompleted = task.status === 'done';
+                return (
+                  <TableRow key={task.id} className={isCompleted ? 'opacity-60' : ''}>
+                    <TableCell className={`font-medium ${isCompleted ? 'line-through' : ''}`}>
+                      {task.title}
+                    </TableCell>
+                    <TableCell className="max-w-md truncate text-muted-foreground">
+                      {task.description || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={categoryColors[task.category]}>
+                        {categoryLabels[task.category]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={priorityColors[task.priority]}>
+                        {priorityLabels[task.priority]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusColors[task.status]}>
+                        {statusLabels[task.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(task.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {!isCompleted && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleComplete(task.id)}
+                            title="Mark as complete"
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(task)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(task.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

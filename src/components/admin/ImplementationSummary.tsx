@@ -39,7 +39,23 @@ export function ImplementationSummary() {
         'Social features with ratings and comments',
         'Deck comparison tool for side-by-side analysis',
         'Archetype library with popular templates',
-        'Advanced filter panel with multi-criteria search'
+        'Advanced filter panel with multi-criteria search',
+        'Deck proxy generator for printable cards'
+      ]
+    },
+    {
+      category: 'Wishlist Features',
+      features: [
+        'Budget tracker with spending limits',
+        'Purchase tracking and completion status'
+      ]
+    },
+    {
+      category: 'Analytics Features',
+      features: [
+        'Collection value trends dashboard',
+        'Top cards by value analysis',
+        'Set and condition value breakdown'
       ]
     },
     {

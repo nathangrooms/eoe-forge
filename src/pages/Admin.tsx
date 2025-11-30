@@ -7,6 +7,7 @@ import { TaskManagement } from '@/components/admin/TaskManagement';
 import { FeatureFlags } from '@/components/admin/FeatureFlags';
 import { SystemHealthDashboard } from '@/components/dashboard/SystemHealthDashboard';
 import { ImplementationSummary } from '@/components/admin/ImplementationSummary';
+import { RLSPolicyAudit } from '@/components/admin/RLSPolicyAudit';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
@@ -18,6 +19,7 @@ const Admin = () => {
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="features">Feature Flags</TabsTrigger>
           <TabsTrigger value="health">System Health</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="sync">Card Sync</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="management">Management</TabsTrigger>
@@ -40,6 +42,10 @@ const Admin = () => {
 
         <TabsContent value="health">
           <SystemHealthDashboard />
+        </TabsContent>
+
+        <TabsContent value="security">
+          <RLSPolicyAudit />
         </TabsContent>
 
         <TabsContent value="sync">

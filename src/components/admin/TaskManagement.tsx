@@ -154,6 +154,13 @@ export function TaskManagement() {
     'Implement OAuth providers',
     'Add 2FA authentication',
     'Implement database backup management',
+    // Explicitly mark these six tasks as implemented so they stay done
+    'Create DeckLegalityChecker class',
+    'Fix storage assignment race condition',
+    'Fix commander image loading',
+    'Fix async state updates in Dashboard',
+    'Fix auto-save debounce failure',
+    'Fix collection storage sync',
   ];
 
   useEffect(() => {

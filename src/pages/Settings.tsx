@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { APIKeyManagement } from '@/components/settings/APIKeyManagement';
 import { 
   Settings as SettingsIcon,
   User,
@@ -172,36 +173,45 @@ export default function Settings() {
 
                 {/* Special Actions for Advanced Category */}
                 {selectedCategory === 'Advanced' && (
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <h4 className="font-medium mb-4">Data Management</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card>
-                        <CardContent className="p-4 text-center">
-                          <Download className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <h5 className="font-medium mb-1">Export Data</h5>
-                          <p className="text-xs text-muted-foreground mb-3">
-                            Download your collection and deck data
-                          </p>
-                          <Button size="sm" onClick={handleExportData}>
-                            <Download className="h-4 w-4 mr-2" />
-                            Export
-                          </Button>
-                        </CardContent>
-                      </Card>
+                  <div className="mt-6 pt-6 border-t border-border space-y-6">
+                    {/* API Key Management */}
+                    <div>
+                      <h4 className="font-medium mb-4">API Keys</h4>
+                      <APIKeyManagement />
+                    </div>
 
-                      <Card>
-                        <CardContent className="p-4 text-center">
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <h5 className="font-medium mb-1">Import Data</h5>
-                          <p className="text-xs text-muted-foreground mb-3">
-                            Import from other MTG platforms
-                          </p>
-                          <Button size="sm" variant="outline" onClick={handleImportData}>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Import
-                          </Button>
-                        </CardContent>
-                      </Card>
+                    {/* Data Management */}
+                    <div>
+                      <h4 className="font-medium mb-4">Data Management</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card>
+                          <CardContent className="p-4 text-center">
+                            <Download className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <h5 className="font-medium mb-1">Export Data</h5>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Download your collection and deck data
+                            </p>
+                            <Button size="sm" onClick={handleExportData}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Export
+                            </Button>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4 text-center">
+                            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <h5 className="font-medium mb-1">Import Data</h5>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Import from other MTG platforms
+                            </p>
+                            <Button size="sm" variant="outline" onClick={handleImportData}>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Import
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -17,7 +17,7 @@ interface PriceData {
 }
 
 interface PriceComparisonProps {
-  cardName: string;
+  cardName?: string;
   cardId?: string;
   setCode?: string;
   foil?: boolean;
@@ -25,14 +25,18 @@ interface PriceComparisonProps {
 
 export function PriceComparison({ cardName, cardId, setCode, foil = false }: PriceComparisonProps) {
   const [prices, setPrices] = useState<PriceData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPrices();
+    if (cardName || cardId) {
+      loadPrices();
+    }
   }, [cardName, cardId, foil]);
 
   const loadPrices = async () => {
+    if (!cardName) return;
+    
     setLoading(true);
     setError(null);
 
@@ -134,6 +138,24 @@ export function PriceComparison({ cardName, cardId, setCode, foil = false }: Pri
 
   const lowestPrice = getLowestPrice();
   const averagePrice = getAveragePrice();
+
+  // Show placeholder if no card selected
+  if (!cardName && !cardId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Price Comparison
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Select a card to compare prices across marketplaces
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (

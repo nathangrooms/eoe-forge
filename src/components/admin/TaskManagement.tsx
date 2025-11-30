@@ -395,6 +395,9 @@ export function TaskManagement() {
     'Implement CSRF protection',
     'Implement input sanitization',
     'Implement audit logging system',
+    'Add tournament manager with bracket generation',
+    'Add deck social features with ratings and comments',
+    'Add deck compatibility checker',
   ];
 
   useEffect(() => {

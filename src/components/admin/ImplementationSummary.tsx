@@ -39,6 +39,7 @@ export function ImplementationSummary() {
         'Budget tracker with spending analysis',
         'Card replacement engine for alternatives',
         'Social features with ratings and comments',
+        'Deck compatibility checker for collection analysis',
         'Deck comparison tool for side-by-side analysis',
         'Archetype library with popular templates',
         'Advanced filter panel with multi-criteria search',
@@ -110,7 +111,9 @@ export function ImplementationSummary() {
         'Tournament manager with bracket generation',
         'Swiss and elimination formats',
         'Real-time standings tracking',
-        'Match result recording'
+        'Match result recording',
+        'Player pairing algorithms',
+        'Tournament status management'
       ]
     },
     {

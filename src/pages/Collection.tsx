@@ -26,6 +26,7 @@ import { ListingFormData } from '@/types/listing';
 import { StorageContainer } from '@/types/storage';
 import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
 import { CategoryManager } from '@/components/collection/CategoryManager';
+import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 
 export default function Collection() {
   const {
@@ -475,7 +476,7 @@ export default function Collection() {
             <div className="space-y-6">
               {collectionStats && (
                 <>
-                  <AICollectionInsights 
+                  <AICollectionInsights
                     stats={{
                       totalCards: collectionStats.totalCards,
                       uniqueCards: collectionStats.uniqueCards,
@@ -489,6 +490,7 @@ export default function Collection() {
                       value: c.price_usd
                     }))}
                   />
+                  <TCGPlayerPriceSync />
                   <CollectionAnalytics 
                     stats={collectionStats} 
                     loading={loading}

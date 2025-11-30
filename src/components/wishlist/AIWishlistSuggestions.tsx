@@ -20,6 +20,24 @@ export function AIWishlistSuggestions({ wishlistItems, onAddCard }: AIWishlistSu
   const [suggestions, setSuggestions] = useState<string>('');
   const [cards, setCards] = useState<CardData[]>([]);
   const [error, setError] = useState<string>('');
+  const [userDecks, setUserDecks] = useState<any[]>([]);
+
+  // Load user's decks to provide better context
+  useState(() => {
+    const loadUserDecks = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data } = await supabase
+        .from('user_decks')
+        .select('id, name, format, colors, archetype')
+        .eq('user_id', session.user.id)
+        .limit(5);
+      
+      if (data) setUserDecks(data);
+    };
+    loadUserDecks();
+  });
 
   const generateSuggestions = async () => {
     setLoading(true);
@@ -29,18 +47,26 @@ export function AIWishlistSuggestions({ wishlistItems, onAddCard }: AIWishlistSu
       const highPriority = wishlistItems.filter(i => i.priority === 'high');
       const mediumPriority = wishlistItems.filter(i => i.priority === 'medium');
       
-      const prompt = `Based on this Magic: The Gathering wishlist, provide strategic purchasing recommendations:
+      const deckContext = userDecks.length > 0 
+        ? `\n**Your Decks:**\n${userDecks.map(d => `- ${d.name} (${d.format}${d.archetype ? `, ${d.archetype}` : ''}) - Colors: ${d.colors.join('')}`).join('\n')}`
+        : '';
+      
+      const prompt = `Based on this Magic: The Gathering wishlist and deck collection, provide strategic purchasing recommendations:
 
 **Current Wishlist (${wishlistItems.length} cards):**
 ${highPriority.length > 0 ? `\n**High Priority:**\n${highPriority.map(i => `- ${i.card_name}${i.note ? ` (${i.note})` : ''}`).join('\n')}` : ''}
 ${mediumPriority.length > 0 ? `\n**Medium Priority:**\n${mediumPriority.slice(0, 10).map(i => `- ${i.card_name}`).join('\n')}` : ''}
+${deckContext}
 
 Provide:
-1. Strategic purchasing order based on impact and synergy
-2. Budget-friendly alternatives for expensive cards
-3. Missing staples that should be added to wishlist
-4. Cards that pair well with current wishlist items
-5. 5-7 specific card recommendations with reasoning
+1. Cards that synergize with your existing decks
+2. Strategic purchasing order based on deck needs and impact
+3. Budget-friendly alternatives for expensive cards on wishlist
+4. Missing staples for your deck archetypes that should be added
+5. Cards that pair well with current wishlist items
+6. 5-7 specific card recommendations with reasoning based on your decks
+
+Focus on practical recommendations that improve your actual decks.
 
 End with: Referenced Cards: [list all cards mentioned]`;
 

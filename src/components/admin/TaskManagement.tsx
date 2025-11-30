@@ -338,6 +338,7 @@ export function TaskManagement() {
     'Add Planeswalker badge progression to Dashboard',
     'Add deck simulation tool to Deck Builder',
     'Add buyer messaging system',
+    'Add TCGPlayer price sync',
   ];
 
   useEffect(() => {

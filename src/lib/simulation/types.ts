@@ -65,6 +65,7 @@ export interface CombatState {
   isActive: boolean;
   attackers: Array<{ instanceId: string; blockedBy: string[] }>;
   blockers: Array<{ instanceId: string; blocking: string }>;
+  damageResolved: boolean;
 }
 
 export interface GameEvent {

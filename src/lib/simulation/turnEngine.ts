@@ -79,6 +79,9 @@ function handlePhaseActions(state: GameState): void {
 
     case 'combat_begin':
       state.combat.isActive = true;
+      state.combat.attackers = [];
+      state.combat.blockers = [];
+      state.combat.damageResolved = false;
       break;
 
     case 'declare_attackers':

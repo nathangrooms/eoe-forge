@@ -32,6 +32,7 @@ import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
+type TaskCategory = 'feature' | 'bug' | 'improvement' | 'core_functionality';
 
 interface Task {
   id: string;
@@ -39,6 +40,7 @@ interface Task {
   title: string;
   description: string | null;
   status: TaskStatus;
+  category: TaskCategory;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +59,20 @@ const statusLabels: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
+const categoryColors: Record<TaskCategory, string> = {
+  feature: 'bg-blue-500/20 text-blue-400',
+  bug: 'bg-red-500/20 text-red-400',
+  improvement: 'bg-purple-500/20 text-purple-400',
+  core_functionality: 'bg-amber-500/20 text-amber-400',
+};
+
+const categoryLabels: Record<TaskCategory, string> = {
+  feature: 'Feature',
+  bug: 'Bug',
+  improvement: 'Improvement',
+  core_functionality: 'Core Functionality',
+};
+
 export function TaskManagement() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +82,7 @@ export function TaskManagement() {
     title: '',
     description: '',
     status: 'pending' as TaskStatus,
+    category: 'feature' as TaskCategory,
   });
 
   useEffect(() => {
@@ -113,6 +130,7 @@ export function TaskManagement() {
             title: formData.title,
             description: formData.description,
             status: formData.status,
+            category: formData.category,
           })
           .eq('id', editingTask.id);
 
@@ -126,6 +144,7 @@ export function TaskManagement() {
             title: formData.title,
             description: formData.description,
             status: formData.status,
+            category: formData.category,
           });
 
         if (error) throw error;
@@ -168,6 +187,7 @@ export function TaskManagement() {
       title: task.title,
       description: task.description || '',
       status: task.status,
+      category: task.category,
     });
     setEditingTask(task);
     setDialogOpen(true);
@@ -178,6 +198,7 @@ export function TaskManagement() {
       title: '',
       description: '',
       status: 'pending',
+      category: 'feature',
     });
     setEditingTask(null);
   };
@@ -203,6 +224,7 @@ export function TaskManagement() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -211,13 +233,13 @@ export function TaskManagement() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   Loading tasks...
                 </TableCell>
               </TableRow>
             ) : tasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No tasks yet. Create your first task to get started.
                 </TableCell>
               </TableRow>
@@ -227,6 +249,11 @@ export function TaskManagement() {
                   <TableCell className="font-medium">{task.title}</TableCell>
                   <TableCell className="max-w-md truncate text-muted-foreground">
                     {task.description || '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={categoryColors[task.category]}>
+                      {categoryLabels[task.category]}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge className={statusColors[task.status]}>
@@ -300,6 +327,26 @@ export function TaskManagement() {
                   placeholder="Enter task description (optional)"
                   rows={4}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value: TaskCategory) =>
+                    setFormData({ ...formData, category: value })
+                  }
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="feature">Feature</SelectItem>
+                    <SelectItem value="bug">Bug</SelectItem>
+                    <SelectItem value="improvement">Improvement</SelectItem>
+                    <SelectItem value="core_functionality">Core Functionality</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

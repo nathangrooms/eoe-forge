@@ -612,6 +612,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          category: Database["public"]["Enums"]["task_category"]
           created_at: string | null
           description: string | null
           id: string
@@ -621,6 +622,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category?: Database["public"]["Enums"]["task_category"]
           created_at?: string | null
           description?: string | null
           id?: string
@@ -630,6 +632,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category?: Database["public"]["Enums"]["task_category"]
           created_at?: string | null
           description?: string | null
           id?: string
@@ -807,6 +810,7 @@ export type Database = {
       toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
     }
     Enums: {
+      task_category: "feature" | "bug" | "improvement" | "core_functionality"
       task_status: "pending" | "in_progress" | "blocked" | "done"
     }
     CompositeTypes: {
@@ -935,6 +939,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      task_category: ["feature", "bug", "improvement", "core_functionality"],
       task_status: ["pending", "in_progress", "blocked", "done"],
     },
   },

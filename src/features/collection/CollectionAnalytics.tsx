@@ -43,7 +43,8 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
     B: 'Black',
     R: 'Red',
     G: 'Green',
-    C: 'Colorless'
+    C: 'Colorless',
+    M: 'Multicolor'
   };
 
   const colorTotal = Object.values(stats.colorDistribution).reduce((sum, count) => sum + count, 0);
@@ -142,7 +143,8 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
                   B: 'bg-gray-800',
                   R: 'bg-red-500',
                   G: 'bg-green-500',
-                  C: 'bg-gray-400'
+                  C: 'bg-gray-400',
+                  M: 'bg-gradient-to-r from-blue-500 via-purple-500 to-red-500'
                 };
                 
                 return (

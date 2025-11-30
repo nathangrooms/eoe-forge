@@ -170,6 +170,14 @@ export default function Marketplace() {
 
       if (updateError) throw updateError;
 
+      // Immediately update local state for instant UI feedback
+      setMyListings(prev => prev.filter(l => l.id !== data.listing_id));
+      setSoldListings(prev => [{
+        ...listing,
+        status: 'sold',
+        updated_at: new Date().toISOString()
+      }, ...prev]);
+
       // Remove from collection
       const { error: collectionError } = await supabase
         .from('user_collections')
@@ -183,7 +191,9 @@ export default function Marketplace() {
       }
 
       showSuccess('Card Sold!', `${listing.cards?.name || listing.card_id} marked as sold and removed from collection`);
-      loadMyListings();
+      
+      // Reload to ensure sync with database
+      await loadMyListings();
     } catch (error) {
       console.error('Error marking as sold:', error);
       showError('Error', 'Failed to record sale');

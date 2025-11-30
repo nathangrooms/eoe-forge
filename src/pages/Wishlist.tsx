@@ -90,10 +90,13 @@ export default function Wishlist() {
     try {
       setLoading(true);
       
-      // First, load wishlist items without joins to avoid errors
-      const { data: wishlistData, error: wishlistError } = await (supabase as any)
+      // Load wishlist items with joined card data from cards table
+      const { data: wishlistData, error: wishlistError } = await supabase
         .from('wishlist')
-        .select('*')
+        .select(`
+          *,
+          card:cards!wishlist_card_id_fkey(*)
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -104,14 +107,13 @@ export default function Wishlist() {
         return;
       }
 
-      // For now, just use basic card data from card names
-      // This will show the wishlist with basic information while we resolve the card data fetching
+      // Transform the joined data
       const transformedData = wishlistData.map((item: any) => ({
         ...item,
-        card: {
+        card: item.card || {
           id: item.card_id,
           name: item.card_name,
-          type_line: 'Loading...',
+          type_line: 'Unknown',
           colors: [],
           color_identity: [],
           rarity: 'common',
@@ -122,47 +124,6 @@ export default function Wishlist() {
       }));
       
       setWishlistItems(transformedData);
-
-      // Attempt to fetch additional card data from Scryfall for enhanced display
-      if (wishlistData.length > 0) {
-        setTimeout(async () => {
-          try {
-            const updatedItems = await Promise.all(
-              wishlistData.map(async (item: any) => {
-                try {
-                  const response = await fetch(`https://api.scryfall.com/cards/${item.card_id}`);
-                  if (response.ok) {
-                    const cardData = await response.json();
-                    return {
-                      ...item,
-                      card: cardData
-                    };
-                  }
-                } catch (error) {
-                  console.warn(`Failed to fetch card ${item.card_id}:`, error);
-                }
-                return {
-                  ...item,
-                  card: {
-                    id: item.card_id,
-                    name: item.card_name,
-                    type_line: 'Unknown',
-                    colors: [],
-                    color_identity: [],
-                    rarity: 'common',
-                    image_uris: {},
-                    prices: { usd: '0.00' },
-                    set_code: 'UNK'
-                  }
-                };
-              })
-            );
-            setWishlistItems(updatedItems);
-          } catch (error) {
-            console.warn('Failed to enhance wishlist with card data:', error);
-          }
-        }, 100);
-      }
     } catch (error) {
       console.error('Error loading wishlist:', error);
       showError('Failed to load wishlist');

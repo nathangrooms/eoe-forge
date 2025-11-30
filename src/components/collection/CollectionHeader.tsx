@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Grid3X3, List, BookOpen, Download, Upload, X } from 'lucide-react';
+import { Search, Filter, Grid3X3, List, BookOpen, Download, Upload, X, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,7 @@ interface CollectionHeaderProps {
   onBulkAction: (action: string) => void;
   onAddFilter?: (filter: FilterChip) => void;
   onSearchWithFilters?: () => void;
+  onExportBackup?: () => void;
 }
 
 export function CollectionHeader({
@@ -44,7 +45,8 @@ export function CollectionHeader({
   onRemoveFilter,
   onBulkAction,
   onAddFilter,
-  onSearchWithFilters
+  onSearchWithFilters,
+  onExportBackup
 }: CollectionHeaderProps) {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
@@ -128,6 +130,10 @@ export function CollectionHeader({
             <DropdownMenuItem onClick={() => onBulkAction('export')}>
               <Download className="h-4 w-4 mr-2" />
               Export Collection
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onExportBackup}>
+              <Save className="h-4 w-4 mr-2" />
+              Backup Collection
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onBulkAction('mark-owned')}>
               Mark Selected as Owned

@@ -95,14 +95,13 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
         </div>
       </Card>
 
-      {/* Hand (only for bottom player) */}
-      {!isTop && (
-        <ZoneSection
-          title="Hand"
-          cards={player.hand}
-          orientation={orientation}
-        />
-      )}
+      {/* Hand */}
+      <ZoneSection
+        title="Hand"
+        cards={player.hand}
+        orientation={orientation}
+        compact
+      />
 
       {/* Battlefield sections */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-2">

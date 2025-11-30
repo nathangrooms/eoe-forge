@@ -12,19 +12,8 @@ interface GameBoardProps {
 export const GameBoard = ({ state }: GameBoardProps) => {
   return (
     <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-background to-muted/20">
-      {/* Opponent's zone (top) */}
-      <div className="flex-1 border-b-4 border-primary/30 overflow-y-auto bg-gradient-to-b from-muted/10 to-transparent">
-        <DetailedPlayerZone
-          player={state.player2}
-          isActive={state.activePlayer === 'player2'}
-          hasPriority={state.priorityPlayer === 'player2'}
-          orientation="top"
-        />
-      </div>
-
-      {/* Middle section: Phase info and Stack */}
-      <div className="relative flex flex-col items-center gap-3 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 py-6 border-y-4 border-primary/30 shadow-xl">
-        {/* Turn and active player */}
+      {/* Center strip: turn / phase info */}
+      <div className="relative flex flex-col items-center gap-3 bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 py-4 border-b-4 border-primary/30 shadow-xl z-10">
         <div className="flex items-center gap-6">
           <Badge variant="outline" className="text-2xl px-6 py-3 bg-background/90 backdrop-blur font-bold border-2 shadow-md">
             Turn {state.turn}
@@ -37,22 +26,21 @@ export const GameBoard = ({ state }: GameBoardProps) => {
           </Badge>
         </div>
 
-        {/* Phase progress bar */}
-        <PhaseProgress 
-          currentPhase={state.phase} 
+        <PhaseProgress
+          currentPhase={state.phase}
           activePlayer={state.activePlayer === 'player1' ? state.player1.name : state.player2.name}
         />
 
         {/* Stack viewer */}
         {state.stack.length > 0 && (
-          <div className="absolute right-6 top-6">
+          <div className="absolute right-6 top-1/2 -translate-y-1/2">
             <StackViewer stack={state.stack} />
           </div>
         )}
 
         {/* Combat indicator */}
         {state.combat.isActive && (
-          <div className="absolute left-6 top-6">
+          <div className="absolute left-6 top-1/2 -translate-y-1/2">
             <Badge variant="destructive" className="text-2xl px-8 py-4 animate-pulse font-bold shadow-2xl border-2">
               ⚔️ COMBAT PHASE
             </Badge>
@@ -60,14 +48,27 @@ export const GameBoard = ({ state }: GameBoardProps) => {
         )}
       </div>
 
-      {/* Player's zone (bottom) */}
-      <div className="flex-1 border-t-4 border-primary/30 overflow-y-auto bg-gradient-to-t from-muted/10 to-transparent">
-        <DetailedPlayerZone
-          player={state.player1}
-          isActive={state.activePlayer === 'player1'}
-          hasPriority={state.priorityPlayer === 'player1'}
-          orientation="bottom"
-        />
+      {/* Players side by side */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Player 1 - left */}
+        <div className="flex-1 border-r-4 border-primary/30 overflow-y-auto bg-gradient-to-br from-muted/10 to-transparent">
+          <DetailedPlayerZone
+            player={state.player1}
+            isActive={state.activePlayer === 'player1'}
+            hasPriority={state.priorityPlayer === 'player1'}
+            orientation="bottom"
+          />
+        </div>
+
+        {/* Player 2 - right */}
+        <div className="flex-1 overflow-y-auto bg-gradient-to-bl from-muted/10 to-transparent">
+          <DetailedPlayerZone
+            player={state.player2}
+            isActive={state.activePlayer === 'player2'}
+            hasPriority={state.priorityPlayer === 'player2'}
+            orientation="top"
+          />
+        </div>
       </div>
 
       {/* Game over overlay */}

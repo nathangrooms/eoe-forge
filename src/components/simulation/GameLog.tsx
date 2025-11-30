@@ -1,27 +1,12 @@
 import { GameEvent } from '@/lib/simulation/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useEffect, useRef } from 'react';
 
 interface GameLogProps {
   events: GameEvent[];
-  autoScroll?: boolean;
 }
 
-export const GameLog = ({ events, autoScroll = true }: GameLogProps) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const prevLengthRef = useRef(events.length);
-
-  useEffect(() => {
-    // Auto-scroll to bottom when new events arrive
-    if (autoScroll && scrollRef.current && events.length > prevLengthRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-    prevLengthRef.current = events.length;
-  }, [events, autoScroll]);
-
+export const GameLog = ({ events }: GameLogProps) => {
   const getEventIcon = (type: GameEvent['type']) => {
     switch (type) {
       case 'draw': return '📥';
@@ -31,56 +16,58 @@ export const GameLog = ({ events, autoScroll = true }: GameLogProps) => {
       case 'block': return '🛡️';
       case 'damage': return '💥';
       case 'trigger': return '🎯';
-      case 'phase_change': return '⏭️';
       case 'game_over': return '🏆';
       default: return '•';
     }
   };
 
-  return (
-    <Card className="h-full flex flex-col border-2 shadow-xl">
-      <div className="p-5 border-b-2 bg-muted/30">
-        <h3 className="font-bold text-xl">Game Log</h3>
-        <p className="text-sm text-muted-foreground mt-1">Live updates • Turn {events[events.length - 1]?.turn || 1}</p>
-      </div>
-      <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="p-4 space-y-2.5">
-          {events.map((event, idx) => {
-            const icon = getEventIcon(event.type);
+  // Only show meaningful actions, newest first
+  const filtered = events.filter((event) => event.type !== 'phase_change');
+  const ordered = [...filtered].reverse();
 
-            return (
-              <div
-                key={idx}
-                className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg transition-all border-2",
-                  event.type === 'phase_change' && "bg-muted/40 border-border/50",
-                  event.type === 'damage' && "bg-destructive/10 border-destructive/30",
-                  event.type === 'game_over' && "bg-primary/20 border-primary font-bold",
-                  idx === events.length - 1 && "animate-fade-in ring-2 ring-primary/50"
-                )}
-              >
-                <div className="text-xl">{icon}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      Turn {event.turn}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {event.phase.replace(/_/g, ' ')}
+  return (
+    <ScrollArea className="h-full">
+      <div className="p-3 space-y-2">
+        {ordered.length === 0 && (
+          <div className="text-center text-xs text-muted-foreground py-4">
+            No actions yet. Start the simulation to see plays here.
+          </div>
+        )}
+
+        {ordered.map((event, idx) => {
+          const icon = getEventIcon(event.type);
+
+          return (
+            <div
+              key={`${event.timestamp}-${idx}`}
+              className={cn(
+                "flex items-start gap-3 p-2.5 rounded-lg border text-xs leading-relaxed",
+                event.type === 'damage' && "bg-destructive/10 border-destructive/40",
+                event.type === 'game_over' && "bg-primary/20 border-primary font-semibold",
+                event.type === 'cast_spell' && "bg-purple-500/10 border-purple-500/40",
+                event.type === 'play_land' && "bg-green-500/10 border-green-500/40",
+                event.type === 'attack' && "bg-orange-500/10 border-orange-500/40",
+                event.type === 'block' && "bg-blue-500/10 border-blue-500/40"
+              )}
+            >
+              <div className="text-base pt-0.5">{icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 text-[10px] text-muted-foreground">
+                  <span className="font-mono">T{event.turn}</span>
+                  {event.cardName && (
+                    <span className="font-semibold text-primary truncate max-w-[140px]">
+                      {event.cardName}
                     </span>
-                  </div>
-                  <p className={cn(
-                    "text-sm leading-relaxed",
-                    event.type === 'game_over' && "font-bold text-base"
-                  )}>
-                    {event.description}
-                  </p>
+                  )}
+                </div>
+                <div className="break-words">
+                  {event.description}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </Card>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
   );
 };

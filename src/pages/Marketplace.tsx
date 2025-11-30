@@ -10,13 +10,16 @@ import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
 import { EditListingModal } from '@/components/marketplace/EditListingModal';
 import { AIPricingInsights } from '@/components/marketplace/AIPricingInsights';
 import { PriceComparison } from '@/components/marketplace/PriceComparison';
+import { MessagingDrawer } from '@/components/marketplace/MessagingDrawer';
+import { MessageNotificationBadge } from '@/components/marketplace/MessageNotificationBadge';
 import { 
   Package, 
   DollarSign,
   Edit,
   Trash2,
   CheckCircle,
-  Calendar
+  Calendar,
+  MessageCircle
 } from 'lucide-react';
 
 interface Listing {
@@ -49,6 +52,7 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [showSoldModal, setShowSoldModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showMessagingDrawer, setShowMessagingDrawer] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
 
   useEffect(() => {
@@ -320,6 +324,22 @@ export default function Marketplace() {
               <Button 
                 size="sm" 
                 variant="outline" 
+                className="flex-1 relative"
+                onClick={() => {
+                  setSelectedListing(listing);
+                  setShowMessagingDrawer(true);
+                }}
+              >
+                <MessageCircle className="h-3 w-3 mr-1" />
+                Messages
+                <MessageNotificationBadge 
+                  listingId={listing.id}
+                  className="absolute -top-1 -right-1"
+                />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
                 className="flex-1"
                 onClick={() => handleShowSoldModal(listing)}
               >
@@ -469,6 +489,19 @@ export default function Marketplace() {
           listing={selectedListing}
           onSave={handleUpdateListing}
         />
+
+        {selectedListing && (
+          <MessagingDrawer
+            open={showMessagingDrawer}
+            onClose={() => {
+              setShowMessagingDrawer(false);
+              setSelectedListing(null);
+            }}
+            listingId={selectedListing.id}
+            sellerId={selectedListing.user_id}
+            cardName={selectedListing.cards?.name || selectedListing.card_id}
+          />
+        )}
       </div>
     </StandardPageLayout>
   );

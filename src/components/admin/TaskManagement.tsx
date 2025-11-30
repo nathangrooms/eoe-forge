@@ -104,7 +104,7 @@ export function TaskManagement() {
 
   // List of actually implemented tasks
   const IMPLEMENTED_TASKS = [
-    // Core functionality
+    // Core functionality - Already done
     'Add bulk card addition',
     'Add price alert notifications to Wishlist',
     'Remove duplicate deck loading logic',
@@ -194,6 +194,9 @@ export function TaskManagement() {
     'Fix card search in deck builder',
     'Fix deck deletion confirmation',
     'Improve commander selection UX',
+    'Implement deck versioning',
+    'Implement deck folder grouping',
+    'Add maybeboard functionality',
     
     // Collection Features
     'Add collection price alerts',
@@ -209,6 +212,7 @@ export function TaskManagement() {
     'Add card quantity bulk edit',
     'Add card printing selection',
     'Add card grouping by category',
+    'Implement collection backup',
     
     // Admin & System
     'Add analytics dashboard',

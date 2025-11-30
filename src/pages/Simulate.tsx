@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
+import { SimulationCinematicOverlay } from '@/components/simulation/SimulationCinematicOverlay';
 
 interface DeckOption {
   id: string;
@@ -35,10 +36,20 @@ export default function Simulate() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [showIntro, setShowIntro] = useState(false);
+  const [introDeckNames, setIntroDeckNames] = useState<{ deck1: string; deck2: string } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(1); // 1x speed for good viewing
   const [showPhase, setShowPhase] = useState(false);
+  const [cinematicMode, setCinematicMode] = useState<
+    | null
+    | {
+        type: 'attack' | 'block' | 'destroy';
+        attackers?: string[];
+        blockers?: string[];
+        destroyed?: string[];
+      }
+  >(null);
 
   const { damages, showDamage } = useDamageNumbers();
   const { triggers, showTrigger } = useAbilityTriggers();
@@ -152,6 +163,8 @@ export default function Simulate() {
         return;
       }
 
+      setIntroDeckNames({ deck1: deck1Info.name || 'Deck A', deck2: deck2Info.name || 'Deck B' });
+
       // Load cards
       const [deck1Cards, deck2Cards] = await Promise.all([
         loadDeckCards(deck1Id),
@@ -174,7 +187,7 @@ export default function Simulate() {
       // Show battle intro
       setShowIntro(true);
 
-      // Create simulator after intro
+      // Create simulator after intro animation plays
       setTimeout(() => {
         try {
           const sim = new StepSimulator(
@@ -219,6 +232,26 @@ export default function Simulate() {
         // Step through one action/phase at a time
         const prevPhase = gameState.phase;
         const result = simulator.step();
+        
+        // Trigger cinematic overlays for key events
+        if (result.events.length > 0) {
+          result.events.forEach((event) => {
+            if (event.type === 'attack_declared' && event.attackerIds?.length) {
+              setCinematicMode({ type: 'attack', attackers: event.attackerIds });
+            }
+            if (event.type === 'blockers_declared' && event.blocks?.length) {
+              const blockers = event.blocks.map((b: any) => b.blocker).filter(Boolean);
+              setCinematicMode({ type: 'block', blockers });
+            }
+            if (event.type === 'creature_dies') {
+              setCinematicMode({ type: 'destroy', destroyed: [event.cardId] });
+            }
+          });
+
+          if (result.events.some((e) => e.type === 'attack_declared' || e.type === 'blockers_declared' || e.type === 'creature_dies')) {
+            setTimeout(() => setCinematicMode(null), 1800);
+          }
+        }
         
         // Process animation events
         processEvents(result.events);
@@ -290,6 +323,25 @@ export default function Simulate() {
     
     try {
       const result = simulator.step();
+
+      if (result.events.length > 0) {
+        result.events.forEach((event) => {
+          if (event.type === 'attack_declared' && event.attackerIds?.length) {
+            setCinematicMode({ type: 'attack', attackers: event.attackerIds });
+          }
+          if (event.type === 'blockers_declared' && event.blocks?.length) {
+            const blockers = event.blocks.map((b: any) => b.blocker).filter(Boolean);
+            setCinematicMode({ type: 'block', blockers });
+          }
+          if (event.type === 'creature_dies') {
+            setCinematicMode({ type: 'destroy', destroyed: [event.cardId] });
+          }
+        });
+
+        if (result.events.some((e) => e.type === 'attack_declared' || e.type === 'blockers_declared' || e.type === 'creature_dies')) {
+          setTimeout(() => setCinematicMode(null), 1800);
+        }
+      }
       
       // Process animation events
       processEvents(result.events);
@@ -362,15 +414,14 @@ export default function Simulate() {
   return (
     <div className="h-screen flex flex-col bg-background">
       <AnimatePresence>
-        {showIntro && gameState && (
+        {showIntro && introDeckNames && (
           <BattleIntro
-            deck1Name={gameState.player1.name}
-            deck2Name={gameState.player2.name}
+            deck1Name={introDeckNames.deck1}
+            deck2Name={introDeckNames.deck2}
             onComplete={() => setShowIntro(false)}
           />
         )}
       </AnimatePresence>
-
       {!gameState ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <Card className="p-8 max-w-2xl w-full space-y-6">
@@ -378,7 +429,8 @@ export default function Simulate() {
               <Swords className="h-16 w-16 mx-auto text-primary" />
               <h1 className="text-4xl font-bold">Deck Simulation</h1>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in real-time.
+                Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in
+                real-time.
               </p>
             </div>
 
@@ -439,12 +491,8 @@ export default function Simulate() {
 
             {decks.length < 2 && (
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  You need at least 2 decks to run a simulation.
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Go to Deck Builder to create decks first.
-                </p>
+                <p className="text-sm text-muted-foreground">You need at least 2 decks to run a simulation.</p>
+                <p className="text-xs text-muted-foreground mt-1">Go to Deck Builder to create decks first.</p>
               </div>
             )}
 
@@ -478,14 +526,14 @@ export default function Simulate() {
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">Game Log</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Live updates • Turn {gameState.turn}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Live updates • Turn {gameState.turn}</p>
                 </div>
               </div>
               <PhaseProgress
                 currentPhase={gameState.phase}
-                activePlayer={gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name}
+                activePlayer={
+                  gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name
+                }
               />
             </div>
             <div className="flex-1 overflow-auto min-h-0">

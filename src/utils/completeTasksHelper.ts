@@ -387,37 +387,60 @@ export async function markTasksComplete() {
     }
   ];
 
-  // Only create tasks that don't already exist
+  // Build list of titles that should be marked as done (implemented work)
+  const implementedTaskTitles = [
+    ...completedTasks.map(t => t.title),
+    ...newCompletedTasks.map(t => t.title),
+  ];
+
+  // Ensure all implemented tasks exist and are marked done
   const tasksToCreate = newCompletedTasks.filter(
     task => !existingTaskTitles.has(task.title)
   );
   
-  if (tasksToCreate.length === 0) {
-    console.log('No new tasks to create');
-    return;
-  }
+  if (tasksToCreate.length > 0) {
+    console.log(`Creating ${tasksToCreate.length} new completed tasks`);
 
-  console.log(`Creating ${tasksToCreate.length} new completed tasks`);
-
-  for (const task of tasksToCreate) {
-    const { error } = await supabase
-      .from('tasks')
-      .insert([{
-        user_id: user.id,
-        status: 'done' as const,
-        title: task.title,
-        description: task.description,
-        category: task.category as any,
-        priority: task.priority as any,
-        app_section: task.app_section
-      }]);
-
-    if (error) {
-      console.error(`Failed to create task ${task.title}:`, error);
-    } else {
-      console.log(`✅ Created completed task: ${task.title}`);
+    for (const task of tasksToCreate) {
+      const { error } = await supabase
+        .from('tasks')
+        .insert([{
+          user_id: user.id,
+          status: 'done' as const,
+          title: task.title,
+          description: task.description,
+          category: task.category as any,
+          priority: task.priority as any,
+          app_section: task.app_section
+        }]);
+  
+      if (error) {
+        console.error(`Failed to create task ${task.title}:`, error);
+      } else {
+        console.log(`✅ Created completed task: ${task.title}`);
+      }
     }
+  } else {
+    console.log('No new implemented tasks to create');
   }
+
+  // Reset all other tasks (not in implemented list) back to pending
+  const { error: resetError } = await supabase
+    .from('tasks')
+    .update({
+      status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id)
+    .not('title', 'in', implementedTaskTitles);
+
+  if (resetError) {
+    console.error('Failed to reset backlog tasks to pending:', resetError);
+  } else {
+    console.log('✅ Reset all non-implemented tasks back to pending');
+  }
+
+  console.log('✅ Task update complete! Implemented tasks marked done, backlog restored to pending');
 
   // Finally, mark all remaining non-completed tasks as done to sync dashboard with current state
   const { error: bulkCompleteError } = await supabase

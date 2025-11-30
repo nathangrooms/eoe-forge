@@ -12,6 +12,7 @@ import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
 import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
 import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
+import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -580,6 +581,20 @@ const DeckBuilder = () => {
           <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
             {deck.name && deck.cards.length > 0 ? (
               <div className="space-y-6">
+                {/* Commander Power Display */}
+                {deck.format === 'commander' && (
+                  <CommanderPowerDisplay
+                    powerLevel={deck.powerLevel}
+                    metrics={{
+                      overall: deck.powerLevel,
+                      speed: deck.powerLevel * 0.9,
+                      interaction: deck.powerLevel * 1.1,
+                      resilience: deck.powerLevel * 0.8,
+                      comboPotential: deck.powerLevel * 1.2
+                    }}
+                  />
+                )}
+                
                 <AIDeckCoach 
                   deckCards={deck.cards as any}
                   deckName={deck.name}

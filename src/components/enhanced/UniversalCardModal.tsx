@@ -18,6 +18,7 @@ import {
   Store
 } from 'lucide-react';
 import { StoreAvailabilityCheck } from '@/components/marketplace/StoreAvailabilityCheck';
+import { CardPrintingComparison } from '@/components/cards/CardPrintingComparison';
 
 interface CardModalProps {
   card: any;
@@ -287,11 +288,12 @@ export function UniversalCardModal({
 
             {/* Tabbed Content */}
             <Tabs defaultValue="rulings" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="rulings">Rulings</TabsTrigger>
                 <TabsTrigger value="analysis">Analysis</TabsTrigger>
                 <TabsTrigger value="legality">Legality</TabsTrigger>
                 <TabsTrigger value="stores">Stores</TabsTrigger>
+                <TabsTrigger value="printings">Printings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="rulings" className="space-y-3">
@@ -353,6 +355,13 @@ export function UniversalCardModal({
                 <StoreAvailabilityCheck 
                   cardName={card.name || ''} 
                   cardId={card.id || ''} 
+                />
+              </TabsContent>
+
+              <TabsContent value="printings" className="space-y-3">
+                <CardPrintingComparison 
+                  cardName={card.name || ''} 
+                  oracleId={card.oracle_id} 
                 />
               </TabsContent>
             </Tabs>

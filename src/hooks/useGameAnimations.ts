@@ -86,7 +86,7 @@ export const useGameAnimations = (
           break;
       }
     });
-  }, []);
+  }, [onDamage, onTrigger]);
 
   // Register a card element for animations
   const registerCard = (instanceId: string, element: HTMLElement | null) => {

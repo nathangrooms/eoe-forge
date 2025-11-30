@@ -167,7 +167,9 @@ export class StepSimulator {
     const events: SimulationEvent[] = [];
     const phase = this.state.phase;
     const activePlayerId = this.state.activePlayer;
+    const defendingPlayerId = activePlayerId === 'player1' ? 'player2' : 'player1';
     const ai = activePlayerId === 'player1' ? this.ai1 : this.ai2;
+    const defendingAI = defendingPlayerId === 'player1' ? this.ai1 : this.ai2;
 
     // Main phases - AI makes decisions
     if (phase === 'precombat_main' || phase === 'postcombat_main') {
@@ -180,7 +182,7 @@ export class StepSimulator {
     }
 
     // Declare attackers
-    if (phase === 'declare_attackers' && this.state.activePlayer === activePlayerId) {
+    if (phase === 'declare_attackers') {
       const decision = ai.makeDecision(this.state, activePlayerId);
       if (decision && decision.type === 'attack' && decision.targets) {
         // Tap lands first
@@ -198,9 +200,9 @@ export class StepSimulator {
       }
     }
 
-    // Declare blockers
-    if (phase === 'declare_blockers' && this.state.activePlayer !== activePlayerId) {
-      const decision = ai.makeDecision(this.state, activePlayerId);
+    // Declare blockers - defending player gets to block
+    if (phase === 'declare_blockers') {
+      const decision = defendingAI.makeDecision(this.state, defendingPlayerId);
       if (decision && decision.type === 'block' && decision.targets) {
         const blocks = decision.targets.map((blocker, i) => ({
           blocker,

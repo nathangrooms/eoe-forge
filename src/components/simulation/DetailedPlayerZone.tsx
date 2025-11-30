@@ -112,14 +112,11 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
         )}
       </div>
 
-      {/* Main Battlefield Area - Horizontal Scrolling */}
-      <div className="flex-1 overflow-auto min-h-0">
-        <div className="grid grid-cols-[auto_1fr_auto] gap-1.5 h-full">
-          
-      {/* LEFT COLUMN: Command Zone + Hand */}
-      <div className="flex flex-col gap-1.5 w-[180px]">
+      {/* Main Battlefield Area - Full Width Rows */}
+      <div className="flex-1 overflow-auto min-h-0 space-y-1.5 px-2">
+        {/* Command Zone Row */}
         {player.commandZone.length > 0 && (
-          <div className="bg-background/15 rounded p-2 border border-primary/20">
+          <div className="bg-background/15 rounded p-2 border border-primary/20 w-full">
             <div className="text-[10px] font-bold text-primary mb-1.5 uppercase">⭐ Commander</div>
             <div className="overflow-x-auto overflow-y-hidden">
               <GroupedCardDisplay cards={player.commandZone} compact onRegisterCard={onRegisterCard} />
@@ -127,8 +124,9 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
           </div>
         )}
         
+        {/* Hand Row */}
         {player.hand.length > 0 && (
-          <div className="bg-background/15 rounded p-2 flex-1 min-h-0 overflow-auto border border-primary/10">
+          <div className="bg-background/15 rounded p-2 border border-primary/10 w-full">
             <div className="text-[10px] font-bold text-blue-400 mb-1.5 uppercase">
               ✋ Hand ({player.hand.length})
             </div>
@@ -141,99 +139,97 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
             </div>
           </div>
         )}
-      </div>
 
-          {/* CENTER: Battlefield - Horizontal Scrolling Rows */}
-          <div className="flex flex-col gap-1.5 overflow-auto">
-            {creatures.length > 0 && (
-              <div className="bg-background/15 rounded p-2 border border-primary/10">
-                <div className="text-[10px] font-bold text-red-400 mb-1.5 uppercase flex items-center gap-1">
-                  <span>⚔️</span> Creatures ({creatures.length})
-                </div>
-                <div className="overflow-x-auto overflow-y-hidden">
-                  <GroupedCardDisplay 
-                    cards={creatures} 
-                    compact 
-                    onRegisterCard={onRegisterCard}
-                    damages={damages}
-                    attackers={attackers}
-                    blockers={blockers}
-                  />
-                </div>
-              </div>
-            )}
-
-            {lands.length > 0 && (
-              <div className="bg-background/15 rounded p-2 border border-primary/10">
-                <div className="text-[10px] font-bold text-green-400 mb-1.5 uppercase flex items-center gap-1">
-                  <span>🏔️</span> Lands ({lands.length})
-                </div>
-                <div className="overflow-x-auto overflow-y-hidden">
-                  <GroupedCardDisplay cards={lands} compact onRegisterCard={onRegisterCard} />
-                </div>
-              </div>
-            )}
-
-            {(artifacts.length > 0 || enchantments.length > 0 || planeswalkers.length > 0) && (
-              <div className="flex flex-col gap-1.5">
-                {artifacts.length > 0 && (
-                  <div className="bg-background/15 rounded p-2 border border-primary/10">
-                    <div className="text-[10px] font-bold text-cyan-400 mb-1.5 uppercase">
-                      🔧 Artifacts ({artifacts.length})
-                    </div>
-                    <div className="overflow-x-auto overflow-y-hidden">
-                      <GroupedCardDisplay cards={artifacts} compact onRegisterCard={onRegisterCard} />
-                    </div>
-                  </div>
-                )}
-                {enchantments.length > 0 && (
-                  <div className="bg-background/15 rounded p-2 border border-primary/10">
-                    <div className="text-[10px] font-bold text-purple-400 mb-1.5 uppercase">
-                      ✨ Enchantments ({enchantments.length})
-                    </div>
-                    <div className="overflow-x-auto overflow-y-hidden">
-                      <GroupedCardDisplay cards={enchantments} compact onRegisterCard={onRegisterCard} />
-                    </div>
-                  </div>
-                )}
-                {planeswalkers.length > 0 && (
-                  <div className="bg-background/15 rounded p-2 border border-primary/10">
-                    <div className="text-[10px] font-bold text-amber-400 mb-1.5 uppercase">
-                      👤 Planeswalkers ({planeswalkers.length})
-                    </div>
-                    <div className="overflow-x-auto overflow-y-hidden">
-                      <GroupedCardDisplay cards={planeswalkers} compact onRegisterCard={onRegisterCard} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+        {/* Creatures Row */}
+        {creatures.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-red-500/20 w-full">
+            <div className="text-[10px] font-bold text-red-400 mb-1.5 uppercase flex items-center gap-1">
+              <span>⚔️</span> Creatures ({creatures.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay 
+                cards={creatures} 
+                compact 
+                onRegisterCard={onRegisterCard}
+                damages={damages}
+                attackers={attackers}
+                blockers={blockers}
+              />
+            </div>
           </div>
+        )}
 
-          {/* RIGHT COLUMN: Graveyard + Exile */}
-          <div className="flex flex-col gap-1.5 w-[130px]">
-            {player.graveyard.length > 0 && (
-              <div className="bg-background/15 rounded p-2 flex-1 border border-primary/10">
-                <div className="text-[10px] font-bold text-gray-400 mb-1.5 uppercase">
-                  ⚰️ GY ({player.graveyard.length})
-                </div>
-                <div className="overflow-x-auto overflow-y-hidden">
-                  <GroupedCardDisplay cards={player.graveyard.slice(-3)} compact onRegisterCard={onRegisterCard} />
-                </div>
-              </div>
-            )}
-            {player.exile.length > 0 && (
-              <div className="bg-background/15 rounded p-2 flex-1 border border-primary/10">
-                <div className="text-[10px] font-bold text-pink-400 mb-1.5 uppercase">
-                  🚫 Exile ({player.exile.length})
-                </div>
-                <div className="overflow-x-auto overflow-y-hidden">
-                  <GroupedCardDisplay cards={player.exile.slice(-3)} compact onRegisterCard={onRegisterCard} />
-                </div>
-              </div>
-            )}
+        {/* Lands Row */}
+        {lands.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-green-500/20 w-full">
+            <div className="text-[10px] font-bold text-green-400 mb-1.5 uppercase flex items-center gap-1">
+              <span>🏔️</span> Lands ({lands.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={lands} compact onRegisterCard={onRegisterCard} />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Artifacts Row */}
+        {artifacts.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-cyan-500/20 w-full">
+            <div className="text-[10px] font-bold text-cyan-400 mb-1.5 uppercase">
+              🔧 Artifacts ({artifacts.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={artifacts} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
+
+        {/* Enchantments Row */}
+        {enchantments.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-purple-500/20 w-full">
+            <div className="text-[10px] font-bold text-purple-400 mb-1.5 uppercase">
+              ✨ Enchantments ({enchantments.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={enchantments} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
+
+        {/* Planeswalkers Row */}
+        {planeswalkers.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-amber-500/20 w-full">
+            <div className="text-[10px] font-bold text-amber-400 mb-1.5 uppercase">
+              👤 Planeswalkers ({planeswalkers.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={planeswalkers} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
+
+        {/* Graveyard Row */}
+        {player.graveyard.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-gray-500/20 w-full">
+            <div className="text-[10px] font-bold text-gray-400 mb-1.5 uppercase">
+              ⚰️ Graveyard ({player.graveyard.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={player.graveyard.slice(-5)} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
+
+        {/* Exile Row */}
+        {player.exile.length > 0 && (
+          <div className="bg-background/15 rounded p-2 border border-pink-500/20 w-full">
+            <div className="text-[10px] font-bold text-pink-400 mb-1.5 uppercase">
+              🚫 Exile ({player.exile.length})
+            </div>
+            <div className="overflow-x-auto overflow-y-hidden">
+              <GroupedCardDisplay cards={player.exile.slice(-5)} compact onRegisterCard={onRegisterCard} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

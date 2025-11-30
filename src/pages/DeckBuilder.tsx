@@ -23,6 +23,8 @@ import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { CardReplacementEngine } from '@/components/deck-builder/CardReplacementEngine';
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
+import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
+import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -677,6 +679,19 @@ const DeckBuilder = () => {
                   deckCards={deck.cards as any}
                   deckName={deck.name}
                 />
+                
+                {/* Notes & Comments */}
+                {deck.currentDeckId && (
+                  <DeckNotesPanel deckId={deck.currentDeckId} />
+                )}
+                
+                {/* Match Analytics */}
+                {deck.currentDeckId && (
+                  <MatchAnalytics 
+                    deckId={deck.currentDeckId}
+                    deckName={deck.name}
+                  />
+                )}
                 
                 <AIDeckCoach
                   deckCards={deck.cards as any}

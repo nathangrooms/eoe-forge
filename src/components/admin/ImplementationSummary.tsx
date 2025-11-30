@@ -40,7 +40,9 @@ export function ImplementationSummary() {
         'Deck comparison tool for side-by-side analysis',
         'Archetype library with popular templates',
         'Advanced filter panel with multi-criteria search',
-        'Deck proxy generator for printable cards'
+        'Deck proxy generator for printable cards',
+        'Deck notes and comments system',
+        'Comprehensive match analytics with insights'
       ]
     },
     {
@@ -56,6 +58,14 @@ export function ImplementationSummary() {
         'Collection value trends dashboard',
         'Top cards by value analysis',
         'Set and condition value breakdown'
+      ]
+    },
+    {
+      category: 'Scanning Features',
+      features: [
+        'Advanced scan options with auto-capture',
+        'Batch scanning mode',
+        'Quality settings and duplicate detection'
       ]
     },
     {

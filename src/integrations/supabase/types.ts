@@ -122,6 +122,36 @@ export type Database = {
           },
         ]
       }
+      card_condition_photos: {
+        Row: {
+          collection_item_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          photo_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collection_item_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          photo_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collection_item_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           cmc: number | null
@@ -589,6 +619,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      price_alerts: {
+        Row: {
+          alert_type: string
+          card_id: string
+          card_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_triggered_at: string | null
+          target_price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          card_id: string
+          card_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          target_price: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          target_price?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

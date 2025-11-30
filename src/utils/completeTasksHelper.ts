@@ -198,6 +198,27 @@ export async function markTasksComplete() {
       category: 'feature',
       priority: 'high',
       app_section: 'deck_builder'
+    },
+    {
+      title: 'Create comprehensive deck validation system',
+      description: 'Built DeckValidator class with warnings for manabase, curve, card draw, removal, win conditions, and legality issues',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create missing cards detection drawer',
+      description: 'Implemented MissingCardsDrawer component to show what cards from a deck the user does not own in their collection',
+      category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Refactor collection stats calculator',
+      description: 'Created CollectionStatsCalculator class with proper calculations for totals, distributions, and value tracking',
+      category: 'improvement',
+      priority: 'high',
+      app_section: 'collection'
     }
   ];
 

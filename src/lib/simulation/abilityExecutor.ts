@@ -1,31 +1,35 @@
-import { GameState, GameCard } from './types';
+import { GameState, GameCard, SimulationEvent } from './types';
 import { AbilityEffect } from './abilityParser';
 import { createToken, COMMON_TOKENS } from './tokenGenerator';
 import { drawCard } from './gameState';
 
 /**
  * Execute an ability effect on the game state
+ * Returns any events that should be emitted for animations
  */
 export function executeAbility(
   state: GameState,
   effect: AbilityEffect,
   source: GameCard,
   controller: 'player1' | 'player2'
-): void {
+): SimulationEvent[] {
   const player = state[controller];
   const opponent = controller === 'player1' ? state.player2 : state.player1;
+  const events: SimulationEvent[] = [];
 
   switch (effect.type) {
     case 'create_tokens': {
       const tokenDef = COMMON_TOKENS[effect.tokenType];
       if (!tokenDef) {
         console.warn(`Unknown token type: ${effect.tokenType}`);
-        return;
+        return events;
       }
 
+      const tokenIds: string[] = [];
       for (let i = 0; i < effect.count; i++) {
         const token = createToken(tokenDef, controller, `${source.instanceId}-${Date.now()}-${i}`);
         player.battlefield.push(token);
+        tokenIds.push(token.instanceId);
         
         state.log.push({
           turn: state.turn,
@@ -36,6 +40,10 @@ export function executeAbility(
           cardName: source.name,
           timestamp: Date.now(),
         });
+      }
+      
+      if (tokenIds.length > 0) {
+        events.push({ type: 'token_created', player: controller, tokenIds });
       }
       break;
     }
@@ -64,6 +72,8 @@ export function executeAbility(
             cardName: source.name,
             timestamp: Date.now(),
           });
+
+          events.push({ type: 'creature_dies', player: controller === 'player1' ? 'player2' : 'player1', cardId: target.instanceId });
         }
       }
       break;
@@ -92,6 +102,8 @@ export function executeAbility(
             cardName: source.name,
             timestamp: Date.now(),
           });
+
+          events.push({ type: 'card_exiled', player: controller === 'player1' ? 'player2' : 'player1', cardId: target.instanceId });
         }
       }
       break;
@@ -172,6 +184,8 @@ export function executeAbility(
           cardName: source.name,
           timestamp: Date.now(),
         });
+
+        events.push({ type: 'counters_added', cardId: target.instanceId, counterType, amount: effect.count });
       }
       break;
     }
@@ -184,6 +198,7 @@ export function executeAbility(
       );
       
       const count = Math.min(effect.landCount, basicLands.length);
+      const rampedLandIds: string[] = [];
       for (let i = 0; i < count; i++) {
         const land = basicLands[i];
         const index = player.library.findIndex(c => c.instanceId === land.instanceId);
@@ -191,7 +206,9 @@ export function executeAbility(
           player.library.splice(index, 1);
           land.zone = 'battlefield';
           land.isTapped = true;
+          land.wasPlayedThisTurn = true;
           player.battlefield.push(land);
+          rampedLandIds.push(land.instanceId);
         }
       }
       
@@ -209,4 +226,6 @@ export function executeAbility(
       break;
     }
   }
+
+  return events;
 }

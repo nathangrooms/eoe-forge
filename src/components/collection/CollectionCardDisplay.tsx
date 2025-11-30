@@ -42,15 +42,6 @@ export function CollectionCardDisplay({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
 
-  // Load storage containers for bulk assignment
-  useState(() => {
-    StorageAPI.getOverview().then(overview => {
-      setStorageContainers(overview.containers);
-    }).catch(err => {
-      console.error('Failed to load storage containers:', err);
-    });
-  });
-
   const handleToggleSelection = (itemId: string) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
@@ -151,21 +142,32 @@ export function CollectionCardDisplay({
   };
 
   // Transform collection items to universal card format
-  const transformedCards = items.map(item => ({
-    id: item.card_id,
-    name: item.card_name,
-    set_code: item.set_code,
-    quantity: item.quantity,
-    foil: item.foil,
-    condition: item.condition,
-    collectionItemId: item.id,
-    prices: { usd: item.price_usd?.toString() },
-    image_uris: item.card?.image_uris,
-    type_line: item.card?.type_line,
-    rarity: item.card?.rarity,
-    colors: item.card?.colors,
-    cmc: item.card?.cmc,
-  }));
+  const transformedCards = items.map(item => {
+    // Calculate proper pricing based on foil status
+    const prices = item.card?.prices || {};
+    const displayPrice = item.foil > 0 
+      ? (prices.usd_foil || item.price_usd)
+      : (prices.usd || item.price_usd);
+
+    return {
+      id: item.card_id,
+      name: item.card_name,
+      set_code: item.set_code,
+      quantity: item.quantity,
+      foil: item.foil,
+      condition: item.condition,
+      collectionItemId: item.id,
+      prices: { 
+        usd: displayPrice?.toString(),
+        usd_foil: prices.usd_foil?.toString()
+      },
+      image_uris: item.card?.image_uris,
+      type_line: item.card?.type_line,
+      rarity: item.card?.rarity,
+      colors: item.card?.colors,
+      cmc: item.card?.cmc,
+    };
+  });
 
   return (
     <div className="relative">

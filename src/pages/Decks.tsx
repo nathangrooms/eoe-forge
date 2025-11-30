@@ -50,8 +50,11 @@ import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
 import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
 import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
+import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
 import { buildDeck, getTemplatesForFormat, getFormatRules } from '@/lib/deckbuilder';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
+import { useDeckFilters } from '@/hooks/useDeckFilters';
+import { useDeckLoader } from '@/hooks/useDeckLoader';
 
 interface Deck {
   id: string;
@@ -65,7 +68,6 @@ interface Deck {
 }
 
 export default function Decks() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -111,6 +113,18 @@ export default function Decks() {
   const collection = useCollectionStore();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { loadDeck: loadDeckFromHook } = useDeckLoader();
+  
+  // Deck filtering
+  const {
+    filters,
+    filteredDecks,
+    updateFilters,
+    resetFilters,
+    toggleFormat,
+    toggleColor,
+    hasActiveFilters
+  } = useDeckFilters(deckSummaries);
   
   // Load decks from database only
   useEffect(() => {
@@ -170,13 +184,6 @@ export default function Decks() {
       setSearchParams({ tab });
     }
   };
-
-  // Filter deck summaries based on search
-  const filteredDecks = deckSummaries.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.format.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.colors.some(color => color.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
 
   const createDeck = async () => {
     if (!newDeckName.trim() || !user) return;
@@ -564,16 +571,15 @@ export default function Decks() {
       }
     >
       <div className="space-y-6">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search decks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        {/* Search and Filter Bar */}
+        <DeckSearchFilters
+          filters={filters}
+          onUpdateFilters={updateFilters}
+          onResetFilters={resetFilters}
+          onToggleFormat={toggleFormat}
+          onToggleColor={toggleColor}
+          hasActiveFilters={hasActiveFilters}
+        />
 
         {/* Deck Grid */}
         {loading ? (
@@ -612,7 +618,7 @@ export default function Decks() {
                 <div className="space-y-1">
                   <h3 className="font-semibold">No decks found</h3>
                   <p className="text-sm text-muted-foreground">
-                    {searchQuery ? 'Try adjusting your search terms' : 'Create your first deck to get started'}
+                    {hasActiveFilters ? 'Try adjusting your filters' : 'Create your first deck to get started'}
                   </p>
                 </div>
               </div>

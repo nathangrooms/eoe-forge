@@ -390,7 +390,7 @@ const DeckBuilder = () => {
       title="Deck Builder"
       description="Build and optimize your Magic: The Gathering decks"
       action={
-        <div className="flex gap-2">
+        <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
           <Select value={selectedDeckId || ''} onValueChange={(value) => {
             setSelectedDeckId(value);
             const selectedDeck = allDecks.find(d => d.id === value);
@@ -398,7 +398,7 @@ const DeckBuilder = () => {
               loadDeck(selectedDeck);
             }
           }}>
-            <SelectTrigger className="w-80 max-w-md">
+            <SelectTrigger className="w-full xs:w-80 max-w-md">
               <SelectValue placeholder="Select a deck..." />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50 max-w-md">
@@ -417,9 +417,10 @@ const DeckBuilder = () => {
           
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full xs:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
-                New Deck
+                <span className="hidden xs:inline">New Deck</span>
+                <span className="xs:hidden">New</span>
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -469,43 +470,48 @@ const DeckBuilder = () => {
     >
       <Tabs defaultValue="deck" className="h-full flex flex-col">
         {/* Tabs */}
-        <div className="border-b px-6">
-          <TabsList className="flex w-full justify-start bg-transparent p-0 h-12 gap-6">
+        <div className="border-b px-3 xs:px-6">
+          <TabsList className="flex w-full justify-start bg-transparent p-0 h-10 xs:h-12 gap-2 xs:gap-6 overflow-x-auto">
             <TabsTrigger 
               value="deck" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
               Deck ({deck.totalCards || 0})
             </TabsTrigger>
             <TabsTrigger 
               value="search"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
-              Card Search
+              <span className="hidden xs:inline">Card Search</span>
+              <span className="xs:hidden">Search</span>
             </TabsTrigger>
             <TabsTrigger 
               value="analysis"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
-              AI Analysis
+              <span className="hidden xs:inline">AI Analysis</span>
+              <span className="xs:hidden">AI</span>
             </TabsTrigger>
             <TabsTrigger 
               value="replacements"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
-              AI Replacements
+              <span className="hidden xs:inline">AI Replacements</span>
+              <span className="xs:hidden">Replace</span>
             </TabsTrigger>
             <TabsTrigger 
               value="import-export"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
-              Import/Export
+              <span className="hidden xs:inline">Import/Export</span>
+              <span className="xs:hidden">I/E</span>
             </TabsTrigger>
             <TabsTrigger 
               value="deck-tester"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm whitespace-nowrap"
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
             >
-              Deck Tester
+              <span className="hidden xs:inline">Deck Tester</span>
+              <span className="xs:hidden">Test</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -513,34 +519,35 @@ const DeckBuilder = () => {
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
           {/* Deck Canvas Tab */}
-          <TabsContent value="deck" className="h-full overflow-auto px-6 py-4 m-0">
+          <TabsContent value="deck" className="h-full overflow-auto px-3 xs:px-6 py-3 xs:py-4 m-0">
             {deck.name ? (
-              <div className="space-y-6">
+              <div className="space-y-4 xs:space-y-6">
                 {/* EDH Power Level Display */}
                 {deck.format === 'commander' && (
-                  <div className="bg-muted/50 p-4 rounded-lg border">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-muted/50 p-3 xs:p-4 rounded-lg border">
+                    <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 xs:gap-0">
                       <div>
-                        <p className="text-sm font-medium">EDH Power Level (edhpowerlevel.com)</p>
+                        <p className="text-xs xs:text-sm font-medium">EDH Power Level (edhpowerlevel.com)</p>
                         {loadingEdhPower ? (
-                          <p className="text-sm text-muted-foreground mt-1">Calculating...</p>
+                          <p className="text-xs xs:text-sm text-muted-foreground mt-1">Calculating...</p>
                         ) : edhPowerLevel !== null ? (
-                          <p className="text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
+                          <p className="text-xl xs:text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
                         ) : (
-                          <p className="text-sm text-muted-foreground mt-1">Click button to check</p>
+                          <p className="text-xs xs:text-sm text-muted-foreground mt-1">Click button to check</p>
                         )}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full xs:w-auto">
                         <Button 
                           variant="outline" 
                           size="sm"
+                          className="flex-1 xs:flex-none text-xs xs:text-sm"
                           onClick={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId)}
                           disabled={loadingEdhPower}
                         >
                           {loadingEdhPower ? 'Checking...' : 'Get EDH Power Level'}
                         </Button>
                         {edhPowerUrl && (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" className="text-xs xs:text-sm" asChild>
                             <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
                               View Details
                             </a>

@@ -88,11 +88,11 @@ export function DeckCardDisplay({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 xs:space-y-6">
       {sortedGroups.map(([groupName, groupCards]) => (
         <div key={groupName} className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+            <h3 className="font-semibold text-xs xs:text-sm text-muted-foreground uppercase tracking-wide">
               {groupName}
             </h3>
             <Badge variant="outline" className="font-mono text-xs">
@@ -109,59 +109,59 @@ export function DeckCardDisplay({
                 key={card.id}
                 className={cn(
                   "group hover:shadow-md transition-all",
-                  compact ? "p-2" : "p-3"
+                  compact ? "p-1.5 xs:p-2" : "p-2 xs:p-3"
                 )}
               >
-                <CardContent className="p-0 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                <CardContent className="p-0 flex items-center justify-between gap-2 xs:gap-3">
+                  <div className="flex items-center gap-2 xs:gap-3 flex-1 min-w-0">
                     {card.image_uris?.small && !compact && (
                       <img 
                         src={card.image_uris.small} 
                         alt={card.name}
-                        className="w-12 h-12 object-cover rounded"
+                        className="hidden xs:block w-12 h-12 object-cover rounded"
                       />
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 xs:gap-2">
                         <span className={cn(
                           "font-medium truncate",
-                          compact ? "text-sm" : "text-base"
+                          compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
                         )}>
                           {card.name}
                         </span>
                         {card.mana_cost && !compact && (
-                          <span className="text-xs text-muted-foreground font-mono">
+                          <span className="hidden xs:inline text-xs text-muted-foreground font-mono">
                             {card.mana_cost}
                           </span>
                         )}
                       </div>
                       {!compact && (
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate hidden xs:block">
                           {card.type_line}
                         </p>
                       )}
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 xs:gap-2 shrink-0">
                     {onQuantityChange && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 xs:gap-1">
                         <Button
                           size="icon"
                           variant="outline"
                           className={cn(
-                            "opacity-0 group-hover:opacity-100 transition-opacity",
-                            compact ? "h-6 w-6" : "h-8 w-8"
+                            "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
+                            compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
                           )}
                           onClick={() => onQuantityChange(card.id, -1)}
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
                         </Button>
                         
                         <span className={cn(
                           "font-mono font-medium min-w-[2ch] text-center",
-                          compact ? "text-sm" : "text-base"
+                          compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
                         )}>
                           {card.quantity}
                         </span>
@@ -170,12 +170,12 @@ export function DeckCardDisplay({
                           size="icon"
                           variant="outline"
                           className={cn(
-                            "opacity-0 group-hover:opacity-100 transition-opacity",
-                            compact ? "h-6 w-6" : "h-8 w-8"
+                            "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
+                            compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
                           )}
                           onClick={() => onQuantityChange(card.id, 1)}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
                         </Button>
                       </div>
                     )}
@@ -185,12 +185,12 @@ export function DeckCardDisplay({
                         size="icon"
                         variant="ghost"
                         className={cn(
-                          "opacity-0 group-hover:opacity-100 transition-opacity text-destructive",
-                          compact ? "h-6 w-6" : "h-8 w-8"
+                          "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity text-destructive",
+                          compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
                         )}
                         onClick={() => onRemove(card.id)}
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
                       </Button>
                     )}
                   </div>

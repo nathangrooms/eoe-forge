@@ -7,7 +7,7 @@ import { GameBoard } from '@/components/simulation/GameBoard';
 import { GameLog } from '@/components/simulation/GameLog';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { PhaseProgress } from '@/components/simulation/PhaseProgress';
-import { PhaseIndicator } from '@/components/simulation/PhaseIndicator';
+
 import { AbilityTriggerPopup, useAbilityTriggers } from '@/components/simulation/AbilityTriggerPopup';
 import { useDamageNumbers } from '@/components/simulation/FloatingDamage';
 import { CombatArrows } from '@/components/simulation/CombatArrows';
@@ -40,7 +40,6 @@ export default function Simulate() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(1); // 1x speed for good viewing
-  const [showPhase, setShowPhase] = useState(false);
   const [cinematicMode, setCinematicMode] = useState<
     | null
     | {
@@ -346,18 +345,13 @@ export default function Simulate() {
           }
 
           if (shouldShowCinematic) {
-            setTimeout(() => setCinematicMode(null), 2000);
+            setTimeout(() => setCinematicMode(null), 3500);
           }
         }
         
         // Process animation events
         processEvents(result.events);
         
-        // Show phase indicator on phase change
-        if (prevPhase !== result.state.phase) {
-          setShowPhase(true);
-          setTimeout(() => setShowPhase(false), 1200);
-        }
         
         // Update state
         setGameState({ ...result.state });
@@ -765,7 +759,6 @@ export default function Simulate() {
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20 relative">
             <GameBoard state={gameState} onRegisterCard={registerCard} damages={damages} />
-            {gameState && <PhaseIndicator phase={gameState.phase} show={showPhase} />}
             {gameState?.combat.isActive && (
               <CombatArrows attackers={gameState.combat.attackers} blockers={gameState.combat.blockers} />
             )}

@@ -22,11 +22,11 @@ const CardImage = ({ card, delay = 0 }: { card: GameCard; delay?: number }) => {
       initial={{ opacity: 0, scale: 0.5, rotateY: 180 }}
       animate={{ opacity: 1, scale: 1, rotateY: 0 }}
       transition={{ duration: 0.5, delay, ease: 'backOut' }}
-      className="relative"
+      className="relative scale-150"
     >
       <FullCardDisplay card={card} compact={false} />
-      <div className="absolute -bottom-8 left-0 right-0 text-center">
-        <div className="text-sm font-bold text-primary-foreground drop-shadow-lg">
+      <div className="absolute -bottom-12 left-0 right-0 text-center">
+        <div className="text-lg font-bold text-primary-foreground drop-shadow-lg">
           {card.name}
         </div>
       </div>
@@ -289,6 +289,20 @@ export const SimulationCinematicOverlay = ({
               </div>
             )}
 
+          {/* Descriptive note */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mt-8 text-center max-w-2xl mx-auto"
+          >
+            <div className="bg-accent/10 border border-accent/30 rounded-lg px-6 py-4">
+              <p className="text-base text-accent-foreground font-medium">
+                {config.subtitle}
+              </p>
+            </div>
+          </motion.div>
+
           {/* Progress bar */}
           <motion.div 
             className="mt-8 h-2 overflow-hidden rounded-full bg-background/50 max-w-md mx-auto"
@@ -299,7 +313,7 @@ export const SimulationCinematicOverlay = ({
             <motion.div
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
-              transition={{ duration: 1.2, ease: 'linear' }}
+              transition={{ duration: 3.5, ease: 'linear' }}
               className="h-full bg-gradient-to-r from-primary via-accent to-primary"
             />
           </motion.div>

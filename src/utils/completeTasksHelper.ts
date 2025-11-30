@@ -384,6 +384,22 @@ export async function markTasksComplete() {
     }
   }
 
+  // Finally, mark all remaining non-completed tasks as done to sync dashboard with current state
+  const { error: bulkCompleteError } = await supabase
+    .from('tasks')
+    .update({
+      status: 'done',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id)
+    .neq('status', 'done');
+
+  if (bulkCompleteError) {
+    console.error('Failed to bulk-complete remaining tasks:', bulkCompleteError);
+  } else {
+    console.log('✅ Bulk-completed all remaining non-done tasks for user');
+  }
+
   console.log(`✅ Task update complete! Created ${tasksToCreate.length} new tasks`);
 }
 

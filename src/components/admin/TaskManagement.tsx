@@ -226,6 +226,10 @@ export function TaskManagement() {
     'Fix card image optimization',
     'Add system notification management',
     'Implement dashboard customization',
+    'Add dashboard data caching',
+    'Fix foil card pricing display',
+    'Fix card image lazy loading',
+    'Fix deck color identity calculation',
     
     // Wishlist Features - Done
     'Add wishlist priority sorting',
@@ -264,6 +268,8 @@ export function TaskManagement() {
     'Add bulk listing creation',
     'Implement listing analytics',
     'Implement listing templates',
+    'Add shipping calculator',
+    'Add listing templates',
     
     // UI/UX Features - Done
     'Add loading skeletons',

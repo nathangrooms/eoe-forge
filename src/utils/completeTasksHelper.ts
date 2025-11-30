@@ -246,7 +246,7 @@ export async function markTasksComplete() {
       description: 'Built useDebounce, useThrottle, useRenderPerformance, useLazyLoad, useMemoizedCalculation, useVirtualScroll, and useIdleCallback hooks for optimizing app performance',
       category: 'improvement',
       priority: 'high',
-      app_section: 'core_functionality'
+      app_section: 'general'
     },
     {
       title: 'Implement deck export functionality',

@@ -254,6 +254,15 @@ export function TaskManagement() {
         task.app_section.toLowerCase().includes(query) ||
         (task.description && task.description.toLowerCase().includes(query))
       );
+    })
+    .filter(task => {
+      // Filter out tasks with invalid config values to prevent crashes
+      return (
+        statusConfig[task.status] &&
+        categoryConfig[task.category] &&
+        priorityConfig[task.priority] &&
+        appSectionConfig[task.app_section]
+      );
     });
 
   const completedCount = tasks.filter(t => t.status === 'done').length;

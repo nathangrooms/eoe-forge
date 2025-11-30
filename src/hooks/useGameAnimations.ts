@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { GameState } from '@/lib/simulation/types';
+import { useEffect, useRef, useCallback } from 'react';
+import { GameState, SimulationEvent } from '@/lib/simulation/types';
 import { AnimationManager } from '@/lib/simulation/animations';
 
 /**
- * Hook that triggers animations based on game state changes
+ * Hook that triggers animations based on simulation events
  */
 export const useGameAnimations = (gameState: GameState | null, speed: number) => {
   const previousStateRef = useRef<GameState | null>(null);
@@ -13,6 +13,73 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
   useEffect(() => {
     AnimationManager.setSpeed(speed);
   }, [speed]);
+
+  // Process simulation events and trigger animations
+  const processEvents = useCallback((events: SimulationEvent[]) => {
+    events.forEach(event => {
+      switch (event.type) {
+        case 'attack_declared':
+          event.attackerIds.forEach(id => {
+            const el = cardRefsRef.current.get(id);
+            if (el) {
+              AnimationManager.attackStart({ cardElement: el });
+            }
+          });
+          break;
+
+        case 'combat_damage':
+          event.damages.forEach(({ cardId, amount }) => {
+            const el = cardRefsRef.current.get(cardId);
+            if (el) {
+              AnimationManager.battleDamage({ cardElement: el, damage: amount });
+            }
+          });
+          break;
+
+        case 'creature_dies':
+          const diedEl = cardRefsRef.current.get(event.cardId);
+          if (diedEl) {
+            AnimationManager.creatureDies({ cardElement: diedEl });
+          }
+          break;
+
+        case 'card_exiled':
+          const exiledEl = cardRefsRef.current.get(event.cardId);
+          if (exiledEl) {
+            AnimationManager.exile({ cardElement: exiledEl });
+          }
+          break;
+
+        case 'token_created':
+          event.tokenIds.forEach(id => {
+            // Wait a tick for the token element to be mounted
+            setTimeout(() => {
+              const el = cardRefsRef.current.get(id);
+              if (el) {
+                AnimationManager.tokenCreated({ cardElement: el });
+              }
+            }, 50);
+          });
+          break;
+
+        case 'counters_added':
+          const counterEl = cardRefsRef.current.get(event.cardId);
+          if (counterEl) {
+            AnimationManager.counterAdded({ cardElement: counterEl, counters: event.amount });
+          }
+          break;
+
+        case 'tap_lands':
+          event.landIds.forEach(id => {
+            const el = cardRefsRef.current.get(id);
+            if (el) {
+              AnimationManager.tap({ cardElement: el });
+            }
+          });
+          break;
+      }
+    });
+  }, []);
 
   // Register a card element for animations
   const registerCard = (instanceId: string, element: HTMLElement | null) => {
@@ -159,5 +226,5 @@ export const useGameAnimations = (gameState: GameState | null, speed: number) =>
     };
   }, []);
 
-  return { registerCard };
+  return { registerCard, processEvents };
 };

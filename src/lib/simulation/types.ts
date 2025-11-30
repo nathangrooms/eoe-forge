@@ -86,6 +86,40 @@ export interface SimulationResult {
   finalState: GameState;
 }
 
+export interface GameLog {
+  turn: number;
+  phase: Phase;
+  type: string;
+  player: string;
+  description: string;
+  cardName?: string;
+  timestamp: number;
+}
+
+// Animation events emitted by simulator
+export type SimulationEvent = 
+  | { type: 'phase_advance'; phase: Phase }
+  | { type: 'draw_card'; player: string; cardId: string }
+  | { type: 'play_land'; player: string; cardId: string }
+  | { type: 'cast_spell'; player: string; cardId: string; fromZone: Zone }
+  | { type: 'tap_lands'; player: string; landIds: string[] }
+  | { type: 'attack_declared'; attackerIds: string[] }
+  | { type: 'blockers_declared'; blocks: Array<{ attacker: string; blocker: string }> }
+  | { type: 'combat_damage'; damages: Array<{ cardId: string; amount: number; died?: boolean }> }
+  | { type: 'creature_dies'; player: string; cardId: string }
+  | { type: 'card_exiled'; player: string; cardId: string }
+  | { type: 'token_created'; player: string; tokenIds: string[] }
+  | { type: 'counters_added'; cardId: string; counterType: string; amount: number }
+  | { type: 'ability_triggered'; cardId: string; abilityType: string }
+  | { type: 'turn_end' }
+  | { type: 'game_over'; winner: string };
+
+export interface StepResult {
+  state: GameState;
+  events: SimulationEvent[];
+  shouldContinue: boolean;
+}
+
 export interface AIDecision {
   type: 'play_land' | 'cast_spell' | 'attack' | 'block' | 'pass' | 'activate_ability';
   cardInstanceId?: string;

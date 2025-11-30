@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Brain, Sparkles, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import { AIErrorBoundary } from '@/components/ai/AIErrorBoundary';
 
 interface AICollectionInsightsProps {
   stats: {
@@ -74,69 +75,71 @@ Keep it actionable and strategic. Format with clear sections.`;
   };
 
   return (
-    <Card className="border-primary/20">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-            <Brain className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">AI Collection Insights</h3>
-            <p className="text-sm text-muted-foreground">Get strategic analysis of your collection</p>
-          </div>
-        </div>
-
-        {!insights && !loading && (
-          <Button 
-            onClick={generateInsights}
-            className="w-full bg-gradient-cosmic hover:opacity-90"
-            disabled={loading}
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Generate Insights
-          </Button>
-        )}
-
-        {loading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Analyzing collection...</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <span className="text-sm text-destructive">{error}</span>
-          </div>
-        )}
-
-        {insights && (
-          <div className="space-y-4">
-            <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary-foreground">AI</span>
-                </div>
-                <span className="text-xs font-bold text-spacecraft">COLLECTION ANALYSIS</span>
-              </div>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown>{insights}</ReactMarkdown>
-              </div>
+    <AIErrorBoundary featureName="AI Collection Insights">
+      <Card className="border-primary/20">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
+              <Brain className="h-5 w-5 text-primary-foreground" />
             </div>
-            
+            <div>
+              <h3 className="font-bold text-lg">AI Collection Insights</h3>
+              <p className="text-sm text-muted-foreground">Get strategic analysis of your collection</p>
+            </div>
+          </div>
+
+          {!insights && !loading && (
             <Button 
               onClick={generateInsights}
-              variant="outline"
-              size="sm"
-              className="w-full"
+              className="w-full bg-gradient-cosmic hover:opacity-90"
+              disabled={loading}
             >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Refresh Analysis
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Insights
             </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-3 text-muted-foreground">Analyzing collection...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <span className="text-sm text-destructive">{error}</span>
+            </div>
+          )}
+
+          {insights && (
+            <div className="space-y-4">
+              <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                    <span className="text-xs font-bold text-primary-foreground">AI</span>
+                  </div>
+                  <span className="text-xs font-bold text-spacecraft">COLLECTION ANALYSIS</span>
+                </div>
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{insights}</ReactMarkdown>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={generateInsights}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Refresh Analysis
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </AIErrorBoundary>
   );
 }

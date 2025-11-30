@@ -13,14 +13,6 @@ export async function markTasksComplete() {
 
   const completedTasks = [
     {
-      id: 'a2594e8a-74f1-42c4-b649-2460bc44a83d',
-      title: 'Add bulk import validation'
-    },
-    {
-      id: '04d4edb3-cead-4e48-b0e0-55118442280a',
-      title: 'Fix card search in deck builder'
-    },
-    {
       id: 'af48fedc-d970-4d75-8912-bf6969e081a8',
       title: 'Add bulk card addition'
     }

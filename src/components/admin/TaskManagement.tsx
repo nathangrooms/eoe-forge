@@ -305,6 +305,10 @@ export function TaskManagement() {
     
     // Performance - Done
     'Optimize dashboard initial load time',
+    
+    // New Features - Done
+    'Implement feature flags',
+    'Add wishlist purchase tracking',
   ];
 
   useEffect(() => {

@@ -26,6 +26,7 @@ import {
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { WishlistCardDisplay } from '@/components/wishlist/WishlistCardDisplay';
 import { AIWishlistSuggestions } from '@/components/wishlist/AIWishlistSuggestions';
+import { WishlistPurchaseTracker } from '@/components/wishlist/WishlistPurchaseTracker';
 
 interface WishlistItem {
   id: string;
@@ -689,28 +690,43 @@ export default function Wishlist() {
 
       {/* Card Modal */}
       {selectedItem && (
-        <UniversalCardModal
-          card={selectedItem.card || { 
-            id: selectedItem.card_id, 
-            name: selectedItem.card_name, 
-            type_line: '', 
-            colors: [], 
-            rarity: 'common' 
-          }}
-          isOpen={showCardModal}
-          onClose={() => {
-            setShowCardModal(false);
-            setSelectedItem(null);
-          }}
-          onAddToCollection={(card) => {
-            if (selectedItem) {
-              addToCollection(selectedItem);
-            }
-          }}
-          onAddToWishlist={() => {
-            // Already in wishlist
-          }}
-        />
+        <>
+          <UniversalCardModal
+            card={selectedItem.card || { 
+              id: selectedItem.card_id, 
+              name: selectedItem.card_name, 
+              type_line: '', 
+              colors: [], 
+              rarity: 'common' 
+            }}
+            isOpen={showCardModal}
+            onClose={() => {
+              setShowCardModal(false);
+              setSelectedItem(null);
+            }}
+            onAddToCollection={(card) => {
+              if (selectedItem) {
+                addToCollection(selectedItem);
+              }
+            }}
+            onAddToWishlist={() => {
+              // Already in wishlist
+            }}
+          />
+          
+          {/* Purchase Tracker - shown alongside card modal */}
+          {showCardModal && (
+            <div className="fixed bottom-4 right-4 w-96 z-50 animate-in slide-in-from-bottom-5">
+              <WishlistPurchaseTracker
+                cardId={selectedItem.card_id}
+                cardName={selectedItem.card_name}
+                onPurchaseComplete={() => {
+                  loadWishlist();
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
     </StandardPageLayout>
   );

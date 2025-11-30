@@ -516,6 +516,7 @@ export function TaskManagement() {
     'Optimize card search query performance',
     'Implement deck sharing with permissions',
     'Fix EDH power calculator deployment error',
+    'Implement RLS policy audit',
     
     // === AUDIT FINDINGS - December 2024 ===
     

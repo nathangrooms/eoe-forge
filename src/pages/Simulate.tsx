@@ -11,6 +11,7 @@ import { AnimationTestPanel } from '@/components/simulation/AnimationTestPanel';
 import { PhaseIndicator } from '@/components/simulation/PhaseIndicator';
 import { AbilityTriggerPopup, useAbilityTriggers } from '@/components/simulation/AbilityTriggerPopup';
 import { useDamageNumbers } from '@/components/simulation/FloatingDamage';
+import { CombatArrows } from '@/components/simulation/CombatArrows';
 import { useGameAnimations } from '@/hooks/useGameAnimations';
 import { clearTriggerTracking } from '@/lib/simulation/triggerSystem';
 import { Button } from '@/components/ui/button';
@@ -467,6 +468,9 @@ export default function Simulate() {
           <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20 relative">
             <GameBoard state={gameState} onRegisterCard={registerCard} damages={damages} />
             {gameState && <PhaseIndicator phase={gameState.phase} show={showPhase} />}
+            {gameState?.combat.isActive && (
+              <CombatArrows attackers={gameState.combat.attackers} blockers={gameState.combat.blockers} />
+            )}
             <AbilityTriggerPopup triggers={triggers} />
           </div>
           

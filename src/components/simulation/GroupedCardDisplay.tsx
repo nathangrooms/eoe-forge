@@ -45,13 +45,13 @@ export const GroupedCardDisplay = ({
   }, [] as CardGroup[]);
 
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-1.5 flex-wrap items-start">
       {groupedCards.map((group) => {
         const isAttacking = attackers.some(a => a.instanceId === group.card.instanceId);
         const isBlocking = blockers.some(b => b.blocker === group.card.instanceId);
         
         return (
-          <div key={group.card.instanceId} className="relative">
+          <div key={group.card.instanceId} className="relative shrink-0">
             <AnimatedCard
               card={group.card} 
               compact={compact}
@@ -62,7 +62,7 @@ export const GroupedCardDisplay = ({
               isBlocking={isBlocking}
             />
             {group.count > 1 && (
-              <div className="absolute -top-1 -right-1 bg-background border-2 border-primary rounded-full w-7 h-7 flex items-center justify-center font-bold text-xs shadow-lg z-20">
+              <div className="absolute -top-1 -right-1 bg-background border-2 border-primary rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-lg z-20">
                 ×{group.count}
               </div>
             )}

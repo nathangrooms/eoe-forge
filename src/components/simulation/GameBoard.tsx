@@ -13,17 +13,17 @@ export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
   return (
     <div className="relative flex-1 w-full flex flex-col bg-[#0a0a0f]">
       {/* Top status bar: both players + turn */}
-      <div className="h-[64px] border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-4 gap-4 text-xs">
+      <div className="h-11 border-b border-primary/20 bg-gradient-to-r from-primary/10 via-background to-primary/10 flex items-stretch px-3 gap-3 text-[11px]">
         {/* Opponent summary */}
-        <div className="flex items-center gap-3 min-w-[220px]">
-          <Badge variant="outline" className="px-3 py-1 font-semibold bg-background/80">
+        <div className="flex items-center gap-2 min-w-[200px]">
+          <Badge variant="outline" className="px-2 py-0.5 font-semibold bg-background/80 leading-none">
             OPPONENT
           </Badge>
           <div className="flex flex-col text-muted-foreground leading-tight">
-            <span className="font-semibold text-foreground truncate max-w-[180px]">
+            <span className="font-semibold text-foreground truncate max-w-[160px]">
               {state.player2.name}
             </span>
-            <span className="flex items-center gap-2 mt-0.5">
+            <span className="flex items-center gap-1 mt-0.5">
               <span>❤️ {state.player2.life}</span>
               <span>📚 {state.player2.library.length}</span>
               <span>✋ {state.player2.hand.length}</span>
@@ -31,42 +31,52 @@ export const GameBoard = ({ state, onRegisterCard }: GameBoardProps) => {
           </div>
         </div>
 
-        {/* Center: turn + simple phase label; detailed tracker lives in Game Log */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="px-3 py-1 bg-background/90 backdrop-blur font-bold text-sm">
+        {/* Center: compact turn pill; detailed tracker lives in Game Log */}
+        <div className="flex-1 flex items-center justify-center pointer-events-none">
+          <div className="inline-flex items-center gap-2 rounded-full bg-background/90 backdrop-blur px-3 py-1 border border-border/60 shadow-sm">
+            <span className="text-[11px] font-semibold uppercase tracking-wide">
               Turn {state.turn}
-            </Badge>
-            <Badge className="px-3 py-0.5 bg-primary/40 font-semibold text-[11px] tracking-wide">
+            </span>
+            <span className="h-4 w-px bg-border/60" />
+            <span className="text-[10px] font-medium text-muted-foreground">
               {state.phase.replace(/_/g, ' ').toUpperCase()}
-            </Badge>
+            </span>
             {state.combat.isActive && (
-              <Badge variant="destructive" className="px-3 py-0.5 animate-pulse font-bold text-[11px]">
-                ⚔️ COMBAT
-              </Badge>
+              <span className="ml-1 text-[10px] font-bold text-destructive flex items-center gap-1">
+                <span className="animate-pulse">⚔️</span>
+                COMBAT
+              </span>
             )}
           </div>
 
           {state.stack.length > 0 && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-auto">
               <StackViewer stack={state.stack} />
             </div>
           )}
         </div>
 
         {/* You summary */}
-        <div className="flex items-center gap-3 min-w-[220px] justify-end">
+        <div className="flex items-center gap-2 min-w-[200px] justify-end">
           <div className="flex flex-col text-muted-foreground text-right leading-tight">
-            <span className="font-semibold text-foreground truncate max-w-[180px]">
+            <span className="font-semibold text-foreground truncate max-w-[160px]">
               {state.player1.name}
             </span>
-            <span className="flex items-center gap-2 mt-0.5 justify-end">
+            <span className="flex items-center gap-1 mt-0.5 justify-end">
               <span>❤️ {state.player1.life}</span>
               <span>📚 {state.player1.library.length}</span>
               <span>✋ {state.player1.hand.length}</span>
             </span>
           </div>
-          <Badge variant="secondary" className="px-3 py-1 font-semibold bg-background/80">
+          <Badge
+            variant={state.activePlayer === 'player1' ? 'secondary' : 'outline'}
+            className={cn(
+              'px-2 py-0.5 font-semibold leading-none',
+              state.activePlayer === 'player1'
+                ? 'bg-primary/80 text-primary-foreground shadow-sm'
+                : 'bg-background/80'
+            )}
+          >
             {state.activePlayer === 'player1' ? 'YOUR TURN' : "OPPONENT'S TURN"}
           </Badge>
         </div>

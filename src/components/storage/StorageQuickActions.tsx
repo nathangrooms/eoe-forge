@@ -59,6 +59,8 @@ export function StorageQuickActions({
   }, [isOpen]);
 
   const handleAddCard = async (card: any) => {
+    if (processing) return; // Prevent race condition from rapid clicks
+    
     try {
       setProcessing(true);
       
@@ -68,7 +70,8 @@ export function StorageQuickActions({
         throw new Error(collectionResult.error);
       }
 
-      // Then assign to storage
+      // Then assign to storage with delay to prevent race condition
+      await new Promise(resolve => setTimeout(resolve, 100));
       await StorageAPI.assignCard({
         container_id: containerId,
         card_id: card.id,
@@ -145,7 +148,7 @@ export function StorageQuickActions({
   };
 
   const handleAddFromCollection = async () => {
-    if (selectedCards.length === 0) return;
+    if (selectedCards.length === 0 || processing) return; // Prevent race condition
 
     try {
       setProcessing(true);
@@ -153,6 +156,8 @@ export function StorageQuickActions({
 
       for (const cardId of selectedCards) {
         try {
+          // Add small delay between assignments to prevent race conditions
+          await new Promise(resolve => setTimeout(resolve, 50));
           await StorageAPI.assignCard({
             container_id: containerId,
             card_id: cardId,

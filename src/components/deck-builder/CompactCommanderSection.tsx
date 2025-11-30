@@ -67,6 +67,10 @@ export function CompactCommanderSection({ currentCommander }: CompactCommanderSe
                 src={currentCommander.image_uris.normal} 
                 alt={currentCommander.name}
                 className="w-16 h-auto rounded border-2 border-primary/30"
+                onError={(e) => {
+                  e.currentTarget.src = '/placeholder.svg';
+                  e.currentTarget.onerror = null;
+                }}
               />
             ) : (
               <div className="w-16 h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">

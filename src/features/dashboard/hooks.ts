@@ -215,18 +215,20 @@ export function useDashboardSummary() {
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     fetchSummary();
 
     // Auto-refresh every 30 seconds when page is visible
     const interval = setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden && mounted) {
         fetchSummary();
       }
     }, 30000);
 
     // Also refresh when page becomes visible
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && mounted) {
         fetchSummary();
       }
     };
@@ -234,6 +236,7 @@ export function useDashboardSummary() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      mounted = false;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -248,7 +251,10 @@ export function useFavoriteDecks() {
   const [loading, setLoading] = useState(true);
 
   const fetchFavorites = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data } = await supabase
@@ -290,11 +296,11 @@ export function useFavoriteDecks() {
               const imageUris = typeof cardData?.image_uris === 'string'
                 ? JSON.parse(cardData.image_uris)
                 : cardData?.image_uris;
-              commanderImage = imageUris?.normal || imageUris?.large || imageUris?.small || null;
-              commanderArt = imageUris?.art_crop || null;
+              commanderImage = imageUris?.normal || imageUris?.large || imageUris?.small || '/placeholder.svg';
+              commanderArt = imageUris?.art_crop || '/placeholder.svg';
             } catch (e) {
-              commanderArt = null;
-              commanderImage = null;
+              commanderArt = '/placeholder.svg';
+              commanderImage = '/placeholder.svg';
             }
           }
 

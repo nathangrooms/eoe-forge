@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,11 +26,13 @@ import { useAuth } from '@/components/AuthProvider';
 import { useDashboardSummary, useFavoriteDecks, trackDeckOpen } from '@/features/dashboard/hooks';
 import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { AIDeckRecommendations } from '@/components/dashboard/AIDeckRecommendations';
-import { RecentActivity } from '@/components/dashboard/RecentActivity';
-import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
 import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+// Lazy load heavy components for better initial load performance
+const AIDeckRecommendations = lazy(() => import('@/components/dashboard/AIDeckRecommendations').then(m => ({ default: m.AIDeckRecommendations })));
+const RecentActivity = lazy(() => import('@/components/dashboard/RecentActivity').then(m => ({ default: m.RecentActivity })));
+const BadgesSection = lazy(() => import('@/components/dashboard/BadgeDisplay').then(m => ({ default: m.BadgesSection })));
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -405,7 +407,22 @@ const Dashboard = () => {
         </Card>
 
         {/* Badge System */}
-        <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
+        <Suspense fallback={
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(i => (
+                  <Skeleton key={i} className="h-24 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        }>
+          <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
+        </Suspense>
 
       </div>
     </div>

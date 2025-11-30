@@ -6,6 +6,7 @@ import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
 import { TaskManagement } from '@/components/admin/TaskManagement';
 import { FeatureFlags } from '@/components/admin/FeatureFlags';
 import { SystemHealthDashboard } from '@/components/dashboard/SystemHealthDashboard';
+import { ImplementationSummary } from '@/components/admin/ImplementationSummary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Admin = () => {
@@ -27,7 +28,10 @@ const Admin = () => {
         </TabsContent>
 
         <TabsContent value="tasks">
-          <TaskManagement />
+          <div className="space-y-6">
+            <ImplementationSummary />
+            <TaskManagement />
+          </div>
         </TabsContent>
 
         <TabsContent value="features">

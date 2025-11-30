@@ -427,6 +427,31 @@ const Dashboard = () => {
           <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
         </Suspense>
 
+        {/* AI Deck Recommendations */}
+        {dashboardData?.decks?.count > 0 && (
+          <Suspense fallback={
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-48 w-full" />
+              </CardContent>
+            </Card>
+          }>
+            <AIDeckRecommendations 
+              userDecks={favorites.map(d => ({
+                id: d.id,
+                name: d.name,
+                format: d.format,
+                colors: d.colors,
+                power_level: d.power_level
+              }))}
+              collectionStats={{
+                totalCards: dashboardData?.collection?.totalCards || 0,
+                byColor: {}
+              }}
+            />
+          </Suspense>
+        )}
+
         {/* Search History */}
         <SearchHistory />
 

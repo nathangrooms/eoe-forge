@@ -323,6 +323,11 @@ export function TaskManagement() {
     // Bug Fixes - Done
     'Fix missing cards drawer',
     'Fix deck list sorting options',
+    'Fix collection analytics color distribution',
+    'Fix sold listing sync',
+    
+    // AI Features - Restored
+    'Restore AI Deck Recommendations',
   ];
 
   useEffect(() => {

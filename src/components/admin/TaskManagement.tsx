@@ -36,6 +36,7 @@ import { Switch } from '@/components/ui/switch';
 type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'done';
 type TaskCategory = 'feature' | 'bug' | 'improvement' | 'core_functionality';
 type TaskPriority = 'high' | 'medium' | 'low';
+type AppSection = 'dashboard' | 'collection' | 'deck_builder' | 'marketplace' | 'wishlist' | 'brain' | 'scan' | 'storage' | 'templates' | 'admin' | 'settings' | 'general';
 
 interface Task {
   id: string;
@@ -45,6 +46,7 @@ interface Task {
   status: TaskStatus;
   category: TaskCategory;
   priority: TaskPriority;
+  app_section: AppSection;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +71,21 @@ const priorityConfig: Record<TaskPriority, { color: string; label: string }> = {
   low: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30', label: 'Low' },
 };
 
+const appSectionConfig: Record<AppSection, { label: string; color: string }> = {
+  dashboard: { label: 'Dashboard', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' },
+  collection: { label: 'Collection', color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
+  deck_builder: { label: 'Deck Builder', color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' },
+  marketplace: { label: 'Marketplace', color: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' },
+  wishlist: { label: 'Wishlist', color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20' },
+  brain: { label: 'Brain', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+  scan: { label: 'Scan', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
+  storage: { label: 'Storage', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' },
+  templates: { label: 'Templates', color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20' },
+  admin: { label: 'Admin', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
+  settings: { label: 'Settings', color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' },
+  general: { label: 'General', color: 'bg-muted/80 text-muted-foreground border-border' },
+};
+
 export function TaskManagement() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +98,7 @@ export function TaskManagement() {
     status: 'pending' as TaskStatus,
     category: 'feature' as TaskCategory,
     priority: 'medium' as TaskPriority,
+    app_section: 'general' as AppSection,
   });
 
   useEffect(() => {
@@ -103,7 +121,7 @@ export function TaskManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTasks(data || []);
+      setTasks((data || []) as Task[]);
     } catch (error: any) {
       showError('Failed to fetch tasks', error.message);
     } finally {
@@ -130,6 +148,7 @@ export function TaskManagement() {
             status: formData.status,
             category: formData.category,
             priority: formData.priority,
+            app_section: formData.app_section,
           })
           .eq('id', editingTask.id);
 
@@ -145,6 +164,7 @@ export function TaskManagement() {
             status: formData.status,
             category: formData.category,
             priority: formData.priority,
+            app_section: formData.app_section,
           });
 
         if (error) throw error;
@@ -204,6 +224,7 @@ export function TaskManagement() {
       status: task.status,
       category: task.category,
       priority: task.priority,
+      app_section: task.app_section,
     });
     setEditingTask(task);
     setDialogOpen(true);
@@ -216,6 +237,7 @@ export function TaskManagement() {
       status: 'pending',
       category: 'feature',
       priority: 'medium',
+      app_section: 'general',
     });
     setEditingTask(null);
   };
@@ -305,8 +327,9 @@ export function TaskManagement() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[30%]">Title</TableHead>
-              <TableHead className="w-[25%]">Description</TableHead>
+              <TableHead className="w-[25%]">Title</TableHead>
+              <TableHead className="w-[20%]">Description</TableHead>
+              <TableHead>App Section</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -317,13 +340,13 @@ export function TaskManagement() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                   Loading tasks...
                 </TableCell>
               </TableRow>
             ) : filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                   {tasks.length === 0 
                     ? 'No tasks yet. Create your first task to get started.'
                     : 'No active tasks. Toggle "Show completed tasks" to see completed items.'}
@@ -340,6 +363,11 @@ export function TaskManagement() {
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                       {task.description || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={appSectionConfig[task.app_section].color}>
+                        {appSectionConfig[task.app_section].label}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={categoryConfig[task.category].color}>
@@ -446,6 +474,9 @@ export function TaskManagement() {
                       <StatusIcon className="h-3 w-3" />
                       {statusConfig[task.status].label}
                     </Badge>
+                    <Badge variant="outline" className={appSectionConfig[task.app_section].color}>
+                      {appSectionConfig[task.app_section].label}
+                    </Badge>
                     <Badge variant="outline" className={categoryConfig[task.category].color}>
                       {categoryConfig[task.category].label}
                     </Badge>
@@ -525,6 +556,34 @@ export function TaskManagement() {
                   rows={4}
                   className="resize-none"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="app_section" className="text-sm font-medium">App Section *</Label>
+                <Select
+                  value={formData.app_section}
+                  onValueChange={(value: AppSection) =>
+                    setFormData({ ...formData, app_section: value })
+                  }
+                >
+                  <SelectTrigger id="app_section" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dashboard">Dashboard</SelectItem>
+                    <SelectItem value="collection">Collection</SelectItem>
+                    <SelectItem value="deck_builder">Deck Builder</SelectItem>
+                    <SelectItem value="marketplace">Marketplace</SelectItem>
+                    <SelectItem value="wishlist">Wishlist</SelectItem>
+                    <SelectItem value="brain">Brain</SelectItem>
+                    <SelectItem value="scan">Scan</SelectItem>
+                    <SelectItem value="storage">Storage</SelectItem>
+                    <SelectItem value="templates">Templates</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="settings">Settings</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">

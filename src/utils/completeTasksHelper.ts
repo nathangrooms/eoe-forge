@@ -349,6 +349,41 @@ export async function markTasksComplete() {
       category: 'feature',
       priority: 'high',
       app_section: 'general'
+    },
+    {
+      title: 'Add rate limiting',
+      description: 'Created comprehensive client-side rate limiting system with configurable limits for API calls, searches, auth attempts, and form submissions',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'general'
+    },
+    {
+      title: 'Implement CSRF protection',
+      description: 'Built CSRF token generation and validation system with utilities for protecting form submissions and API requests',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'general'
+    },
+    {
+      title: 'Implement OAuth providers',
+      description: 'Created OAuthProviders component supporting Google and GitHub OAuth login with redirect handling',
+      category: 'feature',
+      priority: 'medium',
+      app_section: 'general'
+    },
+    {
+      title: 'Add 2FA authentication',
+      description: 'Implemented TwoFactorSetup component with TOTP-based two-factor authentication including QR code enrollment and verification',
+      category: 'feature',
+      priority: 'medium',
+      app_section: 'general'
+    },
+    {
+      title: 'Implement database backup management',
+      description: 'Built DatabaseBackupManager component for manual JSON export of user data tables including collections, decks, wishlist, and storage',
+      category: 'core_functionality',
+      priority: 'high',
+      app_section: 'general'
     }
   ];
 

@@ -341,6 +341,10 @@ export function TaskManagement() {
     'Add TCGPlayer price sync',
     'Integrate deck folder management into Decks page',
     'Add store availability check',
+    'Implement deck version history',
+    'Enhance deck performance tracking',
+    'Add collection export feature',
+    'Add card printing comparison tool',
   ];
 
   useEffect(() => {

@@ -27,6 +27,8 @@ import { StorageContainer } from '@/types/storage';
 import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
 import { CategoryManager } from '@/components/collection/CategoryManager';
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
+import { CollectionExport } from '@/components/collection/CollectionExport';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
   const {
@@ -42,6 +44,7 @@ export default function Collection() {
   } = useCollectionStore();
 
   const { addCardToDeck } = useDeckManagementStore();
+  const { user } = useAuth();
 
   // Tab management
   const [searchParams, setSearchParams] = useSearchParams();
@@ -490,7 +493,10 @@ export default function Collection() {
                       value: c.price_usd
                     }))}
                   />
-                  <TCGPlayerPriceSync />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <TCGPlayerPriceSync />
+                    {user && <CollectionExport userId={user.id} />}
+                  </div>
                   <CollectionAnalytics 
                     stats={collectionStats} 
                     loading={loading}

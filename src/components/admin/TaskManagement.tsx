@@ -240,9 +240,22 @@ export function TaskManagement() {
     // Deck Builder Features - Done (continued)
     'Implement advanced card filters',
     'Implement deck comparison view',
+    'Add deck import from text',
+    'Implement deck export options',
     
     // Storage Features - Done
     'Add storage management',
+    'Add storage container view',
+    'Add storage quick actions',
+    
+    // Collection Features - Done (continued)
+    'Add bulk import with validation',
+    'Add collection insurance value report',
+    'Implement collection comparison',
+    'Implement card type distribution chart',
+    
+    // Deck Builder Features - Done (more)
+    'Add deck primer generator',
     'Add storage quick actions',
     'Add storage container management',
     

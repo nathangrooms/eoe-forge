@@ -31,6 +31,14 @@ export async function markTasksComplete() {
     {
       id: 'dca19f18-92f5-492b-8a32-a7020683c002',
       title: 'Fix EDH power level calculation'
+    },
+    {
+      id: '7bc51f4c-cd0c-41fe-b96e-e7a3ba3c7bc9',
+      title: 'Fix collection stats calculation bug'
+    },
+    {
+      id: '16db0fd8-021c-4cdb-a225-02e955a1d19d',
+      title: 'Implement deck legality checker'
     }
   ];
 
@@ -86,6 +94,20 @@ export async function markTasksComplete() {
       title: 'Create DeckSearchFilters component',
       description: 'Implemented comprehensive deck search and filter system with format, color, and power level filters',
       category: 'feature',
+      priority: 'high',
+      app_section: 'deck_builder'
+    },
+    {
+      title: 'Create CollectionStatsCalculator class',
+      description: 'Fixed collection stats calculation bugs - proper total/unique card counting, value calculations, and distribution analytics',
+      category: 'bug',
+      priority: 'high',
+      app_section: 'collection'
+    },
+    {
+      title: 'Create DeckLegalityChecker class',
+      description: 'Comprehensive deck legality validation for Commander, Standard, Modern, Legacy, Vintage, and Pauper formats',
+      category: 'core_functionality',
       priority: 'high',
       app_section: 'deck_builder'
     }

@@ -20,27 +20,27 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
   if (faceDown) {
     return (
       <div className={cn(
-        "relative rounded-lg border-2 border-muted bg-gradient-to-br from-primary/5 to-secondary/5",
-        compact ? "w-16 h-22" : "w-24 h-32",
-        "flex items-center justify-center"
+        "relative rounded-lg border-2 border-border/50 bg-gradient-to-br from-muted/20 to-muted/30",
+        compact ? "w-20 h-28" : "w-32 h-44",
+        "flex items-center justify-center shadow-md"
       )}>
-        <div className="text-4xl opacity-20">🂠</div>
+        <div className="text-5xl opacity-30">🂠</div>
       </div>
     );
   }
 
   return (
     <TooltipProvider>
-      <Tooltip>
+      <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "relative rounded-lg border-2 transition-all cursor-pointer hover:scale-105 hover:z-10 flex-shrink-0",
-              compact ? "w-20 h-28" : "w-28 h-40",
-              card.isTapped && "opacity-70",
-              isLand ? "border-green-500/50" : "border-primary/50",
-              card.summoningSick && "ring-2 ring-yellow-500/50",
-              "group"
+              "relative rounded-lg border-2 transition-all cursor-pointer flex-shrink-0 shadow-lg hover:shadow-2xl",
+              compact ? "w-24 h-32" : "w-36 h-50",
+              card.isTapped && "opacity-80",
+              isLand ? "border-green-600/60" : "border-primary/60",
+              card.summoningSick && "ring-2 ring-yellow-500",
+              "group hover:scale-110 hover:z-20"
             )}
             style={{
               transform: card.isTapped ? 'rotate(90deg)' : 'none',
@@ -55,49 +55,29 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
                 className="absolute inset-0 w-full h-full object-cover rounded-md"
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-background to-muted flex items-center justify-center p-2">
-                <div className="text-xs font-bold text-center line-clamp-3">
+              <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center p-2">
+                <div className="text-sm font-bold text-center line-clamp-4 text-foreground">
                   {card.name}
                 </div>
               </div>
             )}
 
-            {/* Overlay for better visibility */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 rounded-md" />
-
-            {/* Mana cost */}
-            {card.mana_cost && !compact && (
-              <div className="absolute top-1 right-1 bg-background/90 px-1.5 py-0.5 rounded text-xs font-bold border border-primary/20">
-                {card.cmc}
-              </div>
-            )}
-
-            {/* Card name */}
-            <div className="absolute top-1 left-1 right-12 bg-background/90 px-1.5 py-0.5 rounded text-xs font-bold truncate border border-border">
-              {card.name}
-            </div>
-
             {/* Power/Toughness for creatures */}
             {isCreature && (
               <div className={cn(
-                "absolute bottom-1 right-1 bg-background/95 px-2 py-1 rounded font-bold border-2",
-                card.powerModifier !== 0 || card.toughnessModifier !== 0 ? "border-green-500 text-green-500" : "border-border"
+                "absolute bottom-2 right-2 bg-background/95 backdrop-blur px-3 py-1.5 rounded-md font-bold border-2 shadow-lg",
+                card.powerModifier !== 0 || card.toughnessModifier !== 0 ? "border-green-500 text-green-600" : "border-foreground/30"
               )}>
-                <div className="text-sm">
+                <div className="text-lg leading-none">
                   {currentPower}/{currentToughness}
                 </div>
-                {(card.powerModifier !== 0 || card.toughnessModifier !== 0) && (
-                  <div className="text-xs text-muted-foreground">
-                    ({basePower}/{baseToughness})
-                  </div>
-                )}
               </div>
             )}
 
             {/* Damage marked */}
             {card.damageMarked > 0 && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="bg-destructive text-destructive-foreground px-3 py-2 rounded-full font-bold text-lg shadow-lg">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                <div className="bg-destructive text-destructive-foreground px-4 py-3 rounded-full font-bold text-2xl shadow-2xl border-2 border-destructive-foreground/20">
                   -{card.damageMarked}
                 </div>
               </div>
@@ -105,10 +85,10 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
 
             {/* Counters */}
             {Object.entries(card.counters).length > 0 && (
-              <div className="absolute top-8 left-1 flex flex-col gap-1">
+              <div className="absolute top-2 left-2 flex flex-col gap-1">
                 {Object.entries(card.counters).map(([type, count]) => (
-                  <Badge key={type} variant="default" className="text-xs px-1">
-                    {type}: {count}
+                  <Badge key={type} className="text-xs px-2 py-1 bg-primary/90 backdrop-blur">
+                    +{count} {type}
                   </Badge>
                 ))}
               </div>
@@ -116,42 +96,42 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
 
             {/* Summoning sick indicator */}
             {card.summoningSick && card.zone === 'battlefield' && (
-              <div className="absolute bottom-1 left-1 bg-yellow-500/90 text-yellow-950 px-1.5 py-0.5 rounded text-xs font-bold">
-                Sick
+              <div className="absolute top-2 right-2 bg-yellow-500 text-yellow-950 px-2 py-1 rounded text-xs font-bold shadow-md">
+                ⏱️ Sick
               </div>
             )}
 
-            {/* Tapped indicator */}
+            {/* Tapped overlay */}
             {card.isTapped && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-muted/80 px-2 py-1 rounded text-xs font-bold">
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-md">
+                <div className="bg-background/90 backdrop-blur px-3 py-1.5 rounded text-sm font-bold">
                   TAPPED
                 </div>
               </div>
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-md">
-          <div className="space-y-2">
-            <div className="font-bold text-lg">{card.name}</div>
-            <div className="text-xs text-muted-foreground">{card.mana_cost}</div>
-            <div className="text-sm font-semibold">{card.type_line}</div>
+        <TooltipContent side="top" className="max-w-sm p-4 bg-background/95 backdrop-blur">
+          <div className="space-y-3">
+            <div className="font-bold text-xl">{card.name}</div>
+            <div className="text-sm text-muted-foreground">{card.mana_cost}</div>
+            <div className="text-sm font-semibold border-t border-border pt-2">{card.type_line}</div>
             {card.oracle_text && (
-              <div className="text-sm border-t pt-2">{card.oracle_text}</div>
+              <div className="text-sm border-t border-border pt-2 leading-relaxed">{card.oracle_text}</div>
             )}
             {isCreature && (
-              <div className="text-sm font-semibold border-t pt-2">
-                Power/Toughness: {currentPower}/{currentToughness}
+              <div className="text-sm font-semibold border-t border-border pt-2">
+                <span className="text-muted-foreground">P/T:</span> {currentPower}/{currentToughness}
                 {(card.powerModifier !== 0 || card.toughnessModifier !== 0) && (
-                  <span className="text-green-500"> (Modified from {basePower}/{baseToughness})</span>
+                  <span className="text-green-500 ml-2">(Base: {basePower}/{baseToughness})</span>
                 )}
                 {card.damageMarked > 0 && (
-                  <span className="text-destructive"> ({card.damageMarked} damage marked)</span>
+                  <span className="text-destructive ml-2">({card.damageMarked} damage)</span>
                 )}
               </div>
             )}
             {card.keywords && card.keywords.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 border-t border-border pt-2">
                 {card.keywords.map((kw) => (
                   <Badge key={kw} variant="secondary" className="text-xs">
                     {kw}

@@ -25,68 +25,68 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
 
   return (
     <div className={cn(
-      "h-full flex flex-col gap-2 p-3",
+      "h-full flex flex-col gap-4 p-4",
       isTop ? "flex-col" : "flex-col-reverse"
     )}>
       {/* Player info bar */}
       <Card className={cn(
-        "p-3 transition-all",
-        isActive ? "bg-primary/10 border-primary shadow-lg shadow-primary/20" : "bg-background border-border",
-        hasPriority && "ring-2 ring-primary"
+        "p-4 transition-all border-2",
+        isActive ? "bg-primary/15 border-primary shadow-xl shadow-primary/30" : "bg-muted/20 border-border",
+        hasPriority && "ring-4 ring-primary/50"
       )}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <div className={cn(
-              "text-xl font-bold",
+              "text-2xl font-bold",
               isActive && "text-primary"
             )}>
               {player.name}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 bg-background/50 px-4 py-2 rounded-lg border border-border">
               <Heart className={cn(
-                "h-6 w-6",
+                "h-7 w-7",
                 player.life > 30 ? "text-green-500" :
                 player.life > 20 ? "text-yellow-500" :
                 player.life > 10 ? "text-orange-500" : "text-red-500"
               )} />
-              <span className="text-3xl font-bold">{player.life}</span>
+              <span className="text-4xl font-bold">{player.life}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <Library className="h-4 w-4" />
-              <span className="font-mono font-bold">{player.library.length}</span>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-2 rounded-lg border border-border">
+              <Library className="h-5 w-5 text-primary" />
+              <span className="font-mono font-bold text-lg">{player.library.length}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              <span className="font-mono">Hand: {player.hand.length}</span>
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-2 rounded-lg border border-border">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="font-mono text-lg">Hand: <span className="font-bold">{player.hand.length}</span></span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono">GY: {player.graveyard.length}</span>
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-2 rounded-lg border border-border">
+              <span className="font-mono text-lg">GY: <span className="font-bold">{player.graveyard.length}</span></span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono">Exile: {player.exile.length}</span>
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-2 rounded-lg border border-border">
+              <span className="font-mono text-lg">Exile: <span className="font-bold">{player.exile.length}</span></span>
             </div>
           </div>
 
           {/* Mana pool */}
           {Object.values(player.manaPool).some(v => v > 0) && (
-            <div className="flex items-center gap-2">
-              <div className="text-xs text-muted-foreground">Mana Pool:</div>
+            <div className="flex items-center gap-3">
+              <div className="text-sm font-semibold text-muted-foreground">Mana Pool:</div>
               {Object.entries(player.manaPool).map(([color, amount]) => {
                 if (amount === 0) return null;
                 const colorMap: Record<string, string> = {
-                  W: 'bg-yellow-100 text-yellow-900 border-yellow-300',
-                  U: 'bg-blue-100 text-blue-900 border-blue-300',
+                  W: 'bg-yellow-100 text-yellow-900 border-yellow-400',
+                  U: 'bg-blue-100 text-blue-900 border-blue-400',
                   B: 'bg-gray-800 text-white border-gray-600',
-                  R: 'bg-red-100 text-red-900 border-red-300',
-                  G: 'bg-green-100 text-green-900 border-green-300',
-                  C: 'bg-gray-100 text-gray-900 border-gray-300'
+                  R: 'bg-red-100 text-red-900 border-red-400',
+                  G: 'bg-green-100 text-green-900 border-green-400',
+                  C: 'bg-gray-100 text-gray-900 border-gray-400'
                 };
                 return (
-                  <div key={color} className={cn("font-bold text-sm px-2 py-1 rounded border-2", colorMap[color])}>
-                    {color}{amount > 1 ? ` x${amount}` : ''}
+                  <div key={color} className={cn("font-bold text-base px-3 py-1.5 rounded-md border-2 shadow-sm", colorMap[color])}>
+                    {color}{amount > 1 ? ` ×${amount}` : ''}
                   </div>
                 );
               })}
@@ -101,12 +101,11 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
           title="Hand"
           cards={player.hand}
           orientation={orientation}
-          compact
         />
       )}
 
       {/* Battlefield sections */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-2">
         {/* Planeswalkers */}
         {planeswalkers.length > 0 && (
           <ZoneSection
@@ -149,21 +148,19 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
         />
 
         {/* Graveyard & Exile */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {player.graveyard.length > 0 && (
             <ZoneSection
               title="Graveyard"
-              cards={player.graveyard.slice(-3)} // Show last 3 cards
+              cards={player.graveyard.slice(-5)} // Show last 5 cards
               orientation={orientation}
-              compact
             />
           )}
           {player.exile.length > 0 && (
             <ZoneSection
               title="Exile"
-              cards={player.exile.slice(-3)} // Show last 3 cards
+              cards={player.exile.slice(-5)} // Show last 5 cards
               orientation={orientation}
-              compact
             />
           )}
         </div>
@@ -175,7 +172,6 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation 
           title="Command Zone"
           cards={player.commandZone}
           orientation={orientation}
-          compact
         />
       )}
     </div>

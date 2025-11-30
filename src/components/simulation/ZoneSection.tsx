@@ -16,15 +16,18 @@ export const ZoneSection = ({ title, cards, orientation, compact = false }: Zone
 
   return (
     <div className={cn(
-      "border rounded-lg p-2",
-      compact ? "bg-background/30" : "bg-background/50"
+      "border-2 rounded-xl p-4",
+      compact ? "bg-muted/20" : "bg-muted/30",
+      "border-border/40"
     )}>
-      <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-        {title} ({cards.length})
+      <div className="text-sm font-bold text-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+        <span className="text-primary">{title}</span>
+        <span className="text-muted-foreground text-xs">({cards.length})</span>
       </div>
       <div className={cn(
-        "flex gap-2 overflow-x-auto",
-        compact ? "flex-wrap" : "min-h-[140px]"
+        "flex gap-3 overflow-x-auto pb-2",
+        compact ? "flex-wrap" : "min-h-[200px]",
+        "scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
       )}>
         {cards.map((card) => (
           <FullCardDisplay

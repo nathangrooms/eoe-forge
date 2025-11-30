@@ -47,6 +47,14 @@ export async function markTasksComplete() {
     {
       id: '4753a7da-a8df-45d1-b6f3-a9ce4a532d7f',
       title: 'Implement deck validation warnings'
+    },
+    {
+      id: 'e77165e2-1bbb-4acd-94d7-77ca70bff59b',
+      title: 'Fix dashboard stat calculation errors'
+    },
+    {
+      id: '328e1681-4311-4601-a63a-aca930c96b43',
+      title: 'Fix deck power level consistency'
     }
   ];
 

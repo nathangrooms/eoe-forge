@@ -26,7 +26,7 @@ export function formatTimeAgo(dateString: string): string {
 }
 
 export function calculateWishlistValue(wishlistItems: any[]): { total: number, items: number, desired: number } {
-  if (!wishlistItems || wishlistItems.length === 0) {
+  if (!wishlistItems || !Array.isArray(wishlistItems) || wishlistItems.length === 0) {
     return { total: 0, items: 0, desired: 0 };
   }
   
@@ -35,8 +35,15 @@ export function calculateWishlistValue(wishlistItems: any[]): { total: number, i
   let desired = 0;
   
   wishlistItems.forEach(item => {
-    const price = item.card?.prices?.usd ? parseFloat(item.card.prices.usd) : 0;
-    const quantity = item.quantity || 1;
+    if (!item) return;
+    
+    let price = 0;
+    if (item.card?.prices?.usd) {
+      const parsedPrice = parseFloat(item.card.prices.usd);
+      price = isFinite(parsedPrice) ? parsedPrice : 0;
+    }
+    
+    const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 1;
     
     total += price * quantity;
     items += 1;

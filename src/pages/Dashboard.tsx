@@ -38,12 +38,12 @@ const Dashboard = () => {
   const { data: dashboardData, loading: dashboardLoading, error, refetch } = useDashboardSummary();
   const { favorites, loading: favoritesLoading, toggleFavorite } = useFavoriteDecks();
 
-  // Calculate badge progress
+  // Calculate badge progress with null safety
   const badgeProgress = calculateBadgeProgress({
-    decksCount: dashboardData?.decks.count || 0,
-    uniqueCards: dashboardData?.collection.uniqueCards || 0,
-    collectionValue: dashboardData?.collection.totalValueUSD || 0,
-    totalCards: dashboardData?.collection.totalCards || 0,
+    decksCount: dashboardData?.decks?.count || 0,
+    uniqueCards: dashboardData?.collection?.uniqueCards || 0,
+    collectionValue: dashboardData?.collection?.totalValueUSD || 0,
+    totalCards: dashboardData?.collection?.totalCards || 0,
   });
   const earnedBadges = getEarnedBadges(badgeProgress);
   const inProgressBadges = getInProgressBadges(badgeProgress);
@@ -180,9 +180,9 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{asUSD(dashboardData?.collection.totalValueUSD)}</div>
+              <div className="text-2xl font-bold">{asUSD(dashboardData?.collection?.totalValueUSD)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {dashboardData?.collection.uniqueCards} unique cards
+                {dashboardData?.collection?.uniqueCards || 0} unique cards
               </p>
             </CardContent>
           </Card>
@@ -196,7 +196,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.collection.totalCards.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{(dashboardData?.collection?.totalCards || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Physical collection
               </p>
@@ -212,9 +212,9 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardData?.decks.count}</div>
+              <div className="text-2xl font-bold">{dashboardData?.decks?.count || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {dashboardData?.decks.favoritesCount} favorites
+                {dashboardData?.decks?.favoritesCount || 0} favorites
               </p>
             </CardContent>
           </Card>
@@ -229,9 +229,9 @@ const Dashboard = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist.valueUSD)}</div>
+                <div className="text-2xl font-bold">{asUSD(dashboardData?.wishlist?.valueUSD)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {dashboardData?.wishlist.totalItems} items desired
+                  {dashboardData?.wishlist?.totalItems || 0} items desired
                 </p>
               </CardContent>
             </Card>

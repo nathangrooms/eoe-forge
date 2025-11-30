@@ -63,17 +63,23 @@ export function useDashboardSummary() {
         .select('quantity, foil, price_usd')
         .eq('user_id', user.id);
 
-      // Calculate collection value and stats
+      // Calculate collection value and stats with null safety
       let collectionValue = 0;
       let totalCards = 0;
       const uniqueCards = collectionData?.length || 0;
 
-      collectionData?.forEach(item => {
-        const price = item.price_usd || 0;
-        
-        collectionValue += item.quantity * price;
-        totalCards += item.quantity + item.foil;
-      });
+      if (collectionData && Array.isArray(collectionData)) {
+        collectionData.forEach(item => {
+          if (!item) return;
+          
+          const price = typeof item.price_usd === 'number' && isFinite(item.price_usd) ? item.price_usd : 0;
+          const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 0;
+          const foil = typeof item.foil === 'number' && isFinite(item.foil) ? item.foil : 0;
+          
+          collectionValue += quantity * price;
+          totalCards += quantity + foil;
+        });
+      }
 
       // Fetch wishlist data with card prices
       const { data: wishlistData } = await supabase
@@ -109,12 +115,19 @@ export function useDashboardSummary() {
       let wishlistValue = 0;
       let wishlistDesired = 0;
       
-      wishlistData?.forEach(item => {
-        const quantity = item.quantity || 1;
-        const price = wishlistCardPrices[item.card_id] || 0;
-        wishlistValue += price * quantity;
-        wishlistDesired += quantity;
-      });
+      if (wishlistData && Array.isArray(wishlistData)) {
+        wishlistData.forEach(item => {
+          if (!item || !item.card_id) return;
+          
+          const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 1;
+          const price = typeof wishlistCardPrices[item.card_id] === 'number' && isFinite(wishlistCardPrices[item.card_id]) 
+            ? wishlistCardPrices[item.card_id] 
+            : 0;
+          
+          wishlistValue += price * quantity;
+          wishlistDesired += quantity;
+        });
+      }
 
       // Fetch deck stats
       const { data: deckData } = await supabase

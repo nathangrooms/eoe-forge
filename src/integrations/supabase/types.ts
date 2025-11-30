@@ -612,6 +612,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          app_section: string | null
           category: Database["public"]["Enums"]["task_category"]
           created_at: string | null
           description: string | null
@@ -623,6 +624,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          app_section?: string | null
           category?: Database["public"]["Enums"]["task_category"]
           created_at?: string | null
           description?: string | null
@@ -634,6 +636,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          app_section?: string | null
           category?: Database["public"]["Enums"]["task_category"]
           created_at?: string | null
           description?: string | null

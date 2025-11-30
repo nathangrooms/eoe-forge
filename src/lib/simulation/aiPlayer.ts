@@ -82,9 +82,16 @@ export class AIPlayer {
   }
 
   private evaluateCreatureSpells(player: Player, state: GameState): AIDecision | null {
-    const creatures = player.hand.filter(card => 
+    // Check both hand and command zone for creatures
+    const creaturesInHand = player.hand.filter(card => 
       card.type_line.includes('Creature') && canCastSpell(card, state)
     );
+    
+    const commandersInZone = player.commandZone.filter(card =>
+      card.type_line.includes('Creature') && canCastSpell(card, state)
+    );
+    
+    const creatures = [...creaturesInHand, ...commandersInZone];
 
     // Sort by CMC (play cheaper first, but prioritize impactful cards)
     const sorted = creatures.sort((a, b) => {
@@ -99,7 +106,7 @@ export class AIPlayer {
         return {
           type: 'cast_spell',
           cardInstanceId: creature.instanceId,
-          priority: 70,
+          priority: creature.zone === 'command' ? 85 : 70, // Prioritize commanders
         };
       }
     }

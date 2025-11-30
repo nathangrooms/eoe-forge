@@ -92,34 +92,34 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
       <div className="flex-1 overflow-auto min-h-0">
         <div className="grid grid-cols-[auto_1fr_auto] gap-1.5 h-full">
           
-          {/* LEFT COLUMN: Command Zone + Hand */}
-          <div className="flex flex-col gap-1.5 w-[180px]">
-            {player.commandZone.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5">
-                <div className="text-[10px] font-bold text-primary mb-1">⭐ COMMANDER</div>
-                <GroupedCardDisplay cards={player.commandZone} compact onRegisterCard={onRegisterCard} />
-              </div>
-            )}
-            
-            {player.hand.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5 flex-1 min-h-0 overflow-auto">
-                <div className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase">
-                  Hand ({player.hand.length})
-                </div>
-                <GroupedCardDisplay 
-                  cards={player.hand}
-                  compact
-                  onRegisterCard={onRegisterCard}
-                />
-              </div>
-            )}
+      {/* LEFT COLUMN: Command Zone + Hand */}
+      <div className="flex flex-col gap-1 w-[160px]">
+        {player.commandZone.length > 0 && (
+          <div className="bg-background/15 rounded p-1">
+            <div className="text-[9px] font-bold text-primary mb-0.5">⭐ CMD</div>
+            <GroupedCardDisplay cards={player.commandZone} compact onRegisterCard={onRegisterCard} />
           </div>
+        )}
+        
+        {player.hand.length > 0 && (
+          <div className="bg-background/15 rounded p-1 flex-1 min-h-0 overflow-auto">
+            <div className="text-[9px] font-semibold text-muted-foreground mb-0.5 uppercase">
+              Hand ({player.hand.length})
+            </div>
+            <GroupedCardDisplay 
+              cards={player.hand}
+              compact
+              onRegisterCard={onRegisterCard}
+            />
+          </div>
+        )}
+      </div>
 
           {/* CENTER: Battlefield */}
-          <div className="flex flex-col gap-1.5 overflow-auto">
+          <div className="flex flex-col gap-1 overflow-auto">
             {creatures.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5">
-                <div className="text-[10px] font-semibold text-red-400 mb-1 uppercase flex items-center gap-1">
+              <div className="bg-background/15 rounded p-1">
+                <div className="text-[9px] font-semibold text-red-400 mb-0.5 uppercase flex items-center gap-1">
                   <span>⚔️</span> Creatures ({creatures.length})
                 </div>
                 <GroupedCardDisplay cards={creatures} compact onRegisterCard={onRegisterCard} />
@@ -127,8 +127,8 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
             )}
 
             {lands.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5">
-                <div className="text-[10px] font-semibold text-green-400 mb-1 uppercase flex items-center gap-1">
+              <div className="bg-background/15 rounded p-1">
+                <div className="text-[9px] font-semibold text-green-400 mb-0.5 uppercase flex items-center gap-1">
                   <span>🏔️</span> Lands ({lands.length})
                 </div>
                 <GroupedCardDisplay cards={lands} compact onRegisterCard={onRegisterCard} />
@@ -136,26 +136,26 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
             )}
 
             {(artifacts.length > 0 || enchantments.length > 0 || planeswalkers.length > 0) && (
-              <div className="flex gap-1.5">
+              <div className="flex gap-1">
                 {artifacts.length > 0 && (
-                  <div className="bg-background/20 rounded p-1.5 flex-1">
-                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                  <div className="bg-background/15 rounded p-1 flex-1">
+                    <div className="text-[9px] font-semibold text-muted-foreground mb-0.5">
                       Artifacts ({artifacts.length})
                     </div>
                     <GroupedCardDisplay cards={artifacts} compact onRegisterCard={onRegisterCard} />
                   </div>
                 )}
                 {enchantments.length > 0 && (
-                  <div className="bg-background/20 rounded p-1.5 flex-1">
-                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                  <div className="bg-background/15 rounded p-1 flex-1">
+                    <div className="text-[9px] font-semibold text-muted-foreground mb-0.5">
                       Enchantments ({enchantments.length})
                     </div>
                     <GroupedCardDisplay cards={enchantments} compact onRegisterCard={onRegisterCard} />
                   </div>
                 )}
                 {planeswalkers.length > 0 && (
-                  <div className="bg-background/20 rounded p-1.5 flex-1">
-                    <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+                  <div className="bg-background/15 rounded p-1 flex-1">
+                    <div className="text-[9px] font-semibold text-muted-foreground mb-0.5">
                       Planeswalkers ({planeswalkers.length})
                     </div>
                     <GroupedCardDisplay cards={planeswalkers} compact onRegisterCard={onRegisterCard} />
@@ -166,18 +166,18 @@ export const DetailedPlayerZone = ({ player, isActive, hasPriority, orientation,
           </div>
 
           {/* RIGHT COLUMN: Graveyard + Exile */}
-          <div className="flex flex-col gap-1.5 w-[120px]">
+          <div className="flex flex-col gap-1 w-[110px]">
             {player.graveyard.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5 flex-1">
-                <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/15 rounded p-1 flex-1">
+                <div className="text-[9px] font-semibold text-muted-foreground mb-0.5">
                   GY ({player.graveyard.length})
                 </div>
                 <GroupedCardDisplay cards={player.graveyard.slice(-3)} compact onRegisterCard={onRegisterCard} />
               </div>
             )}
             {player.exile.length > 0 && (
-              <div className="bg-background/20 rounded p-1.5 flex-1">
-                <div className="text-[10px] font-semibold text-muted-foreground mb-1">
+              <div className="bg-background/15 rounded p-1 flex-1">
+                <div className="text-[9px] font-semibold text-muted-foreground mb-0.5">
                   Exile ({player.exile.length})
                 </div>
                 <GroupedCardDisplay cards={player.exile.slice(-3)} compact onRegisterCard={onRegisterCard} />

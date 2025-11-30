@@ -1,5 +1,6 @@
 import { GameState, Phase } from './types';
 import { drawCard } from './gameState';
+import { checkETBTriggers, checkAttackTriggers, checkDiesTriggers } from './triggerSystem';
 
 const PHASE_ORDER: Phase[] = [
   'untap',
@@ -72,10 +73,19 @@ function handlePhaseActions(state: GameState): void {
       // Reset land plays
       activePlayer.landPlaysRemaining = 1;
       activePlayer.hasPlayedLand = false;
+      // Check ETB triggers from previous phases
+      checkETBTriggers(state);
       break;
 
     case 'combat_begin':
       state.combat.isActive = true;
+      break;
+
+    case 'declare_attackers':
+      // After attackers declared, check attack triggers
+      if (state.combat.attackers.length > 0) {
+        checkAttackTriggers(state);
+      }
       break;
 
     case 'combat_end':
@@ -169,17 +179,20 @@ export function checkStateBasedActions(state: GameState): void {
     }
   }
 
-  // Check for dead creatures
+  // Check for dead creatures and trigger dies effects
   [state.player1, state.player2].forEach(player => {
     const deadCreatures = player.battlefield.filter(card => {
       if (!card.type_line.includes('Creature')) return false;
-      const toughness = parseInt(card.toughness || '0');
+      const toughness = parseInt(card.toughness || '0') + card.toughnessModifier;
       return card.damageMarked >= toughness || toughness <= 0;
     });
 
     deadCreatures.forEach(creature => {
       const index = player.battlefield.findIndex(c => c.instanceId === creature.instanceId);
       if (index !== -1) {
+        // Trigger dies effects before moving to graveyard
+        checkDiesTriggers(state, creature, player.id);
+        
         player.battlefield.splice(index, 1);
         creature.zone = 'graveyard';
         player.graveyard.push(creature);

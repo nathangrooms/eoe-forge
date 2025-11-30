@@ -90,7 +90,7 @@ export class AnimationManager {
   }
 
   /**
-   * Attack start animation - creature charges forward
+   * Attack start animation - creature charges forward with dramatic effect
    */
   static attackStart(payload: AnimationPayload): Promise<void> {
     const { cardElement, targetElement } = payload;
@@ -103,43 +103,48 @@ export class AnimationManager {
     this.activeAnimations.push(timeline);
 
     return new Promise((resolve) => {
-      // Pulse effect
+      // Much more dramatic pulse + glow
       timeline
-        .set(cardElement, { willChange: 'transform' })
+        .set(cardElement, { willChange: 'transform, filter' })
         .to(cardElement, {
-          scale: 1.1,
-          boxShadow: '0 0 20px rgba(239, 68, 68, 0.8)',
-          duration: 0.15,
+          scale: 1.25,
+          boxShadow: '0 0 40px rgba(239, 68, 68, 1), 0 0 80px rgba(239, 68, 68, 0.5)',
+          filter: 'brightness(1.3) saturate(1.5)',
+          duration: 0.2,
           ease: 'power2.out'
         })
         .to(cardElement, {
-          scale: 1.05,
-          duration: 0.1
+          scale: 1.15,
+          duration: 0.15
         });
 
-      // If there's a target, animate toward it
+      // If there's a target, lunge toward it dramatically
       if (targetElement) {
-        const deltaX = (targetElement.offsetLeft - cardElement.offsetLeft) * 0.3;
-        const deltaY = (targetElement.offsetTop - cardElement.offsetTop) * 0.3;
+        const deltaX = (targetElement.offsetLeft - cardElement.offsetLeft) * 0.5;
+        const deltaY = (targetElement.offsetTop - cardElement.offsetTop) * 0.5;
         
         timeline
           .to(cardElement, {
             x: deltaX,
             y: deltaY,
-            duration: 0.3,
-            ease: 'power2.inOut'
+            rotation: 10,
+            duration: 0.4,
+            ease: 'power3.inOut'
           })
           .to(cardElement, {
             x: 0,
             y: 0,
+            rotation: 0,
             scale: 1,
-            duration: 0.2,
+            filter: 'brightness(1)',
+            duration: 0.3,
             ease: 'power2.out'
           });
       } else {
         timeline.to(cardElement, {
           scale: 1,
-          duration: 0.2
+          filter: 'brightness(1)',
+          duration: 0.3
         });
       }
 
@@ -210,7 +215,7 @@ export class AnimationManager {
   }
 
   /**
-   * Creature death animation - shake, crack, fade to graveyard
+   * Creature death animation - violent destruction
    */
   static creatureDies(payload: AnimationPayload): Promise<void> {
     const { cardElement, targetElement } = payload;
@@ -223,35 +228,58 @@ export class AnimationManager {
     const timeline = gsap.timeline();
     this.activeAnimations.push(timeline);
 
+    // Create shatter effect
+    const shards: HTMLElement[] = [];
+    for (let i = 0; i < 12; i++) {
+      const shard = document.createElement('div');
+      shard.className = 'absolute w-3 h-3 bg-destructive/80 pointer-events-none';
+      shard.style.left = '50%';
+      shard.style.top = '50%';
+      cardElement.parentElement?.appendChild(shard);
+      shards.push(shard);
+    }
+
     return new Promise((resolve) => {
       timeline
         .set(cardElement, { willChange: 'transform, opacity' })
-        // Shake violently
+        // Violent shake
         .to(cardElement, {
-          rotation: -5,
-          duration: 0.05,
-          repeat: 5,
-          yoyo: true
+          rotation: -10,
+          duration: 0.04,
+          repeat: 8,
+          yoyo: true,
+          ease: 'none'
         })
-        // Crack effect (darken and scale down)
+        // Explode shards
+        .to(shards, {
+          x: (i) => (Math.cos(i * Math.PI / 6) * 100) + (Math.random() * 40 - 20),
+          y: (i) => (Math.sin(i * Math.PI / 6) * 100) + (Math.random() * 40 - 20),
+          rotation: () => Math.random() * 720 - 360,
+          opacity: 0,
+          scale: 0,
+          duration: 0.8,
+          ease: 'power2.out'
+        }, 0.3)
+        // Card crumbles and fades
         .to(cardElement, {
-          scale: 0.95,
-          opacity: 0.7,
-          filter: 'brightness(0.5)',
-          duration: 0.2
-        })
+          scale: 0.8,
+          opacity: 0.5,
+          filter: 'brightness(0.3) grayscale(1)',
+          duration: 0.3
+        }, 0.3)
         // Fly to graveyard
         .to(cardElement, {
           x: targetElement ? targetElement.offsetLeft - cardElement.offsetLeft : 0,
-          y: targetElement ? targetElement.offsetTop - cardElement.offsetTop : 100,
-          scale: 0.5,
-          rotation: 180,
+          y: targetElement ? targetElement.offsetTop - cardElement.offsetTop : 150,
+          scale: 0.3,
+          rotation: 360,
           opacity: 0,
-          duration: 0.5,
-          ease: 'power2.in'
+          duration: 0.6,
+          ease: 'power3.in'
         })
         .set(cardElement, { clearProps: 'all' })
         .call(() => {
+          shards.forEach(s => s.remove());
           resolve();
           this.activeAnimations = this.activeAnimations.filter(t => t !== timeline);
         });
@@ -259,7 +287,7 @@ export class AnimationManager {
   }
 
   /**
-   * Token creation animation - materialize from nothing
+   * Token creation animation - explosive materialize
    */
   static tokenCreated(payload: AnimationPayload): Promise<void> {
     const { cardElement } = payload;
@@ -271,28 +299,51 @@ export class AnimationManager {
     const timeline = gsap.timeline();
     this.activeAnimations.push(timeline);
 
+    // Create particle burst effect
+    const particles: HTMLElement[] = [];
+    for (let i = 0; i < 8; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'absolute w-2 h-2 bg-primary rounded-full pointer-events-none';
+      particle.style.left = '50%';
+      particle.style.top = '50%';
+      cardElement.parentElement?.appendChild(particle);
+      particles.push(particle);
+    }
+
     return new Promise((resolve) => {
       timeline
         .set(cardElement, { 
           willChange: 'transform, opacity',
           scale: 0,
           opacity: 0,
-          filter: 'brightness(2)'
+          filter: 'brightness(3) saturate(2)',
+          boxShadow: '0 0 60px rgba(168, 85, 247, 1)'
         })
+        // Burst particles outward
+        .to(particles, {
+          x: (i) => Math.cos(i * Math.PI / 4) * 60,
+          y: (i) => Math.sin(i * Math.PI / 4) * 60,
+          opacity: 0,
+          duration: 0.6,
+          ease: 'power2.out'
+        }, 0)
+        // Card explodes into existence
         .to(cardElement, {
-          scale: 1.2,
+          scale: 1.5,
           opacity: 1,
-          duration: 0.3,
-          ease: 'back.out(1.7)'
-        })
+          duration: 0.4,
+          ease: 'back.out(2)'
+        }, 0.1)
         .to(cardElement, {
           scale: 1,
-          filter: 'brightness(1)',
-          duration: 0.2,
+          filter: 'brightness(1) saturate(1)',
+          boxShadow: '0 0 20px rgba(168, 85, 247, 0.5)',
+          duration: 0.3,
           ease: 'power2.out'
         })
         .set(cardElement, { clearProps: 'willChange' })
         .call(() => {
+          particles.forEach(p => p.remove());
           resolve();
           this.activeAnimations = this.activeAnimations.filter(t => t !== timeline);
         });

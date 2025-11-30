@@ -2,6 +2,7 @@ import { GameCard } from '@/lib/simulation/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { forwardRef } from 'react';
 
 interface FullCardDisplayProps {
   card: GameCard;
@@ -9,7 +10,8 @@ interface FullCardDisplayProps {
   faceDown?: boolean;
 }
 
-export const FullCardDisplay = ({ card, compact = false, faceDown = false }: FullCardDisplayProps) => {
+export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
+  ({ card, compact = false, faceDown = false }, ref) => {
   const isCreature = card.type_line.includes('Creature');
   const isLand = card.type_line.includes('Land');
   const basePower = parseInt(card.power || '0');
@@ -37,6 +39,7 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
       <Tooltip delayDuration={100}>
         <TooltipTrigger asChild>
           <div
+            ref={ref}
             className={cn(
               "relative rounded-md border transition-all cursor-pointer flex-shrink-0",
               cardWidth,
@@ -194,4 +197,6 @@ export const FullCardDisplay = ({ card, compact = false, faceDown = false }: Ful
       </Tooltip>
     </TooltipProvider>
   );
-};
+});
+
+FullCardDisplay.displayName = 'FullCardDisplay';

@@ -1,10 +1,8 @@
 import { EnhancedHero } from '@/components/marketing/EnhancedHero';
-import { BentoFeatures } from '@/components/marketing/BentoFeatures';
-import { ComprehensiveFeatures } from '@/components/marketing/ComprehensiveFeatures';
+import { ConsolidatedFeatures } from '@/components/marketing/ConsolidatedFeatures';
 import { InteractiveDemo } from '@/components/marketing/InteractiveDemo';
-import { AITechnologySection } from '@/components/marketing/AITechnologySection';
 import { ComparisonTable } from '@/components/marketing/ComparisonTable';
-import { LiveStats } from '@/components/marketing/LiveStats';
+import { FixedLiveStats } from '@/components/marketing/FixedLiveStats';
 import { UseCaseShowcase } from '@/components/marketing/UseCaseShowcase';
 import { EnhancedTestimonials } from '@/components/marketing/EnhancedTestimonials';
 import { FAQSection } from '@/components/marketing/FAQSection';
@@ -19,15 +17,13 @@ export default function Homepage() {
       <PublicNavigation />
       <EnhancedHero />
       <div id="features">
-        <BentoFeatures />
-        <ComprehensiveFeatures />
+        <ConsolidatedFeatures />
       </div>
       <InteractiveDemo />
-      <AITechnologySection />
       <ComparisonTable />
-      <LiveStats />
       <UseCaseShowcase />
       <EnhancedTestimonials />
+      <FixedLiveStats />
       <FAQSection />
       <div id="pricing">
         <Pricing />

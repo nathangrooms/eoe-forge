@@ -57,30 +57,28 @@ export function ComparisonTable() {
           viewport={{ once: true }}
           className="max-w-6xl mx-auto"
         >
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-              <Card className="p-0 overflow-hidden border-2 border-primary/20">
-                <div className="min-w-[600px] sm:min-w-[700px]">
-                  {/* Header Row */}
-                  <div className="grid grid-cols-5 gap-2 sm:gap-4 p-3 sm:p-6 bg-card/50 border-b border-border">
-                    <div className="font-bold text-sm sm:text-base md:text-lg text-foreground">Features</div>
-                    {competitors.map((comp) => (
-                      <div key={comp.name} className="text-center">
-                        {comp.isUs ? (
-                          <div className="space-y-1 sm:space-y-2">
-                            <Badge className="bg-gradient-primary text-xs">
-                              <Sparkles className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
-                              <span className="hidden xs:inline">DeckMatrix</span>
-                              <span className="xs:hidden">Us</span>
-                            </Badge>
-                            <div className="text-[10px] sm:text-xs text-foreground/60">That's Us!</div>
-                          </div>
-                        ) : (
-                          <div className="font-medium text-xs sm:text-sm text-foreground">{comp.name}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+          <div className="overflow-x-auto">
+            <Card className="p-0 overflow-hidden border-2 border-primary/20">
+              <div className="min-w-[600px]">
+                {/* Header Row */}
+                <div className="grid grid-cols-5 gap-2 sm:gap-4 p-4 sm:p-6 bg-muted/30 border-b border-border">
+                  <div className="font-bold text-xs sm:text-sm md:text-base text-foreground">Features</div>
+                  {competitors.map((comp) => (
+                    <div key={comp.name} className="text-center">
+                      {comp.isUs ? (
+                        <div className="space-y-1">
+                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] sm:text-xs px-2 py-0.5">
+                            <Sparkles className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+                            Us
+                          </Badge>
+                          <div className="text-[8px] sm:text-xs text-muted-foreground">DeckMatrix</div>
+                        </div>
+                      ) : (
+                        <div className="font-medium text-xs sm:text-sm text-muted-foreground">{comp.name}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 {/* Feature Rows */}
                 {features.map((feature, rowIndex) => (
@@ -91,26 +89,26 @@ export function ComparisonTable() {
                     viewport={{ once: true }}
                     transition={{ delay: rowIndex * 0.05 }}
                     className={`
-                      grid grid-cols-5 gap-4 p-6 border-b border-border last:border-b-0
-                      ${rowIndex % 2 === 0 ? 'bg-card/20' : 'bg-transparent'}
+                      grid grid-cols-5 gap-2 sm:gap-4 p-3 sm:p-4 border-b border-border last:border-b-0
+                      ${rowIndex % 2 === 0 ? 'bg-muted/10' : 'bg-transparent'}
                     `}
                   >
-                    <div className="font-medium">{feature.name}</div>
+                    <div className="font-medium text-xs sm:text-sm text-foreground">{feature.name}</div>
                     {feature.values.map((hasFeature, colIndex) => (
                       <div key={colIndex} className="flex justify-center">
                         {hasFeature ? (
                           <div className={`
-                            rounded-full p-1.5
+                            rounded-full p-1 sm:p-1.5
                             ${colIndex === 0 
-                              ? 'bg-primary/20 text-primary' 
+                              ? 'bg-green-500/20 text-green-500' 
                               : 'bg-muted text-muted-foreground'
                             }
                           `}>
-                            <Check className="h-5 w-5" />
+                            <Check className="h-3 w-3 sm:h-4 sm:w-4" />
                           </div>
                         ) : (
-                          <div className="rounded-full p-1.5 bg-muted/50 text-muted-foreground/50">
-                            <X className="h-5 w-5" />
+                          <div className="rounded-full p-1 sm:p-1.5 bg-muted/50 text-muted-foreground/50">
+                            <X className="h-3 w-3 sm:h-4 sm:w-4" />
                           </div>
                         )}
                       </div>
@@ -120,25 +118,24 @@ export function ComparisonTable() {
               </div>
             </Card>
           </div>
-        </div>
+        </motion.div>
 
-          {/* CTA */}
-          <motion.div 
-            className="text-center mt-12"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-          >
-            <Link to="/register">
-              <Button size="lg" className="px-8 py-6 text-lg">
-                <Sparkles className="mr-2 h-5 w-5" />
-                Get Started Free
-              </Button>
-            </Link>
-            <p className="text-sm text-muted-foreground mt-4">
-              No credit card required • 5 minutes to set up • Cancel anytime
-            </p>
-          </motion.div>
+        {/* CTA */}
+        <motion.div 
+          className="text-center mt-12"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+        >
+          <Link to="/register">
+            <Button size="lg" className="px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg w-full sm:w-auto">
+              <Sparkles className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+              Get Started Free
+            </Button>
+          </Link>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-4">
+            No credit card required • 5 minutes to set up • Cancel anytime
+          </p>
         </motion.div>
       </div>
     </section>

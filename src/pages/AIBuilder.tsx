@@ -562,11 +562,14 @@ Focus on archetypes that specifically leverage this commander's unique abilities
         setBuildProgress(95);
         console.log('Checking EDH power level...');
         
+        // v2 returns data.result.deck, handle both formats
+        const builtDeckCards = data.result?.deck || data.cards || [];
+        
         const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
           body: {
             decklist: {
               commander: commander,
-              cards: data.cards || []
+              cards: builtDeckCards
             }
           }
         });
@@ -580,7 +583,7 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           try {
             let decklistParam = '';
             if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
-            (data.cards || []).forEach((card: any) => {
+            builtDeckCards.forEach((card: any) => {
               const qty = card.quantity || 1;
               decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
             });
@@ -591,18 +594,23 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           }
         })();
 
+        // v2 returns data.result.deck, handle both formats
+        const deckCards = data.result?.deck || data.cards || [];
+        
         const result = {
           deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
-          cards: data.cards || [],
-          power: data.power || buildData.powerLevel,
+          cards: deckCards,
+          deckId: data.deckId, // Deck may already be saved by edge function
+          power: data.result?.analysis?.power || data.power || buildData.powerLevel,
           edhPowerLevel: powerCheckData?.powerLevel ?? null,
           edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
-          totalValue: data.cards?.reduce((sum: number, card: any) => {
+          totalValue: deckCards.reduce((sum: number, card: any) => {
             const price = parseFloat(card.prices?.usd || '0');
             return sum + (price * (card.quantity || 1));
           }, 0) || 0,
-          analysis: data.analysis || {},
-          changelog: data.changelog || []
+          analysis: data.result?.analysis || data.analysis || {},
+          changelog: data.result?.changeLog || data.changelog || [],
+          aiFeedback: data.result?.aiFeedback
         };
 
         setBuildResult(result);

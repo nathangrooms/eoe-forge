@@ -8,11 +8,14 @@
     min-height: 44px;
     min-width: 44px;
   }
-  
+  #lovable-badge {
+    display: none !important;
+  }
+
   .touch-friendly {
     @apply transform transition-transform duration-200 active:scale-95;
   }
-  
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -57,9 +60,10 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     --gradient-cosmic: linear-gradient(135deg, hsl(250 70% 60%), hsl(280 60% 55%));
     --gradient-nebula: linear-gradient(45deg, hsl(250 60% 25%), hsl(280 50% 20%));
-    --gradient-starfield: radial-gradient(circle at 30% 20%, hsl(250 40% 15%) 0%, transparent 50%),
-                          radial-gradient(circle at 70% 80%, hsl(280 40% 15%) 0%, transparent 50%);
-    
+    --gradient-starfield:
+      radial-gradient(circle at 30% 20%, hsl(250 40% 15%) 0%, transparent 50%),
+      radial-gradient(circle at 70% 80%, hsl(280 40% 15%) 0%, transparent 50%);
+
     /* Shadows and effects */
     --shadow-glow-subtle: 0 4px 20px hsl(var(--primary) / 0.15);
     --shadow-glow-elegant: 0 8px 32px hsl(var(--primary) / 0.25);
@@ -88,7 +92,7 @@ All colors MUST be HSL.
     --type-artifacts: 215 28% 52%; /* Slate/grey for artifacts */
     --type-planeswalkers: 340 75% 55%; /* Pink for planeswalkers */
     --type-battles: 25 95% 53%; /* Orange for battles */
-    
+
     /* Power Level Colors */
     --power-1: 34 197 94; /* Low power - green */
     --power-4: 59 130 246; /* Medium power - blue */
@@ -173,18 +177,32 @@ All colors MUST be HSL.
 
   /* Cosmic animations */
   @keyframes starfield {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-100vh); }
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-100vh);
+    }
   }
 
   @keyframes glow-pulse {
-    0%, 100% { box-shadow: var(--glow-primary); }
-    50% { box-shadow: var(--glow-accent); }
+    0%,
+    100% {
+      box-shadow: var(--glow-primary);
+    }
+    50% {
+      box-shadow: var(--glow-accent);
+    }
   }
 
   @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    50% { transform: translateY(-10px) rotate(180deg); }
+    0%,
+    100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(180deg);
+    }
   }
 
   .cosmic-glow {
@@ -258,34 +276,34 @@ All colors MUST be HSL.
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   /* Ensure cards are properly sized on mobile */
   .card-grid {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
-  
+
   /* Touch-friendly buttons on mobile */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Improve readability on mobile */
   .mobile-text {
     line-height: 1.6;
   }
-  
+
   /* Stack content vertically on mobile */
   .mobile-stack {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   /* Mobile-specific navigation spacing */
   .mobile-nav {
     padding: 0.75rem 1rem;
   }
-  
+
   /* Optimize modal sizes for mobile */
   .mobile-modal {
     margin: 1rem;

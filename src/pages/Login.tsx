@@ -10,8 +10,8 @@ import { toast } from '@/hooks/use-toast';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState('admin@admin.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20"
+            className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20"
             placeholder="your@email.com"
           />
         </div>
@@ -83,13 +83,13 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20 pr-10"
+              className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20 pr-10"
               placeholder="Enter your password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-spacecraft transition-colors"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -110,7 +110,7 @@ export default function Login() {
           </div>
           <Link 
             to="/forgot-password" 
-            className="text-sm text-spacecraft hover:text-station transition-colors"
+            className="text-sm text-primary hover:text-primary/80 transition-colors"
           >
             Forgot password?
           </Link>
@@ -119,7 +119,7 @@ export default function Login() {
         {/* Submit Button */}
         <Button 
           type="submit" 
-          className="w-full bg-spacecraft hover:bg-station transition-colors"
+          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 transition-all"
           disabled={loading}
         >
           {loading ? (
@@ -148,7 +148,7 @@ export default function Login() {
             Don't have an account?{' '}
             <Link 
               to="/register" 
-              className="text-spacecraft hover:text-station transition-colors font-medium"
+              className="text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Register free
             </Link>

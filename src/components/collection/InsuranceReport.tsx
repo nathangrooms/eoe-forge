@@ -11,8 +11,14 @@ interface InsuranceReportProps {
   topCards?: Array<{ name: string; value: number }>;
 }
 
-export function InsuranceReport({ collectionValue, cardCount, topCards = [] }: InsuranceReportProps) {
+export function InsuranceReport({ collectionValue = 0, cardCount = 0, topCards = [] }: InsuranceReportProps) {
   const [open, setOpen] = useState(false);
+  
+  // Filter and sanitize topCards to ensure valid values
+  const safeTopCards = topCards.filter(card => card && card.name).map(card => ({
+    name: card.name,
+    value: typeof card.value === 'number' ? card.value : parseFloat(String(card.value || 0)) || 0
+  }));
 
   const generateReport = () => {
     const reportDate = new Date().toLocaleDateString();
@@ -21,13 +27,13 @@ export function InsuranceReport({ collectionValue, cardCount, topCards = [] }: I
     report += `═══════════════════════════════════════\n\n`;
     report += `COLLECTION SUMMARY\n`;
     report += `Total Cards: ${cardCount}\n`;
-    report += `Total Value: $${collectionValue.toFixed(2)}\n`;
-    report += `Average Card Value: $${(collectionValue / cardCount).toFixed(2)}\n\n`;
+    report += `Total Value: $${(collectionValue || 0).toFixed(2)}\n`;
+    report += `Average Card Value: $${cardCount > 0 ? ((collectionValue || 0) / cardCount).toFixed(2) : '0.00'}\n\n`;
     
-    if (topCards.length > 0) {
+    if (safeTopCards.length > 0) {
       report += `TOP 10 MOST VALUABLE CARDS\n`;
       report += `═══════════════════════════════════════\n`;
-      topCards.slice(0, 10).forEach((card, i) => {
+      safeTopCards.slice(0, 10).forEach((card, i) => {
         report += `${i + 1}. ${card.name} - $${card.value.toFixed(2)}\n`;
       });
     }
@@ -84,11 +90,11 @@ export function InsuranceReport({ collectionValue, cardCount, topCards = [] }: I
               </div>
             </div>
 
-            {topCards.length > 0 && (
+            {safeTopCards.length > 0 && (
               <div>
                 <p className="text-sm font-medium mb-2">Top Valuable Cards</p>
                 <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                  {topCards.slice(0, 10).map((card, i) => (
+                  {safeTopCards.slice(0, 10).map((card, i) => (
                     <div key={i} className="flex justify-between text-sm p-2 rounded hover:bg-accent">
                       <span>{i + 1}. {card.name}</span>
                       <span className="font-medium">${card.value.toFixed(2)}</span>

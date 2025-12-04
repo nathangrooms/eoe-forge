@@ -528,11 +528,11 @@ export default function Collection() {
                   <EnhancedPriceAlerts />
                   {collectionStats && (
                     <InsuranceReport 
-                      collectionValue={collectionStats.totalValue}
-                      cardCount={collectionStats.totalCards}
+                      collectionValue={collectionStats.totalValue || 0}
+                      cardCount={collectionStats.totalCards || 0}
                       topCards={collectionStats.topValueCards?.map(c => ({
                         name: c.card_name,
-                        value: c.price_usd
+                        value: parseFloat(String(c.price_usd || 0)) || 0
                       }))}
                     />
                   )}

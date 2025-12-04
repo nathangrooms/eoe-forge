@@ -94,7 +94,7 @@ const Dashboard = () => {
   if (dashboardLoading) {
     return (
       <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        <div className="w-full space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="space-y-2 w-full sm:w-auto">
               <Skeleton className="h-8 sm:h-10 w-full sm:w-96" />
@@ -122,7 +122,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      <div className="w-full space-y-4 sm:space-y-6">
         {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="space-y-1 w-full sm:w-auto">

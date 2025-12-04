@@ -51,7 +51,7 @@ import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
 import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
 import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
 import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
-import { DeckFolderManager } from '@/components/deck-builder/DeckFolderManager';
+
 import { buildDeck, getTemplatesForFormat, getFormatRules } from '@/lib/deckbuilder';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
@@ -107,9 +107,6 @@ export default function Decks() {
   const [deckSummaries, setDeckSummaries] = useState<DeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Folder management
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  
   // Get local decks from store
   const { decks: localDecks } = useDeckManagementStore();
 
@@ -122,20 +119,13 @@ export default function Decks() {
   // Deck filtering
   const {
     filters,
-    filteredDecks: searchFilteredDecks,
+    filteredDecks,
     updateFilters,
     resetFilters,
     toggleFormat,
     toggleColor,
     hasActiveFilters
   } = useDeckFilters(deckSummaries);
-  
-  // Apply folder filter on top of search filters
-  const filteredDecks = searchFilteredDecks.filter(deck => {
-    if (selectedFolder === null) return true;
-    // Check if deck is in the selected folder
-    return deck.id; // Need to add folder_id to DeckSummary type to properly filter
-  });
   
   // Load decks from database only
   useEffect(() => {
@@ -581,21 +571,7 @@ export default function Decks() {
         </Dialog>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-        {/* Folder Sidebar */}
-        <div className="lg:sticky lg:top-4 lg:h-fit">
-          <Card>
-            <CardContent className="p-4">
-              <DeckFolderManager
-                selectedFolderId={selectedFolder}
-                onFolderSelect={setSelectedFolder}
-              />
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Main Content */}
-        <div className="space-y-6">
+      <div className="space-y-6">
         {/* Search and Filter Bar */}
         <DeckSearchFilters
           filters={filters}
@@ -697,7 +673,6 @@ export default function Decks() {
             ))}
           </div>
         )}
-        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}

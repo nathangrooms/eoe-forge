@@ -18,7 +18,7 @@ export function StandardPageLayout({
 }: StandardPageLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-3 md:px-6 py-4 md:py-8 max-w-7xl">
+      <div className="w-full px-3 md:px-6 py-4 md:py-8">
         <StandardSectionHeader
           title={title}
           description={description}

@@ -25,7 +25,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
 import { StorageContainer } from '@/types/storage';
 import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
-import { CategoryManager } from '@/components/collection/CategoryManager';
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
 import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
@@ -465,8 +464,6 @@ export default function Collection() {
           {/* Collection Tab */}
           <TabsContent value="collection" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
             <div className="space-y-4 sm:space-y-6">
-              <CategoryManager />
-              
               {/* Favorite Decks Preview */}
               <FavoriteDecksPreview />
               

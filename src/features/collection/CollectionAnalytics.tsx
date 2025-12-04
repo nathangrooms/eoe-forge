@@ -37,6 +37,15 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
     );
   }
 
+  // Safety check for stats
+  if (!stats) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No collection data available
+      </div>
+    );
+  }
+
   const colorNames: Record<string, string> = {
     W: 'White',
     U: 'Blue',
@@ -47,8 +56,13 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
     M: 'Multicolor'
   };
 
-  const colorTotal = Object.values(stats.colorDistribution).reduce((sum, count) => sum + count, 0);
-  const typeTotal = Object.values(stats.typeDistribution).reduce((sum, count) => sum + count, 0);
+  const colorDistribution = stats.colorDistribution || {};
+  const typeDistribution = stats.typeDistribution || {};
+  const topValueCards = stats.topValueCards || [];
+  const recentlyAdded = stats.recentlyAdded || [];
+  
+  const colorTotal = Object.values(colorDistribution).reduce((sum, count) => sum + count, 0);
+  const typeTotal = Object.values(typeDistribution).reduce((sum, count) => sum + count, 0);
 
   return (
     <div className="space-y-6">
@@ -133,7 +147,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {Object.entries(stats.colorDistribution)
+            {Object.entries(colorDistribution)
               .sort(([,a], [,b]) => b - a)
               .map(([color, count]) => {
                 const percentage = colorTotal > 0 ? (count / colorTotal) * 100 : 0;
@@ -174,7 +188,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {Object.entries(stats.typeDistribution)
+            {Object.entries(typeDistribution)
               .sort(([,a], [,b]) => b - a)
               .slice(0, 6)
               .map(([type, count]) => {
@@ -206,7 +220,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {stats.topValueCards.slice(0, 10).map((item, index) => {
+            {topValueCards.slice(0, 10).map((item, index) => {
               const cardValue = (item.quantity || 0) * (parseFloat(item.card?.prices?.usd || '0')) +
                               (item.foil || 0) * (parseFloat(item.card?.prices?.usd_foil || item.card?.prices?.usd || '0'));
               
@@ -248,7 +262,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {stats.recentlyAdded.slice(0, 6).map((item) => (
+            {recentlyAdded.slice(0, 6).map((item) => (
               <div key={item.id} className="p-3 bg-muted/30 rounded-lg">
                 <p className="font-medium truncate">{item.card_name}</p>
                 <div className="flex items-center justify-between mt-1">

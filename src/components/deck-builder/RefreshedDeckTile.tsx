@@ -263,13 +263,14 @@ export function RefreshedDeckTile({
   return (
     <Card className={cn("group hover:shadow-xl transition-all duration-300 overflow-hidden border-2 hover:border-primary/30", className)}>
       <CardContent className="p-0">
-        <div className="flex min-h-[280px]">
-          {/* Left: Full Height Commander Section - Much Wider */}
-          <div className="w-80 flex-shrink-0 relative p-4">
+        {/* Mobile: Stack vertically, Desktop: Side by side */}
+        <div className="flex flex-col md:flex-row md:min-h-[280px]">
+          {/* Commander Section - Full width on mobile, fixed width on desktop */}
+          <div className="w-full md:w-64 lg:w-80 flex-shrink-0 relative p-3 md:p-4">
             {deckSummary.commander ? (
               <div className="h-full flex flex-col">
-                {/* Commander Image Container */}
-                <div className="flex-1 relative rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg mb-3">
+                {/* Commander Image Container - Shorter on mobile */}
+                <div className="relative rounded-xl bg-gradient-to-b from-muted via-muted/50 to-background overflow-hidden shadow-lg mb-3 h-32 md:h-auto md:flex-1">
                   <img 
                     src={(deckSummary.commander as any)?.image_uris?.normal || 
                          (deckSummary.commander as any)?.image_uris?.large || 
@@ -284,14 +285,14 @@ export function RefreshedDeckTile({
                 </div>
                 
                 {/* Commander Info Below Image */}
-                <div className="bg-gradient-to-r from-purple-500/10 to-yellow-500/10 rounded-lg p-3 border border-primary/20">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Crown className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Commander</span>
-                    <Crown className="h-4 w-4 text-yellow-500" />
+                <div className="bg-gradient-to-r from-purple-500/10 to-yellow-500/10 rounded-lg p-2 md:p-3 border border-primary/20">
+                  <div className="flex items-center justify-center gap-2 mb-1 md:mb-2">
+                    <Crown className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Commander</span>
+                    <Crown className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
                   </div>
-                  <h4 className="text-center font-semibold text-sm leading-tight">{deckSummary.commander.name}</h4>
-                  <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <h4 className="text-center font-semibold text-xs md:text-sm leading-tight truncate">{deckSummary.commander.name}</h4>
+                  <div className="flex items-center justify-center gap-3 mt-1 md:mt-2 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Package className="h-3 w-3" />
                       <span>{deckSummary.counts.total} cards</span>
@@ -304,11 +305,11 @@ export function RefreshedDeckTile({
                 </div>
               </div>
             ) : (
-              <div className="h-full rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
+              <div className="h-32 md:h-full rounded-xl bg-gradient-to-b from-muted to-muted/50 flex items-center justify-center shadow-lg border-2 border-dashed border-muted-foreground/20">
                 <div className="text-center text-muted-foreground">
-                  <Crown className="h-16 w-16 mx-auto mb-4" />
-                  <div className="text-lg font-medium">No Commander</div>
-                  <div className="text-sm mt-2">Set in Builder</div>
+                  <Crown className="h-10 w-10 md:h-16 md:w-16 mx-auto mb-2 md:mb-4" />
+                  <div className="text-sm md:text-lg font-medium">No Commander</div>
+                  <div className="text-xs md:text-sm mt-1 md:mt-2">Set in Builder</div>
                 </div>
               </div>
             )}
@@ -316,31 +317,32 @@ export function RefreshedDeckTile({
           </div>
 
           {/* Right: Comprehensive Stats Section */}
-          <div className="flex-1 p-4 space-y-4">
+          <div className="flex-1 p-3 md:p-4 space-y-3 md:space-y-4 min-w-0">
             {/* Header with Name and Key Info */}
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge className={cn("text-xs font-bold", powerBandColors[deckSummary.power.band])}>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <Badge className={cn("text-xs font-bold flex-shrink-0", powerBandColors[deckSummary.power.band])}>
                     {deckSummary.power.score}/10
                   </Badge>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     {getColorIndicator(deckSummary.colors)}
                   </div>
                 </div>
                 
-                <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors truncate">
+                <h3 className="font-bold text-base md:text-lg mb-1 group-hover:text-primary transition-colors truncate">
                   {deckSummary.name}
                 </h3>
                 
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 md:gap-3 text-xs text-muted-foreground flex-wrap">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     <span>{new Date(deckSummary.updatedAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Package className="h-3 w-3" />
-                    <span>{deckSummary.counts.total} total, {deckSummary.counts.unique} unique</span>
+                    <span className="hidden sm:inline">{deckSummary.counts.total} total, {deckSummary.counts.unique} unique</span>
+                    <span className="sm:hidden">{deckSummary.counts.total} cards</span>
                   </div>
                 </div>
               </div>
@@ -362,41 +364,41 @@ export function RefreshedDeckTile({
               </Button>
             </div>
 
-            {/* Core Metrics Grid */}
-            <div className="grid grid-cols-5 gap-2">
+            {/* Core Metrics Grid - Responsive columns */}
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
               <div className="text-center p-2 rounded-md bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onAnalysis}>
                 <Target className="h-3 w-3 text-primary mx-auto mb-1" />
                 <div className="text-sm font-bold">{deckSummary.power.score}</div>
-                <div className="text-xs text-muted-foreground">Power</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground">Power</div>
               </div>
 
               <div className="text-center p-2 rounded-md bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" onClick={onMissingCards}>
                 <Package className="h-3 w-3 text-blue-500 mx-auto mb-1" />
-                <div className="text-sm font-bold">{deckSummary.counts.total - deckSummary.economy.missing} / {deckSummary.counts.total}</div>
-                <div className="text-xs text-muted-foreground">Owned</div>
+                <div className="text-sm font-bold">{deckSummary.counts.total - deckSummary.economy.missing}/{deckSummary.counts.total}</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground">Owned</div>
               </div>
 
               <div className="text-center p-2 rounded-md bg-muted/30">
                 <DollarSign className="h-3 w-3 text-green-500 mx-auto mb-1" />
                 <div className="text-sm font-bold">${Math.round(deckSummary.economy.priceUSD)}</div>
-                <div className="text-xs text-muted-foreground">Value</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground">Value</div>
               </div>
 
-              <div className="text-center p-2 rounded-md bg-muted/30">
+              <div className="hidden md:block text-center p-2 rounded-md bg-muted/30">
                 <BarChart3 className="h-3 w-3 text-purple-500 mx-auto mb-1" />
                 <div className="text-sm font-bold">{Math.round(curveData.reduce((sum, d) => sum + (parseInt(d.cmc.split('-')[0]) || 0) * d.count, 0) / Math.max(deckSummary.counts.total - deckSummary.counts.lands, 1) * 10) / 10}</div>
                 <div className="text-xs text-muted-foreground">Avg CMC</div>
               </div>
 
-              <div className="text-center p-2 rounded-md bg-muted/30">
+              <div className="hidden md:block text-center p-2 rounded-md bg-muted/30">
                 <TrendingUp className="h-3 w-3 text-orange-500 mx-auto mb-1" />
                 <div className="text-sm font-bold">{Math.round((deckSummary.counts.lands / deckSummary.counts.total) * 100)}%</div>
                 <div className="text-xs text-muted-foreground">Lands</div>
               </div>
             </div>
 
-            {/* Detailed Card Type Breakdown */}
-            <div className="space-y-2">
+            {/* Detailed Card Type Breakdown - Hidden on mobile for space */}
+            <div className="hidden md:block space-y-2">
               <div className="text-xs font-medium text-muted-foreground mb-2">Composition</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {typeData.map((item) => (
@@ -410,8 +412,8 @@ export function RefreshedDeckTile({
               </div>
             </div>
 
-            {/* Advanced Analytics */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Advanced Analytics - Hidden on mobile */}
+            <div className="hidden md:grid grid-cols-2 gap-3">
               {/* Enhanced Mana Curve */}
               <div className="relative overflow-hidden p-3 rounded-lg bg-muted/20 border-l-2 border-spacecraft">
                 <div className="flex items-center gap-2 mb-2">
@@ -458,8 +460,8 @@ export function RefreshedDeckTile({
             </div>
 
             {/* Format and Power Band Badges */}
-            <div className="flex items-center justify-between pt-2 border-t border-muted">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-muted">
+              <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                 <Badge 
                   variant={deckSummary.legality.ok ? "default" : "destructive"}
                   className="text-xs cursor-pointer hover:opacity-80"
@@ -474,69 +476,52 @@ export function RefreshedDeckTile({
                   </Badge>
                 )}
 
-                {wishlistCount > 0 && (
-                  <Badge variant="outline" className="text-xs text-primary cursor-pointer hover:opacity-80">
-                    <ShoppingCart className="h-3 w-3 mr-1" />
-                    {wishlistCount} Wishlisted
-                  </Badge>
-                )}
-
                 <Badge className={cn("text-xs", powerBandColors[deckSummary.power.band])}>
                   {deckSummary.power.band.toUpperCase()}
                 </Badge>
-
-                {deckSummary.tags.slice(0, 1).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
               </div>
 
-              <div className="flex items-center gap-1">
+              {/* Action buttons - Compact on mobile */}
+              <div className="flex items-center gap-1 flex-wrap">
                 {onAnalysis && (
-                  <Button variant="ghost" size="sm" onClick={onAnalysis} title="Analysis">
+                  <Button variant="ghost" size="sm" onClick={onAnalysis} title="Analysis" className="h-8 w-8 p-0 md:h-auto md:w-auto md:px-2">
                     <BarChart3 className="h-3 w-3" />
                   </Button>
                 )}
-                {onExport && (
-                  <Button variant="ghost" size="sm" onClick={onExport} title="Export">
-                    <Download className="h-3 w-3" />
-                  </Button>
-                )}
                 {onShare && (
-                  <Button variant="ghost" size="sm" onClick={onShare} title="Share">
+                  <Button variant="ghost" size="sm" onClick={onShare} title="Share" className="h-8 w-8 p-0 md:h-auto md:w-auto md:px-2">
                     <Share2 className="h-3 w-3" />
                   </Button>
                 )}
                 {onEdit && (
-                  <Button variant="default" size="sm" onClick={onEdit}>
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                  <Button variant="default" size="sm" onClick={onEdit} className="h-8 px-2 md:px-3">
+                    <Edit className="h-3 w-3 md:mr-1" />
+                    <span className="hidden md:inline">Edit</span>
                   </Button>
                 )}
-                <div className="flex gap-1">
-                  {onDuplicate && (
-                    <Button variant="outline" size="sm" onClick={onDuplicate} title="Duplicate">
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  )}
-                  {onDelete && (
-                    <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive" title="Delete">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
+                {onDuplicate && (
+                  <Button variant="outline" size="sm" onClick={onDuplicate} title="Duplicate" className="h-8 w-8 p-0">
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive h-8 w-8 p-0" title="Delete">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
                 
+                {/* Add to Wishlist - Hidden on mobile, shown on desktop */}
                 {deckSummary.economy.missing > 0 && (
                   <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={handleAddMissingToWishlist}
                     disabled={addingToWishlist}
-                    className="ml-2 flex items-center gap-2"
+                    className="hidden sm:flex ml-1 items-center gap-1 h-8"
                   >
                     <Plus className="h-3 w-3" />
-                    Add Missing to Wishlist
+                    <span className="hidden lg:inline">Add Missing to Wishlist</span>
+                    <span className="lg:hidden">Wishlist</span>
                     {addingToWishlist && <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent" />}
                   </Button>
                 )}

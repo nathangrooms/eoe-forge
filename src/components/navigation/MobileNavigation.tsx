@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +16,11 @@ import {
   Settings,
   Camera,
   Menu,
-  X,
-  Plus
+  Plus,
+  ShoppingCart,
+  Brain,
+  Swords,
+  Trophy
 } from 'lucide-react';
 
 interface NavItem {
@@ -28,6 +31,7 @@ interface NavItem {
   section?: string;
 }
 
+// Match LeftNavigation exactly
 const NAV_ITEMS: NavItem[] = [
   {
     title: 'Home',
@@ -39,6 +43,12 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Collection Manager',
     href: '/collection',
     icon: Package,
+    section: 'main'
+  },
+  {
+    title: 'Marketplace',
+    href: '/marketplace',
+    icon: ShoppingCart,
     section: 'main'
   },
   {
@@ -73,9 +83,30 @@ const NAV_ITEMS: NavItem[] = [
     section: 'tools'
   },
   {
+    title: 'MTG Brain',
+    href: '/brain',
+    icon: Brain,
+    badge: 'AI',
+    section: 'tools'
+  },
+  {
     title: 'Wishlist',
     href: '/wishlist',
     icon: Heart,
+    section: 'tools'
+  },
+  {
+    title: 'Deck Simulation',
+    href: '/simulate',
+    icon: Swords,
+    badge: 'New',
+    section: 'tools'
+  },
+  {
+    title: 'Tournaments',
+    href: '/tournament',
+    icon: Trophy,
+    badge: 'New',
     section: 'tools'
   },
   {
@@ -102,6 +133,7 @@ const SECTIONS = {
 export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
@@ -119,10 +151,10 @@ export function MobileNavigation() {
             : 'text-muted-foreground hover:text-foreground hover:bg-accent'
         )}
       >
-        <item.icon className="h-5 w-5" />
-        <span className="flex-1">{item.title}</span>
+        <item.icon className="h-5 w-5 flex-shrink-0" />
+        <span className="flex-1 truncate">{item.title}</span>
         {item.badge && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="secondary" className="text-xs flex-shrink-0">
             {item.badge}
           </Badge>
         )}
@@ -146,6 +178,21 @@ export function MobileNavigation() {
     );
   };
 
+  const handleQuickBuild = () => {
+    const newDeck = {
+      id: crypto.randomUUID(),
+      name: 'New Deck',
+      format: 'commander',
+      cards: [],
+      commander: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    localStorage.setItem('pendingDeck', JSON.stringify(newDeck));
+    setIsOpen(false);
+    navigate('/deck-builder');
+  };
+
   return (
     <div className="md:hidden">
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -158,10 +205,13 @@ export function MobileNavigation() {
         <SheetContent side="left" className="w-72 p-0">
           <div className="flex h-full flex-col">
             <div className="flex h-14 items-center border-b px-4">
-              <Link to="/deck-builder" className="flex items-center gap-2 font-semibold" onClick={() => setIsOpen(false)}>
+              <button 
+                onClick={handleQuickBuild}
+                className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+              >
                 <Plus className="h-5 w-5" />
                 Quick Build
-              </Link>
+              </button>
             </div>
             
             <div className="flex-1 overflow-auto py-4 space-y-6">

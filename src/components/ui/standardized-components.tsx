@@ -152,18 +152,18 @@ interface StandardSectionHeaderProps {
 
 export function StandardSectionHeader({ title, description, action, className }: StandardSectionHeaderProps) {
   return (
-    <div className={cn("flex items-center justify-between mb-6", className)}>
-      <div>
-        <h1 className="text-3xl font-bold bg-cosmic bg-clip-text text-transparent">
+    <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 md:mb-6", className)}>
+      <div className="min-w-0 flex-1">
+        <h1 className="text-xl md:text-3xl font-bold bg-cosmic bg-clip-text text-transparent truncate">
           {title}
         </h1>
         {description && (
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm md:text-base text-muted-foreground mt-1 line-clamp-2">
             {description}
           </p>
         )}
       </div>
-      {action}
+      {action && <div className="flex-shrink-0">{action}</div>}
     </div>
   );
 }

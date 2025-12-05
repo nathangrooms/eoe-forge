@@ -108,38 +108,38 @@ export function AdvancedFilterPanel({
 
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-6 w-full">
-            <TabsTrigger value="colors" className="text-xs">
-              <Palette className="h-3 w-3 mr-1" />
-              Colors
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto gap-1">
+            <TabsTrigger value="colors" className="text-xs px-2 py-1.5">
+              <Palette className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Colors</span>
             </TabsTrigger>
-            <TabsTrigger value="types" className="text-xs">
-              <Type className="h-3 w-3 mr-1" />
-              Types
+            <TabsTrigger value="types" className="text-xs px-2 py-1.5">
+              <Type className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Types</span>
             </TabsTrigger>
-            <TabsTrigger value="stats" className="text-xs">
-              <BarChart3 className="h-3 w-3 mr-1" />
-              Stats
+            <TabsTrigger value="stats" className="text-xs px-2 py-1.5">
+              <BarChart3 className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Stats</span>
             </TabsTrigger>
-            <TabsTrigger value="formats" className="text-xs">
-              <Trophy className="h-3 w-3 mr-1" />
-              Formats
+            <TabsTrigger value="formats" className="text-xs px-2 py-1.5">
+              <Trophy className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Formats</span>
             </TabsTrigger>
-            <TabsTrigger value="price" className="text-xs">
-              <DollarSign className="h-3 w-3 mr-1" />
-              Price
+            <TabsTrigger value="price" className="text-xs px-2 py-1.5">
+              <DollarSign className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Price</span>
             </TabsTrigger>
-            <TabsTrigger value="extras" className="text-xs">
-              <Settings className="h-3 w-3 mr-1" />
-              Extras
+            <TabsTrigger value="extras" className="text-xs px-2 py-1.5">
+              <Settings className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Extras</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Colors Tab */}
-          <TabsContent value="colors" className="space-y-4">
+          <TabsContent value="colors" className="space-y-4 mt-4">
             <div>
               <Label className="text-sm font-medium mb-2 block">Color Identity</Label>
-              <div className="grid grid-cols-5 gap-2 mb-4">
+              <div className="grid grid-cols-5 gap-1 sm:gap-2 mb-4">
                 {(Object.keys(COLOR_SYMBOLS) as Color[]).map((color) => {
                   const info = COLOR_SYMBOLS[color];
                   const isSelected = searchState.colors?.value.includes(color);

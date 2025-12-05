@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +12,6 @@ export default function Cards() {
   const initialQuery = searchParams.get('q') || '';
   const collection = useCollectionStore();
   const { user } = useAuth();
-  const [currentTab, setCurrentTab] = useState('simple');
 
   const addToCollection = async (card: any) => {
     if (!user) {
@@ -134,53 +131,26 @@ export default function Cards() {
   return (
     <StandardPageLayout
       title="Card Database"
-      description="Search through every Magic: The Gathering card ever printed with universal MTG search"
+      description="Search through every Magic: The Gathering card ever printed"
     >
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
-        {/* Tabs */}
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="simple">
-            Simple Search
-          </TabsTrigger>
-          <TabsTrigger value="advanced">
-            Advanced Search
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Simple Search Tab */}
-        <TabsContent value="simple" className="space-y-6 mt-0">
-          {/* AI Featured Card */}
-          <AIFeaturedCard />
-          
-          {/* Search Component */}
-          <EnhancedUniversalCardSearch
-            onCardAdd={addToCollection}
-            onCardSelect={(card) => console.log('Selected:', card)}
-            onCardWishlist={addToWishlist}
-            placeholder="Search Magic: The Gathering cards..."
-            showFilters={false}
-            showAddButton={true}
-            showWishlistButton={true}
-            showViewModes={true}
-            initialQuery={initialQuery}
-          />
-        </TabsContent>
-
-        {/* Advanced Search Tab */}
-        <TabsContent value="advanced" className="space-y-6 mt-0">
-          <EnhancedUniversalCardSearch
-            onCardAdd={addToCollection}
-            onCardSelect={(card) => console.log('Selected:', card)}
-            onCardWishlist={addToWishlist}
-            placeholder="Search with advanced filters and syntaxes..."
-            showFilters={true}
-            showAddButton={true}
-            showWishlistButton={true}
-            showViewModes={true}
-            initialQuery={initialQuery}
-          />
-        </TabsContent>
-      </Tabs>
+      <div className="space-y-6">
+        {/* AI Featured Card */}
+        <AIFeaturedCard />
+        
+        {/* Unified Search Component */}
+        <EnhancedUniversalCardSearch
+          onCardAdd={addToCollection}
+          onCardSelect={(card) => console.log('Selected:', card)}
+          onCardWishlist={addToWishlist}
+          placeholder="Search by name, type, text, or use Scryfall syntax..."
+          showFilters={true}
+          showAddButton={true}
+          showWishlistButton={true}
+          showViewModes={true}
+          showPresets={true}
+          initialQuery={initialQuery}
+        />
+      </div>
     </StandardPageLayout>
   );
 }

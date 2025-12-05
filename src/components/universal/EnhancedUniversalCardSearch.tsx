@@ -1,40 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Card } from '@/components/ui/card';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UniversalCardDisplay } from './UniversalCardDisplay';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { AdvancedFilterPanel } from '@/components/filters/AdvancedFilterPanel';
 
 import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SearchResultsSkeleton } from '@/components/ui/loading-skeleton';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { 
   CardSearchState, 
-  PRESET_QUERIES, 
+  PRESET_QUERIES,
   buildScryfallQuery
 } from '@/lib/scryfall/query-builder';
 import { 
   Search, 
-  X, 
   Grid3x3,
   List,
   LayoutGrid,
   HelpCircle,
   Filter,
-  Sparkles,
-  Copy,
   RotateCcw,
   ArrowUpDown,
   BookOpen,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface EnhancedUniversalCardSearchProps {
@@ -48,6 +43,7 @@ interface EnhancedUniversalCardSearchProps {
   showViewModes?: boolean;
   compact?: boolean;
   initialQuery?: string;
+  showPresets?: boolean;
 }
 
 export function EnhancedUniversalCardSearch({
@@ -60,12 +56,9 @@ export function EnhancedUniversalCardSearch({
   onCardWishlist,
   showViewModes = true,
   compact = false,
-  initialQuery = ''
+  initialQuery = '',
+  showPresets = true
 }: EnhancedUniversalCardSearchProps) {
-  // Don't use URL params for embedded usage to avoid tab conflicts
-  const [searchParams] = useSearchParams();
-  const isMainCardsPage = false; // Disable URL params for embedded usage
-  
   // Local state management
   const [searchState, setSearchState] = useState<CardSearchState>(() => ({
     text: initialQuery,
@@ -76,13 +69,15 @@ export function EnhancedUniversalCardSearch({
   
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
-  const [searchMode, setSearchMode] = useState<'simple' | 'advanced'>('simple');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [showPresetsPanel, setShowPresetsPanel] = useState(false);
   const [page, setPage] = useState(1);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSearchRef = useRef<string>('');
 
   // Use the advanced search hook
   const {
@@ -95,42 +90,75 @@ export function EnhancedUniversalCardSearch({
     clearResults
   } = useAdvancedCardSearch();
 
-  // Keyboard shortcuts (simplified for compatibility)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
         setSearchState(prev => ({ ...prev, text: '' }));
         clearResults();
+        searchInputRef.current?.blur();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [clearResults]);
 
-  // Handle search when state changes
-  useEffect(() => {
-    // Skip URL updates for embedded usage
-    const { q, params } = buildScryfallQuery(searchState);
+  // Debounced search function
+  const performSearch = useCallback((state: CardSearchState) => {
+    const { q } = buildScryfallQuery(state);
     
-    if (q.trim() || Object.keys(params).length > 0) {
-      searchWithState(searchState);
+    // Skip if same query as last search
+    if (q === lastSearchRef.current && q !== '*') {
+      return;
+    }
+    
+    // Only search if we have meaningful criteria
+    const hasSearchCriteria = state.text?.trim() || 
+      (state.types && state.types.length > 0) ||
+      (state.colors && state.colors.value.length > 0) ||
+      (state.rarities && state.rarities.length > 0) ||
+      (state.legal && state.legal.length > 0) ||
+      (state.sets && state.sets.length > 0);
+    
+    if (hasSearchCriteria) {
+      lastSearchRef.current = q;
+      searchWithState(state);
       setPage(1);
     } else {
+      lastSearchRef.current = '';
       clearResults();
     }
-  }, [searchState, isMainCardsPage]);
+  }, [searchWithState, clearResults]);
 
-  const handleStateChange = (updates: Partial<CardSearchState>) => {
+  // Handle search with debounce when state changes
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    debounceTimerRef.current = setTimeout(() => {
+      performSearch(searchState);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchState, performSearch]);
+
+  const handleStateChange = useCallback((updates: Partial<CardSearchState>) => {
     setSearchState(prev => ({ ...prev, ...updates }));
-  };
+  }, []);
 
   const handlePresetQuery = (query: string) => {
     setSearchState(prev => ({ ...prev, text: query }));
+    setShowPresetsPanel(false);
     showSuccess('Preset Applied', 'Search query updated');
   };
 
@@ -164,6 +192,7 @@ export function EnhancedUniversalCardSearch({
       dir: 'asc'
     });
     setPage(1);
+    lastSearchRef.current = '';
     clearResults();
     showSuccess('Search Reset', 'All filters cleared');
   };
@@ -177,60 +206,32 @@ export function EnhancedUniversalCardSearch({
     }
   };
 
+  // Count active filters
+  const activeFilterCount = [
+    searchState.types?.length,
+    searchState.colors?.value.length,
+    searchState.rarities?.length,
+    searchState.legal?.length,
+    searchState.sets?.length,
+    searchState.identity?.length,
+    searchState.mv?.min || searchState.mv?.max,
+    searchState.pow?.min || searchState.pow?.max,
+    searchState.tou?.min || searchState.tou?.max,
+    searchState.price?.usdMin || searchState.price?.usdMax,
+    searchState.extras?.foil,
+    searchState.extras?.nonfoil,
+    searchState.extras?.showcase,
+    searchState.extras?.reserved
+  ].filter(Boolean).length;
+
   return (
     <div className="space-y-4">
       {/* Search Header */}
-      <div className="flex flex-col gap-4">
-        {/* Mode Toggle */}
-        <div className="flex items-center justify-between">
-          <Tabs value={searchMode} onValueChange={(mode: 'simple' | 'advanced') => setSearchMode(mode)}>
-            <TabsList>
-              <TabsTrigger value="simple" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Simple Mode
-              </TabsTrigger>
-              <TabsTrigger value="advanced" className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                Advanced Mode
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          <div className="flex items-center gap-2">
-            {/* View Mode Toggle */}
-            {showViewModes && (
-              <div className="flex items-center border rounded-lg">
-                {(['grid', 'list', 'compact'] as const).map((mode) => (
-                  <Button
-                    key={mode}
-                    variant={viewMode === mode ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode(mode)}
-                    className="h-8 px-2"
-                  >
-                    {getViewModeIcon(mode)}
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            {/* Keyboard Help */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowKeyboardHelp(true)}
-              className="flex items-center gap-1"
-            >
-              <HelpCircle className="h-4 w-4" />
-              Help
-            </Button>
-          </div>
-        </div>
-
-        {/* Search Input */}
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3">
+        {/* Search Input Row */}
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex-1 relative min-w-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               ref={searchInputRef}
               value={searchState.text || ''}
@@ -238,75 +239,119 @@ export function EnhancedUniversalCardSearch({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
+                  performSearch(searchState);
                 }
               }}
               placeholder={placeholder}
-              className="pl-10 w-full"
+              className="pl-10 w-full text-base" // text-base (16px) prevents iOS zoom
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
           </div>
 
-          {showFilters && (
+          <div className="flex gap-2">
+            {showFilters && (
+              <Button
+                variant={showAdvancedFilters ? "default" : "outline"}
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
+
+            {showPresets && (
+              <Button
+                variant="outline"
+                onClick={() => setShowPresetsPanel(!showPresetsPanel)}
+                className="flex items-center gap-2"
+              >
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Presets</span>
+                {showPresetsPanel ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </Button>
+            )}
+
             <Button
               variant="outline"
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="flex items-center gap-2"
+              onClick={handleReset}
+              disabled={!searchState.text && activeFilterCount === 0}
+              title="Reset search"
             >
-              <Filter className="h-4 w-4" />
-              Filters
+              <RotateCcw className="h-4 w-4" />
             </Button>
-          )}
-
-          <Button
-            variant="outline"
-            onClick={handleReset}
-            disabled={!searchState.text && Object.keys(searchState).length <= 3}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
 
-        {/* Preset Queries */}
-        {searchMode === 'simple' && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-muted-foreground flex items-center gap-1 mr-2">
-              <Zap className="h-3 w-3" />
-              Presets:
-            </span>
-            {PRESET_QUERIES.slice(0, 6).map((preset) => (
-              <Button
-                key={preset.name}
-                variant="outline"
-                size="sm"
-                onClick={() => handlePresetQuery(preset.query)}
-                className="h-7 text-xs"
-              >
-                {preset.name}
-              </Button>
-            ))}
-          </div>
+        {/* Presets Panel */}
+        {showPresets && showPresetsPanel && (
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-muted-foreground flex items-center gap-1 mr-2 w-full sm:w-auto">
+                <Zap className="h-3 w-3" />
+                Quick Presets:
+              </span>
+              {PRESET_QUERIES.map((preset) => (
+                <Button
+                  key={preset.name}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePresetQuery(preset.query)}
+                  className="h-8 text-xs"
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+          </Card>
         )}
 
-        {/* Results Summary */}
+        {/* View Controls & Results Summary */}
         {(results.length > 0 || loading) && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-muted-foreground">
                 {loading ? 'Searching...' : `${results.length} cards found`}
               </span>
               {searchState.text && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs max-w-[200px] truncate">
                   "{searchState.text}"
                 </Badge>
               )}
             </div>
 
-            {/* Sort Controls */}
             <div className="flex items-center gap-2">
+              {/* View Mode Toggle */}
+              {showViewModes && (
+                <div className="flex items-center border rounded-lg">
+                  {(['grid', 'list', 'compact'] as const).map((mode) => (
+                    <Button
+                      key={mode}
+                      variant={viewMode === mode ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setViewMode(mode)}
+                      className="h-8 px-2"
+                    >
+                      {getViewModeIcon(mode)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* Sort Controls */}
               <Select 
                 value={searchState.order || 'name'} 
                 onValueChange={(order: 'name' | 'cmc' | 'color' | 'rarity' | 'released' | 'usd' | 'tix' | 'edhrec') => handleStateChange({ order })}
               >
-                <SelectTrigger className="w-24 h-8">
+                <SelectTrigger className="w-20 sm:w-24 h-8">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,29 +372,27 @@ export function EnhancedUniversalCardSearch({
                   dir: searchState.dir === 'asc' ? 'desc' : 'asc' 
                 })}
                 className="h-8 px-2"
+                title={searchState.dir === 'asc' ? 'Ascending' : 'Descending'}
               >
                 <ArrowUpDown className="h-4 w-4" />
               </Button>
 
-              <Select 
-                value={searchState.unique || 'cards'} 
-                onValueChange={(unique: 'cards' | 'prints') => handleStateChange({ unique })}
+              {/* Help Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowKeyboardHelp(true)}
+                className="h-8 px-2 hidden sm:flex"
               >
-                <SelectTrigger className="w-20 h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cards">Unique</SelectItem>
-                  <SelectItem value="prints">Prints</SelectItem>
-                </SelectContent>
-              </Select>
+                <HelpCircle className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Advanced Filters */}
-      {showAdvancedFilters && searchMode === 'advanced' && (
+      {/* Advanced Filters Panel */}
+      {showFilters && showAdvancedFilters && (
         <AdvancedFilterPanel
           searchState={searchState}
           onStateChange={handleStateChange}
@@ -362,7 +405,7 @@ export function EnhancedUniversalCardSearch({
         
         {error && (
           <Card className="p-6 text-center">
-            <p className="text-red-500 mb-2">Search Error</p>
+            <p className="text-destructive mb-2">Search Error</p>
             <p className="text-sm text-muted-foreground">{error}</p>
             <Button variant="outline" size="sm" onClick={handleReset} className="mt-3">
               Try Again
@@ -388,7 +431,7 @@ export function EnhancedUniversalCardSearch({
                   onClick={handleLoadMore} 
                   disabled={loading}
                   variant="outline"
-                  className="w-full"
+                  className="w-full sm:w-auto"
                 >
                   {loading ? 'Loading...' : 'Load More Cards'}
                 </Button>
@@ -407,6 +450,16 @@ export function EnhancedUniversalCardSearch({
             <Button variant="outline" onClick={handleReset}>
               Clear Search
             </Button>
+          </Card>
+        )}
+
+        {!loading && !error && results.length === 0 && !searchState.text && activeFilterCount === 0 && (
+          <Card className="p-8 text-center">
+            <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">Search for Cards</h3>
+            <p className="text-muted-foreground">
+              Enter a card name, type, or use filters to find cards
+            </p>
           </Card>
         )}
       </div>
@@ -431,18 +484,15 @@ export function EnhancedUniversalCardSearch({
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Keyboard Shortcuts
+              Search Tips & Shortcuts
             </DrawerTitle>
           </DrawerHeader>
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { key: '/', action: 'Focus search' },
-                { key: 'Escape', action: 'Clear last token' },
-                { key: 'Ctrl/Cmd + Enter', action: 'Advanced search' },
-                { key: 'Ctrl/Cmd + F', action: 'Toggle filters' },
-                { key: 'Ctrl/Cmd + K', action: 'Toggle search mode' },
-                { key: '?', action: 'Show this help' }
+                { key: 'Escape', action: 'Clear search' },
+                { key: 'Enter', action: 'Execute search' }
               ].map(shortcut => (
                 <div key={shortcut.key} className="flex items-center justify-between p-3 border rounded">
                   <span className="text-sm">{shortcut.action}</span>
@@ -451,6 +501,16 @@ export function EnhancedUniversalCardSearch({
                   </Badge>
                 </div>
               ))}
+            </div>
+            
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">Search Syntax</h4>
+              <div className="grid gap-2 text-sm text-muted-foreground">
+                <code className="bg-muted px-2 py-1 rounded">t:creature</code> - Card type
+                <code className="bg-muted px-2 py-1 rounded">c:red</code> - Color
+                <code className="bg-muted px-2 py-1 rounded">mv&lt;=3</code> - Mana value
+                <code className="bg-muted px-2 py-1 rounded">o:"draw a card"</code> - Oracle text
+              </div>
             </div>
           </div>
         </DrawerContent>

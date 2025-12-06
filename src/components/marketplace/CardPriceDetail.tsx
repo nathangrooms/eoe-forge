@@ -399,8 +399,7 @@ export function CardPriceDetail({
                 <p className="font-medium text-foreground mb-1">About Price Data</p>
                 <p>
                   Prices are sourced live from TCGPlayer via Scryfall. Historical price trends 
-                  require integration with services like MTGGoldfish or MTGStocks which offer 
-                  affiliate programs. All purchase links support the app through affiliate partnerships.
+                  and additional market data coming soon.
                 </p>
               </div>
             </div>

@@ -274,8 +274,10 @@ const DeckBuilder = () => {
       setEdhPowerUrl(fallbackUrl);
 
       // Call the edh-power-check edge function to get LIVE power from edhpowerlevel.com
+      // Pass the pre-built URL so the edge function uses the exact same URL
       const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
         body: { 
+          url: fallbackUrl,
           cards: listCards.map(c => c.name),
           commander: listCommander?.name || null
         }

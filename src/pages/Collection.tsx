@@ -392,8 +392,8 @@ export default function Collection() {
       <div className="border-b px-3 sm:px-4 md:px-6 py-3 sm:py-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl md:text-3xl font-bold bg-cosmic bg-clip-text text-transparent truncate">Collection Manager</h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1 line-clamp-2">Organize your Magic: The Gathering collection</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Collection Manager</h1>
+            <p className="text-sm text-muted-foreground mt-1">Organize your Magic: The Gathering collection</p>
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 lg:gap-4">
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">

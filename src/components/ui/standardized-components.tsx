@@ -154,11 +154,11 @@ export function StandardSectionHeader({ title, description, action, className }:
   return (
     <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 md:mb-6", className)}>
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl md:text-3xl font-bold bg-cosmic bg-clip-text text-transparent truncate">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">
           {title}
         </h1>
         {description && (
-          <p className="text-sm md:text-base text-muted-foreground mt-1 line-clamp-2">
+          <p className="text-sm text-muted-foreground mt-1">
             {description}
           </p>
         )}

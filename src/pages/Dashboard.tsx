@@ -125,11 +125,11 @@ const Dashboard = () => {
       <div className="w-full space-y-4 sm:space-y-6">
         {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="space-y-1 w-full sm:w-auto min-w-0 flex-1">
-            <h1 className="text-xl md:text-3xl font-bold bg-cosmic bg-clip-text text-transparent truncate">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">
               Welcome back, Planeswalker
             </h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1 line-clamp-2">
+            <p className="text-sm text-muted-foreground mt-1">
               Your command center for deck building, collection management, and AI-powered insights
             </p>
           </div>

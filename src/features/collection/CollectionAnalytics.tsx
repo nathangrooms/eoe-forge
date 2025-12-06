@@ -67,70 +67,76 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
   return (
     <div className="space-y-6">
       {/* Key Performance Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="cosmic-glow">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="relative overflow-hidden border-green-500/20 group hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between relative">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl sm:text-3xl font-bold text-green-500 mt-1">
                   {formatPrice(stats.totalValue)}
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">USD Market Price</p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <DollarSign className="h-6 w-6 text-green-600" />
+              <div className="p-3 bg-green-500/10 rounded-xl">
+                <DollarSign className="h-6 w-6 text-green-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+        <Card className="relative overflow-hidden border-blue-500/20 group hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between relative">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Cards</p>
-                <p className="text-2xl font-bold">
+                <p className="text-2xl sm:text-3xl font-bold mt-1">
                   {formatCardCount(stats.totalCards)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {stats.uniqueCards} unique
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.uniqueCards} unique cards
                 </p>
               </div>
-              <div className="p-3 bg-blue-500/10 rounded-full">
-                <Package className="h-6 w-6 text-blue-600" />
+              <div className="p-3 bg-blue-500/10 rounded-xl">
+                <Package className="h-6 w-6 text-blue-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+        <Card className="relative overflow-hidden border-purple-500/20 group hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between relative">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg CMC</p>
-                <p className="text-2xl font-bold">
-                  {stats.avgCmc.toFixed(1)}
+                <p className="text-2xl sm:text-3xl font-bold mt-1">
+                  {stats.avgCmc.toFixed(2)}
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">Mana value</p>
               </div>
-              <div className="p-3 bg-purple-500/10 rounded-full">
-                <Target className="h-6 w-6 text-purple-600" />
+              <div className="p-3 bg-purple-500/10 rounded-xl">
+                <Target className="h-6 w-6 text-purple-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+        <Card className="relative overflow-hidden border-amber-500/20 group hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between relative">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Collection Power</p>
-                <p className="text-2xl font-bold">
-                  {Math.round((stats.totalValue / Math.max(stats.totalCards, 1)) * 100) / 100}
+                <p className="text-sm font-medium text-muted-foreground">Avg Value</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-1">
+                  ${(stats.totalValue / Math.max(stats.totalCards, 1)).toFixed(2)}
                 </p>
-                <p className="text-xs text-muted-foreground">$/card</p>
+                <p className="text-xs text-muted-foreground mt-1">per card</p>
               </div>
-              <div className="p-3 bg-orange-500/10 rounded-full">
-                <Zap className="h-6 w-6 text-orange-600" />
+              <div className="p-3 bg-amber-500/10 rounded-xl">
+                <Zap className="h-6 w-6 text-amber-500" />
               </div>
             </div>
           </CardContent>

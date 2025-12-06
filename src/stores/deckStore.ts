@@ -142,12 +142,8 @@ export const useDeckStore = create<DeckState>()(
             totalCards: state.totalCards + 1
           };
           
-          // Auto-save if we have a current deck ID
-          if (state.currentDeckId) {
-            setTimeout(() => {
-              get().updateDeck(state.currentDeckId!);
-            }, 500); // Debounce auto-save
-          }
+          // NOTE: Auto-save removed to prevent race conditions.
+          // The parent component handles auto-save with proper debouncing.
           
           return newState;
         }
@@ -630,29 +626,44 @@ export const useDeckStore = create<DeckState>()(
             return { success: false, error: deckError.message };
           }
 
-          // Delete existing deck cards
-          const { error: deleteError } = await supabase
+          // Get current cards in database to compute delta
+          const { data: existingCards } = await supabase
             .from('deck_cards')
-            .delete()
+            .select('id, card_id')
             .eq('deck_id', deckId);
 
-          if (deleteError) {
-            console.error('Error deleting existing cards:', deleteError);
-            return { success: false, error: deleteError.message };
+          // Build set of card IDs we want to keep
+          const currentCardIds = new Set(state.cards.map(c => c.id));
+          if (state.commander) {
+            currentCardIds.add(state.commander.id);
           }
 
-          // Insert commander if present
+          // Delete only cards that are no longer in the deck
+          const cardsToDelete = existingCards?.filter(ec => !currentCardIds.has(ec.card_id)) || [];
+          if (cardsToDelete.length > 0) {
+            const { error: deleteError } = await supabase
+              .from('deck_cards')
+              .delete()
+              .in('id', cardsToDelete.map(c => c.id));
+
+            if (deleteError) {
+              console.error('Error deleting removed cards:', deleteError);
+              return { success: false, error: deleteError.message };
+            }
+          }
+
+          // Upsert commander if present
           if (state.commander) {
             const { error: commanderError } = await supabase
               .from('deck_cards')
-              .insert({
+              .upsert({
                 deck_id: deckId,
                 card_id: state.commander.id,
                 card_name: state.commander.name,
                 quantity: 1,
                 is_commander: true,
                 is_sideboard: false
-              });
+              }, { onConflict: 'deck_id,card_id', ignoreDuplicates: false });
 
             if (commanderError) {
               console.error('Error saving commander:', commanderError);
@@ -660,7 +671,7 @@ export const useDeckStore = create<DeckState>()(
             }
           }
 
-          // Insert all other cards in batches to avoid issues
+          // Upsert all other cards
           if (state.cards.length > 0) {
             // Remove duplicates and ensure unique card entries
             const uniqueCards = state.cards.reduce((acc, card) => {
@@ -673,7 +684,7 @@ export const useDeckStore = create<DeckState>()(
               return acc;
             }, [] as Card[]);
 
-            const cardInserts = uniqueCards.map(card => ({
+            const cardUpserts = uniqueCards.map(card => ({
               deck_id: deckId,
               card_id: card.id,
               card_name: card.name,
@@ -684,7 +695,7 @@ export const useDeckStore = create<DeckState>()(
 
             const { error: cardsError } = await supabase
               .from('deck_cards')
-              .insert(cardInserts);
+              .upsert(cardUpserts, { onConflict: 'deck_id,card_id', ignoreDuplicates: false });
 
             if (cardsError) {
               console.error('Error saving cards:', cardsError);

@@ -25,3 +25,6 @@ verify_jwt = false
 
 [functions.capture-collection-value]
 verify_jwt = false
+
+[functions.capture-card-price]
+verify_jwt = false

@@ -19,6 +19,7 @@ import {
   Info
 } from 'lucide-react';
 import { CardPriceData } from './PriceSearchPanel';
+import { CardPriceHistoryChart } from './CardPriceHistoryChart';
 
 interface CardPriceDetailProps {
   card: CardPriceData;
@@ -190,6 +191,16 @@ export function CardPriceDetail({
           </div>
 
           <Separator />
+
+          {/* Price History Chart */}
+          {card.scryfallData?.id && (
+            <CardPriceHistoryChart
+              cardId={card.scryfallData.id}
+              cardName={card.name}
+              oracleId={card.scryfallData?.oracle_id}
+              showFoil={showFoil}
+            />
+          )}
 
           {/* Price Statistics */}
           {priceStats && (

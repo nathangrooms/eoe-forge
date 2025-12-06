@@ -96,6 +96,9 @@ export function DeckQuickStats({
   missingCards = 0,
   ownedPct = 100
 }: DeckQuickStatsProps) {
+  // Debug logging
+  console.log('DeckQuickStats Props:', { edhPowerLevel, edhMetrics, loadingEdhPower, powerLevel });
+  
   const getPowerBand = (level: number) => {
     if (level <= 3) return 'casual';
     if (level <= 6) return 'mid';

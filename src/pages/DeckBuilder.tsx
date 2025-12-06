@@ -281,18 +281,24 @@ const DeckBuilder = () => {
         }
       });
 
-      if (!powerError && powerData?.success && powerData?.powerLevel !== null) {
-        const liveLevel = parseFloat(powerData.powerLevel);
+      console.log('EDH Power Check Response:', powerData);
+      
+      if (!powerError && powerData?.success && powerData?.powerLevel !== null && powerData?.powerLevel !== undefined) {
+        const liveLevel = typeof powerData.powerLevel === 'number' ? powerData.powerLevel : parseFloat(powerData.powerLevel);
+        console.log('Parsed EDH Power Level:', liveLevel);
+        
         if (!isNaN(liveLevel)) {
           setEdhPowerLevel(liveLevel);
           // Store all metrics
-          setEdhMetrics({
+          const metrics = {
             tippingPoint: powerData.tippingPoint ?? null,
             efficiency: powerData.efficiency ?? null,
             impact: powerData.impact ?? null,
             score: powerData.score ?? null,
             playability: powerData.playability ?? null,
-          });
+          };
+          console.log('Setting EDH Metrics:', metrics);
+          setEdhMetrics(metrics);
           showSuccess('Power Level', `EDH Power: ${liveLevel.toFixed(2)}/10 (from edhpowerlevel.com)`);
         }
       } else {

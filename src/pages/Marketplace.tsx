@@ -3,15 +3,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
 import { EditListingModal } from '@/components/marketplace/EditListingModal';
-import { AIPricingInsights } from '@/components/marketplace/AIPricingInsights';
-import { PriceComparison } from '@/components/marketplace/PriceComparison';
 import { MessagingDrawer } from '@/components/marketplace/MessagingDrawer';
 import { MessageNotificationBadge } from '@/components/marketplace/MessageNotificationBadge';
+import { MarketplaceHeader } from '@/components/marketplace/MarketplaceHeader';
+import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
+import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
+import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
+import { ShoppingList } from '@/components/marketplace/ShoppingList';
+import { QuickPriceStats } from '@/components/marketplace/QuickPriceStats';
 import { 
   Package, 
   DollarSign,
@@ -19,7 +24,11 @@ import {
   Trash2,
   CheckCircle,
   Calendar,
-  MessageCircle
+  MessageCircle,
+  Search,
+  TrendingUp,
+  Star,
+  ShoppingCart
 } from 'lucide-react';
 
 interface Listing {
@@ -46,6 +55,19 @@ interface Listing {
   };
 }
 
+interface WatchlistItem {
+  id: string;
+  name: string;
+  set_code: string;
+  image_uri?: string;
+  currentPrice: number;
+  targetPrice?: number;
+  alertEnabled: boolean;
+  addedAt: string;
+  priceChange?: number;
+  purchaseUrl: string;
+}
+
 export default function Marketplace() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [soldListings, setSoldListings] = useState<Listing[]>([]);
@@ -54,16 +76,56 @@ export default function Marketplace() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMessagingDrawer, setShowMessagingDrawer] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [activeTab, setActiveTab] = useState('search');
 
   useEffect(() => {
     loadMyListings();
+    loadWatchlist();
   }, []);
 
+  const loadWatchlist = () => {
+    const saved = localStorage.getItem('price_watchlist');
+    if (saved) {
+      try {
+        setWatchlist(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse watchlist:', e);
+      }
+    }
+  };
+
+  const handleAddToWatchlist = (card: any) => {
+    const newItem: WatchlistItem = {
+      id: crypto.randomUUID(),
+      name: card.name,
+      set_code: card.set_code,
+      image_uri: card.image_uri,
+      currentPrice: card.lowestPrice || card.averagePrice || 0,
+      alertEnabled: true,
+      addedAt: new Date().toISOString(),
+      priceChange: card.priceChange7d,
+      purchaseUrl: card.prices?.[0]?.url || '#'
+    };
+    
+    const updated = [...watchlist, newItem];
+    setWatchlist(updated);
+    localStorage.setItem('price_watchlist', JSON.stringify(updated));
+  };
+
+  const handleRemoveFromWatchlist = (id: string) => {
+    const updated = watchlist.filter(item => item.id !== id);
+    setWatchlist(updated);
+    localStorage.setItem('price_watchlist', JSON.stringify(updated));
+  };
 
   const loadMyListings = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setLoading(false);
+        return;
+      }
 
       // Load active/draft listings
       const { data: activeData, error: activeError } = await supabase
@@ -253,12 +315,8 @@ export default function Marketplace() {
     return listing.cards?.image_uris?.normal || listing.cards?.image_uris?.small;
   };
 
-  const editListing = (listing: Listing) => {
-    handleShowEditModal(listing);
-  };
-
   const renderListingCard = (listing: Listing) => (
-    <Card key={listing.id} className="overflow-hidden">
+    <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative">
         {getCardImage(listing) ? (
           <img 
@@ -274,6 +332,11 @@ export default function Marketplace() {
         {listing.foil && (
           <Badge className="absolute top-2 right-2 bg-yellow-500">
             Foil
+          </Badge>
+        )}
+        {listing.status === 'draft' && (
+          <Badge className="absolute top-2 left-2" variant="secondary">
+            Draft
           </Badge>
         )}
       </div>
@@ -316,7 +379,7 @@ export default function Marketplace() {
                 size="sm" 
                 variant="outline" 
                 className="flex-1"
-                onClick={() => editListing(listing)}
+                onClick={() => handleShowEditModal(listing)}
               >
                 <Edit className="h-3 w-3 mr-1" />
                 Edit
@@ -331,7 +394,7 @@ export default function Marketplace() {
                 }}
               >
                 <MessageCircle className="h-3 w-3 mr-1" />
-                Messages
+                Msg
                 <MessageNotificationBadge 
                   listingId={listing.id}
                   className="absolute -top-1 -right-1"
@@ -361,14 +424,21 @@ export default function Marketplace() {
     </Card>
   );
 
+  // Loading skeleton
   if (loading) {
     return (
       <StandardPageLayout
         title="Marketplace"
-        description="Buy and sell Magic cards with other players"
+        description="Compare prices and find the best deals"
       >
-        <div className="flex items-center justify-center min-h-64">
-          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="space-y-6">
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl" />
         </div>
       </StandardPageLayout>
     );
@@ -376,100 +446,182 @@ export default function Marketplace() {
 
   return (
     <StandardPageLayout
-      title="My Sales"
-      description="Manage your card listings and track sales"
+      title="Marketplace"
+      description="Compare prices across platforms and find the best deals"
     >
       <div className="space-y-6">
-        {/* AI Pricing Insights */}
-        {myListings.length > 0 && (
-          <AIPricingInsights listings={myListings} />
-        )}
-
-        {/* Price Comparison */}
-        <PriceComparison />
+        {/* Header */}
+        <MarketplaceHeader 
+          totalWatchlist={watchlist.length}
+          totalSavings={0}
+        />
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Active Listings</p>
-                  <p className="text-2xl font-bold">{myListings.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Sold Items</p>
-                  <p className="text-2xl font-bold">{soldListings.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Total Listing Value</p>
-                  <p className="text-2xl font-bold">${totalListingValue.toFixed(2)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <QuickPriceStats 
+          watchlistCount={watchlist.length}
+          myListingsCount={myListings.length}
+          totalListingValue={totalListingValue}
+          savedAmount={0}
+        />
 
-        {/* Tabs for For Sale and Sold */}
-        <Tabs defaultValue="for-sale" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="for-sale">For Sale ({myListings.length})</TabsTrigger>
-            <TabsTrigger value="sold">Sold ({soldListings.length})</TabsTrigger>
+        {/* Main Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsTrigger value="search" className="flex items-center gap-2 py-3">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Price Search</span>
+              <span className="sm:hidden">Search</span>
+            </TabsTrigger>
+            <TabsTrigger value="trends" className="flex items-center gap-2 py-3">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Trends</span>
+              <span className="sm:hidden">Trends</span>
+            </TabsTrigger>
+            <TabsTrigger value="watchlist" className="flex items-center gap-2 py-3">
+              <Star className="h-4 w-4" />
+              <span className="hidden sm:inline">Watchlist</span>
+              <span className="sm:hidden">Watch</span>
+              {watchlist.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 text-xs justify-center">
+                  {watchlist.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="listings" className="flex items-center gap-2 py-3">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">My Listings</span>
+              <span className="sm:hidden">Sell</span>
+              {myListings.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 text-xs justify-center">
+                  {myListings.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="for-sale" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {myListings.map(renderListingCard)}
-            </div>
-
-            {myListings.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No listings yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start by marking cards for sale in your collection.
-                </p>
-                <Button asChild>
-                  <a href="/collection">Go to Collection</a>
-                </Button>
-              </div>
-            )}
+          {/* Price Search Tab */}
+          <TabsContent value="search" className="mt-6">
+            <PriceSearchPanel onAddToWatchlist={handleAddToWatchlist} />
           </TabsContent>
-          
-          <TabsContent value="sold" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {soldListings.map(renderListingCard)}
+
+          {/* Trends Tab */}
+          <TabsContent value="trends" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PriceTrendCard />
+              <ShoppingList />
+            </div>
+          </TabsContent>
+
+          {/* Watchlist Tab */}
+          <TabsContent value="watchlist" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PriceWatchlist 
+                items={watchlist} 
+                onRemove={handleRemoveFromWatchlist}
+              />
+              <ShoppingList />
+            </div>
+          </TabsContent>
+
+          {/* My Listings Tab */}
+          <TabsContent value="listings" className="mt-6 space-y-6">
+            {/* Listing Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-blue-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Listings</p>
+                      <p className="text-2xl font-bold">{myListings.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-green-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Sold Items</p>
+                      <p className="text-2xl font-bold">{soldListings.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-purple-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Value</p>
+                      <p className="text-2xl font-bold">${totalListingValue.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {soldListings.length === 0 && (
-              <div className="text-center py-12">
-                <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No sold items yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Items you mark as sold will appear here.
-                </p>
-              </div>
-            )}
+            {/* Listings Sub-tabs */}
+            <Tabs defaultValue="for-sale" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="for-sale" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  For Sale ({myListings.length})
+                </TabsTrigger>
+                <TabsTrigger value="sold" className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Sold ({soldListings.length})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="for-sale" className="space-y-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {myListings.map(renderListingCard)}
+                </div>
+
+                {myListings.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No listings yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start by marking cards for sale in your collection.
+                    </p>
+                    <Button asChild>
+                      <a href="/collection">Go to Collection</a>
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="sold" className="space-y-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {soldListings.map(renderListingCard)}
+                </div>
+
+                {soldListings.length === 0 && (
+                  <div className="text-center py-12">
+                    <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No sold items yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Items you mark as sold will appear here.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
 
+        {/* Modals */}
         <MarkAsSoldModal
           isOpen={showSoldModal}
           onClose={() => {

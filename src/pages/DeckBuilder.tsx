@@ -8,8 +8,7 @@ import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDec
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
-import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
-import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
+import { AIOptimizerPanel } from '@/components/deck-builder/AIOptimizerPanel';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
@@ -19,12 +18,10 @@ import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsi
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
-import { CardReplacementEngine } from '@/components/deck-builder/CardReplacementEngine';
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
 import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { EnhancedDeckExport } from '@/components/deck-builder/EnhancedDeckExport';
-import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
 import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
@@ -66,7 +63,8 @@ const DeckBuilder = () => {
   const [allDecks, setAllDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('visual');
+  const [activeTab, setActiveTab] = useState('cards');
+  const [cardToReplace, setCardToReplace] = useState<string | null>(null);
   const [edhPowerLevel, setEdhPowerLevel] = useState<number | null>(null);
   const [edhMetrics, setEdhMetrics] = useState<{
     tippingPoint: number | null;

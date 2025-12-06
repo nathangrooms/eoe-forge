@@ -1,14 +1,12 @@
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
   Eye, 
   Search, 
   Brain, 
-  ArrowRightLeft, 
   Upload, 
   Play,
   BarChart3,
-  Layers
+  Printer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,13 +18,12 @@ interface DeckBuilderTabsProps {
 }
 
 const tabs = [
-  { id: 'visual', label: 'Visual', icon: Eye, mobileLabel: 'Visual' },
-  { id: 'list', label: 'List View', icon: Layers, mobileLabel: 'List' },
+  { id: 'cards', label: 'Cards', icon: Eye, mobileLabel: 'Cards' },
   { id: 'search', label: 'Add Cards', icon: Search, mobileLabel: 'Add' },
   { id: 'analysis', label: 'Analysis', icon: BarChart3, mobileLabel: 'Stats' },
-  { id: 'ai', label: 'AI Coach', icon: Brain, mobileLabel: 'AI' },
-  { id: 'replacements', label: 'Replacements', icon: ArrowRightLeft, mobileLabel: 'Swap' },
+  { id: 'ai', label: 'AI Optimizer', icon: Brain, mobileLabel: 'AI' },
   { id: 'import-export', label: 'Import/Export', icon: Upload, mobileLabel: 'I/O' },
+  { id: 'proxies', label: 'Proxies', icon: Printer, mobileLabel: 'Print' },
   { id: 'test', label: 'Playtest', icon: Play, mobileLabel: 'Test' },
 ];
 
@@ -51,7 +48,7 @@ export function DeckBuilderTabs({ activeTab, onTabChange, totalCards, format }: 
               <Icon className="h-4 w-4" />
               <span className="hidden md:inline">{label}</span>
               <span className="md:hidden">{mobileLabel}</span>
-              {id === 'visual' && (
+              {id === 'cards' && (
                 <Badge 
                   variant="secondary" 
                   className={cn(

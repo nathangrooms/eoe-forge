@@ -136,7 +136,6 @@ export function SimpleScanDrawer({ isOpen, onClose, onCardAdded }: SimpleScanDra
       };
 
       addRecentScan(scannedCard);
-      showSuccess('Added', `${quantity}x ${candidate.name}`);
       
       await logActivity('card_added', 'card', candidate.cardId, {
         name: candidate.name,

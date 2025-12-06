@@ -223,15 +223,15 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     }
   }, [processing, settings.autoAdd]);
 
-  // Auto-capture hook - aggressive settings for fast scanning
+  // Auto-capture hook - ultra-aggressive settings for maximum speed
   const { isCapturing: isAutoCapturing, stop: stopAutoCapture } = useAutoCapture(
     captureFrame,
     (imageData) => captureAndAnalyze(imageData),
     {
       enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0 && !lastAddedCard,
-      sharpnessThreshold: 200, // Lower threshold for faster detection
-      stabilityDelay: 200, // Quick 200ms stability check
-      cooldownDelay: 1500 // 1.5s between scans for rapid scanning
+      sharpnessThreshold: 120, // Very low threshold for instant detection
+      stabilityDelay: 100, // Ultra-quick 100ms stability check
+      cooldownDelay: 800 // 0.8s between scans for rapid-fire scanning
     }
   );
 
@@ -345,7 +345,6 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       }
 
       removeRecentScan(lastAddedCard.id);
-      showSuccess('Undone', `Removed ${lastAddedCard.name}`);
       setLastAddedCard(null);
     } catch (error) {
       console.error('Undo error:', error);
@@ -594,13 +593,6 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                   </div>
                 </div>
 
-                {/* Last recognized - stays visible longer */}
-                {lastRecognized && scanStatus !== 'success' && (
-                  <div className="absolute top-20 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-primary/30">
-                    <p className="text-xs text-primary">Recognized</p>
-                    <p className="font-semibold text-white text-lg">{lastRecognized}</p>
-                  </div>
-                )}
 
                 {/* Control Buttons */}
                 <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-3">

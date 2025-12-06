@@ -199,14 +199,14 @@ export function ModernDeckTile({
             {deckSummary.commander ? (
               <div className="space-y-3">
                 {/* Commander Image */}
-                <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-lg bg-muted">
+                <div className="relative rounded-xl overflow-hidden shadow-lg bg-muted" style={{ aspectRatio: '0.71' }}>
                   <img 
                     src={(deckSummary.commander as any)?.image_uris?.normal || 
                          (deckSummary.commander as any)?.image_uris?.large || 
                          deckSummary.commander.image || 
                          '/placeholder.svg'} 
                     alt={deckSummary.commander.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     onError={(e) => {
                       e.currentTarget.src = '/placeholder.svg';
                     }}

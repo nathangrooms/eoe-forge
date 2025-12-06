@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { CardPriceDetail } from './CardPriceDetail';
+import { BuyOptionsModal } from './BuyOptionsModal';
 
 interface PriceResult {
   marketplace: string;
@@ -44,12 +45,16 @@ export interface CardPriceData {
   tcgplayerPrice?: number;
   tcgplayerFoilPrice?: number;
   cardmarketPrice?: number;
+  cardmarketFoilPrice?: number;
+  tixPrice?: number;
+  etchedPrice?: number;
   averagePrice: number;
   lowestPrice: number;
   priceChange7d?: number;
   tcgplayerUrl?: string;
   cardmarketUrl?: string;
   cardkingdomUrl?: string;
+  cardhoarderUrl?: string;
   scryfallData?: any;
   isArtVariant?: boolean;
   collectorNumber?: string;
@@ -57,6 +62,7 @@ export interface CardPriceData {
 
 interface PriceSearchPanelProps {
   onAddToWatchlist?: (card: CardPriceData) => void;
+  onAddToShoppingList?: (card: CardPriceData) => void;
 }
 
 type SortOption = 'name' | 'price-asc' | 'price-desc' | 'set';
@@ -76,13 +82,15 @@ function isArtVariant(card: any): boolean {
   return hasSpecialNumber || isSpecialSet || hasSpecialFrame || card.promo === true;
 }
 
-export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
+export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: PriceSearchPanelProps) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CardPriceData[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
   const [showFoil, setShowFoil] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buyModalCard, setBuyModalCard] = useState<CardPriceData | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
 
@@ -120,9 +128,13 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
       const data = await response.json();
       
       const cardResults: CardPriceData[] = data.data.slice(0, 24).map((card: any) => {
+        // Extract ALL prices from Scryfall
         const tcgPrice = parseFloat(card.prices?.usd || '0');
         const tcgFoilPrice = parseFloat(card.prices?.usd_foil || '0');
         const cardmarketPrice = parseFloat(card.prices?.eur || '0');
+        const cardmarketFoilPrice = parseFloat(card.prices?.eur_foil || '0');
+        const tixPrice = parseFloat(card.prices?.tix || '0');
+        const etchedPrice = parseFloat(card.prices?.usd_etched || '0');
         
         const displayPrice = showFoil ? tcgFoilPrice : tcgPrice;
         
@@ -142,9 +154,7 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
         
         // CardMarket
         if (card.purchase_uris?.cardmarket) {
-          const cmPrice = showFoil 
-            ? parseFloat(card.prices?.eur_foil || '0')
-            : cardmarketPrice;
+          const cmPrice = showFoil ? cardmarketFoilPrice : cardmarketPrice;
           prices.push({
             marketplace: 'CardMarket',
             price: cmPrice || null,
@@ -152,6 +162,18 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
             url: card.purchase_uris.cardmarket,
             inStock: cmPrice > 0,
             color: 'orange'
+          });
+        }
+
+        // Cardhoarder (MTGO)
+        if (card.purchase_uris?.cardhoarder && tixPrice > 0) {
+          prices.push({
+            marketplace: 'Cardhoarder',
+            price: tixPrice,
+            currency: 'TIX',
+            url: card.purchase_uris.cardhoarder,
+            inStock: true,
+            color: 'cyan'
           });
         }
         
@@ -187,11 +209,15 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
           tcgplayerPrice: tcgPrice,
           tcgplayerFoilPrice: tcgFoilPrice,
           cardmarketPrice: cardmarketPrice,
+          cardmarketFoilPrice: cardmarketFoilPrice,
+          tixPrice: tixPrice,
+          etchedPrice: etchedPrice,
           averagePrice: displayPrice,
           lowestPrice: displayPrice,
           tcgplayerUrl: card.purchase_uris?.tcgplayer,
           cardmarketUrl: card.purchase_uris?.cardmarket,
           cardkingdomUrl: card.purchase_uris?.cardkingdom,
+          cardhoarderUrl: card.purchase_uris?.cardhoarder,
           scryfallData: card,
           isArtVariant: isArtVariant(card),
           collectorNumber: card.collector_number
@@ -214,6 +240,11 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
   const handleCardClick = (card: CardPriceData) => {
     setSelectedCard(card);
     setShowDetailPanel(true);
+  };
+
+  const handleBuyClick = (card: CardPriceData) => {
+    setBuyModalCard(card);
+    setShowBuyModal(true);
   };
 
   // Filter and sort results
@@ -412,18 +443,24 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
                     {card.set_name}
                   </p>
                   
-                  {/* TCGPlayer Price - Primary */}
-                  <div className="flex items-center justify-between mb-2">
-                    {displayPrice && displayPrice > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-green-600">
-                          ${displayPrice.toFixed(2)}
-                        </span>
-                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
-                          TCG
-                        </Badge>
-                      </div>
-                    ) : (
+                  {/* All Prices Summary */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    {displayPrice && displayPrice > 0 && (
+                      <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                        ${displayPrice.toFixed(2)} TCG
+                      </Badge>
+                    )}
+                    {card.cardmarketPrice && card.cardmarketPrice > 0 && (
+                      <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-600 border-orange-500/30">
+                        €{(showFoil ? card.cardmarketFoilPrice : card.cardmarketPrice)?.toFixed(2)} CM
+                      </Badge>
+                    )}
+                    {card.tixPrice && card.tixPrice > 0 && (
+                      <Badge variant="outline" className="text-xs bg-cyan-500/10 text-cyan-600 border-cyan-500/30">
+                        {card.tixPrice.toFixed(2)} tix
+                      </Badge>
+                    )}
+                    {!displayPrice && !card.cardmarketPrice && !card.tixPrice && (
                       <span className="text-sm text-muted-foreground">No price data</span>
                     )}
                   </div>
@@ -442,20 +479,18 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
                       <Star className="h-3 w-3 mr-1" />
                       Watch
                     </Button>
-                    {card.tcgplayerUrl && (
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="flex-1 h-8 text-xs bg-blue-600 hover:bg-blue-700"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(card.tcgplayerUrl, '_blank');
-                        }}
-                      >
-                        <ShoppingCart className="h-3 w-3 mr-1" />
-                        Buy
-                      </Button>
-                    )}
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="flex-1 h-8 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBuyClick(card);
+                      }}
+                    >
+                      <ShoppingCart className="h-3 w-3 mr-1" />
+                      Buy
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -482,6 +517,15 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
           onAddToWatchlist={handleAddToWatchlist}
         />
       )}
+
+      {/* Buy Options Modal */}
+      <BuyOptionsModal
+        card={buyModalCard}
+        isOpen={showBuyModal}
+        onClose={() => setShowBuyModal(false)}
+        showFoil={showFoil}
+        onAddToShoppingList={onAddToShoppingList}
+      />
     </div>
   );
 }

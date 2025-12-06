@@ -113,6 +113,34 @@ export default function Marketplace() {
     localStorage.setItem('price_watchlist', JSON.stringify(updated));
   };
 
+  const handleAddToShoppingList = (card: any) => {
+    const saved = localStorage.getItem('shopping_list');
+    let currentList: any[] = [];
+    if (saved) {
+      try {
+        currentList = JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse shopping list:', e);
+      }
+    }
+    
+    const newItem = {
+      id: crypto.randomUUID(),
+      name: card.name,
+      set_code: card.set_code,
+      image_uri: card.image_uri,
+      estimatedPrice: card.tcgplayerPrice || card.averagePrice || 0,
+      quantity: 1,
+      purchased: false,
+      purchaseUrl: card.tcgplayerUrl || card.prices?.[0]?.url || '#',
+      notes: ''
+    };
+    
+    const updated = [...currentList, newItem];
+    localStorage.setItem('shopping_list', JSON.stringify(updated));
+    showSuccess('Added to Shopping List', `${card.name} added to your shopping list`);
+  };
+
   const handleRemoveFromWatchlist = (id: string) => {
     const updated = watchlist.filter(item => item.id !== id);
     setWatchlist(updated);
@@ -501,7 +529,10 @@ export default function Marketplace() {
           
           {/* Price Search Tab */}
           <TabsContent value="search" className="mt-6">
-            <PriceSearchPanel onAddToWatchlist={handleAddToWatchlist} />
+            <PriceSearchPanel 
+              onAddToWatchlist={handleAddToWatchlist} 
+              onAddToShoppingList={handleAddToShoppingList}
+            />
           </TabsContent>
 
           {/* Trends Tab */}

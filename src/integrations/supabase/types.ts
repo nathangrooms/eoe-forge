@@ -1228,6 +1228,9 @@ export type Database = {
           colors: string[]
           created_at: string
           description: string | null
+          edh_analysis: Json | null
+          edh_analysis_updated_at: string | null
+          edh_cards_hash: string | null
           folder_id: string | null
           format: string
           id: string
@@ -1247,6 +1250,9 @@ export type Database = {
           colors?: string[]
           created_at?: string
           description?: string | null
+          edh_analysis?: Json | null
+          edh_analysis_updated_at?: string | null
+          edh_cards_hash?: string | null
           folder_id?: string | null
           format?: string
           id?: string
@@ -1266,6 +1272,9 @@ export type Database = {
           colors?: string[]
           created_at?: string
           description?: string | null
+          edh_analysis?: Json | null
+          edh_analysis_updated_at?: string | null
+          edh_cards_hash?: string | null
           folder_id?: string | null
           format?: string
           id?: string

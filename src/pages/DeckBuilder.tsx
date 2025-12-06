@@ -77,6 +77,8 @@ const DeckBuilder = () => {
   const [edhPowerUrl, setEdhPowerUrl] = useState<string | null>(null);
   const [loadingEdhPower, setLoadingEdhPower] = useState(false);
   const [edhAnalysisData, setEdhAnalysisData] = useState<EdhAnalysisData | null>(null);
+  const [edhCardsHash, setEdhCardsHash] = useState<string>('');
+  const [edhNeedsRefresh, setEdhNeedsRefresh] = useState(false);
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -97,10 +99,32 @@ const DeckBuilder = () => {
     }
   }, [searchParams]);
   
+  // Generate a hash of card names to detect changes
+  const generateCardsHash = (cards: any[]): string => {
+    const names = cards.map(c => c.name || c.card_name).sort().join('|');
+    let hash = 0;
+    for (let i = 0; i < names.length; i++) {
+      const char = names.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString();
+  };
+
   // Load all decks
   useEffect(() => {
     loadAllDecks();
   }, [user, localDecks]);
+
+  // Check if cards changed and EDH needs refresh
+  useEffect(() => {
+    if (deck.cards.length > 0 && deck.format === 'commander') {
+      const currentHash = generateCardsHash(deck.cards);
+      if (edhCardsHash && currentHash !== edhCardsHash) {
+        setEdhNeedsRefresh(true);
+      }
+    }
+  }, [deck.cards]);
 
   // Handle URL parameters for deck loading
   useEffect(() => {
@@ -209,8 +233,9 @@ const DeckBuilder = () => {
     showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);
   };
 
-  const checkEdhPowerLevel = async (deckId?: string) => {
+  const checkEdhPowerLevel = async (deckId?: string, forceRefresh: boolean = false) => {
     setLoadingEdhPower(true);
+    setEdhNeedsRefresh(false);
     try {
       const targetDeckId = deckId || selectedDeckId || deck.currentDeckId;
       
@@ -231,6 +256,36 @@ const DeckBuilder = () => {
           const summary = summaryData as any;
           listCards = (summary.cards || []).map((c: any) => ({ name: c.card_name, quantity: c.quantity }));
           listCommander = summary.commander ? { name: summary.commander.name } : listCommander;
+        }
+      }
+
+      // Calculate current cards hash
+      const currentHash = generateCardsHash(listCards);
+      setEdhCardsHash(currentHash);
+
+      // Check for cached analysis if not forcing refresh
+      if (!forceRefresh && targetDeckId) {
+        const { data: deckData } = await supabase
+          .from('user_decks')
+          .select('edh_analysis, edh_cards_hash, edh_analysis_updated_at')
+          .eq('id', targetDeckId)
+          .single();
+        
+        if (deckData?.edh_analysis && deckData?.edh_cards_hash === currentHash) {
+          console.log('Using cached EDH analysis');
+          const cached = deckData.edh_analysis as any;
+          setEdhPowerLevel(cached.metrics?.powerLevel ?? null);
+          setEdhMetrics({
+            tippingPoint: cached.metrics?.tippingPoint ?? null,
+            efficiency: cached.metrics?.efficiency ?? null,
+            impact: cached.metrics?.impact ?? null,
+            score: cached.metrics?.score ?? null,
+            playability: cached.metrics?.playability ?? null,
+          });
+          setEdhAnalysisData(cached as EdhAnalysisData);
+          setEdhPowerUrl(cached.url || null);
+          setLoadingEdhPower(false);
+          return;
         }
       }
 
@@ -276,7 +331,6 @@ const DeckBuilder = () => {
       setEdhPowerUrl(fallbackUrl);
 
       // Call the edh-power-check edge function to get LIVE power from edhpowerlevel.com
-      // Pass the pre-built URL so the edge function uses the exact same URL
       const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
         body: { 
           url: fallbackUrl,
@@ -293,7 +347,6 @@ const DeckBuilder = () => {
         
         if (!isNaN(liveLevel)) {
           setEdhPowerLevel(liveLevel);
-          // Store all metrics
           const metrics = {
             tippingPoint: powerData.tippingPoint ?? null,
             efficiency: powerData.efficiency ?? null,
@@ -304,7 +357,7 @@ const DeckBuilder = () => {
           console.log('Setting EDH Metrics:', metrics);
           setEdhMetrics(metrics);
           
-          // Store full analysis data for the new panel
+          // Store full analysis data
           const fullAnalysis: EdhAnalysisData = {
             metrics: {
               powerLevel: liveLevel,
@@ -316,6 +369,19 @@ const DeckBuilder = () => {
             url: powerData.url || fallbackUrl,
           };
           setEdhAnalysisData(fullAnalysis);
+          
+          // Save to database for caching
+          if (targetDeckId) {
+            await supabase
+              .from('user_decks')
+              .update({
+                edh_analysis: fullAnalysis as any,
+                edh_cards_hash: currentHash,
+                edh_analysis_updated_at: new Date().toISOString()
+              })
+              .eq('id', targetDeckId);
+            console.log('Saved EDH analysis to database');
+          }
           
           showSuccess('Power Level', `EDH Power: ${liveLevel.toFixed(2)}/10 (from edhpowerlevel.com)`);
         }
@@ -549,16 +615,26 @@ const DeckBuilder = () => {
 
           {/* EDH Power Level Banner - Commander only */}
           {deck.format === 'commander' && (
-            <div className="px-4 md:px-6 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent">
+            <div className={cn(
+              "px-4 md:px-6 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent",
+              edhNeedsRefresh && "from-orange-500/10 to-transparent"
+            )}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Target className="h-5 w-5 text-primary" />
+                  <Target className={cn("h-5 w-5", edhNeedsRefresh ? "text-orange-500" : "text-primary")} />
                   <div>
-                    <p className="text-sm font-medium">EDH Power Level</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">EDH Power Level</p>
+                      {edhNeedsRefresh && (
+                        <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-500 border-orange-500/30">
+                          Cards Changed
+                        </Badge>
+                      )}
+                    </div>
                     {loadingEdhPower ? (
                       <p className="text-xs text-muted-foreground">Calculating...</p>
                     ) : edhPowerLevel !== null ? (
-                      <p className="text-xl font-bold">{edhPowerLevel}/10</p>
+                      <p className="text-xl font-bold">{edhPowerLevel.toFixed(2)}/10</p>
                     ) : (
                       <p className="text-xs text-muted-foreground">Click to calculate</p>
                     )}
@@ -566,13 +642,14 @@ const DeckBuilder = () => {
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    variant="outline" 
+                    variant={edhNeedsRefresh ? "default" : "outline"}
                     size="sm"
-                    onClick={() => checkEdhPowerLevel()}
+                    onClick={() => checkEdhPowerLevel(undefined, true)}
                     disabled={loadingEdhPower}
+                    className={edhNeedsRefresh ? "bg-orange-500 hover:bg-orange-600" : ""}
                   >
                     <RefreshCw className={cn("h-4 w-4 mr-2", loadingEdhPower && "animate-spin")} />
-                    Calculate
+                    {edhNeedsRefresh ? 'Refresh' : 'Calculate'}
                   </Button>
                   {edhPowerUrl && (
                     <Button variant="outline" size="sm" asChild>
@@ -655,6 +732,15 @@ const DeckBuilder = () => {
             {/* Analysis */}
             {activeTab === 'analysis' && deck.cards.length > 0 && (
               <div className="space-y-6">
+                {/* EDH Power Level Analysis Panel - At Top */}
+                {deck.format === 'commander' && (
+                  <EdhAnalysisPanel 
+                    data={edhAnalysisData}
+                    isLoading={loadingEdhPower}
+                    onRefresh={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId, true)}
+                  />
+                )}
+
                 {deck.format === 'commander' && deck.commander && (
                   <DeckCompatibilityChecker 
                     cards={deck.cards as any}
@@ -720,15 +806,6 @@ const DeckBuilder = () => {
                   deckId={selectedDeckId || deck.currentDeckId || undefined}
                   deckName={deck.name}
                 />
-                
-                {/* EDH Power Level Analysis Panel */}
-                {deck.format === 'commander' && (
-                  <EdhAnalysisPanel 
-                    data={edhAnalysisData}
-                    isLoading={loadingEdhPower}
-                    onRefresh={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId)}
-                  />
-                )}
               </div>
             )}
 
@@ -748,8 +825,9 @@ const DeckBuilder = () => {
                   format={deck.format}
                   commander={deck.commander}
                   powerLevel={edhPowerLevel ?? deck.powerLevel}
+                  edhAnalysis={edhAnalysisData}
                 />
-                <DeckPrimerGenerator 
+                <DeckPrimerGenerator
                   deckName={deck.name}
                   commander={deck.commander?.name}
                   cardCount={deck.totalCards}

@@ -37,6 +37,39 @@ export function CardPriceHistoryChart({
     loadPriceHistory();
   }, [cardId, showFoil]);
 
+  // Auto-capture price when component mounts if no data exists for today
+  useEffect(() => {
+    const checkAndCapture = async () => {
+      if (!cardId) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if we already have today's price
+      const { data } = await supabase
+        .from('card_price_history')
+        .select('id')
+        .eq('card_id', cardId)
+        .eq('snapshot_date', today)
+        .maybeSingle();
+      
+      // If no data for today, auto-capture silently
+      if (!data) {
+        try {
+          await supabase.functions.invoke('capture-card-price', {
+            body: { card_id: cardId, oracle_id: oracleId, card_name: cardName }
+          });
+          // Reload history after capture
+          loadPriceHistory();
+        } catch (error) {
+          // Silent fail - don't interrupt user experience
+          console.log('Auto-capture failed:', error);
+        }
+      }
+    };
+    
+    checkAndCapture();
+  }, [cardId]);
+
   const loadPriceHistory = async () => {
     setLoading(true);
     try {

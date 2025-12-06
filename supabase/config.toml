@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.capture-card-price]
 verify_jwt = false
+
+[functions.daily-price-capture]
+verify_jwt = false

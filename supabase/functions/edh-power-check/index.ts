@@ -171,42 +171,81 @@ function parseAllData(text: string): {
   }
 
   // Parse Card Table
-  // Format: "| Qty | Name | 🎨 | 🕹️ | 💥 |" followed by rows like "| 👑 | Card Name | B | NaN% | 9.65 |"
+  // Various formats from edhpowerlevel.com:
+  // "| Qty | Name | 🎨 | 🕹️ | 💥 |" or markdown tables
+  // Also looks for card rows like "| 👑 | Card Name | B | 50% | 9.65 |"
   const cardAnalysis: CardAnalysis[] = [];
   
-  // Look for the table section
-  const tableMatch = text.match(/\|\s*Qty.*?\|\s*Name.*?\|[\s\S]*?(?=\n\n|\n#|$)/i);
+  // Look for the table section - multiple patterns
+  const tablePatterns = [
+    /\|\s*Qty.*?\|\s*Name.*?\|[\s\S]*?(?=\n\n|\n#|$)/i,
+    /\|\s*👑?\s*\|\s*[\w\s,']+\s*\|\s*[WUBRG]*\s*\|\s*[\d.]*%?\s*\|\s*[\d.]+\s*\|/g,
+  ];
+  
+  let tableText = '';
+  const tableMatch = text.match(tablePatterns[0]);
   if (tableMatch) {
-    const tableText = tableMatch[0];
-    // Match individual rows: | 👑 | Card Name | B | 50% | 9.65 |
-    const rowRegex = /\|\s*(👑|\d+)?\s*\|\s*([^|]+)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/g;
-    let match;
-    while ((match = rowRegex.exec(tableText)) !== null) {
-      const qty = match[1]?.trim();
-      const name = match[2]?.trim();
-      const color = match[3]?.trim();
-      const playabilityStr = match[4]?.trim();
-      const impactStr = match[5]?.trim();
-      
-      // Skip header row
-      if (name === 'Name' || name?.includes('↓')) continue;
-      
-      if (name) {
-        const playability = playabilityStr?.includes('NaN') ? null : parseFloat(playabilityStr) || null;
-        const impact = parseFloat(impactStr) || 0;
-        
-        cardAnalysis.push({
-          name,
-          isCommander: qty === '👑',
-          color: color || '',
-          playability,
-          impact,
-          isGameChanger: name.includes('🏆'),
-        });
-      }
-    }
-    console.log('Parsed', cardAnalysis.length, 'cards');
+    tableText = tableMatch[0];
   }
+  
+  // Also try to find individual card rows anywhere in the text
+  // Pattern: | 👑 or number | Card Name | Colors | Playability% | Impact |
+  const rowRegex = /\|\s*(👑|\d+)?\s*\|\s*([^|]+)\|\s*([WUBRG]*)\s*\|\s*(\d+(?:\.\d+)?|NaN)?\s*%?\s*\|\s*(\d+(?:\.\d+)?)\s*\|/g;
+  
+  // Also look for alternative row format without table structure
+  const altRowRegex = /(?:👑|•|\d+x?)\s+([A-Z][^|]+?)\s+(?:[WUBRG]+\s+)?(\d+(?:\.\d+)?)\s*%\s+(\d+(?:\.\d+)?)/g;
+  
+  // Parse standard table rows
+  let match;
+  const searchText = tableText || text;
+  while ((match = rowRegex.exec(searchText)) !== null) {
+    const qty = match[1]?.trim();
+    const name = match[2]?.trim();
+    const color = match[3]?.trim();
+    const playabilityStr = match[4]?.trim();
+    const impactStr = match[5]?.trim();
+    
+    // Skip header row
+    if (!name || name === 'Name' || name?.includes('↓') || name?.includes('Qty')) continue;
+    
+    // Clean up the name (remove any emojis or special chars at start/end)
+    const cleanName = name.replace(/^[^\w]+/, '').replace(/[^\w]+$/, '').trim();
+    if (!cleanName) continue;
+    
+    const playability = playabilityStr === 'NaN' || !playabilityStr ? null : parseFloat(playabilityStr);
+    const impact = parseFloat(impactStr) || 0;
+    
+    cardAnalysis.push({
+      name: cleanName,
+      isCommander: qty === '👑',
+      color: color || '',
+      playability,
+      impact,
+      isGameChanger: name.includes('🏆'),
+    });
+  }
+  
+  // Try alternative format if no cards found
+  if (cardAnalysis.length === 0) {
+    while ((match = altRowRegex.exec(text)) !== null) {
+      const name = match[1]?.trim();
+      const playabilityStr = match[2]?.trim();
+      const impactStr = match[3]?.trim();
+      
+      if (!name) continue;
+      
+      cardAnalysis.push({
+        name,
+        isCommander: text.indexOf(`👑 ${name}`) !== -1,
+        color: '',
+        playability: parseFloat(playabilityStr) || null,
+        impact: parseFloat(impactStr) || 0,
+        isGameChanger: false,
+      });
+    }
+  }
+  
+  console.log('Parsed', cardAnalysis.length, 'cards from EDH analysis');
 
   return { metrics, bracket, cardAnalysis, landAnalysis };
 }

@@ -792,13 +792,6 @@ const DeckBuilder = () => {
                   commander={deck.commander?.name}
                   cardCount={deck.totalCards}
                 />
-                {deck.currentDeckId && (
-                  <DeckSocialFeatures 
-                    deckId={deck.currentDeckId}
-                    deckName={deck.name}
-                    isPublic={true}
-                  />
-                )}
               </div>
             )}
 
@@ -830,6 +823,7 @@ const DeckBuilder = () => {
                     })),
                     power: { score: edhPowerLevel ?? deck.powerLevel }
                   }}
+                  edhAnalysis={edhAnalysisData}
                   onApplyReplacements={(replacements) => {
                     replacements.forEach(async ({ remove, add }) => {
                       const cardToRemove = deck.cards.find(c => c.name === remove);

@@ -124,35 +124,49 @@ export default function Admin() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    checkAdminStatus();
+    let mounted = true;
+    
+    const checkAdmin = async () => {
+      try {
+        // First get session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (!session?.user) {
+          console.log('No session found');
+          setIsAdmin(false);
+          return;
+        }
+
+        console.log('Checking admin for user:', session.user.id);
+
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('is_admin, username')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (error) {
+          console.warn('Error checking admin status:', error);
+          setIsAdmin(false);
+          return;
+        }
+
+        console.log('Profile found:', profile);
+        setIsAdmin(profile?.is_admin === true);
+      } catch (e) {
+        console.error('Admin check failed:', e);
+        if (mounted) setIsAdmin(false);
+      }
+    };
+    
+    checkAdmin();
+    
+    return () => { mounted = false; };
   }, []);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.warn('Error checking admin status:', error);
-        setIsAdmin(false);
-        return;
-      }
-
-      setIsAdmin(profile?.is_admin === true);
-    } catch (e) {
-      console.error('Admin check failed:', e);
-      setIsAdmin(false);
-    }
-  };
 
   // Loading state
   if (isAdmin === null) {

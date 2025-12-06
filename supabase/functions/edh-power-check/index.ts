@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const fetchWithTimeout = async (resource: string | URL, options: any = {}, timeout = 15000) => {
+const fetchWithTimeout = async (resource: string | URL, options: any = {}, timeout = 20000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -17,16 +17,53 @@ const fetchWithTimeout = async (resource: string | URL, options: any = {}, timeo
   }
 };
 
-// Parse text-based content - handles formats like "Power Level1.43/ 10" or "Power Level: 1.43 / 10"
-function parseTextMetrics(text: string) {
-  const metrics: {
-    powerLevel: number | null;
-    tippingPoint: number | null;
-    efficiency: number | null;
-    impact: number | null;
-    score: number | null;
-    playability: number | null;
-  } = {
+interface EdhMetrics {
+  powerLevel: number | null;
+  tippingPoint: number | null;
+  efficiency: number | null;
+  impact: number | null;
+  score: number | null;
+  playability: number | null;
+}
+
+interface BracketData {
+  recommended: number | null;
+  minimum: number | null;
+  extraTurns: number;
+  massLandDenial: number;
+  earlyTwoCardCombos: number;
+  lateTwoCardCombos: number;
+  gameChangers: number;
+}
+
+interface CardAnalysis {
+  name: string;
+  isCommander: boolean;
+  color: string;
+  playability: number | null;
+  impact: number;
+  isGameChanger: boolean;
+}
+
+interface LandAnalysis {
+  landCount: number;
+  nonLandCount: number;
+  manaScrewPct: number | null;
+  manaFloodPct: number | null;
+  sweetSpotPct: number | null;
+}
+
+// Parse all metrics from text content
+function parseAllData(text: string): {
+  metrics: EdhMetrics;
+  bracket: BracketData | null;
+  cardAnalysis: CardAnalysis[];
+  landAnalysis: LandAnalysis | null;
+} {
+  console.log('Parsing full EDH data, text length:', text.length);
+  
+  // Initialize metrics
+  const metrics: EdhMetrics = {
     powerLevel: null,
     tippingPoint: null,
     efficiency: null,
@@ -35,120 +72,143 @@ function parseTextMetrics(text: string) {
     playability: null,
   };
 
-  console.log('Parsing text, length:', text.length);
-  
-  // Power Level: handles "Power Level1.43/ 10" or "⚡Power Level1.43/ 10" or "Power Level: 1.43"
-  // The key insight: there's no space between "Level" and the number
+  // Power Level: "Power Level1.43/ 10" or "⚡Power Level1.43/ 10"
   const powerMatch = text.match(/Power\s*Level[:\s]*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?/i);
   if (powerMatch) {
     metrics.powerLevel = parseFloat(powerMatch[1]);
     console.log('Found power level:', metrics.powerLevel);
   }
   
-  // Tipping Point: handles "Tipping Point3" or "⚖️Tipping Point3"
+  // Tipping Point: "Tipping Point3" or "⚖️Tipping Point3"
   const tippingMatch = text.match(/Tipping\s*Point[:\s]*(\d+(?:\.\d+)?)/i);
   if (tippingMatch) {
     metrics.tippingPoint = parseFloat(tippingMatch[1]);
-    console.log('Found tipping point:', metrics.tippingPoint);
   }
   
-  // Efficiency: handles "Efficiency5.80/ 10" or "⏱️Efficiency5.80/ 10"
+  // Efficiency: "Efficiency5.80/ 10"
   const effMatch = text.match(/Efficiency[:\s]*(\d+(?:\.\d+)?)\s*(?:\/\s*10)?/i);
   if (effMatch) {
     metrics.efficiency = parseFloat(effMatch[1]);
-    console.log('Found efficiency:', metrics.efficiency);
   }
   
-  // Impact: handles "Impact307.16" or "💥Impact307.16"
-  const impactMatch = text.match(/Impact[:\s]*(\d+(?:\.\d+)?)/i);
+  // Impact: "Impact307.16" or "💥Impact307.16"
+  // Be careful not to match "Total Impact" or other variations
+  const impactMatch = text.match(/(?:^|[^\w])Impact[:\s]*(\d+(?:\.\d+)?)/im);
   if (impactMatch) {
     metrics.impact = parseFloat(impactMatch[1]);
-    console.log('Found impact:', metrics.impact);
   }
   
-  // Score: handles "Score280/ 1000" or "🎯Score280/ 1000"
+  // Score: "Score280/ 1000"
   const scoreMatch = text.match(/Score[:\s]*(\d+(?:\.\d+)?)\s*(?:\/\s*1000)?/i);
   if (scoreMatch) {
     metrics.score = parseFloat(scoreMatch[1]);
-    console.log('Found score:', metrics.score);
   }
   
-  // Playability: handles "Average Playability17.8%" or "🕹️Average Playability17.8%"
+  // Playability: "Average Playability17.8%"
   const playMatch = text.match(/(?:Average\s*)?Playability[:\s]*(\d+(?:\.\d+)?)\s*%/i);
   if (playMatch) {
     metrics.playability = parseFloat(playMatch[1]);
-    console.log('Found playability:', metrics.playability);
   }
 
-  return metrics;
-}
-
-// Extract all EDH metrics from HTML content
-function extractEdhMetrics(html: string) {
-  const metrics: {
-    powerLevel: number | null;
-    tippingPoint: number | null;
-    efficiency: number | null;
-    impact: number | null;
-    score: number | null;
-    playability: number | null;
-  } = {
-    powerLevel: null,
-    tippingPoint: null,
-    efficiency: null,
-    impact: null,
-    score: null,
-    playability: null,
-  };
-
-  console.log('Parsing HTML, length:', html.length);
+  // Parse Bracket Data
+  let bracket: BracketData | null = null;
   
-  // Look for the results dashboard section with specific class selectors
-  // Power Level: class="res-power-level" contains <span class="text-total...">1.43</span>
+  // Recommended Bracket: "Recommended Bracket: 1" or "Recommended Bracket1"
+  const recBracketMatch = text.match(/Recommended\s*Bracket[:\s]*(\d)/i);
+  const minBracketMatch = text.match(/Minimum\s*Bracket[:\s]*(\d)/i);
   
-  const powerMatch = html.match(/class="[^"]*res-power-level[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)/i);
-  if (powerMatch) {
-    metrics.powerLevel = parseFloat(powerMatch[1]);
-    console.log('Found power level from HTML:', metrics.powerLevel);
+  // Also try "Commander Bracket: 1" format
+  const cmdBracketMatch = text.match(/Commander\s*Bracket[:\s]*(\d)/i);
+  
+  if (recBracketMatch || minBracketMatch || cmdBracketMatch) {
+    bracket = {
+      recommended: recBracketMatch ? parseInt(recBracketMatch[1]) : (cmdBracketMatch ? parseInt(cmdBracketMatch[1]) : null),
+      minimum: minBracketMatch ? parseInt(minBracketMatch[1]) : null,
+      extraTurns: 0,
+      massLandDenial: 0,
+      earlyTwoCardCombos: 0,
+      lateTwoCardCombos: 0,
+      gameChangers: 0,
+    };
+    
+    // Requirement Tracker parsing
+    const extraTurnsMatch = text.match(/Extra\s*Turns[:\s]*(\d+)/i);
+    if (extraTurnsMatch) bracket.extraTurns = parseInt(extraTurnsMatch[1]);
+    
+    const mldMatch = text.match(/Mass\s*Land\s*Denial[:\s]*(\d+)/i);
+    if (mldMatch) bracket.massLandDenial = parseInt(mldMatch[1]);
+    
+    const earlyComboMatch = text.match(/Early\s*2-Card\s*Combos[:\s]*(\d+)/i);
+    if (earlyComboMatch) bracket.earlyTwoCardCombos = parseInt(earlyComboMatch[1]);
+    
+    const lateComboMatch = text.match(/Late\s*2-Card\s*Combos[:\s]*(\d+)/i);
+    if (lateComboMatch) bracket.lateTwoCardCombos = parseInt(lateComboMatch[1]);
+    
+    const gameChangersMatch = text.match(/Game\s*Changers[:\s]*(\d+)/i);
+    if (gameChangersMatch) bracket.gameChangers = parseInt(gameChangersMatch[1]);
+    
+    console.log('Parsed bracket:', bracket);
   }
 
-  const tippingMatch = html.match(/class="[^"]*res-tipping-point[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)/i);
-  if (tippingMatch) {
-    metrics.tippingPoint = parseFloat(tippingMatch[1]);
+  // Parse Land Analysis
+  let landAnalysis: LandAnalysis | null = null;
+  
+  const landCountMatch = text.match(/(\d+)\s*lands?\s*(?:or\s*MDFC)?/i);
+  const nonLandMatch = text.match(/(\d+)\s*non-lands?/i);
+  const manaScrewMatch = text.match(/Mana\s*Screw[:\s\n]*(?:\*\*)?(\d+(?:\.\d+)?)\s*%/i);
+  const manaFloodMatch = text.match(/Mana\s*Flood[:\s\n]*(?:\*\*)?(\d+(?:\.\d+)?)\s*%/i);
+  const sweetSpotMatch = text.match(/Sweet\s*Spot[:\s\n]*(?:\*\*)?(\d+(?:\.\d+)?)\s*%/i);
+  
+  if (landCountMatch || manaScrewMatch || manaFloodMatch) {
+    landAnalysis = {
+      landCount: landCountMatch ? parseInt(landCountMatch[1]) : 0,
+      nonLandCount: nonLandMatch ? parseInt(nonLandMatch[1]) : 0,
+      manaScrewPct: manaScrewMatch ? parseFloat(manaScrewMatch[1]) : null,
+      manaFloodPct: manaFloodMatch ? parseFloat(manaFloodMatch[1]) : null,
+      sweetSpotPct: sweetSpotMatch ? parseFloat(sweetSpotMatch[1]) : null,
+    };
+    console.log('Parsed land analysis:', landAnalysis);
   }
 
-  const efficiencyMatch = html.match(/class="[^"]*res-efficiency[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)/i);
-  if (efficiencyMatch) {
-    metrics.efficiency = parseFloat(efficiencyMatch[1]);
+  // Parse Card Table
+  // Format: "| Qty | Name | 🎨 | 🕹️ | 💥 |" followed by rows like "| 👑 | Card Name | B | NaN% | 9.65 |"
+  const cardAnalysis: CardAnalysis[] = [];
+  
+  // Look for the table section
+  const tableMatch = text.match(/\|\s*Qty.*?\|\s*Name.*?\|[\s\S]*?(?=\n\n|\n#|$)/i);
+  if (tableMatch) {
+    const tableText = tableMatch[0];
+    // Match individual rows: | 👑 | Card Name | B | 50% | 9.65 |
+    const rowRegex = /\|\s*(👑|\d+)?\s*\|\s*([^|]+)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/g;
+    let match;
+    while ((match = rowRegex.exec(tableText)) !== null) {
+      const qty = match[1]?.trim();
+      const name = match[2]?.trim();
+      const color = match[3]?.trim();
+      const playabilityStr = match[4]?.trim();
+      const impactStr = match[5]?.trim();
+      
+      // Skip header row
+      if (name === 'Name' || name?.includes('↓')) continue;
+      
+      if (name) {
+        const playability = playabilityStr?.includes('NaN') ? null : parseFloat(playabilityStr) || null;
+        const impact = parseFloat(impactStr) || 0;
+        
+        cardAnalysis.push({
+          name,
+          isCommander: qty === '👑',
+          color: color || '',
+          playability,
+          impact,
+          isGameChanger: name.includes('🏆'),
+        });
+      }
+    }
+    console.log('Parsed', cardAnalysis.length, 'cards');
   }
 
-  const impactMatch = html.match(/class="[^"]*res-impact[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)/i);
-  if (impactMatch) {
-    metrics.impact = parseFloat(impactMatch[1]);
-  }
-
-  const scoreMatch = html.match(/class="[^"]*res-score[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)/i);
-  if (scoreMatch) {
-    metrics.score = parseFloat(scoreMatch[1]);
-  }
-
-  const playabilityMatch = html.match(/class="[^"]*res-playability[^"]*"[^>]*>[\s\S]*?<span[^>]*class="[^"]*text-total[^"]*"[^>]*>([0-9]+(?:\.[0-9]+)?)\s*%?/i);
-  if (playabilityMatch) {
-    metrics.playability = parseFloat(playabilityMatch[1]);
-  }
-
-  // If we couldn't find with class patterns, try text-based parsing
-  if (metrics.powerLevel === null) {
-    const textMetrics = parseTextMetrics(html);
-    if (textMetrics.powerLevel !== null) metrics.powerLevel = textMetrics.powerLevel;
-    if (textMetrics.tippingPoint !== null && metrics.tippingPoint === null) metrics.tippingPoint = textMetrics.tippingPoint;
-    if (textMetrics.efficiency !== null && metrics.efficiency === null) metrics.efficiency = textMetrics.efficiency;
-    if (textMetrics.impact !== null && metrics.impact === null) metrics.impact = textMetrics.impact;
-    if (textMetrics.score !== null && metrics.score === null) metrics.score = textMetrics.score;
-    if (textMetrics.playability !== null && metrics.playability === null) metrics.playability = textMetrics.playability;
-  }
-
-  return metrics;
+  return { metrics, bracket, cardAnalysis, landAnalysis };
 }
 
 serve(async (req) => {
@@ -160,9 +220,7 @@ serve(async (req) => {
     const body = await req.json();
     console.log('EDH Power Check - Request body keys:', Object.keys(body));
     
-    // Accept a pre-built URL from the client if provided
     let url = body.url || null;
-    
     let cards: string[] = [];
     let commanderName: string | null = null;
 
@@ -176,27 +234,22 @@ serve(async (req) => {
         commanderName = body.commander || null;
       }
 
-      console.log('Commander:', commanderName);
-      console.log('Card count:', cards.length);
-
       if (cards.length === 0) {
         return new Response(
           JSON.stringify({
             success: false,
             error: 'No cards provided',
-            powerLevel: null,
             metrics: null,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Build URL for edhpowerlevel.com
+      // Build URL
       const cleanName = (name: string) => name.replace(/\s*\(commander\)\s*$/i, '').trim();
       const encodeName = (name: string) => encodeURIComponent(cleanName(name)).replace(/%20/g, '+');
 
       let decklistParam = '';
-      
       if (commanderName) {
         decklistParam += `1x+${encodeName(commanderName)}~~`;
       }
@@ -204,9 +257,7 @@ serve(async (req) => {
       const cardCounts = new Map<string, number>();
       for (const card of cards) {
         const cleaned = cleanName(card);
-        if (commanderName && cleaned.toLowerCase() === cleanName(commanderName).toLowerCase()) {
-          continue;
-        }
+        if (commanderName && cleaned.toLowerCase() === cleanName(commanderName).toLowerCase()) continue;
         const key = cleaned.toLowerCase();
         cardCounts.set(key, (cardCounts.get(key) || 0) + 1);
       }
@@ -218,7 +269,6 @@ serve(async (req) => {
         const key = cleaned.toLowerCase();
         if (addedNames.has(key)) continue;
         if (commanderName && key === cleanName(commanderName).toLowerCase()) continue;
-        
         const qty = cardCounts.get(key) || 1;
         parts.push(`${qty}x+${encodeName(cleaned)}`);
         addedNames.add(key);
@@ -236,44 +286,48 @@ serve(async (req) => {
         combined = decklistParam + combinedBody + sentinel;
       }
 
-      decklistParam = combined;
-      url = `https://edhpowerlevel.com/?d=${decklistParam}`;
+      url = `https://edhpowerlevel.com/?d=${combined}`;
     }
     
     console.log('EDH Power Level URL length:', url.length);
 
-    let metrics = {
-      powerLevel: null as number | null,
-      tippingPoint: null as number | null,
-      efficiency: null as number | null,
-      impact: null as number | null,
-      score: null as number | null,
-      playability: null as number | null,
+    let result = {
+      metrics: {
+        powerLevel: null as number | null,
+        tippingPoint: null as number | null,
+        efficiency: null as number | null,
+        impact: null as number | null,
+        score: null as number | null,
+        playability: null as number | null,
+      },
+      bracket: null as BracketData | null,
+      cardAnalysis: [] as CardAnalysis[],
+      landAnalysis: null as LandAnalysis | null,
     };
 
-    // Try lov-fetch-website style approach using r.jina.ai which renders JS
+    // Try r.jina.ai for JS-rendered content
     try {
-      console.log('Trying r.jina.ai...');
+      console.log('Fetching via r.jina.ai...');
       const jinaUrl = `https://r.jina.ai/${url}`;
       const jinaRes = await fetchWithTimeout(jinaUrl, {
         headers: {
           'Accept': 'text/plain',
           'X-Return-Format': 'text',
         }
-      }, 15000);
+      }, 18000);
       
       if (jinaRes.ok) {
         const text = await jinaRes.text();
         console.log('Jina response length:', text.length);
         
-        // Log a snippet around "Power Level" to debug
+        // Log snippet for debugging
         const powerIdx = text.indexOf('Power Level');
         if (powerIdx !== -1) {
-          console.log('Jina Power Level context:', text.substring(powerIdx, powerIdx + 50));
+          console.log('Power Level context:', text.substring(powerIdx, powerIdx + 60));
         }
         
-        metrics = parseTextMetrics(text);
-        console.log('Jina parsed metrics:', metrics);
+        result = parseAllData(text);
+        console.log('Parsed metrics:', result.metrics);
       } else {
         console.log('Jina response not ok:', jinaRes.status);
       }
@@ -281,13 +335,13 @@ serve(async (req) => {
       console.error('Jina error:', e);
     }
 
-    // Fallback: direct fetch
-    if (metrics.powerLevel === null) {
+    // Fallback: direct fetch (won't have JS-rendered content but try anyway)
+    if (result.metrics.powerLevel === null) {
       try {
-        console.log('Trying direct fetch...');
+        console.log('Trying direct fetch as fallback...');
         const response = await fetchWithTimeout(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           }
         }, 10000);
@@ -295,10 +349,9 @@ serve(async (req) => {
         if (response.ok) {
           const html = await response.text();
           console.log('Direct fetch HTML length:', html.length);
-          const directMetrics = extractEdhMetrics(html);
-          console.log('Direct fetch metrics:', directMetrics);
-          if (directMetrics.powerLevel !== null) {
-            metrics = directMetrics;
+          const directResult = parseAllData(html);
+          if (directResult.metrics.powerLevel !== null) {
+            result = directResult;
           }
         }
       } catch (e) {
@@ -306,17 +359,15 @@ serve(async (req) => {
       }
     }
 
-    console.log('Final metrics:', metrics);
+    console.log('Final result - power level:', result.metrics.powerLevel);
 
     return new Response(
       JSON.stringify({
-        success: metrics.powerLevel !== null,
-        powerLevel: metrics.powerLevel,
-        tippingPoint: metrics.tippingPoint,
-        efficiency: metrics.efficiency,
-        impact: metrics.impact,
-        score: metrics.score,
-        playability: metrics.playability,
+        success: result.metrics.powerLevel !== null,
+        ...result.metrics,
+        bracket: result.bracket,
+        cardAnalysis: result.cardAnalysis,
+        landAnalysis: result.landAnalysis,
         url,
         source: 'edhpowerlevel.com'
       }),
@@ -329,7 +380,6 @@ serve(async (req) => {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         powerLevel: null,
-        metrics: null,
       }),
       {
         status: 200,

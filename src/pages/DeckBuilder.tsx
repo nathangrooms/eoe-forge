@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
-import { CardGallery } from '@/components/deck-builder/CardGallery';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
 import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
 import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { AIReplacementsPanel } from '@/components/deck-builder/AIReplacementsPanel';
 import { AIDeckCoach } from '@/components/deck-builder/AIDeckCoach';
-import { DeckCardDisplay } from '@/components/deck-builder/DeckCardDisplay';
 import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
@@ -27,19 +25,23 @@ import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
 import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { EnhancedDeckExport } from '@/components/deck-builder/EnhancedDeckExport';
 import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
+import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
+import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
+import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Plus } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Deck {
   id: string;
@@ -56,11 +58,13 @@ const DeckBuilder = () => {
   const deck = useDeckStore();
   const { decks: localDecks, addCardToDeck, createDeck, setActiveDeck, activeDeck } = useDeckManagementStore();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // State for deck management
   const [allDecks, setAllDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('visual');
   const [edhPowerLevel, setEdhPowerLevel] = useState<number | null>(null);
   const [edhPowerUrl, setEdhPowerUrl] = useState<string | null>(null);
   const [loadingEdhPower, setLoadingEdhPower] = useState(false);
@@ -68,25 +72,23 @@ const DeckBuilder = () => {
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
-  const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('standard');
+  const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('commander');
   const [newDeckDescription, setNewDeckDescription] = useState('');
 
   // Get URL parameters for deck loading
   const [searchParams] = useSearchParams();
   
-  // Clear any persisted deck when a specific deck is requested to avoid "random" deck showing first
+  // Clear any persisted deck when a specific deck is requested
   useEffect(() => {
     const deckParam = searchParams.get('deck');
     if (deckParam && deck.currentDeckId && deck.currentDeckId !== deckParam) {
-      // Only clear if we're switching to a different deck
       deck.clearDeck();
       deck.setDeckName('');
       deck.setCurrentDeckId(undefined as any);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   
-  // Load all decks (Supabase + Local)
+  // Load all decks
   useEffect(() => {
     loadAllDecks();
   }, [user, localDecks]);
@@ -104,12 +106,13 @@ const DeckBuilder = () => {
         return;
       }
     }
-    // Fallback: attempt direct load by id if not found in list yet
+    
     (async () => {
       const res = await deck.loadDeck(deckParam);
       if (res.success) {
         deck.setCurrentDeckId(deckParam);
         setSelectedDeckId(deckParam);
+        checkEdhPowerLevel(deckParam);
       }
     })();
   }, [searchParams, allDecks]);
@@ -149,9 +152,6 @@ const DeckBuilder = () => {
         }
       }
 
-      const localDecksFormatted: Deck[] = [];
-      // No longer including local decks since we only want Supabase decks
-
       setAllDecks([...supabaseDecks]);
     } catch (error) {
       console.error('Error loading decks:', error);
@@ -178,20 +178,20 @@ const DeckBuilder = () => {
                card.type_line?.toLowerCase().includes('land') ? 'lands' as const :
                card.type_line?.toLowerCase().includes('instant') ? 'instants' as const :
                card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' as const : 'other' as const,
-      mechanics: card.keywords || []
+      mechanics: card.keywords || [],
+      image_uris: card.image_uris,
+      prices: card.prices
     };
 
     deck.addCard(deckCard);
     
-    // Auto-save if this is a Supabase deck (debounced to prevent rapid saves)
+    // Auto-save if this is a Supabase deck
     if (deck.currentDeckId) {
       clearTimeout((window as any).__autoSaveTimeout);
       (window as any).__autoSaveTimeout = setTimeout(() => {
         deck.updateDeck(deck.currentDeckId!).then((result) => {
           if (result.success) {
             console.log('Auto-saved deck changes');
-          } else {
-            console.error('Failed to auto-save:', result.error);
           }
         });
       }, 1000);
@@ -210,7 +210,7 @@ const DeckBuilder = () => {
         return;
       }
 
-      // Build fallback EDH Power Level URL
+      // Build EDH Power Level URL
       let listCommander: { name: string } | null = deck.commander ? { name: (deck.commander as any).name } : null;
       let listCards: { name: string; quantity: number }[] = (deck.cards as any[]).map((c: any) => ({ name: c.name, quantity: c.quantity || 1 }));
 
@@ -222,6 +222,11 @@ const DeckBuilder = () => {
           const summary = summaryData as any;
           listCards = (summary.cards || []).map((c: any) => ({ name: c.card_name, quantity: c.quantity }));
           listCommander = summary.commander ? { name: summary.commander.name } : listCommander;
+          
+          // Use the power level from the summary
+          if (summary.power?.score) {
+            setEdhPowerLevel(summary.power.score);
+          }
         }
       }
 
@@ -266,24 +271,17 @@ const DeckBuilder = () => {
       const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
       setEdhPowerUrl(fallbackUrl);
 
-      // Call the new calculate-deck-power edge function
+      // Call the calculate-deck-power edge function
       const { data: powerData, error: powerError } = await supabase.functions.invoke('calculate-deck-power', {
         body: { deck_id: targetDeckId }
       });
 
-      if (powerError) {
-        console.error('EDH power calculation error:', powerError);
-        showError('Power Calculation Failed', 'Could not calculate deck power. Using fallback URL.');
-        setEdhPowerLevel(null);
-      } else if (powerData && typeof powerData.power === 'number') {
+      if (!powerError && powerData && typeof powerData.power === 'number') {
         setEdhPowerLevel(powerData.power);
         showSuccess('Power Calculated', `Deck power: ${powerData.power}/10 (${powerData.band})`);
-      } else {
-        setEdhPowerLevel(null);
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
-      showError('EDH Power Level', 'Request failed. You can open the EDH link instead.');
     } finally {
       setLoadingEdhPower(false);
     }
@@ -291,51 +289,23 @@ const DeckBuilder = () => {
 
   const loadDeck = async (deckData: Deck) => {
     try {
-      const isLocalDeck = deckData.name.includes('(Local)');
+      const result = await deck.loadDeck(deckData.id);
       
-      if (isLocalDeck) {
-        const originalId = deckData.id;
-        const localDeck = localDecks.find(d => d.id === originalId);
+      if (result.success) {
+        deck.setCurrentDeckId(deckData.id);
+        setSelectedDeckId(deckData.id);
+        checkEdhPowerLevel(deckData.id);
         
-        if (localDeck) {
-          deck.setDeckName(localDeck.name);
-          deck.setFormat(localDeck.format as any);
-          deck.setPowerLevel(localDeck.powerLevel);
-          deck.clearDeck();
-          
-          localDeck.cards.forEach(card => {
-            deck.addCard(card);
-          });
-          
-          if (localDeck.commander) {
-            deck.setCommander(localDeck.commander);
-          }
-          
-          setActiveDeck(originalId);
-        }
+        toast({
+          title: "Deck Loaded",
+          description: `"${deckData.name}" is ready for editing`,
+        });
       } else {
-        // Use the store's loadDeck function for Supabase decks
-        const result = await deck.loadDeck(deckData.id);
-        
-        if (result.success) {
-          // Set the current deck ID for auto-saving
-          deck.setCurrentDeckId(deckData.id);
-          setSelectedDeckId(deckData.id);
-          
-          // Check EDH power level
-          checkEdhPowerLevel(deckData.id);
-          
-          toast({
-            title: "Deck Loaded",
-            description: `"${deckData.name}" is ready for editing`,
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: result.error || "Failed to load deck",
-            variant: "destructive"
-          });
-        }
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load deck",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Error loading deck:', error);
@@ -352,7 +322,6 @@ const DeckBuilder = () => {
     
     try {
       if (user) {
-        // Create in Supabase
         const { data: newDeck, error } = await supabase
           .from('user_decks')
           .insert({
@@ -369,26 +338,81 @@ const DeckBuilder = () => {
         if (error) throw error;
         
         showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
-      } else {
-        // Create locally
-        const localDeck = createDeck(newDeckName, newDeckFormat, newDeckDescription);
-        showSuccess("Deck Created", `"${newDeckName}" has been created locally`);
+        
+        if (newDeck) {
+          await loadAllDecks();
+          loadDeck({
+            id: newDeck.id,
+            name: newDeck.name,
+            format: newDeck.format as any,
+            powerLevel: newDeck.power_level,
+            colors: newDeck.colors,
+            cardCount: 0,
+            lastModified: new Date(newDeck.updated_at)
+          });
+        }
       }
       
       setNewDeckName('');
       setNewDeckDescription('');
       setShowCreateDialog(false);
-      await loadAllDecks();
     } catch (error) {
       console.error('Error creating deck:', error);
       showError("Error", "Failed to create deck");
     }
   };
 
+  // Calculate deck stats
+  const deckStats = useMemo(() => {
+    const cards = deck.cards as any[];
+    let creatures = 0, lands = 0, instants = 0, sorceries = 0, artifacts = 0, enchantments = 0, planeswalkers = 0;
+    let totalCmc = 0, nonLandCount = 0, totalValue = 0;
+
+    cards.forEach(card => {
+      const qty = card.quantity || 1;
+      const typeLine = (card.type_line || '').toLowerCase();
+      
+      if (typeLine.includes('creature')) creatures += qty;
+      else if (typeLine.includes('land')) lands += qty;
+      else if (typeLine.includes('instant')) instants += qty;
+      else if (typeLine.includes('sorcery')) sorceries += qty;
+      else if (typeLine.includes('artifact')) artifacts += qty;
+      else if (typeLine.includes('enchantment')) enchantments += qty;
+      else if (typeLine.includes('planeswalker')) planeswalkers += qty;
+      
+      if (!typeLine.includes('land')) {
+        totalCmc += (card.cmc || 0) * qty;
+        nonLandCount += qty;
+      }
+
+      const price = parseFloat(card.prices?.usd || '0') || 0;
+      totalValue += price * qty;
+    });
+
+    return {
+      totalCards: deck.totalCards,
+      creatures,
+      lands,
+      instants,
+      sorceries,
+      artifacts,
+      enchantments,
+      planeswalkers,
+      avgCmc: nonLandCount > 0 ? totalCmc / nonLandCount : 0,
+      totalValue,
+      powerLevel: edhPowerLevel ?? deck.powerLevel,
+      format: deck.format || 'commander',
+      commanderName: deck.commander?.name,
+      colors: deck.colors || [],
+      missingCards: 0,
+      ownedPct: 100
+    };
+  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel]);
+
   return (
     <StandardPageLayout
       title="Deck Builder"
-      description="Build and optimize your Magic: The Gathering decks"
+      description={deck.name ? `Editing: ${deck.name}` : "Build and optimize your Magic: The Gathering decks"}
       action={
         <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
           <Select value={selectedDeckId || ''} onValueChange={(value) => {
@@ -444,8 +468,8 @@ const DeckBuilder = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
                       <SelectItem value="commander">Commander</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
@@ -468,125 +492,106 @@ const DeckBuilder = () => {
         </div>
       }
     >
-      <Tabs defaultValue="deck" className="h-full flex flex-col">
-        {/* Tabs */}
-        <div className="border-b px-3 xs:px-6">
-          <TabsList className="flex w-full justify-start bg-transparent p-0 h-10 xs:h-12 gap-2 xs:gap-6 overflow-x-auto">
-            <TabsTrigger 
-              value="deck" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              Deck ({deck.totalCards || 0})
-            </TabsTrigger>
-            <TabsTrigger 
-              value="search"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              <span className="hidden xs:inline">Card Search</span>
-              <span className="xs:hidden">Search</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="analysis"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              <span className="hidden xs:inline">AI Analysis</span>
-              <span className="xs:hidden">AI</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="replacements"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              <span className="hidden xs:inline">AI Replacements</span>
-              <span className="xs:hidden">Replace</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="import-export"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              <span className="hidden xs:inline">Import/Export</span>
-              <span className="xs:hidden">I/E</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="deck-tester"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 xs:px-4 text-xs xs:text-sm whitespace-nowrap"
-            >
-              <span className="hidden xs:inline">Deck Tester</span>
-              <span className="xs:hidden">Test</span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      {deck.name ? (
+        <div className="h-full flex flex-col">
+          {/* Quick Stats */}
+          <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
+            <DeckQuickStats {...deckStats} />
+          </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-hidden">
-          {/* Deck Canvas Tab */}
-          <TabsContent value="deck" className="h-full overflow-auto px-3 xs:px-6 py-3 xs:py-4 m-0">
-            {deck.name ? (
-              <div className="space-y-4 xs:space-y-6">
-                {/* EDH Power Level Display */}
-                {deck.format === 'commander' && (
-                  <div className="bg-muted/50 p-3 xs:p-4 rounded-lg border">
-                    <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 xs:gap-0">
-                      <div>
-                        <p className="text-xs xs:text-sm font-medium">EDH Power Level (edhpowerlevel.com)</p>
-                        {loadingEdhPower ? (
-                          <p className="text-xs xs:text-sm text-muted-foreground mt-1">Calculating...</p>
-                        ) : edhPowerLevel !== null ? (
-                          <p className="text-xl xs:text-2xl font-bold mt-1">{edhPowerLevel.toFixed(2)} / 10</p>
-                        ) : (
-                          <p className="text-xs xs:text-sm text-muted-foreground mt-1">Click button to check</p>
-                        )}
-                      </div>
-                      <div className="flex gap-2 w-full xs:w-auto">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="flex-1 xs:flex-none text-xs xs:text-sm"
-                          onClick={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId)}
-                          disabled={loadingEdhPower}
-                        >
-                          {loadingEdhPower ? 'Checking...' : 'Get EDH Power Level'}
-                        </Button>
-                        {edhPowerUrl && (
-                          <Button variant="outline" size="sm" className="text-xs xs:text-sm" asChild>
-                            <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
-                              View Details
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+          {/* EDH Power Level Banner - Commander only */}
+          {deck.format === 'commander' && (
+            <div className="px-4 md:px-6 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Target className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">EDH Power Level</p>
+                    {loadingEdhPower ? (
+                      <p className="text-xs text-muted-foreground">Calculating...</p>
+                    ) : edhPowerLevel !== null ? (
+                      <p className="text-xl font-bold">{edhPowerLevel}/10</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Click to calculate</p>
+                    )}
                   </div>
-                )}
-                
-                {/* Commander Section - Only for Commander format */}
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => checkEdhPowerLevel()}
+                    disabled={loadingEdhPower}
+                  >
+                    <RefreshCw className={cn("h-4 w-4 mr-2", loadingEdhPower && "animate-spin")} />
+                    Calculate
+                  </Button>
+                  {edhPowerUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Details
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tabs Navigation */}
+          <DeckBuilderTabs 
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            totalCards={deck.totalCards}
+            format={deck.format || 'commander'}
+          />
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-auto p-4 md:p-6">
+            {/* Visual View */}
+            {activeTab === 'visual' && (
+              <VisualDeckView
+                cards={deck.cards as any}
+                commander={deck.commander}
+                format={deck.format || 'commander'}
+                onAddCard={(cardId) => {
+                  const card = deck.cards.find(c => c.id === cardId);
+                  if (card) {
+                    deck.updateCardQuantity(cardId, (card.quantity || 1) + 1);
+                  }
+                }}
+                onRemoveCard={(cardId) => {
+                  const card = deck.cards.find(c => c.id === cardId);
+                  if (card && (card.quantity || 1) > 1) {
+                    deck.updateCardQuantity(cardId, (card.quantity || 1) - 1);
+                  } else {
+                    deck.removeCard(cardId);
+                  }
+                }}
+              />
+            )}
+
+            {/* List View */}
+            {activeTab === 'list' && (
+              <div className="space-y-6">
                 {deck.format === 'commander' && (
                   <div className="mb-6">
                     <h2 className="text-lg font-semibold mb-3">Commander</h2>
-                    <CompactCommanderSection 
-                      currentCommander={deck.commander}
-                    />
+                    <CompactCommanderSection currentCommander={deck.commander} />
                   </div>
                 )}
-                
-                {/* Enhanced Deck List */}
                 <EnhancedDeckList deckId={selectedDeckId || undefined} />
               </div>
-            ) : (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">No deck selected</p>
-                <p className="text-sm text-muted-foreground mb-4">Select a deck from the dropdown above to start building</p>
-              </div>
             )}
-          </TabsContent>
 
-          {/* Card Search Tab */}
-          <TabsContent value="search" className="h-full overflow-auto px-6 py-4 m-0">
-            {deck.name ? (
+            {/* Add Cards */}
+            {activeTab === 'search' && (
               <>
-                <div className="bg-muted/50 p-4 rounded-lg mb-6">
+                <Card className="p-4 mb-6 bg-muted/30">
                   <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
                   <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
-                </div>
+                </Card>
                 <EnhancedUniversalCardSearch
                   onCardAdd={handleAddCardToDeck}
                   onCardSelect={(card) => console.log('Selected:', card)}
@@ -597,18 +602,11 @@ const DeckBuilder = () => {
                   showViewModes={true}
                 />
               </>
-            ) : (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">Select a deck first to add cards</p>
-              </div>
             )}
-          </TabsContent>
 
-          {/* Analysis Tab */}
-          <TabsContent value="analysis" className="h-full overflow-auto px-6 py-4 m-0">
-            {deck.name && deck.cards.length > 0 ? (
+            {/* Analysis */}
+            {activeTab === 'analysis' && deck.cards.length > 0 && (
               <div className="space-y-6">
-                {/* Color Compatibility Check (Commander only) */}
                 {deck.format === 'commander' && deck.commander && (
                   <DeckCompatibilityChecker 
                     cards={deck.cards as any}
@@ -623,99 +621,50 @@ const DeckBuilder = () => {
                     }}
                   />
                 )}
-                
-                {/* Deck Validation Panel */}
                 <DeckValidationPanel 
                   cards={deck.cards as any}
                   format={deck.format || 'standard'}
                   commander={deck.commander}
                 />
-                
-                {/* Commander Power Display */}
                 {deck.format === 'commander' && (
                   <CommanderPowerDisplay
-                    powerLevel={deck.powerLevel}
+                    powerLevel={edhPowerLevel ?? deck.powerLevel}
                     metrics={{
-                      overall: deck.powerLevel,
-                      speed: deck.powerLevel * 0.9,
-                      interaction: deck.powerLevel * 1.1,
-                      resilience: deck.powerLevel * 0.8,
-                      comboPotential: deck.powerLevel * 1.2
+                      overall: edhPowerLevel ?? deck.powerLevel,
+                      speed: (edhPowerLevel ?? deck.powerLevel) * 0.9,
+                      interaction: (edhPowerLevel ?? deck.powerLevel) * 1.1,
+                      resilience: (edhPowerLevel ?? deck.powerLevel) * 0.8,
+                      comboPotential: (edhPowerLevel ?? deck.powerLevel) * 1.2
                     }}
                   />
                 )}
-                
-                {/* Power Level Consistency Analysis */}
                 <PowerLevelConsistency 
                   deckCards={deck.cards as any}
                   commander={deck.commander}
                   format={deck.format || 'standard'}
                 />
-                
-                {/* Archetype Detection */}
                 <ArchetypeDetection 
                   deckCards={deck.cards as any}
                   commander={deck.commander}
                   format={deck.format || 'standard'}
                 />
-                
-                {/* Match Tracking */}
                 {deck.currentDeckId && (
                   <EnhancedMatchTracker 
                     deckId={deck.currentDeckId}
                     deckName={deck.name}
                   />
                 )}
-                
-                {/* Budget Tracking */}
                 <DeckBudgetTracker 
                   deckCards={deck.cards as any}
                   targetBudget={200}
                 />
-                
-                {/* Card Replacement Engine */}
-                <CardReplacementEngine 
-                  deckCards={deck.cards as any}
-                  onReplaceCard={(oldCardId, newCard) => {
-                    deck.removeCard(oldCardId);
-                    deck.addCard(newCard);
-                  }}
-                />
-                
-                {/* Proxy Generator */}
-                <DeckProxyGenerator 
-                  deckCards={deck.cards as any}
-                  deckName={deck.name}
-                />
-                
-                {/* Notes & Comments */}
-                {deck.currentDeckId && (
-                  <DeckNotesPanel deckId={deck.currentDeckId} />
-                )}
-                
-                {/* Match Analytics */}
+                {deck.currentDeckId && <DeckNotesPanel deckId={deck.currentDeckId} />}
                 {deck.currentDeckId && (
                   <MatchAnalytics 
                     deckId={deck.currentDeckId}
                     deckName={deck.name}
                   />
                 )}
-                
-                {/* Enhanced Export */}
-                <EnhancedDeckExport 
-                  deckName={deck.name}
-                  deckCards={deck.cards as any}
-                  commander={deck.commander}
-                  format={deck.format}
-                />
-                
-                <AIDeckCoach
-                  deckCards={deck.cards as any}
-                  deckName={deck.name}
-                  format={deck.format}
-                  commander={deck.commander}
-                  powerLevel={deck.powerLevel}
-                />
                 <EnhancedDeckAnalysisPanel 
                   deck={deck.cards as any}
                   format={deck.format || 'standard'}
@@ -723,13 +672,31 @@ const DeckBuilder = () => {
                   deckId={selectedDeckId || deck.currentDeckId || undefined}
                   deckName={deck.name}
                 />
+              </div>
+            )}
+
+            {activeTab === 'analysis' && deck.cards.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="font-medium">Add cards to see analysis</p>
+                <p className="text-sm">Get detailed stats, synergy insights, and recommendations</p>
+              </div>
+            )}
+
+            {/* AI Coach */}
+            {activeTab === 'ai' && deck.cards.length > 0 && (
+              <div className="space-y-6">
+                <AIDeckCoach
+                  deckCards={deck.cards as any}
+                  deckName={deck.name}
+                  format={deck.format}
+                  commander={deck.commander}
+                  powerLevel={edhPowerLevel ?? deck.powerLevel}
+                />
                 <DeckPrimerGenerator 
                   deckName={deck.name}
                   commander={deck.commander?.name}
                   cardCount={deck.totalCards}
                 />
-                
-                {/* Social Features */}
                 {deck.currentDeckId && (
                   <DeckSocialFeatures 
                     deckId={deck.currentDeckId}
@@ -738,92 +705,106 @@ const DeckBuilder = () => {
                   />
                 )}
               </div>
-            ) : (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">Add cards to your deck to see AI-powered analysis</p>
-                <p className="text-sm text-muted-foreground">Get detailed stats, synergy insights, and recommendations</p>
+            )}
+
+            {activeTab === 'ai' && deck.cards.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="font-medium">Add cards to get AI coaching</p>
               </div>
             )}
-          </TabsContent>
 
-          {/* AI Replacements Tab */}
-          <TabsContent value="replacements" className="h-full overflow-auto px-6 py-4 m-0">
-            {deck.name && deck.cards.length > 0 ? (
-              <AIReplacementsPanel
-                deckId={selectedDeckId || deck.currentDeckId || ''}
-                deckName={deck.name}
-                deckSummary={{
-                  format: deck.format,
-                  commander: deck.commander,
-                  cards: deck.cards.map(card => ({
-                    card_name: card.name,
-                    quantity: card.quantity,
-                    card_data: {
-                      mana_cost: card.mana_cost,
-                      cmc: card.cmc,
-                      type_line: card.type_line,
-                      colors: card.colors,
-                      prices: card.prices
-                    }
-                  })),
-                  power: { score: deck.powerLevel }
-                }}
-                onApplyReplacements={(replacements) => {
-                  replacements.forEach(async ({ remove, add }) => {
-                    const cardToRemove = deck.cards.find(c => c.name === remove);
-                    if (cardToRemove) {
-                      deck.removeCard(cardToRemove.id);
-                    }
-                    
-                    try {
-                      const newCard = await scryfallAPI.getCardByName(add);
-                      handleAddCardToDeck(newCard);
-                    } catch (error) {
-                      console.error(`Failed to add ${add}:`, error);
-                    }
-                  });
-                  
-                  if (deck.currentDeckId) {
-                    setTimeout(() => {
-                      deck.updateDeck(deck.currentDeckId!);
-                    }, 1000);
-                  }
-                }}
-              />
-            ) : (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">Add cards to your deck to get AI replacement suggestions</p>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Import/Export Tab */}
-          <TabsContent value="import-export" className="h-full overflow-auto px-6 py-4 m-0">
-            <div className="space-y-6">
-              <DeckImportExport 
-                currentDeck={[
-                  ...deck.cards,
-                  ...(deck.commander ? [{ ...(deck.commander as any), quantity: deck.commander.quantity ?? 1, category: 'commanders', is_commander: true }] : [])
-                ]}
-                onImportDeck={async (cards) => {
-                  try {
-                    deck.importDeck(cards);
+            {/* Replacements */}
+            {activeTab === 'replacements' && deck.cards.length > 0 && (
+              <div className="space-y-6">
+                <AIReplacementsPanel
+                  deckId={selectedDeckId || deck.currentDeckId || ''}
+                  deckName={deck.name}
+                  deckSummary={{
+                    format: deck.format,
+                    commander: deck.commander,
+                    cards: deck.cards.map(card => ({
+                      card_name: card.name,
+                      quantity: card.quantity,
+                      card_data: {
+                        mana_cost: card.mana_cost,
+                        cmc: card.cmc,
+                        type_line: card.type_line,
+                        colors: card.colors,
+                        prices: card.prices
+                      }
+                    })),
+                    power: { score: edhPowerLevel ?? deck.powerLevel }
+                  }}
+                  onApplyReplacements={(replacements) => {
+                    replacements.forEach(async ({ remove, add }) => {
+                      const cardToRemove = deck.cards.find(c => c.name === remove);
+                      if (cardToRemove) {
+                        deck.removeCard(cardToRemove.id);
+                      }
+                      try {
+                        const newCard = await scryfallAPI.getCardByName(add);
+                        handleAddCardToDeck(newCard);
+                      } catch (error) {
+                        console.error(`Failed to add ${add}:`, error);
+                      }
+                    });
                     if (deck.currentDeckId) {
-                      await deck.updateDeck(deck.currentDeckId);
+                      setTimeout(() => deck.updateDeck(deck.currentDeckId!), 1000);
                     }
-                    showSuccess("Deck Imported", `Imported ${cards.length} cards`);
-                  } catch (error) {
-                    console.error('Import error:', error);
-                    showError("Import Failed", "Failed to import deck");
-                  }
-                }}
-              />
-            </div>
-          </TabsContent>
+                  }}
+                />
+                <CardReplacementEngine 
+                  deckCards={deck.cards as any}
+                  onReplaceCard={(oldCardId, newCard) => {
+                    deck.removeCard(oldCardId);
+                    deck.addCard(newCard);
+                  }}
+                />
+                <DeckProxyGenerator 
+                  deckCards={deck.cards as any}
+                  deckName={deck.name}
+                />
+              </div>
+            )}
 
-          {/* Deck Tester Tab */}
-          <TabsContent value="deck-tester" className="h-full overflow-auto px-6 py-4 m-0">
-            {deck.cards.length > 0 ? (
+            {activeTab === 'replacements' && deck.cards.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="font-medium">Add cards to get replacement suggestions</p>
+              </div>
+            )}
+
+            {/* Import/Export */}
+            {activeTab === 'import-export' && (
+              <div className="space-y-6">
+                <DeckImportExport 
+                  currentDeck={[
+                    ...deck.cards,
+                    ...(deck.commander ? [{ ...(deck.commander as any), quantity: deck.commander.quantity ?? 1, category: 'commanders', is_commander: true }] : [])
+                  ]}
+                  onImportDeck={async (cards) => {
+                    try {
+                      deck.importDeck(cards);
+                      if (deck.currentDeckId) {
+                        await deck.updateDeck(deck.currentDeckId);
+                      }
+                      showSuccess("Deck Imported", `Imported ${cards.length} cards`);
+                    } catch (error) {
+                      console.error('Import error:', error);
+                      showError("Import Failed", "Failed to import deck");
+                    }
+                  }}
+                />
+                <EnhancedDeckExport 
+                  deckName={deck.name}
+                  deckCards={deck.cards as any}
+                  commander={deck.commander}
+                  format={deck.format}
+                />
+              </div>
+            )}
+
+            {/* Playtest */}
+            {activeTab === 'test' && deck.cards.length > 0 && (
               <QuickDeckTester 
                 deck={deck.cards.map(card => ({
                   id: card.id,
@@ -833,14 +814,32 @@ const DeckBuilder = () => {
                   mana_cost: card.mana_cost
                 }))}
               />
-            ) : (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground mb-4">Add cards to your deck to test opening hands</p>
+            )}
+
+            {activeTab === 'test' && deck.cards.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="font-medium">Add cards to test opening hands</p>
               </div>
             )}
-          </TabsContent>
+          </div>
         </div>
-      </Tabs>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full py-16">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
+              <Plus className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">No Deck Selected</h2>
+            <p className="text-muted-foreground mb-6">
+              Select an existing deck from the dropdown above, or create a new deck to get started.
+            </p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Deck
+            </Button>
+          </div>
+        </div>
+      )}
     </StandardPageLayout>
   );
 };

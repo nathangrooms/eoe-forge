@@ -57,17 +57,27 @@ export default function Register() {
       const { error } = await signUp(formData.email, formData.password, formData.username);
       
       if (error) {
-        toast({
-          title: 'Sign up failed',
-          description: error.message,
-          variant: 'destructive',
-        });
+        // Handle specific error cases
+        if (error.message?.includes('already registered')) {
+          toast({
+            title: 'Account exists',
+            description: 'This email is already registered. Please sign in instead.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Sign up failed',
+            description: error.message,
+            variant: 'destructive',
+          });
+        }
       } else {
         toast({
           title: 'Welcome to DeckMatrix!',
-          description: 'Your account has been created. Please check your email to verify your account.',
+          description: 'Your account has been created successfully.',
         });
-        navigate('/login');
+        // Auth state change will auto-redirect to dashboard
+        navigate('/dashboard');
       }
     } catch (error) {
       toast({

@@ -19,7 +19,7 @@ import Decks from "./pages/Decks";
 import Builder from "./pages/Builder";
 import Templates from "./pages/Templates";
 import Cards from "./pages/Cards";
-import Auth from "./pages/Auth";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
@@ -49,7 +49,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
@@ -72,7 +72,7 @@ function AppContent() {
         <Route path="/" element={<Homepage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth" element={<Navigate to="/login" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/p/:slug" element={<PublicDeck />} />

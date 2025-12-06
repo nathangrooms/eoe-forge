@@ -944,6 +944,18 @@ const DeckBuilder = () => {
                       setTimeout(() => deck.updateDeck(deck.currentDeckId!), 500);
                     }
                   }}
+                  onAddCard={async (cardName) => {
+                    try {
+                      const newCard = await scryfallAPI.getCardByName(cardName);
+                      handleAddCardToDeck(newCard);
+                      if (deck.currentDeckId) {
+                        setTimeout(() => deck.updateDeck(deck.currentDeckId!), 500);
+                      }
+                    } catch (error) {
+                      console.error(`Failed to add ${cardName}:`, error);
+                      showError(`Failed to add ${cardName}`);
+                    }
+                  }}
                 />
                 <DeckPrimerGenerator
                   deckName={deck.name}

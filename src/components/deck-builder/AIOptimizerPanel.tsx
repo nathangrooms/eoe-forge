@@ -1,10 +1,11 @@
-// Combined AI Coach + Replacements Panel
+// Comprehensive AI Optimizer Panel with proper formatting
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +31,9 @@ import {
   RefreshCw,
   DollarSign,
   Check,
-  X
+  Plus,
+  Package,
+  Library
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -38,20 +41,19 @@ import { scryfallAPI } from '@/lib/api/scryfall';
 import { EdhAnalysisData } from './EdhAnalysisPanel';
 import { cn } from '@/lib/utils';
 
+interface CardSuggestion {
+  name: string;
+  image: string;
+  price: number;
+  reason: string;
+  type?: string;
+  playability?: number | null;
+  inCollection?: boolean;
+}
+
 interface ReplacementSuggestion {
-  currentCard: {
-    name: string;
-    image: string;
-    price: number;
-    reason: string;
-    playability?: number | null;
-  };
-  newCard: {
-    name: string;
-    image: string;
-    price: number;
-    benefit: string;
-  };
+  currentCard: CardSuggestion;
+  newCard: CardSuggestion;
   selected: boolean;
 }
 
@@ -61,6 +63,8 @@ interface AnalysisResult {
   strategy: Array<{ text: string }>;
   manabase: Array<{ text: string }>;
   summary: string;
+  missingCount: number;
+  recommendations: CardSuggestion[];
 }
 
 interface AIOptimizerPanelProps {
@@ -79,6 +83,7 @@ interface AIOptimizerPanelProps {
   powerLevel?: number;
   edhAnalysis?: EdhAnalysisData | null;
   onApplyReplacements: (replacements: Array<{ remove: string; add: string }>) => void;
+  onAddCard?: (cardName: string) => void;
 }
 
 export function AIOptimizerPanel({
@@ -89,15 +94,31 @@ export function AIOptimizerPanel({
   commander,
   powerLevel,
   edhAnalysis,
-  onApplyReplacements
+  onApplyReplacements,
+  onAddCard
 }: AIOptimizerPanelProps) {
   const [loading, setLoading] = useState(false);
+  const [loadingCollection, setLoadingCollection] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [suggestions, setSuggestions] = useState<ReplacementSuggestion[]>([]);
+  const [additionSuggestions, setAdditionSuggestions] = useState<CardSuggestion[]>([]);
   const [error, setError] = useState<string>('');
   const [isApplying, setIsApplying] = useState(false);
   const [showConfirmAll, setShowConfirmAll] = useState(false);
   const [showConfirmSingle, setShowConfirmSingle] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [useCollection, setUseCollection] = useState(false);
+
+  // Calculate required cards based on format
+  const getRequiredCards = () => {
+    if (format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh') {
+      return 100;
+    }
+    return 60; // Standard/Modern/etc
+  };
+
+  const requiredCards = getRequiredCards();
+  const missingCards = Math.max(0, requiredCards - deckCards.length);
 
   // Extract low playability cards from EDH analysis
   const lowPlayabilityCards = (edhAnalysis?.cardAnalysis || [])
@@ -105,19 +126,30 @@ export function AIOptimizerPanel({
     .sort((a, b) => (a.playability || 0) - (b.playability || 0))
     .slice(0, 10);
 
-  const highImpactCards = (edhAnalysis?.cardAnalysis || [])
-    .filter(c => c.impact > 10 && !c.isCommander)
-    .sort((a, b) => b.impact - a.impact)
-    .slice(0, 5);
-
   const hasEdhData = edhAnalysis && edhAnalysis.cardAnalysis?.length > 0;
-  const hasResults = analysis || suggestions.length > 0;
+  const hasResults = analysis || suggestions.length > 0 || additionSuggestions.length > 0;
 
-  const generateOptimizations = async () => {
+  const generateOptimizations = async (fromCollection = false) => {
     setLoading(true);
     setError('');
+    setUseCollection(fromCollection);
     
     try {
+      // If using collection, fetch user's collection first
+      let collectionCards: string[] = [];
+      if (fromCollection) {
+        setLoadingCollection(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from('user_collections')
+            .select('card_name')
+            .eq('user_id', user.id);
+          collectionCards = (data || []).map(c => c.card_name);
+        }
+        setLoadingCollection(false);
+      }
+
       const cardList = deckCards.map(c => c.name).join('\n');
       const cardTypes = deckCards.reduce((acc, c) => {
         const type = c.type_line?.split('—')[0].trim() || 'Unknown';
@@ -142,61 +174,60 @@ export function AIOptimizerPanel({
 
 **Low Playability Cards (prioritize replacing these):**
 ${lowPlayabilityCards.map(c => `- ${c.name}: ${c.playability}% playability`).join('\n') || 'None'}
-
-**High Impact Cards:**
-${highImpactCards.map(c => `- ${c.name}: ${c.impact} impact`).join('\n') || 'None'}
-
-**Mana Base:**
-- Lands: ${edhAnalysis.landAnalysis?.landCount ?? 'Unknown'}
-- Mana Screw Risk: ${edhAnalysis.landAnalysis?.manaScrewPct ?? 'Unknown'}%
-- Mana Flood Risk: ${edhAnalysis.landAnalysis?.manaFloodPct ?? 'Unknown'}%
 `;
       }
 
-      const prompt = `Analyze this ${format} deck and provide both analysis AND specific card replacement suggestions.
+      let collectionContext = '';
+      if (fromCollection && collectionCards.length > 0) {
+        collectionContext = `
+**IMPORTANT: Only suggest cards from the user's collection:**
+${collectionCards.slice(0, 200).join(', ')}
+`;
+      }
+
+      const prompt = `Analyze this ${format} deck and provide structured recommendations.
 
 **Deck:** ${deckName || 'Deck'}
 ${commander ? `**Commander:** ${commander.name}` : ''}
 **Format:** ${format}
-**Cards:** ${deckCards.length}
+**Cards:** ${deckCards.length}/${requiredCards} (${missingCards > 0 ? `MISSING ${missingCards} CARDS` : 'Complete'})
 **Types:** ${typeBreakdown}
 
 ${edhContext}
+${collectionContext}
 
-**Decklist:**
+**Current Decklist:**
 ${cardList}
 
-Provide analysis in EXACTLY this format (use these exact headers):
+Respond in EXACTLY this JSON format (no markdown, just JSON):
+{
+  "summary": "One paragraph deck analysis",
+  "issues": [
+    {"card": "Card Name", "reason": "Why it's problematic", "severity": "high|medium|low"}
+  ],
+  "strengths": ["Strength 1", "Strength 2"],
+  "strategy": ["Strategic tip 1", "Strategic tip 2"],
+  "manabase": ["Mana observation 1"],
+  "replacements": [
+    {
+      "remove": "Card to remove",
+      "removeReason": "Why remove this card",
+      "add": "Card to add",
+      "addBenefit": "Why this is better",
+      "addType": "Creature/Instant/etc"
+    }
+  ]${missingCards > 0 ? `,
+  "additions": [
+    {
+      "name": "Card to add",
+      "reason": "Why add this",
+      "type": "Card type"
+    }
+  ]` : ''}
+}
 
-## SUMMARY
-One paragraph summary of the deck's current state and main focus area.
-
-## CRITICAL ISSUES
-List 2-3 cards that are underperforming. Format each as:
-- **[Card Name]** - [Why it's a problem] (Severity: High/Medium/Low)
-
-## RECOMMENDED SWAPS
-List 5-8 specific card replacements. PRIORITIZE cards with low playability scores. Format each as:
-- **Remove:** [Card to remove] → **Add:** [Card to add]
-  - Reason: [Why current card is weak]
-  - Benefit: [Why new card is better]
-
-## DECK STRENGTHS
-List 2-3 things the deck does well:
-- [Strength 1]
-- [Strength 2]
-
-## STRATEGY TIPS
-List 2-3 strategic improvements:
-- [Tip 1]
-- [Tip 2]
-
-## MANA BASE
-List 1-2 mana base observations:
-- [Observation]
-
-Be specific with card names. Suggest real, affordable alternatives.
-Referenced Cards: [list all cards mentioned]`;
+${missingCards > 0 ? `IMPORTANT: This deck needs ${missingCards} more cards. Include ${Math.min(missingCards, 10)} card addition suggestions.` : ''}
+Prioritize replacing low playability cards. Suggest real, legal cards only.`;
 
       const { data, error: fnError } = await supabase.functions.invoke('mtg-brain', {
         body: {
@@ -214,196 +245,175 @@ Referenced Cards: [list all cards mentioned]`;
         }
       });
 
-      if (fnError) throw fnError;
+      if (fnError) {
+        const errMsg = fnError.message || String(fnError);
+        if (/429|rate/i.test(errMsg)) {
+          throw new Error('RATE_LIMIT');
+        }
+        if (/402|payment|credit/i.test(errMsg)) {
+          throw new Error('PAYMENT_REQUIRED');
+        }
+        throw fnError;
+      }
       
       if (data?.text) {
-        const parsed = parseAnalysis(data.text);
+        const parsed = parseJsonResponse(data.text);
         setAnalysis(parsed);
         
         // Parse replacements and fetch card images
-        const replacements = await parseReplacementSuggestions(data.text, data.cards || []);
-        setSuggestions(replacements);
-        
-        if (replacements.length > 0) {
-          toast.success(`Generated ${replacements.length} replacement suggestions`);
+        if (parsed.replacements?.length > 0) {
+          const replacements = await fetchReplacementImages(parsed.replacements, fromCollection ? collectionCards : []);
+          setSuggestions(replacements);
         }
+
+        // Parse additions if deck is missing cards
+        if (parsed.additions?.length > 0) {
+          const additions = await fetchAdditionImages(parsed.additions, fromCollection ? collectionCards : []);
+          setAdditionSuggestions(additions);
+        }
+        
+        setActiveTab(suggestions.length > 0 ? 'replacements' : 'overview');
+        toast.success('Analysis complete');
       } else {
         throw new Error('No response generated');
       }
     } catch (err: any) {
       console.error('AI optimizer error:', err);
       const msg = String(err?.message || err);
-      if (/402|credit|payment/i.test(msg)) {
-        setError('AI credits required. Please add credits and try again.');
-      } else if (/429|rate/i.test(msg)) {
-        setError('Rate limit reached. Please wait and try again.');
+      if (msg === 'RATE_LIMIT' || /429|rate/i.test(msg)) {
+        setError('Rate limit exceeded. Please wait 30 seconds and try again.');
+      } else if (msg === 'PAYMENT_REQUIRED' || /402|credit|payment/i.test(msg)) {
+        setError('AI credits required. Please add credits in Settings → Workspace → Usage.');
       } else {
         setError('Failed to generate analysis. Please try again.');
       }
     } finally {
       setLoading(false);
+      setLoadingCollection(false);
     }
   };
 
-  const parseAnalysis = (text: string): AnalysisResult => {
-    const result: AnalysisResult = {
+  const parseJsonResponse = (text: string): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
+    // Try to extract JSON from the response
+    try {
+      // Look for JSON object in the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          summary: parsed.summary || '',
+          issues: (parsed.issues || []).map((i: any) => ({
+            card: i.card || '',
+            reason: i.reason || '',
+            severity: i.severity || 'medium'
+          })),
+          strengths: (parsed.strengths || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+          strategy: (parsed.strategy || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+          manabase: (parsed.manabase || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+          missingCount: missingCards,
+          recommendations: [],
+          replacements: parsed.replacements || [],
+          additions: parsed.additions || []
+        };
+      }
+    } catch (e) {
+      console.error('Failed to parse JSON response:', e);
+    }
+
+    // Fallback: return empty result
+    return {
+      summary: 'Analysis could not be parsed. Please try again.',
       issues: [],
       strengths: [],
       strategy: [],
       manabase: [],
-      summary: ''
+      missingCount: missingCards,
+      recommendations: [],
+      replacements: [],
+      additions: []
     };
-
-    // Extract summary
-    const summaryMatch = text.match(/## SUMMARY\s*([\s\S]*?)(?=## |$)/i);
-    if (summaryMatch) {
-      result.summary = summaryMatch[1].trim();
-    }
-
-    // Extract issues
-    const issuesMatch = text.match(/## CRITICAL ISSUES\s*([\s\S]*?)(?=## |$)/i);
-    if (issuesMatch) {
-      const issueLines = issuesMatch[1].match(/[-•]\s*\*\*([^*]+)\*\*\s*[-–]\s*([^(]+)\(Severity:\s*(High|Medium|Low)\)/gi);
-      issueLines?.forEach(line => {
-        const match = line.match(/\*\*([^*]+)\*\*\s*[-–]\s*([^(]+)\(Severity:\s*(High|Medium|Low)\)/i);
-        if (match) {
-          result.issues.push({
-            card: match[1].trim(),
-            reason: match[2].trim(),
-            severity: match[3].toLowerCase() as 'high' | 'medium' | 'low'
-          });
-        }
-      });
-    }
-
-    // Extract strengths
-    const strengthsMatch = text.match(/## DECK STRENGTHS\s*([\s\S]*?)(?=## |$)/i);
-    if (strengthsMatch) {
-      const lines = strengthsMatch[1].match(/[-•]\s*(.+)/g);
-      lines?.forEach(line => {
-        result.strengths.push({ text: line.replace(/^[-•]\s*/, '').trim() });
-      });
-    }
-
-    // Extract strategy
-    const strategyMatch = text.match(/## STRATEGY TIPS\s*([\s\S]*?)(?=## |$)/i);
-    if (strategyMatch) {
-      const lines = strategyMatch[1].match(/[-•]\s*(.+)/g);
-      lines?.forEach(line => {
-        result.strategy.push({ text: line.replace(/^[-•]\s*/, '').trim() });
-      });
-    }
-
-    // Extract mana base
-    const manaMatch = text.match(/## MANA BASE\s*([\s\S]*?)(?=## |$)/i);
-    if (manaMatch) {
-      const lines = manaMatch[1].match(/[-•]\s*(.+)/g);
-      lines?.forEach(line => {
-        result.manabase.push({ text: line.replace(/^[-•]\s*/, '').trim() });
-      });
-    }
-
-    return result;
   };
 
-  const parseReplacementSuggestions = async (
-    message: string,
-    aiCards: any[]
+  const fetchReplacementImages = async (
+    replacements: any[],
+    collectionCards: string[]
   ): Promise<ReplacementSuggestion[]> => {
-    const suggestions: ReplacementSuggestion[] = [];
+    const results: ReplacementSuggestion[] = [];
     
-    const lines = message.split('\n');
-    let currentCard = '';
-    let newCard = '';
-    let reason = '';
-    let benefit = '';
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Detect replacement patterns
-      const replaceMatch = line.match(/(?:Remove|Replace|Swap|Upgrade)[:\s]+\*\*([^*]+)\*\*\s*(?:with|→|to)\s*\*\*([^*]+)\*\*/i);
-      const arrowMatch = line.match(/\*\*Remove:\*\*\s*([^→]+)→\s*\*\*Add:\*\*\s*([^\n]+)/i);
-      const simpleMatch = line.match(/\*\*([^*]+)\*\*\s*→\s*\*\*([^*]+)\*\*/);
-      
-      if (arrowMatch) {
-        currentCard = arrowMatch[1].trim();
-        newCard = arrowMatch[2].trim();
-      } else if (replaceMatch) {
-        currentCard = replaceMatch[1].trim();
-        newCard = replaceMatch[2].trim();
-      } else if (simpleMatch && !currentCard) {
-        currentCard = simpleMatch[1].trim();
-        newCard = simpleMatch[2].trim();
-      }
-
-      if (line.toLowerCase().includes('reason:')) {
-        reason = line.replace(/^[-\s]*reason:\s*/i, '').trim();
-      }
-      if (line.toLowerCase().includes('benefit:')) {
-        benefit = line.replace(/^[-\s]*benefit:\s*/i, '').trim();
-      }
-
-      if (currentCard && newCard && (reason || benefit || lines[i + 1]?.includes('**Remove') || i === lines.length - 1)) {
-        // Fetch card images from Scryfall
+    for (const rep of replacements.slice(0, 8)) {
+      try {
         const [currentCardData, newCardData] = await Promise.all([
-          fetchCardData(currentCard, aiCards),
-          fetchCardData(newCard, aiCards)
+          fetchCardData(rep.remove),
+          fetchCardData(rep.add)
         ]);
 
         if (currentCardData && newCardData) {
-          const curPrice = Number(currentCardData.prices?.usd) || 0;
-          const newPrice = Number(newCardData.prices?.usd) || 0;
-          
           const edhCardData = edhAnalysis?.cardAnalysis?.find(
-            c => c.name.toLowerCase() === currentCard.toLowerCase()
+            c => c.name.toLowerCase() === rep.remove.toLowerCase()
           );
           
-          suggestions.push({
+          results.push({
             currentCard: {
-              name: currentCard,
+              name: rep.remove,
               image: currentCardData.image_uri || '/placeholder.svg',
-              price: curPrice,
-              reason: reason || 'Underperforming card',
+              price: Number(currentCardData.prices?.usd) || 0,
+              reason: rep.removeReason || 'Underperforming',
               playability: edhCardData?.playability ?? null
             },
             newCard: {
-              name: newCard,
+              name: rep.add,
               image: newCardData.image_uri || '/placeholder.svg',
-              price: newPrice,
-              benefit: benefit || 'Better synergy and performance'
+              price: Number(newCardData.prices?.usd) || 0,
+              reason: rep.addBenefit || 'Better synergy',
+              type: rep.addType || newCardData.type_line,
+              inCollection: collectionCards.some(c => c.toLowerCase() === rep.add.toLowerCase())
             },
             selected: true
           });
         }
-
-        currentCard = '';
-        newCard = '';
-        reason = '';
-        benefit = '';
+      } catch (e) {
+        console.error('Error fetching replacement card:', e);
       }
     }
 
-    return suggestions;
+    return results;
   };
 
-  const fetchCardData = async (cardName: string, aiCards: any[]): Promise<any> => {
-    // Check AI cards first
-    const aiCard = aiCards.find(c => c.name?.toLowerCase() === cardName.toLowerCase());
-    if (aiCard) {
-      return {
-        name: aiCard.name,
-        image_uri: aiCard.image_uri || aiCard.image_uris?.normal,
-        prices: aiCard.prices
-      };
+  const fetchAdditionImages = async (
+    additions: any[],
+    collectionCards: string[]
+  ): Promise<CardSuggestion[]> => {
+    const results: CardSuggestion[] = [];
+    
+    for (const add of additions.slice(0, 10)) {
+      try {
+        const cardData = await fetchCardData(add.name);
+        if (cardData) {
+          results.push({
+            name: add.name,
+            image: cardData.image_uri || '/placeholder.svg',
+            price: Number(cardData.prices?.usd) || 0,
+            reason: add.reason || 'Recommended addition',
+            type: add.type || cardData.type_line,
+            inCollection: collectionCards.some(c => c.toLowerCase() === add.name.toLowerCase())
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching addition card:', e);
+      }
     }
 
+    return results;
+  };
+
+  const fetchCardData = async (cardName: string): Promise<any> => {
     try {
       const card = await scryfallAPI.getCardByName(cardName);
       return {
         name: card.name,
         image_uri: card.image_uris?.normal || card.image_uris?.large,
-        prices: card.prices
+        prices: card.prices,
+        type_line: card.type_line
       };
     } catch (error) {
       console.error(`Failed to fetch card: ${cardName}`, error);
@@ -434,7 +444,6 @@ Referenced Cards: [list all cards mentioned]`;
       }));
 
       await onApplyReplacements(replacements);
-      
       toast.success(`Applied ${selected.length} replacement${selected.length > 1 ? 's' : ''}`);
       setSuggestions([]);
     } catch (error) {
@@ -457,7 +466,7 @@ Referenced Cards: [list all cards mentioned]`;
         add: suggestion.newCard.name
       }]);
       
-      toast.success(`Replaced ${suggestion.currentCard.name} with ${suggestion.newCard.name}`);
+      toast.success(`Replaced ${suggestion.currentCard.name}`);
       setSuggestions(prev => prev.filter((_, i) => i !== index));
     } catch (error) {
       console.error('Error applying replacement:', error);
@@ -465,6 +474,14 @@ Referenced Cards: [list all cards mentioned]`;
     } finally {
       setIsApplying(false);
       setShowConfirmSingle(null);
+    }
+  };
+
+  const handleAddCard = (cardName: string) => {
+    if (onAddCard) {
+      onAddCard(cardName);
+      setAdditionSuggestions(prev => prev.filter(c => c.name !== cardName));
+      toast.success(`Added ${cardName}`);
     }
   };
 
@@ -486,7 +503,7 @@ Referenced Cards: [list all cards mentioned]`;
       {/* Header */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
                 <Brain className="h-6 w-6 text-primary-foreground" />
@@ -494,11 +511,14 @@ Referenced Cards: [list all cards mentioned]`;
               <div>
                 <h3 className="font-bold text-lg">AI Deck Optimizer</h3>
                 <p className="text-sm text-muted-foreground">
-                  {hasEdhData ? 'Powered by EDH playability data' : 'Analysis + replacement suggestions'}
+                  {deckCards.length}/{requiredCards} cards
+                  {missingCards > 0 && (
+                    <span className="text-orange-400 ml-2">• {missingCards} needed</span>
+                  )}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {hasEdhData && (
                 <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
                   <Zap className="h-3 w-3 mr-1" />
@@ -506,11 +526,24 @@ Referenced Cards: [list all cards mentioned]`;
                 </Badge>
               )}
               <Button 
-                onClick={generateOptimizations}
+                variant="outline"
+                onClick={() => generateOptimizations(true)}
+                disabled={loading}
+                size="sm"
+              >
+                {loadingCollection ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Library className="h-4 w-4 mr-2" />
+                )}
+                From Collection
+              </Button>
+              <Button 
+                onClick={() => generateOptimizations(false)}
                 disabled={loading || deckCards.length === 0}
                 size="sm"
               >
-                {loading ? (
+                {loading && !loadingCollection ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Analyzing...
@@ -523,7 +556,7 @@ Referenced Cards: [list all cards mentioned]`;
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Optimize Deck
+                    Optimize
                   </>
                 )}
               </Button>
@@ -532,19 +565,36 @@ Referenced Cards: [list all cards mentioned]`;
         </CardContent>
       </Card>
 
-      {/* EDH Low Playability Preview */}
+      {/* Missing Cards Warning */}
+      {missingCards > 0 && !hasResults && !loading && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-orange-400" />
+              <span className="font-medium text-orange-400">
+                Deck Incomplete: {missingCards} Cards Needed
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {format === 'commander' || format === 'edh'
+                ? 'Commander decks require exactly 100 cards including the commander.'
+                : 'Standard deck requires at least 60 cards.'}
+              {' '}Run the optimizer to get card recommendations.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Low Playability Preview */}
       {hasEdhData && lowPlayabilityCards.length > 0 && !hasResults && !loading && (
         <Card className="border-orange-500/30 bg-orange-500/5">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <TrendingDown className="h-4 w-4 text-orange-400" />
               <span className="text-sm font-medium text-orange-400">
-                {lowPlayabilityCards.length} Low Playability Cards Detected
+                {lowPlayabilityCards.length} Low Playability Cards
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              These cards have low playability scores and are candidates for replacement.
-            </p>
             <div className="flex flex-wrap gap-2">
               {lowPlayabilityCards.slice(0, 6).map((card, i) => (
                 <Badge 
@@ -570,9 +620,21 @@ Referenced Cards: [list all cards mentioned]`;
       {error && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <span className="text-sm text-destructive">{error}</span>
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-destructive">{error}</p>
+                {error.includes('Rate limit') && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Too many requests. Please wait before trying again.
+                  </p>
+                )}
+                {error.includes('credits') && (
+                  <Button variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
+                    Add Credits →
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -588,7 +650,9 @@ Referenced Cards: [list all cards mentioned]`;
                 <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Analyzing your deck...</p>
+                <p className="font-medium">
+                  {loadingCollection ? 'Loading your collection...' : 'Analyzing your deck...'}
+                </p>
                 <p className="text-sm text-muted-foreground">
                   Finding optimizations and fetching card images
                 </p>
@@ -609,127 +673,171 @@ Referenced Cards: [list all cards mentioned]`;
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
               {deckCards.length === 0 
                 ? 'Add cards to your deck to get AI-powered analysis.'
-                : 'Click "Optimize Deck" to get analysis, issues, and replacement suggestions with card images.'}
+                : 'Get card replacement suggestions with visual previews.'}
             </p>
             {deckCards.length > 0 && (
-              <Button onClick={generateOptimizations}>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Start Optimization
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => generateOptimizations(false)}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Optimize Deck
+                </Button>
+                <Button variant="outline" onClick={() => generateOptimizations(true)}>
+                  <Library className="h-4 w-4 mr-2" />
+                  Use My Collection
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Analysis Summary */}
-      {analysis && !loading && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="h-4 w-4 text-primary" />
-              Analysis Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {analysis.summary && (
-              <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>
-            )}
+      {/* Results Tabs */}
+      {hasResults && !loading && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="replacements" className="flex items-center gap-2">
+              <ArrowRight className="h-4 w-4" />
+              Swaps
+              {suggestions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                  {suggestions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="additions" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Cards
+              {additionSuggestions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                  {additionSuggestions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-            {analysis.issues.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-400" />
-                  Issues Found
-                </h4>
-                <div className="space-y-2">
-                  {analysis.issues.map((issue, i) => (
-                    <div key={i} className={cn("p-2 rounded-lg border text-sm", getSeverityColor(issue.severity))}>
-                      <span className="font-medium">{issue.card}:</span> {issue.reason}
+          {/* Overview Tab */}
+          <TabsContent value="overview">
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                {analysis?.summary && (
+                  <div className="p-3 rounded-lg bg-muted/50 border">
+                    <p className="text-sm leading-relaxed">{analysis.summary}</p>
+                  </div>
+                )}
+
+                {analysis?.issues && analysis.issues.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-400" />
+                      Issues ({analysis.issues.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {analysis.issues.map((issue, i) => (
+                        <div key={i} className={cn("p-3 rounded-lg border text-sm", getSeverityColor(issue.severity))}>
+                          <span className="font-medium">{issue.card}:</span> {issue.reason}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {analysis.strengths.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-green-400">
-                  <CheckCircle className="h-4 w-4" />
-                  Deck Strengths
-                </h4>
-                <ul className="space-y-1">
-                  {analysis.strengths.map((s, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">• {s.text}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                {analysis?.strengths && analysis.strengths.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-green-400">
+                      <CheckCircle className="h-4 w-4" />
+                      Strengths
+                    </h4>
+                    <ul className="space-y-1.5">
+                      {analysis.strengths.map((s, i) => (
+                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-green-400 mt-0.5">•</span>
+                          {s.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-            {analysis.strategy.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-400">
-                  <Lightbulb className="h-4 w-4" />
-                  Tips
-                </h4>
-                <ul className="space-y-1">
-                  {analysis.strategy.map((s, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">• {s.text}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                {analysis?.strategy && analysis.strategy.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-400">
+                      <Lightbulb className="h-4 w-4" />
+                      Tips
+                    </h4>
+                    <ul className="space-y-1.5">
+                      {analysis.strategy.map((s, i) => (
+                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-blue-400 mt-0.5">•</span>
+                          {s.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-      {/* Replacement Suggestions */}
-      {suggestions.length > 0 && !loading && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <ArrowRight className="h-4 w-4 text-primary" />
-                {suggestions.length} Suggested Replacements
-              </span>
-              <div className="flex items-center gap-3 text-sm font-normal">
-                <span className="text-muted-foreground">
-                  {suggestions.filter(s => s.selected).length} selected
-                </span>
-                <span className={cn(
-                  "flex items-center",
-                  totalCostDifference >= 0 ? 'text-destructive' : 'text-green-500'
-                )}>
-                  <DollarSign className="h-3 w-3" />
-                  {totalCostDifference >= 0 ? '+' : ''}
-                  {totalCostDifference.toFixed(2)}
-                </span>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[500px] pr-4">
-              <div className="space-y-4">
-                {suggestions.map((suggestion, index) => (
-                  <Card 
-                    key={index} 
-                    className={cn(
-                      "border transition-colors overflow-hidden",
-                      suggestion.selected ? "border-primary/50 bg-primary/5" : "border-border"
-                    )}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex gap-4">
-                        {/* Current Card */}
-                        <div className="flex-1">
+          {/* Replacements Tab */}
+          <TabsContent value="replacements">
+            {suggestions.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">No replacement suggestions available.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                      {suggestions.length} Replacements
+                      {useCollection && (
+                        <Badge variant="outline" className="ml-2">
+                          <Package className="h-3 w-3 mr-1" />
+                          From Collection
+                        </Badge>
+                      )}
+                    </span>
+                    <span className={cn(
+                      "text-sm font-normal flex items-center",
+                      totalCostDifference >= 0 ? 'text-destructive' : 'text-green-500'
+                    )}>
+                      <DollarSign className="h-3 w-3" />
+                      {totalCostDifference >= 0 ? '+' : ''}
+                      {totalCostDifference.toFixed(2)}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[450px] pr-2">
+                    <div className="space-y-4">
+                      {suggestions.map((suggestion, index) => (
+                        <div 
+                          key={index} 
+                          className={cn(
+                            "p-3 rounded-lg border transition-colors",
+                            suggestion.selected ? "border-primary/50 bg-primary/5" : "border-border"
+                          )}
+                        >
                           <div className="flex items-start gap-3">
                             <Checkbox
                               checked={suggestion.selected}
                               onCheckedChange={() => toggleSuggestion(index)}
                               className="mt-1"
                             />
-                            <div className="flex-1">
+                            
+                            {/* Current Card */}
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2">
-                                <span className="text-xs text-destructive font-medium uppercase">Remove</span>
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs">
+                                  Remove
+                                </Badge>
                                 {suggestion.currentCard.playability !== null && (
                                   <Badge variant="outline" className="text-xs bg-orange-500/10 border-orange-500/30 text-orange-400">
                                     {suggestion.currentCard.playability}% play
@@ -739,79 +847,167 @@ Referenced Cards: [list all cards mentioned]`;
                               <img 
                                 src={suggestion.currentCard.image}
                                 alt={suggestion.currentCard.name}
-                                className="w-full max-w-[180px] rounded-lg shadow-md mb-2"
+                                className="w-32 rounded-lg shadow-md mb-2"
                                 onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                               />
-                              <p className="text-sm font-medium">{suggestion.currentCard.name}</p>
+                              <p className="text-sm font-medium truncate">{suggestion.currentCard.name}</p>
                               <p className="text-xs text-muted-foreground">${suggestion.currentCard.price.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground mt-1">{suggestion.currentCard.reason}</p>
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{suggestion.currentCard.reason}</p>
+                            </div>
+
+                            {/* Arrow */}
+                            <div className="flex items-center py-8">
+                              <ArrowRight className="h-5 w-5 text-primary flex-shrink-0" />
+                            </div>
+
+                            {/* New Card */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30 text-xs">
+                                  Add
+                                </Badge>
+                                {suggestion.newCard.inCollection && (
+                                  <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-400">
+                                    <Package className="h-3 w-3 mr-1" />
+                                    Owned
+                                  </Badge>
+                                )}
+                              </div>
+                              <img 
+                                src={suggestion.newCard.image}
+                                alt={suggestion.newCard.name}
+                                className="w-32 rounded-lg shadow-md mb-2"
+                                onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                              />
+                              <p className="text-sm font-medium truncate">{suggestion.newCard.name}</p>
+                              <p className="text-xs text-muted-foreground">${suggestion.newCard.price.toFixed(2)}</p>
+                              <p className="text-xs text-green-600 mt-1 line-clamp-2">{suggestion.newCard.reason}</p>
+                            </div>
+
+                            {/* Apply Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setShowConfirmSingle(index)}
+                              disabled={isApplying}
+                              className="flex-shrink-0"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  {/* Bulk Actions */}
+                  <div className="flex gap-2 mt-4 pt-4 border-t">
+                    <Button
+                      onClick={() => setShowConfirmAll(true)}
+                      disabled={isApplying || suggestions.filter(s => s.selected).length === 0}
+                      className="flex-1"
+                    >
+                      {isApplying ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4 mr-2" />
+                      )}
+                      Apply Selected ({suggestions.filter(s => s.selected).length})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSuggestions(prev => prev.map(s => ({ ...s, selected: !prev.every(p => p.selected) })))}
+                    >
+                      {suggestions.every(s => s.selected) ? 'Deselect All' : 'Select All'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Additions Tab */}
+          <TabsContent value="additions">
+            {additionSuggestions.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground mb-2">
+                    {missingCards > 0 
+                      ? 'Run the optimizer to get card recommendations.'
+                      : 'Your deck is complete!'}
+                  </p>
+                  {missingCards > 0 && (
+                    <Badge variant="outline" className="text-orange-400 border-orange-400/30">
+                      {missingCards} cards needed
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Plus className="h-4 w-4 text-primary" />
+                    Recommended Additions
+                    <Badge variant="secondary" className="ml-2">
+                      {additionSuggestions.length} cards
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[450px] pr-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {additionSuggestions.map((card, index) => (
+                        <div 
+                          key={index}
+                          className="p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                        >
+                          <div className="flex gap-3">
+                            <img 
+                              src={card.image}
+                              alt={card.name}
+                              className="w-24 rounded-lg shadow-md flex-shrink-0"
+                              onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {card.inCollection && (
+                                  <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-400">
+                                    <Package className="h-3 w-3 mr-1" />
+                                    Owned
+                                  </Badge>
+                                )}
+                                {card.type && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {card.type.split('—')[0].trim()}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm font-medium truncate">{card.name}</p>
+                              <p className="text-xs text-muted-foreground">${card.price.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.reason}</p>
+                              <Button
+                                size="sm"
+                                className="mt-2 w-full"
+                                onClick={() => handleAddCard(card.name)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add to Deck
+                              </Button>
                             </div>
                           </div>
                         </div>
-
-                        {/* Arrow */}
-                        <div className="flex items-center">
-                          <ArrowRight className="h-6 w-6 text-primary" />
-                        </div>
-
-                        {/* New Card */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs text-green-500 font-medium uppercase">Add</span>
-                          </div>
-                          <img 
-                            src={suggestion.newCard.image}
-                            alt={suggestion.newCard.name}
-                            className="w-full max-w-[180px] rounded-lg shadow-md mb-2"
-                            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                          />
-                          <p className="text-sm font-medium">{suggestion.newCard.name}</p>
-                          <p className="text-xs text-muted-foreground">${suggestion.newCard.price.toFixed(2)}</p>
-                          <p className="text-xs text-green-600 mt-1">{suggestion.newCard.benefit}</p>
-                        </div>
-
-                        {/* Apply Button */}
-                        <div className="flex flex-col gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => setShowConfirmSingle(index)}
-                            disabled={isApplying}
-                            className="whitespace-nowrap"
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Apply
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-
-            {/* Bulk Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t">
-              <Button
-                onClick={() => setShowConfirmAll(true)}
-                disabled={isApplying || suggestions.filter(s => s.selected).length === 0}
-                className="flex-1"
-              >
-                {isApplying ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4 mr-2" />
-                )}
-                Apply Selected ({suggestions.filter(s => s.selected).length})
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setSuggestions(prev => prev.map(s => ({ ...s, selected: !prev.every(p => p.selected) })))}
-              >
-                {suggestions.every(s => s.selected) ? 'Deselect All' : 'Select All'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Confirm All Dialog */}
@@ -821,7 +1017,7 @@ Referenced Cards: [list all cards mentioned]`;
             <AlertDialogTitle>Apply All Selected Replacements?</AlertDialogTitle>
             <AlertDialogDescription>
               This will replace {suggestions.filter(s => s.selected).length} cards in your deck. 
-              The total price difference is ${totalCostDifference >= 0 ? '+' : ''}{totalCostDifference.toFixed(2)}.
+              Price difference: ${totalCostDifference >= 0 ? '+' : ''}{totalCostDifference.toFixed(2)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -850,7 +1046,7 @@ Referenced Cards: [list all cards mentioned]`;
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => showConfirmSingle !== null && applySingleReplacement(showConfirmSingle)}>
-              Apply Replacement
+              Apply
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

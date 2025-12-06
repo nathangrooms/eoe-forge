@@ -223,15 +223,15 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     }
   }, [processing, settings.autoAdd]);
 
-  // Auto-capture hook
+  // Auto-capture hook - aggressive settings for fast scanning
   const { isCapturing: isAutoCapturing, stop: stopAutoCapture } = useAutoCapture(
     captureFrame,
     (imageData) => captureAndAnalyze(imageData),
     {
-      enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0,
-      sharpnessThreshold: 800, // Tuned for card detection
-      stabilityDelay: 400, // Wait 400ms of stable sharp image
-      cooldownDelay: 2500 // Wait 2.5s between scans
+      enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0 && !lastAddedCard,
+      sharpnessThreshold: 200, // Lower threshold for faster detection
+      stabilityDelay: 200, // Quick 200ms stability check
+      cooldownDelay: 1500 // 1.5s between scans for rapid scanning
     }
   );
 
@@ -297,8 +297,10 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
       addRecentScan(scannedCard);
       setLastAddedCard(scannedCard);
-      showSuccess('Added', `${quantity}x ${candidate.name}`);
       setLastRecognized(null);
+      
+      // Auto-clear last added after 3 seconds to allow next scan
+      setTimeout(() => setLastAddedCard(null), 3000);
       
       await logActivity('card_added', 'card', candidate.cardId, {
         name: candidate.name,

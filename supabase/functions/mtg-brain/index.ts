@@ -646,8 +646,15 @@ Base all analysis on tournament-proven strategies, statistical deck construction
       console.log('Auto-visual generation failed (non-fatal):', e);
     }
     
+    // Handle case where AI returns tool calls without text content
     if (!assistantMessage) {
-      throw new Error('No response content from AI');
+      // If we have tool calls, the response is still valid - just no text
+      if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
+        assistantMessage = 'Analysis generated with visual data.';
+        console.log('No text content but tool calls present - using fallback message');
+      } else {
+        throw new Error('No response content from AI');
+      }
     }
 
     // Re-detect cards from the assistant's response STRICTLY from the "Referenced Cards:" section

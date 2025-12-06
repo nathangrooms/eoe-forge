@@ -71,10 +71,28 @@ export function CardReplacementModal({ isOpen, onClose, cardToReplace }: CardRep
     if (!selectedReplacement || !cardToReplace) return;
 
     const originalQuantity = cardToReplace.quantity || 1;
+    const originalCategory = cardToReplace.category || 'other';
     
-    // Remove all copies of the old card using updateCardQuantity(id, 0)
-    const deck = useDeckStore.getState();
-    deck.updateCardQuantity(cardToReplace.id, 0);
+    // Determine the category for the new card based on type line
+    const getCategory = (typeLine: string): string => {
+      const lower = typeLine?.toLowerCase() || '';
+      if (lower.includes('creature')) return 'creatures';
+      if (lower.includes('instant')) return 'instants';
+      if (lower.includes('sorcery')) return 'sorceries';
+      if (lower.includes('artifact')) return 'artifacts';
+      if (lower.includes('enchantment')) return 'enchantments';
+      if (lower.includes('planeswalker')) return 'planeswalkers';
+      if (lower.includes('land')) return 'lands';
+      return 'other';
+    };
+    
+    const newCategory = getCategory(selectedReplacement.type_line);
+    
+    // Get fresh state and perform operations
+    const deckState = useDeckStore.getState();
+    
+    // Remove all copies of the old card
+    deckState.updateCardQuantity(cardToReplace.id, 0);
 
     // Add new card with the same quantity as the original
     const newCard = {
@@ -83,15 +101,30 @@ export function CardReplacementModal({ isOpen, onClose, cardToReplace }: CardRep
       cmc: selectedReplacement.cmc || 0,
       type_line: selectedReplacement.type_line || '',
       colors: selectedReplacement.color_identity || selectedReplacement.colors || [],
+      color_identity: selectedReplacement.color_identity || [],
       mana_cost: selectedReplacement.mana_cost,
       quantity: originalQuantity,
-      category: cardToReplace.category,
+      category: newCategory as any,
       mechanics: selectedReplacement.keywords || [],
       image_uris: selectedReplacement.image_uris,
-      prices: selectedReplacement.prices
+      prices: selectedReplacement.prices,
+      oracle_text: selectedReplacement.oracle_text,
+      keywords: selectedReplacement.keywords || [],
+      set: selectedReplacement.set,
+      rarity: selectedReplacement.rarity
     };
 
-    addCard(newCard);
+    console.log('Replacing card:', cardToReplace.name, 'with', newCard.name, 'quantity:', originalQuantity);
+    
+    deckState.addCard(newCard);
+    
+    // Trigger immediate save to database
+    if (deckState.currentDeckId) {
+      console.log('Triggering save after replacement');
+      setTimeout(() => {
+        useDeckStore.getState().updateDeck(deckState.currentDeckId!);
+      }, 100);
+    }
 
     // Add to wishlist if requested
     if (addToWishlist) {
@@ -108,7 +141,7 @@ export function CardReplacementModal({ isOpen, onClose, cardToReplace }: CardRep
               card_name: selectedReplacement.name,
               priority: 'high',
               note: `Replacement for ${cardToReplace.name}`,
-              quantity: cardToReplace.quantity
+              quantity: originalQuantity
             });
         }
       } catch (error) {

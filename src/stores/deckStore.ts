@@ -154,11 +154,16 @@ export const useDeckStore = create<DeckState>()(
       
       removeCard: (cardId) => set((state) => {
         const card = state.cards.find(c => c.id === cardId);
-        if (!card) return state;
+        if (!card) {
+          console.warn('removeCard: Card not found', cardId);
+          return state;
+        }
+        
+        console.log('removeCard called:', card.name, 'quantity:', card.quantity, 'totalCards before:', state.totalCards);
         
         let newState;
         if (card.quantity > 1) {
-          // Decrease quantity
+          // Decrease quantity by 1
           const updatedCards = state.cards.map(c =>
             c.id === cardId ? { ...c, quantity: c.quantity - 1 } : c
           );
@@ -167,12 +172,14 @@ export const useDeckStore = create<DeckState>()(
             totalCards: state.totalCards - 1
           };
         } else {
-          // Remove card entirely
+          // Remove card entirely (quantity is 1)
           newState = {
             cards: state.cards.filter(c => c.id !== cardId),
             totalCards: state.totalCards - 1
           };
         }
+        
+        console.log('removeCard result: totalCards after:', newState.totalCards);
         
         // NOTE: Auto-save removed to prevent race conditions.
         // The parent component should call updateDeck explicitly when needed.
@@ -181,17 +188,20 @@ export const useDeckStore = create<DeckState>()(
       }),
       
       updateCardQuantity: (cardId, quantity) => set((state) => {
+        const card = state.cards.find(c => c.id === cardId);
+        console.log('updateCardQuantity called:', card?.name, 'from', card?.quantity, 'to', quantity, 'totalCards before:', state.totalCards);
+        
         if (quantity <= 0) {
-          // Remove card
-          const card = state.cards.find(c => c.id === cardId);
+          // Remove card entirely
           const removedQuantity = card?.quantity || 0;
-          return {
+          const newState = {
             cards: state.cards.filter(c => c.id !== cardId),
             totalCards: state.totalCards - removedQuantity
           };
+          console.log('updateCardQuantity (remove): totalCards after:', newState.totalCards);
+          return newState;
         } else {
           // Update quantity
-          const card = state.cards.find(c => c.id === cardId);
           const oldQuantity = card?.quantity || 0;
           const difference = quantity - oldQuantity;
           
@@ -199,10 +209,12 @@ export const useDeckStore = create<DeckState>()(
             c.id === cardId ? { ...c, quantity } : c
           );
           
-          return {
+          const newState = {
             cards: updatedCards,
             totalCards: state.totalCards + difference
           };
+          console.log('updateCardQuantity (update): totalCards after:', newState.totalCards);
+          return newState;
         }
       }),
       

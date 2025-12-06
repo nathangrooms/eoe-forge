@@ -56,6 +56,7 @@ import { buildDeck, getTemplatesForFormat, getFormatRules } from '@/lib/deckbuil
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
 import { useDeckLoader } from '@/hooks/useDeckLoader';
+import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
 
 interface Deck {
   id: string;
@@ -79,6 +80,7 @@ export default function Decks() {
   const [newDeckFormat, setNewDeckFormat] = useState<DeckFormat>('commander');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   const [buildingDeck, setBuildingDeck] = useState(false);
+  const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
   
   // Analysis modal state
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
@@ -217,6 +219,40 @@ export default function Decks() {
       showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
     } catch (error) {
       console.error('Error creating deck:', error);
+    }
+  };
+
+  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom') => {
+    if (!user) return;
+    
+    setCreatingFirstDeck(true);
+    try {
+      const { data: newDeck, error } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name: name,
+          format: format,
+          power_level: 5,
+          colors: [],
+          description: ''
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      showSuccess("Deck Created", `"${name}" has been created`);
+      
+      // Navigate to deck builder with the new deck
+      if (newDeck) {
+        navigate(`/deck-builder?deck=${newDeck.id}`);
+      }
+    } catch (error) {
+      console.error('Error creating first deck:', error);
+      showError("Error", "Failed to create deck");
+    } finally {
+      setCreatingFirstDeck(false);
     }
   };
 
@@ -526,63 +562,74 @@ export default function Decks() {
     ));
   };
 
+  // Show onboarding if user has no decks
+  const showOnboarding = !loading && deckSummaries.length === 0;
+
   return (
     <StandardPageLayout
       title="Deck Manager"
       description="Create, analyze, and optimize your Magic: The Gathering decks"
       action={
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Deck
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Deck</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="deck-name">Deck Name</Label>
-                <Input
-                  id="deck-name"
-                  value={newDeckName}
-                  onChange={(e) => setNewDeckName(e.target.value)}
-                  placeholder="Enter deck name..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="deck-format">Format</Label>
-                <Select value={newDeckFormat} onValueChange={(value: DeckFormat) => setNewDeckFormat(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="commander">Commander / EDH</SelectItem>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="modern">Modern</SelectItem>
-                    <SelectItem value="pioneer">Pioneer</SelectItem>
-                    <SelectItem value="legacy">Legacy</SelectItem>
-                    <SelectItem value="vintage">Vintage</SelectItem>
-                    <SelectItem value="pauper">Pauper</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={createDeck} className="w-full">
-                Create Deck
+        showOnboarding ? null : (
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Deck
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Deck</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="deck-name">Deck Name</Label>
+                  <Input
+                    id="deck-name"
+                    value={newDeckName}
+                    onChange={(e) => setNewDeckName(e.target.value)}
+                    placeholder="Enter deck name..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="deck-format">Format</Label>
+                  <Select value={newDeckFormat} onValueChange={(value: DeckFormat) => setNewDeckFormat(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="commander">Commander / EDH</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="pioneer">Pioneer</SelectItem>
+                      <SelectItem value="legacy">Legacy</SelectItem>
+                      <SelectItem value="vintage">Vintage</SelectItem>
+                      <SelectItem value="pauper">Pauper</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={createDeck} className="w-full">
+                  Create Deck
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
       }
     >
-      <div className="space-y-6">
-        {/* Summary Stats */}
-        {!loading && deckSummaries.length > 0 && (
-          <DecksSummaryStats decks={deckSummaries} />
-        )}
+      {showOnboarding ? (
+        <FirstDeckOnboarding 
+          onCreateDeck={handleCreateFirstDeck}
+          loading={creatingFirstDeck}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Summary Stats */}
+          {!loading && deckSummaries.length > 0 && (
+            <DecksSummaryStats decks={deckSummaries} />
+          )}
 
         {/* Search and Filter Bar */}
         <DeckSearchFilters
@@ -682,6 +729,7 @@ export default function Decks() {
           </div>
         )}
       </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

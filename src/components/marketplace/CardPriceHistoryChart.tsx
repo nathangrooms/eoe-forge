@@ -37,38 +37,7 @@ export function CardPriceHistoryChart({
     loadPriceHistory();
   }, [cardId, showFoil]);
 
-  // Auto-capture price when component mounts if no data exists for today
-  useEffect(() => {
-    const checkAndCapture = async () => {
-      if (!cardId) return;
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Check if we already have today's price
-      const { data } = await supabase
-        .from('card_price_history')
-        .select('id')
-        .eq('card_id', cardId)
-        .eq('snapshot_date', today)
-        .maybeSingle();
-      
-      // If no data for today, auto-capture silently
-      if (!data) {
-        try {
-          await supabase.functions.invoke('capture-card-price', {
-            body: { card_id: cardId, oracle_id: oracleId, card_name: cardName }
-          });
-          // Reload history after capture
-          loadPriceHistory();
-        } catch (error) {
-          // Silent fail - don't interrupt user experience
-          console.log('Auto-capture failed:', error);
-        }
-      }
-    };
-    
-    checkAndCapture();
-  }, [cardId]);
+  // Remove auto-capture on view - daily cron handles all captures now
 
   const loadPriceHistory = async () => {
     setLoading(true);
@@ -227,24 +196,14 @@ export function CardPriceHistoryChart({
           </div>
         ) : (
           <div className="h-[150px] flex flex-col items-center justify-center text-center">
-            <Clock className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm font-medium text-foreground mb-1">Building History</p>
-            <p className="text-xs text-muted-foreground mb-3">
-              Click below to start tracking this card's price
+            <div className="relative">
+              <Clock className="h-8 w-8 text-muted-foreground" />
+              <div className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full animate-pulse" />
+            </div>
+            <p className="text-sm font-medium text-foreground mt-2 mb-1">Collecting Price Data</p>
+            <p className="text-xs text-muted-foreground">
+              Prices are captured daily. Chart will populate over time.
             </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={captureCurrentPrice}
-              disabled={capturing}
-            >
-              {capturing ? (
-                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-              ) : (
-                <Database className="h-3 w-3 mr-1" />
-              )}
-              {capturing ? 'Capturing...' : 'Capture Now'}
-            </Button>
           </div>
         )}
         

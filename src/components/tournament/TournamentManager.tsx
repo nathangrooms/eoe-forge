@@ -82,10 +82,20 @@ export function TournamentManager() {
     try {
       const saved = localStorage.getItem('tournaments');
       if (saved) {
-        const loaded = JSON.parse(saved);
-        setTournaments(loaded);
-        if (loaded.length > 0 && !selectedTournament) {
-          setSelectedTournament(loaded[0]);
+        const loaded: Tournament[] = JSON.parse(saved);
+        // Migrate old tournament data to include new fields
+        const migrated = loaded.map(t => ({
+          ...t,
+          currentRound: t.currentRound ?? 0,
+          standings: t.standings.map(s => ({
+            ...s,
+            matchWinPct: s.matchWinPct ?? 0,
+            gameWinPct: s.gameWinPct ?? 0,
+          })),
+        }));
+        setTournaments(migrated);
+        if (migrated.length > 0 && !selectedTournament) {
+          setSelectedTournament(migrated[0]);
         }
       }
     } catch (error) {
@@ -792,10 +802,10 @@ export function TournamentManager() {
                               </td>
                               <td className="text-center p-4 font-bold">{standing.points}</td>
                               <td className="text-center p-4 text-muted-foreground">
-                                {standing.matchWinPct.toFixed(1)}%
+                                {(standing.matchWinPct ?? 0).toFixed(1)}%
                               </td>
                               <td className="text-center p-4 text-muted-foreground">
-                                {standing.gameWinPct.toFixed(1)}%
+                                {(standing.gameWinPct ?? 0).toFixed(1)}%
                               </td>
                             </tr>
                           ))}

@@ -1,17 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-// Toast helpers disabled on this page
 import { useDeckStore } from '@/stores/deckStore';
 import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
 import { 
@@ -22,94 +18,112 @@ import {
   DollarSign,
   Wand2,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
-  Save,
-  Brain
+  Brain,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Search,
+  Shield,
+  TrendingUp,
+  Coins,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
+import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Toasts disabled on AI Builder page per UX request
-const showSuccess = (_title?: string, _description?: string) => {};
-const showError = (_title?: string, _description?: string) => {};
-
-const FORMATS = [
-  { value: 'standard', label: 'Standard', description: '60-card competitive format' },
-  { value: 'commander', label: 'Commander', description: '100-card singleton with commander' },
-  { value: 'modern', label: 'Modern', description: 'Non-rotating competitive format' },
-  { value: 'pioneer', label: 'Pioneer', description: 'Return to Ravnica onwards' },
-  { value: 'legacy', label: 'Legacy', description: 'All cards except banned' },
-  { value: 'vintage', label: 'Vintage', description: 'All cards, some restricted' }
+// Build phases for progress tracking
+const BUILD_PHASES = [
+  { id: 'analyzing', label: 'Analyzing Commander', description: 'Understanding commander synergies' },
+  { id: 'generating', label: 'Generating Deck', description: 'AI selecting optimal cards' },
+  { id: 'validating-colors', label: 'Validating Colors', description: 'Checking color identity compliance' },
+  { id: 'checking-edh', label: 'EDH Analysis', description: 'Fetching power level from edhpowerlevel.com' },
+  { id: 'budget-check', label: 'Budget Check', description: 'Ensuring deck meets price target' },
+  { id: 'optimizing', label: 'Optimizing', description: 'Final adjustments for playability' },
+  { id: 'complete', label: 'Complete', description: 'Your deck is ready!' }
 ];
 
-const ARCHETYPES = {
-  standard: [
-    { value: 'aggro', label: 'Aggro', description: 'Fast, aggressive strategy' },
-    { value: 'midrange', label: 'Midrange', description: 'Balanced creatures and spells' },
-    { value: 'control', label: 'Control', description: 'Counter and removal heavy' },
-    { value: 'combo', label: 'Combo', description: 'Synergistic interactions' }
-  ],
-  commander: [
-    { value: 'voltron', label: 'Voltron', description: 'Enhance one creature' },
-    { value: 'tribal', label: 'Tribal', description: 'Creature type synergies' },
-    { value: 'combo', label: 'Combo', description: 'Infinite or near-infinite combos' },
-    { value: 'control', label: 'Control', description: 'Counter and board wipes' },
-    { value: 'group-hug', label: 'Group Hug', description: 'Help all players' },
-    { value: 'stax', label: 'Stax', description: 'Resource denial' },
-    { value: 'tokens', label: 'Tokens', description: 'Create many small creatures' },
-    { value: 'artifacts', label: 'Artifacts', description: 'Artifact synergies' }
-  ],
-  modern: [
-    { value: 'burn', label: 'Burn', description: 'Direct damage to opponent' },
-    { value: 'infect', label: 'Infect', description: 'Poison counters strategy' },
-    { value: 'tron', label: 'Tron', description: 'Big mana strategy' },
-    { value: 'affinity', label: 'Affinity', description: 'Artifact cost reduction' }
-  ]
-};
-
-const COLOR_COMBINATIONS = [
-  { value: '', label: 'Colorless', colors: [] },
-  { value: 'W', label: 'White', colors: ['W'] },
-  { value: 'U', label: 'Blue', colors: ['U'] },
-  { value: 'B', label: 'Black', colors: ['B'] },
-  { value: 'R', label: 'Red', colors: ['R'] },
-  { value: 'G', label: 'Green', colors: ['G'] },
-  { value: 'WU', label: 'Azorius', colors: ['W', 'U'] },
-  { value: 'UB', label: 'Dimir', colors: ['U', 'B'] },
-  { value: 'BR', label: 'Rakdos', colors: ['B', 'R'] },
-  { value: 'RG', label: 'Gruul', colors: ['R', 'G'] },
-  { value: 'GW', label: 'Selesnya', colors: ['G', 'W'] },
-  { value: 'WB', label: 'Orzhov', colors: ['W', 'B'] },
-  { value: 'UR', label: 'Izzet', colors: ['U', 'R'] },
-  { value: 'BG', label: 'Golgari', colors: ['B', 'G'] },
-  { value: 'RW', label: 'Boros', colors: ['R', 'W'] },
-  { value: 'GU', label: 'Simic', colors: ['G', 'U'] },
-  { value: 'WUB', label: 'Esper', colors: ['W', 'U', 'B'] },
-  { value: 'UBR', label: 'Grixis', colors: ['U', 'B', 'R'] },
-  { value: 'BRG', label: 'Jund', colors: ['B', 'R', 'G'] },
-  { value: 'RGW', label: 'Naya', colors: ['R', 'G', 'W'] },
-  { value: 'GWU', label: 'Bant', colors: ['G', 'W', 'U'] },
-  { value: 'WUBR', label: 'Chaos', colors: ['W', 'U', 'B', 'R'] },
-  { value: 'UBRG', label: 'Glint', colors: ['U', 'B', 'R', 'G'] },
-  { value: 'BRGW', label: 'Dune', colors: ['B', 'R', 'G', 'W'] },
-  { value: 'RGWU', label: 'Ink', colors: ['R', 'G', 'W', 'U'] },
-  { value: 'GWUB', label: 'Witch', colors: ['G', 'W', 'U', 'B'] },
-  { value: 'WUBRG', label: 'WUBRG', colors: ['W', 'U', 'B', 'R', 'G'] }
+const POPULAR_COMMANDERS = [
+  { 
+    name: 'Atraxa, Praetors\' Voice',
+    colors: ['W', 'U', 'B', 'G'],
+    color_identity: ['W', 'U', 'B', 'G'],
+    type_line: 'Legendary Creature — Phyrexian Angel Horror',
+    cmc: 4,
+    oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg' }
+  },
+  { 
+    name: 'Edgar Markov', 
+    colors: ['W', 'B', 'R'],
+    color_identity: ['W', 'B', 'R'],
+    type_line: 'Legendary Creature — Vampire Knight',
+    cmc: 6,
+    oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg' }
+  },
+  { 
+    name: 'Korvold, Fae-Cursed King', 
+    colors: ['B', 'R', 'G'],
+    color_identity: ['B', 'R', 'G'],
+    type_line: 'Legendary Creature — Dragon Noble',
+    cmc: 5,
+    oracle_text: 'Flying\nWhenever Korvold attacks, sacrifice another permanent.\nWhenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/2/92ea1575-eb64-43b5-b604-c6e23054f228.jpg' }
+  },
+  { 
+    name: 'Yuriko, the Tiger\'s Shadow', 
+    colors: ['U', 'B'],
+    color_identity: ['U', 'B'],
+    type_line: 'Legendary Creature — Human Ninja',
+    cmc: 2,
+    oracle_text: 'Commander ninjutsu {U}{B}\nWhenever a Ninja you control deals combat damage to a player, reveal the top card of your library.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/b/3bd81ae6-e628-447a-a36b-597e63ede295.jpg' }
+  },
+  { 
+    name: 'The Ur-Dragon', 
+    colors: ['W', 'U', 'B', 'R', 'G'],
+    color_identity: ['W', 'U', 'B', 'R', 'G'],
+    type_line: 'Legendary Creature — Dragon Avatar',
+    cmc: 9,
+    oracle_text: 'Eminence — Dragon spells you cast cost {1} less to cast.\nFlying\nWhenever one or more Dragons you control attack, draw that many cards.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg' }
+  },
+  { 
+    name: 'Meren of Clan Nel Toth', 
+    colors: ['B', 'G'],
+    color_identity: ['B', 'G'],
+    type_line: 'Legendary Creature — Human Shaman',
+    cmc: 4,
+    oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, return target creature from graveyard.',
+    image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/7/17d6703c-ad79-457b-a1b5-c2284e363085.jpg' }
+  }
 ];
 
 export default function AIBuilder() {
   const deck = useDeckStore();
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Step management
   const [step, setStep] = useState(1);
+  
+  // Commander state
   const [commander, setCommander] = useState<any>(null);
   const [commanderSearch, setCommanderSearch] = useState('');
+  const [commanderSearchResults, setCommanderSearchResults] = useState<any[]>([]);
+  const [searchingCommanders, setSearchingCommanders] = useState(false);
+  
+  // Archetype state
   const [suggestedArchetypes, setSuggestedArchetypes] = useState<any[]>([]);
   const [analyzingCommander, setAnalyzingCommander] = useState(false);
+  
+  // Build configuration
   const [buildData, setBuildData] = useState({
-    format: 'commander',
-    colorIdentity: '',
     archetype: '',
     powerLevel: 6,
     maxBudget: 500,
@@ -118,20 +132,14 @@ export default function AIBuilder() {
     prioritizeSynergy: true,
     includeBasics: true
   });
+  
+  // Build state
   const [building, setBuilding] = useState(false);
+  const [buildPhase, setBuildPhase] = useState(0);
   const [buildResult, setBuildResult] = useState<any>(null);
-  const [commanderSearchResults, setCommanderSearchResults] = useState<any[]>([]);
-  const [searchingCommanders, setSearchingCommanders] = useState(false);
-  const [buildProgress, setBuildProgress] = useState(0);
-  
-  // Commander finder state
-  const [finderColors, setFinderColors] = useState<string[]>([]);
-  const [finderArchetype, setFinderArchetype] = useState('');
-  const [finderResults, setFinderResults] = useState<any[]>([]);
-  const [searchingFinder, setSearchingFinder] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  
-  // Search for commanders
+  // Search commanders from Scryfall
   const searchCommanders = async (query: string) => {
     if (!query.trim()) {
       setCommanderSearchResults([]);
@@ -141,7 +149,7 @@ export default function AIBuilder() {
     setSearchingCommanders(true);
     try {
       const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query + ' type:legendary type:creature')}&unique=cards&order=name`
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query + ' type:legendary type:creature')}&unique=cards&order=edhrec`
       );
       
       if (!response.ok) {
@@ -166,600 +174,289 @@ export default function AIBuilder() {
   useEffect(() => {
     const timer = setTimeout(() => {
       searchCommanders(commanderSearch);
-    }, 500);
-    
+    }, 400);
     return () => clearTimeout(timer);
   }, [commanderSearch]);
 
-  // Commander finder search
-  const searchCommandersByFilters = async () => {
-    if (finderColors.length === 0 && !finderArchetype) return;
-    
-    setSearchingFinder(true);
-    try {
-      let query = 't:legendary t:creature';
-      
-      // Add color identity filter
-      if (finderColors.length > 0) {
-        const colorString = finderColors.sort().join('');
-        query += ` id:${colorString}`;
-      }
-      
-      // Add archetype-based oracle text filters
-      if (finderArchetype) {
-        const archetypeKeywords: Record<string, string> = {
-          'aggro': '(o:haste OR o:"first strike" OR o:"double strike")',
-          'voltron': '(o:equipment OR o:aura OR o:attach)',
-          'tribal': '(o:choose OR o:"creature type")',
-          'control': '(o:counter OR o:destroy OR o:exile)',
-          'combo': '(o:whenever OR o:sacrifice)',
-          'tokens': '(o:token)',
-          'artifacts': '(o:artifact)',
-          'spellslinger': '(o:instant OR o:sorcery OR o:spell)',
-          'lifegain': '(o:"gain life" OR o:lifelink)',
-          'graveyard': '(o:graveyard OR o:"return from")',
-          'ramp': '(o:"search your library for" OR o:"put a land")',
-          'draw': '(o:"draw card" OR o:"draw a card")'
-        };
-        
-        const keyword = archetypeKeywords[finderArchetype];
-        if (keyword) {
-          query += ` ${keyword}`;
-        }
-      }
-      
-      const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=edhrec`
-      );
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          setFinderResults([]);
-          return;
-        }
-        throw new Error('Search failed');
-      }
-      
-      const data = await response.json();
-      setFinderResults((data.data || []).slice(0, 12));
-    } catch (error) {
-      console.error('Commander finder search error:', error);
-      setFinderResults([]);
-      showError('Search Failed', 'Could not find commanders with those filters');
-    } finally {
-      setSearchingFinder(false);
-    }
-  };
-
-  const toggleFinderColor = (color: string) => {
-    setFinderColors(prev => 
-      prev.includes(color) 
-        ? prev.filter(c => c !== color)
-        : [...prev, color]
-    );
-  };
-
-  const currentArchetypes = useMemo(() => {
-    return suggestedArchetypes.length > 0 ? suggestedArchetypes : (ARCHETYPES[buildData.format as keyof typeof ARCHETYPES] || ARCHETYPES.standard);
-  }, [buildData.format, suggestedArchetypes]);
-
-  const handleNext = () => {
-    if (step === 1 && commander) {
-      analyzeCommander(commander);
-    }
-    if (step < 5) setStep(step + 1);
-  };
-
-  const handlePrev = () => {
-    if (step > 1) setStep(step - 1);
-  };
-
+  // Analyze commander for archetypes using Commander Intelligence + AI
   const analyzeCommander = async (selectedCommander: any) => {
     if (!selectedCommander) return;
     
     setAnalyzingCommander(true);
     try {
+      // First, use local Commander Intelligence for quick analysis
+      const localAnalysis = CommanderIntelligence.detectArchetype({
+        name: selectedCommander.name,
+        oracle_text: selectedCommander.oracle_text || '',
+        type_line: selectedCommander.type_line || '',
+        color_identity: selectedCommander.color_identity || [],
+        colors: selectedCommander.colors || []
+      } as any);
+      
+      // Then enhance with AI analysis
       const { data, error } = await supabase.functions.invoke('mtg-brain', {
         body: {
-          message: `You are an expert Magic: The Gathering strategist and deck builder. Analyze the given commander and suggest 4-5 specific, synergistic deck archetypes that would work optimally with this commander's abilities, color identity, and strategic potential.
-
-Commander: ${selectedCommander.name}
-Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}
-Type: ${selectedCommander.type_line}
-Abilities: ${selectedCommander.oracle_text || 'No abilities specified'}
-
-Consider these factors in your analysis:
-1. **Mechanical Synergies**: How do the commander's abilities create synergistic opportunities?
-2. **Color Identity**: What strategies are strongest in these colors?
-3. **Mana Cost**: How does the casting cost affect viable strategies?
-4. **Keywords**: How do inherent keywords (flying, trample, etc.) inform strategy?
-5. **Power Level**: What competitive levels work best for this commander?
-
-Suggest archetypes from the full spectrum of Magic strategies:
-- **Creature-based**: Aggro, Tribal, Voltron, Aristocrats, Tokens, +1/+1 Counters, Reanimator
-- **Spell-based**: Spellslinger, Control, Combo, Stax
-- **Synergy-based**: Artifacts, Enchantments, Graveyard, Lands Matter, Blink
-- **Resource-based**: Ramp, Group Hug, Lifegain
-
-Provide EXACTLY 4-5 archetypes in this format:
-
-1. **[Archetype Name]**
-   Description: [2-3 sentence description of the strategy]
-   Synergy: [Specific explanation of how this works with the commander]
-   Power: [1-10 competitive rating]
-
-Focus on archetypes that specifically leverage this commander's unique abilities and create genuine strategic advantages.`,
+          message: `Analyze commander "${selectedCommander.name}" for deck building. 
+          Color Identity: ${selectedCommander.color_identity?.join('') || 'Colorless'}
+          Abilities: ${selectedCommander.oracle_text || 'None'}
+          
+          Suggest exactly 4 specific archetypes that synergize with this commander.
+          For each archetype, provide:
+          1. Name
+          2. Brief description (1 sentence)
+          3. Why it synergizes with this commander
+          4. Recommended power level (1-10)
+          
+          Format as JSON array: [{"name": "", "description": "", "synergy": "", "powerLevel": 6}]`,
           cards: []
         }
       });
 
-      if (error) throw error;
-
-      const analysis = data?.message || '';
-      const archetypes = parseArchetypeSuggestions(analysis, selectedCommander);
-      setSuggestedArchetypes(archetypes);
-      
-      // Auto-advance to archetype selection if we got suggestions
-      if (archetypes.length > 0) {
-        setStep(3);
-        // Removed blocking toast to avoid covering navigation
-        console.log(`Commander analyzed: ${archetypes.length} archetypes found for ${selectedCommander.name}`);
+      if (!error && data?.message) {
+        try {
+          const jsonMatch = data.message.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            const archetypes = parsed.map((a: any) => ({
+              value: a.name.toLowerCase().replace(/\s+/g, '-'),
+              label: a.name,
+              description: a.description,
+              synergy: a.synergy,
+              powerLevel: a.powerLevel || 6
+            }));
+            setSuggestedArchetypes(archetypes);
+            setStep(2);
+            return;
+          }
+        } catch (e) {
+          console.log('Failed to parse AI archetypes, using local analysis');
+        }
       }
+      
+      // Fallback to local analysis based archetypes
+      const fallbackArchetypes = generateLocalArchetypes(selectedCommander, localAnalysis);
+      setSuggestedArchetypes(fallbackArchetypes);
+      setStep(2);
       
     } catch (error) {
       console.error('Commander analysis failed:', error);
-      showError('Analysis Failed', 'Could not analyze commander. Using default archetypes.');
+      // Use local fallback
+      const localAnalysis = CommanderIntelligence.detectArchetype({
+        name: selectedCommander.name,
+        oracle_text: selectedCommander.oracle_text || '',
+        type_line: selectedCommander.type_line || '',
+        color_identity: selectedCommander.color_identity || [],
+        colors: selectedCommander.colors || []
+      } as any);
+      setSuggestedArchetypes(generateLocalArchetypes(selectedCommander, localAnalysis));
+      setStep(2);
     } finally {
       setAnalyzingCommander(false);
     }
   };
 
-  const parseArchetypeSuggestions = (analysis: string, commander: any) => {
-    console.log('Parsing archetype suggestions from:', analysis);
-    
+  const generateLocalArchetypes = (cmdr: any, analysis: any) => {
+    const text = (cmdr.oracle_text || '').toLowerCase();
     const archetypes = [];
-    const lines = analysis.split('\n');
     
-    let currentArchetype: any = null;
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
-      
-      // Look for numbered archetypes: "1. **Archetype Name**" or "1. Archetype Name"
-      const numberedMatch = trimmed.match(/^\d+\.\s*\*\*([^*]+)\*\*|^\d+\.\s*([^:\n]+)/);
-      if (numberedMatch) {
-        // Save previous archetype
-        if (currentArchetype) {
-          archetypes.push(currentArchetype);
-        }
-        
-        const name = (numberedMatch[1] || numberedMatch[2]).trim();
-        currentArchetype = {
-          value: name.toLowerCase().replace(/[\s\-]/g, '-').replace(/[^a-z0-9\-]/g, ''),
-          label: name,
-          description: '',
-          synergy: '',
-          powerLevel: 6
-        };
-        console.log('Found archetype:', name);
-        continue;
-      }
-      
-      // Look for description line
-      if (currentArchetype && trimmed.startsWith('Description:')) {
-        currentArchetype.description = trimmed.replace('Description:', '').trim();
-        continue;
-      }
-      
-      // Look for synergy line  
-      if (currentArchetype && trimmed.startsWith('Synergy:')) {
-        currentArchetype.synergy = trimmed.replace('Synergy:', '').trim();
-        continue;
-      }
-      
-      // Look for power level
-      if (currentArchetype && trimmed.startsWith('Power:')) {
-        const powerMatch = trimmed.match(/(\d+)/);
-        if (powerMatch) {
-          currentArchetype.powerLevel = parseInt(powerMatch[1]);
-        }
-        continue;
-      }
-      
-      // Fallback: if we have an archetype and this line has content, add to description
-      if (currentArchetype && trimmed && !trimmed.startsWith('**') && trimmed.length > 10) {
-        if (!currentArchetype.description) {
-          currentArchetype.description = trimmed;
-        } else if (!currentArchetype.synergy) {
-          currentArchetype.synergy = trimmed;
-        }
-      }
+    if (text.includes('token') || text.includes('create')) {
+      archetypes.push({ value: 'tokens', label: 'Token Strategy', description: 'Generate creature tokens for wide board presence', synergy: 'Commander creates or benefits from tokens', powerLevel: 6 });
+    }
+    if (text.includes('sacrifice') || text.includes('dies')) {
+      archetypes.push({ value: 'aristocrats', label: 'Aristocrats', description: 'Sacrifice creatures for value and damage', synergy: 'Commander rewards sacrifice effects', powerLevel: 7 });
+    }
+    if (text.includes('+1/+1') || text.includes('counter')) {
+      archetypes.push({ value: 'counters', label: '+1/+1 Counters', description: 'Build and distribute counters for growing threats', synergy: 'Commander interacts with counters', powerLevel: 6 });
+    }
+    if (text.includes('draw') || text.includes('card')) {
+      archetypes.push({ value: 'value', label: 'Value Engine', description: 'Generate card advantage through commander', synergy: 'Commander provides card draw', powerLevel: 7 });
     }
     
-    // Save the last archetype
-    if (currentArchetype) {
-      archetypes.push(currentArchetype);
+    // Add defaults if needed
+    if (archetypes.length < 4) {
+      archetypes.push({ value: 'midrange', label: 'Midrange', description: 'Balanced approach with efficient threats', synergy: 'Versatile strategy for any commander', powerLevel: 6 });
+      archetypes.push({ value: 'control', label: 'Control', description: 'Counter threats and control the game', synergy: 'Protect your commander while disrupting opponents', powerLevel: 7 });
+      archetypes.push({ value: 'aggro', label: 'Aggro', description: 'Fast, aggressive creature strategy', synergy: 'Pressure opponents early', powerLevel: 5 });
+      archetypes.push({ value: 'combo', label: 'Combo', description: 'Build towards game-winning combinations', synergy: 'Commander enables or protects combos', powerLevel: 8 });
     }
     
-    console.log('Parsed archetypes:', archetypes);
-    
-    // Fallback: if parsing failed, provide strategic archetypes based on commander analysis
-    if (archetypes.length === 0) {
-      console.log('Parsing failed, using fallback archetypes for', commander.name);
-      
-      const colors = commander.color_identity || [];
-      const abilities = commander.oracle_text?.toLowerCase() || '';
-      const type = commander.type_line?.toLowerCase() || '';
-      
-      // Analyze commander characteristics to suggest appropriate archetypes
-      const suggestedArchetypes = [];
-      
-      // Check for specific ability patterns
-      if (abilities.includes('dies') || abilities.includes('sacrifice')) {
-        suggestedArchetypes.push({
-          value: 'aristocrats',
-          label: 'Aristocrats',
-          description: 'Sacrifice creatures for value and build engine synergies.',
-          synergy: 'Commander benefits from creature deaths, creating value loops.',
-          powerLevel: 7
-        });
-      }
-      
-      if (abilities.includes('exile') || abilities.includes('flicker') || abilities.includes('blink')) {
-        suggestedArchetypes.push({
-          value: 'blink',
-          label: 'Blink & Flicker',
-          description: 'Exile and return creatures for repeatable ETB value.',
-          synergy: 'Commander triggers on exile effects while providing ETB value.',
-          powerLevel: 6
-        });
-      }
-      
-      if (abilities.includes('token') || abilities.includes('create')) {
-        suggestedArchetypes.push({
-          value: 'tokens',
-          label: 'Token Strategy',
-          description: 'Generate creature tokens for wide board presence.',
-          synergy: 'Tokens provide expendable resources for commander triggers.',
-          powerLevel: 6
-        });
-      }
-      
-      if (abilities.includes('+1/+1') || abilities.includes('counter')) {
-        suggestedArchetypes.push({
-          value: 'counters',
-          label: '+1/+1 Counters',
-          description: 'Build +1/+1 counter synergies and grow threats.',
-          synergy: 'Commander naturally accumulates counters for scaling threats.',
-          powerLevel: 6
-        });
-      }
-      
-      if (abilities.includes('equipment') || abilities.includes('aura') || type.includes('knight') || type.includes('warrior')) {
-        suggestedArchetypes.push({
-          value: 'voltron',
-          label: 'Voltron',
-          description: 'Focus on commander damage with equipment and auras.',
-          synergy: 'Commander becomes a major threat with protective gear.',
-          powerLevel: 5
-        });
-      }
-      
-      // Color-based suggestions
-      if (colors.includes('W') && colors.includes('B')) {
-        suggestedArchetypes.push({
-          value: 'lifegain',
-          label: 'Lifegain Synergy',
-          description: 'Orzhov lifegain value engine with payoffs.',
-          synergy: 'White/Black provides excellent lifegain support and payoffs.',
-          powerLevel: 5
-        });
-      }
-      
-      if (colors.includes('U')) {
-        suggestedArchetypes.push({
-          value: 'control',
-          label: 'Control',
-          description: 'Counter threats and control the game state.',
-          synergy: 'Blue provides card draw and counterspells for protection.',
-          powerLevel: 7
-        });
-      }
-      
-      if (colors.includes('R')) {
-        suggestedArchetypes.push({
-          value: 'aggro',
-          label: 'Aggressive',
-          description: 'Fast pressure with efficient threats.',
-          synergy: 'Red provides haste and burn for quick victories.',
-          powerLevel: 6
-        });
-      }
-      
-      if (colors.includes('G')) {
-        suggestedArchetypes.push({
-          value: 'ramp',
-          label: 'Big Mana',
-          description: 'Ramp into large threats and powerful spells.',
-          synergy: 'Green ramp enables expensive commander-supporting spells.',
-          powerLevel: 6
-        });
-      }
-      
-      // Default fallbacks if no specific patterns match
-      if (suggestedArchetypes.length === 0) {
-        suggestedArchetypes.push(
-          {
-            value: 'midrange',
-            label: 'Midrange Value',
-            description: 'Balanced approach with efficient threats and answers.',
-            synergy: 'Commander provides consistent value in fair games.',
-            powerLevel: 6
-          },
-          {
-            value: 'tribal',
-            label: 'Tribal Synergy',
-            description: 'Focus on creature type synergies and lords.',
-            synergy: 'Commander supports tribal strategies with its creature type.',
-            powerLevel: 5
-          }
-        );
-      }
-      
-      return suggestedArchetypes.slice(0, 5);
-    }
-    
-    return archetypes.slice(0, 5);
+    return archetypes.slice(0, 4);
   };
 
+  // Main deck building function with full validation
   const handleBuild = async () => {
-    if (!buildData.format || !buildData.archetype) {
-      showError('Missing Information', 'Please select a format and archetype.');
-      return;
-    }
+    if (!commander || !buildData.archetype) return;
 
     setBuilding(true);
-    setBuildProgress(0);
+    setBuildPhase(0);
+    setValidationErrors([]);
 
     try {
-      console.log('Starting deck build with v2 builder...');
+      // Phase 1: Analyzing
+      setBuildPhase(0);
+      await new Promise(r => setTimeout(r, 800));
       
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setBuildProgress(prev => Math.min(prev + 2, 85));
-      }, 500);
-
-      try {
-        // Try v2 builder first with 90s timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-        const { data, error } = await supabase.functions.invoke('ai-deck-builder-v2', {
-          body: {
-            commander: commander ? {
-              id: commander.id,
-              name: commander.name,
-              oracle_text: commander.oracle_text,
-              type_line: commander.type_line,
-              color_identity: commander.color_identity || [],
-              colors: commander.colors || []
-            } : undefined,
-            archetype: buildData.archetype,
-            powerLevel: buildData.powerLevel,
-            useAIPlanning: true
-          }
-        });
-
-        clearTimeout(timeoutId);
-        clearInterval(progressInterval);
-
-        if (error) throw error;
-        if (!data) throw new Error('No data returned from v2 builder');
-
-        console.log('V2 builder response:', data);
-
-        // Check power level on edhpowerlevel.com
-        setBuildProgress(95);
-        console.log('Checking EDH power level...');
-        
-        // v2 returns data.result.deck, handle both formats
-        const builtDeckCards = data.result?.deck || data.cards || [];
-        
-        const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
-          body: {
-            decklist: {
-              commander: commander,
-              cards: builtDeckCards
-            }
-          }
-        });
-
-        console.log('EDH power check result:', powerCheckData);
-
-        setBuildProgress(100);
-
-        // Fallback EDH URL if function fails or returns no URL
-        const fallbackEdhUrl = (() => {
-          try {
-            let decklistParam = '';
-            if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
-            builtDeckCards.forEach((card: any) => {
-              const qty = card.quantity || 1;
-              decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
-            });
-            if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
-            return `https://edhpowerlevel.com/?d=${decklistParam}`;
-          } catch {
-            return null;
-          }
-        })();
-
-        // v2 returns data.result.deck, handle both formats
-        const deckCards = data.result?.deck || data.cards || [];
-        
-        const result = {
-          deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
-          cards: deckCards,
-          deckId: data.deckId, // Deck may already be saved by edge function
-          power: data.result?.analysis?.power || data.power || buildData.powerLevel,
-          edhPowerLevel: powerCheckData?.powerLevel ?? null,
-          edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
-          totalValue: deckCards.reduce((sum: number, card: any) => {
-            const price = parseFloat(card.prices?.usd || '0');
-            return sum + (price * (card.quantity || 1));
-          }, 0) || 0,
-          analysis: data.result?.analysis || data.analysis || {},
-          changelog: data.result?.changeLog || data.changelog || [],
-          aiFeedback: data.result?.aiFeedback
-        };
-
-        setBuildResult(result);
-        setStep(6);
-        showSuccess('Deck Built!', 'Your AI-generated deck is ready!');
-      } catch (v2Error) {
-        console.error('V2 builder failed, falling back to V1:', v2Error);
-        clearInterval(progressInterval);
-        
-        // Fallback to v1 builder
-        setBuildProgress(50);
-        const budgetTier = buildData.maxBudget <= 300 ? 'low' : buildData.maxBudget <= 1000 ? 'med' : 'high';
-
-        // Derive color identity safely
-        const derivedIdentity = buildData.colorIdentity ?
-          (COLOR_COMBINATIONS.find(c => c.value === buildData.colorIdentity)?.colors || []) :
-          (commander?.color_identity || []);
-
-        if (!derivedIdentity || derivedIdentity.length === 0) {
-          throw new Error('Please select a color identity or a commander before building.');
+      // Phase 2: Generating
+      setBuildPhase(1);
+      
+      const { data, error } = await supabase.functions.invoke('ai-deck-builder-v2', {
+        body: {
+          commander: {
+            id: commander.id,
+            name: commander.name,
+            oracle_text: commander.oracle_text,
+            type_line: commander.type_line,
+            color_identity: commander.color_identity || [],
+            colors: commander.colors || []
+          },
+          archetype: buildData.archetype,
+          powerLevel: buildData.powerLevel,
+          budget: buildData.maxBudget,
+          customPrompt: buildData.customPrompt,
+          useAIPlanning: true,
+          prioritizeSynergy: buildData.prioritizeSynergy,
+          includeLands: buildData.includeLands
         }
+      });
 
-        const { data: v1Data, error: v1Error } = await supabase.functions.invoke('ai-deck-builder', {
-          body: {
-            format: buildData.format,
-            identity: derivedIdentity,
-            themeId: buildData.archetype,
-            powerTarget: buildData.powerLevel,
-            budget: budgetTier
-          }
-        });
+      if (error) throw error;
+      if (!data) throw new Error('No data returned from builder');
 
-        if (v1Error) throw v1Error;
-        if (!v1Data?.success) throw new Error('V1 builder failed');
-
-        // Check power level on edhpowerlevel.com
-        setBuildProgress(95);
-        console.log('Checking EDH power level...');
-        
-        const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
-          body: {
-            decklist: {
-              commander: commander,
-              cards: v1Data.deck || []
-            }
-          }
-        });
-
-        console.log('EDH power check result:', powerCheckData);
-
-        setBuildProgress(100);
-        clearInterval(progressInterval);
-
-        // Fallback EDH URL if function fails or returns no URL
-        const fallbackEdhUrl = (() => {
-          try {
-            let decklistParam = '';
-            if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
-            (v1Data.deck || []).forEach((card: any) => {
-              const qty = card.quantity || 1;
-              decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
-            });
-            if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
-            return `https://edhpowerlevel.com/?d=${decklistParam}`;
-          } catch {
-            return null;
-          }
-        })();
-
-        const result = {
-          deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
-          cards: v1Data.deck || [],
-          power: v1Data.power || buildData.powerLevel,
-          edhPowerLevel: (powerCheckData?.powerLevel ?? (v1Data.power || buildData.powerLevel)),
-          edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
-          totalValue: v1Data.deck?.reduce((sum: number, card: any) => {
-            const price = parseFloat(card.prices?.usd || '0');
-            return sum + (price * (card.quantity || 1));
-          }, 0) || 0,
-          analysis: {},
-          changelog: []
-        };
-
-        setBuildResult(result);
-        setStep(6);
-        showSuccess('Deck Built!', 'Your AI-generated deck is ready (using v1 builder)!');
+      const deckCards = data.result?.deck || data.cards || [];
+      
+      // Phase 3: Validate color identity
+      setBuildPhase(2);
+      await new Promise(r => setTimeout(r, 600));
+      
+      const commanderColors = new Set(commander.color_identity || []);
+      const colorViolations = deckCards.filter((card: any) => {
+        const cardColors = card.color_identity || [];
+        return cardColors.some((c: string) => !commanderColors.has(c));
+      });
+      
+      if (colorViolations.length > 0) {
+        setValidationErrors(prev => [...prev, `${colorViolations.length} cards violate color identity`]);
       }
+      
+      // Phase 4: EDH Power Check
+      setBuildPhase(3);
+      
+      const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
+        body: {
+          decklist: {
+            commander: commander,
+            cards: deckCards
+          }
+        }
+      });
+      
+      const edhPowerLevel = powerCheckData?.powerLevel;
+      
+      // Check if power level meets requirements (can be higher but not significantly lower)
+      if (edhPowerLevel && edhPowerLevel < buildData.powerLevel - 1) {
+        setValidationErrors(prev => [...prev, `EDH power ${edhPowerLevel} is below target ${buildData.powerLevel}`]);
+      }
+      
+      // Phase 5: Budget check
+      setBuildPhase(4);
+      await new Promise(r => setTimeout(r, 600));
+      
+      const totalValue = deckCards.reduce((sum: number, card: any) => {
+        const price = parseFloat(card.prices?.usd || '0');
+        return sum + (price * (card.quantity || 1));
+      }, 0);
+      
+      if (totalValue > buildData.maxBudget * 1.1) { // 10% tolerance
+        setValidationErrors(prev => [...prev, `Deck cost $${totalValue.toFixed(0)} exceeds budget $${buildData.maxBudget}`]);
+      }
+      
+      // Phase 6: Optimizing
+      setBuildPhase(5);
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Phase 7: Complete
+      setBuildPhase(6);
+      
+      // Build fallback EDH URL
+      const fallbackEdhUrl = (() => {
+        try {
+          let decklistParam = '';
+          if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+          deckCards.forEach((card: any) => {
+            const qty = card.quantity || 1;
+            decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
+          });
+          if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+          return `https://edhpowerlevel.com/?d=${decklistParam}`;
+        } catch {
+          return null;
+        }
+      })();
+
+      const result = {
+        deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
+        cards: deckCards,
+        deckId: data.deckId,
+        power: data.result?.analysis?.power || data.power || buildData.powerLevel,
+        edhPowerLevel: edhPowerLevel ?? null,
+        edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
+        totalValue: totalValue,
+        analysis: data.result?.analysis || data.analysis || {},
+        changelog: data.result?.changeLog || data.changelog || [],
+        aiFeedback: data.result?.aiFeedback,
+        validationPassed: validationErrors.length === 0
+      };
+
+      setBuildResult(result);
+      setStep(4);
+      
     } catch (error) {
       console.error('Build error:', error);
-      showError('Build Failed', 'Could not build deck. Please try again.');
-      setBuilding(false);
-      setBuildProgress(0);
+      setValidationErrors(['Build failed. Please try again.']);
     } finally {
       setBuilding(false);
     }
   };
 
   const saveDeckToDatabase = async () => {
-    if (!buildResult || !commander || !user) {
-      showError('Error', 'Please ensure you are logged in and have generated a deck.');
-      return;
-    }
+    if (!buildResult || !commander || !user) return;
 
     try {
-      const deckName = buildResult.deckName || `AI Built - ${commander?.name || 'Commander'} Deck`;
+      const deckName = buildResult.deckName;
       const commanderColors = commander?.color_identity || commander?.colors || [];
       
-      // Create deck record
-      const { data: deck, error: deckError } = await supabase
+      const { data: deckRecord, error: deckError } = await supabase
         .from('user_decks')
         .insert({
           user_id: user.id,
           name: deckName,
           format: 'commander',
           colors: commanderColors,
-          description: `AI-generated commander deck with ${commander.name} as commander.`,
+          description: `AI-generated ${buildData.archetype} deck with ${commander.name}.`,
           power_level: Math.round(buildResult.power || 6),
           is_public: false
         })
         .select()
         .single();
 
-      if (deckError) {
-        console.error('Error creating deck:', deckError);
-        throw deckError;
-      }
+      if (deckError) throw deckError;
 
       // Add commander
-      if (commander && deck) {
-        const { error: commanderError } = await supabase
-          .from('deck_cards')
-          .insert({
-            deck_id: deck.id,
-            card_id: commander.id,
-            card_name: commander.name,
-            quantity: 1,
-            is_commander: true,
-            is_sideboard: false
-          });
-        
-        if (commanderError) {
-          console.error('Error adding commander:', commanderError);
-        }
+      if (commander && deckRecord) {
+        await supabase.from('deck_cards').insert({
+          deck_id: deckRecord.id,
+          card_id: commander.id,
+          card_name: commander.name,
+          quantity: 1,
+          is_commander: true,
+          is_sideboard: false
+        });
       }
 
-      // Add deck cards in batches
-      if (deck && buildResult.cards.length > 0) {
+      // Add deck cards
+      if (deckRecord && buildResult.cards.length > 0) {
         const cardInserts = buildResult.cards.map((card: any) => ({
-          deck_id: deck.id,
+          deck_id: deckRecord.id,
           card_id: card.id,
           card_name: card.name,
           quantity: card.quantity || 1,
@@ -767,96 +464,13 @@ Focus on archetypes that specifically leverage this commander's unique abilities
           is_sideboard: false
         }));
 
-        const { error: cardsError } = await supabase
-          .from('deck_cards')
-          .insert(cardInserts);
-        
-        if (cardsError) {
-          console.error('Error adding cards:', cardsError);
-          throw cardsError;
-        }
+        await supabase.from('deck_cards').insert(cardInserts);
       }
 
-      showSuccess('Deck Saved!', `${deckName} has been saved to your collection.`);
       navigate('/decks');
     } catch (error) {
       console.error('Error saving deck:', error);
-      showError('Save Failed', 'Could not save deck to database. Please try again.');
     }
-  };
-
-  const applyToDeckBuilder = async () => {
-    if (!buildResult || !commander || !user) {
-      showError('Error', 'Please ensure you are logged in and have generated a deck.');
-      return;
-    }
-    
-    try {
-      // Clear current deck and add commander
-      deck.clearDeck();
-      deck.setCommander({
-        id: commander.id || `commander-${Date.now()}`,
-        name: commander.name,
-        cmc: commander.cmc || 0,
-        type_line: commander.type_line || 'Legendary Creature',
-        colors: commander.colors || commander.color_identity || [],
-        color_identity: commander.color_identity || [],
-        oracle_text: commander.oracle_text || '',
-        image_uris: commander.image_uris || {},
-        prices: commander.prices || {},
-        rarity: commander.rarity || 'rare',
-        quantity: 1,
-        category: 'commanders',
-        mechanics: []
-      });
-
-      // Add all generated cards to deck
-      buildResult.cards.forEach((card: any) => {
-        const deckCard = {
-          id: card.id || `card-${Date.now()}-${Math.random()}`,
-          name: card.name,
-          cmc: card.cmc || 0,
-          type_line: card.type_line || '',
-          colors: card.colors || [],
-          color_identity: card.color_identity || [],
-          oracle_text: card.oracle_text || '',
-          image_uris: card.image_uris || {},
-          prices: card.prices || {},
-          rarity: card.rarity || 'common',
-          quantity: card.quantity || 1,
-          category: determineCategory(card.type_line || ''),
-          mechanics: card.keywords || []
-        };
-        
-        for (let i = 0; i < (card.quantity || 1); i++) {
-          deck.addCard(deckCard);
-        }
-      });
-
-      // Set deck properties
-      deck.setDeckName(buildResult.deckName);
-      deck.setFormat('commander');
-      deck.setPowerLevel(buildResult.power || 6);
-
-      showSuccess('Deck Applied', 'AI-generated deck has been applied to your deck builder!');
-      navigate('/deck-builder');
-    } catch (error) {
-      console.error('Error applying deck:', error);
-      showError('Apply Failed', 'Could not apply deck to builder. Please try again.');
-    }
-  };
-
-  const determineCategory = (typeLine: string): any => {
-    const type = typeLine.toLowerCase();
-    if (type.includes('creature')) return 'creatures';
-    if (type.includes('land')) return 'lands';
-    if (type.includes('instant')) return 'instants';
-    if (type.includes('sorcery')) return 'sorceries';
-    if (type.includes('artifact')) return 'artifacts';
-    if (type.includes('enchantment')) return 'enchantments';
-    if (type.includes('planeswalker')) return 'planeswalkers';
-    if (type.includes('battle')) return 'battles';
-    return 'other';
   };
 
   const resetBuilder = () => {
@@ -865,9 +479,8 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     setCommander(null);
     setCommanderSearch('');
     setSuggestedArchetypes([]);
+    setValidationErrors([]);
     setBuildData({
-      format: 'commander',
-      colorIdentity: '',
       archetype: '',
       powerLevel: 6,
       maxBudget: 500,
@@ -878,385 +491,200 @@ Focus on archetypes that specifically leverage this commander's unique abilities
     });
   };
 
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Crown className="h-5 w-5 mr-2" />
-                Choose Your Commander
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {commander ? (
-                <div className="flex items-center space-x-4 p-4 bg-primary/5 rounded-lg">
-                  <img 
-                    src={commander.image_uris?.normal || commander.image_uris?.large || '/placeholder.svg'} 
-                    alt={commander.name}
-                    className="w-16 h-16 rounded object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{commander.name}</h3>
-                    <p className="text-sm text-muted-foreground">{commander.type_line}</p>
-                    <div className="flex space-x-1 mt-1">
-                      {(commander.color_identity || []).map((color: string) => (
-                        <div
-                          key={color}
-                          className="w-4 h-4 rounded-full border"
-                          style={{
-                            backgroundColor: {
-                              W: '#fffbd5',
-                              U: '#0e68ab', 
-                              B: '#150b00',
-                              R: '#d3202a',
-                              G: '#00733e'
-                            }[color] || '#ccc'
-                          }}
-                        />
-                      ))}
+  const selectCommander = async (cmdr: any) => {
+    // If it's a popular commander (no ID), fetch from Scryfall
+    if (!cmdr.id) {
+      try {
+        const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cmdr.name)}`);
+        if (response.ok) {
+          const card = await response.json();
+          setCommander(card);
+          analyzeCommander(card);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to fetch commander:', e);
+      }
+    }
+    setCommander(cmdr);
+    analyzeCommander(cmdr);
+  };
+
+  const getPowerLevelLabel = (level: number) => {
+    if (level <= 3) return { label: 'Casual', color: 'text-green-500' };
+    if (level <= 5) return { label: 'Focused', color: 'text-blue-500' };
+    if (level <= 7) return { label: 'Optimized', color: 'text-yellow-500' };
+    if (level <= 9) return { label: 'High Power', color: 'text-orange-500' };
+    return { label: 'cEDH', color: 'text-red-500' };
+  };
+
+  const getBudgetLabel = (budget: number) => {
+    if (budget <= 150) return 'Budget';
+    if (budget <= 500) return 'Mid-Range';
+    if (budget <= 1500) return 'High-End';
+    return 'Premium';
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent">
+                <Sparkles className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  AI Deck Builder
+                </h1>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Build the perfect Commander deck with intelligent AI assistance
+                </p>
+              </div>
+            </div>
+            
+            {/* Progress indicator */}
+            {step < 4 && !building && (
+              <div className="hidden md:flex items-center gap-3">
+                {[1, 2, 3].map((s) => (
+                  <div key={s} className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-medium transition-all ${
+                      s < step ? 'bg-primary text-primary-foreground' : 
+                      s === step ? 'bg-primary/20 text-primary border-2 border-primary' : 
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {s < step ? <CheckCircle2 className="h-5 w-5" /> : s}
                     </div>
+                    {s < 3 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </div>
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setCommander(null);
-                      setSuggestedArchetypes([]);
-                    }}
-                  >
-                    Change
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex space-x-2">
-                    <Input
-                      placeholder="Search for a legendary creature..."
-                      value={commanderSearch}
-                      onChange={(e) => setCommanderSearch(e.target.value)}
-                    />
-                    <Button variant="outline" disabled>
-                      <Target className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  {commanderSearch && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto overflow-x-hidden p-1">
-                      {searchingCommanders ? (
-                        <div className="col-span-full text-center text-muted-foreground py-8">
-                          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
-                          Searching for commanders...
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8">
+        <AnimatePresence mode="wait">
+          {/* Step 1: Commander Selection */}
+          {step === 1 && !building && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              {/* Search Section */}
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <Crown className="h-6 w-6 text-primary" />
+                    Choose Your Commander
+                  </CardTitle>
+                  <CardDescription>
+                    Search for a legendary creature or select from popular commanders below
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Selected Commander Display */}
+                  {commander && (
+                    <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                      <img 
+                        src={commander.image_uris?.normal || commander.image_uris?.art_crop || '/placeholder.svg'} 
+                        alt={commander.name}
+                        className="w-24 h-auto rounded-lg shadow-lg"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg">{commander.name}</h3>
+                        <p className="text-sm text-muted-foreground">{commander.type_line}</p>
+                        <div className="flex gap-1 mt-2">
+                          {(commander.color_identity || []).map((color: string) => (
+                            <div
+                              key={color}
+                              className="w-5 h-5 rounded-full border-2 border-white shadow"
+                              style={{
+                                backgroundColor: {
+                                  W: '#F9FAF4', U: '#0E68AB', B: '#150B00', R: '#D3202A', G: '#00733E'
+                                }[color] || '#888'
+                              }}
+                            />
+                          ))}
                         </div>
-                      ) : commanderSearchResults.length > 0 ? (
-                        commanderSearchResults.slice(0, 12).map((card: any) => (
-                          <div
-                            key={card.id}
-                            className="group cursor-pointer transition-all duration-300"
-                            onClick={() => {
-                              setCommander(card);
-                              setCommanderSearch('');
-                              analyzeCommander(card);
-                            }}
-                          >
-                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/30 transition-all transform group-hover:scale-[1.03]">
-                              <img 
-                                src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
-                                alt={card.name}
-                                className="w-full h-auto"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                                <p className="text-white text-xs font-bold truncate">{card.name}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-full text-center text-muted-foreground py-8">
-                          No commanders found matching "{commanderSearch}"
-                        </div>
-                      )}
+                      </div>
+                      <Button variant="outline" onClick={() => { setCommander(null); setSuggestedArchetypes([]); }}>
+                        Change
+                      </Button>
                     </div>
                   )}
                   
-                  <div>
-                    <h4 className="font-medium mb-4 text-lg flex items-center gap-2">
-                      <Crown className="w-5 h-5 text-primary" />
-                      Popular Commanders
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {[
-                        { 
-                          name: 'Atraxa, Praetors\' Voice',
-                          colors: ['W', 'U', 'B', 'G'],
-                          color_identity: ['W', 'U', 'B', 'G'],
-                          type_line: 'Legendary Creature — Phyrexian Angel Horror',
-                          cmc: 4,
-                          oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg' }
-                        },
-                        { 
-                          name: 'Edgar Markov', 
-                          colors: ['W', 'B', 'R'],
-                          color_identity: ['W', 'B', 'R'],
-                          type_line: 'Legendary Creature — Vampire Knight',
-                          cmc: 6,
-                          oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg' }
-                        },
-                        { 
-                          name: 'Meren of Clan Nel Toth', 
-                          colors: ['B', 'G'],
-                          color_identity: ['B', 'G'],
-                          type_line: 'Legendary Creature — Human Shaman',
-                          cmc: 4,
-                          oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card\'s converted mana cost is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/7/17d6703c-ad79-457b-a1b5-c2284e363085.jpg' }
-                        },
-                        { 
-                          name: 'Karador, Ghost Chieftain', 
-                          colors: ['W', 'B', 'G'],
-                          color_identity: ['W', 'B', 'G'],
-                          type_line: 'Legendary Creature — Centaur Spirit',
-                          cmc: 8,
-                          oracle_text: 'This spell costs {1} less to cast for each creature card in your graveyard.\nVigilance, trample\nOnce during each of your turns, you may cast a creature spell from your graveyard.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/c/7/c7eb0144-34f8-43e1-95fe-f2ca62d88e5d.jpg' }
-                        },
-                        { 
-                          name: 'Animar, Soul of Elements', 
-                          colors: ['U', 'R', 'G'],
-                          color_identity: ['U', 'R', 'G'],
-                          type_line: 'Legendary Creature — Elemental',
-                          cmc: 3,
-                          oracle_text: 'Protection from white and from black\nWhenever you cast a creature spell, put a +1/+1 counter on Animar, Soul of Elements.\nCreature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.',
-                          image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/d/1df98d4a-0f11-4064-a113-54ab14b9b3eb.jpg' }
-                        },
-                         { 
-                           name: 'Rhys the Redeemed', 
-                           colors: ['G', 'W'],
-                           color_identity: ['G', 'W'],
-                           type_line: 'Legendary Creature — Elf Warrior',
-                           cmc: 1,
-                           oracle_text: '{2}{G/W}, {T}: Create a 1/1 green and white Elf Warrior creature token.\n{4}{G/W}{G/W}, {T}: For each creature token you control, create a token that\'s a copy of that creature.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/5/9/59327a58-cd41-479c-81c7-31c9d3b29508.jpg' }
-                         },
-                         { 
-                           name: 'Ezuri, Claw of Progress', 
-                           colors: ['G', 'U'],
-                           color_identity: ['G', 'U'],
-                           type_line: 'Legendary Creature — Elf Warrior',
-                           cmc: 4,
-                           oracle_text: 'Whenever a creature with power 2 or less enters the battlefield under your control, you get an experience counter.\nAt the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is the number of experience counters you have.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/e/f/ef1b62ff-dbb3-4500-9d64-a3047ce193ec.jpg' }
-                         },
-                         { 
-                           name: 'The Ur-Dragon', 
-                           colors: ['W', 'U', 'B', 'R', 'G'],
-                           color_identity: ['W', 'U', 'B', 'R', 'G'],
-                           type_line: 'Legendary Creature — Dragon Avatar',
-                           cmc: 9,
-                           oracle_text: 'Eminence — As long as The Ur-Dragon is in the command zone or on the battlefield, other Dragon spells you cast cost {1} less to cast.\nFlying\nWhenever one or more Dragons you control attack, draw that many cards, then you may put a permanent card from your hand onto the battlefield.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg' }
-                         },
-                         { 
-                           name: 'Yuriko, the Tiger\'s Shadow', 
-                           colors: ['U', 'B'],
-                           color_identity: ['U', 'B'],
-                           type_line: 'Legendary Creature — Human Ninja',
-                           cmc: 2,
-                           oracle_text: 'Commander ninjutsu {U}{B}\nWhenever a Ninja you control deals combat damage to a player, reveal the top card of your library and put that card into your hand. Each opponent loses life equal to that card\'s mana value.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/b/3bd81ae6-e628-447a-a36b-597e63ede295.jpg' }
-                         },
-                         { 
-                           name: 'Nekusar, the Mindrazer', 
-                           colors: ['U', 'B', 'R'],
-                           color_identity: ['U', 'B', 'R'],
-                           type_line: 'Legendary Creature — Zombie Wizard',
-                           cmc: 5,
-                           oracle_text: 'At the beginning of each player\'s draw step, that player draws an additional card.\nWhenever an opponent draws a card, Nekusar, the Mindrazer deals 1 damage to that player.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/f/3f7f2417-12de-4e57-9714-d878880a1208.jpg' }
-                         },
-                         { 
-                           name: 'Korvold, Fae-Cursed King', 
-                           colors: ['B', 'R', 'G'],
-                           color_identity: ['B', 'R', 'G'],
-                           type_line: 'Legendary Creature — Dragon Noble',
-                           cmc: 5,
-                           oracle_text: 'Flying\nWhenever Korvold, Fae-Cursed King enters the battlefield or attacks, sacrifice another permanent.\nWhenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/2/92ea1575-eb64-43b5-b604-c6e23054f228.jpg' }
-                         },
-                         { 
-                           name: 'Thrasios, Triton Hero', 
-                           colors: ['G', 'U'],
-                           color_identity: ['G', 'U'],
-                           type_line: 'Legendary Creature — Merfolk Wizard',
-                           cmc: 2,
-                           oracle_text: '{4}: Scry 1, then reveal the top card of your library. If it\'s a land card, put it onto the battlefield tapped. Otherwise, draw a card.\nPartner',
-                           image_uris: { normal: 'https://cards.scryfall.io/normal/front/2/1/21a1620f-2d24-44dd-91da-6ca8f31e2c3c.jpg' }
-                         }
-                        ].map((popularCommander) => (
-                          <div
-                            key={popularCommander.name}
-                            className="group cursor-pointer transition-all duration-300 hover:scale-105"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(
-                                  `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(popularCommander.name)}`
-                                );
-                                if (response.ok) {
-                                  const card = await response.json();
-                                  setCommander(card);
-                                  analyzeCommander(card);
-                                } else {
-                                  const commanderWithId = {
-                                    ...popularCommander,
-                                    id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-                                  };
-                                  setCommander(commanderWithId);
-                                  analyzeCommander(commanderWithId);
-                                }
-                              } catch (error) {
-                                console.error('Error fetching commander:', error);
-                                const commanderWithId = {
-                                  ...popularCommander,
-                                  id: popularCommander.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-                                };
-                                setCommander(commanderWithId);
-                                analyzeCommander(commanderWithId);
-                              }
-                            }}
-                          >
-                            <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/30 transition-all">
-                              <img 
-                                src={popularCommander.image_uris?.normal || '/placeholder.svg'} 
-                                alt={popularCommander.name}
-                                className="w-full h-auto"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                                <p className="text-white text-xs font-bold truncate">{popularCommander.name}</p>
-                              </div>
+                  {/* Search Input */}
+                  {!commander && (
+                    <>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          placeholder="Search for a legendary creature..."
+                          value={commanderSearch}
+                          onChange={(e) => setCommanderSearch(e.target.value)}
+                          className="pl-10 h-12 text-lg"
+                        />
+                      </div>
+                      
+                      {/* Search Results */}
+                      {commanderSearch && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                          {searchingCommanders ? (
+                            <div className="col-span-full flex items-center justify-center py-12">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
-                          </div>
-                       ))}
-                    </div>
-                  </div>
-
-                  {/* Commander Finder Section */}
-                  <div className="mt-8 p-6 border-2 border-dashed border-primary/30 rounded-xl bg-gradient-to-br from-accent/5 to-primary/5">
-                    <h4 className="font-medium mb-4 text-lg flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-accent" />
-                      Don't know what commander to pick?
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Filter commanders by colors and playstyle to find your perfect match
-                    </p>
-
-                    <div className="space-y-4">
-                      {/* Color Selector */}
-                      <div>
-                        <Label className="text-sm font-medium mb-3 block">Color Identity</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { color: 'W', name: 'White', bg: 'hsl(var(--mana-white))', text: '#000' },
-                            { color: 'U', name: 'Blue', bg: 'hsl(var(--mana-blue))', text: '#fff' },
-                            { color: 'B', name: 'Black', bg: 'hsl(var(--mana-black))', text: '#fff' },
-                            { color: 'R', name: 'Red', bg: 'hsl(var(--mana-red))', text: '#fff' },
-                            { color: 'G', name: 'Green', bg: 'hsl(var(--mana-green))', text: '#fff' }
-                          ].map(({ color, name, bg, text }) => (
-                            <Button
-                              key={color}
-                              variant={finderColors.includes(color) ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => toggleFinderColor(color)}
-                              className={finderColors.includes(color) ? '' : 'hover:scale-105'}
-                              style={finderColors.includes(color) ? {
-                                backgroundColor: bg,
-                                color: text,
-                                borderColor: bg
-                              } : {}}
-                            >
-                              {name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Archetype Selector */}
-                      <div>
-                        <Label className="text-sm font-medium mb-3 block">Playstyle</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {[
-                            { value: 'aggro', label: 'Aggro' },
-                            { value: 'voltron', label: 'Voltron' },
-                            { value: 'tribal', label: 'Tribal' },
-                            { value: 'control', label: 'Control' },
-                            { value: 'combo', label: 'Combo' },
-                            { value: 'tokens', label: 'Tokens' },
-                            { value: 'artifacts', label: 'Artifacts' },
-                            { value: 'spellslinger', label: 'Spellslinger' },
-                            { value: 'lifegain', label: 'Lifegain' },
-                            { value: 'graveyard', label: 'Graveyard' },
-                            { value: 'ramp', label: 'Ramp' },
-                            { value: 'draw', label: 'Card Draw' }
-                          ].map((archetype) => (
-                            <Button
-                              key={archetype.value}
-                              variant={finderArchetype === archetype.value ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setFinderArchetype(archetype.value === finderArchetype ? '' : archetype.value)}
-                              className="hover:scale-105 transition-transform"
-                            >
-                              {archetype.label}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Search Button */}
-                      <Button
-                        onClick={searchCommandersByFilters}
-                        disabled={finderColors.length === 0 && !finderArchetype}
-                        className="w-full bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90"
-                      >
-                        {searchingFinder ? (
-                          <>
-                            <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2" />
-                            Searching...
-                          </>
-                        ) : (
-                          <>
-                            <Target className="w-4 h-4 mr-2" />
-                            Find Commanders
-                          </>
-                        )}
-                      </Button>
-
-                      {/* Results */}
-                      {finderResults.length > 0 && (
-                        <div className="mt-6">
-                          <h5 className="font-medium mb-3 text-sm">Found {finderResults.length} Commanders</h5>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {finderResults.map((card) => (
+                          ) : commanderSearchResults.length > 0 ? (
+                            commanderSearchResults.slice(0, 12).map((card: any) => (
                               <div
                                 key={card.id}
-                                className="group cursor-pointer transition-all duration-300 hover:scale-105"
-                                onClick={async () => {
-                                  setCommander(card);
-                                  analyzeCommander(card);
-                                  // Reset finder
-                                  setFinderResults([]);
-                                  setFinderColors([]);
-                                  setFinderArchetype('');
-                                }}
+                                className="group cursor-pointer transition-all duration-300"
+                                onClick={() => selectCommander(card)}
                               >
-                                <div className="relative rounded-lg overflow-hidden border-2 border-border group-hover:border-accent group-hover:shadow-lg group-hover:shadow-accent/30 transition-all">
+                                <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
                                   <img 
                                     src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
                                     alt={card.name}
                                     className="w-full h-auto"
                                   />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                                    <p className="text-white text-xs font-bold truncate">{card.name}</p>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="col-span-full text-center py-12 text-muted-foreground">
+                              No commanders found matching "{commanderSearch}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Popular Commanders */}
+                      {!commanderSearch && (
+                        <div>
+                          <h3 className="font-semibold mb-4 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            Popular Commanders
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {POPULAR_COMMANDERS.map((cmdr) => (
+                              <div
+                                key={cmdr.name}
+                                className="group cursor-pointer transition-all duration-300"
+                                onClick={() => selectCommander(cmdr)}
+                              >
+                                <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
+                                  <img 
+                                    src={cmdr.image_uris?.normal || '/placeholder.svg'} 
+                                    alt={cmdr.name}
+                                    className="w-full h-auto"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                                    <p className="text-white text-sm font-bold truncate">{cmdr.name}</p>
                                   </div>
                                 </div>
                               </div>
@@ -1264,367 +692,335 @@ Focus on archetypes that specifically leverage this commander's unique abilities
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-
-      case 2:
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Sparkles className="h-5 w-5 mr-2" />
-                {analyzingCommander ? 'Analyzing Commander...' : 'Commander Analysis'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {analyzingCommander ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">AI is analyzing {commander?.name} to find optimal archetypes...</p>
-                </div>
-              ) : commander ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <h4 className="font-medium mb-2">Commander Analysis Complete</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {commander.name} has been analyzed. Based on its abilities and color identity, 
-                      the AI has identified synergistic deck archetypes that work well with this commander.
-                    </p>
-                  </div>
-                  
-                  <Button 
-                    onClick={() => analyzeCommander(commander)} 
-                    variant="outline" 
-                    className="w-full"
-                    disabled={analyzingCommander}
-                  >
-                    <Brain className="h-4 w-4 mr-2" />
-                    Re-analyze Commander
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Select a commander first to see analysis</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-
-      case 3:
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Target className="h-5 w-5 mr-2" />
-                {suggestedArchetypes.length > 0 ? 'AI-Recommended Archetypes' : 'Choose Archetype'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {suggestedArchetypes.length > 0 && (
-                <div className="p-3 bg-primary/5 rounded-lg mb-4">
-                  <p className="text-sm text-primary">
-                    ✨ These archetypes were specifically recommended by AI for {commander?.name}
-                  </p>
-                </div>
-              )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
               
-              <div className="grid grid-cols-1 gap-4">
-                {currentArchetypes.map((archetype) => (
-                  <div
-                    key={archetype.value}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      buildData.archetype === archetype.value
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                    onClick={() => {
-                      setBuildData(prev => ({ ...prev, archetype: archetype.value }));
-                      if (archetype.powerLevel) {
-                        setBuildData(prev => ({ ...prev, powerLevel: archetype.powerLevel }));
-                      }
-                    }}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium">{archetype.label}</h3>
-                      {archetype.powerLevel && (
-                        <Badge variant="secondary">{archetype.powerLevel}/10</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">{archetype.description}</p>
-                    {archetype.synergy && (
-                      <p className="text-xs text-primary/70 italic">
-                        Synergy: {archetype.synergy}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
+              {/* Analyzing indicator */}
+              {analyzingCommander && (
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="py-8 text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg">Analyzing {commander?.name}...</h3>
+                    <p className="text-muted-foreground">Finding optimal archetypes and strategies</p>
+                  </CardContent>
+                </Card>
+              )}
+            </motion.div>
+          )}
 
-      case 4:
-        const getTotalBudgetLabel = (total: number) => {
-          if (total <= 300) return 'Budget';
-          if (total <= 1000) return 'Mid-Range';
-          if (total <= 3000) return 'High-End';
-          return 'Premium';
-        };
-
-        return (
-          <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
-            <CardHeader className="border-b border-border/50">
-              <CardTitle className="flex items-center gap-3 text-2xl">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent">
-                  <DollarSign className="w-6 h-6 text-primary-foreground" />
-                </div>
-                Power Level & Budget
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">Define your deck's competitiveness and spending limits</p>
-            </CardHeader>
-            <CardContent className="space-y-8 pt-8">
-              {/* Power Level */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-lg font-semibold">Power Level: {buildData.powerLevel}/10</Label>
-                </div>
-                <Slider
-                  value={[buildData.powerLevel]}
-                  onValueChange={(value) => setBuildData(prev => ({ ...prev, powerLevel: value[0] }))}
-                  min={1}
-                  max={10}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-muted-foreground">Casual</span>
-                  <span className="text-primary">Competitive</span>
-                  <span className="text-accent">cEDH</span>
-                </div>
-              </div>
-
-              {/* Total Deck Budget */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-lg font-semibold">Total Deck Budget: ${buildData.maxBudget}</Label>
-                  <Badge variant="outline" className="border-primary/30 text-base px-3 py-1">
-                    {getTotalBudgetLabel(buildData.maxBudget)}
-                  </Badge>
-                </div>
-                <Slider
-                  value={[buildData.maxBudget]}
-                  onValueChange={(value) => setBuildData(prev => ({ ...prev, maxBudget: value[0] }))}
-                  min={100}
-                  max={5000}
-                  step={100}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                  <span>$100</span>
-                  <span>$1000</span>
-                  <span>$5000+</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Maximum total price for the entire 100-card deck. AI will replace expensive cards with budget alternatives while maintaining power.
-                </p>
-              </div>
-
-              {/* Checkboxes */}
-              <div className="space-y-3 pt-4 border-t border-border/50">
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    id="synergy"
-                    checked={buildData.prioritizeSynergy}
-                    onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, prioritizeSynergy: !!checked }))}
-                    className="border-primary data-[state=checked]:bg-primary"
-                  />
-                  <Label htmlFor="synergy" className="text-sm font-medium cursor-pointer">
-                    Prioritize synergy over power
-                  </Label>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    id="lands"
-                    checked={buildData.includeLands}
-                    onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeLands: !!checked }))}
-                    className="border-primary data-[state=checked]:bg-primary"
-                  />
-                  <Label htmlFor="lands" className="text-sm font-medium cursor-pointer">
-                    Include manabase
-                  </Label>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    id="basics"
-                    checked={buildData.includeBasics}
-                    onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeBasics: !!checked }))}
-                    className="border-primary data-[state=checked]:bg-primary"
-                  />
-                  <Label htmlFor="basics" className="text-sm font-medium cursor-pointer">
-                    Include basic lands
-                  </Label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 5:
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Wand2 className="h-5 w-5 mr-2" />
-                Final Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Additional Instructions (Optional)</Label>
-                <Textarea
-                  placeholder="e.g., Include more counterspells, avoid creatures over 4 CMC, focus on specific combos..."
-                  value={buildData.customPrompt}
-                  onChange={(e) => setBuildData(prev => ({ ...prev, customPrompt: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-              
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-medium mb-2">Build Summary</h4>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Commander:</strong> {commander?.name}</p>
-                  <p><strong>Colors:</strong> {commander?.color_identity?.join(', ') || 'None'}</p>
-                  <p><strong>Archetype:</strong> {currentArchetypes.find(a => a.value === buildData.archetype)?.label}</p>
-                  <p><strong>Power Level:</strong> {buildData.powerLevel}/10</p>
-                  <p><strong>Total Budget:</strong> ${buildData.maxBudget}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 6:
-        return buildResult && (
-          <div className="space-y-6">
-            <AIGeneratedDeckList
-              deckName={buildResult.deckName}
-              cards={buildResult.cards || []}
-              commander={commander}
-              power={buildResult.power}
-              edhPowerLevel={buildResult.edhPowerLevel}
-              edhPowerUrl={buildResult.edhPowerUrl}
-              totalValue={buildResult.totalValue}
-              analysis={buildResult.analysis}
-              changelog={buildResult.changelog}
-              onSaveDeck={saveDeckToDatabase}
-              onApplyToDeckBuilder={applyToDeckBuilder}
-              onStartOver={resetBuilder}
-            />
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <StandardPageLayout
-      title="AI Deck Builder"
-      description="Let AI create the perfect Commander deck for your playstyle and budget with intelligent validation"
-      action={
-        step < 6 && (
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <div
-                  key={s}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    s < step ? 'bg-green-500' : s === step ? 'bg-primary scale-125' : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-muted-foreground font-medium">
-              Step {step} of 5
-            </span>
-          </div>
-        )
-      }
-    >
-      <div className="w-full">
-        {renderStep()}
-
-        {/* Navigation */}
-        {step < 6 && (
-          <div className="flex justify-between mt-6">
-            <Button 
-              variant="outline" 
-              onClick={handlePrev}
-              disabled={step === 1}
+          {/* Step 2: Archetype Selection */}
+          {step === 2 && !building && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
             >
-              Previous
-            </Button>
-            
-            {step === 5 ? (
-              <Button 
-                onClick={handleBuild}
-                disabled={building || !buildData.format || !buildData.archetype}
-              >
-                {building ? (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                    Building Deck...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Build Deck
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleNext}
-                disabled={
-                  (step === 1 && !buildData.format) ||
-                  (step === 2 && !buildData.colorIdentity) ||
-                  (step === 3 && !buildData.archetype)
-                }
-              >
-                Next
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
-          </div>
-        )}
+              {/* Commander summary */}
+              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={commander?.image_uris?.art_crop || commander?.image_uris?.normal || '/placeholder.svg'} 
+                      alt={commander?.name}
+                      className="w-16 h-16 rounded-lg object-cover shadow-lg"
+                    />
+                    <div>
+                      <h3 className="font-bold text-lg">{commander?.name}</h3>
+                      <p className="text-sm text-muted-foreground">{commander?.type_line}</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="ml-auto">
+                      <ArrowLeft className="h-4 w-4 mr-1" /> Change Commander
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Building Progress */}
-        {building && (
-          <Card className="mt-6 border-primary/30 bg-gradient-to-br from-card via-primary/5 to-accent/5">
-            <CardContent className="p-8">
-              <div className="text-center space-y-6">
-                <Sparkles className="h-16 w-16 mx-auto text-primary animate-pulse" />
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  Building Your Perfect Deck
-                </h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  AI is analyzing thousands of cards, validating color identity, checking power level, and ensuring budget compliance...
-                </p>
-                <Progress value={buildProgress} className="w-full max-w-md mx-auto h-3" />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              {/* Archetype Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <Target className="h-6 w-6 text-primary" />
+                    Select Strategy
+                  </CardTitle>
+                  <CardDescription>
+                    These archetypes were recommended based on {commander?.name}'s abilities
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {suggestedArchetypes.map((archetype) => (
+                      <div
+                        key={archetype.value}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          buildData.archetype === archetype.value
+                            ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        }`}
+                        onClick={() => setBuildData(prev => ({ 
+                          ...prev, 
+                          archetype: archetype.value,
+                          powerLevel: archetype.powerLevel || prev.powerLevel 
+                        }))}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-lg">{archetype.label}</h3>
+                          <Badge variant="secondary">Power {archetype.powerLevel}/10</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{archetype.description}</p>
+                        {archetype.synergy && (
+                          <p className="text-xs text-primary/80 italic">
+                            <Zap className="h-3 w-3 inline mr-1" />
+                            {archetype.synergy}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Configuration */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <Zap className="h-6 w-6 text-primary" />
+                    Power & Budget
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  {/* Power Level */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">Power Level</Label>
+                      <span className={`font-bold ${getPowerLevelLabel(buildData.powerLevel).color}`}>
+                        {buildData.powerLevel}/10 - {getPowerLevelLabel(buildData.powerLevel).label}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[buildData.powerLevel]}
+                      onValueChange={(value) => setBuildData(prev => ({ ...prev, powerLevel: value[0] }))}
+                      min={1}
+                      max={10}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Casual</span>
+                      <span>Focused</span>
+                      <span>Optimized</span>
+                      <span>cEDH</span>
+                    </div>
+                  </div>
+
+                  {/* Budget */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">Total Budget</Label>
+                      <span className="font-bold text-primary">
+                        ${buildData.maxBudget} - {getBudgetLabel(buildData.maxBudget)}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[buildData.maxBudget]}
+                      onValueChange={(value) => setBuildData(prev => ({ ...prev, maxBudget: value[0] }))}
+                      min={50}
+                      max={5000}
+                      step={50}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>$50</span>
+                      <span>$500</span>
+                      <span>$1500</span>
+                      <span>$5000</span>
+                    </div>
+                  </div>
+
+                  {/* Options */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="synergy"
+                        checked={buildData.prioritizeSynergy}
+                        onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, prioritizeSynergy: !!checked }))}
+                      />
+                      <Label htmlFor="synergy" className="cursor-pointer">Prioritize synergy</Label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="lands"
+                        checked={buildData.includeLands}
+                        onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeLands: !!checked }))}
+                      />
+                      <Label htmlFor="lands" className="cursor-pointer">Include manabase</Label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="basics"
+                        checked={buildData.includeBasics}
+                        onCheckedChange={(checked) => setBuildData(prev => ({ ...prev, includeBasics: !!checked }))}
+                      />
+                      <Label htmlFor="basics" className="cursor-pointer">Include basic lands</Label>
+                    </div>
+                  </div>
+
+                  {/* Custom instructions */}
+                  <div className="space-y-2">
+                    <Label>Additional Instructions (Optional)</Label>
+                    <Textarea
+                      placeholder="e.g., Include more counterspells, avoid creatures over 4 CMC..."
+                      value={buildData.customPrompt}
+                      onChange={(e) => setBuildData(prev => ({ ...prev, customPrompt: e.target.value }))}
+                      rows={2}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Build Summary & Action */}
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+                <CardContent className="py-6">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-6 flex-wrap">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground uppercase">Commander</p>
+                        <p className="font-bold">{commander?.name}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground uppercase">Strategy</p>
+                        <p className="font-bold">{suggestedArchetypes.find(a => a.value === buildData.archetype)?.label || '-'}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground uppercase">Power</p>
+                        <p className="font-bold">{buildData.powerLevel}/10</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground uppercase">Budget</p>
+                        <p className="font-bold">${buildData.maxBudget}</p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="lg"
+                      onClick={handleBuild}
+                      disabled={!buildData.archetype}
+                      className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground px-8"
+                    >
+                      <Wand2 className="h-5 w-5 mr-2" />
+                      Build Deck
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Building Progress */}
+          {building && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <Card className="border-primary/30 bg-gradient-to-br from-card via-primary/5 to-accent/5">
+                <CardContent className="py-12">
+                  <div className="max-w-2xl mx-auto text-center space-y-8">
+                    <div className="relative">
+                      <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20 blur-xl" />
+                      <Sparkles className="h-20 w-20 mx-auto text-primary relative animate-pulse" />
+                    </div>
+                    
+                    <div>
+                      <h2 className="text-2xl font-bold mb-2">Building Your Perfect Deck</h2>
+                      <p className="text-muted-foreground">
+                        This may take a moment while we validate everything...
+                      </p>
+                    </div>
+                    
+                    {/* Phase Progress */}
+                    <div className="space-y-4">
+                      {BUILD_PHASES.map((phase, index) => (
+                        <div 
+                          key={phase.id}
+                          className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
+                            index < buildPhase ? 'bg-green-500/10' :
+                            index === buildPhase ? 'bg-primary/10 animate-pulse' :
+                            'opacity-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            index < buildPhase ? 'bg-green-500 text-white' :
+                            index === buildPhase ? 'bg-primary text-primary-foreground' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {index < buildPhase ? (
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : index === buildPhase ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                              index + 1
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium">{phase.label}</p>
+                            <p className="text-xs text-muted-foreground">{phase.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <Progress value={(buildPhase / BUILD_PHASES.length) * 100} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Step 4: Results */}
+          {step === 4 && buildResult && !building && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Validation Status */}
+              {validationErrors.length > 0 && (
+                <Card className="border-yellow-500/30 bg-yellow-500/5">
+                  <CardContent className="py-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-yellow-600">Validation Warnings</h4>
+                        <ul className="text-sm text-muted-foreground mt-1">
+                          {validationErrors.map((err, i) => (
+                            <li key={i}>• {err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <AIGeneratedDeckList
+                deckName={buildResult.deckName}
+                cards={buildResult.cards || []}
+                commander={commander}
+                power={buildResult.power}
+                edhPowerLevel={buildResult.edhPowerLevel}
+                edhPowerUrl={buildResult.edhPowerUrl}
+                totalValue={buildResult.totalValue}
+                analysis={buildResult.analysis}
+                changelog={buildResult.changelog}
+                onSaveDeck={saveDeckToDatabase}
+                onApplyToDeckBuilder={() => navigate('/decks')}
+                onStartOver={resetBuilder}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </StandardPageLayout>
+    </div>
   );
 }

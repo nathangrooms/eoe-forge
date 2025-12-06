@@ -152,6 +152,45 @@ export type Database = {
         }
         Relationships: []
       }
+      card_price_history: {
+        Row: {
+          card_id: string
+          card_name: string
+          created_at: string
+          id: string
+          oracle_id: string
+          price_eur: number | null
+          price_eur_foil: number | null
+          price_usd: number | null
+          price_usd_foil: number | null
+          snapshot_date: string
+        }
+        Insert: {
+          card_id: string
+          card_name: string
+          created_at?: string
+          id?: string
+          oracle_id: string
+          price_eur?: number | null
+          price_eur_foil?: number | null
+          price_usd?: number | null
+          price_usd_foil?: number | null
+          snapshot_date: string
+        }
+        Update: {
+          card_id?: string
+          card_name?: string
+          created_at?: string
+          id?: string
+          oracle_id?: string
+          price_eur?: number | null
+          price_eur_foil?: number | null
+          price_usd?: number | null
+          price_usd_foil?: number | null
+          snapshot_date?: string
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           cmc: number | null

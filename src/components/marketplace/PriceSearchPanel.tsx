@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Search, 
   ExternalLink, 
@@ -15,7 +16,9 @@ import {
   ShoppingCart,
   Sparkles,
   X,
-  Loader2
+  Loader2,
+  ArrowUpDown,
+  Filter
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { CardPriceDetail } from './CardPriceDetail';
@@ -48,10 +51,29 @@ export interface CardPriceData {
   cardmarketUrl?: string;
   cardkingdomUrl?: string;
   scryfallData?: any;
+  isArtVariant?: boolean;
+  collectorNumber?: string;
 }
 
 interface PriceSearchPanelProps {
   onAddToWatchlist?: (card: CardPriceData) => void;
+}
+
+type SortOption = 'name' | 'price-asc' | 'price-desc' | 'set';
+type FilterOption = 'all' | 'standard' | 'art-variants';
+
+// Helper to detect art variants based on collector number and set type
+function isArtVariant(card: any): boolean {
+  const collectorNumber = card.collector_number || '';
+  const setType = card.set_type || '';
+  const frame = card.frame_effects || [];
+  
+  // Art series, promos, special variants typically have special collector numbers
+  const hasSpecialNumber = /[a-zA-Z]/.test(collectorNumber) || parseInt(collectorNumber) > 500;
+  const isSpecialSet = ['masterpiece', 'promo', 'box', 'from_the_vault', 'spellbook', 'premium_deck', 'treasure_chest'].includes(setType);
+  const hasSpecialFrame = frame.includes('showcase') || frame.includes('extendedart') || frame.includes('borderless');
+  
+  return hasSpecialNumber || isSpecialSet || hasSpecialFrame || card.promo === true;
 }
 
 export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
@@ -61,6 +83,8 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
   const [showFoil, setShowFoil] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [filterBy, setFilterBy] = useState<FilterOption>('all');
 
   // Debounced auto-search
   useEffect(() => {
@@ -95,7 +119,7 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
       
       const data = await response.json();
       
-      const cardResults: CardPriceData[] = data.data.slice(0, 16).map((card: any) => {
+      const cardResults: CardPriceData[] = data.data.slice(0, 24).map((card: any) => {
         const tcgPrice = parseFloat(card.prices?.usd || '0');
         const tcgFoilPrice = parseFloat(card.prices?.usd_foil || '0');
         const cardmarketPrice = parseFloat(card.prices?.eur || '0');
@@ -168,7 +192,9 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
           tcgplayerUrl: card.purchase_uris?.tcgplayer,
           cardmarketUrl: card.purchase_uris?.cardmarket,
           cardkingdomUrl: card.purchase_uris?.cardkingdom,
-          scryfallData: card
+          scryfallData: card,
+          isArtVariant: isArtVariant(card),
+          collectorNumber: card.collector_number
         };
       });
       
@@ -190,15 +216,40 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
     setShowDetailPanel(true);
   };
 
-  const getPriceColor = (marketplace: string) => {
-    const colors: Record<string, string> = {
-      'TCGPlayer': 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-      'CardMarket': 'bg-orange-500/10 text-orange-600 border-orange-500/30',
-      'Card Kingdom': 'bg-purple-500/10 text-purple-600 border-purple-500/30',
-      'eBay': 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30'
-    };
-    return colors[marketplace] || 'bg-muted text-muted-foreground';
-  };
+  // Filter and sort results
+  const filteredAndSortedResults = useMemo(() => {
+    let filtered = [...results];
+    
+    // Apply filter
+    if (filterBy === 'standard') {
+      filtered = filtered.filter(card => !card.isArtVariant);
+    } else if (filterBy === 'art-variants') {
+      filtered = filtered.filter(card => card.isArtVariant);
+    }
+    
+    // Apply sort
+    filtered.sort((a, b) => {
+      const priceA = showFoil ? (a.tcgplayerFoilPrice || 0) : (a.tcgplayerPrice || 0);
+      const priceB = showFoil ? (b.tcgplayerFoilPrice || 0) : (b.tcgplayerPrice || 0);
+      
+      switch (sortBy) {
+        case 'price-asc':
+          return priceA - priceB;
+        case 'price-desc':
+          return priceB - priceA;
+        case 'set':
+          return a.set_name.localeCompare(b.set_name);
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+    
+    return filtered;
+  }, [results, filterBy, sortBy, showFoil]);
+
+  const standardCount = results.filter(c => !c.isArtVariant).length;
+  const artVariantCount = results.filter(c => c.isArtVariant).length;
 
   return (
     <div className="space-y-6">
@@ -235,20 +286,57 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               )}
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="foil-toggle" 
-                  checked={showFoil} 
-                  onCheckedChange={setShowFoil}
-                />
-                <Label htmlFor="foil-toggle" className="text-sm">
-                  <Sparkles className="h-4 w-4 inline mr-1 text-yellow-500" />
-                  Foil
-                </Label>
-              </div>
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="foil-toggle" 
+                checked={showFoil} 
+                onCheckedChange={setShowFoil}
+              />
+              <Label htmlFor="foil-toggle" className="text-sm">
+                <Sparkles className="h-4 w-4 inline mr-1 text-yellow-500" />
+                Foil
+              </Label>
             </div>
           </div>
+          
+          {/* Filters and Sort Row */}
+          {results.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={filterBy} onValueChange={(v) => setFilterBy(v as FilterOption)}>
+                  <SelectTrigger className="w-[160px] h-8">
+                    <SelectValue placeholder="Filter versions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Versions ({results.length})</SelectItem>
+                    <SelectItem value="standard">Standard ({standardCount})</SelectItem>
+                    <SelectItem value="art-variants">Art Variants ({artVariantCount})</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                  <SelectTrigger className="w-[150px] h-8">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="price-asc">Price: Low to High</SelectItem>
+                    <SelectItem value="price-desc">Price: High to Low</SelectItem>
+                    <SelectItem value="set">Set Name</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="ml-auto text-xs text-muted-foreground">
+                Showing {filteredAndSortedResults.length} of {results.length} results
+              </div>
+            </div>
+          )}
+          
           {query.length > 0 && query.length < 2 && (
             <p className="text-xs text-muted-foreground mt-2">Type at least 2 characters to search...</p>
           )}
@@ -271,13 +359,13 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
         </div>
       )}
 
-      {!loading && results.length > 0 && (
+      {!loading && filteredAndSortedResults.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {results.map((card) => {
+          {filteredAndSortedResults.map((card) => {
             const displayPrice = showFoil ? card.tcgplayerFoilPrice : card.tcgplayerPrice;
             
             return (
-              <Card 
+              <Card
                 key={card.id} 
                 className="overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 hover:scale-[1.02] group"
                 onClick={() => handleCardClick(card)}
@@ -303,12 +391,19 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
                     </Badge>
                   </div>
                   
-                  {showFoil && (
-                    <Badge className="absolute top-2 right-2 bg-yellow-500">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Foil
-                    </Badge>
-                  )}
+                  <div className="absolute top-2 right-2 flex flex-col gap-1">
+                    {showFoil && (
+                      <Badge className="bg-yellow-500">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Foil
+                      </Badge>
+                    )}
+                    {card.isArtVariant && (
+                      <Badge variant="outline" className="bg-purple-500/80 text-white border-purple-400 text-xs">
+                        Art Variant
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 
                 <CardContent className="p-3">

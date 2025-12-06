@@ -28,7 +28,7 @@ export function MarketplaceHeader({ totalWatchlist = 0, totalSavings = 0 }: Mark
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Compare prices across TCGPlayer, CardMarket, eBay & more. Find the best deals with affiliate links.
+                Compare prices across TCGPlayer, CardMarket, eBay & more. Find the best deals instantly.
               </p>
             </div>
           </div>
@@ -47,9 +47,9 @@ export function MarketplaceHeader({ totalWatchlist = 0, totalSavings = 0 }: Mark
           </div>
         </div>
 
-        {/* Affiliate Partner Badges */}
+        {/* Partner Badges */}
         <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/50">
-          <span className="text-xs text-muted-foreground mr-2">Affiliate Partners:</span>
+          <span className="text-xs text-muted-foreground mr-2">Supported Marketplaces:</span>
           <a 
             href="https://www.tcgplayer.com/?partner=DeckMatrix" 
             target="_blank" 

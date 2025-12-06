@@ -39,18 +39,19 @@ export function FeatureFlagsManager() {
     }
   };
 
-  const getTierBadge = (tier: SubscriptionTier) => {
+  const getTierBadge = (tier: SubscriptionTier | null | undefined) => {
+    const safeTier = tier || 'free';
     const config = {
       free: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', icon: Sparkles },
       pro: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', icon: Zap },
       unlimited: { color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', icon: Crown },
     };
-    const tierConfig = config[tier] || config.free;
+    const tierConfig = config[safeTier] || config.free;
     const { color, icon: Icon } = tierConfig;
     return (
       <Badge variant="outline" className={`text-xs ${color} flex items-center gap-1`}>
         <Icon className="h-3 w-3" />
-        {tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : 'Free'}
+        {safeTier.charAt(0).toUpperCase() + safeTier.slice(1)}
       </Badge>
     );
   };
@@ -112,7 +113,7 @@ export function FeatureFlagsManager() {
                   {flag.name}
                 </Label>
                 {getTierBadge(flag.requires_tier)}
-                {flag.is_experimental && (
+                {flag.is_experimental === true && (
                   <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 flex items-center gap-1">
                     <FlaskConical className="h-3 w-3" />
                     Experimental
@@ -125,7 +126,7 @@ export function FeatureFlagsManager() {
                 <div className="flex items-center gap-2">
                   <Label className="text-xs text-muted-foreground">Required Tier:</Label>
                   <Select
-                    value={flag.requires_tier}
+                    value={flag.requires_tier || 'free'}
                     onValueChange={(value) => handleTierChange(flag.id, value as SubscriptionTier)}
                   >
                     <SelectTrigger className="h-7 w-28 text-xs">
@@ -142,7 +143,7 @@ export function FeatureFlagsManager() {
                 <div className="flex items-center gap-2">
                   <Label className="text-xs text-muted-foreground">Experimental:</Label>
                   <Switch
-                    checked={flag.is_experimental}
+                    checked={flag.is_experimental === true}
                     onCheckedChange={(checked) => handleExperimentalToggle(flag.id, checked)}
                     className="scale-75"
                   />

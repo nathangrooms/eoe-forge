@@ -9,13 +9,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Printer, Download, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-// jsPDF imported dynamically to avoid SSR/build issues
 
 interface DeckProxyGeneratorProps {
   deckCards: any[];
   deckName: string;
   commander?: any;
 }
+
+// Load jsPDF from CDN
+const loadJsPDF = (): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    // Check if already loaded
+    if ((window as any).jspdf) {
+      resolve((window as any).jspdf.jsPDF);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).jspdf) {
+        resolve((window as any).jspdf.jsPDF);
+      } else {
+        reject(new Error('jsPDF failed to initialize'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load jsPDF library'));
+    document.head.appendChild(script);
+  });
+};
 
 export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxyGeneratorProps) {
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
@@ -106,7 +129,7 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     }
 
     setGenerating(true);
-    setProgress(0);
+    setProgress(5);
     
     try {
       const selectedCardsList = allCards.filter(c => selectedCards.has(getCardId(c)));
@@ -120,8 +143,12 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         }
       });
 
-      // Dynamic import to avoid build issues
-      const { default: jsPDF } = await import('jspdf');
+      setProgress(10);
+      
+      // Load jsPDF from CDN
+      const jsPDF = await loadJsPDF();
+      
+      setProgress(15);
       
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -153,10 +180,12 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
       for (let i = 0; i < uniqueCardArray.length; i++) {
         const card = uniqueCardArray[i];
         const imageUrl = getCardImage(card);
-        setProgress(Math.round((i / uniqueCardArray.length) * 50));
+        setProgress(15 + Math.round((i / uniqueCardArray.length) * 40));
         const base64 = await loadImageAsBase64(imageUrl, card.name);
         imageCache.set(card.name, base64);
       }
+
+      setProgress(55);
 
       let cardIndex = 0;
       for (const card of expandedCards) {
@@ -184,12 +213,15 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         }
 
         cardIndex++;
-        setProgress(50 + Math.round((cardIndex / expandedCards.length) * 50));
+        setProgress(55 + Math.round((cardIndex / expandedCards.length) * 40));
       }
+
+      setProgress(95);
 
       const fileName = `${deckName.replace(/[^a-z0-9]/gi, '_')}_proxies.pdf`;
       doc.save(fileName);
       
+      setProgress(100);
       showSuccess('Proxies Generated!', `${expandedCards.length} cards, ${Math.ceil(expandedCards.length / 9)} pages`);
     } catch (error) {
       console.error('Generation failed:', error);

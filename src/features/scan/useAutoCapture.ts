@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { calculateSharpness } from './image';
 
 interface AutoCaptureOptions {
@@ -17,19 +17,34 @@ export function useAutoCapture(
   const lastCaptureTime = useRef(0);
   const stableStartTime = useRef(0);
   const animationFrameRef = useRef<number>();
+  const isRunning = useRef(false);
 
-  const checkSharpness = () => {
-    if (!options.enabled) return;
+  // Store callbacks in refs to avoid dependency issues
+  const captureFrameRef = useRef(captureFrame);
+  const onCaptureRef = useRef(onCapture);
+  const optionsRef = useRef(options);
+
+  // Update refs when props change
+  useEffect(() => {
+    captureFrameRef.current = captureFrame;
+    onCaptureRef.current = onCapture;
+    optionsRef.current = options;
+  }, [captureFrame, onCapture, options]);
+
+  const checkSharpness = useCallback(() => {
+    if (!optionsRef.current.enabled || !isRunning.current) {
+      return;
+    }
 
     const now = Date.now();
     
     // Cooldown check - prevent rapid processing cycles
-    if (now - lastCaptureTime.current < options.cooldownDelay) {
+    if (now - lastCaptureTime.current < optionsRef.current.cooldownDelay) {
       animationFrameRef.current = requestAnimationFrame(checkSharpness);
       return;
     }
 
-    const frameData = captureFrame();
+    const frameData = captureFrameRef.current();
     if (!frameData || frameData.width === 0 || frameData.height === 0) {
       animationFrameRef.current = requestAnimationFrame(checkSharpness);
       return;
@@ -38,21 +53,22 @@ export function useAutoCapture(
     try {
       const sharpness = calculateSharpness(frameData);
       
-      if (sharpness > options.sharpnessThreshold) {
+      if (sharpness > optionsRef.current.sharpnessThreshold) {
         // Image is sharp
         if (stableStartTime.current === 0) {
           stableStartTime.current = now;
-        } else if (now - stableStartTime.current >= options.stabilityDelay) {
+        } else if (now - stableStartTime.current >= optionsRef.current.stabilityDelay) {
           // Image has been stable and sharp for required duration
           setIsCapturing(true);
           lastCaptureTime.current = now;
           stableStartTime.current = 0;
           
-          setTimeout(() => {
-            onCapture(frameData);
-            setIsCapturing(false);
-          }, 100);
+          // Trigger capture
+          onCaptureRef.current(frameData);
+          setIsCapturing(false);
           
+          // Continue loop after cooldown
+          animationFrameRef.current = requestAnimationFrame(checkSharpness);
           return;
         }
       } else {
@@ -61,32 +77,40 @@ export function useAutoCapture(
       }
     } catch (error) {
       console.error('Error checking sharpness:', error);
-      // Reset timer on error
       stableStartTime.current = 0;
     }
 
     animationFrameRef.current = requestAnimationFrame(checkSharpness);
-  };
+  }, []);
 
   useEffect(() => {
     if (options.enabled) {
+      isRunning.current = true;
+      stableStartTime.current = 0;
       animationFrameRef.current = requestAnimationFrame(checkSharpness);
+    } else {
+      isRunning.current = false;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     }
 
     return () => {
+      isRunning.current = false;
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [options.enabled, isCapturing]);
+  }, [options.enabled, checkSharpness]);
 
-  const stop = () => {
+  const stop = useCallback(() => {
+    isRunning.current = false;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
     stableStartTime.current = 0;
     setIsCapturing(false);
-  };
+  }, []);
 
   return { isCapturing, stop };
 }

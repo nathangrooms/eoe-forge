@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Printer, Download, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import jsPDF from 'jspdf';
+// jsPDF imported dynamically to avoid SSR/build issues
 
 interface DeckProxyGeneratorProps {
   deckCards: any[];
@@ -120,6 +120,9 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         }
       });
 
+      // Dynamic import to avoid build issues
+      const { default: jsPDF } = await import('jspdf');
+      
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'in',
@@ -197,7 +200,7 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     }
   };
 
-  const drawPlaceholder = (doc: jsPDF, x: number, y: number, width: number, height: number, name: string) => {
+  const drawPlaceholder = (doc: any, x: number, y: number, width: number, height: number, name: string) => {
     doc.setDrawColor(100);
     doc.setFillColor(240, 240, 240);
     doc.rect(x, y, width, height, 'FD');

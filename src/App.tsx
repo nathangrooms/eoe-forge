@@ -89,14 +89,14 @@ function AppContent() {
       </div>
       
       {/* Main Layout with Left Nav + Content */}
-      <div className="flex pt-16 md:pt-20">
+      <div className="flex pt-28 md:pt-20">
         {/* Left Navigation - Fixed on left, hidden on mobile */}
         <div className="hidden md:block fixed left-0 top-20 bottom-0 z-40">
           <LeftNavigation />
         </div>
         
         {/* Main Content Area - Offset by left nav width on desktop */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)] w-full md:ml-64 overflow-x-hidden py-4 md:py-6">
+        <main className="flex-1 min-h-[calc(100vh-7rem)] md:min-h-[calc(100vh-5rem)] w-full md:ml-64 overflow-x-hidden py-2 md:py-6">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

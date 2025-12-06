@@ -27,6 +27,7 @@ interface EmptyState {
   title: string;
   description?: string;
   action?: () => void;
+  actionLabel?: string;
 }
 
 interface UniversalLocalSearchProps {

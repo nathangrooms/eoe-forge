@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { 
-  LayoutGrid, 
-  List, 
+  Plus, 
+  Minus, 
   ChevronDown, 
   ChevronRight, 
-  Plus, 
-  Minus,
   Crown,
   Swords,
   Shield,
@@ -18,38 +16,35 @@ import {
   Sparkles,
   Mountain,
   Users,
-  Skull,
-  Eye,
-  ArrowRightLeft,
-  Bookmark
+  Search,
+  X,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { ManualReplacementModal } from './ManualReplacementModal';
+import { cn } from '@/lib/utils';
 
-type ViewMode = 'list' | 'visual';
-type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles';
+type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles' | 'other';
 
-const CATEGORY_ICONS = {
-  creatures: Users,
-  lands: Mountain,
-  instants: Sparkles,
-  sorceries: Scroll,
-  enchantments: Gem,
-  artifacts: Shield,
-  planeswalkers: Swords,
-  battles: Skull
+const CATEGORY_CONFIG: Record<Category, { label: string; icon: any; color: string; bgColor: string }> = {
+  creatures: { label: 'Creatures', icon: Users, color: 'text-green-500', bgColor: 'bg-green-500/10 border-l-green-500' },
+  lands: { label: 'Lands', icon: Mountain, color: 'text-amber-600', bgColor: 'bg-amber-500/10 border-l-amber-500' },
+  instants: { label: 'Instants', icon: Sparkles, color: 'text-blue-400', bgColor: 'bg-blue-500/10 border-l-blue-500' },
+  sorceries: { label: 'Sorceries', icon: Scroll, color: 'text-blue-600', bgColor: 'bg-blue-600/10 border-l-blue-600' },
+  enchantments: { label: 'Enchantments', icon: Gem, color: 'text-purple-500', bgColor: 'bg-purple-500/10 border-l-purple-500' },
+  artifacts: { label: 'Artifacts', icon: Shield, color: 'text-gray-400', bgColor: 'bg-gray-500/10 border-l-gray-500' },
+  planeswalkers: { label: 'Planeswalkers', icon: Swords, color: 'text-orange-500', bgColor: 'bg-orange-500/10 border-l-orange-500' },
+  battles: { label: 'Battles', icon: Swords, color: 'text-red-500', bgColor: 'bg-red-500/10 border-l-red-500' },
+  other: { label: 'Other', icon: Sparkles, color: 'text-gray-500', bgColor: 'bg-gray-500/10 border-l-gray-500' }
 };
 
-const CATEGORY_LABELS = {
-  creatures: 'Creatures',
-  lands: 'Lands',
-  instants: 'Instants',
-  sorceries: 'Sorceries',
-  enchantments: 'Enchantments',
-  artifacts: 'Artifacts',
-  planeswalkers: 'Planeswalkers',
-  battles: 'Battles'
+const colorMap: Record<string, string> = {
+  W: 'bg-amber-100 border-amber-300',
+  U: 'bg-blue-500',
+  B: 'bg-gray-800',
+  R: 'bg-red-500',
+  G: 'bg-green-500'
 };
 
 interface EnhancedDeckListProps {
@@ -57,74 +52,79 @@ interface EnhancedDeckListProps {
 }
 
 export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
-  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
   const [replacementModalOpen, setReplacementModalOpen] = useState(false);
   const [cardToReplace, setCardToReplace] = useState<any>(null);
   
   const deck = useDeckStore();
-  const { activeDeck, updateCardQuantity, removeCardFromDeck, decks } = useDeckManagementStore();
+  const { activeDeck, updateCardQuantity: updateLocalQuantity, removeCardFromDeck, decks } = useDeckManagementStore();
 
-  // Get the correct deck - prioritize local deck if deckId matches a local deck
   const localDeck = deckId ? decks.find(d => d.id === deckId) : activeDeck;
   const cards = localDeck?.cards || deck.cards || [];
 
   const toggleCategory = (category: Category) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
+    const newCollapsed = new Set(collapsedCategories);
+    if (newCollapsed.has(category)) {
+      newCollapsed.delete(category);
     } else {
-      newExpanded.add(category);
+      newCollapsed.add(category);
     }
-    setExpandedCategories(newExpanded);
+    setCollapsedCategories(newCollapsed);
   };
 
-  const groupedCards = cards.reduce((acc, card) => {
-    // Determine category based on type_line
-    let category: Category = 'creatures'; // default
-    
-    const typeLine = card.type_line?.toLowerCase() || '';
-    
-    if (typeLine.includes('land')) {
-      category = 'lands';
-    } else if (typeLine.includes('creature')) {
-      category = 'creatures';
-    } else if (typeLine.includes('instant')) {
-      category = 'instants';
-    } else if (typeLine.includes('sorcery')) {
-      category = 'sorceries';
-    } else if (typeLine.includes('enchantment')) {
-      category = 'enchantments';
-    } else if (typeLine.includes('artifact')) {
-      category = 'artifacts';
-    } else if (typeLine.includes('planeswalker')) {
-      category = 'planeswalkers';
-    } else if (typeLine.includes('battle')) {
-      category = 'battles';
-    }
-    
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(card);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const getCategory = (typeLine: string): Category => {
+    const lower = typeLine?.toLowerCase() || '';
+    if (lower.includes('creature')) return 'creatures';
+    if (lower.includes('land')) return 'lands';
+    if (lower.includes('instant')) return 'instants';
+    if (lower.includes('sorcery')) return 'sorceries';
+    if (lower.includes('enchantment')) return 'enchantments';
+    if (lower.includes('artifact')) return 'artifacts';
+    if (lower.includes('planeswalker')) return 'planeswalkers';
+    if (lower.includes('battle')) return 'battles';
+    return 'other';
+  };
+
+  const groupedCards = useMemo(() => {
+    const filtered = cards.filter((card: any) => 
+      card.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const groups: Record<Category, any[]> = {
+      creatures: [], lands: [], instants: [], sorceries: [],
+      enchantments: [], artifacts: [], planeswalkers: [], battles: [], other: []
+    };
+
+    filtered.forEach((card: any) => {
+      const category = getCategory(card.type_line);
+      groups[category].push(card);
+    });
+
+    // Sort by CMC then name
+    Object.keys(groups).forEach(key => {
+      groups[key as Category].sort((a, b) => {
+        if ((a.cmc || 0) !== (b.cmc || 0)) return (a.cmc || 0) - (b.cmc || 0);
+        return a.name.localeCompare(b.name);
+      });
+    });
+
+    return groups;
+  }, [cards, searchTerm]);
 
   const updateQuantity = (cardId: string, change: number) => {
     if (localDeck) {
-      const card = cards.find(c => c.id === cardId);
+      const card = cards.find((c: any) => c.id === cardId);
       if (card) {
         const newQuantity = Math.max(0, card.quantity + change);
         if (newQuantity === 0) {
           removeCardFromDeck(localDeck.id, cardId);
         } else {
-          updateCardQuantity(localDeck.id, cardId, newQuantity);
+          updateLocalQuantity(localDeck.id, cardId, newQuantity);
         }
       }
     } else {
-      // Handle Supabase deck
-      const card = cards.find(c => c.id === cardId);
+      const card = cards.find((c: any) => c.id === cardId);
       if (card) {
         const newQuantity = Math.max(0, card.quantity + change);
         if (newQuantity === 0) {
@@ -136,256 +136,162 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
     }
   };
 
-  const CategoryCard = ({ category, cards: categoryCards }: { category: Category, cards: any[] }) => {
-    const Icon = CATEGORY_ICONS[category] || Users; // Fallback to Users icon if undefined
-    const isExpanded = expandedCategories.has(category);
-    const totalCards = categoryCards.reduce((sum, card) => sum + card.quantity, 0);
+  const getCardImage = (card: any) => {
+    return card.image_uris?.small || card.image_uris?.normal || 
+      `https://cards.scryfall.io/small/front/${card.id?.charAt(0)}/${card.id?.charAt(1)}/${card.id}.jpg`;
+  };
 
-    // Category-specific colors using app theme
-    const getCategoryColor = (category: Category) => {
-      const colors = {
-        creatures: 'border-l-green-500 bg-green-500/20',
-        lands: 'border-l-orange-500 bg-orange-500/20', 
-        instants: 'border-l-blue-500 bg-blue-500/20',
-        sorceries: 'border-l-red-500 bg-red-500/20',
-        enchantments: 'border-l-purple-500 bg-purple-500/20',
-        artifacts: 'border-l-gray-500 bg-gray-500/20',
-        planeswalkers: 'border-l-pink-500 bg-pink-500/20',
-        battles: 'border-l-orange-600 bg-orange-600/20'
-      };
-      return colors[category] || 'border-l-gray-500 bg-gray-500/20';
-    };
+  const renderCategory = (category: Category) => {
+    const categoryCards = groupedCards[category];
+    if (categoryCards.length === 0) return null;
+
+    const config = CATEGORY_CONFIG[category];
+    const Icon = config.icon;
+    const isCollapsed = collapsedCategories.has(category);
+    const totalCards = categoryCards.reduce((sum: number, card: any) => sum + (card.quantity || 1), 0);
 
     return (
-      <Card className={`mb-4 border-l-4 ${getCategoryColor(category)}`}>
-        <CardHeader 
-          className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
+      <div key={category} className="mb-4">
+        <button
           onClick={() => toggleCategory(category)}
+          className={cn(
+            "flex items-center gap-3 w-full p-3 rounded-lg border-l-4 transition-colors",
+            config.bgColor,
+            "hover:bg-muted/50"
+          )}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              <Icon className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">{CATEGORY_LABELS[category]}</CardTitle>
-              <Badge variant="secondary">{totalCards}</Badge>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setViewMode(viewMode === 'list' ? 'visual' : 'list');
-                }}
-              >
-                {viewMode === 'list' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        
-        {isExpanded && (
-          <CardContent className="pt-0">
-            {viewMode === 'list' ? (
-              <div className="space-y-2">
-                {categoryCards.map((card, index) => (
-                  <div key={`${card.id}-${index}`} className="flex items-center justify-between p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors group">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex items-center gap-2 min-w-[80px]">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(card.id, -1)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="font-mono text-sm w-8 text-center">{card.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(card.id, 1)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="font-medium flex items-center gap-2">
-                          {card.name}
-                          {deck.replacements.find(r => r.originalCardId === card.id) && (
-                            <Badge variant="outline" className="text-xs">
-                              <Bookmark className="h-3 w-3 mr-1" />
-                              Future
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{card.type_line}</div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {card.mana_cost && (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {card.cmc}
-                          </Badge>
-                        )}
-                        {card.colors?.length > 0 && (
-                          <div className="flex gap-1">
-                            {card.colors.map((color: string) => (
-                              <div 
-                                key={color}
-                                className={`w-3 h-3 rounded-full border ${getColorClass(color)}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCardToReplace(card);
-                            setReplacementModalOpen(true);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <ArrowRightLeft className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {categoryCards.map((card, index) => (
-                  <div key={`${card.id}-${index}`} className="relative group">
-                    <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-colors">
-                      {card.image_uris?.normal ? (
-                        <img 
-                          src={card.image_uris.normal} 
-                          alt={card.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <Icon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <Icon className={cn("h-5 w-5", config.color)} />
+          <span className="font-semibold">{config.label}</span>
+          <Badge variant="secondary" className="ml-auto">{totalCards}</Badge>
+        </button>
 
-                      {/* Replace Action (visual mode) */}
-                      <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label="Replace card"
-                          onClick={() => {
-                            setCardToReplace(card);
-                            setReplacementModalOpen(true);
-                          }}
-                        >
-                          <ArrowRightLeft className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      
-                      {/* Quantity Badge */}
-                      <div className="absolute top-2 left-2">
-                        <Badge className="bg-background/90 text-foreground border">
-                          {card.quantity}
-                        </Badge>
-                      </div>
-                      
-                      {/* Quantity Controls */}
-                      <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="flex items-center gap-1 bg-background/90 rounded p-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(card.id, -1)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="font-mono text-sm flex-1 text-center">{card.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(card.id, 1)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-2 text-center">
-                      <div className="font-medium text-sm line-clamp-1">{card.name}</div>
-                      <div className="text-xs text-muted-foreground">CMC {card.cmc}</div>
-                    </div>
+        {!isCollapsed && (
+          <div className="mt-2 space-y-1 pl-2">
+            {categoryCards.map((card: any) => (
+              <div 
+                key={card.id}
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors group"
+              >
+                {/* Card Thumbnail */}
+                <img
+                  src={getCardImage(card)}
+                  alt={card.name}
+                  className="w-12 h-auto rounded shadow-sm"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+
+                {/* Quantity Controls */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => updateQuantity(card.id, -1)}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <span className="w-6 text-center font-mono font-medium">{card.quantity || 1}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => updateQuantity(card.id, 1)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                {/* Card Name & Type */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{card.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{card.type_line}</p>
+                </div>
+
+                {/* CMC Badge */}
+                <Badge variant="outline" className="font-mono text-xs shrink-0">
+                  {card.cmc || 0}
+                </Badge>
+
+                {/* Color Identity */}
+                {card.colors && card.colors.length > 0 && (
+                  <div className="flex gap-0.5 shrink-0">
+                    {card.colors.map((color: string) => (
+                      <div 
+                        key={color}
+                        className={cn("w-4 h-4 rounded-full border", colorMap[color])}
+                      />
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {/* Replace Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  onClick={() => {
+                    setCardToReplace(card);
+                    setReplacementModalOpen(true);
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-          </CardContent>
+            ))}
+          </div>
         )}
-      </Card>
+      </div>
     );
   };
 
-  const totalCards = cards.reduce((sum, card) => sum + card.quantity, 0);
-
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold">Deck List</h2>
-          <p className="text-sm text-muted-foreground">{totalCards} cards total</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('list')}
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search cards in deck..."
+          className="pl-9"
+        />
+        {searchTerm && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+            onClick={() => setSearchTerm('')}
           >
-            <List className="h-4 w-4 mr-2" />
-            List
+            <X className="h-4 w-4" />
           </Button>
-          <Button
-            variant={viewMode === 'visual' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('visual')}
-          >
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Visual
-          </Button>
-        </div>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <span>{cards.length} unique cards</span>
+        <span>•</span>
+        <span>{cards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0)} total</span>
       </div>
 
       {/* Categories */}
-      {Object.entries(groupedCards).map(([category, categoryCards]) => (
-        <CategoryCard
-          key={category}
-          category={category as Category}
-          cards={categoryCards}
-        />
-      ))}
+      <div>
+        {(Object.keys(CATEGORY_CONFIG) as Category[]).map(category => 
+          renderCategory(category)
+        )}
+      </div>
 
       {cards.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No Cards in Deck</h3>
-            <p className="text-muted-foreground">
-              Add cards from the search tab to build your deck
-            </p>
-          </CardContent>
-        </Card>
+        <div className="text-center py-12 text-muted-foreground">
+          <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-20" />
+          <p className="font-medium">No cards in deck</p>
+          <p className="text-sm">Add cards using the "Add Cards" tab</p>
+        </div>
       )}
 
-      {/* Manual Replacement Modal */}
+      {/* Replacement Modal */}
       {cardToReplace && (
         <ManualReplacementModal
           isOpen={replacementModalOpen}
@@ -395,40 +301,55 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
           }}
           currentCard={{
             name: cardToReplace.name,
-            image: cardToReplace.image_uris?.normal
+            image: cardToReplace.image_uris?.small || cardToReplace.image_uris?.normal
           }}
           onReplace={(newCardName) => {
-            deck.addReplacement(
-              cardToReplace.id,
-              { ...cardToReplace, name: newCardName } as any,
-              1,
-              'Manual replacement - Replace now'
-            );
-            
-            // Auto-remove old card
-            deck.removeCard(cardToReplace.id);
+            // Fetch the new card and replace
+            import('@/lib/api/scryfall').then(({ scryfallAPI }) => {
+              scryfallAPI.getCardByName(newCardName).then((newCard) => {
+                deck.removeCard(cardToReplace.id);
+                deck.addCard({
+                  id: newCard.id,
+                  name: newCard.name,
+                  cmc: newCard.cmc || 0,
+                  type_line: newCard.type_line || '',
+                  colors: newCard.colors || [],
+                  mana_cost: newCard.mana_cost,
+                  quantity: 1,
+                  category: 'other' as const,
+                  mechanics: newCard.keywords || [],
+                  image_uris: newCard.image_uris,
+                  prices: newCard.prices
+                });
+              });
+            });
+            setReplacementModalOpen(false);
+            setCardToReplace(null);
           }}
           onMarkFuture={(newCardName) => {
-            deck.addReplacement(
-              cardToReplace.id,
-              { ...cardToReplace, name: newCardName } as any,
-              2,
-              'Manual replacement - Future'
-            );
+            // Mark as future replacement - we need to fetch the card first
+            import('@/lib/api/scryfall').then(({ scryfallAPI }) => {
+              scryfallAPI.getCardByName(newCardName).then((newCard) => {
+                deck.addReplacement(cardToReplace.id, {
+                  id: newCard.id,
+                  name: newCard.name,
+                  cmc: newCard.cmc || 0,
+                  type_line: newCard.type_line || '',
+                  colors: newCard.colors || [],
+                  mana_cost: newCard.mana_cost,
+                  quantity: 1,
+                  category: 'other' as const,
+                  mechanics: newCard.keywords || [],
+                  image_uris: newCard.image_uris,
+                  prices: newCard.prices
+                });
+              });
+            });
+            setReplacementModalOpen(false);
+            setCardToReplace(null);
           }}
         />
       )}
     </div>
   );
-}
-
-function getColorClass(color: string): string {
-  const colorMap: Record<string, string> = {
-    W: 'bg-yellow-100 border-yellow-300',
-    U: 'bg-blue-100 border-blue-300',
-    B: 'bg-gray-100 border-gray-300',
-    R: 'bg-red-100 border-red-300',
-    G: 'bg-green-100 border-green-300'
-  };
-  return colorMap[color] || 'bg-gray-200 border-gray-300';
 }

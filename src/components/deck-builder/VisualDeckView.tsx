@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Plus, 
   Minus, 
-  X, 
   Search, 
   Grid3X3, 
   LayoutList,
@@ -19,10 +19,10 @@ import {
   Scroll,
   Shield,
   Gem,
-  Swords
+  Swords,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MiniManaCurve } from './MiniManaCurve';
 
 interface DeckCard {
   id: string;
@@ -34,6 +34,7 @@ interface DeckCard {
   mana_cost?: string;
   image_uris?: { normal?: string; small?: string };
   prices?: { usd?: string };
+  oracle_text?: string;
 }
 
 interface VisualDeckViewProps {
@@ -45,10 +46,9 @@ interface VisualDeckViewProps {
   onUpdateQuantity?: (cardId: string, quantity: number) => void;
 }
 
-type Category = 'commander' | 'creatures' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'lands' | 'other';
+type Category = 'creatures' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'lands' | 'other';
 
 const CATEGORY_CONFIG: Record<Category, { label: string; icon: any; color: string }> = {
-  commander: { label: 'Commander', icon: Crown, color: 'text-amber-400' },
   creatures: { label: 'Creatures', icon: Users, color: 'text-green-500' },
   instants: { label: 'Instants', icon: Sparkles, color: 'text-blue-400' },
   sorceries: { label: 'Sorceries', icon: Scroll, color: 'text-blue-600' },
@@ -69,7 +69,6 @@ export function VisualDeckView({
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
-  const [viewMode, setViewMode] = useState<'grid' | 'pile'>('pile');
 
   const getCategory = (card: DeckCard): Category => {
     const typeLine = card.type_line?.toLowerCase() || '';
@@ -89,7 +88,6 @@ export function VisualDeckView({
     );
 
     const groups: Record<Category, DeckCard[]> = {
-      commander: [],
       creatures: [],
       instants: [],
       sorceries: [],
@@ -131,25 +129,11 @@ export function VisualDeckView({
       `https://cards.scryfall.io/normal/front/${card.id.charAt(0)}/${card.id.charAt(1)}/${card.id}.jpg`;
   };
 
-  const curveData = useMemo(() => {
-    const bins: Record<string, number> = {
-      '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0
-    };
-    cards.forEach(card => {
-      if (card.type_line?.toLowerCase().includes('land')) return;
-      const cmc = card.cmc || 0;
-      const qty = card.quantity || 1;
-      if (cmc <= 1) bins['0-1'] += qty;
-      else if (cmc === 2) bins['2'] += qty;
-      else if (cmc === 3) bins['3'] += qty;
-      else if (cmc === 4) bins['4'] += qty;
-      else if (cmc === 5) bins['5'] += qty;
-      else if (cmc >= 6 && cmc <= 7) bins['6-7'] += qty;
-      else if (cmc >= 8 && cmc <= 9) bins['8-9'] += qty;
-      else bins['10+'] += qty;
-    });
-    return bins;
-  }, [cards]);
+  const getCommanderImage = () => {
+    if (!commander) return null;
+    return commander.image_uris?.normal || commander.image_uris?.large || commander.image ||
+      `https://cards.scryfall.io/normal/front/${commander.id?.charAt(0)}/${commander.id?.charAt(1)}/${commander.id}.jpg`;
+  };
 
   const renderCardPile = (categoryCards: DeckCard[], category: Category) => {
     if (categoryCards.length === 0) return null;
@@ -160,87 +144,66 @@ export function VisualDeckView({
     const totalCards = categoryCards.reduce((sum, c) => sum + (c.quantity || 1), 0);
 
     return (
-      <div key={category} className="mb-4">
+      <div key={category} className="mb-6">
         <button
           onClick={() => toggleCategory(category)}
-          className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-muted/50 transition-colors"
+          className="flex items-center gap-2 w-full p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors mb-3"
         >
           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          <Icon className={cn("h-4 w-4", config.color)} />
-          <span className="font-medium text-sm">{config.label}</span>
-          <Badge variant="secondary" className="text-xs ml-auto">{totalCards}</Badge>
+          <Icon className={cn("h-5 w-5", config.color)} />
+          <span className="font-semibold">{config.label}</span>
+          <Badge variant="secondary" className="ml-auto">{totalCards}</Badge>
         </button>
         
         {!isCollapsed && (
-          <div className={cn(
-            "mt-2 pl-2",
-            viewMode === 'pile' ? "flex flex-wrap gap-1" : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2"
-          )}>
-            {viewMode === 'pile' ? (
-              // Stacked pile view - overlapping cards
-              <div className="relative w-full">
-                <div className="flex flex-wrap gap-1">
-                  {categoryCards.map((card, index) => (
-                    <div 
-                      key={card.id}
-                      className="group relative"
-                      style={{ width: '120px' }}
-                    >
-                      <div className="relative rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-105 hover:z-10">
-                        <img
-                          src={getCardImage(card)}
-                          alt={card.name}
-                          className="w-full h-auto"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.src = '/placeholder.svg';
-                          }}
-                        />
-                        {card.quantity > 1 && (
-                          <Badge className="absolute top-1 right-1 text-xs bg-black/70">
-                            ×{card.quantity}
-                          </Badge>
-                        )}
-                        
-                        {/* Hover actions */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                          {onAddCard && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-white" onClick={() => onAddCard(card.id)}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onRemoveCard && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-white" onClick={() => onRemoveCard(card.id)}>
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              // Grid view
-              categoryCards.map(card => (
-                <div 
-                  key={card.id}
-                  className="group relative rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all"
-                >
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {categoryCards.map((card) => (
+              <div 
+                key={card.id}
+                className="group relative"
+              >
+                <div className="relative rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-[1.02] hover:z-10 bg-muted/20">
                   <img
                     src={getCardImage(card)}
                     alt={card.name}
                     className="w-full h-auto"
                     loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder.svg';
+                    }}
                   />
                   {card.quantity > 1 && (
-                    <Badge className="absolute top-1 right-1 text-xs bg-black/70">
+                    <Badge className="absolute top-2 right-2 text-sm bg-black/80 px-2">
                       ×{card.quantity}
                     </Badge>
                   )}
+                  
+                  {/* Hover actions */}
+                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {onAddCard && (
+                      <Button 
+                        size="icon" 
+                        variant="secondary" 
+                        className="h-10 w-10" 
+                        onClick={(e) => { e.stopPropagation(); onAddCard(card.id); }}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    )}
+                    {onRemoveCard && (
+                      <Button 
+                        size="icon" 
+                        variant="secondary" 
+                        className="h-10 w-10" 
+                        onClick={(e) => { e.stopPropagation(); onRemoveCard(card.id); }}
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -248,81 +211,88 @@ export function VisualDeckView({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Search and View Controls */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search cards in deck..."
-            className="pl-9"
-          />
-        </div>
-        <div className="flex items-center gap-1 border rounded-lg p-1">
-          <Button
-            size="icon"
-            variant={viewMode === 'pile' ? 'default' : 'ghost'}
-            className="h-8 w-8"
-            onClick={() => setViewMode('pile')}
+    <div className="space-y-6">
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search cards in deck..."
+          className="pl-9"
+        />
+        {searchTerm && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+            onClick={() => setSearchTerm('')}
           >
-            <LayoutList className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
-          <Button
-            size="icon"
-            variant={viewMode === 'grid' ? 'default' : 'ghost'}
-            className="h-8 w-8"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-        </div>
+        )}
       </div>
-
-      {/* Mini Mana Curve */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium">Mana Curve</span>
-          <span className="text-xs text-muted-foreground">
-            {cards.reduce((sum, c) => sum + (c.quantity || 1), 0)} cards
-          </span>
-        </div>
-        <MiniManaCurve curveData={curveData} className="h-24" />
-      </Card>
 
       {/* Commander Section */}
       {format === 'commander' && commander && (
-        <Card className="p-4 border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-transparent">
-          <div className="flex items-center gap-3">
-            <Crown className="h-5 w-5 text-amber-400" />
-            <div className="flex-1">
-              <h3 className="font-semibold">{commander.name}</h3>
-              <p className="text-xs text-muted-foreground">{commander.type_line}</p>
-            </div>
-            {commander.image_uris?.small && (
+        <Card className="p-4 border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-transparent">
+          <div className="flex gap-4">
+            {/* Commander Image */}
+            <div className="w-48 flex-shrink-0">
               <img 
-                src={commander.image_uris.normal || commander.image_uris.small} 
+                src={getCommanderImage() || '/placeholder.svg'} 
                 alt={commander.name}
-                className="h-20 w-auto rounded-lg shadow-md"
+                className="w-full h-auto rounded-xl shadow-lg"
+                onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
               />
-            )}
+            </div>
+            
+            {/* Commander Details */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Crown className="h-5 w-5 text-amber-400" />
+                <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
+              </div>
+              <h3 className="text-xl font-bold mb-1">{commander.name}</h3>
+              <p className="text-sm text-muted-foreground mb-3">{commander.type_line}</p>
+              
+              {/* Oracle Text */}
+              {commander.oracle_text && (
+                <div className="text-sm leading-relaxed space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {commander.oracle_text.split('\n').map((line: string, i: number) => (
+                    <p key={i} className="text-foreground/90">{line}</p>
+                  ))}
+                </div>
+              )}
+              
+              {/* Stats */}
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
+                {commander.mana_cost && (
+                  <Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>
+                )}
+                {commander.power && commander.toughness && (
+                  <Badge variant="secondary">{commander.power}/{commander.toughness}</Badge>
+                )}
+                {commander.loyalty && (
+                  <Badge variant="secondary">Loyalty: {commander.loyalty}</Badge>
+                )}
+              </div>
+            </div>
           </div>
         </Card>
       )}
 
       {/* Card Categories */}
-      <div className="space-y-2">
-        {(Object.keys(CATEGORY_CONFIG) as Category[])
-          .filter(cat => cat !== 'commander')
-          .map(category => renderCardPile(groupedCards[category], category))
-        }
+      <div>
+        {(Object.keys(CATEGORY_CONFIG) as Category[]).map(category => 
+          renderCardPile(groupedCards[category], category)
+        )}
       </div>
 
       {cards.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="font-medium">No cards in deck yet</p>
+        <div className="text-center py-16 text-muted-foreground">
+          <Sparkles className="h-16 w-16 mx-auto mb-4 opacity-20" />
+          <p className="text-lg font-medium">No cards in deck yet</p>
           <p className="text-sm">Use the "Add Cards" tab to search and add cards</p>
         </div>
       )}

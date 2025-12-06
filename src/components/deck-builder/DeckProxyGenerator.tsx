@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Printer, Download, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DeckProxyGeneratorProps {
   deckCards: any[];
@@ -90,36 +91,26 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
   const getCardId = (card: any) => card.id || card.name;
 
   const loadImageAsBase64 = async (url: string, cardName: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          try {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            resolve(dataUrl);
-          } catch (e) {
-            console.error(`Canvas export failed for ${cardName}:`, e);
-            resolve(null);
-          }
-        } else {
-          resolve(null);
-        }
-      };
-      
-      img.onerror = () => {
-        console.error(`Failed to load image for ${cardName}`);
-        resolve(null);
-      };
-      
-      img.src = url;
-    });
+    try {
+      // Use edge function to proxy the image and get base64
+      const { data, error } = await supabase.functions.invoke('proxy-image', {
+        body: { url }
+      });
+
+      if (error) {
+        console.error(`Failed to proxy image for ${cardName}:`, error);
+        return null;
+      }
+
+      if (data?.dataUrl) {
+        return data.dataUrl;
+      }
+
+      return null;
+    } catch (e) {
+      console.error(`Failed to load image for ${cardName}:`, e);
+      return null;
+    }
   };
 
   const generateProxies = async () => {

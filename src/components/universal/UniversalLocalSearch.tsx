@@ -192,7 +192,7 @@ export function UniversalLocalSearch({
   }, [cards, query, filters]);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col">
       {/* Top controls */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="px-6 py-3 flex items-center gap-3">
@@ -252,7 +252,7 @@ export function UniversalLocalSearch({
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-auto px-6 py-6">
+      <div className="px-6 py-6">
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[1,2,3,4,5,6,7,8].map((i) => (

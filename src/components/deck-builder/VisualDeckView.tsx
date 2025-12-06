@@ -3,13 +3,12 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Plus, 
   Minus, 
   Search, 
-  Grid3X3, 
-  LayoutList,
   ChevronDown,
   ChevronRight,
   Crown,
@@ -20,7 +19,11 @@ import {
   Shield,
   Gem,
   Swords,
-  X
+  X,
+  RefreshCw,
+  Trash2,
+  LayoutList,
+  Grid3X3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +47,7 @@ interface VisualDeckViewProps {
   onAddCard?: (cardId: string) => void;
   onRemoveCard?: (cardId: string) => void;
   onUpdateQuantity?: (cardId: string, quantity: number) => void;
+  onReplaceCard?: (cardId: string) => void;
 }
 
 type Category = 'creatures' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'lands' | 'other';
@@ -65,10 +69,12 @@ export function VisualDeckView({
   format,
   onAddCard,
   onRemoveCard,
-  onUpdateQuantity
+  onUpdateQuantity,
+  onReplaceCard
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
+  const [isListView, setIsListView] = useState(false);
 
   const getCategory = (card: DeckCard): Category => {
     const typeLine = card.type_line?.toLowerCase() || '';
@@ -135,6 +141,65 @@ export function VisualDeckView({
       `https://cards.scryfall.io/normal/front/${commander.id?.charAt(0)}/${commander.id?.charAt(1)}/${commander.id}.jpg`;
   };
 
+  const renderListView = (categoryCards: DeckCard[], category: Category) => {
+    if (categoryCards.length === 0) return null;
+    
+    const config = CATEGORY_CONFIG[category];
+    const Icon = config.icon;
+    const isCollapsed = collapsedCategories.has(category);
+    const totalCards = categoryCards.reduce((sum, c) => sum + (c.quantity || 1), 0);
+
+    return (
+      <div key={category} className="mb-4">
+        <button
+          onClick={() => toggleCategory(category)}
+          className="flex items-center gap-2 w-full p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors mb-2"
+        >
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <Icon className={cn("h-4 w-4", config.color)} />
+          <span className="font-medium text-sm">{config.label}</span>
+          <Badge variant="secondary" className="ml-auto text-xs">{totalCards}</Badge>
+        </button>
+        
+        {!isCollapsed && (
+          <div className="space-y-1 pl-2">
+            {categoryCards.map((card) => (
+              <div 
+                key={card.id}
+                className="flex items-center justify-between p-2 rounded hover:bg-muted/30 transition-colors group"
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-muted-foreground w-6">{card.quantity}x</span>
+                  <span className="text-sm truncate">{card.name}</span>
+                  {card.mana_cost && (
+                    <span className="text-xs text-muted-foreground font-mono">{card.mana_cost}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onAddCard && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onAddCard(card.id)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {onRemoveCard && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemoveCard(card.id)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {onReplaceCard && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => onReplaceCard(card.id)}>
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderCardPile = (categoryCards: DeckCard[], category: Category) => {
     if (categoryCards.length === 0) return null;
     
@@ -179,27 +244,55 @@ export function VisualDeckView({
                   )}
                   
                   {/* Hover actions */}
-                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    {onAddCard && (
-                      <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="h-10 w-10" 
-                        onClick={(e) => { e.stopPropagation(); onAddCard(card.id); }}
-                      >
-                        <Plus className="h-5 w-5" />
-                      </Button>
-                    )}
-                    {onRemoveCard && (
-                      <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="h-10 w-10" 
-                        onClick={(e) => { e.stopPropagation(); onRemoveCard(card.id); }}
-                      >
-                        <Minus className="h-5 w-5" />
-                      </Button>
-                    )}
+                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                    <div className="flex items-center gap-2">
+                      {onAddCard && (
+                        <Button 
+                          size="icon" 
+                          variant="secondary" 
+                          className="h-9 w-9" 
+                          onClick={(e) => { e.stopPropagation(); onAddCard(card.id); }}
+                          title="Add copy"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onRemoveCard && (
+                        <Button 
+                          size="icon" 
+                          variant="secondary" 
+                          className="h-9 w-9" 
+                          onClick={(e) => { e.stopPropagation(); onRemoveCard(card.id); }}
+                          title="Remove"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {onReplaceCard && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="h-8 text-xs bg-primary/20 border-primary/40 hover:bg-primary/30"
+                          onClick={(e) => { e.stopPropagation(); onReplaceCard(card.id); }}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Replace
+                        </Button>
+                      )}
+                      {onRemoveCard && (
+                        <Button 
+                          size="icon" 
+                          variant="outline"
+                          className="h-8 w-8 text-xs bg-destructive/20 border-destructive/40 hover:bg-destructive/30"
+                          onClick={(e) => { e.stopPropagation(); onRemoveCard(card.id); }}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -212,25 +305,40 @@ export function VisualDeckView({
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search cards in deck..."
-          className="pl-9"
-        />
-        {searchTerm && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-            onClick={() => setSearchTerm('')}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+      {/* Controls */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search cards in deck..."
+            className="pl-9"
+          />
+          {searchTerm && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchTerm('')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Grid3X3 className={cn("h-4 w-4", !isListView && "text-primary")} />
+          <Switch
+            checked={isListView}
+            onCheckedChange={setIsListView}
+            id="view-toggle"
+          />
+          <LayoutList className={cn("h-4 w-4", isListView && "text-primary")} />
+          <Label htmlFor="view-toggle" className="text-sm text-muted-foreground ml-1">
+            {isListView ? 'List' : 'Visual'}
+          </Label>
+        </div>
       </div>
 
       {/* Commander Section */}
@@ -285,7 +393,9 @@ export function VisualDeckView({
       {/* Card Categories */}
       <div>
         {(Object.keys(CATEGORY_CONFIG) as Category[]).map(category => 
-          renderCardPile(groupedCards[category], category)
+          isListView 
+            ? renderListView(groupedCards[category], category)
+            : renderCardPile(groupedCards[category], category)
         )}
       </div>
 

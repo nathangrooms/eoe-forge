@@ -54,12 +54,6 @@ const NAV_ITEMS: NavItem[] = [
     section: 'main'
   },
   {
-    title: 'Deck Builder',
-    href: '/deck-builder',
-    icon: Hammer,
-    section: 'main'
-  },
-  {
     title: 'Card Search',
     href: '/cards',
     icon: Search,

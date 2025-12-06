@@ -87,12 +87,15 @@ const DeckBuilder = () => {
   const [searchParams] = useSearchParams();
   
   // Clear any persisted deck when a specific deck is requested
+  // This happens BEFORE the new deck loads, so we clear the currentDeckId first
+  // to prevent auto-save race conditions
   useEffect(() => {
     const deckParam = searchParams.get('deck');
     if (deckParam && deck.currentDeckId && deck.currentDeckId !== deckParam) {
+      // Important: Clear currentDeckId FIRST to prevent auto-save from syncing empty state
+      deck.setCurrentDeckId(undefined as any);
       deck.clearDeck();
       deck.setDeckName('');
-      deck.setCurrentDeckId(undefined as any);
     }
   }, [searchParams]);
   

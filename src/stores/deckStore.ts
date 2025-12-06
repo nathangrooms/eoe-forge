@@ -175,11 +175,16 @@ export const useDeckStore = create<DeckState>()(
           };
         }
         
-        // Auto-save if we have a current deck ID
-        if (state.currentDeckId) {
+        // Auto-save if we have a current deck ID AND there are still cards remaining
+        // This prevents syncing an empty deck state
+        if (state.currentDeckId && newState.cards.length > 0) {
           setTimeout(() => {
-            get().updateDeck(state.currentDeckId!);
-          }, 500); // Debounce auto-save
+            const currentState = get();
+            // Double-check state hasn't been cleared
+            if (currentState.cards.length > 0 && currentState.currentDeckId === state.currentDeckId) {
+              get().updateDeck(state.currentDeckId!);
+            }
+          }, 1000); // Increased debounce for safety
         }
         
         return newState;
@@ -603,6 +608,13 @@ export const useDeckStore = create<DeckState>()(
         const { supabase } = await import('@/integrations/supabase/client');
 
         try {
+          // SAFETY CHECK: Don't sync if deck is essentially empty (only commander or nothing)
+          // This prevents accidental data loss from race conditions or stale state
+          if (state.cards.length === 0 && !state.commander) {
+            console.warn('Skipping updateDeck: deck state is empty, likely a race condition');
+            return { success: false, error: 'Deck state is empty - sync skipped to prevent data loss' };
+          }
+
           // Get current user
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {

@@ -604,15 +604,22 @@ export function TaskManagement() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       // Get all tasks
-      const { data: allTasks } = await supabase
+      const { data: allTasks, error: fetchError } = await supabase
         .from('tasks')
         .select('id, title, status')
         .eq('user_id', user.id);
 
-      if (!allTasks) return;
+      if (fetchError || !allTasks) {
+        console.warn('Could not fetch tasks for sync:', fetchError);
+        fetchTasks();
+        return;
+      }
 
       // Update statuses in batch
       const updates = allTasks.map(task => {
@@ -643,6 +650,7 @@ export function TaskManagement() {
       fetchTasks();
     } catch (error: any) {
       console.error('Error syncing task statuses:', error);
+      setLoading(false);
       fetchTasks();
     }
   };
@@ -653,7 +661,8 @@ export function TaskManagement() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        showError('Authentication required', 'Please log in to view tasks');
+        setTasks([]);
+        setLoading(false);
         return;
       }
 
@@ -662,10 +671,15 @@ export function TaskManagement() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setTasks((data || []) as Task[]);
+      if (error) {
+        console.warn('Failed to fetch tasks:', error);
+        setTasks([]);
+      } else {
+        setTasks((data || []) as Task[]);
+      }
     } catch (error: any) {
-      showError('Failed to fetch tasks', error.message);
+      console.error('Failed to fetch tasks:', error);
+      setTasks([]);
     } finally {
       setLoading(false);
     }

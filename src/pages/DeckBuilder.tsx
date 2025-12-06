@@ -976,6 +976,7 @@ const DeckBuilder = () => {
               <DeckProxyGenerator 
                 deckCards={deck.cards as any}
                 deckName={deck.name}
+                commander={deck.commander}
               />
             )}
 

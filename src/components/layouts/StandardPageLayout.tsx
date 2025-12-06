@@ -2,8 +2,8 @@ import { ReactNode } from 'react';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
 
 interface StandardPageLayoutProps {
-  title: string;
-  description: string;
+  title: ReactNode;
+  description?: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;

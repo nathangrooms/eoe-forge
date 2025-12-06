@@ -523,24 +523,15 @@ const DeckBuilder = () => {
 
   return (
     <StandardPageLayout
-      title="Deck Builder"
-      description={`Editing: ${deck.name}`}
-      action={
-        <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
-          {/* Back to Decks */}
-          <Button variant="outline" onClick={() => navigate('/decks')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            <span className="hidden xs:inline">Back to Decks</span>
-            <span className="xs:hidden">Back</span>
-          </Button>
-          
-          {/* Rename Deck Button */}
+      title={
+        <div className="flex items-center gap-2">
+          <span className="text-2xl md:text-3xl font-bold">{deck.name}</span>
           <Dialog open={showRenameDialog} onOpenChange={(open) => {
             setShowRenameDialog(open);
             if (open) setRenameDeckName(deck.name);
           }}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                 <Pencil className="h-4 w-4" />
               </Button>
             </DialogTrigger>
@@ -566,6 +557,14 @@ const DeckBuilder = () => {
             </DialogContent>
           </Dialog>
         </div>
+      }
+      description={`${deck.format} • ${deck.totalCards} cards`}
+      action={
+        <Button variant="outline" onClick={() => navigate('/decks')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          <span className="hidden xs:inline">Back to Decks</span>
+          <span className="xs:hidden">Back</span>
+        </Button>
       }
     >
       <div className="h-full flex flex-col">

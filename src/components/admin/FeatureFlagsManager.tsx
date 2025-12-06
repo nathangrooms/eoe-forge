@@ -9,7 +9,7 @@ import { useFeatureFlags, useUpdateFeatureFlag, SubscriptionTier } from '@/hooks
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
 export function FeatureFlagsManager() {
-  const { data: flags, isLoading, refetch } = useFeatureFlags();
+  const { data: flags, isLoading, refetch, error } = useFeatureFlags();
   const updateFlag = useUpdateFeatureFlag();
 
   const handleToggle = async (flagId: string, enabled: boolean) => {
@@ -45,11 +45,12 @@ export function FeatureFlagsManager() {
       pro: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', icon: Zap },
       unlimited: { color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', icon: Crown },
     };
-    const { color, icon: Icon } = config[tier];
+    const tierConfig = config[tier] || config.free;
+    const { color, icon: Icon } = tierConfig;
     return (
       <Badge variant="outline" className={`text-xs ${color} flex items-center gap-1`}>
         <Icon className="h-3 w-3" />
-        {tier.charAt(0).toUpperCase() + tier.slice(1)}
+        {tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : 'Free'}
       </Badge>
     );
   };
@@ -59,6 +60,20 @@ export function FeatureFlagsManager() {
       <Card>
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
+          <p className="text-muted-foreground">Could not load feature flags</p>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );
@@ -84,7 +99,9 @@ export function FeatureFlagsManager() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {flags?.map((flag) => (
+        {(!flags || flags.length === 0) ? (
+          <p className="text-center text-muted-foreground py-8">No feature flags configured</p>
+        ) : flags.map((flag) => (
           <div
             key={flag.id}
             className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"

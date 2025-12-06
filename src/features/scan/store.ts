@@ -20,6 +20,11 @@ export interface ScanSettings {
   autoAdd: boolean;
   preferPrinting: 'newest' | 'cheapest' | 'last_used';
   sharpnessThreshold: number;
+  addToCollection: boolean;
+  addToDeck: boolean;
+  selectedDeckId: string;
+  addToStorage: boolean;
+  selectedStorageId: string;
 }
 
 interface ScanState {
@@ -30,6 +35,7 @@ interface ScanState {
   // Recent scans
   recentScans: ScannedCard[];
   addRecentScan: (card: ScannedCard) => void;
+  removeRecentScan: (scanId: string) => void;
   updateScanQuantity: (scanId: string, quantity: number) => void;
   clearRecentScans: () => void;
   
@@ -51,7 +57,12 @@ export const useScanStore = create<ScanState>()(
         autoCapture: true,
         autoAdd: false,
         preferPrinting: 'newest',
-        sharpnessThreshold: 50
+        sharpnessThreshold: 50,
+        addToCollection: true,
+        addToDeck: false,
+        selectedDeckId: '',
+        addToStorage: false,
+        selectedStorageId: ''
       },
       
       updateSettings: (newSettings) =>
@@ -85,6 +96,11 @@ export const useScanStore = create<ScanState>()(
             recentScans: [card, ...state.recentScans.slice(0, 9)]
           };
         }),
+      
+      removeRecentScan: (scanId) =>
+        set((state) => ({
+          recentScans: state.recentScans.filter(scan => scan.id !== scanId)
+        })),
       
       updateScanQuantity: (scanId, quantity) =>
         set((state) => ({

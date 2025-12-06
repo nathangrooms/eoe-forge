@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Camera, 
@@ -16,14 +17,17 @@ import {
   Check,
   AlertCircle,
   Pause,
-  Play
+  Play,
+  Undo2,
+  Package,
+  Layers,
+  FolderOpen
 } from 'lucide-react';
 import { useScanStore, type ScannedCard } from './store';
 import { scryfallFuzzySearch, type CardCandidate } from './cardRecognition';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { logActivity } from '@/features/dashboard/hooks';
 import { useAutoCapture } from './useAutoCapture';
-import { calculateSharpness } from './image';
 
 interface CameraScanDrawerProps {
   isOpen: boolean;
@@ -37,7 +41,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     updateSettings, 
     recentScans, 
     addRecentScan, 
-    updateScanQuantity
+    removeRecentScan
   } = useScanStore();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -54,6 +58,27 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
   const [scanStatus, setScanStatus] = useState<'idle' | 'capturing' | 'analyzing' | 'matching' | 'success' | 'error'>('idle');
   const [autoScanEnabled, setAutoScanEnabled] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
+  const [lastAddedCard, setLastAddedCard] = useState<ScannedCard | null>(null);
+  const [decks, setDecks] = useState<Array<{ id: string; name: string }>>([]);
+  const [storageContainers, setStorageContainers] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Fetch decks and storage containers for settings
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const [decksRes, storageRes] = await Promise.all([
+        supabase.from('user_decks').select('id, name').eq('user_id', session.user.id).limit(20),
+        supabase.from('storage_containers').select('id, name').eq('user_id', session.user.id).limit(20)
+      ]);
+
+      if (decksRes.data) setDecks(decksRes.data);
+      if (storageRes.data) setStorageContainers(storageRes.data);
+    };
+    
+    if (isOpen) fetchOptions();
+  }, [isOpen]);
 
   // Capture frame for auto-capture hook
   const captureFrame = useCallback(() => {
@@ -271,8 +296,9 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       };
 
       addRecentScan(scannedCard);
+      setLastAddedCard(scannedCard);
       showSuccess('Added', `${quantity}x ${candidate.name}`);
-      setLastRecognized(null); // Clear recognized message after successful add
+      setLastRecognized(null);
       
       await logActivity('card_added', 'card', candidate.cardId, {
         name: candidate.name,
@@ -286,6 +312,42 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     } catch (error: any) {
       console.error('Add card error:', error);
       showError('Unable to add card', error.message || 'Database error');
+    }
+  };
+
+  // Undo last added card
+  const undoLastAdd = async () => {
+    if (!lastAddedCard) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      // Find and reduce or delete from collection
+      const { data: existingCard } = await supabase
+        .from('user_collections')
+        .select('id, quantity')
+        .eq('card_id', lastAddedCard.cardId)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (existingCard) {
+        if (existingCard.quantity <= lastAddedCard.quantity) {
+          await supabase.from('user_collections').delete().eq('id', existingCard.id);
+        } else {
+          await supabase
+            .from('user_collections')
+            .update({ quantity: existingCard.quantity - lastAddedCard.quantity })
+            .eq('id', existingCard.id);
+        }
+      }
+
+      removeRecentScan(lastAddedCard.id);
+      showSuccess('Undone', `Removed ${lastAddedCard.name}`);
+      setLastAddedCard(null);
+    } catch (error) {
+      console.error('Undo error:', error);
+      showError('Undo Failed', 'Could not undo last action');
     }
   };
 
@@ -314,6 +376,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       setCandidates([]);
       setLastRecognized(null);
       setScanStatus('idle');
+      setLastAddedCard(null);
     }
 
     return () => stopCamera();
@@ -379,7 +442,8 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
           {/* Settings Panel */}
           {showSettings && (
-            <div className="p-4 bg-black/90 border-b border-white/10">
+            <div className="p-4 bg-black/90 border-b border-white/10 space-y-4">
+              {/* Scan Behavior */}
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -398,6 +462,72 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                     <option value="newest">Newest</option>
                     <option value="cheapest">Cheapest</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Add Destinations */}
+              <div className="border-t border-white/10 pt-3">
+                <p className="text-xs text-muted-foreground mb-2">Add scanned cards to:</p>
+                <div className="space-y-2">
+                  {/* Collection toggle */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={settings.addToCollection}
+                      onCheckedChange={(checked) => updateSettings({ addToCollection: checked })}
+                    />
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm text-white">Collection</Label>
+                  </div>
+
+                  {/* Deck selection */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={settings.addToDeck}
+                      onCheckedChange={(checked) => updateSettings({ addToDeck: checked })}
+                    />
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm text-white">Deck</Label>
+                    {settings.addToDeck && (
+                      <Select 
+                        value={settings.selectedDeckId} 
+                        onValueChange={(val) => updateSettings({ selectedDeckId: val })}
+                      >
+                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-white/20">
+                          <SelectValue placeholder="Select deck" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border">
+                          {decks.map(deck => (
+                            <SelectItem key={deck.id} value={deck.id}>{deck.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  {/* Storage selection */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={settings.addToStorage}
+                      onCheckedChange={(checked) => updateSettings({ addToStorage: checked })}
+                    />
+                    <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm text-white">Storage</Label>
+                    {settings.addToStorage && (
+                      <Select 
+                        value={settings.selectedStorageId} 
+                        onValueChange={(val) => updateSettings({ selectedStorageId: val })}
+                      >
+                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-white/20">
+                          <SelectValue placeholder="Select box" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border">
+                          {storageContainers.map(container => (
+                            <SelectItem key={container.id} value={container.id}>{container.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -427,25 +557,46 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                 />
                 <canvas ref={canvasRef} className="hidden" />
                 
-                {/* Framing Guide */}
+                {/* Framing Guide - Full card-shaped border */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className={`relative w-[85%] max-w-sm aspect-[5/7] rounded-lg border-2 ${processing || isAutoCapturing ? 'border-yellow-400 animate-pulse' : 'border-primary'}`}>
-                    <div className="absolute -top-8 left-0 right-0 text-center text-primary text-sm font-medium">
-                      {processing ? 'Scanning...' : 'Position card within frame'}
-                    </div>
-                    {/* Corner markers for emphasis */}
-                    <div className="absolute -top-0.5 -left-0.5 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
-                    <div className="absolute -top-0.5 -right-0.5 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
-                    <div className="absolute -bottom-0.5 -left-0.5 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                  <div 
+                    className={`relative w-[75%] max-w-xs aspect-[63/88] rounded-xl overflow-hidden ${
+                      processing ? 'animate-pulse' : ''
+                    }`}
+                    style={{
+                      boxShadow: `0 0 0 3px ${processing ? '#facc15' : 'hsl(var(--primary))'}`,
+                    }}
+                  >
+                    {/* Card shape outline */}
+                    <div className={`absolute inset-0 border-[3px] rounded-xl ${
+                      processing ? 'border-yellow-400' : 'border-primary'
+                    }`} />
+                    
+                    {/* Inner card texture hint */}
+                    <div className="absolute inset-2 border border-white/20 rounded-lg" />
+                    
+                    {/* Title bar area indicator */}
+                    <div className="absolute top-3 left-3 right-3 h-6 bg-white/5 rounded border border-white/10" />
+                    
+                    {/* Art box area indicator */}
+                    <div className="absolute top-11 left-3 right-3 h-[45%] bg-white/5 rounded border border-white/10" />
+                  </div>
+                  
+                  {/* Instructions above frame */}
+                  <div className="absolute top-[8%] left-0 right-0 text-center">
+                    <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                      processing ? 'bg-yellow-500/20 text-yellow-300' : 'bg-primary/20 text-primary'
+                    }`}>
+                      {processing ? 'Scanning...' : 'Align card within frame'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Last recognized */}
-                {lastRecognized && (
-                  <div className="absolute top-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3">
-                    <p className="text-sm text-muted-foreground">Recognized:</p>
-                    <p className="font-semibold text-white">{lastRecognized}</p>
+                {/* Last recognized - stays visible longer */}
+                {lastRecognized && scanStatus !== 'success' && (
+                  <div className="absolute top-20 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-primary/30">
+                    <p className="text-xs text-primary">Recognized</p>
+                    <p className="font-semibold text-white text-lg">{lastRecognized}</p>
                   </div>
                 )}
 
@@ -546,26 +697,31 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
               </div>
             )}
 
-            {/* Recent Scans Strip */}
-            {recentScans.length > 0 && (
+            {/* Last Added Card with Undo */}
+            {lastAddedCard && (
               <div className="px-4 pb-4">
-                <p className="text-xs text-muted-foreground mb-2">Recent ({recentScans.length})</p>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {recentScans.slice(0, 8).map((scan) => (
-                    <div key={scan.id} className="shrink-0 relative group">
-                      <img 
-                        src={scan.imageUrl} 
-                        alt={scan.name}
-                        className="w-12 h-16 object-cover rounded border border-white/20"
-                      />
-                      <Badge 
-                        variant="secondary" 
-                        className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
-                      >
-                        {scan.quantity}
-                      </Badge>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/10">
+                  <img 
+                    src={lastAddedCard.imageUrl} 
+                    alt={lastAddedCard.name}
+                    className="w-12 h-16 object-cover rounded border border-white/20"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-green-400 flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Added to collection
+                    </p>
+                    <p className="font-medium text-white truncate">{lastAddedCard.name}</p>
+                    <p className="text-xs text-muted-foreground uppercase">{lastAddedCard.setCode}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={undoLastAdd}
+                    className="text-white/60 hover:text-red-400 hover:bg-red-500/10"
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    Undo
+                  </Button>
                 </div>
               </div>
             )}

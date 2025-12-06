@@ -38,8 +38,8 @@ import {
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/stores/collectionStore';
-import { RefreshedDeckTile } from '@/components/deck-builder/RefreshedDeckTile';
-import { ModernDeckTile } from '@/components/deck-builder/ModernDeckTile';
+import { ImprovedDeckTile } from '@/components/deck-builder/ImprovedDeckTile';
+import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { EnhancedAnalysisPanel } from '@/components/deck-builder/EnhancedAnalysisPanel';
@@ -579,6 +579,11 @@ export default function Decks() {
       }
     >
       <div className="space-y-6">
+        {/* Summary Stats */}
+        {!loading && deckSummaries.length > 0 && (
+          <DecksSummaryStats decks={deckSummaries} />
+        )}
+
         {/* Search and Filter Bar */}
         <DeckSearchFilters
           filters={filters}
@@ -633,9 +638,9 @@ export default function Decks() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-4">
             {filteredDecks.map((deckSummary) => (
-              <ModernDeckTile
+              <ImprovedDeckTile
                 key={deckSummary.id}
                 deckSummary={deckSummary}
                 onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}

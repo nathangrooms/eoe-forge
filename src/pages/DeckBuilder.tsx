@@ -632,8 +632,8 @@ const DeckBuilder = () => {
 
           {/* Tab Content */}
           <div className="flex-1 overflow-auto p-4 md:p-6">
-            {/* Visual View */}
-            {activeTab === 'visual' && (
+            {/* Cards View (Visual with List toggle) */}
+            {activeTab === 'cards' && (
               <VisualDeckView
                 cards={deck.cards as any}
                 commander={deck.commander}
@@ -652,20 +652,11 @@ const DeckBuilder = () => {
                     deck.removeCard(cardId);
                   }
                 }}
+                onReplaceCard={(cardId) => {
+                  // Opens replacement search - handled by VisualDeckView internally
+                  console.log('Replace card:', cardId);
+                }}
               />
-            )}
-
-            {/* List View */}
-            {activeTab === 'list' && (
-              <div className="space-y-6">
-                {deck.format === 'commander' && (
-                  <div className="mb-6">
-                    <h2 className="text-lg font-semibold mb-3">Commander</h2>
-                    <CompactCommanderSection currentCommander={deck.commander} />
-                  </div>
-                )}
-                <EnhancedDeckList deckId={selectedDeckId || undefined} />
-              </div>
             )}
 
             {/* Add Cards */}
@@ -774,16 +765,34 @@ const DeckBuilder = () => {
               </div>
             )}
 
-            {/* AI Coach */}
+            {/* AI Optimizer */}
             {activeTab === 'ai' && deck.cards.length > 0 && (
               <div className="space-y-6">
-                <AIDeckCoach
+                <AIOptimizerPanel
+                  deckId={selectedDeckId || deck.currentDeckId || ''}
                   deckCards={deck.cards as any}
                   deckName={deck.name}
-                  format={deck.format}
+                  format={deck.format || 'commander'}
                   commander={deck.commander}
                   powerLevel={edhPowerLevel ?? deck.powerLevel}
                   edhAnalysis={edhAnalysisData}
+                  onApplyReplacements={async (replacements) => {
+                    for (const { remove, add } of replacements) {
+                      const cardToRemove = deck.cards.find(c => c.name === remove);
+                      if (cardToRemove) {
+                        deck.removeCard(cardToRemove.id);
+                      }
+                      try {
+                        const newCard = await scryfallAPI.getCardByName(add);
+                        handleAddCardToDeck(newCard);
+                      } catch (error) {
+                        console.error(`Failed to add ${add}:`, error);
+                      }
+                    }
+                    if (deck.currentDeckId) {
+                      setTimeout(() => deck.updateDeck(deck.currentDeckId!), 500);
+                    }
+                  }}
                 />
                 <DeckPrimerGenerator
                   deckName={deck.name}
@@ -795,69 +804,16 @@ const DeckBuilder = () => {
 
             {activeTab === 'ai' && deck.cards.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="font-medium">Add cards to get AI coaching</p>
+                <p className="font-medium">Add cards to get AI optimization</p>
               </div>
             )}
 
-            {/* Replacements */}
-            {activeTab === 'replacements' && deck.cards.length > 0 && (
-              <div className="space-y-6">
-                <AIReplacementsPanel
-                  deckId={selectedDeckId || deck.currentDeckId || ''}
-                  deckName={deck.name}
-                  deckSummary={{
-                    format: deck.format,
-                    commander: deck.commander,
-                    cards: deck.cards.map(card => ({
-                      card_name: card.name,
-                      quantity: card.quantity,
-                      card_data: {
-                        mana_cost: card.mana_cost,
-                        cmc: card.cmc,
-                        type_line: card.type_line,
-                        colors: card.colors,
-                        prices: card.prices
-                      }
-                    })),
-                    power: { score: edhPowerLevel ?? deck.powerLevel }
-                  }}
-                  edhAnalysis={edhAnalysisData}
-                  onApplyReplacements={(replacements) => {
-                    replacements.forEach(async ({ remove, add }) => {
-                      const cardToRemove = deck.cards.find(c => c.name === remove);
-                      if (cardToRemove) {
-                        deck.removeCard(cardToRemove.id);
-                      }
-                      try {
-                        const newCard = await scryfallAPI.getCardByName(add);
-                        handleAddCardToDeck(newCard);
-                      } catch (error) {
-                        console.error(`Failed to add ${add}:`, error);
-                      }
-                    });
-                    if (deck.currentDeckId) {
-                      setTimeout(() => deck.updateDeck(deck.currentDeckId!), 1000);
-                    }
-                  }}
-                />
-                <CardReplacementEngine 
-                  deckCards={deck.cards as any}
-                  onReplaceCard={(oldCardId, newCard) => {
-                    deck.removeCard(oldCardId);
-                    deck.addCard(newCard);
-                  }}
-                />
-                <DeckProxyGenerator 
-                  deckCards={deck.cards as any}
-                  deckName={deck.name}
-                />
-              </div>
-            )}
-
-            {activeTab === 'replacements' && deck.cards.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <p className="font-medium">Add cards to get replacement suggestions</p>
-              </div>
+            {/* Proxies */}
+            {activeTab === 'proxies' && (
+              <DeckProxyGenerator 
+                deckCards={deck.cards as any}
+                deckName={deck.name}
+              />
             )}
 
             {/* Import/Export */}

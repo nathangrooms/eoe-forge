@@ -1,24 +1,34 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Package, Layers, Archive, Box, Folder, Sparkles, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { DEFAULT_STORAGE_TEMPLATES, getTemplateById } from '@/lib/storageTemplates';
 import { useToast } from '@/hooks/use-toast';
+
+const CONTAINER_TYPES = [
+  { id: 'box', name: 'Storage Box', icon: Box, color: '#6366F1', description: 'For bulk storage' },
+  { id: 'binder', name: 'Binder', icon: Layers, color: '#10B981', description: 'For organized pages' },
+  { id: 'deckbox', name: 'Deck Box', icon: Package, color: '#F59E0B', description: 'For single decks' },
+  { id: 'shelf', name: 'Shelf/Display', icon: Folder, color: '#EC4899', description: 'For display cases' },
+  { id: 'other', name: 'Other', icon: Archive, color: '#8B5CF6', description: 'Custom container' },
+];
+
+const COLOR_PRESETS = [
+  '#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B', 
+  '#10B981', '#06B6D4', '#3B82F6', '#6B7280', '#1F2937'
+];
 
 interface CreateContainerDialogProps {
   open: boolean;
@@ -45,7 +55,7 @@ export function CreateContainerDialog({
   const template = templateId ? getTemplateById(templateId) : null;
 
   // Reset form when dialog opens
-  useState(() => {
+  useEffect(() => {
     if (open) {
       if (template) {
         setFormData({
@@ -63,7 +73,7 @@ export function CreateContainerDialog({
         });
       }
     }
-  });
+  }, [open, template]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,78 +118,155 @@ export function CreateContainerDialog({
     }
   };
 
+  const selectedType = CONTAINER_TYPES.find(t => t.id === formData.type);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {template ? `Create ${template.name}` : 'Create Storage Container'}
-          </DialogTitle>
+          <div className="flex items-center gap-3">
+            <div 
+              className="p-2.5 rounded-xl shadow-md"
+              style={{ backgroundColor: formData.color }}
+            >
+              <Package className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl">
+                {template ? `Create ${template.name}` : 'Create Storage Container'}
+              </DialogTitle>
+              <DialogDescription>
+                Organize your cards by physical location
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5 mt-2">
+          {/* Container Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Container Name</Label>
+            <Label htmlFor="name" className="text-sm font-medium">Container Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter container name"
+              placeholder="e.g., Main Binder, EDH Decks Box"
+              className="h-11"
               required
             />
           </div>
 
+          {/* Container Type Selection */}
           {!template && (
-            <div className="space-y-2">
-              <Label htmlFor="type">Type</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => setFormData({ ...formData, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="box">Box</SelectItem>
-                  <SelectItem value="binder">Binder</SelectItem>
-                  <SelectItem value="deckbox">Deckbox</SelectItem>
-                  <SelectItem value="shelf">Shelf</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Container Type</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CONTAINER_TYPES.map((type) => {
+                  const isSelected = formData.type === type.id;
+                  const Icon = type.icon;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type: type.id, color: type.color })}
+                      className={cn(
+                        "relative p-3 rounded-lg border text-left transition-all duration-200",
+                        "hover:border-primary/50 hover:bg-accent/50",
+                        isSelected 
+                          ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                          : "border-border bg-card"
+                      )}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5">
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                      )}
+                      <div 
+                        className="w-8 h-8 rounded-lg flex items-center justify-center mb-2"
+                        style={{ backgroundColor: `${type.color}20` }}
+                      >
+                        <Icon className="h-4 w-4" style={{ color: type.color }} />
+                      </div>
+                      <div className="font-medium text-sm">{type.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{type.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="color">Color</Label>
-            <div className="flex gap-2">
-              <Input
-                id="color"
-                type="color"
-                value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                className="w-16 h-10"
-              />
-              <Input
-                value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                placeholder="#8B5CF6"
-                className="flex-1"
-              />
+          {/* Color Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Container Color</Label>
+            <div className="flex items-center gap-3">
+              {/* Color Presets */}
+              <div className="flex gap-1.5 flex-wrap flex-1">
+                {COLOR_PRESETS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color })}
+                    className={cn(
+                      "w-7 h-7 rounded-full transition-all duration-200 ring-offset-2 ring-offset-background",
+                      formData.color === color && "ring-2 ring-primary scale-110"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              {/* Custom Color Picker */}
+              <div className="relative">
+                <Input
+                  type="color"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  className="w-10 h-10 p-1 cursor-pointer rounded-lg"
+                />
+              </div>
             </div>
           </div>
 
+          {/* Preview Card */}
+          <Card className="border-dashed">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md"
+                  style={{ backgroundColor: formData.color }}
+                >
+                  {selectedType && <selectedType.icon className="h-6 w-6" />}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold">{formData.name || 'Container Name'}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {formData.type}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">Preview</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Template Info */}
           {template && template.slots && (
-            <div className="p-3 bg-muted rounded-md">
-              <p className="text-sm font-medium mb-1">Template includes:</p>
-              <p className="text-sm text-muted-foreground">
-                {template.slots.length} slots: {template.slots.slice(0, 3).map(s => s.name).join(', ')}
-                {template.slots.length > 3 && '...'}
-              </p>
+            <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Template includes pre-configured slots:</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {template.slots.slice(0, 3).map(s => s.name).join(', ')}
+                  {template.slots.length > 3 && ` +${template.slots.length - 3} more`}
+                </p>
+              </div>
             </div>
           )}
 
-          <div className="flex gap-2 pt-4">
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
@@ -191,13 +278,13 @@ export function CreateContainerDialog({
             <Button
               type="submit"
               disabled={!formData.name.trim() || loading}
-              className="flex-1"
+              className="flex-1 gap-2 bg-gradient-cosmic hover:opacity-90"
             >
               {loading ? (
                 "Creating..."
               ) : (
                 <>
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4" />
                   Create Container
                 </>
               )}

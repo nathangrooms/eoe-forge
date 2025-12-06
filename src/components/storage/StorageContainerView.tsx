@@ -1,9 +1,43 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Zap, Package, Layers, DollarSign, Trash2, Edit } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Zap, 
+  Package, 
+  Layers, 
+  DollarSign, 
+  Trash2, 
+  Edit, 
+  Settings2,
+  Search,
+  Grid3X3,
+  List,
+  LayoutGrid,
+  RefreshCw,
+  Download,
+  Sparkles,
+  AlertCircle
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageQuickActions } from './StorageQuickActions';
@@ -15,15 +49,18 @@ import { cn } from '@/lib/utils';
 interface StorageContainerViewProps {
   container: StorageContainer;
   onBack: () => void;
+  onContainerDeleted?: () => void;
 }
 
-export function StorageContainerView({ container, onBack }: StorageContainerViewProps) {
+export function StorageContainerView({ container, onBack, onContainerDeleted }: StorageContainerViewProps) {
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadItems();
@@ -52,6 +89,26 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
     }
   };
 
+  const handleDeleteContainer = async () => {
+    if (items.length > 0) {
+      showError('Cannot Delete', 'Please remove all cards from the container first');
+      return;
+    }
+    
+    try {
+      setDeleting(true);
+      await StorageAPI.deleteContainer(container.id);
+      showSuccess('Deleted', `${container.name} has been deleted`);
+      setShowDeleteDialog(false);
+      onContainerDeleted?.();
+      onBack();
+    } catch (error: any) {
+      showError('Error', error.message || 'Failed to delete container');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Transform storage items to card format for UniversalCardDisplay
   const transformedCards = items.map(item => ({
     ...item.card,
@@ -69,32 +126,43 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
   const uniqueCards = new Set(items.map(item => item.card_id)).size;
 
   const stats = [
-    { label: 'Total Cards', value: totalCards.toLocaleString(), icon: Layers, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-    { label: 'Unique', value: uniqueCards.toString(), icon: Package, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
-    { label: 'Value', value: `$${totalValue.toFixed(2)}`, icon: DollarSign, color: 'text-green-500', bgColor: 'bg-green-500/10' },
+    { label: 'Total Cards', value: totalCards.toLocaleString(), icon: Layers, color: 'text-blue-500', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20' },
+    { label: 'Unique Cards', value: uniqueCards.toString(), icon: Package, color: 'text-purple-500', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
+    { label: 'Total Value', value: `$${totalValue.toFixed(2)}`, icon: DollarSign, color: 'text-green-500', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/20' },
   ];
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Enhanced Header */}
-      <div className="border-b bg-gradient-to-r from-card to-background px-4 md:px-6 py-5">
+      <div className="border-b bg-gradient-to-r from-card via-card to-background px-4 md:px-6 py-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={onBack} size="sm" className="gap-2">
+            <Button variant="outline" onClick={onBack} size="sm" className="gap-2 hover:bg-accent">
               <ArrowLeft className="h-4 w-4" />
-              Back
+              <span className="hidden sm:inline">Back</span>
             </Button>
             <div className="flex items-center gap-3">
               <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg"
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/10"
                 style={{ backgroundColor: container.color || '#6366F1' }}
               >
                 <Package className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold">{container.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl md:text-2xl font-bold">{container.name}</h1>
+                  {items.length === 0 && !loading && (
+                    <Badge variant="outline" className="text-orange-500 border-orange-500/30">Empty</Badge>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="outline" className="capitalize text-xs">{container.type}</Badge>
+                  {container.deck_id && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Deck Linked
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -104,12 +172,40 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setShowQuickActions(true)} 
+              onClick={loadItems}
               className="gap-2"
             >
-              <Zap className="h-4 w-4" />
-              Quick Add
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Manage</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem className="gap-2">
+                  <Edit className="h-4 w-4" />
+                  Edit Container
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Export List
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="gap-2 text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Container
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Button 
               onClick={() => setShowQuickActions(true)} 
               size="sm"
@@ -121,17 +217,18 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
           </div>
         </div>
 
-        {/* Stats Overview */}
+        {/* Enhanced Stats Overview */}
         <div className="grid grid-cols-3 gap-3">
           {stats.map((stat) => (
-            <Card key={stat.label} className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <Card key={stat.label} className={cn("relative overflow-hidden", stat.borderColor, "group hover:shadow-md transition-all duration-300")}>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-current opacity-[0.03] rounded-full -translate-y-8 translate-x-8 group-hover:scale-125 transition-transform" />
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", stat.bgColor)}>
+                  <div className={cn("p-2.5 rounded-xl", stat.bgColor)}>
                     <stat.icon className={cn("h-5 w-5", stat.color)} />
                   </div>
                   <div>
-                    <div className={cn("text-xl font-bold", stat.label === 'Value' && 'text-green-500')}>
+                    <div className={cn("text-xl font-bold", stat.label === 'Total Value' && 'text-green-500')}>
                       {stat.value}
                     </div>
                     <div className="text-xs text-muted-foreground">{stat.label}</div>
@@ -151,8 +248,8 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
               <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-24" />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {[...Array(10)].map((_, i) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {[...Array(12)].map((_, i) => (
                 <div key={i} className="space-y-2">
                   <Skeleton className="aspect-[2.5/3.5] w-full rounded-lg" />
                   <Skeleton className="h-4 w-3/4" />
@@ -186,9 +283,10 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
             }}
             showWishlistButton={false}
             emptyState={{
-              title: 'Container is empty',
-              description: 'Use Quick Add to search and add cards to this container',
-              action: () => setShowQuickActions(true)
+              title: 'This container is empty',
+              description: 'Add cards from your collection or search for new cards to store here',
+              action: () => setShowQuickActions(true),
+              actionLabel: 'Add Cards'
             }}
           />
         )}
@@ -220,6 +318,36 @@ export function StorageContainerView({ container, onBack }: StorageContainerView
         }}
         showWishlistButton={false}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Delete Container
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{container.name}"? This action cannot be undone.
+              {items.length > 0 && (
+                <span className="block mt-2 text-orange-500 font-medium">
+                  This container has {totalCards} cards. You must remove all cards before deleting.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteContainer}
+              disabled={items.length > 0 || deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Delete Container'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

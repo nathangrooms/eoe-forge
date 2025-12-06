@@ -60,23 +60,23 @@ export function BulkActionsToolbar({
 
   return (
     <>
-      <div className="sticky top-0 z-30 bg-primary text-primary-foreground px-6 py-3 flex items-center justify-between shadow-md">
+      <div className="sticky top-0 z-30 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg rounded-lg mx-2 mt-2 animate-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm">
+          <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
             {selectedCount} selected
           </Badge>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClearSelection}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
+            className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/20"
           >
             <X className="h-4 w-4 mr-1" />
             Clear
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Quantity Actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

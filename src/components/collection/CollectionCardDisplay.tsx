@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UniversalLocalSearch } from '@/components/universal/UniversalLocalSearch';
 import { BulkActionsToolbar } from '@/components/collection/BulkActionsToolbar';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { CollectionAPI } from '@/server/routes/collection';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StorageContainer } from '@/types/storage';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Package, TrendingUp } from 'lucide-react';
 
 interface CollectionItem {
   id: string;
@@ -41,6 +44,19 @@ export function CollectionCardDisplay({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
+
+  // Load storage containers for bulk assignment
+  useEffect(() => {
+    const loadContainers = async () => {
+      try {
+        const overview = await StorageAPI.getOverview();
+        setStorageContainers(overview.containers || []);
+      } catch (error) {
+        console.error('Failed to load storage containers:', error);
+      }
+    };
+    loadContainers();
+  }, []);
 
   const handleToggleSelection = (itemId: string) => {
     setSelectedItems(prev => {

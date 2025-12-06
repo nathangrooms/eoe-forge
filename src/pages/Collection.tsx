@@ -1,10 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Plus, Search, ShoppingCart, Users, BarChart3, Download } from 'lucide-react';
+import { 
+  Package, 
+  Plus, 
+  Search, 
+  ShoppingCart, 
+  BarChart3, 
+  Download, 
+  Upload,
+  Camera,
+  Layers,
+  Settings2,
+  RefreshCw
+} from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
 import { CollectionBulkImport } from '@/components/collection/CollectionBulkImport';
@@ -34,6 +46,9 @@ import { SavedFilterPresets } from '@/components/collection/SavedFilterPresets';
 import { CollectionDeckRecommendations } from '@/components/collection/CollectionDeckRecommendations';
 import { CollectionValueTrends } from '@/components/collection/CollectionValueTrends';
 import { EnhancedPriceAlerts } from '@/components/collection/EnhancedPriceAlerts';
+import { CollectionQuickStats } from '@/components/collection/CollectionQuickStats';
+import { CollectionEmptyState } from '@/components/collection/CollectionEmptyState';
+import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoadingSkeleton';
 import { useAuth } from '@/components/AuthProvider';
 
 export default function Collection() {
@@ -51,6 +66,7 @@ export default function Collection() {
 
   const { addCardToDeck } = useDeckManagementStore();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Tab management
   const [searchParams, setSearchParams] = useSearchParams();
@@ -386,72 +402,103 @@ export default function Collection() {
     );
   }
 
+  // Calculate recently added count (last 7 days)
+  const recentlyAddedCount = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return cards.filter(card => new Date(card.created_at) > sevenDaysAgo).length;
+  }, [cards]);
+
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b px-4 md:px-6 py-4 md:py-6">
+      {/* Enhanced Header */}
+      <div className="border-b bg-gradient-to-r from-card to-background px-4 md:px-6 py-4 md:py-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">Collection Manager</h1>
-            <p className="text-sm text-muted-foreground mt-1">Organize your Magic: The Gathering collection</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-cosmic shadow-lg">
+                <Package className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-foreground">Collection Manager</h1>
+                <p className="text-sm text-muted-foreground">Track, organize, and optimize your MTG collection</p>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 lg:gap-4">
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <CollectionBulkImport onImportComplete={() => {
-                refresh();
-                showSuccess('Collection Updated', 'Import completed successfully');
-              }} />
-              <Button variant="outline" size="sm" onClick={handleExportBackup}>
-                <Download className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Backup</span>
-                <span className="sm:hidden">Backup</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('analytics')}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Analytics</span>
-                <span className="sm:hidden">Stats</span>
-              </Button>
-            </div>
-            <div className="flex items-center gap-4 sm:gap-8 pl-0 sm:pl-4 sm:border-l w-full sm:w-auto justify-between sm:justify-start">
-              <div className="text-left sm:text-right">
-                <div className="text-xs sm:text-sm text-muted-foreground">Total Value</div>
-                <div className="text-lg sm:text-xl font-bold text-green-500">${stats.totalValue.toFixed(2)}</div>
-              </div>
-              <div className="text-left sm:text-right">
-                <div className="text-xs sm:text-sm text-muted-foreground">Total Cards</div>
-                <div className="text-lg sm:text-xl font-bold">{stats.totalCards}</div>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refresh()}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <CollectionBulkImport onImportComplete={() => {
+              refresh();
+              showSuccess('Collection Updated', 'Import completed successfully');
+            }} />
+            <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-2">
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Backup</span>
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setActiveTab('add-cards')}
+              className="gap-2 bg-gradient-cosmic hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Cards</span>
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b px-3 sm:px-6 overflow-x-auto">
+      {/* Enhanced Tabs */}
+      <div className="border-b px-3 sm:px-6 bg-card/50">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="inline-flex min-w-full sm:grid sm:w-96 grid-cols-4 bg-transparent p-0 h-12">
+          <TabsList className="inline-flex min-w-full sm:w-auto bg-transparent p-0 h-12 gap-1">
             <TabsTrigger 
               value="collection" 
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
+                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
+              <Layers className="h-4 w-4 mr-2" />
               Collection
+              {cards.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {stats.uniqueCards}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger 
               value="analytics"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
+                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
+              <BarChart3 className="h-4 w-4 mr-2" />
               Analytics
             </TabsTrigger>
             <TabsTrigger 
               value="add-cards"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
+                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
+              <Search className="h-4 w-4 mr-2" />
               Add Cards
             </TabsTrigger>
             <TabsTrigger 
               value="storage"
-              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none whitespace-nowrap px-4"
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
+                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
+              <Package className="h-4 w-4 mr-2" />
               Storage
             </TabsTrigger>
           </TabsList>
@@ -462,21 +509,45 @@ export default function Collection() {
       <div className="flex-1 overflow-hidden">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
           {/* Collection Tab */}
-          <TabsContent value="collection" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
-            <div className="space-y-4 sm:space-y-6">
-              {/* Favorite Decks Preview */}
-              <FavoriteDecksPreview />
-              
-              {/* Collection Cards with integrated search */}
-              <CollectionCardDisplay
-                items={cards || []}
-                viewMode="grid"
-                onCardClick={handleCardClick}
-                onMarkForSale={handleMarkForSale}
-                onAddToDeck={handleAddToDeck}
-                onBulkUpdate={refresh}
+          <TabsContent value="collection" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+            {loading ? (
+              <CollectionLoadingSkeleton />
+            ) : cards.length === 0 ? (
+              <CollectionEmptyState
+                onAddCards={() => setActiveTab('add-cards')}
+                onImport={() => {
+                  // Trigger import modal
+                  const importBtn = document.querySelector('[data-import-trigger]') as HTMLButtonElement;
+                  importBtn?.click();
+                }}
+                onScan={() => navigate('/scan')}
               />
-            </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Quick Stats */}
+                <CollectionQuickStats
+                  totalValue={stats.totalValue}
+                  totalCards={stats.totalCards}
+                  uniqueCards={stats.uniqueCards}
+                  avgCardValue={stats.totalCards > 0 ? stats.totalValue / stats.totalCards : 0}
+                  recentlyAddedCount={recentlyAddedCount}
+                  loading={loading}
+                />
+
+                {/* Favorite Decks Preview */}
+                <FavoriteDecksPreview />
+                
+                {/* Collection Cards with integrated search */}
+                <CollectionCardDisplay
+                  items={cards || []}
+                  viewMode="grid"
+                  onCardClick={handleCardClick}
+                  onMarkForSale={handleMarkForSale}
+                  onAddToDeck={handleAddToDeck}
+                  onBulkUpdate={refresh}
+                />
+              </div>
+            )}
           </TabsContent>
 
           {/* Analytics Tab */}

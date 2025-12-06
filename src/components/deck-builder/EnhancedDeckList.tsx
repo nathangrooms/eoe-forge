@@ -305,9 +305,12 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
           }}
           onReplace={(newCardName) => {
             // Fetch the new card and replace
+            const originalQuantity = cardToReplace.quantity || 1;
             import('@/lib/api/scryfall').then(({ scryfallAPI }) => {
               scryfallAPI.getCardByName(newCardName).then((newCard) => {
-                deck.removeCard(cardToReplace.id);
+                // Remove ALL copies of the original card by setting quantity to 0
+                deck.updateCardQuantity(cardToReplace.id, 0);
+                // Add new card with the same quantity as the original
                 deck.addCard({
                   id: newCard.id,
                   name: newCard.name,
@@ -315,12 +318,19 @@ export function EnhancedDeckList({ deckId }: EnhancedDeckListProps) {
                   type_line: newCard.type_line || '',
                   colors: newCard.colors || [],
                   mana_cost: newCard.mana_cost,
-                  quantity: 1,
+                  quantity: originalQuantity,
                   category: 'other' as const,
                   mechanics: newCard.keywords || [],
                   image_uris: newCard.image_uris,
                   prices: newCard.prices
                 });
+                
+                // Trigger save to database
+                if (deck.currentDeckId) {
+                  setTimeout(() => {
+                    deck.updateDeck(deck.currentDeckId!);
+                  }, 100);
+                }
               });
             });
             setReplacementModalOpen(false);

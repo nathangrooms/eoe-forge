@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -144,9 +145,9 @@ export function StandardDeckTile({
 }
 
 interface StandardSectionHeaderProps {
-  title: string;
+  title: ReactNode;
   description?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
   className?: string;
 }
 

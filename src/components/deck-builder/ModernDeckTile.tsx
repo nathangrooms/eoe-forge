@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import { 
   Star, 
   StarOff, 
@@ -17,19 +17,36 @@ import {
   Calendar,
   Plus,
   Share2,
-  ExternalLink,
-  Percent,
   Layers,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  MoreVertical,
+  Download,
+  Play,
+  Swords,
+  TrendingUp,
+  Eye
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { DeckSummary, DeckAPI } from '@/lib/api/deckAPI';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { MiniManaCurve } from './MiniManaCurve';
-import { ManaSourcesIndicator } from './ManaSourcesIndicator';
 import { LegalityBadge } from './LegalityBadge';
+import { useNavigate } from 'react-router-dom';
 
 interface ModernDeckTileProps {
   deckSummary: DeckSummary;
@@ -45,19 +62,30 @@ interface ModernDeckTileProps {
   className?: string;
 }
 
-const powerBandConfig = {
-  casual: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
-  mid: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-  high: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30' },
-  cEDH: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' }
+const powerBandConfig: Record<string, { bg: string; text: string; label: string }> = {
+  casual: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Casual' },
+  mid: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Mid' },
+  high: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'High' },
+  cEDH: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'cEDH' }
 };
 
-const formatConfig: Record<string, { bg: string; text: string }> = {
-  standard: { bg: 'bg-blue-500/20', text: 'text-blue-400' },
-  commander: { bg: 'bg-purple-500/20', text: 'text-purple-400' },
-  modern: { bg: 'bg-green-500/20', text: 'text-green-400' },
-  legacy: { bg: 'bg-yellow-500/20', text: 'text-yellow-400' },
-  custom: { bg: 'bg-gray-500/20', text: 'text-gray-400' }
+const formatConfig: Record<string, { bg: string; text: string; label: string }> = {
+  standard: { bg: 'bg-blue-500/15', text: 'text-blue-400', label: 'Standard' },
+  commander: { bg: 'bg-purple-500/15', text: 'text-purple-400', label: 'Commander' },
+  modern: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Modern' },
+  legacy: { bg: 'bg-yellow-500/15', text: 'text-yellow-400', label: 'Legacy' },
+  vintage: { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'Vintage' },
+  pioneer: { bg: 'bg-teal-500/15', text: 'text-teal-400', label: 'Pioneer' },
+  pauper: { bg: 'bg-slate-500/15', text: 'text-slate-400', label: 'Pauper' },
+  custom: { bg: 'bg-gray-500/15', text: 'text-gray-400', label: 'Custom' }
+};
+
+const colorMap: Record<string, string> = {
+  W: 'bg-amber-100 border-amber-300',
+  U: 'bg-blue-600',
+  B: 'bg-gray-900',
+  R: 'bg-red-600',
+  G: 'bg-green-600'
 };
 
 export function ModernDeckTile({
@@ -76,6 +104,7 @@ export function ModernDeckTile({
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
+  const navigate = useNavigate();
 
   const handleFavoriteToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -159,6 +188,10 @@ export function ModernDeckTile({
     }
   };
 
+  const handlePlaytest = () => {
+    navigate(`/deck-simulation?deck=${deckSummary.id}`);
+  };
+
   // Safely extract curve data
   const curveData = deckSummary.curve?.bins || deckSummary.curve || {};
   
@@ -170,6 +203,8 @@ export function ModernDeckTile({
   const ownershipPct = deckSummary.counts.total > 0 
     ? Math.round((ownedCount / deckSummary.counts.total) * 100) 
     : 0;
+  const missingCount = deckSummary.economy?.missing || 0;
+  const isComplete = missingCount === 0;
 
   // Get power band styling
   const powerBand = deckSummary.power?.band || 'casual';
@@ -178,269 +213,340 @@ export function ModernDeckTile({
   // Format styling
   const formatStyle = formatConfig[deckSummary.format] || formatConfig.custom;
 
-  // Type composition data
-  const typeData = [
-    { label: 'Creatures', count: deckSummary.counts.creatures || 0, color: 'bg-green-500' },
-    { label: 'Spells', count: (deckSummary.counts.instants || 0) + (deckSummary.counts.sorceries || 0), color: 'bg-blue-500' },
-    { label: 'Artifacts', count: deckSummary.counts.artifacts || 0, color: 'bg-gray-500' },
-    { label: 'Enchant', count: deckSummary.counts.enchantments || 0, color: 'bg-purple-500' },
-    { label: 'Lands', count: deckSummary.counts.lands || 0, color: 'bg-amber-500' },
+  // Commander image
+  const commanderImage = deckSummary.commander
+    ? ((deckSummary.commander as any)?.image_uris?.normal || 
+       (deckSummary.commander as any)?.image_uris?.large || 
+       deckSummary.commander.image)
+    : null;
+
+  // Calculate average CMC
+  const avgCmc = (Object.entries(curveData).reduce((sum, [cmc, count]) => {
+    const cmcValue = cmc === '0-1' ? 0.5 : cmc === '6-7' ? 6.5 : cmc === '8-9' ? 8.5 : cmc === '10+' ? 10 : parseInt(cmc) || 0;
+    return sum + (cmcValue * Number(count));
+  }, 0) / Math.max(deckSummary.counts.total - (deckSummary.counts.lands || 0), 1)).toFixed(2);
+
+  // Type composition for visual bar
+  const typeBreakdown = [
+    { type: 'Creatures', count: deckSummary.counts.creatures || 0, color: 'bg-green-500' },
+    { type: 'Instants', count: deckSummary.counts.instants || 0, color: 'bg-blue-400' },
+    { type: 'Sorceries', count: deckSummary.counts.sorceries || 0, color: 'bg-blue-600' },
+    { type: 'Artifacts', count: deckSummary.counts.artifacts || 0, color: 'bg-gray-400' },
+    { type: 'Enchantments', count: deckSummary.counts.enchantments || 0, color: 'bg-purple-500' },
+    { type: 'Planeswalkers', count: deckSummary.counts.planeswalkers || 0, color: 'bg-orange-500' },
+    { type: 'Lands', count: deckSummary.counts.lands || 0, color: 'bg-amber-600' },
   ].filter(t => t.count > 0);
+
+  const totalNonLand = deckSummary.counts.total - (deckSummary.counts.lands || 0);
 
   return (
     <Card className={cn(
-      "group hover:shadow-xl transition-all duration-300 overflow-hidden border hover:border-primary/40",
+      "group relative overflow-hidden border border-border/60 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5",
       className
     )}>
       <CardContent className="p-0">
-        <div className="flex flex-col lg:flex-row">
-          {/* Left: Commander/Deck Visual */}
-          <div className="lg:w-72 xl:w-80 flex-shrink-0 p-4 bg-gradient-to-br from-muted/30 to-muted/10">
+        <div className="flex flex-col lg:flex-row" style={{ minHeight: '320px' }}>
+          {/* Left: Commander/Deck Visual - Fixed to match card ratio */}
+          <div className="lg:w-56 xl:w-64 flex-shrink-0 relative bg-gradient-to-br from-muted/40 to-muted/20 p-3 flex flex-col">
+            {/* Edit Button - Top Right */}
+            {onEdit && (
+              <Button
+                size="sm"
+                onClick={onEdit}
+                className="absolute top-2 right-2 z-10 h-8 px-3 bg-primary hover:bg-primary/90 shadow-lg"
+              >
+                <Edit className="h-3.5 w-3.5 mr-1.5" />
+                Edit
+              </Button>
+            )}
+
             {deckSummary.commander ? (
-              <div className="space-y-3">
-                {/* Commander Image */}
-                <div className="relative rounded-xl overflow-hidden shadow-lg bg-muted" style={{ aspectRatio: '0.71' }}>
+              <div className="flex-1 flex flex-col">
+                {/* Commander Image - Uses full available height */}
+                <div className="relative flex-1 rounded-lg overflow-hidden bg-muted/50 shadow-md" style={{ minHeight: '200px' }}>
                   <img 
-                    src={(deckSummary.commander as any)?.image_uris?.normal || 
-                         (deckSummary.commander as any)?.image_uris?.large || 
-                         deckSummary.commander.image || 
-                         '/placeholder.svg'} 
+                    src={commanderImage || '/placeholder.svg'} 
                     alt={deckSummary.commander.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder.svg';
-                    }}
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                    onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                   />
                   
-                  {/* Favorite button overlay */}
+                  {/* Gradient overlay for text readability */}
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+                  
+                  {/* Commander Name on image */}
+                  <div className="absolute bottom-0 inset-x-0 p-3">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <Crown className="h-3 w-3 text-amber-400" />
+                      <span className="text-[10px] text-amber-400/80 uppercase tracking-wider font-medium">Commander</span>
+                    </div>
+                    <h4 className="text-white font-semibold text-sm leading-tight line-clamp-2 drop-shadow-lg">
+                      {deckSummary.commander.name}
+                    </h4>
+                  </div>
+
+                  {/* Favorite button */}
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleFavoriteToggle}
                     disabled={favoriteLoading}
-                    className="absolute top-2 right-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white"
+                    className="absolute top-2 left-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
                   >
                     {favoriteLoading ? (
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     ) : isFavorite ? (
-                      <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                     ) : (
                       <StarOff className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
-                
-                {/* Commander Info */}
-                <div className="p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-amber-500/10 border border-primary/20">
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <Crown className="h-3 w-3 text-amber-500" />
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Commander</span>
-                    <Crown className="h-3 w-3 text-amber-500" />
+
+                {/* Color Identity Bar */}
+                {deckSummary.colors && deckSummary.colors.length > 0 && (
+                  <div className="flex justify-center gap-1.5 mt-2">
+                    {deckSummary.colors.map(color => (
+                      <div 
+                        key={color}
+                        className={cn("w-6 h-6 rounded-full border-2 border-white/20 shadow-sm", colorMap[color])}
+                      />
+                    ))}
                   </div>
-                  <h4 className="text-center font-semibold text-sm leading-tight">
-                    {deckSummary.commander.name}
-                  </h4>
-                </div>
+                )}
               </div>
             ) : (
-              <div className="aspect-[3/4] rounded-xl bg-muted/50 border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
-                <div className="text-center text-muted-foreground p-4">
-                  <Crown className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm font-medium">No Commander</p>
-                  <p className="text-xs mt-1">Set in Builder</p>
-                </div>
+              <div className="flex-1 flex flex-col items-center justify-center rounded-lg bg-muted/30 border-2 border-dashed border-muted-foreground/20">
+                <Crown className="h-12 w-12 text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground font-medium">No Commander</p>
+                <p className="text-xs text-muted-foreground/60">Set in deck builder</p>
+                
+                {/* Favorite for non-commander decks */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFavoriteToggle}
+                  disabled={favoriteLoading}
+                  className="mt-3"
+                >
+                  {isFavorite ? (
+                    <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                  ) : (
+                    <StarOff className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
             )}
           </div>
 
           {/* Right: Deck Info & Stats */}
-          <div className="flex-1 p-4 space-y-4 min-w-0">
-            {/* Header */}
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-xl truncate group-hover:text-primary transition-colors">
-                    {deckSummary.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge className={cn("text-xs", formatStyle.bg, formatStyle.text)}>
-                      {deckSummary.format}
-                    </Badge>
-                    <Badge className={cn("text-xs font-bold", powerStyle.bg, powerStyle.text)}>
-                      Power {deckSummary.power?.score || 0}/10
-                    </Badge>
-                    <LegalityBadge 
-                      isLegal={deckSummary.legality?.ok ?? true}
-                      issues={deckSummary.legality?.issues || []}
-                      format={deckSummary.format}
-                    />
-                  </div>
+          <div className="flex-1 p-4 flex flex-col min-w-0">
+            {/* Header Row */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0 flex-1">
+                <h3 
+                  className="font-bold text-lg lg:text-xl truncate hover:text-primary transition-colors cursor-pointer"
+                  onClick={onEdit}
+                >
+                  {deckSummary.name}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <Badge variant="outline" className={cn("text-[10px] uppercase font-semibold", formatStyle.bg, formatStyle.text)}>
+                    {formatStyle.label}
+                  </Badge>
+                  <Badge variant="outline" className={cn("text-[10px] font-semibold", powerStyle.bg, powerStyle.text)}>
+                    <Target className="h-2.5 w-2.5 mr-1" />
+                    {deckSummary.power?.score || 0}/10 {powerStyle.label}
+                  </Badge>
+                  <LegalityBadge 
+                    isLegal={deckSummary.legality?.ok ?? true}
+                    issues={deckSummary.legality?.issues || []}
+                    format={deckSummary.format}
+                  />
                 </div>
               </div>
-              
-              {/* Meta info */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(deckSummary.updatedAt).toLocaleDateString()}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Layers className="h-3 w-3" />
-                  {deckSummary.counts.total} cards ({deckSummary.counts.unique} unique)
-                </div>
-              </div>
+
+              {/* More Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={onEdit}>
+                    <Edit className="h-4 w-4 mr-2" /> Edit Deck
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePlaytest}>
+                    <Play className="h-4 w-4 mr-2" /> Playtest
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onAnalysis}>
+                    <BarChart3 className="h-4 w-4 mr-2" /> Full Analysis
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onMissingCards}>
+                    <Package className="h-4 w-4 mr-2" /> Missing Cards
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onShare}>
+                    <Share2 className="h-4 w-4 mr-2" /> Share Deck
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onDuplicate}>
+                    <Copy className="h-4 w-4 mr-2" /> Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onExport}>
+                    <Download className="h-4 w-4 mr-2" /> Export
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div 
-                className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={onAnalysis}
-              >
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  <Target className="h-3 w-3 text-primary" />
-                  <span className="text-xs">Power</span>
-                </div>
-                <div className="text-lg font-bold">{deckSummary.power?.score || 0}/10</div>
-                <div className="text-[10px] text-muted-foreground capitalize">{powerBand}</div>
-              </div>
+            {/* Stats Grid - Key metrics */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-2 rounded-lg bg-muted/30 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={onAnalysis}>
+                      <div className="text-lg font-bold">{deckSummary.counts.total}</div>
+                      <div className="text-[10px] text-muted-foreground">Cards</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>{deckSummary.counts.unique} unique cards</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <div 
-                className={cn(
-                  "p-3 rounded-lg transition-colors cursor-pointer",
-                  ownershipPct === 100 ? "bg-green-500/10 hover:bg-green-500/20" : "bg-muted/30 hover:bg-muted/50"
-                )}
-                onClick={onMissingCards}
-              >
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  <Package className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs">Owned</span>
-                </div>
-                <div className="text-lg font-bold">{ownershipPct}%</div>
-                <div className="text-[10px] text-muted-foreground">
-                  {ownedCount}/{deckSummary.counts.total} cards
-                </div>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-2 rounded-lg bg-muted/30 text-center">
+                      <div className="text-lg font-bold text-green-500">${Math.round(deckSummary.economy?.priceUSD || 0)}</div>
+                      <div className="text-[10px] text-muted-foreground">Value</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>TCGPlayer Market Price</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <div className="p-3 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  <DollarSign className="h-3 w-3 text-green-500" />
-                  <span className="text-xs">Value</span>
-                </div>
-                <div className="text-lg font-bold">${Math.round(deckSummary.economy?.priceUSD || 0)}</div>
-                <div className="text-[10px] text-muted-foreground">TCGPlayer</div>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-2 rounded-lg bg-muted/30 text-center">
+                      <div className="text-lg font-bold">{avgCmc}</div>
+                      <div className="text-[10px] text-muted-foreground">Avg CMC</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Average mana value (excluding lands)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <div 
-                className={cn(
-                  "p-3 rounded-lg transition-colors",
-                  (deckSummary.economy?.missing || 0) > 0 
-                    ? "bg-red-500/10 cursor-pointer hover:bg-red-500/20" 
-                    : "bg-green-500/10"
-                )}
-                onClick={(deckSummary.economy?.missing || 0) > 0 ? onMissingCards : undefined}
-              >
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                  {(deckSummary.economy?.missing || 0) > 0 ? (
-                    <AlertCircle className="h-3 w-3 text-red-500" />
-                  ) : (
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                  )}
-                  <span className="text-xs">Missing</span>
-                </div>
-                <div className={cn(
-                  "text-lg font-bold",
-                  (deckSummary.economy?.missing || 0) > 0 ? "text-red-500" : "text-green-500"
-                )}>
-                  {deckSummary.economy?.missing || 0}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {(deckSummary.economy?.missing || 0) > 0 ? 'cards needed' : 'complete!'}
-                </div>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className={cn(
+                        "p-2 rounded-lg text-center cursor-pointer transition-colors",
+                        isComplete ? "bg-green-500/10 hover:bg-green-500/20" : "bg-red-500/10 hover:bg-red-500/20"
+                      )}
+                      onClick={onMissingCards}
+                    >
+                      <div className={cn("text-lg font-bold", isComplete ? "text-green-500" : "text-red-500")}>
+                        {isComplete ? <CheckCircle2 className="h-5 w-5 mx-auto" /> : missingCount}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">{isComplete ? 'Complete' : 'Missing'}</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isComplete ? 'You own all cards!' : `${missingCount} cards needed to complete`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
-            {/* Analytics Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Ownership Progress Bar */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-muted-foreground">Collection Progress</span>
+                <span className="text-xs font-medium">{ownershipPct}%</span>
+              </div>
+              <Progress value={ownershipPct} className="h-2" />
+            </div>
+
+            {/* Mana Curve & Type Distribution */}
+            <div className="grid grid-cols-2 gap-3 mb-3 flex-1">
               {/* Mana Curve */}
-              <div className="p-3 rounded-lg bg-muted/20 border border-border/50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-muted-foreground">Mana Curve</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Avg: {(Object.entries(curveData).reduce((sum, [cmc, count]) => {
-                      const cmcValue = cmc === '0-1' ? 0.5 : cmc === '6-7' ? 6.5 : cmc === '8-9' ? 8.5 : cmc === '10+' ? 10 : parseInt(cmc) || 0;
-                      return sum + (cmcValue * Number(count));
-                    }, 0) / Math.max(deckSummary.counts.total - (deckSummary.counts.lands || 0), 1)).toFixed(1)} CMC
-                  </span>
+              <div className="p-2.5 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Mana Curve</span>
                 </div>
-                <MiniManaCurve curveData={curveData} className="h-14" />
+                <MiniManaCurve curveData={curveData} className="h-12" />
               </div>
 
-              {/* Type Distribution */}
-              <div className="p-3 rounded-lg bg-muted/20 border border-border/50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-muted-foreground">Composition</span>
-                  <ManaSourcesIndicator sources={manaSources} />
+              {/* Type Breakdown */}
+              <div className="p-2.5 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Composition</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {typeData.map(({ label, count, color }) => (
-                    <Badge key={label} variant="outline" className="text-[10px] gap-1 px-1.5 py-0.5">
-                      <div className={cn("w-2 h-2 rounded-full", color)} />
-                      {label}: {count}
-                    </Badge>
+                <div className="flex flex-wrap gap-1">
+                  {typeBreakdown.slice(0, 5).map(({ type, count, color }) => (
+                    <TooltipProvider key={type}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-1 cursor-default">
+                            <div className={cn("w-1.5 h-1.5 rounded-full", color)} />
+                            {count}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>{type}: {count}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Action Bar */}
-            <div className="flex items-center justify-between pt-3 border-t border-border/50">
-              <div className="flex items-center gap-2">
-                {(deckSummary.economy?.missing || 0) > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleAddMissingToWishlist}
-                    disabled={addingToWishlist}
-                    className="text-xs h-8"
-                  >
-                    {addingToWishlist ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent mr-1" />
-                    ) : (
-                      <Plus className="h-3 w-3 mr-1" />
-                    )}
-                    Add {deckSummary.economy?.missing || 0} to Wishlist
-                  </Button>
-                )}
+            {/* Quick Actions Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-auto">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>{new Date(deckSummary.updatedAt).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Layers className="h-3 w-3" />
+                  <span>{deckSummary.counts.lands} lands</span>
+                </div>
               </div>
 
               <div className="flex items-center gap-1">
-                {onAnalysis && (
-                  <Button variant="ghost" size="icon" onClick={onAnalysis} className="h-8 w-8">
-                    <BarChart3 className="h-4 w-4" />
+                {missingCount > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleAddMissingToWishlist}
+                    disabled={addingToWishlist}
+                    className="h-7 text-xs px-2"
+                  >
+                    {addingToWishlist ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent" />
+                    ) : (
+                      <>
+                        <Plus className="h-3 w-3 mr-1" />
+                        Wishlist
+                      </>
+                    )}
                   </Button>
                 )}
-                {onShare && (
-                  <Button variant="ghost" size="icon" onClick={onShare} className="h-8 w-8">
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                )}
-                {onDuplicate && (
-                  <Button variant="ghost" size="icon" onClick={onDuplicate} className="h-8 w-8">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                )}
-                {onDelete && (
-                  <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-                {onEdit && (
-                  <Button size="sm" onClick={onEdit} className="h-8 ml-1">
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit Deck
-                  </Button>
-                )}
+                <Button variant="ghost" size="sm" onClick={handlePlaytest} className="h-7 text-xs px-2">
+                  <Play className="h-3 w-3 mr-1" />
+                  Test
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onAnalysis} className="h-7 text-xs px-2">
+                  <BarChart3 className="h-3 w-3 mr-1" />
+                  Stats
+                </Button>
               </div>
             </div>
           </div>

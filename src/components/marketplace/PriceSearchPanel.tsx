@@ -68,6 +68,32 @@ interface PriceSearchPanelProps {
 type SortOption = 'name' | 'price-asc' | 'price-desc' | 'set';
 type FilterOption = 'all' | 'standard' | 'art-variants';
 
+interface MarketplacePreferences {
+  sortBy: SortOption;
+  filterBy: FilterOption;
+  hideNoPrice: boolean;
+  showFoil: boolean;
+}
+
+const PREFERENCES_KEY = 'marketplace-preferences';
+
+const getStoredPreferences = (): Partial<MarketplacePreferences> => {
+  try {
+    const stored = localStorage.getItem(PREFERENCES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const savePreferences = (prefs: MarketplacePreferences) => {
+  try {
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 // Helper to detect art variants based on collector number and set type
 function isArtVariant(card: any): boolean {
   const collectorNumber = card.collector_number || '';
@@ -83,16 +109,25 @@ function isArtVariant(card: any): boolean {
 }
 
 export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: PriceSearchPanelProps) {
+  // Load initial preferences from localStorage
+  const storedPrefs = getStoredPreferences();
+  
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CardPriceData[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
-  const [showFoil, setShowFoil] = useState(false);
+  const [showFoil, setShowFoil] = useState(storedPrefs.showFoil ?? false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [buyModalCard, setBuyModalCard] = useState<CardPriceData | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [sortBy, setSortBy] = useState<SortOption>(storedPrefs.sortBy ?? 'name');
+  const [filterBy, setFilterBy] = useState<FilterOption>(storedPrefs.filterBy ?? 'all');
+  const [hideNoPrice, setHideNoPrice] = useState(storedPrefs.hideNoPrice ?? true);
+
+  // Save preferences whenever they change
+  useEffect(() => {
+    savePreferences({ sortBy, filterBy, hideNoPrice, showFoil });
+  }, [sortBy, filterBy, hideNoPrice, showFoil]);
 
   // Debounced auto-search
   useEffect(() => {
@@ -251,6 +286,15 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
   const filteredAndSortedResults = useMemo(() => {
     let filtered = [...results];
     
+    // Hide cards without prices if enabled
+    if (hideNoPrice) {
+      filtered = filtered.filter(card => {
+        const price = showFoil ? card.tcgplayerFoilPrice : card.tcgplayerPrice;
+        const cmPrice = showFoil ? card.cardmarketFoilPrice : card.cardmarketPrice;
+        return (price && price > 0) || (cmPrice && cmPrice > 0) || (card.tixPrice && card.tixPrice > 0);
+      });
+    }
+    
     // Apply filter
     if (filterBy === 'standard') {
       filtered = filtered.filter(card => !card.isArtVariant);
@@ -277,10 +321,15 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     });
     
     return filtered;
-  }, [results, filterBy, sortBy, showFoil]);
+  }, [results, filterBy, sortBy, showFoil, hideNoPrice]);
 
   const standardCount = results.filter(c => !c.isArtVariant).length;
   const artVariantCount = results.filter(c => c.isArtVariant).length;
+  const noPriceCount = results.filter(c => {
+    const price = showFoil ? c.tcgplayerFoilPrice : c.tcgplayerPrice;
+    const cmPrice = showFoil ? c.cardmarketFoilPrice : c.cardmarketPrice;
+    return !((price && price > 0) || (cmPrice && cmPrice > 0) || (c.tixPrice && c.tixPrice > 0));
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -360,6 +409,18 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     <SelectItem value="set">Set Name</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/50">
+                <Switch
+                  id="hide-no-price"
+                  checked={hideNoPrice}
+                  onCheckedChange={setHideNoPrice}
+                  className="scale-75"
+                />
+                <Label htmlFor="hide-no-price" className="text-xs cursor-pointer">
+                  Hide no price {noPriceCount > 0 && `(${noPriceCount})`}
+                </Label>
               </div>
               
               <div className="ml-auto text-xs text-muted-foreground">

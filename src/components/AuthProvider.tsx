@@ -91,6 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setIsAdmin(false);
+    
+    // Clear user-specific localStorage data to prevent data leakage between users
+    localStorage.removeItem('deck-store');
+    localStorage.removeItem('price_watchlist');
+    localStorage.removeItem('lastOpenedDecks');
+    localStorage.removeItem('marketplace_preferences');
+    localStorage.removeItem('collection_view_prefs');
+    localStorage.removeItem('deck_builder_view');
+    
     await supabase.auth.signOut();
   };
 

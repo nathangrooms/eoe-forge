@@ -7,7 +7,6 @@ import { CameraScanDrawer } from '@/features/scan/CameraScanDrawer';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { showSuccess } from '@/components/ui/toast-helpers';
 import { AIScanHelper } from '@/components/scan/AIScanHelper';
 
 export default function Scan() {
@@ -18,8 +17,9 @@ export default function Scan() {
   
   const { recentScans, settings, updateSettings } = useScanStore();
 
-  const handleCardAdded = (card: any) => {
-    showSuccess('Card Scanned', `Successfully added ${card.name} to your collection!`);
+  // No toast on card added - the scanner shows inline feedback
+  const handleCardAdded = (_card: any) => {
+    // Silent - scanner shows last added card inline
   };
 
   const recentScanStats = {

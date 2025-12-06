@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { useScanStore, type ScannedCard } from './store';
 import { scryfallFuzzySearch, type CardCandidate } from './cardRecognition';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { logActivity } from '@/features/dashboard/hooks';
 import { useAutoCapture } from './useAutoCapture';
 
@@ -198,8 +197,12 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
       if (result.candidates.length === 0) {
         setScanStatus('error');
-        showError('No Match', `Could not find "${cardName}" in the database.`);
-        setTimeout(() => setScanStatus('idle'), 1500);
+        // No toast - just show inline error state
+        setLastRecognized(`No match: "${cardName}"`);
+        setTimeout(() => {
+          setScanStatus('idle');
+          setLastRecognized(null);
+        }, 1500);
         return;
       }
 
@@ -228,7 +231,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     captureFrame,
     (imageData) => captureAndAnalyze(imageData),
     {
-      enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0 && !lastAddedCard,
+      enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0,
       sharpnessThreshold: 120, // Very low threshold for instant detection
       stabilityDelay: 100, // Ultra-quick 100ms stability check
       cooldownDelay: 800 // 0.8s between scans for rapid-fire scanning
@@ -241,7 +244,8 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        showError('Auth Error', 'Please log in to add cards');
+        // Silent fail for auth errors during scanning - don't interrupt with toast
+        console.error('Auth required to add cards');
         return;
       }
 
@@ -299,8 +303,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       setLastAddedCard(scannedCard);
       setLastRecognized(null);
       
-      // Auto-clear last added after 3 seconds to allow next scan
-      setTimeout(() => setLastAddedCard(null), 3000);
+      // Keep last added card visible until the NEXT scan replaces it (no auto-clear)
       
       await logActivity('card_added', 'card', candidate.cardId, {
         name: candidate.name,
@@ -313,7 +316,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
     } catch (error: any) {
       console.error('Add card error:', error);
-      showError('Unable to add card', error.message || 'Database error');
+      // No toast - silent fail to avoid interrupting scanning flow
     }
   };
 
@@ -348,7 +351,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       setLastAddedCard(null);
     } catch (error) {
       console.error('Undo error:', error);
-      showError('Undo Failed', 'Could not undo last action');
+      // No toast for undo failure - just log
     }
   };
 
@@ -362,7 +365,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       setCandidates(result.candidates);
       setLastRecognized(manualSearch);
     } catch (error) {
-      showError('Search Error', 'Failed to search for card');
+      console.error('Search error:', error);
     } finally {
       setProcessing(false);
     }

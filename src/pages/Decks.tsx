@@ -72,6 +72,7 @@ interface Deck {
 type DeckFormat = 'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom';
 
 export default function Decks() {
+  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -562,8 +563,13 @@ export default function Decks() {
     ));
   };
 
-  // Show onboarding if user has no decks
-  const showOnboarding = !loading && deckSummaries.length === 0;
+  // Show onboarding if user has no decks OR if user clicked New Deck
+  const showOnboarding = !loading && (deckSummaries.length === 0 || showOnboardingFlow);
+
+  const handleOnboardingCreate = async (name: string, format: 'commander' | 'standard' | 'custom') => {
+    await handleCreateFirstDeck(name, format);
+    setShowOnboardingFlow(false);
+  };
 
   return (
     <StandardPageLayout
@@ -571,57 +577,16 @@ export default function Decks() {
       description="Create, analyze, and optimize your Magic: The Gathering decks"
       action={
         showOnboarding ? null : (
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Deck
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Deck</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="deck-name">Deck Name</Label>
-                  <Input
-                    id="deck-name"
-                    value={newDeckName}
-                    onChange={(e) => setNewDeckName(e.target.value)}
-                    placeholder="Enter deck name..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="deck-format">Format</Label>
-                  <Select value={newDeckFormat} onValueChange={(value: DeckFormat) => setNewDeckFormat(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="commander">Commander / EDH</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="modern">Modern</SelectItem>
-                      <SelectItem value="pioneer">Pioneer</SelectItem>
-                      <SelectItem value="legacy">Legacy</SelectItem>
-                      <SelectItem value="vintage">Vintage</SelectItem>
-                      <SelectItem value="pauper">Pauper</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={createDeck} className="w-full">
-                  Create Deck
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setShowOnboardingFlow(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Deck
+          </Button>
         )
       }
     >
       {showOnboarding ? (
         <FirstDeckOnboarding 
-          onCreateDeck={handleCreateFirstDeck}
+          onCreateDeck={handleOnboardingCreate}
           loading={creatingFirstDeck}
         />
       ) : (

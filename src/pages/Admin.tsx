@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
-  Download, Database, Loader2, AlertCircle, CheckCircle, Clock,
-  Activity, RefreshCw, CreditCard, Settings
+  Download, Database, Loader2, AlertCircle,
+  Activity, CreditCard, Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
 // Import proper admin components
 import { FeatureFlagsManager } from '@/components/admin/FeatureFlagsManager';
@@ -22,7 +20,6 @@ import SyncDashboard from '@/components/SyncDashboard';
 
 // ============= Overview Section =============
 function OverviewSection() {
-  const { toast } = useToast();
   const [cardCount, setCardCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
   const [deckCount, setDeckCount] = useState(0);
@@ -37,7 +34,6 @@ function OverviewSection() {
     try {
       setLoading(true);
       
-      // Fetch all stats individually with proper error handling
       const cardsRes = await supabase.from('cards').select('*', { count: 'exact', head: true });
       const profilesRes = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const decksRes = await supabase.from('user_decks').select('*', { count: 'exact', head: true });
@@ -56,7 +52,6 @@ function OverviewSection() {
 
   return (
     <div className="space-y-6">
-      {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -112,7 +107,6 @@ function OverviewSection() {
         </Card>
       </div>
 
-      {/* Sync Dashboard */}
       <SyncDashboard />
     </div>
   );
@@ -121,67 +115,22 @@ function OverviewSection() {
 // ============= Main Admin Page =============
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    
-    const checkAdmin = async () => {
-      try {
-        // First get session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
-        if (!session?.user) {
-          console.log('No session found');
-          setIsAdmin(false);
-          return;
-        }
-
-        console.log('Checking admin for user:', session.user.id);
-
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('is_admin, username')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (!mounted) return;
-
-        if (error) {
-          console.warn('Error checking admin status:', error);
-          setIsAdmin(false);
-          return;
-        }
-
-        console.log('Profile found:', profile);
-        setIsAdmin(profile?.is_admin === true);
-      } catch (e) {
-        console.error('Admin check failed:', e);
-        if (mounted) setIsAdmin(false);
-      }
-    };
-    
-    checkAdmin();
-    
-    return () => { mounted = false; };
-  }, []);
+  const { user, loading, isAdmin } = useAuth();
 
   // Loading state
-  if (isAdmin === null) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking access...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Not admin
-  if (!isAdmin) {
+  // Not logged in or not admin
+  if (!user || !isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="max-w-md">
@@ -190,7 +139,7 @@ export default function Admin() {
               <AlertCircle className="h-12 w-12 text-destructive" />
               <h2 className="text-xl font-semibold">Access Denied</h2>
               <p className="text-muted-foreground">
-                You don't have permission to access the admin panel.
+                {!user ? 'Please log in to access the admin panel.' : "You don't have permission to access the admin panel."}
               </p>
             </div>
           </CardContent>

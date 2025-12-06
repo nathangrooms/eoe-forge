@@ -30,12 +30,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Check admin status
         if (session?.user?.id) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_admin')
-            .eq('id', session.user.id)
-            .single();
-          setIsAdmin(profile?.is_admin ?? false);
+          // Defer the profile fetch to avoid deadlock
+          setTimeout(async () => {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', session.user.id)
+              .maybeSingle();
+            setIsAdmin(profile?.is_admin ?? false);
+          }, 0);
         } else {
           setIsAdmin(false);
         }
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('is_admin')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
         setIsAdmin(profile?.is_admin ?? false);
       }
     });

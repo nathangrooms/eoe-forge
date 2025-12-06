@@ -50,6 +50,7 @@ interface DeckQuickStatsProps {
   edhMetrics?: EdhMetrics | null;
   edhPowerUrl?: string | null;
   loadingEdhPower?: boolean;
+  edhNeedsRefresh?: boolean;
   onCheckEdhPower?: () => void;
   format: string;
   commanderName?: string;
@@ -89,6 +90,7 @@ export function DeckQuickStats({
   edhMetrics,
   edhPowerUrl,
   loadingEdhPower,
+  edhNeedsRefresh,
   onCheckEdhPower,
   format,
   commanderName,
@@ -96,17 +98,16 @@ export function DeckQuickStats({
   missingCards = 0,
   ownedPct = 100
 }: DeckQuickStatsProps) {
-  // Debug logging
-  console.log('DeckQuickStats Props:', { edhPowerLevel, edhMetrics, loadingEdhPower, powerLevel });
-  
-  const getPowerBand = (level: number) => {
+  const getPowerBand = (level: number | null) => {
+    if (level === null || level === undefined) return 'casual';
     if (level <= 3) return 'casual';
     if (level <= 6) return 'mid';
     if (level <= 8) return 'high';
     return 'cEDH';
   };
 
-  const displayPower = edhPowerLevel ?? powerLevel;
+  // ONLY show EDH power level from edhpowerlevel.com, never internal calculation
+  const displayPower = edhPowerLevel;
   const powerBand = getPowerBand(displayPower);
   const powerStyle = powerBandConfig[powerBand];
 
@@ -130,28 +131,38 @@ export function DeckQuickStats({
           <Progress value={completionPct} className="h-1.5 mt-2" />
         </Card>
 
-        {/* Power Level - EDH Live */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+        {/* Power Level - EDH Live Only */}
+        <Card className={cn(
+          "p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60",
+          edhNeedsRefresh && "ring-2 ring-orange-500/50"
+        )}>
           <div className="flex items-center justify-between mb-2">
             <Zap className="h-5 w-5 text-amber-500" />
-            {isCommander && onCheckEdhPower && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={onCheckEdhPower}
-                disabled={loadingEdhPower}
-              >
-                {loadingEdhPower ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3" />
-                )}
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {edhNeedsRefresh && (
+                <Badge variant="outline" className="text-[10px] text-orange-500 border-orange-500/50 animate-pulse">
+                  Outdated
+                </Badge>
+              )}
+              {isCommander && onCheckEdhPower && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={onCheckEdhPower}
+                  disabled={loadingEdhPower}
+                >
+                  {loadingEdhPower ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className={cn("h-3 w-3", edhNeedsRefresh && "text-orange-500")} />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className={cn("text-2xl font-bold", powerStyle.color)}>
-            {edhPowerLevel !== null && edhPowerLevel !== undefined ? edhPowerLevel.toFixed(2) : powerLevel}/10
+          <div className={cn("text-2xl font-bold", displayPower !== null ? powerStyle.color : "text-muted-foreground")}>
+            {displayPower !== null ? `${displayPower.toFixed(2)}/10` : '--'}
           </div>
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             Power Level
@@ -161,9 +172,11 @@ export function DeckQuickStats({
               </a>
             )}
           </div>
-          <Badge variant="outline" className={cn("text-[10px] mt-1", powerStyle.color)}>
-            {powerStyle.label}
-          </Badge>
+          {displayPower !== null && (
+            <Badge variant="outline" className={cn("text-[10px] mt-1", powerStyle.color)}>
+              {powerStyle.label}
+            </Badge>
+          )}
         </Card>
 
         {/* Deck Value */}

@@ -46,6 +46,7 @@ interface VisualDeckViewProps {
   format: string;
   onAddCard?: (cardId: string) => void;
   onRemoveCard?: (cardId: string) => void;
+  onDeleteCard?: (cardId: string) => void;
   onUpdateQuantity?: (cardId: string, quantity: number) => void;
   onReplaceCard?: (cardId: string) => void;
 }
@@ -69,6 +70,7 @@ export function VisualDeckView({
   format,
   onAddCard,
   onRemoveCard,
+  onDeleteCard,
   onUpdateQuantity,
   onReplaceCard
 }: VisualDeckViewProps) {
@@ -281,13 +283,13 @@ export function VisualDeckView({
                           Replace
                         </Button>
                       )}
-                      {onRemoveCard && (
+                      {onDeleteCard && (
                         <Button 
                           size="icon" 
                           variant="outline"
                           className="h-8 w-8 text-xs bg-destructive/20 border-destructive/40 hover:bg-destructive/30"
-                          onClick={(e) => { e.stopPropagation(); onRemoveCard(card.id); }}
-                          title="Delete"
+                          onClick={(e) => { e.stopPropagation(); onDeleteCard(card.id); }}
+                          title="Delete all copies"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

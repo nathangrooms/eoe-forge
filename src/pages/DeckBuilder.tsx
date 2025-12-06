@@ -716,6 +716,13 @@ const DeckBuilder = () => {
                     deck.removeCard(cardId);
                   }
                 }}
+                onDeleteCard={(cardId) => {
+                  // Delete all copies of the card
+                  const card = deck.cards.find(c => c.id === cardId);
+                  if (card) {
+                    deck.updateCardQuantity(cardId, 0);
+                  }
+                }}
                 onReplaceCard={(cardId) => {
                   setCardToReplace(cardId);
                   setActiveTab('search');

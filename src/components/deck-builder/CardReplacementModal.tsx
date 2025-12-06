@@ -70,10 +70,13 @@ export function CardReplacementModal({ isOpen, onClose, cardToReplace }: CardRep
   const handleReplace = async () => {
     if (!selectedReplacement || !cardToReplace) return;
 
-    // Remove old card
-    removeCard(cardToReplace.id);
+    const originalQuantity = cardToReplace.quantity || 1;
+    
+    // Remove all copies of the old card using updateCardQuantity(id, 0)
+    const deck = useDeckStore.getState();
+    deck.updateCardQuantity(cardToReplace.id, 0);
 
-    // Add new card
+    // Add new card with the same quantity as the original
     const newCard = {
       id: selectedReplacement.id,
       name: selectedReplacement.name,
@@ -81,7 +84,7 @@ export function CardReplacementModal({ isOpen, onClose, cardToReplace }: CardRep
       type_line: selectedReplacement.type_line || '',
       colors: selectedReplacement.color_identity || selectedReplacement.colors || [],
       mana_cost: selectedReplacement.mana_cost,
-      quantity: cardToReplace.quantity,
+      quantity: originalQuantity,
       category: cardToReplace.category,
       mechanics: selectedReplacement.keywords || [],
       image_uris: selectedReplacement.image_uris,

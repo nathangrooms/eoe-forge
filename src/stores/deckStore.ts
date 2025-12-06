@@ -117,14 +117,17 @@ export const useDeckStore = create<DeckState>()(
       
       addCard: (card) => set((state) => {
         const existingCard = state.cards.find(c => c.id === card.id);
+        // Use the quantity from the card if provided, otherwise default to 1
+        const quantityToAdd = card.quantity || 1;
+        
         if (existingCard) {
-          // Increase quantity
+          // Increase quantity by the card's quantity
           const updatedCards = state.cards.map(c =>
-            c.id === card.id ? { ...c, quantity: c.quantity + 1 } : c
+            c.id === card.id ? { ...c, quantity: c.quantity + quantityToAdd } : c
           );
           const newState = {
             cards: updatedCards,
-            totalCards: state.totalCards + 1
+            totalCards: state.totalCards + quantityToAdd
           };
           
           // Auto-save if we have a current deck ID
@@ -136,10 +139,10 @@ export const useDeckStore = create<DeckState>()(
           
           return newState;
         } else {
-          // Add new card
+          // Add new card with its quantity
           const newState = {
-            cards: [...state.cards, { ...card, quantity: 1 }],
-            totalCards: state.totalCards + 1
+            cards: [...state.cards, { ...card, quantity: quantityToAdd }],
+            totalCards: state.totalCards + quantityToAdd
           };
           
           // NOTE: Auto-save removed to prevent race conditions.

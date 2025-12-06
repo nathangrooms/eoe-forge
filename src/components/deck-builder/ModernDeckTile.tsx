@@ -188,7 +188,9 @@ export function ModernDeckTile({
     }
   };
 
-  const handlePlaytest = () => {
+  const handlePlaytest = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     navigate(`/deck-simulation?deck=${deckSummary.id}`);
   };
 
@@ -248,15 +250,15 @@ export function ModernDeckTile({
         <div className="flex flex-col lg:flex-row" style={{ minHeight: '320px' }}>
           {/* Left: Commander/Deck Visual - Fixed to match card ratio */}
           <div className="lg:w-56 xl:w-64 flex-shrink-0 relative bg-gradient-to-br from-muted/40 to-muted/20 p-3 flex flex-col">
-            {/* Edit Button - Top Right */}
+            {/* Edit Button - Top Right - Prominent */}
             {onEdit && (
               <Button
                 size="sm"
-                onClick={onEdit}
-                className="absolute top-2 right-2 z-10 h-8 px-3 bg-primary hover:bg-primary/90 shadow-lg"
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="absolute top-2 right-2 z-10 h-9 px-4 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl border border-primary-foreground/20 font-semibold"
               >
-                <Edit className="h-3.5 w-3.5 mr-1.5" />
-                Edit
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Deck
               </Button>
             )}
 

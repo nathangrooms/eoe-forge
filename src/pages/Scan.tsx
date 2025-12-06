@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Camera, Zap, Settings, BarChart3, Plus, Smartphone } from 'lucide-react';
-import { ScanDrawer } from '@/features/scan/ScanDrawer';
+import { Camera, Zap, Settings, BarChart3, Plus, Smartphone, Sparkles } from 'lucide-react';
+import { SimpleScanDrawer } from '@/features/scan/SimpleScanDrawer';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
@@ -32,13 +32,13 @@ export default function Scan() {
 
   return (
     <StandardPageLayout
-      title="Fast Scan"
-      description="Instantly add cards using your device camera - optimized for mobile"
+      title="Quick Add Cards"
+      description="Fast card entry with Scryfall's smart search - type a name and tap to add"
       action={
         <Button onClick={() => setShowScanDrawer(true)} size="lg" className="gap-2 touch-target">
-          <Camera className="h-5 w-5" />
-          <span className="hidden sm:inline">Start Scanning</span>
-          <span className="sm:hidden">Scan</span>
+          <Sparkles className="h-5 w-5" />
+          <span className="hidden sm:inline">Quick Add</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       }
     >
@@ -99,34 +99,34 @@ export default function Scan() {
           </Card>
         </div>
 
-        {/* Mobile-First Feature Highlight */}
-        <Card className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20">
+        {/* Smart Search Feature Highlight */}
+        <Card className="bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20">
           <CardContent className="p-6">
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-blue-500/20 rounded-full">
-                <Smartphone className="h-6 w-6 text-blue-600" />
+              <div className="p-3 bg-primary/20 rounded-full">
+                <Sparkles className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Optimized for Mobile</h3>
-                <p className="text-muted-foreground text-sm">Designed for fast, accurate scanning on your phone</p>
+                <h3 className="text-lg font-semibold">Powered by Scryfall</h3>
+                <p className="text-muted-foreground text-sm">Smart fuzzy search handles typos and partial names automatically</p>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span>Back Camera</span>
+                <span>Fuzzy Matching</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span>Auto Focus</span>
+                <span>Instant Results</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span>AI Recognition</span>
+                <span>All Printings</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span>Instant Add</span>
+                <span>Price Info</span>
               </div>
             </div>
           </CardContent>
@@ -154,20 +154,20 @@ export default function Scan() {
           </CardContent>
         </Card>
 
-        {/* Main Scan Button - Mobile Optimized */}
+        {/* Main Action - Quick Add */}
         <Card className="text-center p-8 bg-gradient-to-br from-primary/5 to-purple-500/5 border-primary/20">
-          <Camera className="h-16 w-16 mx-auto mb-6 text-primary" />
-          <h2 className="text-2xl font-bold mb-4">Ready to Scan Cards?</h2>
+          <Sparkles className="h-16 w-16 mx-auto mb-6 text-primary" />
+          <h2 className="text-2xl font-bold mb-4">Ready to Add Cards?</h2>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            Point your camera at any Magic: The Gathering card and let our AI recognize and add it to your collection instantly.
+            Just start typing a card name - Scryfall's smart search handles typos and partial names. Tap any result to instantly add it.
           </p>
           <Button 
             onClick={() => setShowScanDrawer(true)} 
             size="lg" 
             className="gap-2 px-8 py-4 text-lg touch-target w-full sm:w-auto"
           >
-            <Camera className="h-6 w-6" />
-            Start Camera Scan
+            <Sparkles className="h-6 w-6" />
+            Quick Add Cards
           </Button>
         </Card>
 
@@ -222,17 +222,17 @@ export default function Scan() {
         {/* How It Works */}
         <Card>
           <CardHeader>
-            <CardTitle>How Fast Scan Works</CardTitle>
+            <CardTitle>How Quick Add Works</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Camera className="h-6 w-6 text-primary" />
+                  <Sparkles className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">1. Point & Capture</h3>
+                <h3 className="font-semibold mb-2">1. Start Typing</h3>
                 <p className="text-sm text-muted-foreground">
-                  Align the card name in the frame and tap capture, or enable auto-capture for hands-free scanning.
+                  Type any card name - even partial names or with typos. "Sol Rng" still finds "Sol Ring"!
                 </p>
               </div>
               
@@ -240,9 +240,9 @@ export default function Scan() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Zap className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">2. AI Recognition</h3>
+                <h3 className="font-semibold mb-2">2. See Results</h3>
                 <p className="text-sm text-muted-foreground">
-                  Our on-device AI reads the card name and matches it against our comprehensive database.
+                  Scryfall's fuzzy search shows matching cards instantly with images, sets, and prices.
                 </p>
               </div>
               
@@ -250,9 +250,9 @@ export default function Scan() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Plus className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">3. Instant Add</h3>
+                <h3 className="font-semibold mb-2">3. Tap to Add</h3>
                 <p className="text-sm text-muted-foreground">
-                  Choose from multiple printings or let auto-add handle it instantly. Cards appear in your collection immediately.
+                  One tap adds the card to your collection. Keep typing to add more cards quickly.
                 </p>
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function Scan() {
         </Card>
       </div>
 
-      <ScanDrawer
+      <SimpleScanDrawer
         isOpen={showScanDrawer}
         onClose={() => setShowScanDrawer(false)}
         onCardAdded={handleCardAdded}

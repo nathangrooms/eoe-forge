@@ -180,11 +180,11 @@ export function UniversalLocalSearch({
         }
       }
 
-      // Price
-      if (filters.priceMin != null || filters.priceMax != null) {
+      // Price - only filter if explicitly set (> 0)
+      if (filters.priceMin > 0 || filters.priceMax > 0) {
         const price = parseNumber(card?.prices?.usd) ?? 0;
-        if (filters.priceMin != null && price < filters.priceMin) return false;
-        if (filters.priceMax != null && price > filters.priceMax) return false;
+        if (filters.priceMin > 0 && price < filters.priceMin) return false;
+        if (filters.priceMax > 0 && price > filters.priceMax) return false;
       }
 
       return true;

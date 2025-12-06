@@ -110,7 +110,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              Build Your First Deck
+              Create New Deck
             </motion.h1>
             <motion.p 
               className="text-lg text-muted-foreground mb-10"
@@ -132,7 +132,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 >
                   <Card 
                     className={cn(
-                      "relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl border-2",
+                      "relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 h-[180px]",
                       selectedFormat === format.id 
                         ? `${format.borderColor} bg-gradient-to-br ${format.color}` 
                         : "border-border/50 hover:border-primary/50"
@@ -144,7 +144,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                         Popular
                       </Badge>
                     )}
-                    <CardContent className="p-6 text-center">
+                    <CardContent className="p-6 text-center h-full flex flex-col justify-center">
                       <div className={cn(
                         "w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center",
                         `bg-gradient-to-br ${format.color}`

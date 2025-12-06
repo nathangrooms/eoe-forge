@@ -22,7 +22,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const navigationItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Collection", url: "/collection", icon: Package },
-  { title: "Deck Builder", url: "/deck-builder", icon: Hammer },
   { title: "Decks", url: "/decks", icon: BarChart3 },
 ];
 

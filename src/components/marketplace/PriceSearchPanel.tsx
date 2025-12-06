@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,14 +11,14 @@ import {
   ExternalLink, 
   TrendingUp, 
   TrendingDown, 
-  Minus,
   Star,
-  Plus,
-  RefreshCw,
   ShoppingCart,
-  Sparkles
+  Sparkles,
+  X,
+  Loader2
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { CardPriceDetail } from './CardPriceDetail';
 
 interface PriceResult {
   marketplace: string;
@@ -31,17 +31,23 @@ interface PriceResult {
   color: string;
 }
 
-interface CardPriceData {
+export interface CardPriceData {
+  id: string;
   name: string;
   set_name: string;
   set_code: string;
   image_uri?: string;
   prices: PriceResult[];
   tcgplayerPrice?: number;
+  tcgplayerFoilPrice?: number;
   cardmarketPrice?: number;
   averagePrice: number;
   lowestPrice: number;
   priceChange7d?: number;
+  tcgplayerUrl?: string;
+  cardmarketUrl?: string;
+  cardkingdomUrl?: string;
+  scryfallData?: any;
 }
 
 interface PriceSearchPanelProps {
@@ -54,13 +60,27 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
   const [results, setResults] = useState<CardPriceData[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
   const [showFoil, setShowFoil] = useState(false);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+
+  // Debounced auto-search
+  useEffect(() => {
+    if (!query.trim() || query.length < 2) {
+      if (query.length === 0) setResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchCards();
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [query, showFoil]);
 
   const searchCards = useCallback(async () => {
     if (!query.trim()) return;
     
     setLoading(true);
     try {
-      // Search Scryfall for cards
       const response = await fetch(
         `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=prints&order=released&dir=desc`
       );
@@ -75,36 +95,38 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
       
       const data = await response.json();
       
-      const cardResults: CardPriceData[] = data.data.slice(0, 12).map((card: any) => {
-        const tcgPrice = showFoil 
-          ? parseFloat(card.prices?.usd_foil || '0')
-          : parseFloat(card.prices?.usd || '0');
-        const cardmarketPrice = showFoil
-          ? parseFloat(card.prices?.eur_foil || '0')
-          : parseFloat(card.prices?.eur || '0');
+      const cardResults: CardPriceData[] = data.data.slice(0, 16).map((card: any) => {
+        const tcgPrice = parseFloat(card.prices?.usd || '0');
+        const tcgFoilPrice = parseFloat(card.prices?.usd_foil || '0');
+        const cardmarketPrice = parseFloat(card.prices?.eur || '0');
+        
+        const displayPrice = showFoil ? tcgFoilPrice : tcgPrice;
         
         const prices: PriceResult[] = [];
         
-        // TCGPlayer
+        // TCGPlayer - Primary source
         if (card.purchase_uris?.tcgplayer) {
           prices.push({
             marketplace: 'TCGPlayer',
-            price: tcgPrice || null,
+            price: displayPrice || null,
             currency: 'USD',
             url: card.purchase_uris.tcgplayer,
-            inStock: tcgPrice > 0,
+            inStock: displayPrice > 0,
             color: 'blue'
           });
         }
         
         // CardMarket
         if (card.purchase_uris?.cardmarket) {
+          const cmPrice = showFoil 
+            ? parseFloat(card.prices?.eur_foil || '0')
+            : cardmarketPrice;
           prices.push({
             marketplace: 'CardMarket',
-            price: cardmarketPrice || null,
+            price: cmPrice || null,
             currency: 'EUR',
             url: card.purchase_uris.cardmarket,
-            inStock: cardmarketPrice > 0,
+            inStock: cmPrice > 0,
             color: 'orange'
           });
         }
@@ -113,7 +135,7 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
         if (card.purchase_uris?.cardkingdom) {
           prices.push({
             marketplace: 'Card Kingdom',
-            price: null, // No direct price
+            price: null,
             currency: 'USD',
             url: card.purchase_uris.cardkingdom,
             inStock: true,
@@ -131,30 +153,26 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
           color: 'yellow'
         });
 
-        const validPrices = prices.filter(p => p.price && p.price > 0).map(p => p.price!);
-        const avgPrice = validPrices.length > 0 
-          ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length 
-          : 0;
-        const lowPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
-
         return {
+          id: card.id,
           name: card.name,
           set_name: card.set_name,
           set_code: card.set,
-          image_uri: card.image_uris?.normal || card.image_uris?.small,
+          image_uri: card.image_uris?.normal || card.image_uris?.small || card.card_faces?.[0]?.image_uris?.normal,
           prices,
           tcgplayerPrice: tcgPrice,
+          tcgplayerFoilPrice: tcgFoilPrice,
           cardmarketPrice: cardmarketPrice,
-          averagePrice: avgPrice,
-          lowestPrice: lowPrice,
-          priceChange7d: Math.random() * 20 - 10 // Simulated - would come from price history API
+          averagePrice: displayPrice,
+          lowestPrice: displayPrice,
+          tcgplayerUrl: card.purchase_uris?.tcgplayer,
+          cardmarketUrl: card.purchase_uris?.cardmarket,
+          cardkingdomUrl: card.purchase_uris?.cardkingdom,
+          scryfallData: card
         };
       });
       
       setResults(cardResults);
-      if (cardResults.length > 0) {
-        setSelectedCard(cardResults[0]);
-      }
     } catch (error) {
       console.error('Search error:', error);
     } finally {
@@ -162,15 +180,14 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
     }
   }, [query, showFoil]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      searchCards();
-    }
-  };
-
   const handleAddToWatchlist = (card: CardPriceData) => {
     onAddToWatchlist?.(card);
     showSuccess('Added to Watchlist', `${card.name} added to your price watchlist`);
+  };
+
+  const handleCardClick = (card: CardPriceData) => {
+    setSelectedCard(card);
+    setShowDetailPanel(true);
   };
 
   const getPriceColor = (marketplace: string) => {
@@ -191,19 +208,32 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
           <CardTitle className="flex items-center gap-2 text-lg">
             <Search className="h-5 w-5 text-primary" />
             Search & Compare Prices
+            <Badge variant="outline" className="ml-2 text-xs">
+              Live TCGPlayer Data
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Input
-                placeholder="Search for a card (e.g., 'Black Lotus', 'Sol Ring')"
+                placeholder="Start typing a card name..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="pr-10"
+                className="pr-10 text-base"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              {loading ? (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+              ) : query ? (
+                <button 
+                  onClick={() => { setQuery(''); setResults([]); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : (
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              )}
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -217,19 +247,18 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
                   Foil
                 </Label>
               </div>
-              <Button onClick={searchCards} disabled={loading || !query.trim()}>
-                {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                Search
-              </Button>
             </div>
           </div>
+          {query.length > 0 && query.length < 2 && (
+            <p className="text-xs text-muted-foreground mt-2">Type at least 2 characters to search...</p>
+          )}
         </CardContent>
       </Card>
 
       {/* Results Grid */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+      {loading && results.length === 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Card key={i} className="overflow-hidden">
               <Skeleton className="h-64 w-full" />
               <CardContent className="p-4 space-y-2">
@@ -243,140 +272,120 @@ export function PriceSearchPanel({ onAddToWatchlist }: PriceSearchPanelProps) {
       )}
 
       {!loading && results.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {results.map((card, index) => (
-            <Card 
-              key={`${card.name}-${card.set_code}-${index}`} 
-              className={`overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 ${
-                selectedCard?.name === card.name && selectedCard?.set_code === card.set_code 
-                  ? 'ring-2 ring-primary' 
-                  : ''
-              }`}
-              onClick={() => setSelectedCard(card)}
-            >
-              {card.image_uri ? (
-                <img 
-                  src={card.image_uri} 
-                  alt={card.name}
-                  className="w-full h-64 object-contain bg-muted"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-full h-64 bg-muted flex items-center justify-center">
-                  <Search className="h-12 w-12 text-muted-foreground" />
-                </div>
-              )}
-              
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-sm truncate">{card.name}</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  {card.set_name} ({card.set_code.toUpperCase()})
-                </p>
-                
-                {/* Price Summary */}
-                <div className="flex items-center justify-between mb-3">
-                  {card.lowestPrice > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-green-600">
-                        ${card.lowestPrice.toFixed(2)}
-                      </span>
-                      {card.priceChange7d !== undefined && (
-                        <Badge 
-                          variant="outline" 
-                          className={card.priceChange7d >= 0 
-                            ? 'text-green-600 border-green-500/30' 
-                            : 'text-red-600 border-red-500/30'
-                          }
-                        >
-                          {card.priceChange7d >= 0 ? (
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3 mr-1" />
-                          )}
-                          {Math.abs(card.priceChange7d).toFixed(1)}%
-                        </Badge>
-                      )}
-                    </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {results.map((card) => {
+            const displayPrice = showFoil ? card.tcgplayerFoilPrice : card.tcgplayerPrice;
+            
+            return (
+              <Card 
+                key={card.id} 
+                className="overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 hover:scale-[1.02] group"
+                onClick={() => handleCardClick(card)}
+              >
+                <div className="relative">
+                  {card.image_uri ? (
+                    <img 
+                      src={card.image_uri} 
+                      alt={card.name}
+                      className="w-full h-64 object-contain bg-muted"
+                      loading="lazy"
+                    />
                   ) : (
-                    <span className="text-sm text-muted-foreground">No price data</span>
+                    <div className="w-full h-64 bg-muted flex items-center justify-center">
+                      <Search className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
+                  
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Badge className="bg-primary text-primary-foreground">
+                      Click for Price Details
+                    </Badge>
+                  </div>
+                  
+                  {showFoil && (
+                    <Badge className="absolute top-2 right-2 bg-yellow-500">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Foil
+                    </Badge>
                   )}
                 </div>
-
-                {/* Quick Price List */}
-                <div className="space-y-1.5 mb-3">
-                  {card.prices.slice(0, 3).map((price, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <span className={`px-1.5 py-0.5 rounded ${getPriceColor(price.marketplace)}`}>
-                        {price.marketplace}
-                      </span>
+                
+                <CardContent className="p-3">
+                  <h3 className="font-semibold text-sm truncate">{card.name}</h3>
+                  <p className="text-xs text-muted-foreground mb-2 truncate">
+                    {card.set_name}
+                  </p>
+                  
+                  {/* TCGPlayer Price - Primary */}
+                  <div className="flex items-center justify-between mb-2">
+                    {displayPrice && displayPrice > 0 ? (
                       <div className="flex items-center gap-2">
-                        {price.price ? (
-                          <span className="font-medium">
-                            {price.currency === 'EUR' ? '€' : '$'}{price.price.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Check site</span>
-                        )}
-                        <a 
-                          href={price.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="hover:text-primary"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <span className="text-lg font-bold text-green-600">
+                          ${displayPrice.toFixed(2)}
+                        </span>
+                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                          TCG
+                        </Badge>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No price data</span>
+                    )}
+                  </div>
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToWatchlist(card);
-                    }}
-                  >
-                    <Star className="h-3 w-3 mr-1" />
-                    Watch
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Open lowest price link
-                      const lowestPriceLink = card.prices.find(p => p.price === card.lowestPrice);
-                      if (lowestPriceLink) {
-                        window.open(lowestPriceLink.url, '_blank');
-                      }
-                    }}
-                  >
-                    <ShoppingCart className="h-3 w-3 mr-1" />
-                    Buy
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {/* Quick Actions */}
+                  <div className="flex gap-1.5">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 h-8 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToWatchlist(card);
+                      }}
+                    >
+                      <Star className="h-3 w-3 mr-1" />
+                      Watch
+                    </Button>
+                    {card.tcgplayerUrl && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="flex-1 h-8 text-xs bg-blue-600 hover:bg-blue-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(card.tcgplayerUrl, '_blank');
+                        }}
+                      >
+                        <ShoppingCart className="h-3 w-3 mr-1" />
+                        Buy
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {!loading && results.length === 0 && query && (
+      {!loading && results.length === 0 && query.length >= 2 && (
         <Card className="p-12 text-center">
           <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No cards found</h3>
           <p className="text-muted-foreground">Try a different search term</p>
         </Card>
+      )}
+
+      {/* Price Detail Panel */}
+      {selectedCard && (
+        <CardPriceDetail 
+          card={selectedCard}
+          isOpen={showDetailPanel}
+          onClose={() => setShowDetailPanel(false)}
+          showFoil={showFoil}
+          onAddToWatchlist={handleAddToWatchlist}
+        />
       )}
     </div>
   );

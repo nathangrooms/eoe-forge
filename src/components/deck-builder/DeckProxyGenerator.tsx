@@ -81,35 +81,150 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     setSelectedCards(new Set());
   };
 
-  const getCardImage = (card: any) => {
-    if (card.image_uris?.normal) return card.image_uris.normal;
-    if (card.image_uris?.large) return card.image_uris.large;
-    if (card.image) return card.image;
-    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image`;
-  };
-
   const getCardId = (card: any) => card.id || card.name;
 
-  const loadImageAsBase64 = async (url: string, cardName: string): Promise<string | null> => {
-    try {
-      // Use edge function to proxy the image and get base64
-      const { data, error } = await supabase.functions.invoke('proxy-image', {
-        body: { url }
+  // Get card image for thumbnail preview
+  const getCardImage = (card: any) => {
+    if (card.image_uris?.small) return card.image_uris.small;
+    if (card.image_uris?.normal) return card.image_uris.normal;
+    if (card.image) return card.image;
+    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`;
+  };
+
+  // Parse mana cost string to individual symbols
+  const parseManaSymbols = (manaCost: string): string[] => {
+    if (!manaCost) return [];
+    const matches = manaCost.match(/\{[^}]+\}/g);
+    return matches || [];
+  };
+
+  // Draw a text-based proxy card with all card information
+  const drawTextCard = (doc: any, x: number, y: number, width: number, height: number, card: any, isCommander: boolean = false) => {
+    const padding = 0.08;
+    const lineHeight = 0.14;
+    
+    // Card border
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.02);
+    doc.rect(x, y, width, height);
+    
+    // Inner border for aesthetics
+    doc.setLineWidth(0.01);
+    doc.rect(x + 0.04, y + 0.04, width - 0.08, height - 0.08);
+    
+    let currentY = y + padding + 0.12;
+    
+    // === TITLE BAR ===
+    doc.setFillColor(230, 230, 230);
+    doc.rect(x + padding, y + padding, width - (padding * 2), 0.25, 'F');
+    
+    // Card name (left aligned, bold)
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0);
+    const cardName = card.name || 'Unknown';
+    const maxNameWidth = width - 0.9; // Leave space for mana cost
+    doc.text(cardName, x + padding + 0.04, currentY, { maxWidth: maxNameWidth });
+    
+    // Mana cost (right aligned)
+    const manaCost = card.mana_cost || card.manaCost || '';
+    if (manaCost) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      // Convert {W}{U}{B} to W U B for readability
+      const manaText = manaCost.replace(/\{/g, '').replace(/\}/g, ' ').trim();
+      const manaWidth = doc.getTextWidth(manaText);
+      doc.text(manaText, x + width - padding - 0.04 - manaWidth, currentY);
+    }
+    
+    currentY = y + padding + 0.32;
+    
+    // === TYPE LINE ===
+    doc.setFillColor(220, 220, 220);
+    doc.rect(x + padding, currentY - 0.08, width - (padding * 2), 0.2, 'F');
+    
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    const typeLine = card.type_line || card.typeLine || 'Unknown Type';
+    doc.text(typeLine, x + padding + 0.04, currentY + 0.04, { maxWidth: width - (padding * 2) - 0.08 });
+    
+    currentY += 0.2;
+    
+    // === ORACLE TEXT BOX ===
+    const textBoxHeight = height - 1.1; // Leave room for P/T and bottom
+    doc.setDrawColor(180);
+    doc.setLineWidth(0.005);
+    doc.rect(x + padding, currentY, width - (padding * 2), textBoxHeight);
+    
+    // Oracle text
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0);
+    const oracleText = card.oracle_text || card.oracleText || '';
+    
+    if (oracleText) {
+      const textLines = doc.splitTextToSize(oracleText, width - (padding * 2) - 0.1);
+      const maxLines = Math.floor(textBoxHeight / 0.11) - 1;
+      const displayLines = textLines.slice(0, maxLines);
+      
+      let textY = currentY + 0.12;
+      displayLines.forEach((line: string) => {
+        doc.text(line, x + padding + 0.05, textY);
+        textY += 0.11;
       });
-
-      if (error) {
-        console.error(`Failed to proxy image for ${cardName}:`, error);
-        return null;
-      }
-
-      if (data?.dataUrl) {
-        return data.dataUrl;
-      }
-
-      return null;
-    } catch (e) {
-      console.error(`Failed to load image for ${cardName}:`, e);
-      return null;
+    }
+    
+    currentY += textBoxHeight + 0.05;
+    
+    // === BOTTOM BAR ===
+    doc.setFillColor(230, 230, 230);
+    doc.rect(x + padding, currentY, width - (padding * 2), 0.22, 'F');
+    
+    // Set/Rarity info (left side)
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    const setCode = (card.set || card.set_code || '???').toUpperCase();
+    const rarity = (card.rarity || 'C')[0].toUpperCase();
+    doc.text(`${setCode} · ${rarity}`, x + padding + 0.04, currentY + 0.14);
+    
+    // Power/Toughness or Loyalty (right side)
+    const power = card.power;
+    const toughness = card.toughness;
+    const loyalty = card.loyalty;
+    
+    if (power !== undefined && toughness !== undefined) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      const ptText = `${power}/${toughness}`;
+      const ptWidth = doc.getTextWidth(ptText);
+      doc.text(ptText, x + width - padding - 0.04 - ptWidth, currentY + 0.16);
+    } else if (loyalty) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      const loyaltyText = `◆${loyalty}`;
+      const loyaltyWidth = doc.getTextWidth(loyaltyText);
+      doc.text(loyaltyText, x + width - padding - 0.04 - loyaltyWidth, currentY + 0.16);
+    }
+    
+    // Commander badge
+    if (isCommander) {
+      doc.setFillColor(100, 50, 150);
+      doc.rect(x + width - 0.45, y + 0.06, 0.4, 0.15, 'F');
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255);
+      doc.text('CMD', x + width - 0.38, y + 0.16);
+      doc.setTextColor(0);
+    }
+    
+    // CMC indicator in corner
+    const cmc = card.cmc ?? card.convertedManaCost ?? '';
+    if (cmc !== '' && cmc !== undefined) {
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`CMC: ${cmc}`, x + padding + 0.04, y + height - 0.06);
+      doc.setTextColor(0);
     }
   };
 
@@ -120,26 +235,27 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     }
 
     setGenerating(true);
-    setProgress(5);
+    setProgress(10);
     
     try {
       const selectedCardsList = allCards.filter(c => selectedCards.has(getCardId(c)));
       
       // Expand cards by quantity
-      const expandedCards: any[] = [];
+      const expandedCards: { card: any; isCommander: boolean }[] = [];
       selectedCardsList.forEach(card => {
         const qty = card.quantity || 1;
+        const isCmd = card.isCommander || false;
         for (let i = 0; i < qty; i++) {
-          expandedCards.push(card);
+          expandedCards.push({ card, isCommander: isCmd });
         }
       });
 
-      setProgress(10);
+      setProgress(20);
       
       // Load jsPDF from CDN
       const jsPDF = await loadJsPDF();
       
-      setProgress(15);
+      setProgress(30);
       
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -157,29 +273,10 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
       const marginX = (pageWidth - (cols * cardWidth)) / 2;
       const marginY = (pageHeight - (rows * cardHeight)) / 2;
 
-      // Pre-load unique images
-      const uniqueCards = new Map<string, any>();
-      selectedCardsList.forEach(card => {
-        if (!uniqueCards.has(card.name)) {
-          uniqueCards.set(card.name, card);
-        }
-      });
-      
-      const imageCache = new Map<string, string | null>();
-      const uniqueCardArray = Array.from(uniqueCards.values());
-      
-      for (let i = 0; i < uniqueCardArray.length; i++) {
-        const card = uniqueCardArray[i];
-        const imageUrl = getCardImage(card);
-        setProgress(15 + Math.round((i / uniqueCardArray.length) * 40));
-        const base64 = await loadImageAsBase64(imageUrl, card.name);
-        imageCache.set(card.name, base64);
-      }
-
-      setProgress(55);
+      setProgress(40);
 
       let cardIndex = 0;
-      for (const card of expandedCards) {
+      for (const { card, isCommander } of expandedCards) {
         if (cardIndex > 0 && cardIndex % (cols * rows) === 0) {
           doc.addPage();
         }
@@ -191,20 +288,10 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         const x = marginX + (col * cardWidth);
         const y = marginY + (row * cardHeight);
 
-        const base64 = imageCache.get(card.name);
-        
-        if (base64) {
-          try {
-            doc.addImage(base64, 'JPEG', x, y, cardWidth, cardHeight);
-          } catch (imgError) {
-            drawPlaceholder(doc, x, y, cardWidth, cardHeight, card.name);
-          }
-        } else {
-          drawPlaceholder(doc, x, y, cardWidth, cardHeight, card.name);
-        }
+        drawTextCard(doc, x, y, cardWidth, cardHeight, card, isCommander);
 
         cardIndex++;
-        setProgress(55 + Math.round((cardIndex / expandedCards.length) * 40));
+        setProgress(40 + Math.round((cardIndex / expandedCards.length) * 55));
       }
 
       setProgress(95);
@@ -221,15 +308,6 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
       setGenerating(false);
       setProgress(0);
     }
-  };
-
-  const drawPlaceholder = (doc: any, x: number, y: number, width: number, height: number, name: string) => {
-    doc.setDrawColor(100);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(x, y, width, height, 'FD');
-    doc.setFontSize(8);
-    doc.setTextColor(60);
-    doc.text(name, x + 0.1, y + 0.3, { maxWidth: width - 0.2 });
   };
 
   const exportText = () => {

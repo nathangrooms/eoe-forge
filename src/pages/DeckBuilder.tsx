@@ -26,6 +26,7 @@ import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
 import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
+import { useIsFeatureEnabled } from '@/hooks/useFeatureAccess';
 
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -39,7 +40,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, RefreshCw, Target, Pencil, ArrowLeft } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Target, Pencil, ArrowLeft, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Deck {
@@ -59,6 +60,9 @@ const DeckBuilder = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
+  // Check AI Optimizer feature flag
+  const { isEnabled: isAiOptimizerEnabled, isLoading: aiOptimizerLoading } = useIsFeatureEnabled('ai_deck_optimizer');
+
   // State for deck management
   const [allDecks, setAllDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
@@ -917,7 +921,23 @@ const DeckBuilder = () => {
             )}
 
             {/* AI Optimizer */}
-            {activeTab === 'ai' && deck.cards.length > 0 && (
+            {activeTab === 'ai' && !isAiOptimizerEnabled && (
+              <Card className="border-dashed border-2 border-muted">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Brain className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">AI Optimizer</h3>
+                  <Badge variant="secondary" className="mb-4">In Development</Badge>
+                  <p className="text-muted-foreground max-w-md">
+                    Our AI-powered deck optimization feature is currently being enhanced with new capabilities. 
+                    Check back soon for intelligent card suggestions and deck improvements.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'ai' && isAiOptimizerEnabled && deck.cards.length > 0 && (
               <div className="space-y-6">
                 <AIOptimizerPanel
                   deckId={selectedDeckId || deck.currentDeckId || ''}
@@ -965,7 +985,7 @@ const DeckBuilder = () => {
               </div>
             )}
 
-            {activeTab === 'ai' && deck.cards.length === 0 && (
+            {activeTab === 'ai' && isAiOptimizerEnabled && deck.cards.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="font-medium">Add cards to get AI optimization</p>
               </div>

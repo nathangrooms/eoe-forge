@@ -210,7 +210,7 @@ const DeckBuilder = () => {
         return;
       }
 
-      // Build EDH Power Level URL
+      // Get deck cards and commander from summary
       let listCommander: { name: string } | null = deck.commander ? { name: (deck.commander as any).name } : null;
       let listCards: { name: string; quantity: number }[] = (deck.cards as any[]).map((c: any) => ({ name: c.name, quantity: c.quantity || 1 }));
 
@@ -222,11 +222,6 @@ const DeckBuilder = () => {
           const summary = summaryData as any;
           listCards = (summary.cards || []).map((c: any) => ({ name: c.card_name, quantity: c.quantity }));
           listCommander = summary.commander ? { name: summary.commander.name } : listCommander;
-          
-          // Use the power level from the summary
-          if (summary.power?.score) {
-            setEdhPowerLevel(summary.power.score);
-          }
         }
       }
 
@@ -271,14 +266,22 @@ const DeckBuilder = () => {
       const fallbackUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
       setEdhPowerUrl(fallbackUrl);
 
-      // Call the calculate-deck-power edge function
-      const { data: powerData, error: powerError } = await supabase.functions.invoke('calculate-deck-power', {
-        body: { deck_id: targetDeckId }
+      // Call the edh-power-check edge function to get LIVE power from edhpowerlevel.com
+      const { data: powerData, error: powerError } = await supabase.functions.invoke('edh-power-check', {
+        body: { 
+          cards: listCards.map(c => c.name),
+          commander: listCommander?.name || null
+        }
       });
 
-      if (!powerError && powerData && typeof powerData.power === 'number') {
-        setEdhPowerLevel(powerData.power);
-        showSuccess('Power Calculated', `Deck power: ${powerData.power}/10 (${powerData.band})`);
+      if (!powerError && powerData?.success && powerData?.powerLevel) {
+        const liveLevel = parseFloat(powerData.powerLevel);
+        if (!isNaN(liveLevel)) {
+          setEdhPowerLevel(liveLevel);
+          showSuccess('Power Level', `EDH Power: ${liveLevel}/10 (from edhpowerlevel.com)`);
+        }
+      } else {
+        console.warn('Could not fetch live EDH power level:', powerError || powerData);
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);

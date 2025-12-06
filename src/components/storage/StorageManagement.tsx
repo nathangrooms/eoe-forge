@@ -2,11 +2,23 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Package, Archive, DollarSign, AlertCircle, Box, Eye } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  Plus, 
+  Package, 
+  Archive, 
+  DollarSign, 
+  AlertCircle, 
+  Box, 
+  Eye,
+  Sparkles,
+  Layers
+} from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageOverview as StorageOverviewType, StorageContainer } from '@/types/storage';
 import { CreateContainerDialog } from './CreateContainerDialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface StorageManagementProps {
   onContainerSelect: (container: StorageContainer) => void;
@@ -49,16 +61,53 @@ export function StorageManagement({
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted/50 rounded animate-pulse w-1/3"></div>
+      <div className="h-full flex flex-col bg-background p-6 space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+        
+        {/* Stats Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-24 bg-muted/50 rounded animate-pulse"></div>
+            <Card key={i}>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-7 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
+        
+        {/* Containers Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="h-48 bg-muted/50 rounded animate-pulse"></div>
+            <Card key={i}>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+                <Skeleton className="h-9 w-full mt-4" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       </div>
@@ -72,30 +121,36 @@ export function StorageManagement({
 
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Header Section */}
-      <div className="px-6 py-6 border-b">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-3xl font-bold">Storage Containers</h2>
-            <p className="text-muted-foreground mt-1">Organize your cards by boxes, binders, and more</p>
+      {/* Enhanced Header Section */}
+      <div className="px-4 md:px-6 py-5 border-b bg-gradient-to-r from-card to-background">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
+              <Package className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Storage Manager</h2>
+              <p className="text-muted-foreground">Organize your physical card locations</p>
+            </div>
           </div>
           <Button 
             onClick={() => setShowCreateDialog(true)} 
             size="lg"
-            className="gap-2"
+            className="gap-2 bg-gradient-cosmic hover:opacity-90"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
             New Container
           </Button>
         </div>
 
-        {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Package className="h-6 w-6 text-primary" />
+        {/* Enhanced Overview Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="relative overflow-hidden border-primary/20 group hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
+            <CardContent className="p-5">
+              <div className="flex items-center gap-4 relative">
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Layers className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Containers</p>
@@ -105,29 +160,31 @@ export function StorageManagement({
             </CardContent>
           </Card>
 
-          <Card className="border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-500/10 rounded-lg">
+          <Card className="relative overflow-hidden border-blue-500/20 group hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
+            <CardContent className="p-5">
+              <div className="flex items-center gap-4 relative">
+                <div className="p-3 bg-blue-500/10 rounded-xl">
                   <Archive className="h-6 w-6 text-blue-500" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Stored Cards</p>
-                  <p className="text-2xl font-bold">{totalCards}</p>
+                  <p className="text-2xl font-bold">{totalCards.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-green-500/10 rounded-lg">
+          <Card className="relative overflow-hidden border-green-500/20 group hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
+            <CardContent className="p-5">
+              <div className="flex items-center gap-4 relative">
+                <div className="p-3 bg-green-500/10 rounded-xl">
                   <DollarSign className="h-6 w-6 text-green-500" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Stored Value</p>
-                  <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-green-500">${totalValue.toFixed(2)}</p>
                 </div>
               </div>
             </CardContent>
@@ -167,23 +224,64 @@ export function StorageManagement({
         </div>
         
         {overview?.containers.length === 0 ? (
-          <Card className="border-dashed border-2">
-            <CardContent className="p-12 text-center">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Package className="h-8 w-8 text-muted-foreground" />
+          <Card className="border-dashed border-2 border-muted-foreground/20">
+            <CardContent className="py-16 px-6">
+              <div className="max-w-md mx-auto text-center space-y-6">
+                {/* Icon */}
+                <div className="relative mx-auto w-20 h-20">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full opacity-20 blur-xl" />
+                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                    <Package className="h-10 w-10 text-white" />
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold">Create Your First Container</h3>
+                  <p className="text-muted-foreground">
+                    Organize your Magic cards by location. Create deck boxes, binders, 
+                    storage boxes, or custom containers to track where each card is stored.
+                  </p>
+                </div>
+
+                {/* Quick Create Options */}
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <button
+                    onClick={() => setShowCreateDialog(true)}
+                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
+                  >
+                    <Box className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
+                    <span className="text-xs font-medium">Deck Box</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCreateDialog(true)}
+                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
+                  >
+                    <Layers className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
+                    <span className="text-xs font-medium">Binder</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCreateDialog(true)}
+                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
+                  >
+                    <Archive className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
+                    <span className="text-xs font-medium">Storage Box</span>
+                  </button>
+                </div>
+
+                <Button 
+                  onClick={() => setShowCreateDialog(true)} 
+                  size="lg"
+                  className="gap-2 bg-gradient-cosmic hover:opacity-90"
+                >
+                  <Plus className="h-5 w-5" />
+                  Create Container
+                </Button>
               </div>
-              <h3 className="font-semibold text-lg mb-2">No containers yet</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Create storage containers to organize your Magic cards. Choose from different types like deck boxes, binders, or storage boxes.
-              </p>
-              <Button onClick={() => setShowCreateDialog(true)} size="lg">
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Container
-              </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {overview?.containers.map((container) => {
               const isSelected = selectedContainerId === container.id;
               const itemCount = (container as any).itemCount || 0;
@@ -193,43 +291,42 @@ export function StorageManagement({
               return (
                 <Card 
                   key={container.id}
-                  className={`group cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 ${
-                    isSelected ? 'ring-2 ring-primary shadow-lg' : ''
-                  }`}
+                  className={cn(
+                    "group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50",
+                    isSelected && "ring-2 ring-primary shadow-lg border-primary/50"
+                  )}
                   onClick={() => onContainerSelect(container)}
                 >
-                  <CardContent className="p-6">
+                  <CardContent className="p-5">
                     {/* Container Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-sm"
-                          style={{ backgroundColor: container.color || '#6366F1' }}
-                        >
-                          <Package className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold">{container.name}</h4>
-                          <Badge variant="outline" className="text-xs capitalize mt-1">
-                            {container.type}
-                          </Badge>
-                        </div>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div 
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0"
+                        style={{ backgroundColor: container.color || '#6366F1' }}
+                      >
+                        <Package className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold truncate">{container.name}</h4>
+                        <Badge variant="outline" className="text-xs capitalize mt-1">
+                          {container.type}
+                        </Badge>
                       </div>
                     </div>
                     
                     {/* Container Stats */}
-                    <div className="space-y-3 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Cards:</span>
-                        <span className="font-medium">{itemCount}</span>
+                    <div className="space-y-2 mb-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cards</span>
+                        <span className="font-medium">{itemCount.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Unique:</span>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Unique</span>
                         <span className="font-medium">{uniqueCards}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Value:</span>
-                        <span className="font-medium text-green-500">${valueUSD.toFixed(2)}</span>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Value</span>
+                        <span className="font-semibold text-green-500">${valueUSD.toFixed(2)}</span>
                       </div>
                     </div>
                     
@@ -237,7 +334,7 @@ export function StorageManagement({
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="w-full group-hover:bg-primary group-hover:text-primary-foreground"
+                      className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         onContainerSelect(container);

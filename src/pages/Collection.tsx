@@ -49,7 +49,10 @@ import { EnhancedPriceAlerts } from '@/components/collection/EnhancedPriceAlerts
 import { CollectionQuickStats } from '@/components/collection/CollectionQuickStats';
 import { CollectionEmptyState } from '@/components/collection/CollectionEmptyState';
 import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoadingSkeleton';
+import { AnalyticsHeader } from '@/components/collection/AnalyticsHeader';
+import { AddCardsHeader } from '@/components/collection/AddCardsHeader';
 import { useAuth } from '@/components/AuthProvider';
+import { useDeckManagementStore as useDeckStore } from '@/stores/deckManagementStore';
 
 export default function Collection() {
   const {
@@ -551,10 +554,19 @@ export default function Collection() {
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
-            <div className="space-y-4 sm:space-y-6">
+          <TabsContent value="analytics" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+            <div className="space-y-6">
               {collectionStats && (
                 <>
+                  {/* Analytics Header */}
+                  <AnalyticsHeader
+                    totalCards={collectionStats.totalCards}
+                    totalValue={collectionStats.totalValue}
+                    uniqueCards={collectionStats.uniqueCards}
+                    topRarityCount={collectionStats.rarityDistribution?.mythic || 0}
+                  />
+                  
+                  {/* AI Insights */}
                   <AICollectionInsights
                     stats={{
                       totalCards: collectionStats.totalCards,
@@ -569,20 +581,25 @@ export default function Collection() {
                       value: c.price_usd
                     }))}
                   />
-                  <PriceHistoryChart 
-                    collectionCards={(snapshot?.items || []).map(card => ({
-                      ...card,
-                      quantity: card.quantity || 1,
-                      price_usd: card.price_usd || '0'
-                    }))}
-                  />
-                  <CollectionValueTrends 
-                    collectionCards={snapshot?.items || []}
-                  />
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+                  
+                  {/* Charts Row */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <PriceHistoryChart 
+                      collectionCards={(snapshot?.items || []).map(card => ({
+                        ...card,
+                        quantity: card.quantity || 1,
+                        price_usd: card.price_usd || '0'
+                      }))}
+                    />
+                    <CollectionValueTrends 
+                      collectionCards={snapshot?.items || []}
+                    />
+                  </div>
+                  
+                  {/* Tools Row */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <SavedFilterPresets 
                       onApplyPreset={(filters) => {
-                        // Filter logic would be handled by parent component
                         console.log('Apply filters:', filters);
                       }}
                       currentFilters={{}}
@@ -591,22 +608,28 @@ export default function Collection() {
                       collectionCards={snapshot?.items || []}
                     />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                  
+                  {/* Utilities Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     <TCGPlayerPriceSync />
                     {user && <CollectionExport userId={user.id} />}
                     {user && <CollectionBackupRestore userId={user.id} />}
                   </div>
+                  
+                  {/* Price Alerts */}
                   <EnhancedPriceAlerts />
-                  {collectionStats && (
-                    <InsuranceReport 
-                      collectionValue={collectionStats.totalValue || 0}
-                      cardCount={collectionStats.totalCards || 0}
-                      topCards={collectionStats.topValueCards?.map(c => ({
-                        name: c.card_name,
-                        value: parseFloat(String(c.price_usd || 0)) || 0
-                      }))}
-                    />
-                  )}
+                  
+                  {/* Insurance Report */}
+                  <InsuranceReport 
+                    collectionValue={collectionStats.totalValue || 0}
+                    cardCount={collectionStats.totalCards || 0}
+                    topCards={collectionStats.topValueCards?.map(c => ({
+                      name: c.card_name,
+                      value: parseFloat(String(c.price_usd || 0)) || 0
+                    }))}
+                  />
+                  
+                  {/* Detailed Analytics */}
                   <CollectionAnalytics 
                     stats={collectionStats} 
                     loading={loading}
@@ -617,8 +640,18 @@ export default function Collection() {
           </TabsContent>
 
           {/* Add Cards Tab */}
-          <TabsContent value="add-cards" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 m-0">
-            <div className="space-y-4 sm:space-y-6">
+          <TabsContent value="add-cards" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+            <div className="space-y-6">
+              {/* Add Cards Header */}
+              <AddCardsHeader
+                addToCollection={deckAdditionConfig.addToCollection}
+                addToDeck={deckAdditionConfig.addToDeck}
+                addToBox={deckAdditionConfig.addToBox}
+                selectedDeckName={useDeckStore.getState().decks.find(d => d.id === deckAdditionConfig.selectedDeckId)?.name}
+                selectedBoxName={undefined}
+              />
+              
+              {/* Destination Panel */}
               <DeckAdditionPanel 
                 selectedDeckId={deckAdditionConfig.selectedDeckId}
                 selectedBoxId={deckAdditionConfig.selectedBoxId}
@@ -627,6 +660,8 @@ export default function Collection() {
                 addToBox={deckAdditionConfig.addToBox}
                 onSelectionChange={setDeckAdditionConfig}
               />
+              
+              {/* Card Search */}
               <EnhancedUniversalCardSearch
                 onCardAdd={handleCardAddition}
                 onCardSelect={(card) => console.log('Selected:', card)}
@@ -634,7 +669,7 @@ export default function Collection() {
                 showFilters={true}
                 showAddButton={true}
                 showWishlistButton={false}
-                showViewModes={false}
+                showViewModes={true}
               />
             </div>
           </TabsContent>

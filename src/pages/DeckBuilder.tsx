@@ -29,7 +29,7 @@ import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
 import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
-import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
+
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -42,7 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, RefreshCw, Target, Pencil } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Target, Pencil, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Deck {
@@ -82,13 +82,8 @@ const DeckBuilder = () => {
   const [edhNeedsRefresh, setEdhNeedsRefresh] = useState(false);
   
   // Dialog states
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [newDeckName, setNewDeckName] = useState('');
   const [renameDeckName, setRenameDeckName] = useState('');
-  const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('commander');
-  const [newDeckDescription, setNewDeckDescription] = useState('');
-  const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
 
   // Get URL parameters for deck loading
   const [searchParams] = useSearchParams();
@@ -130,9 +125,16 @@ const DeckBuilder = () => {
     }
   }, [deck.cards]);
 
-  // Handle URL parameters for deck loading
+  // Handle URL parameters for deck loading - redirect if no deck specified
   useEffect(() => {
     const deckParam = searchParams.get('deck');
+    
+    // If no deck param, redirect to decks page
+    if (!deckParam && !loading) {
+      navigate('/decks');
+      return;
+    }
+    
     if (!deckParam) return;
 
     if (allDecks.length > 0) {
@@ -152,7 +154,7 @@ const DeckBuilder = () => {
         checkEdhPowerLevel(deckParam);
       }
     })();
-  }, [searchParams, allDecks]);
+  }, [searchParams, allDecks, loading]);
 
   const loadAllDecks = async () => {
     try {
@@ -430,94 +432,6 @@ const DeckBuilder = () => {
     }
   };
 
-  const createNewDeck = async () => {
-    if (!newDeckName.trim()) return;
-    
-    try {
-      if (user) {
-        const { data: newDeck, error } = await supabase
-          .from('user_decks')
-          .insert({
-            user_id: user.id,
-            name: newDeckName,
-            format: newDeckFormat,
-            power_level: 5,
-            colors: [],
-            description: newDeckDescription
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        
-        showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
-        
-        if (newDeck) {
-          await loadAllDecks();
-          loadDeck({
-            id: newDeck.id,
-            name: newDeck.name,
-            format: newDeck.format as any,
-            powerLevel: newDeck.power_level,
-            colors: newDeck.colors,
-            cardCount: 0,
-            lastModified: new Date(newDeck.updated_at)
-          });
-        }
-      }
-      
-      setNewDeckName('');
-      setNewDeckDescription('');
-      setShowCreateDialog(false);
-    } catch (error) {
-      console.error('Error creating deck:', error);
-      showError("Error", "Failed to create deck");
-    }
-  };
-
-  // Handler for first deck onboarding
-  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom') => {
-    if (!user) return;
-    
-    setCreatingFirstDeck(true);
-    try {
-      const { data: newDeck, error } = await supabase
-        .from('user_decks')
-        .insert({
-          user_id: user.id,
-          name,
-          format,
-          power_level: 5,
-          colors: [],
-          description: ''
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      showSuccess("Deck Created", `"${name}" has been created successfully`);
-      
-      if (newDeck) {
-        await loadAllDecks();
-        loadDeck({
-          id: newDeck.id,
-          name: newDeck.name,
-          format: newDeck.format as any,
-          powerLevel: newDeck.power_level,
-          colors: newDeck.colors,
-          cardCount: 0,
-          lastModified: new Date(newDeck.updated_at)
-        });
-      }
-    } catch (error) {
-      console.error('Error creating first deck:', error);
-      showError("Error", "Failed to create deck");
-    } finally {
-      setCreatingFirstDeck(false);
-    }
-  };
-
   const renameDeck = async () => {
     if (!renameDeckName.trim() || !deck.currentDeckId) return;
     
@@ -590,135 +504,71 @@ const DeckBuilder = () => {
     };
   }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower]);
 
-  // Show onboarding if user has no decks and no deck is loaded
-  const showOnboarding = !loading && allDecks.length === 0 && !deck.name;
+  // If loading or no deck loaded yet, show loading state
+  if (loading || !deck.name) {
+    return (
+      <StandardPageLayout
+        title="Deck Builder"
+        description="Loading deck..."
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading deck...</p>
+          </div>
+        </div>
+      </StandardPageLayout>
+    );
+  }
 
   return (
     <StandardPageLayout
       title="Deck Builder"
-      description={deck.name ? `Editing: ${deck.name}` : "Build and optimize your Magic: The Gathering decks"}
+      description={`Editing: ${deck.name}`}
       action={
-        showOnboarding ? null : (
-          <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
-            <Select value={selectedDeckId || ''} onValueChange={(value) => {
-              setSelectedDeckId(value);
-              const selectedDeck = allDecks.find(d => d.id === value);
-              if (selectedDeck) {
-                loadDeck(selectedDeck);
-              }
-            }}>
-              <SelectTrigger className="w-full xs:w-80 max-w-md">
-                <SelectValue placeholder="Select a deck..." />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50 max-w-md">
-                {allDecks.map((deckItem) => (
-                  <SelectItem key={deckItem.id} value={deckItem.id}>
-                    <div className="flex items-center justify-between gap-2 max-w-full">
-                      <span className="truncate flex-1 text-left">{deckItem.name}</span>
-                      <Badge variant="outline" className="ml-2 shrink-0">
-                        {deckItem.format}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {/* Rename Deck Button */}
-            {deck.currentDeckId && (
-              <Dialog open={showRenameDialog} onOpenChange={(open) => {
-                setShowRenameDialog(open);
-                if (open) setRenameDeckName(deck.name);
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Rename Deck</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="rename-deck">New Name</Label>
-                      <Input
-                        id="rename-deck"
-                        value={renameDeckName}
-                        onChange={(e) => setRenameDeckName(e.target.value)}
-                        placeholder="Enter new deck name..."
-                        onKeyDown={(e) => e.key === 'Enter' && renameDeck()}
-                      />
-                    </div>
-                    <Button onClick={renameDeck} className="w-full" disabled={!renameDeckName.trim()}>
-                      Rename Deck
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-            
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button className="w-full xs:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden xs:inline">New Deck</span>
-                  <span className="xs:hidden">New</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Deck</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="deck-name">Deck Name</Label>
-                    <Input
-                      id="deck-name"
-                      value={newDeckName}
-                      onChange={(e) => setNewDeckName(e.target.value)}
-                      placeholder="Enter deck name..."
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="deck-format">Format</Label>
-                    <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="commander">Commander</SelectItem>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="deck-description">Description (Optional)</Label>
-                    <Input
-                      id="deck-description"
-                      value={newDeckDescription}
-                      onChange={(e) => setNewDeckDescription(e.target.value)}
-                      placeholder="Enter deck description..."
-                    />
-                  </div>
-                  <Button onClick={createNewDeck} className="w-full">
-                    Create Deck
-                  </Button>
+        <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
+          {/* Back to Decks */}
+          <Button variant="outline" onClick={() => navigate('/decks')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            <span className="hidden xs:inline">Back to Decks</span>
+            <span className="xs:hidden">Back</span>
+          </Button>
+          
+          {/* Rename Deck Button */}
+          <Dialog open={showRenameDialog} onOpenChange={(open) => {
+            setShowRenameDialog(open);
+            if (open) setRenameDeckName(deck.name);
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename Deck</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="rename-deck">New Name</Label>
+                  <Input
+                    id="rename-deck"
+                    value={renameDeckName}
+                    onChange={(e) => setRenameDeckName(e.target.value)}
+                    placeholder="Enter new deck name..."
+                    onKeyDown={(e) => e.key === 'Enter' && renameDeck()}
+                  />
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )
+                <Button onClick={renameDeck} className="w-full" disabled={!renameDeckName.trim()}>
+                  Rename Deck
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
-      {showOnboarding ? (
-        <FirstDeckOnboarding 
-          onCreateDeck={handleCreateFirstDeck}
-          loading={creatingFirstDeck}
-        />
-      ) : deck.name ? (
-        <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col">
           {/* Quick Stats */}
           <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
             <DeckQuickStats {...deckStats} />
@@ -1069,23 +919,6 @@ const DeckBuilder = () => {
             )}
           </div>
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center h-full py-16">
-          <div className="text-center max-w-md">
-            <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
-              <Plus className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">No Deck Selected</h2>
-            <p className="text-muted-foreground mb-6">
-              Select an existing deck from the dropdown above, or create a new deck to get started.
-            </p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create New Deck
-            </Button>
-          </div>
-        </div>
-      )}
     </StandardPageLayout>
   );
 };

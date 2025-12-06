@@ -179,13 +179,23 @@ const DeckBuilder = () => {
 
   // Check if cards changed and EDH needs refresh
   useEffect(() => {
-    if (deck.cards.length > 0 && deck.format === 'commander') {
+    if (deck.cards.length > 0 && deck.format === 'commander' && edhCardsHash) {
       const currentHash = generateCardsHash(deck.cards);
-      if (edhCardsHash && currentHash !== edhCardsHash) {
+      if (currentHash !== edhCardsHash) {
         setEdhNeedsRefresh(true);
       }
     }
-  }, [deck.cards]);
+  }, [deck.cards, edhCardsHash]);
+  
+  // Load cached EDH analysis when deck cards are loaded
+  const hasFetchedEdhRef = useRef<string | null>(null);
+  useEffect(() => {
+    const deckId = selectedDeckId || deck.currentDeckId;
+    if (deck.cards.length > 0 && deck.format === 'commander' && deckId && hasFetchedEdhRef.current !== deckId) {
+      hasFetchedEdhRef.current = deckId;
+      loadCachedEdhAnalysis(deckId);
+    }
+  }, [deck.cards.length, deck.format, selectedDeckId, deck.currentDeckId]);
 
   // Handle URL parameters for deck loading - redirect if no deck specified
   useEffect(() => {
@@ -213,7 +223,7 @@ const DeckBuilder = () => {
       if (res.success) {
         deck.setCurrentDeckId(deckParam);
         setSelectedDeckId(deckParam);
-        checkEdhPowerLevel(deckParam);
+        // EDH analysis will be loaded by the useEffect when cards are ready
       }
     })();
   }, [searchParams, allDecks, loading]);
@@ -464,6 +474,45 @@ const DeckBuilder = () => {
     }
   };
 
+  // Load cached EDH analysis from database (no API call)
+  const loadCachedEdhAnalysis = async (deckId: string) => {
+    try {
+      const { data: deckData } = await supabase
+        .from('user_decks')
+        .select('edh_analysis, edh_cards_hash, edh_analysis_updated_at')
+        .eq('id', deckId)
+        .single();
+      
+      if (deckData?.edh_analysis) {
+        const cached = deckData.edh_analysis as any;
+        setEdhPowerLevel(cached.metrics?.powerLevel ?? null);
+        setEdhMetrics({
+          tippingPoint: cached.metrics?.tippingPoint ?? null,
+          efficiency: cached.metrics?.efficiency ?? null,
+          impact: cached.metrics?.impact ?? null,
+          score: cached.metrics?.score ?? null,
+          playability: cached.metrics?.playability ?? null,
+        });
+        setEdhAnalysisData(cached as EdhAnalysisData);
+        setEdhPowerUrl(cached.url || null);
+        setEdhCardsHash(deckData.edh_cards_hash || '');
+        
+        // Check if current deck cards hash differs from cached - needs refresh
+        const currentHash = generateCardsHash(deck.cards);
+        if (deckData.edh_cards_hash && currentHash !== deckData.edh_cards_hash) {
+          setEdhNeedsRefresh(true);
+        } else {
+          setEdhNeedsRefresh(false);
+        }
+      } else {
+        // No cached analysis - needs initial fetch
+        setEdhNeedsRefresh(true);
+      }
+    } catch (error) {
+      console.error('Error loading cached EDH analysis:', error);
+    }
+  };
+
   const loadDeck = async (deckData: Deck) => {
     try {
       const result = await deck.loadDeck(deckData.id);
@@ -471,7 +520,7 @@ const DeckBuilder = () => {
       if (result.success) {
         deck.setCurrentDeckId(deckData.id);
         setSelectedDeckId(deckData.id);
-        checkEdhPowerLevel(deckData.id);
+        // EDH analysis will be loaded by the useEffect when cards are ready
         
         toast({
           title: "Deck Loaded",
@@ -557,14 +606,15 @@ const DeckBuilder = () => {
       edhMetrics,
       edhPowerUrl,
       loadingEdhPower,
-      onCheckEdhPower: () => checkEdhPowerLevel(),
+      edhNeedsRefresh,
+      onCheckEdhPower: () => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId, true),
       format: deck.format || 'commander',
       commanderName: deck.commander?.name,
       colors: deck.colors || [],
       missingCards: 0,
       ownedPct: 100
     };
-  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower]);
+  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower, edhNeedsRefresh, selectedDeckId, deck.currentDeckId]);
 
   // If loading or no deck loaded yet, show loading state
   if (loading || !deck.name) {
@@ -786,6 +836,7 @@ const DeckBuilder = () => {
                   <EdhAnalysisPanel 
                     data={edhAnalysisData}
                     isLoading={loadingEdhPower}
+                    needsRefresh={edhNeedsRefresh}
                     onRefresh={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId, true)}
                   />
                 )}

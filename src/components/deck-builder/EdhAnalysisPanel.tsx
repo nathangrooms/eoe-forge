@@ -80,6 +80,7 @@ export interface EdhAnalysisData {
 interface EdhAnalysisPanelProps {
   data: EdhAnalysisData | null;
   isLoading: boolean;
+  needsRefresh?: boolean;
   onRefresh: () => void;
 }
 
@@ -99,7 +100,7 @@ const getPowerColor = (level: number) => {
   return 'text-red-500';
 };
 
-export function EdhAnalysisPanel({ data, isLoading, onRefresh }: EdhAnalysisPanelProps) {
+export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: EdhAnalysisPanelProps) {
   if (!data && !isLoading) {
     return (
       <Card className="p-6 bg-gradient-to-br from-muted/50 to-muted/20">
@@ -144,12 +145,20 @@ export function EdhAnalysisPanel({ data, isLoading, onRefresh }: EdhAnalysisPane
   const landAnalysis = data?.landAnalysis;
 
   return (
-    <Card className="bg-gradient-to-br from-muted/50 to-muted/20">
+    <Card className={cn(
+      "bg-gradient-to-br from-muted/50 to-muted/20",
+      needsRefresh && "ring-2 ring-orange-500/50"
+    )}>
       <div className="p-4 border-b border-border/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-amber-500" />
           <h3 className="font-semibold">EDH Power Analysis</h3>
           <Badge variant="outline" className="text-xs">edhpowerlevel.com</Badge>
+          {needsRefresh && (
+            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500/50 animate-pulse">
+              Deck Changed - Click Refresh
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {data?.url && (
@@ -160,7 +169,7 @@ export function EdhAnalysisPanel({ data, isLoading, onRefresh }: EdhAnalysisPane
               </a>
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading}>
+          <Button variant={needsRefresh ? "default" : "outline"} size="sm" onClick={onRefresh} disabled={isLoading}>
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           </Button>
         </div>

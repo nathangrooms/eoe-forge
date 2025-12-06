@@ -10,19 +10,20 @@ import {
   Camera, 
   X, 
   Settings as SettingsIcon, 
-  Plus, 
-  Minus, 
   Search,
   Loader2,
-  Zap,
   RotateCcw,
   Check,
-  AlertCircle
+  AlertCircle,
+  Pause,
+  Play
 } from 'lucide-react';
 import { useScanStore, type ScannedCard } from './store';
 import { scryfallFuzzySearch, type CardCandidate } from './cardRecognition';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { logActivity } from '@/features/dashboard/hooks';
+import { useAutoCapture } from './useAutoCapture';
+import { calculateSharpness } from './image';
 
 interface CameraScanDrawerProps {
   isOpen: boolean;
@@ -51,12 +52,32 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
   const [manualSearch, setManualSearch] = useState('');
   const [lastRecognized, setLastRecognized] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<'idle' | 'capturing' | 'analyzing' | 'matching' | 'success' | 'error'>('idle');
+  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
+  const [cameraReady, setCameraReady] = useState(false);
+
+  // Capture frame for auto-capture hook
+  const captureFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return null;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx || video.videoWidth === 0) return null;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }, []);
 
   // Start camera
   const startCamera = useCallback(async () => {
     try {
       setIsLoading(true);
       setCameraError(null);
+      setCameraReady(false);
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -70,6 +91,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        setCameraReady(true);
       }
     } catch (error: any) {
       console.error('Camera error:', error);
@@ -88,29 +110,41 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    setCameraReady(false);
   }, []);
 
   // Capture frame and send to AI
-  const captureAndAnalyze = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || processing) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx || video.videoWidth === 0) return;
+  const captureAndAnalyze = useCallback(async (imageData?: ImageData) => {
+    if (processing) return;
 
     setProcessing(true);
     setScanStatus('capturing');
 
     try {
-      // Capture frame
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      // Convert to base64
-      const imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+      let imageBase64: string;
+      
+      if (imageData) {
+        // Use provided ImageData from auto-capture
+        const canvas = document.createElement('canvas');
+        canvas.width = imageData.width;
+        canvas.height = imageData.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context');
+        ctx.putImageData(imageData, 0, 0);
+        imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+      } else {
+        // Manual capture
+        if (!videoRef.current || !canvasRef.current) return;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx || video.videoWidth === 0) return;
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+      }
       
       setScanStatus('analyzing');
 
@@ -126,7 +160,8 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       if (!cardName) {
         setScanStatus('error');
         setLastRecognized(null);
-        showError('Not Recognized', 'Could not identify a card. Try adjusting the angle or lighting.');
+        // Don't show toast for auto-scan failures, just reset
+        setTimeout(() => setScanStatus('idle'), 1000);
         return;
       }
 
@@ -139,6 +174,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       if (result.candidates.length === 0) {
         setScanStatus('error');
         showError('No Match', `Could not find "${cardName}" in the database.`);
+        setTimeout(() => setScanStatus('idle'), 1500);
         return;
       }
 
@@ -146,6 +182,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       if (result.best && result.best.score >= 0.9 && settings.autoAdd) {
         await addCardToCollection(result.best);
         setScanStatus('success');
+        setLastRecognized(null); // Clear recognition after successful add
         setTimeout(() => setScanStatus('idle'), 1500);
       } else {
         setCandidates(result.candidates);
@@ -155,11 +192,23 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
     } catch (error: any) {
       console.error('Scan error:', error);
       setScanStatus('error');
-      showError('Scan Failed', error.message || 'Failed to analyze image');
+      setTimeout(() => setScanStatus('idle'), 1500);
     } finally {
       setProcessing(false);
     }
   }, [processing, settings.autoAdd]);
+
+  // Auto-capture hook
+  const { isCapturing: isAutoCapturing, stop: stopAutoCapture } = useAutoCapture(
+    captureFrame,
+    (imageData) => captureAndAnalyze(imageData),
+    {
+      enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0,
+      sharpnessThreshold: 800, // Tuned for card detection
+      stabilityDelay: 400, // Wait 400ms of stable sharp image
+      cooldownDelay: 2500 // Wait 2.5s between scans
+    }
+  );
 
   // Add card to collection
   const addCardToCollection = async (candidate: CardCandidate, quantity = 1) => {
@@ -170,6 +219,9 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
         showError('Auth Error', 'Please log in to add cards');
         return;
       }
+
+      // Ensure we have a valid set_code (required field)
+      const setCode = candidate.setCode || 'unknown';
 
       const { data: existingCard } = await supabase
         .from('user_collections')
@@ -193,21 +245,24 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
           .insert({
             card_id: candidate.cardId,
             card_name: candidate.name,
-            set_code: candidate.setCode,
+            set_code: setCode,
             quantity,
             user_id: session.user.id
           });
       }
 
-      if (result.error) throw result.error;
+      if (result.error) {
+        console.error('Database insert error:', result.error);
+        throw result.error;
+      }
 
       const scannedCard: ScannedCard = {
         id: `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         cardId: candidate.cardId,
         oracleId: candidate.oracleId,
         name: candidate.name,
-        setCode: candidate.setCode,
-        setName: candidate.setCode.toUpperCase(),
+        setCode: setCode,
+        setName: setCode.toUpperCase(),
         imageUrl: candidate.imageUrl,
         priceUsd: candidate.priceUsd,
         quantity,
@@ -217,6 +272,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
       addRecentScan(scannedCard);
       showSuccess('Added', `${quantity}x ${candidate.name}`);
+      setLastRecognized(null); // Clear recognized message after successful add
       
       await logActivity('card_added', 'card', candidate.cardId, {
         name: candidate.name,
@@ -229,7 +285,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
     } catch (error: any) {
       console.error('Add card error:', error);
-      showError('Error', 'Failed to add card');
+      showError('Unable to add card', error.message || 'Database error');
     }
   };
 
@@ -270,7 +326,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
       case 'matching': return 'Finding Card...';
       case 'success': return 'Card Added!';
       case 'error': return 'Try Again';
-      default: return 'Tap to Scan';
+      default: return autoScanEnabled ? 'Auto-scanning...' : 'Tap to Scan';
     }
   };
 
@@ -373,15 +429,15 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                 
                 {/* Framing Guide */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="relative w-[85%] max-w-sm aspect-[5/7] border-2 border-primary/80 rounded-lg">
+                  <div className={`relative w-[85%] max-w-sm aspect-[5/7] rounded-lg border-2 ${processing || isAutoCapturing ? 'border-yellow-400 animate-pulse' : 'border-primary'}`}>
                     <div className="absolute -top-8 left-0 right-0 text-center text-primary text-sm font-medium">
-                      Position card within frame
+                      {processing ? 'Scanning...' : 'Position card within frame'}
                     </div>
-                    {/* Corner markers */}
-                    <div className="absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 border-primary rounded-tl" />
-                    <div className="absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 border-primary rounded-tr" />
-                    <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 border-primary rounded-bl" />
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 border-primary rounded-br" />
+                    {/* Corner markers for emphasis */}
+                    <div className="absolute -top-0.5 -left-0.5 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                    <div className="absolute -top-0.5 -right-0.5 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                    <div className="absolute -bottom-0.5 -left-0.5 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg" />
                   </div>
                 </div>
 
@@ -393,23 +449,42 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                   </div>
                 )}
 
-                {/* Capture Button */}
+                {/* Control Buttons */}
                 <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-3">
-                  <Button
-                    onClick={captureAndAnalyze}
-                    disabled={processing || isLoading}
-                    size="lg"
-                    className={`rounded-full w-20 h-20 ${getStatusColor()} hover:opacity-90 active:scale-95 transition-all shadow-lg`}
-                  >
-                    {scanStatus === 'success' ? (
-                      <Check className="h-8 w-8" />
-                    ) : processing ? (
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                    ) : (
-                      <Camera className="h-8 w-8" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    {/* Auto-scan toggle */}
+                    <Button
+                      onClick={() => setAutoScanEnabled(!autoScanEnabled)}
+                      variant="outline"
+                      size="sm"
+                      className={`rounded-full w-14 h-14 border-2 ${autoScanEnabled ? 'border-green-400 bg-green-500/20 text-green-400' : 'border-white/40 bg-black/40 text-white/60'}`}
+                    >
+                      {autoScanEnabled ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                    </Button>
+                    
+                    {/* Manual capture button */}
+                    <Button
+                      onClick={() => captureAndAnalyze()}
+                      disabled={processing || isLoading}
+                      size="lg"
+                      className={`rounded-full w-20 h-20 ${getStatusColor()} hover:opacity-90 active:scale-95 transition-all shadow-lg`}
+                    >
+                      {scanStatus === 'success' ? (
+                        <Check className="h-8 w-8" />
+                      ) : processing ? (
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      ) : (
+                        <Camera className="h-8 w-8" />
+                      )}
+                    </Button>
+                    
+                    {/* Spacer for symmetry */}
+                    <div className="w-14 h-14" />
+                  </div>
                   <p className="text-white text-sm font-medium">{getStatusText()}</p>
+                  {autoScanEnabled && (
+                    <p className="text-white/60 text-xs">Hold card steady • Auto-adds when matched</p>
+                  )}
                 </div>
               </>
             )}

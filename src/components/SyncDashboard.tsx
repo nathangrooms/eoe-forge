@@ -49,11 +49,11 @@ const SyncDashboard = () => {
         .from('sync_status')
         .select('*')
         .eq('id', 'scryfall_cards')
-        .maybeSingle(); // Changed from .single() to avoid errors
+        .maybeSingle();
 
       if (statusError) {
-        console.error('Error loading sync status:', statusError);
-        throw statusError;
+        console.warn('Error loading sync status:', statusError);
+        // Don't throw - just log and continue with null status
       }
 
       console.log('📋 Sync status loaded:', statusData);
@@ -65,17 +65,13 @@ const SyncDashboard = () => {
         .select('*', { count: 'exact', head: true });
 
       if (countError) {
-        console.error('Error loading card count:', countError);
+        console.warn('Error loading card count:', countError);
       } else {
         setCardCount(count || 0);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load data:', error);
-      toast({
-        title: "Failed to Load Status",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Don't show toast on initial load errors - just log
     } finally {
       setIsLoading(false);
     }

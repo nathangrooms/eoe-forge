@@ -31,13 +31,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Clear user-specific data when user changes (login/logout/switch)
         if (previousUserId !== currentUserId) {
-          localStorage.removeItem('deck-store');
+          // Check if switching between two different users (not initial load or logout)
+          const isUserSwitch = previousUserId !== null && currentUserId !== null;
+          
+          // Clear all user-specific localStorage
+          localStorage.removeItem('mtg-deck-storage');
+          localStorage.removeItem('deck-management-storage');
+          localStorage.removeItem('mtg-collection-storage');
           localStorage.removeItem('price_watchlist');
           localStorage.removeItem('lastOpenedDecks');
           localStorage.removeItem('marketplace_preferences');
           localStorage.removeItem('collection_view_prefs');
           localStorage.removeItem('deck_builder_view');
+          
           previousUserId = currentUserId;
+          
+          // Force page reload to reset zustand stores when switching between users
+          if (isUserSwitch) {
+            window.location.reload();
+          }
         }
         
         setSession(session);
@@ -109,7 +121,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(false);
     
     // Clear user-specific localStorage data to prevent data leakage between users
-    localStorage.removeItem('deck-store');
+    localStorage.removeItem('mtg-deck-storage');
+    localStorage.removeItem('deck-management-storage');
+    localStorage.removeItem('mtg-collection-storage');
     localStorage.removeItem('price_watchlist');
     localStorage.removeItem('lastOpenedDecks');
     localStorage.removeItem('marketplace_preferences');

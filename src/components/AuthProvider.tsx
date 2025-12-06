@@ -21,9 +21,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Track the previous user ID to detect user switches
+    let previousUserId: string | null = null;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        const currentUserId = session?.user?.id ?? null;
+        
+        // Clear user-specific data when user changes (login/logout/switch)
+        if (previousUserId !== currentUserId) {
+          localStorage.removeItem('deck-store');
+          localStorage.removeItem('price_watchlist');
+          localStorage.removeItem('lastOpenedDecks');
+          localStorage.removeItem('marketplace_preferences');
+          localStorage.removeItem('collection_view_prefs');
+          localStorage.removeItem('deck_builder_view');
+          previousUserId = currentUserId;
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

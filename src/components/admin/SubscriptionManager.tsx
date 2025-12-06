@@ -13,32 +13,71 @@ interface SubscriptionStats {
 }
 
 export function SubscriptionManager() {
-  const { data: limits, isLoading: limitsLoading, refetch } = useSubscriptionLimits();
+  const { data: limits, isLoading: limitsLoading, refetch, error: limitsError } = useSubscriptionLimits();
   const tierComparison = useTierComparison();
   
-  // Get subscription statistics
+  // Get subscription statistics - this may fail for non-admins, handle gracefully
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['subscription-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('tier')
-        .eq('is_active', true);
-      
-      if (error) throw error;
-      
-      const counts: Record<SubscriptionTier, number> = { free: 0, pro: 0, unlimited: 0 };
-      data?.forEach(sub => {
-        counts[sub.tier as SubscriptionTier]++;
-      });
-      
-      return [
-        { tier: 'free' as SubscriptionTier, count: counts.free },
-        { tier: 'pro' as SubscriptionTier, count: counts.pro },
-        { tier: 'unlimited' as SubscriptionTier, count: counts.unlimited },
-      ];
+      try {
+        const { data, error } = await supabase
+          .from('user_subscriptions')
+          .select('tier')
+          .eq('is_active', true);
+        
+        if (error) {
+          console.warn('Could not fetch subscription stats:', error.message);
+          return null;
+        }
+        
+        const counts: Record<SubscriptionTier, number> = { free: 0, pro: 0, unlimited: 0 };
+        data?.forEach(sub => {
+          counts[sub.tier as SubscriptionTier]++;
+        });
+        
+        return [
+          { tier: 'free' as SubscriptionTier, count: counts.free },
+          { tier: 'pro' as SubscriptionTier, count: counts.pro },
+          { tier: 'unlimited' as SubscriptionTier, count: counts.unlimited },
+        ];
+      } catch (e) {
+        console.warn('Subscription stats error:', e);
+        return null;
+      }
     },
   });
+
+  // Default stats if query fails
+  const displayStats = stats || [
+    { tier: 'free' as SubscriptionTier, count: 0 },
+    { tier: 'pro' as SubscriptionTier, count: 0 },
+    { tier: 'unlimited' as SubscriptionTier, count: 0 },
+  ];
+
+  if (limitsLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (limitsError) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
+          <p className="text-muted-foreground">Could not load subscription data</p>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getTierIcon = (tier: SubscriptionTier) => {
     const icons = {
@@ -63,23 +102,11 @@ export function SubscriptionManager() {
     return value.toLocaleString();
   };
 
-  const isLoading = limitsLoading || statsLoading;
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Subscription Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {stats?.map(({ tier, count }) => {
+        {displayStats.map(({ tier, count }) => {
           const Icon = getTierIcon(tier);
           return (
             <Card key={tier} className="relative overflow-hidden">

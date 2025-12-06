@@ -523,6 +523,79 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          is_experimental: boolean | null
+          key: string
+          name: string
+          requires_tier: Database["public"]["Enums"]["subscription_tier"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          is_experimental?: boolean | null
+          key: string
+          name: string
+          requires_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          is_experimental?: boolean | null
+          key?: string
+          name?: string
+          requires_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      feature_usage: {
+        Row: {
+          created_at: string | null
+          feature_key: string
+          id: string
+          period_end: string
+          period_start: string
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          feature_key: string
+          id?: string
+          period_end: string
+          period_start: string
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          feature_key?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       listings: {
         Row: {
           card_id: string
@@ -874,6 +947,33 @@ export type Database = {
           },
         ]
       }
+      subscription_limits: {
+        Row: {
+          description: string | null
+          feature_key: string
+          id: string
+          limit_type: string
+          limit_value: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+        }
+        Insert: {
+          description?: string | null
+          feature_key: string
+          id?: string
+          limit_type?: string
+          limit_value: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+        }
+        Update: {
+          description?: string | null
+          feature_key?: string
+          id?: string
+          limit_type?: string
+          limit_value?: number
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           current_step: string | null
@@ -1121,6 +1221,42 @@ export type Database = {
           },
         ]
       }
+      user_subscriptions: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          started_at: string | null
+          stripe_subscription_id: string | null
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          started_at?: string | null
+          stripe_subscription_id?: string | null
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          started_at?: string | null
+          stripe_subscription_id?: string | null
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       wishlist: {
         Row: {
           alert_enabled: boolean | null
@@ -1207,6 +1343,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_feature_access: {
+        Args: { _feature_key: string; _user_id: string }
+        Returns: Json
+      }
       compute_deck_summary: { Args: { deck_id: string }; Returns: Json }
       get_deck_wishlist_count: {
         Args: { deck_id_param: string }
@@ -1222,10 +1362,15 @@ export type Database = {
         }[]
       }
       get_public_deck: { Args: { deck_slug: string }; Returns: Json }
+      increment_feature_usage: {
+        Args: { _amount?: number; _feature_key: string; _user_id: string }
+        Returns: boolean
+      }
       increment_share_views: { Args: { deck_slug: string }; Returns: undefined }
       toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
     }
     Enums: {
+      subscription_tier: "free" | "pro" | "unlimited"
       task_category: "feature" | "bug" | "improvement" | "core_functionality"
       task_priority: "high" | "medium" | "low"
       task_status: "pending" | "in_progress" | "blocked" | "done"
@@ -1356,6 +1501,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      subscription_tier: ["free", "pro", "unlimited"],
       task_category: ["feature", "bug", "improvement", "core_functionality"],
       task_priority: ["high", "medium", "low"],
       task_status: ["pending", "in_progress", "blocked", "done"],

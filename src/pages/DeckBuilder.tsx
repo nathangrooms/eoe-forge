@@ -29,6 +29,7 @@ import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
 import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
+import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { useDeckStore } from '@/stores/deckStore';
@@ -85,6 +86,7 @@ const DeckBuilder = () => {
   const [newDeckName, setNewDeckName] = useState('');
   const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('commander');
   const [newDeckDescription, setNewDeckDescription] = useState('');
+  const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
 
   // Get URL parameters for deck loading
   const [searchParams] = useSearchParams();
@@ -471,7 +473,49 @@ const DeckBuilder = () => {
     }
   };
 
-  // Calculate deck stats
+  // Handler for first deck onboarding
+  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom') => {
+    if (!user) return;
+    
+    setCreatingFirstDeck(true);
+    try {
+      const { data: newDeck, error } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name,
+          format,
+          power_level: 5,
+          colors: [],
+          description: ''
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      showSuccess("Deck Created", `"${name}" has been created successfully`);
+      
+      if (newDeck) {
+        await loadAllDecks();
+        loadDeck({
+          id: newDeck.id,
+          name: newDeck.name,
+          format: newDeck.format as any,
+          powerLevel: newDeck.power_level,
+          colors: newDeck.colors,
+          cardCount: 0,
+          lastModified: new Date(newDeck.updated_at)
+        });
+      }
+    } catch (error) {
+      console.error('Error creating first deck:', error);
+      showError("Error", "Failed to create deck");
+    } finally {
+      setCreatingFirstDeck(false);
+    }
+  };
+
   const deckStats = useMemo(() => {
     const cards = deck.cards as any[];
     let creatures = 0, lands = 0, instants = 0, sorceries = 0, artifacts = 0, enchantments = 0, planeswalkers = 0;
@@ -523,90 +567,100 @@ const DeckBuilder = () => {
     };
   }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower]);
 
+  // Show onboarding if user has no decks and no deck is loaded
+  const showOnboarding = !loading && allDecks.length === 0 && !deck.name;
+
   return (
     <StandardPageLayout
       title="Deck Builder"
       description={deck.name ? `Editing: ${deck.name}` : "Build and optimize your Magic: The Gathering decks"}
       action={
-        <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
-          <Select value={selectedDeckId || ''} onValueChange={(value) => {
-            setSelectedDeckId(value);
-            const selectedDeck = allDecks.find(d => d.id === value);
-            if (selectedDeck) {
-              loadDeck(selectedDeck);
-            }
-          }}>
-            <SelectTrigger className="w-full xs:w-80 max-w-md">
-              <SelectValue placeholder="Select a deck..." />
-            </SelectTrigger>
-            <SelectContent className="bg-popover z-50 max-w-md">
-              {allDecks.map((deckItem) => (
-                <SelectItem key={deckItem.id} value={deckItem.id}>
-                  <div className="flex items-center justify-between gap-2 max-w-full">
-                    <span className="truncate flex-1 text-left">{deckItem.name}</span>
-                    <Badge variant="outline" className="ml-2 shrink-0">
-                      {deckItem.format}
-                    </Badge>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button className="w-full xs:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden xs:inline">New Deck</span>
-                <span className="xs:hidden">New</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Deck</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="deck-name">Deck Name</Label>
-                  <Input
-                    id="deck-name"
-                    value={newDeckName}
-                    onChange={(e) => setNewDeckName(e.target.value)}
-                    placeholder="Enter deck name..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="deck-format">Format</Label>
-                  <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="commander">Commander</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="deck-description">Description (Optional)</Label>
-                  <Input
-                    id="deck-description"
-                    value={newDeckDescription}
-                    onChange={(e) => setNewDeckDescription(e.target.value)}
-                    placeholder="Enter deck description..."
-                  />
-                </div>
-                <Button onClick={createNewDeck} className="w-full">
-                  Create Deck
+        showOnboarding ? null : (
+          <div className="flex flex-col xs:flex-row gap-2 w-full xs:w-auto">
+            <Select value={selectedDeckId || ''} onValueChange={(value) => {
+              setSelectedDeckId(value);
+              const selectedDeck = allDecks.find(d => d.id === value);
+              if (selectedDeck) {
+                loadDeck(selectedDeck);
+              }
+            }}>
+              <SelectTrigger className="w-full xs:w-80 max-w-md">
+                <SelectValue placeholder="Select a deck..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50 max-w-md">
+                {allDecks.map((deckItem) => (
+                  <SelectItem key={deckItem.id} value={deckItem.id}>
+                    <div className="flex items-center justify-between gap-2 max-w-full">
+                      <span className="truncate flex-1 text-left">{deckItem.name}</span>
+                      <Badge variant="outline" className="ml-2 shrink-0">
+                        {deckItem.format}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button className="w-full xs:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden xs:inline">New Deck</span>
+                  <span className="xs:hidden">New</span>
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Deck</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="deck-name">Deck Name</Label>
+                    <Input
+                      id="deck-name"
+                      value={newDeckName}
+                      onChange={(e) => setNewDeckName(e.target.value)}
+                      placeholder="Enter deck name..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="deck-format">Format</Label>
+                    <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="commander">Commander</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="deck-description">Description (Optional)</Label>
+                    <Input
+                      id="deck-description"
+                      value={newDeckDescription}
+                      onChange={(e) => setNewDeckDescription(e.target.value)}
+                      placeholder="Enter deck description..."
+                    />
+                  </div>
+                  <Button onClick={createNewDeck} className="w-full">
+                    Create Deck
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )
       }
     >
-      {deck.name ? (
+      {showOnboarding ? (
+        <FirstDeckOnboarding 
+          onCreateDeck={handleCreateFirstDeck}
+          loading={creatingFirstDeck}
+        />
+      ) : deck.name ? (
         <div className="h-full flex flex-col">
           {/* Quick Stats */}
           <div className="px-4 md:px-6 py-4 border-b bg-muted/20">

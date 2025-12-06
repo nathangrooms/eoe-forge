@@ -27,6 +27,7 @@ import { EnhancedDeckExport } from '@/components/deck-builder/EnhancedDeckExport
 import { DeckSocialFeatures } from '@/components/deck-builder/DeckSocialFeatures';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
+import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -75,6 +76,7 @@ const DeckBuilder = () => {
   } | null>(null);
   const [edhPowerUrl, setEdhPowerUrl] = useState<string | null>(null);
   const [loadingEdhPower, setLoadingEdhPower] = useState(false);
+  const [edhAnalysisData, setEdhAnalysisData] = useState<EdhAnalysisData | null>(null);
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -301,6 +303,20 @@ const DeckBuilder = () => {
           };
           console.log('Setting EDH Metrics:', metrics);
           setEdhMetrics(metrics);
+          
+          // Store full analysis data for the new panel
+          const fullAnalysis: EdhAnalysisData = {
+            metrics: {
+              powerLevel: liveLevel,
+              ...metrics,
+            },
+            bracket: powerData.bracket || null,
+            cardAnalysis: powerData.cardAnalysis || [],
+            landAnalysis: powerData.landAnalysis || null,
+            url: powerData.url || fallbackUrl,
+          };
+          setEdhAnalysisData(fullAnalysis);
+          
           showSuccess('Power Level', `EDH Power: ${liveLevel.toFixed(2)}/10 (from edhpowerlevel.com)`);
         }
       } else {
@@ -704,6 +720,15 @@ const DeckBuilder = () => {
                   deckId={selectedDeckId || deck.currentDeckId || undefined}
                   deckName={deck.name}
                 />
+                
+                {/* EDH Power Level Analysis Panel */}
+                {deck.format === 'commander' && (
+                  <EdhAnalysisPanel 
+                    data={edhAnalysisData}
+                    isLoading={loadingEdhPower}
+                    onRefresh={() => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId)}
+                  />
+                )}
               </div>
             )}
 

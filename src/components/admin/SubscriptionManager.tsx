@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Crown, Zap, Sparkles, Users, TrendingUp, Infinity, RefreshCw, Loader2 } from 'lucide-react';
-import { useSubscriptionLimits, useTierComparison, SubscriptionTier } from '@/hooks/useFeatureAccess';
+import { useSubscriptionLimits, SubscriptionTier } from '@/hooks/useFeatureAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,7 +14,6 @@ interface SubscriptionStats {
 
 export function SubscriptionManager() {
   const { data: limits, isLoading: limitsLoading, refetch, error: limitsError } = useSubscriptionLimits();
-  const tierComparison = useTierComparison();
   
   // Get subscription statistics - this may fail for non-admins, handle gracefully
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -55,7 +54,21 @@ export function SubscriptionManager() {
     { tier: 'unlimited' as SubscriptionTier, count: 0 },
   ];
 
-  if (limitsLoading) {
+  // Build tier comparison from limits data
+  const tiers: SubscriptionTier[] = ['free', 'pro', 'unlimited'];
+  const features = limits ? [...new Set(limits.map(l => l.feature_key))] : [];
+  
+  const getLimitForTier = (featureKey: string, tier: SubscriptionTier) => {
+    const limit = limits?.find(l => l.feature_key === featureKey && l.tier === tier);
+    return limit?.limit_value ?? 0;
+  };
+  
+  const getDescriptionForFeature = (featureKey: string) => {
+    const limit = limits?.find(l => l.feature_key === featureKey);
+    return limit?.description ?? featureKey;
+  };
+
+  if (limitsLoading || statsLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
@@ -172,15 +185,21 @@ export function SubscriptionManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tierComparison?.features.map((featureKey) => (
+              {features.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    No subscription limits configured
+                  </TableCell>
+                </TableRow>
+              ) : features.map((featureKey) => (
                 <TableRow key={featureKey}>
                   <TableCell className="font-medium">
-                    {tierComparison.getDescriptionForFeature(featureKey)}
+                    {getDescriptionForFeature(featureKey)}
                   </TableCell>
-                  {tierComparison.tiers.map((tier) => (
+                  {tiers.map((tier) => (
                     <TableCell key={tier} className="text-center">
                       <Badge variant="outline" className="min-w-16 justify-center">
-                        {formatLimit(tierComparison.getLimitForTier(featureKey, tier))}
+                        {formatLimit(getLimitForTier(featureKey, tier))}
                       </Badge>
                     </TableCell>
                   ))}

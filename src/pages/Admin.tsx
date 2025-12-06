@@ -34,36 +34,48 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 function OverviewSection() {
   const { toast } = useToast();
 
-  const { data: cardStats } = useQuery({
+  const { data: cardStats, isLoading: cardsLoading } = useQuery({
     queryKey: ['admin-card-stats'],
     queryFn: async () => {
-      const { count } = await supabase.from('cards').select('*', { count: 'exact', head: true });
+      const { count, error } = await supabase.from('cards').select('*', { count: 'exact', head: true });
+      if (error) {
+        console.warn('Could not fetch card stats:', error);
+        return { totalCards: 0 };
+      }
       return { totalCards: count || 0 };
     },
   });
 
-  const { data: userStats } = useQuery({
+  const { data: userStats, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-user-stats'],
     queryFn: async () => {
-      const { count: profileCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const { count: deckCount } = await supabase.from('user_decks').select('*', { count: 'exact', head: true });
-      const { count: collectionCount } = await supabase.from('user_collections').select('*', { count: 'exact', head: true });
+      const [profiles, decks, collections] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('user_decks').select('*', { count: 'exact', head: true }),
+        supabase.from('user_collections').select('*', { count: 'exact', head: true })
+      ]);
       return { 
-        totalUsers: profileCount || 0,
-        totalDecks: deckCount || 0,
-        totalCollectionItems: collectionCount || 0
+        totalUsers: profiles.count || 0,
+        totalDecks: decks.count || 0,
+        totalCollectionItems: collections.count || 0
       };
     },
   });
 
-  const { data: syncStatus, refetch: refetchStatus } = useQuery({
+  const { data: syncStatus, refetch: refetchStatus, isLoading: syncLoading } = useQuery({
     queryKey: ['admin-sync-status'],
     queryFn: async () => {
-      const { data } = await supabase.from('sync_status').select('*').order('id');
+      const { data, error } = await supabase.from('sync_status').select('*').order('id');
+      if (error) {
+        console.warn('Could not fetch sync status:', error);
+        return [];
+      }
       return data || [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
+
+  const isLoading = cardsLoading || usersLoading || syncLoading;
 
   const startSync = async () => {
     try {
@@ -83,6 +95,14 @@ function OverviewSection() {
       default: return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

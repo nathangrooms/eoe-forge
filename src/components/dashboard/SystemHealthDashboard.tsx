@@ -62,12 +62,12 @@ export function SystemHealthDashboard() {
         .limit(1);
       const dbTime = performance.now() - dbStart;
 
-      // Get sync status
+      // Get sync status - use maybeSingle to handle missing data
       const { data: syncStatus } = await supabase
         .from('sync_status')
-        .select('last_sync, error_message')
-        .eq('id', 'scryfall')
-        .single();
+        .select('last_sync, error_message, status')
+        .eq('id', 'scryfall_cards')
+        .maybeSingle();
 
       // Calculate metrics
       const dbStatus: 'healthy' | 'degraded' | 'down' = 

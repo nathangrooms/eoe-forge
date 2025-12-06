@@ -10,8 +10,8 @@ export interface FeatureFlag {
   name: string;
   description: string | null;
   enabled: boolean;
-  requires_tier: SubscriptionTier;
-  is_experimental: boolean;
+  requires_tier: SubscriptionTier | null;
+  is_experimental: boolean | null;
   created_at: string;
   updated_at: string;
 }

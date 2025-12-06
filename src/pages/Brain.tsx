@@ -309,7 +309,7 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full px-4 py-6 h-full">
+      <div className="w-full px-4 md:px-6 py-4 md:py-6 h-full">
         <div className="flex gap-6 h-full">
           {/* Main Chat Area - Full width when cards are displayed */}
           <div className="flex-1 flex flex-col h-full min-h-[600px]">

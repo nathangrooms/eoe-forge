@@ -97,8 +97,8 @@ export const useDeckStore = create<DeckState>()(
   persist(
     (set, get) => ({
       // Initial state
-      name: 'New Deck',
-      format: 'standard',
+      name: '',
+      format: 'commander',
       powerLevel: 5,
       colors: [],
       colorIdentity: [],

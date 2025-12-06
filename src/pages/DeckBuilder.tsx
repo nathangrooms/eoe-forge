@@ -42,7 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, RefreshCw, Target } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Target, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Deck {
@@ -83,7 +83,9 @@ const DeckBuilder = () => {
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
+  const [renameDeckName, setRenameDeckName] = useState('');
   const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('commander');
   const [newDeckDescription, setNewDeckDescription] = useState('');
   const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
@@ -516,6 +518,27 @@ const DeckBuilder = () => {
     }
   };
 
+  const renameDeck = async () => {
+    if (!renameDeckName.trim() || !deck.currentDeckId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('user_decks')
+        .update({ name: renameDeckName, updated_at: new Date().toISOString() })
+        .eq('id', deck.currentDeckId);
+
+      if (error) throw error;
+      
+      deck.setDeckName(renameDeckName);
+      await loadAllDecks();
+      setShowRenameDialog(false);
+      showSuccess("Deck Renamed", `Deck renamed to "${renameDeckName}"`);
+    } catch (error) {
+      console.error('Error renaming deck:', error);
+      showError("Error", "Failed to rename deck");
+    }
+  };
+
   const deckStats = useMemo(() => {
     const cards = deck.cards as any[];
     let creatures = 0, lands = 0, instants = 0, sorceries = 0, artifacts = 0, enchantments = 0, planeswalkers = 0;
@@ -600,6 +623,40 @@ const DeckBuilder = () => {
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* Rename Deck Button */}
+            {deck.currentDeckId && (
+              <Dialog open={showRenameDialog} onOpenChange={(open) => {
+                setShowRenameDialog(open);
+                if (open) setRenameDeckName(deck.name);
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="shrink-0">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Rename Deck</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="rename-deck">New Name</Label>
+                      <Input
+                        id="rename-deck"
+                        value={renameDeckName}
+                        onChange={(e) => setRenameDeckName(e.target.value)}
+                        placeholder="Enter new deck name..."
+                        onKeyDown={(e) => e.key === 'Enter' && renameDeck()}
+                      />
+                    </div>
+                    <Button onClick={renameDeck} className="w-full" disabled={!renameDeckName.trim()}>
+                      Rename Deck
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
             
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>

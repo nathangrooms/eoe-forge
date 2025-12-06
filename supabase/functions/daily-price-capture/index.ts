@@ -6,9 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rate limit: Scryfall allows 10 requests/second, we'll be conservative
-const BATCH_SIZE = 50;
-const DELAY_BETWEEN_BATCHES = 6000; // 6 seconds between batches
+// Scryfall allows 10 requests/second - we'll do ~8/sec to be safe
+const BATCH_SIZE = 75;
+const DELAY_BETWEEN_REQUESTS = 125; // 125ms = 8 req/sec
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -18,6 +18,10 @@ async function captureCardPrice(cardId: string, supabase: any, today: string): P
   try {
     const response = await fetch(`https://api.scryfall.com/cards/${cardId}`);
     if (!response.ok) {
+      if (response.status === 404) {
+        // Card no longer exists on Scryfall, skip
+        return false;
+      }
       console.log(`Scryfall error for ${cardId}: ${response.status}`);
       return false;
     }
@@ -57,88 +61,96 @@ serve(async (req) => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  console.log(`Starting daily price capture for ${today}`);
+  // Check for optional offset parameter for chunked processing
+  const url = new URL(req.url);
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+  const limit = parseInt(url.searchParams.get('limit') || '5000');
+
+  console.log(`Starting daily price capture for ${today}, offset: ${offset}, limit: ${limit}`);
 
   try {
-    // Get unique card IDs from multiple sources
-    const cardIds = new Set<string>();
+    // Get ALL unique card IDs from the cards table
+    const { data: allCards, error: cardsError, count } = await supabase
+      .from('cards')
+      .select('id', { count: 'exact' })
+      .order('id')
+      .range(offset, offset + limit - 1);
 
-    // 1. Cards from user collections
-    const { data: collectionCards } = await supabase
-      .from('user_collections')
-      .select('card_id')
-      .limit(500);
-    
-    collectionCards?.forEach((c: any) => cardIds.add(c.card_id));
-    console.log(`Found ${collectionCards?.length || 0} collection cards`);
+    if (cardsError) {
+      console.error('Error fetching cards:', cardsError);
+      throw cardsError;
+    }
 
-    // 2. Cards from wishlists
-    const { data: wishlistCards } = await supabase
-      .from('wishlist')
-      .select('card_id')
-      .limit(500);
-    
-    wishlistCards?.forEach((c: any) => cardIds.add(c.card_id));
-    console.log(`Found ${wishlistCards?.length || 0} wishlist cards`);
+    const cardIds = allCards?.map((c: any) => c.id) || [];
+    console.log(`Processing ${cardIds.length} cards (total in DB: ${count})`);
 
-    // 3. Cards already being tracked (previously captured)
-    const { data: trackedCards } = await supabase
-      .from('card_price_history')
-      .select('card_id')
-      .order('snapshot_date', { ascending: false })
-      .limit(500);
-    
-    // Get unique card IDs from tracked
-    const trackedUnique = new Set(trackedCards?.map((c: any) => c.card_id) || []);
-    trackedUnique.forEach(id => cardIds.add(id));
-    console.log(`Found ${trackedUnique.size} previously tracked cards`);
-
-    const uniqueCardIds = Array.from(cardIds);
-    console.log(`Total unique cards to capture: ${uniqueCardIds.length}`);
-
-    if (uniqueCardIds.length === 0) {
+    if (cardIds.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: 'No cards to capture', captured: 0 }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'No more cards to capture', 
+          captured: 0,
+          offset,
+          hasMore: false
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Process in batches to respect rate limits
+    // Process cards with rate limiting
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < uniqueCardIds.length; i += BATCH_SIZE) {
-      const batch = uniqueCardIds.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} cards`);
-
-      // Process batch with small delays between each request
-      for (const cardId of batch) {
-        const success = await captureCardPrice(cardId, supabase, today);
-        if (success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-        // Small delay between individual requests (100ms = 10 req/sec max)
-        await delay(100);
+    for (let i = 0; i < cardIds.length; i++) {
+      const cardId = cardIds[i];
+      const success = await captureCardPrice(cardId, supabase, today);
+      
+      if (success) {
+        successCount++;
+      } else {
+        failCount++;
       }
 
-      // Longer delay between batches
-      if (i + BATCH_SIZE < uniqueCardIds.length) {
-        console.log(`Batch complete. Waiting before next batch...`);
-        await delay(DELAY_BETWEEN_BATCHES);
+      // Log progress every 100 cards
+      if ((i + 1) % 100 === 0) {
+        console.log(`Progress: ${i + 1}/${cardIds.length} (${successCount} success, ${failCount} failed)`);
       }
+
+      // Rate limit delay
+      await delay(DELAY_BETWEEN_REQUESTS);
     }
 
-    console.log(`Daily capture complete: ${successCount} success, ${failCount} failed`);
+    const hasMore = (offset + limit) < (count || 0);
+
+    console.log(`Batch complete: ${successCount} success, ${failCount} failed. Has more: ${hasMore}`);
+
+    // If there are more cards, trigger next batch
+    if (hasMore) {
+      const nextOffset = offset + limit;
+      console.log(`Triggering next batch at offset ${nextOffset}`);
+      
+      // Use EdgeRuntime.waitUntil to trigger next batch without blocking response
+      EdgeRuntime.waitUntil(
+        fetch(`${supabaseUrl}/functions/v1/daily-price-capture?offset=${nextOffset}&limit=${limit}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+          }
+        }).catch(err => console.error('Failed to trigger next batch:', err))
+      );
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         date: today,
-        total: uniqueCardIds.length,
+        offset,
+        processed: cardIds.length,
         captured: successCount,
-        failed: failCount
+        failed: failCount,
+        totalCards: count,
+        hasMore
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

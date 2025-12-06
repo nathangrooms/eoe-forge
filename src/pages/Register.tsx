@@ -108,7 +108,7 @@ export default function Register() {
             value={formData.username}
             onChange={handleChange}
             required
-            className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20"
+            className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20"
             placeholder="Choose a username"
           />
         </div>
@@ -125,7 +125,7 @@ export default function Register() {
             value={formData.email}
             onChange={handleChange}
             required
-            className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20"
+            className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20"
             placeholder="your@email.com"
           />
         </div>
@@ -143,13 +143,13 @@ export default function Register() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20 pr-10"
+              className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20 pr-10"
               placeholder="Create a password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-spacecraft transition-colors"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -169,13 +169,13 @@ export default function Register() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className="bg-background/50 border-spacecraft/20 focus:border-spacecraft focus:ring-spacecraft/20 pr-10"
+              className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20 pr-10"
               placeholder="Confirm your password"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-spacecraft transition-colors"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -183,7 +183,7 @@ export default function Register() {
         </div>
 
         {/* Free Plan Option */}
-        <div className="flex items-start space-x-3 p-4 rounded-lg bg-spacecraft/5 border border-spacecraft/20">
+        <div className="flex items-start space-x-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
           <Checkbox 
             id="freePlan" 
             checked={freePlan}
@@ -191,7 +191,7 @@ export default function Register() {
           />
           <div className="flex-1">
             <Label htmlFor="freePlan" className="text-sm font-medium flex items-center gap-2">
-              <Check className="h-4 w-4 text-spacecraft" />
+              <Check className="h-4 w-4 text-primary" />
               Start with Free Plan (upgrade anytime)
             </Label>
             <p className="text-xs text-muted-foreground mt-1">
@@ -203,7 +203,7 @@ export default function Register() {
         {/* Submit Button */}
         <Button 
           type="submit" 
-          className="w-full bg-spacecraft hover:bg-station transition-colors"
+          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 transition-all"
           disabled={loading}
         >
           {loading ? (
@@ -219,11 +219,11 @@ export default function Register() {
         {/* Terms */}
         <p className="text-xs text-muted-foreground text-center">
           By creating an account, you agree to our{' '}
-          <Link to="/terms" className="text-spacecraft hover:text-station transition-colors">
+          <Link to="/terms" className="text-primary hover:text-primary/80 transition-colors">
             Terms of Service
           </Link>{' '}
           and{' '}
-          <Link to="/privacy" className="text-spacecraft hover:text-station transition-colors">
+          <Link to="/privacy" className="text-primary hover:text-primary/80 transition-colors">
             Privacy Policy
           </Link>
           .
@@ -245,7 +245,7 @@ export default function Register() {
             Already have an account?{' '}
             <Link 
               to="/login" 
-              className="text-spacecraft hover:text-station transition-colors font-medium"
+              className="text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Sign in here
             </Link>

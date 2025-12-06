@@ -1539,28 +1539,28 @@ Focus on archetypes that specifically leverage this commander's unique abilities
   return (
     <StandardPageLayout
       title="AI Deck Builder"
-      description="Let AI create the perfect deck for your playstyle and budget"
+      description="Let AI create the perfect Commander deck for your playstyle and budget with intelligent validation"
       action={
         step < 6 && (
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               {[1, 2, 3, 4, 5].map((s) => (
                 <div
                   key={s}
-                  className={`w-2 h-2 rounded-full ${
-                    s <= step ? 'bg-primary' : 'bg-muted'
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    s < step ? 'bg-green-500' : s === step ? 'bg-primary scale-125' : 'bg-muted'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground font-medium">
               Step {step} of 5
             </span>
           </div>
         )
       }
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         {renderStep()}
 
         {/* Navigation */}
@@ -1609,15 +1609,17 @@ Focus on archetypes that specifically leverage this commander's unique abilities
 
         {/* Building Progress */}
         {building && (
-          <Card className="mt-6">
-            <CardContent className="p-6">
-              <div className="text-center space-y-4">
-                <Sparkles className="h-12 w-12 mx-auto text-primary animate-pulse" />
-                <h3 className="text-lg font-medium">Building Your Deck</h3>
-                <p className="text-muted-foreground">
-                  AI is analyzing thousands of cards to create the perfect deck for your specifications...
+          <Card className="mt-6 border-primary/30 bg-gradient-to-br from-card via-primary/5 to-accent/5">
+            <CardContent className="p-8">
+              <div className="text-center space-y-6">
+                <Sparkles className="h-16 w-16 mx-auto text-primary animate-pulse" />
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  Building Your Perfect Deck
+                </h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  AI is analyzing thousands of cards, validating color identity, checking power level, and ensuring budget compliance...
                 </p>
-                <Progress value={66} className="w-full" />
+                <Progress value={buildProgress} className="w-full max-w-md mx-auto h-3" />
               </div>
             </CardContent>
           </Card>

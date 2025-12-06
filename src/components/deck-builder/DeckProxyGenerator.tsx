@@ -250,9 +250,9 @@ export function DeckProxyGenerator({ deckCards, deckName }: DeckProxyGeneratorPr
 
           {/* Card List */}
           <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-lg p-3">
-            {deckCards.map((card) => (
+            {deckCards.map((card, index) => (
               <div
-                key={card.id}
+                key={`${card.id}-${index}`}
                 className={`flex items-center justify-between p-2 rounded hover:bg-muted/50 transition-colors ${
                   selectedCards.has(card.id) ? 'bg-primary/10 border border-primary' : ''
                 }`}

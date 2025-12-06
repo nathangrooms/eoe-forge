@@ -656,8 +656,8 @@ const DeckBuilder = () => {
                   }
                 }}
                 onReplaceCard={(cardId) => {
-                  // Opens replacement search - handled by VisualDeckView internally
-                  console.log('Replace card:', cardId);
+                  setCardToReplace(cardId);
+                  setActiveTab('search');
                 }}
               />
             )}
@@ -665,14 +665,43 @@ const DeckBuilder = () => {
             {/* Add Cards */}
             {activeTab === 'search' && (
               <>
-                <Card className="p-4 mb-6 bg-muted/30">
-                  <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
-                  <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
-                </Card>
+                {cardToReplace ? (
+                  <Card className="p-4 mb-6 bg-orange-500/10 border-orange-500/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-500">Replacing card</p>
+                        <p className="font-bold">{deck.cards.find(c => c.id === cardToReplace)?.name}</p>
+                        <p className="text-xs text-muted-foreground">Select a card below to replace it</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setCardToReplace(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <Card className="p-4 mb-6 bg-muted/30">
+                    <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
+                    <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
+                  </Card>
+                )}
                 <EnhancedUniversalCardSearch
-                  onCardAdd={handleAddCardToDeck}
+                  onCardAdd={(card) => {
+                    if (cardToReplace) {
+                      // Replace the old card with the new one
+                      const oldCard = deck.cards.find(c => c.id === cardToReplace);
+                      if (oldCard) {
+                        deck.removeCard(cardToReplace);
+                        handleAddCardToDeck(card);
+                        showSuccess('Card Replaced', `Replaced ${oldCard.name} with ${card.name}`);
+                        setCardToReplace(null);
+                        setActiveTab('cards');
+                      }
+                    } else {
+                      handleAddCardToDeck(card);
+                    }
+                  }}
                   onCardSelect={(card) => console.log('Selected:', card)}
-                  placeholder={`Search cards for your ${deck.format} deck...`}
+                  placeholder={cardToReplace ? `Search for a replacement card...` : `Search cards for your ${deck.format} deck...`}
                   showFilters={true}
                   showAddButton={true}
                   showWishlistButton={false}

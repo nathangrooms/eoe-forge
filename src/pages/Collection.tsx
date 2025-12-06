@@ -389,7 +389,7 @@ export default function Collection() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+      <div className="border-b px-4 md:px-6 py-4 md:py-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Collection Manager</h1>

@@ -114,35 +114,99 @@ export function UniversalCardModal({
   const getCardAnalysis = () => {
     if (!card) return null;
 
-    const analysis = {
-      power: 7.2,
-      speed: 6.5,
-      interaction: 8.1,
-      synergy: 5.8,
-      versatility: 7.9
+    // Get EDHREC rank from Scryfall data if available
+    const edhrecRank = card.edhrec_rank;
+    const pennyRank = card.penny_rank;
+    
+    // Calculate approximate scores based on available data
+    const getRankScore = (rank: number | undefined, maxRank: number = 30000): number => {
+      if (!rank) return 0;
+      // Lower rank = better card = higher score
+      const score = Math.max(0, 10 - (rank / maxRank) * 10);
+      return Math.round(score * 10) / 10;
     };
 
+    const edhPopularity = edhrecRank ? getRankScore(edhrecRank) : null;
+    const budgetViability = pennyRank ? getRankScore(pennyRank, 10000) : null;
+
+    // Estimate other metrics from card characteristics
+    const hasRemoval = card.oracle_text?.toLowerCase().includes('destroy') || 
+                       card.oracle_text?.toLowerCase().includes('exile');
+    const hasDraw = card.oracle_text?.toLowerCase().includes('draw');
+    const hasRamp = card.oracle_text?.toLowerCase().includes('add') && 
+                    card.oracle_text?.toLowerCase().includes('mana');
+    const isLegendary = card.type_line?.includes('Legendary');
+    
     return (
       <div className="space-y-4">
         <h4 className="font-medium flex items-center">
           <BarChart3 className="h-4 w-4 mr-2" />
-          Power Analysis
+          Card Analysis
         </h4>
         
-        {Object.entries(analysis).map(([metric, score]) => (
-          <div key={metric} className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span className="capitalize">{metric}</span>
-              <span className="font-medium">{score}/10</span>
+        {edhrecRank && (
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">EDHREC Rank</span>
+              <span className="text-lg font-bold">#{edhrecRank.toLocaleString()}</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all"
-                style={{ width: `${score * 10}%` }}
-              />
+            <p className="text-xs text-muted-foreground mt-1">
+              {edhrecRank < 1000 ? 'Top-tier staple' :
+               edhrecRank < 5000 ? 'Popular choice' :
+               edhrecRank < 15000 ? 'Commonly played' : 'Niche pick'}
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {edhPopularity !== null && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span>Commander Popularity</span>
+                <span className="font-medium">{edhPopularity}/10</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{ width: `${edhPopularity * 10}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${hasRemoval ? 'bg-red-500' : 'bg-muted'}`} />
+              <span className={hasRemoval ? 'text-foreground' : 'text-muted-foreground'}>
+                Removal
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${hasDraw ? 'bg-blue-500' : 'bg-muted'}`} />
+              <span className={hasDraw ? 'text-foreground' : 'text-muted-foreground'}>
+                Card Draw
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${hasRamp ? 'bg-green-500' : 'bg-muted'}`} />
+              <span className={hasRamp ? 'text-foreground' : 'text-muted-foreground'}>
+                Ramp
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isLegendary ? 'bg-amber-500' : 'bg-muted'}`} />
+              <span className={isLegendary ? 'text-foreground' : 'text-muted-foreground'}>
+                Commander
+              </span>
             </div>
           </div>
-        ))}
+        </div>
+
+        {!edhrecRank && (
+          <p className="text-sm text-muted-foreground">
+            EDHREC rank not available for this card. View on EDHREC for detailed statistics.
+          </p>
+        )}
       </div>
     );
   };

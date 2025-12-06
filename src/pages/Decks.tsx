@@ -38,7 +38,7 @@ import {
 import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/stores/collectionStore';
-import { ImprovedDeckTile } from '@/components/deck-builder/ImprovedDeckTile';
+import { ModernDeckTile } from '@/components/deck-builder/ModernDeckTile';
 import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -638,9 +638,9 @@ export default function Decks() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {filteredDecks.map((deckSummary) => (
-              <ImprovedDeckTile
+              <ModernDeckTile
                 key={deckSummary.id}
                 deckSummary={deckSummary}
                 onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}

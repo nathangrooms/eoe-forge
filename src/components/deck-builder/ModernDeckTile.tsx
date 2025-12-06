@@ -191,7 +191,7 @@ export function ModernDeckTile({
   const handlePlaytest = (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
-    navigate(`/deck-simulation?deck=${deckSummary.id}`);
+    navigate(`/simulate?deck=${deckSummary.id}`);
   };
 
   // Safely extract curve data
@@ -250,17 +250,6 @@ export function ModernDeckTile({
         <div className="flex flex-col lg:flex-row" style={{ minHeight: '320px' }}>
           {/* Left: Commander/Deck Visual - Fixed to match card ratio */}
           <div className="lg:w-56 xl:w-64 flex-shrink-0 relative bg-gradient-to-br from-muted/40 to-muted/20 p-3 flex flex-col">
-            {/* Edit Button - Top Right - Prominent */}
-            {onEdit && (
-              <Button
-                size="sm"
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="absolute top-2 right-2 z-10 h-9 px-4 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl border border-primary-foreground/20 font-semibold"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Deck
-              </Button>
-            )}
 
             {deckSummary.commander ? (
               <div className="flex-1 flex flex-col">
@@ -343,8 +332,8 @@ export function ModernDeckTile({
 
           {/* Right: Deck Info & Stats */}
           <div className="flex-1 p-4 flex flex-col min-w-0">
-            {/* Header Row */}
-            <div className="flex items-start justify-between gap-3 mb-3">
+            {/* Header Row with Edit Button */}
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="min-w-0 flex-1">
                 <h3 
                   className="font-bold text-lg lg:text-xl truncate hover:text-primary transition-colors cursor-pointer"
@@ -367,6 +356,16 @@ export function ModernDeckTile({
                   />
                 </div>
               </div>
+
+              {/* Edit Button - Prominent */}
+              <Button
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
+                className="h-9 px-4 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md font-semibold flex-shrink-0"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
 
               {/* More Actions Dropdown */}
               <DropdownMenu>
@@ -478,33 +477,37 @@ export function ModernDeckTile({
 
             {/* Mana Curve & Type Distribution */}
             <div className="grid grid-cols-2 gap-3 mb-3 flex-1">
-              {/* Mana Curve */}
-              <div className="p-2.5 rounded-lg bg-muted/20 border border-border/40">
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Mana Curve - Larger visualization */}
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Mana Curve</span>
+                  <span className="text-[10px] text-muted-foreground">Avg {avgCmc}</span>
                 </div>
-                <MiniManaCurve curveData={curveData} className="h-12" />
+                <MiniManaCurve curveData={curveData} className="h-20" />
               </div>
 
-              {/* Type Breakdown */}
-              <div className="p-2.5 rounded-lg bg-muted/20 border border-border/40">
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Type Breakdown - Visual bar with labels */}
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Composition</span>
+                  <span className="text-[10px] text-muted-foreground">{totalNonLand} spells</span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {typeBreakdown.slice(0, 5).map(({ type, count, color }) => (
-                    <TooltipProvider key={type}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-1 cursor-default">
-                            <div className={cn("w-1.5 h-1.5 rounded-full", color)} />
-                            {count}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>{type}: {count}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))}
+                <div className="space-y-1.5">
+                  {typeBreakdown.slice(0, 5).map(({ type, count, color }) => {
+                    const pct = deckSummary.counts.total > 0 ? (count / deckSummary.counts.total) * 100 : 0;
+                    return (
+                      <div key={type} className="flex items-center gap-2">
+                        <div className="w-16 text-[10px] text-muted-foreground truncate">{type}</div>
+                        <div className="flex-1 h-2.5 bg-muted/40 rounded-full overflow-hidden">
+                          <div 
+                            className={cn("h-full rounded-full transition-all", color)}
+                            style={{ width: `${Math.max(pct, 2)}%` }}
+                          />
+                        </div>
+                        <div className="w-6 text-right text-[10px] font-medium">{count}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

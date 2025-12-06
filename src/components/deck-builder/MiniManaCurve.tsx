@@ -30,27 +30,28 @@ export function MiniManaCurve({ curveData, className }: MiniManaCurveProps) {
   }
 
   return (
-    <div className={cn("flex items-end gap-1", className)}>
+    <div className={cn("flex items-end gap-1.5", className)}>
       {normalizedData.map(({ cmc, count }) => {
         const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
         const isHighest = count === maxCount && count > 0;
         
         return (
-          <div key={cmc} className="flex-1 flex flex-col items-center group relative">
-            <div
-              className={cn(
-                "w-full rounded-t transition-all duration-300",
-                isHighest ? "bg-primary" : "bg-primary/60",
-                "group-hover:bg-primary"
-              )}
-              style={{ height: `${Math.max(height, count > 0 ? 10 : 4)}%`, minHeight: count > 0 ? '4px' : '2px' }}
-            />
-            <span className="text-[8px] text-muted-foreground mt-1">{cmc}</span>
-            
-            {/* Tooltip on hover */}
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover border border-border rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
-              {count} cards
+          <div key={cmc} className="flex-1 flex flex-col items-center group relative min-w-0">
+            {/* Count label above bar */}
+            {count > 0 && (
+              <span className="text-[9px] font-medium text-muted-foreground mb-0.5">{count}</span>
+            )}
+            <div className="flex-1 w-full flex items-end" style={{ minHeight: '40px' }}>
+              <div
+                className={cn(
+                  "w-full rounded-sm transition-all duration-300",
+                  isHighest ? "bg-primary" : "bg-primary/50",
+                  "group-hover:bg-primary"
+                )}
+                style={{ height: `${Math.max(height, count > 0 ? 15 : 5)}%`, minHeight: count > 0 ? '8px' : '3px' }}
+              />
             </div>
+            <span className="text-[9px] text-muted-foreground mt-1 font-medium">{cmc}</span>
           </div>
         );
       })}

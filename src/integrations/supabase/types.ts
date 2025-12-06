@@ -239,6 +239,36 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_value_history: {
+        Row: {
+          card_count: number
+          created_at: string
+          id: string
+          snapshot_date: string
+          total_value_usd: number
+          unique_card_count: number
+          user_id: string
+        }
+        Insert: {
+          card_count?: number
+          created_at?: string
+          id?: string
+          snapshot_date: string
+          total_value_usd?: number
+          unique_card_count?: number
+          user_id: string
+        }
+        Update: {
+          card_count?: number
+          created_at?: string
+          id?: string
+          snapshot_date?: string
+          total_value_usd?: number
+          unique_card_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       deck_cards: {
         Row: {
           card_id: string

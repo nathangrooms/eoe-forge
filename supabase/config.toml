@@ -22,3 +22,6 @@ verify_jwt = false
 
 [functions.edh-power-check]
 verify_jwt = false
+
+[functions.capture-collection-value]
+verify_jwt = false

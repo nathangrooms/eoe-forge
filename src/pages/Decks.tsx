@@ -39,9 +39,9 @@ import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { RefreshedDeckTile } from '@/components/deck-builder/RefreshedDeckTile';
+import { ModernDeckTile } from '@/components/deck-builder/ModernDeckTile';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { ModernDeckList } from '@/components/deck-builder/ModernDeckList';
 import { EnhancedAnalysisPanel } from '@/components/deck-builder/EnhancedAnalysisPanel';
 import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
 import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
@@ -60,7 +60,7 @@ import { useDeckLoader } from '@/hooks/useDeckLoader';
 interface Deck {
   id: string;
   name: string;
-  format: 'standard' | 'commander' | 'custom';
+  format: 'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom';
   powerLevel: number;
   colors: string[];
   cardCount: number;
@@ -68,13 +68,15 @@ interface Deck {
   description?: string;
 }
 
+type DeckFormat = 'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom';
+
 export default function Decks() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
   const [newDeckName, setNewDeckName] = useState('');
-  const [newDeckFormat, setNewDeckFormat] = useState<'standard' | 'commander' | 'custom'>('standard');
+  const [newDeckFormat, setNewDeckFormat] = useState<DeckFormat>('commander');
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   const [buildingDeck, setBuildingDeck] = useState(false);
   
@@ -279,7 +281,7 @@ export default function Decks() {
     try {
       // Load from database only
       deck.setDeckName(deckData.name);
-      deck.setFormat(deckData.format);
+      deck.setFormat(deckData.format as 'standard' | 'commander' | 'custom');
       deck.setPowerLevel(deckData.powerLevel);
       
       // Load deck cards from database without join
@@ -552,13 +554,18 @@ export default function Decks() {
               </div>
               <div>
                 <Label htmlFor="deck-format">Format</Label>
-                <Select value={newDeckFormat} onValueChange={(value: any) => setNewDeckFormat(value)}>
+                <Select value={newDeckFormat} onValueChange={(value: DeckFormat) => setNewDeckFormat(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="commander">Commander / EDH</SelectItem>
                     <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="commander">Commander</SelectItem>
+                    <SelectItem value="modern">Modern</SelectItem>
+                    <SelectItem value="pioneer">Pioneer</SelectItem>
+                    <SelectItem value="legacy">Legacy</SelectItem>
+                    <SelectItem value="vintage">Vintage</SelectItem>
+                    <SelectItem value="pauper">Pauper</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
@@ -628,7 +635,7 @@ export default function Decks() {
         ) : (
           <div className="space-y-4">
             {filteredDecks.map((deckSummary) => (
-              <RefreshedDeckTile
+              <ModernDeckTile
                 key={deckSummary.id}
                 deckSummary={deckSummary}
                 onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
@@ -644,7 +651,6 @@ export default function Decks() {
                   setShowMissingDrawer(true);
                 }}
                 onShare={async () => {
-                  // Load deck data to check if sharing is enabled
                   const { data } = await supabase
                     .from('user_decks')
                     .select('public_enabled, public_slug')
@@ -658,15 +664,12 @@ export default function Decks() {
                   setShowShareDrawer(true);
                 }}
                 onExport={() => {
-                  // TODO: Implement export with download
                   console.log('Export deck:', deckSummary.id);
                 }}
                 onDeckbox={() => {
-                  // TODO: Open storage drawer
                   console.log('Open deckbox for:', deckSummary.id);
                 }}
                 onFavoriteChange={() => {
-                  // Refresh summaries to update favorite status
                   loadDeckSummaries();
                 }}
               />

@@ -35,6 +35,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
 
 // Build phases for progress tracking
 const BUILD_PHASES = [
@@ -665,32 +666,37 @@ export default function AIBuilder() {
                       
                       {/* Popular Commanders */}
                       {!commanderSearch && (
-                        <div>
-                          <h3 className="font-semibold mb-4 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" />
-                            Popular Commanders
-                          </h3>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            {POPULAR_COMMANDERS.map((cmdr) => (
-                              <div
-                                key={cmdr.name}
-                                className="group cursor-pointer transition-all duration-300"
-                                onClick={() => selectCommander(cmdr)}
-                              >
-                                <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
-                                  <img 
-                                    src={cmdr.image_uris?.normal || '/placeholder.svg'} 
-                                    alt={cmdr.name}
-                                    className="w-full h-auto"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                                    <p className="text-white text-sm font-bold truncate">{cmdr.name}</p>
+                        <>
+                          <div>
+                            <h3 className="font-semibold mb-4 flex items-center gap-2">
+                              <TrendingUp className="h-5 w-5 text-primary" />
+                              Popular Commanders
+                            </h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                              {POPULAR_COMMANDERS.map((cmdr) => (
+                                <div
+                                  key={cmdr.name}
+                                  className="group cursor-pointer transition-all duration-300"
+                                  onClick={() => selectCommander(cmdr)}
+                                >
+                                  <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
+                                    <img 
+                                      src={cmdr.image_uris?.normal || '/placeholder.svg'} 
+                                      alt={cmdr.name}
+                                      className="w-full h-auto"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                                      <p className="text-white text-sm font-bold truncate">{cmdr.name}</p>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
+
+                          {/* Commander Finder Section */}
+                          <CommanderFinder onSelectCommander={selectCommander} />
+                        </>
                       )}
                     </>
                   )}

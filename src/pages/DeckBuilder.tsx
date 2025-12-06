@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -115,6 +115,42 @@ const DeckBuilder = () => {
   useEffect(() => {
     loadAllDecks();
   }, [user, localDecks]);
+
+  // Debounced auto-save when cards change
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedCardsRef = useRef<string>('');
+  
+  useEffect(() => {
+    if (!deck.currentDeckId || deck.cards.length === 0) return;
+    
+    // Create a hash of current cards to compare
+    const currentCardsHash = JSON.stringify(deck.cards.map(c => ({ id: c.id, qty: c.quantity })));
+    
+    // Skip if nothing changed
+    if (currentCardsHash === lastSavedCardsRef.current) return;
+    
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Debounce save by 2 seconds
+    saveTimeoutRef.current = setTimeout(() => {
+      // Double-check we still have cards and a deck ID
+      const currentState = useDeckStore.getState();
+      if (currentState.cards.length > 0 && currentState.currentDeckId) {
+        console.log('Auto-saving deck with', currentState.cards.length, 'cards');
+        currentState.updateDeck(currentState.currentDeckId);
+        lastSavedCardsRef.current = currentCardsHash;
+      }
+    }, 2000);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [deck.cards, deck.currentDeckId]);
 
   // Check if cards changed and EDH needs refresh
   useEffect(() => {

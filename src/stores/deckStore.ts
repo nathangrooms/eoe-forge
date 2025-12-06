@@ -175,17 +175,8 @@ export const useDeckStore = create<DeckState>()(
           };
         }
         
-        // Auto-save if we have a current deck ID AND there are still cards remaining
-        // This prevents syncing an empty deck state
-        if (state.currentDeckId && newState.cards.length > 0) {
-          setTimeout(() => {
-            const currentState = get();
-            // Double-check state hasn't been cleared
-            if (currentState.cards.length > 0 && currentState.currentDeckId === state.currentDeckId) {
-              get().updateDeck(state.currentDeckId!);
-            }
-          }, 1000); // Increased debounce for safety
-        }
+        // NOTE: Auto-save removed to prevent race conditions.
+        // The parent component should call updateDeck explicitly when needed.
         
         return newState;
       }),

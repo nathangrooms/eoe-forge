@@ -57,9 +57,14 @@ export function useFeatureFlags() {
         .select('*')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to fetch feature flags:', error);
+        return [] as FeatureFlag[];
+      }
       return data as FeatureFlag[];
     },
+    retry: 1,
+    staleTime: 30000,
   });
 }
 
@@ -73,9 +78,14 @@ export function useSubscriptionLimits() {
         .select('*')
         .order('tier', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to fetch subscription limits:', error);
+        return [] as SubscriptionLimit[];
+      }
       return data as SubscriptionLimit[];
     },
+    retry: 1,
+    staleTime: 30000,
   });
 }
 

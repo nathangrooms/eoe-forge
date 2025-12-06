@@ -34,48 +34,66 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 function OverviewSection() {
   const { toast } = useToast();
 
-  const { data: cardStats, isLoading: cardsLoading } = useQuery({
+  const { data: cardStats } = useQuery({
     queryKey: ['admin-card-stats'],
     queryFn: async () => {
-      const { count, error } = await supabase.from('cards').select('*', { count: 'exact', head: true });
-      if (error) {
-        console.warn('Could not fetch card stats:', error);
+      try {
+        const { count, error } = await supabase.from('cards').select('*', { count: 'exact', head: true });
+        if (error) {
+          console.warn('Could not fetch card stats:', error);
+          return { totalCards: 0 };
+        }
+        return { totalCards: count || 0 };
+      } catch (e) {
+        console.warn('Card stats error:', e);
         return { totalCards: 0 };
       }
-      return { totalCards: count || 0 };
     },
+    retry: 1,
+    staleTime: 30000,
   });
 
-  const { data: userStats, isLoading: usersLoading } = useQuery({
+  const { data: userStats } = useQuery({
     queryKey: ['admin-user-stats'],
     queryFn: async () => {
-      const [profiles, decks, collections] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('user_decks').select('*', { count: 'exact', head: true }),
-        supabase.from('user_collections').select('*', { count: 'exact', head: true })
-      ]);
-      return { 
-        totalUsers: profiles.count || 0,
-        totalDecks: decks.count || 0,
-        totalCollectionItems: collections.count || 0
-      };
+      try {
+        const [profiles, decks, collections] = await Promise.all([
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('user_decks').select('*', { count: 'exact', head: true }),
+          supabase.from('user_collections').select('*', { count: 'exact', head: true })
+        ]);
+        return { 
+          totalUsers: profiles.count || 0,
+          totalDecks: decks.count || 0,
+          totalCollectionItems: collections.count || 0
+        };
+      } catch (e) {
+        console.warn('User stats error:', e);
+        return { totalUsers: 0, totalDecks: 0, totalCollectionItems: 0 };
+      }
     },
+    retry: 1,
+    staleTime: 30000,
   });
 
-  const { data: syncStatus, refetch: refetchStatus, isLoading: syncLoading } = useQuery({
+  const { data: syncStatus, refetch: refetchStatus } = useQuery({
     queryKey: ['admin-sync-status'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('sync_status').select('*').order('id');
-      if (error) {
-        console.warn('Could not fetch sync status:', error);
+      try {
+        const { data, error } = await supabase.from('sync_status').select('*').order('id');
+        if (error) {
+          console.warn('Could not fetch sync status:', error);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        console.warn('Sync status error:', e);
         return [];
       }
-      return data || [];
     },
     refetchInterval: 10000,
+    retry: 1,
   });
-
-  const isLoading = cardsLoading || usersLoading || syncLoading;
 
   const startSync = async () => {
     try {
@@ -96,13 +114,10 @@ function OverviewSection() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Use default values instead of showing a loading spinner
+  const displayCardStats = cardStats || { totalCards: 0 };
+  const displayUserStats = userStats || { totalUsers: 0, totalDecks: 0, totalCollectionItems: 0 };
+  const displaySyncStatus = syncStatus || [];
 
   return (
     <div className="space-y-6">
@@ -116,7 +131,7 @@ function OverviewSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Cards</p>
-                <p className="text-2xl font-bold">{cardStats?.totalCards.toLocaleString() || '0'}</p>
+                <p className="text-2xl font-bold">{displayCardStats.totalCards.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -129,7 +144,7 @@ function OverviewSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Users</p>
-                <p className="text-2xl font-bold">{userStats?.totalUsers.toLocaleString() || '0'}</p>
+                <p className="text-2xl font-bold">{displayUserStats.totalUsers.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -142,7 +157,7 @@ function OverviewSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Decks</p>
-                <p className="text-2xl font-bold">{userStats?.totalDecks.toLocaleString() || '0'}</p>
+                <p className="text-2xl font-bold">{displayUserStats.totalDecks.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -155,7 +170,7 @@ function OverviewSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Collection Items</p>
-                <p className="text-2xl font-bold">{userStats?.totalCollectionItems.toLocaleString() || '0'}</p>
+                <p className="text-2xl font-bold">{displayUserStats.totalCollectionItems.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -170,7 +185,7 @@ function OverviewSection() {
               <Download className="h-5 w-5" />
               Data Synchronization
             </CardTitle>
-            <Button onClick={startSync} disabled={syncStatus?.some((s: any) => s.status === 'running')}>
+            <Button onClick={startSync} disabled={displaySyncStatus.some((s: any) => s.status === 'running')}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Sync Cards
             </Button>
@@ -178,7 +193,7 @@ function OverviewSection() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {syncStatus?.map((status: any) => (
+            {displaySyncStatus.map((status: any) => (
               <div key={status.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
                   {getStatusIcon(status.status)}
@@ -203,7 +218,7 @@ function OverviewSection() {
                 </div>
               </div>
             ))}
-            {(!syncStatus || syncStatus.length === 0) && (
+            {displaySyncStatus.length === 0 && (
               <p className="text-center text-muted-foreground py-4">No sync records yet</p>
             )}
           </div>
@@ -228,10 +243,19 @@ function UserManagement() {
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as User[];
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Failed to fetch users:', error);
+          return [] as User[];
+        }
+        return data as User[];
+      } catch (e) {
+        console.warn('User fetch error:', e);
+        return [] as User[];
+      }
     },
+    retry: 1,
   });
 
   const toggleAdminMutation = useMutation({
@@ -309,10 +333,19 @@ function DeckManagement() {
   const { data: decks, isLoading } = useQuery({
     queryKey: ['admin-decks'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('user_decks').select('id, name, format, power_level, is_public, created_at').order('created_at', { ascending: false }).limit(100);
-      if (error) throw error;
-      return data as Deck[];
+      try {
+        const { data, error } = await supabase.from('user_decks').select('id, name, format, power_level, is_public, created_at').order('created_at', { ascending: false }).limit(100);
+        if (error) {
+          console.warn('Failed to fetch decks:', error);
+          return [] as Deck[];
+        }
+        return data as Deck[];
+      } catch (e) {
+        console.warn('Deck fetch error:', e);
+        return [] as Deck[];
+      }
     },
+    retry: 1,
   });
 
   const togglePublicMutation = useMutation({

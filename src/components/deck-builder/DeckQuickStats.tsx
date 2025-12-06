@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { 
   Layers, 
   DollarSign, 
@@ -13,9 +14,25 @@ import {
   Mountain,
   Users,
   Scroll,
-  Gem
+  Gem,
+  Zap,
+  Scale,
+  Clock,
+  Crosshair,
+  Gamepad2,
+  ExternalLink,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface EdhMetrics {
+  tippingPoint: number | null;
+  efficiency: number | null;
+  impact: number | null;
+  score: number | null;
+  playability: number | null;
+}
 
 interface DeckQuickStatsProps {
   totalCards: number;
@@ -29,6 +46,11 @@ interface DeckQuickStatsProps {
   avgCmc: number;
   totalValue: number;
   powerLevel: number;
+  edhPowerLevel?: number | null;
+  edhMetrics?: EdhMetrics | null;
+  edhPowerUrl?: string | null;
+  loadingEdhPower?: boolean;
+  onCheckEdhPower?: () => void;
   format: string;
   commanderName?: string;
   colors: string[];
@@ -63,6 +85,11 @@ export function DeckQuickStats({
   avgCmc,
   totalValue,
   powerLevel,
+  edhPowerLevel,
+  edhMetrics,
+  edhPowerUrl,
+  loadingEdhPower,
+  onCheckEdhPower,
   format,
   commanderName,
   colors,
@@ -76,88 +103,178 @@ export function DeckQuickStats({
     return 'cEDH';
   };
 
-  const powerBand = getPowerBand(powerLevel);
+  const displayPower = edhPowerLevel ?? powerLevel;
+  const powerBand = getPowerBand(displayPower);
   const powerStyle = powerBandConfig[powerBand];
 
   const targetCards = format === 'commander' ? 100 : 60;
   const completionPct = Math.min((totalCards / targetCards) * 100, 100);
 
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-      {/* Total Cards */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <Layers className="h-5 w-5 text-primary" />
-          <Badge variant="outline" className="text-[10px]">{format}</Badge>
-        </div>
-        <div className="text-2xl font-bold">{totalCards}</div>
-        <div className="text-xs text-muted-foreground">/ {targetCards} cards</div>
-        <Progress value={completionPct} className="h-1.5 mt-2" />
-      </Card>
+  const isCommander = format === 'commander';
 
-      {/* Power Level */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <Target className="h-5 w-5 text-primary" />
-          <Badge variant="outline" className={cn("text-[10px]", powerStyle.color)}>
+  return (
+    <div className="space-y-4">
+      {/* Main Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {/* Total Cards */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <Layers className="h-5 w-5 text-primary" />
+            <Badge variant="outline" className="text-[10px]">{format}</Badge>
+          </div>
+          <div className="text-2xl font-bold">{totalCards}</div>
+          <div className="text-xs text-muted-foreground">/ {targetCards} cards</div>
+          <Progress value={completionPct} className="h-1.5 mt-2" />
+        </Card>
+
+        {/* Power Level - EDH Live */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            {isCommander && onCheckEdhPower && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={onCheckEdhPower}
+                disabled={loadingEdhPower}
+              >
+                {loadingEdhPower ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
+          <div className={cn("text-2xl font-bold", powerStyle.color)}>
+            {edhPowerLevel !== null && edhPowerLevel !== undefined ? edhPowerLevel.toFixed(2) : powerLevel}/10
+          </div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1">
+            Power Level
+            {edhPowerUrl && (
+              <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+          <Badge variant="outline" className={cn("text-[10px] mt-1", powerStyle.color)}>
             {powerStyle.label}
           </Badge>
-        </div>
-        <div className={cn("text-2xl font-bold", powerStyle.color)}>{powerLevel}/10</div>
-        <div className="text-xs text-muted-foreground">Power Level</div>
-      </Card>
+        </Card>
 
-      {/* Deck Value */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <DollarSign className="h-5 w-5 text-green-500" />
-        </div>
-        <div className="text-2xl font-bold text-green-500">${totalValue.toFixed(0)}</div>
-        <div className="text-xs text-muted-foreground">Est. Value</div>
-      </Card>
+        {/* Deck Value */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <DollarSign className="h-5 w-5 text-green-500" />
+          </div>
+          <div className="text-2xl font-bold text-green-500">${totalValue.toFixed(0)}</div>
+          <div className="text-xs text-muted-foreground">Est. Value</div>
+        </Card>
 
-      {/* Average CMC */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-        </div>
-        <div className="text-2xl font-bold">{avgCmc.toFixed(2)}</div>
-        <div className="text-xs text-muted-foreground">Avg. CMC</div>
-      </Card>
+        {/* Average CMC */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+          </div>
+          <div className="text-2xl font-bold">{avgCmc.toFixed(2)}</div>
+          <div className="text-xs text-muted-foreground">Avg. CMC</div>
+        </Card>
 
-      {/* Collection Ownership */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <Shield className="h-5 w-5 text-primary" />
-          {missingCards > 0 && (
-            <Badge variant="outline" className="text-[10px] text-orange-500">{missingCards} missing</Badge>
-          )}
-        </div>
-        <div className="text-2xl font-bold">{ownedPct.toFixed(0)}%</div>
-        <div className="text-xs text-muted-foreground">Owned</div>
-        <Progress value={ownedPct} className="h-1.5 mt-2" />
-      </Card>
+        {/* Collection Ownership */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <Shield className="h-5 w-5 text-primary" />
+            {missingCards > 0 && (
+              <Badge variant="outline" className="text-[10px] text-orange-500">{missingCards} missing</Badge>
+            )}
+          </div>
+          <div className="text-2xl font-bold">{ownedPct.toFixed(0)}%</div>
+          <div className="text-xs text-muted-foreground">Owned</div>
+          <Progress value={ownedPct} className="h-1.5 mt-2" />
+        </Card>
 
-      {/* Color Identity */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center justify-between mb-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+        {/* Color Identity */}
+        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
+          <div className="flex items-center justify-between mb-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex gap-1.5 mb-1">
+            {colors.length > 0 ? colors.map(color => (
+              <div 
+                key={color}
+                className={cn("w-6 h-6 rounded-full border-2 border-white/30 shadow-sm", colorMap[color])}
+              />
+            )) : (
+              <span className="text-muted-foreground text-sm">Colorless</span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">Color Identity</div>
+        </Card>
+      </div>
+
+      {/* EDH Metrics Row - Only show for Commander format when metrics are available */}
+      {isCommander && edhMetrics && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Tipping Point */}
+          <Card className="p-3 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Scale className="h-4 w-4 text-blue-400" />
+              <span className="text-xs text-muted-foreground">Tipping Point</span>
+            </div>
+            <div className="text-xl font-bold text-blue-400">
+              {edhMetrics.tippingPoint !== null ? edhMetrics.tippingPoint : '--'}
+            </div>
+          </Card>
+
+          {/* Efficiency */}
+          <Card className="p-3 bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="h-4 w-4 text-green-400" />
+              <span className="text-xs text-muted-foreground">Efficiency</span>
+            </div>
+            <div className="text-xl font-bold text-green-400">
+              {edhMetrics.efficiency !== null ? `${edhMetrics.efficiency.toFixed(1)}/10` : '--'}
+            </div>
+          </Card>
+
+          {/* Impact */}
+          <Card className="p-3 bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Crosshair className="h-4 w-4 text-orange-400" />
+              <span className="text-xs text-muted-foreground">Impact</span>
+            </div>
+            <div className="text-xl font-bold text-orange-400">
+              {edhMetrics.impact !== null ? edhMetrics.impact.toFixed(0) : '--'}
+            </div>
+          </Card>
+
+          {/* Score */}
+          <Card className="p-3 bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="h-4 w-4 text-purple-400" />
+              <span className="text-xs text-muted-foreground">Score</span>
+            </div>
+            <div className="text-xl font-bold text-purple-400">
+              {edhMetrics.score !== null ? `${edhMetrics.score}/1000` : '--'}
+            </div>
+          </Card>
+
+          {/* Playability */}
+          <Card className="p-3 bg-gradient-to-br from-pink-500/10 to-pink-500/5 border-pink-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Gamepad2 className="h-4 w-4 text-pink-400" />
+              <span className="text-xs text-muted-foreground">Playability</span>
+            </div>
+            <div className="text-xl font-bold text-pink-400">
+              {edhMetrics.playability !== null ? `${edhMetrics.playability}%` : '--'}
+            </div>
+          </Card>
         </div>
-        <div className="flex gap-1.5 mb-1">
-          {colors.length > 0 ? colors.map(color => (
-            <div 
-              key={color}
-              className={cn("w-6 h-6 rounded-full border-2 border-white/30 shadow-sm", colorMap[color])}
-            />
-          )) : (
-            <span className="text-muted-foreground text-sm">Colorless</span>
-          )}
-        </div>
-        <div className="text-xs text-muted-foreground">Color Identity</div>
-      </Card>
+      )}
 
       {/* Type Breakdown - Full Width */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60 col-span-2 md:col-span-4 lg:col-span-6">
+      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
         <div className="flex items-center gap-2 mb-3">
           <Layers className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Type Breakdown</span>

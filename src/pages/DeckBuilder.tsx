@@ -66,6 +66,13 @@ const DeckBuilder = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('visual');
   const [edhPowerLevel, setEdhPowerLevel] = useState<number | null>(null);
+  const [edhMetrics, setEdhMetrics] = useState<{
+    tippingPoint: number | null;
+    efficiency: number | null;
+    impact: number | null;
+    score: number | null;
+    playability: number | null;
+  } | null>(null);
   const [edhPowerUrl, setEdhPowerUrl] = useState<string | null>(null);
   const [loadingEdhPower, setLoadingEdhPower] = useState(false);
   
@@ -274,14 +281,23 @@ const DeckBuilder = () => {
         }
       });
 
-      if (!powerError && powerData?.success && powerData?.powerLevel) {
+      if (!powerError && powerData?.success && powerData?.powerLevel !== null) {
         const liveLevel = parseFloat(powerData.powerLevel);
         if (!isNaN(liveLevel)) {
           setEdhPowerLevel(liveLevel);
-          showSuccess('Power Level', `EDH Power: ${liveLevel}/10 (from edhpowerlevel.com)`);
+          // Store all metrics
+          setEdhMetrics({
+            tippingPoint: powerData.tippingPoint ?? null,
+            efficiency: powerData.efficiency ?? null,
+            impact: powerData.impact ?? null,
+            score: powerData.score ?? null,
+            playability: powerData.playability ?? null,
+          });
+          showSuccess('Power Level', `EDH Power: ${liveLevel.toFixed(2)}/10 (from edhpowerlevel.com)`);
         }
       } else {
         console.warn('Could not fetch live EDH power level:', powerError || powerData);
+        showError('EDH Power', 'Could not fetch power level. Click "View Details" to check manually.');
       }
     } catch (error) {
       console.error('Error checking EDH power level:', error);
@@ -403,14 +419,19 @@ const DeckBuilder = () => {
       planeswalkers,
       avgCmc: nonLandCount > 0 ? totalCmc / nonLandCount : 0,
       totalValue,
-      powerLevel: edhPowerLevel ?? deck.powerLevel,
+      powerLevel: deck.powerLevel,
+      edhPowerLevel,
+      edhMetrics,
+      edhPowerUrl,
+      loadingEdhPower,
+      onCheckEdhPower: () => checkEdhPowerLevel(),
       format: deck.format || 'commander',
       commanderName: deck.commander?.name,
       colors: deck.colors || [],
       missingCards: 0,
       ownedPct: 100
     };
-  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel]);
+  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower]);
 
   return (
     <StandardPageLayout

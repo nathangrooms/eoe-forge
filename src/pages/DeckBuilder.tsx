@@ -119,6 +119,28 @@ const DeckBuilder = () => {
   // Debounced auto-save when cards change
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedCardsRef = useRef<string>('');
+  const pendingSaveRef = useRef<boolean>(false);
+  
+  // Save immediately function for critical moments
+  const saveImmediately = useCallback(() => {
+    const currentState = useDeckStore.getState();
+    if (currentState.cards.length > 0 && currentState.currentDeckId && pendingSaveRef.current) {
+      console.log('Immediate save triggered with', currentState.cards.length, 'cards');
+      currentState.updateDeck(currentState.currentDeckId);
+      pendingSaveRef.current = false;
+      lastSavedCardsRef.current = JSON.stringify(currentState.cards.map(c => ({ id: c.id, qty: c.quantity })));
+    }
+  }, []);
+  
+  // Save on page unload/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveImmediately();
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveImmediately]);
   
   useEffect(() => {
     if (!deck.currentDeckId || deck.cards.length === 0) return;
@@ -129,21 +151,24 @@ const DeckBuilder = () => {
     // Skip if nothing changed
     if (currentCardsHash === lastSavedCardsRef.current) return;
     
+    // Mark that we have pending changes
+    pendingSaveRef.current = true;
+    
     // Clear any pending save
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
-    // Debounce save by 2 seconds
+    // Debounce save by 1 second (reduced from 2)
     saveTimeoutRef.current = setTimeout(() => {
-      // Double-check we still have cards and a deck ID
       const currentState = useDeckStore.getState();
       if (currentState.cards.length > 0 && currentState.currentDeckId) {
         console.log('Auto-saving deck with', currentState.cards.length, 'cards');
         currentState.updateDeck(currentState.currentDeckId);
         lastSavedCardsRef.current = currentCardsHash;
+        pendingSaveRef.current = false;
       }
-    }, 2000);
+    }, 1000);
     
     return () => {
       if (saveTimeoutRef.current) {

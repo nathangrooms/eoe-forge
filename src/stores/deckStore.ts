@@ -120,6 +120,8 @@ export const useDeckStore = create<DeckState>()(
         // Use the quantity from the card if provided, otherwise default to 1
         const quantityToAdd = card.quantity || 1;
         
+        console.log('addCard called:', card.name, 'quantity to add:', quantityToAdd, 'existing:', !!existingCard, 'totalCards before:', state.totalCards);
+        
         if (existingCard) {
           // Increase quantity by the card's quantity
           const updatedCards = state.cards.map(c =>
@@ -129,6 +131,8 @@ export const useDeckStore = create<DeckState>()(
             cards: updatedCards,
             totalCards: state.totalCards + quantityToAdd
           };
+          
+          console.log('addCard (existing): new quantity:', existingCard.quantity + quantityToAdd, 'totalCards after:', newState.totalCards);
           
           // Auto-save if we have a current deck ID
           if (state.currentDeckId) {
@@ -144,6 +148,8 @@ export const useDeckStore = create<DeckState>()(
             cards: [...state.cards, { ...card, quantity: quantityToAdd }],
             totalCards: state.totalCards + quantityToAdd
           };
+          
+          console.log('addCard (new): totalCards after:', newState.totalCards, 'cards count:', newState.cards.length);
           
           // NOTE: Auto-save removed to prevent race conditions.
           // The parent component handles auto-save with proper debouncing.
@@ -586,16 +592,29 @@ export const useDeckStore = create<DeckState>()(
             }
           }
 
+          // Deduplicate cards - merge any cards with the same ID
+          const deduplicatedCards = cards.reduce((acc, card) => {
+            const existing = acc.find(c => c.id === card.id);
+            if (existing) {
+              existing.quantity += card.quantity;
+            } else {
+              acc.push({ ...card });
+            }
+            return acc;
+          }, [] as Card[]);
+
+          console.log('Loaded deck with', deduplicatedCards.length, 'unique cards, total:', deduplicatedCards.reduce((sum, c) => sum + c.quantity, 0));
+
           // Update store state
           set({
             name: deckData.name,
             format: deckData.format as any,
             powerLevel: deckData.power_level,
             colors: deckData.colors,
-            cards,
+            cards: deduplicatedCards,
             commander,
             currentDeckId: deckId,
-            totalCards: cards.reduce((sum, card) => sum + card.quantity, 0)
+            totalCards: deduplicatedCards.reduce((sum, card) => sum + card.quantity, 0)
           });
 
           return { success: true };

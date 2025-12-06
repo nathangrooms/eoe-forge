@@ -56,7 +56,10 @@ export function FeatureFlagsManager() {
     );
   };
 
-  if (isLoading) {
+  // Never block on loading if we have no data after initial fetch
+  const isFullyLoading = isLoading && !flags;
+  
+  if (isFullyLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">

@@ -68,7 +68,10 @@ export function SubscriptionManager() {
     return limit?.description ?? featureKey;
   };
 
-  if (limitsLoading || statsLoading) {
+  // Never block on loading - show content with fallback data
+  const isFullyLoading = limitsLoading && statsLoading && !limits && !stats;
+  
+  if (isFullyLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">

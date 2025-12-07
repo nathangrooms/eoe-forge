@@ -40,6 +40,8 @@ interface AIGeneratedDeckListProps {
   changelog?: any[];
   onSaveDeck: () => void;
   onStartOver: () => void;
+  onRefreshEdhAnalysis?: () => void;
+  isLoadingEdhAnalysis?: boolean;
 }
 
 export function AIGeneratedDeckList({ 
@@ -54,7 +56,9 @@ export function AIGeneratedDeckList({
   edhAnalysisData,
   changelog,
   onSaveDeck,
-  onStartOver 
+  onStartOver,
+  onRefreshEdhAnalysis,
+  isLoadingEdhAnalysis = false
 }: AIGeneratedDeckListProps) {
   const [activeTab, setActiveTab] = useState('cards');
 
@@ -282,9 +286,9 @@ export function AIGeneratedDeckList({
           {/* EDH Power Level Analysis Panel - Same as DeckBuilder */}
           <EdhAnalysisPanel 
             data={edhAnalysisData || null}
-            isLoading={false}
-            needsRefresh={false}
-            onRefresh={() => {}}
+            isLoading={isLoadingEdhAnalysis}
+            needsRefresh={!edhAnalysisData}
+            onRefresh={onRefreshEdhAnalysis || (() => {})}
           />
 
           {/* Deck Compatibility Checker */}

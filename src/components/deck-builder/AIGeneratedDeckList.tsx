@@ -6,6 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
+import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
+import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
+import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
+import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
+import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
+import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
+import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import { 
   Crown,
   Save,
@@ -18,7 +25,6 @@ import {
   BarChart3,
   Eye
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { showSuccess } from '@/components/ui/toast-helpers';
 
 interface AIGeneratedDeckListProps {
@@ -107,17 +113,6 @@ export function AIGeneratedDeckList({
     };
   }, [cards, totalValue]);
 
-  // Mana curve data
-  const manaCurve = useMemo(() => {
-    const nonLands = cards.filter(card => !card.type_line?.toLowerCase().includes('land'));
-    return Array.from({ length: 8 }, (_, i) => ({
-      cmc: i === 7 ? '7+' : i.toString(),
-      count: nonLands.filter(card => {
-        const cmc = card.cmc || 0;
-        return i === 7 ? cmc >= 7 : cmc === i;
-      }).length
-    }));
-  }, [cards]);
 
   // Generate decklist text
   const generateDecklistText = () => {
@@ -284,7 +279,7 @@ export function AIGeneratedDeckList({
         </TabsContent>
 
         <TabsContent value="analysis" className="mt-6 space-y-6">
-          {/* Use the same EdhAnalysisPanel as DeckBuilder */}
+          {/* EDH Power Level Analysis Panel - Same as DeckBuilder */}
           <EdhAnalysisPanel 
             data={edhAnalysisData || null}
             isLoading={false}
@@ -292,50 +287,64 @@ export function AIGeneratedDeckList({
             onRefresh={() => {}}
           />
 
-          {/* Mana Curve */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Mana Curve</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={manaCurve}>
-                    <XAxis dataKey="cmc" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Deck Compatibility Checker */}
+          {commander && (
+            <DeckCompatibilityChecker 
+              cards={transformedCards as any}
+              commander={commander}
+              format="commander"
+              onRemoveCard={() => {}}
+            />
+          )}
 
-          {/* Type Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Type Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
-                {[
-                  { label: 'Creatures', count: stats.creatures, color: 'bg-green-500' },
-                  { label: 'Lands', count: stats.lands, color: 'bg-amber-500' },
-                  { label: 'Instants', count: stats.instants, color: 'bg-blue-500' },
-                  { label: 'Sorceries', count: stats.sorceries, color: 'bg-red-500' },
-                  { label: 'Artifacts', count: stats.artifacts, color: 'bg-slate-500' },
-                  { label: 'Enchantments', count: stats.enchantments, color: 'bg-purple-500' },
-                  { label: 'Planeswalkers', count: stats.planeswalkers, color: 'bg-orange-500' },
-                ].map(({ label, count, color }) => (
-                  <div key={label} className="text-center p-2 bg-muted/30 rounded-lg">
-                    <div className={`w-3 h-3 rounded-full ${color} mx-auto mb-1`} />
-                    <div className="text-lg font-bold">{count}</div>
-                    <div className="text-xs text-muted-foreground">{label}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Deck Validation Panel */}
+          <DeckValidationPanel 
+            cards={transformedCards as any}
+            format="commander"
+            commander={commander}
+          />
+
+          {/* Commander Power Display */}
+          {commander && (
+            <CommanderPowerDisplay
+              powerLevel={edhPowerLevel ?? power ?? 6}
+              metrics={{
+                overall: edhPowerLevel ?? power ?? 6,
+                speed: (edhPowerLevel ?? power ?? 6) * 0.9,
+                interaction: (edhPowerLevel ?? power ?? 6) * 1.1,
+                resilience: (edhPowerLevel ?? power ?? 6) * 0.8,
+                comboPotential: (edhPowerLevel ?? power ?? 6) * 1.2
+              }}
+            />
+          )}
+
+          {/* Power Level Consistency */}
+          <PowerLevelConsistency 
+            deckCards={transformedCards as any}
+            commander={commander}
+            format="commander"
+          />
+
+          {/* Archetype Detection */}
+          <ArchetypeDetection 
+            deckCards={transformedCards as any}
+            commander={commander}
+            format="commander"
+          />
+
+          {/* Budget Tracker */}
+          <DeckBudgetTracker 
+            deckCards={transformedCards as any}
+            targetBudget={totalValue || 200}
+          />
+
+          {/* Enhanced Deck Analysis */}
+          <EnhancedDeckAnalysisPanel 
+            deck={transformedCards as any}
+            format="commander"
+            commander={commander}
+            deckName={deckName}
+          />
 
           {/* AI Strategy Summary */}
           {analysis?.strategy && (

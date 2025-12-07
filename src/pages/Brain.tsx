@@ -1,22 +1,47 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Zap, BookOpen, Target, TrendingUp, MessageSquare, Sparkles, ChevronUp, Lightbulb, RefreshCw, Settings, Eye } from 'lucide-react';
+import { 
+  Send, 
+  Zap, 
+  BookOpen, 
+  Target, 
+  TrendingUp, 
+  MessageSquare, 
+  Sparkles, 
+  Lightbulb, 
+  RefreshCw, 
+  Trash2,
+  Bot,
+  User,
+  Layers,
+  Swords,
+  Shield,
+  Crown,
+  ChevronRight,
+  AlertCircle,
+  Brain as BrainIcon,
+  Loader2,
+  Copy,
+  Check
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useDeckStore } from '@/stores/deckStore';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { CardAddModal } from '@/components/brain/CardAddModal';
 import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface CardData extends SharedCardData {}
 
@@ -32,65 +57,73 @@ interface Message {
 const QUICK_ACTIONS = [
   {
     id: 'analyze',
-    label: 'Analyze My Deck',
-    description: 'Get a comprehensive power level and strategy analysis',
+    label: 'Analyze Deck',
+    description: 'Power level & strategy analysis',
     icon: TrendingUp,
     prompt: 'Please analyze my deck\'s power level, strategy, and provide optimization suggestions.',
-    color: 'bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950 dark:border-blue-800'
+    gradient: 'from-blue-500 to-cyan-500'
   },
   {
     id: 'upgrades',
     label: 'Suggest Upgrades',
-    description: 'Find powerful cards to improve your deck',
+    description: 'Find powerful improvements',
     icon: Zap,
     prompt: 'What are the best upgrade cards for my deck? Consider both budget and high-end options.',
-    color: 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100 dark:bg-yellow-950 dark:border-yellow-800'
+    gradient: 'from-amber-500 to-orange-500'
   },
   {
     id: 'combos',
     label: 'Find Combos',
-    description: 'Discover synergies and win conditions',
+    description: 'Discover synergies & win conditions',
     icon: Target,
     prompt: 'What are the key combos and synergies in my deck? How can I improve consistency?',
-    color: 'bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950 dark:border-red-800'
+    gradient: 'from-red-500 to-pink-500'
   },
   {
     id: 'meta',
     label: 'Meta Analysis',
-    description: 'How your deck performs in the current meta',
+    description: 'Format positioning & matchups',
     icon: BookOpen,
     prompt: 'How does my deck perform in the current meta? What are its strengths and weaknesses?',
-    color: 'bg-green-50 border-green-200 hover:bg-green-100 dark:bg-green-950 dark:border-green-800'
+    gradient: 'from-emerald-500 to-green-500'
   },
   {
     id: 'cuts',
     label: 'What to Cut',
-    description: 'Identify weak cards to remove',
+    description: 'Identify weak cards',
     icon: Lightbulb,
     prompt: 'What cards should I consider cutting from my deck and why?',
-    color: 'bg-purple-50 border-purple-200 hover:bg-purple-100 dark:bg-purple-950 dark:border-purple-800'
+    gradient: 'from-purple-500 to-violet-500'
   },
   {
     id: 'strategy',
     label: 'Strategy Guide',
-    description: 'Learn how to pilot your deck effectively',
+    description: 'Learn optimal play patterns',
     icon: MessageSquare,
     prompt: 'How should I pilot this deck? What\'s my game plan and key decision points?',
-    color: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950 dark:border-indigo-800'
+    gradient: 'from-indigo-500 to-blue-500'
   }
+];
+
+const EXAMPLE_PROMPTS = [
+  "What ramp cards would work best?",
+  "How do I deal with aggro decks?",
+  "Is my mana base optimal?",
+  "What's my win condition?",
 ];
 
 export default function Brain() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showQuickActions, setShowQuickActions] = useState(true);
   const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
   const [deckCards, setDeckCards] = useState<any[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(false);
   const [detailedResponses, setDetailedResponses] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalCard, setModalCard] = useState<any>(null);
 
@@ -102,7 +135,6 @@ export default function Brain() {
     scrollToBottom();
   }, [messages]);
 
-  // Load decks on component mount
   useEffect(() => {
     loadDecks();
   }, []);
@@ -117,13 +149,11 @@ export default function Brain() {
       }
     } catch (error) {
       console.error('Error loading decks:', error);
-      toast.error('Could not load your deck list. Please try again.');
     } finally {
       setLoadingDecks(false);
     }
   };
 
-  // Load deck cards when deck is selected
   const loadDeckCards = async (deckId: string) => {
     try {
       const { data: cards, error } = await supabase
@@ -132,11 +162,9 @@ export default function Brain() {
         .eq('deck_id', deckId);
 
       if (error) throw error;
-      
       setDeckCards(cards || []);
     } catch (error) {
       console.error('Error loading deck cards:', error);
-      toast.error('Could not load the selected deck\'s cards.');
     }
   };
 
@@ -146,50 +174,21 @@ export default function Brain() {
       setSelectedDeck(deck);
       loadDeckCards(deck.id);
       setMessages([]);
-      setShowQuickActions(true);
     }
   };
 
-  const handleNewConversation = () => {
+  const handleClearConversation = () => {
     setMessages([]);
-    setShowQuickActions(true);
   };
 
-
-  // Initialize with welcome message
   useEffect(() => {
-    if (messages.length === 0 && selectedDeck) {
-      const totalCards = selectedDeck.counts.total || 0;
-      const displayCount = selectedDeck.format === 'commander' && totalCards === 100 ? totalCards : totalCards;
-      
-      const welcomeMessage: Message = {
-        id: '1',
-        type: 'assistant',
-        content: `## 🚀 DeckMatrix AI Analysis Engine Activated
-
-**TARGET DECK**: ${selectedDeck.name}  
-**FORMAT**: ${selectedDeck.format} | **CARDS**: ${displayCount} | **POWER LEVEL**: ${selectedDeck.power.score}/10
-
-### Ready for Deep Strategic Analysis
-I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic knowledge and advanced deck optimization algorithms. I can provide:
-
-- **Power Level Assessment** - Detailed scoring and meta positioning
-- **Synergy Analysis** - Card interaction mapping and combo identification  
-- **Upgrade Pathways** - Strategic improvement recommendations
-- **Meta Positioning** - Current format analysis and matchup data
-- **Strategic Guidance** - Optimal play patterns and decision trees
-
-**Ask me anything about your deck's strategy, card interactions, or optimization opportunities!**`,
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
+    if (selectedDeck) {
+      loadDeckCards(selectedDeck.id);
     }
   }, [selectedDeck]);
 
-  // Call MTG Brain API
   const generateResponse = async (message: string): Promise<{ message: string; cards: CardData[]; visualData?: VisualData }> => {
     try {
-      // Enrich deck context with actual card list if available
       const enrichedDeckContext = selectedDeck ? {
         ...selectedDeck,
         cards: deckCards.map(dc => ({
@@ -210,28 +209,18 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
       const { data, error } = response;
       
-      if (error) throw new Error(error.message || 'Failed to get response from MTG Brain');
-      if (data?.error) throw new Error(data.error || 'MTG Brain returned an error');
+      if (error) throw new Error(error.message || 'Failed to get response');
+      if (data?.error) throw new Error(data.error);
 
       return { 
-        message: data.message || 'No response received from MTG Brain', 
+        message: data.message || 'No response received', 
         cards: data.cards || [],
         visualData: data.visualData || null
       };
     } catch (error) {
       console.error('Error calling MTG Brain:', error);
 
-      const errMsg = (error instanceof Error ? error.message : String(error || ''));
-      const lower = errMsg.toLowerCase();
-      if (lower.includes('rate') || lower.includes('429')) {
-        toast.error('Rate limits exceeded. Please wait before asking another question.');
-      } else if (lower.includes('payment') || lower.includes('credit') || lower.includes('402')) {
-        toast.error('Credits required. Please add AI credits to continue.');
-      } else {
-        toast.error('Failed to get AI response. Showing local analysis instead.');
-      }
-
-      // Fallback: build local visuals and summary so UI remains useful
+      // Fallback local analysis
       const visualData: VisualData = { charts: [], tables: [] } as any;
       try {
         const curveBins = (selectedDeck as any)?.curve?.bins || (selectedDeck as any)?.curve;
@@ -239,41 +228,35 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
           const chartData = Object.entries(curveBins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) }));
           (visualData.charts as any).push({ type: 'bar', title: 'CMC Distribution', data: chartData });
         }
-        const manaSources = (selectedDeck as any)?.mana?.sources;
-        if (manaSources && typeof manaSources === 'object') {
-          const keys = ['W','U','B','R','G','C'];
-          const data = keys.filter(k => manaSources[k] !== undefined).map(k => ({ name: k, value: Number(manaSources[k] || 0) }));
-          if (data.length) (visualData.charts as any).push({ type: 'pie', title: 'Mana Sources by Color', data });
-        }
       } catch {}
 
       const counts = (selectedDeck as any)?.counts;
       const power = (selectedDeck as any)?.power?.score;
-      const fallbackText = `### AI temporarily unavailable\n\nHere are local insights computed from your deck data:${
-        counts ? `\n\n- Total cards: ${counts.total} (Lands: ${counts.lands}, Creatures: ${counts.creatures}, Instants: ${counts.instants}, Sorceries: ${counts.sorceries})` : ''
-      }${ power ? `\n- Current power score: ${power}/10` : '' }\n\nYou can retry in a moment or add AI credits to continue full analysis.`;
+      const fallbackText = `I'm currently unable to connect to the AI service. Here's what I can tell you from local data:\n\n${
+        counts ? `**Deck Composition:**\n- Total: ${counts.total} cards\n- Lands: ${counts.lands}\n- Creatures: ${counts.creatures}\n- Instants: ${counts.instants}\n- Sorceries: ${counts.sorceries}` : ''
+      }${power ? `\n\n**Power Level:** ${power}/10` : ''}\n\nPlease try again in a moment.`;
 
       return { message: fallbackText, cards: [], visualData: (visualData.charts && (visualData.charts as any).length) ? visualData : undefined };
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading || !selectedDeck) return;
+  const handleSendMessage = async (customMessage?: string) => {
+    const messageText = customMessage || input.trim();
+    if (!messageText || isLoading || !selectedDeck) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: input.trim(),
+      content: messageText,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    setShowQuickActions(false);
 
     try {
-      const { message: responseText, cards, visualData } = await generateResponse(input.trim());
+      const { message: responseText, cards, visualData } = await generateResponse(messageText);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -286,241 +269,420 @@ I'm your dedicated DeckMatrix AI analyst, equipped with comprehensive Magic know
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error generating response:', error);
-      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
+        content: 'I encountered an error processing your request. Please try again.',
         timestamp: new Date()
       };
-
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleQuickAction = (action: typeof QUICK_ACTIONS[0]) => {
+    handleSendMessage(action.prompt);
+  };
 
-  const handleQuickAction = (action: any) => {
-    setInput(action.prompt);
-    setShowQuickActions(false);
+  const copyMessage = (messageId: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const getCommanderInfo = () => {
+    if (!selectedDeck) return null;
+    const commander = deckCards.find(c => c.is_commander);
+    return commander?.card_name;
+  };
+
+  const formatColors = (colors: string[]) => {
+    const colorMap: Record<string, string> = {
+      W: 'bg-amber-100 text-amber-800 border-amber-300',
+      U: 'bg-blue-100 text-blue-800 border-blue-300',
+      B: 'bg-gray-800 text-gray-100 border-gray-600',
+      R: 'bg-red-100 text-red-800 border-red-300',
+      G: 'bg-green-100 text-green-800 border-green-300',
+    };
+    return colors.map(c => colorMap[c] || 'bg-gray-100');
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full px-4 md:px-6 py-4 md:py-6 h-full">
-        <div className="flex gap-6 h-full">
-          {/* Main Chat Area - Full width when cards are displayed */}
-          <div className="flex-1 flex flex-col h-full min-h-[600px]">
-            <Card className="flex-1 flex flex-col">
-              <CardContent className="p-0 flex flex-col h-full">
-                {/* Header */}
-                <div className="p-4 border-b bg-gradient-to-r from-spacecraft/10 to-celestial/10 backdrop-blur-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-                        <Sparkles className="h-6 w-6 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-xl bg-gradient-cosmic bg-clip-text text-transparent">DeckMatrix AI</h2>
-                        <p className="text-sm text-spacecraft font-medium">
-                          {selectedDeck ? `Analyzing: ${selectedDeck.name}` : 'Select a deck to start analysis'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      {/* Response Style Toggle */}
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="detailed-toggle" className="text-xs font-medium">
-                          {detailedResponses ? "Detailed" : "Quick"}
-                        </Label>
-                        <Switch
-                          id="detailed-toggle"
-                          checked={detailedResponses}
-                          onCheckedChange={setDetailedResponses}
-                        />
-                      </div>
-                      
-                      <Select value={selectedDeck?.id || ''} onValueChange={handleDeckChange}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Select a deck" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableDecks.map((deck) => (
-                            <SelectItem key={deck.id} value={deck.id}>
-                              {deck.name} ({deck.format})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      <Button variant="outline" size="sm" onClick={handleNewConversation}>
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+      <div className="w-full h-full">
+        <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-4rem)]">
+          {/* Sidebar - Deck Context */}
+          <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r bg-muted/30 p-4 lg:p-6 shrink-0">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center shadow-lg">
+                  <BrainIcon className="h-6 w-6 text-primary-foreground" />
                 </div>
+                <div>
+                  <h1 className="font-bold text-lg">MTG Brain</h1>
+                  <p className="text-xs text-muted-foreground">AI Deck Analyst</p>
+                </div>
+              </div>
 
-                {/* Messages Area */}
-                <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-4">
-                     {messages.map((message, index) => {
-                       const hasCards = message.cards && message.cards.length > 0;
-                       return (
-                         <div
-                           key={index}
-                           className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                         >
-                           <div
-                             className={`${hasCards && message.type === 'assistant' ? 'w-full' : 'max-w-[85%]'} rounded-2xl px-4 py-3 ${
-                               message.type === 'user'
-                                 ? 'bg-primary text-primary-foreground shadow-md'
-                                 : 'bg-muted/80 backdrop-blur-sm text-foreground border border-border/50'
-                             }`}
-                           >
-                            <div className="text-sm prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-li:my-0">
-                               {message.type === 'assistant' ? (
-                                 <div className="space-y-4">
-                                   <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
-                                     <div className="flex items-center gap-2 mb-2">
-                                       <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                                         <span className="text-xs font-bold text-primary-foreground">DM</span>
-                                       </div>
-                                       <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
-                                     </div>
-                                     <div className="prose prose-sm max-w-none dark:prose-invert [&>p]:mb-3 [&>p]:leading-relaxed [&>h1]:text-lg [&>h1]:font-bold [&>h1]:mb-2 [&>h2]:text-base [&>h2]:font-semibold [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mb-1 [&>ul]:space-y-1 [&>ol]:space-y-1 [&>ul>li]:ml-4 [&>ol>li]:ml-4 [&>strong]:font-semibold [&>strong]:text-spacecraft">
-                                       <ReactMarkdown>{message.content}</ReactMarkdown>
-                                     </div>
-                                   </div>
-                                 </div>
-                               ) : (
-                                 <ReactMarkdown
-                                   components={{
-                                     p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-                                   }}
-                                 >
-                                   {message.content}
-                                 </ReactMarkdown>
-                               )}
-                             </div>
-                          
-                            {/* Display referenced cards */}
-                           {message.type === 'assistant' && (
-                             <div className="mt-4 space-y-3">
-                               {/* Visual Data Display */}
-                               {message.visualData && (
-                                 <AIVisualDisplay data={message.visualData} />
-                               )}
-                               
-                               {/* Always show cards using CardRecommendationDisplay */}
-                               {message.cards && message.cards.length > 0 && (
-                                 <CardRecommendationDisplay
-                                   cards={message.cards}
-                                   onCardClick={(card) => {
-                                     const normalized = {
-                                       ...card,
-                                       image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
-                                     };
-                                     setModalCard(normalized);
-                                     setModalOpen(true);
-                                   }}
-                                   compact={false}
-                                 />
-                               )}
-                             </div>
-                           )}
-                           
-                           <div className="text-xs opacity-60 mt-2">
-                             {message.timestamp.toLocaleTimeString()}
-                           </div>
-                          </div>
+              <Separator />
+
+              {/* Deck Selector */}
+              <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Active Deck
+                </Label>
+                <Select value={selectedDeck?.id || ''} onValueChange={handleDeckChange}>
+                  <SelectTrigger className="w-full bg-background">
+                    <SelectValue placeholder={loadingDecks ? "Loading..." : "Select a deck"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {availableDecks.map((deck) => (
+                      <SelectItem key={deck.id} value={deck.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{deck.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {deck.format}
+                          </Badge>
                         </div>
-                      );
-                      })}
-                     
-                     {isLoading && (
-                       <div className="flex justify-start">
-                         <div className="bg-muted/80 backdrop-blur-sm rounded-2xl px-4 py-3 border border-border/50">
-                           <div className="flex items-center space-x-2">
-                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
-                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                             <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                             <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
-                           </div>
-                         </div>
-                       </div>
-                     )}
-                     <div ref={messagesEndRef} />
-                   </div>
-                 </ScrollArea>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Input Area */}
-                <div className="p-4 border-t bg-background/95 backdrop-blur-sm">
-                  <div className="flex gap-2">
-                    <Input
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder={selectedDeck ? "Ask about your deck..." : "Select a deck first..."}
-                      onKeyPress={(e) => e.key === 'Enter' && !isLoading && input.trim() && handleSendMessage()}
-                      className="flex-1"
-                      disabled={!selectedDeck || isLoading}
-                    />
-                    <Button 
-                      onClick={handleSendMessage} 
-                      disabled={!selectedDeck || isLoading || !input.trim()}
-                      size="sm"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+              {/* Deck Stats */}
+              {selectedDeck && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-background border space-y-3">
+                    {getCommanderInfo() && (
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium truncate">{getCommanderInfo()}</span>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="text-center p-2 rounded-lg bg-muted/50">
+                        <div className="text-lg font-bold">{selectedDeck.counts?.total || 0}</div>
+                        <div className="text-xs text-muted-foreground">Cards</div>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-muted/50">
+                        <div className="text-lg font-bold">{selectedDeck.power?.score || 0}</div>
+                        <div className="text-xs text-muted-foreground">Power</div>
+                      </div>
+                    </div>
+
+                    {selectedDeck.colors && selectedDeck.colors.length > 0 && (
+                      <div className="flex gap-1">
+                        {selectedDeck.colors.map((color, i) => (
+                          <div
+                            key={i}
+                            className={cn(
+                              "w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold",
+                              formatColors([color])[0]
+                            )}
+                          >
+                            {color}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Settings */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="detailed-toggle" className="text-sm">
+                        Detailed Responses
+                      </Label>
+                      <Switch
+                        id="detailed-toggle"
+                        checked={detailedResponses}
+                        onCheckedChange={setDetailedResponses}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={handleClearConversation}
+                    disabled={messages.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Conversation
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+
+              {!selectedDeck && !loadingDecks && availableDecks.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No decks found</p>
+                  <p className="text-xs mt-1">Create a deck to start analyzing</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Floating Quick Actions - Only show when needed */}
-          {showQuickActions && messages.length <= 1 && (
-            <div className="fixed bottom-20 right-4 w-80 z-50">
-              <Card className="shadow-cosmic-glow border-spacecraft/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-spacecraft" />
-                      DeckMatrix Quick Actions
-                    </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowQuickActions(false)}
-                      className="h-6 w-6 p-0"
-                    >
-                      <ChevronUp className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {QUICK_ACTIONS.slice(0, 4).map((action) => (
-                      <button
-                        key={action.id}
-                        onClick={() => handleQuickAction(action)}
-                        className="w-full p-2 rounded-lg border border-spacecraft/20 text-left transition-all hover:bg-spacecraft/10 hover:border-spacecraft/40 text-sm"
-                      >
-                        <div className="flex items-start gap-2">
-                          <action.icon className="h-4 w-4 flex-shrink-0 mt-0.5 text-spacecraft" />
-                          <div>
-                            <div className="font-medium text-spacecraft">{action.label}</div>
-                            <div className="text-xs text-muted-foreground mt-1">{action.description}</div>
+          {/* Main Chat Area */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {selectedDeck ? (
+              <>
+                {/* Chat Messages */}
+                <ScrollArea className="flex-1 p-4 lg:p-6">
+                  <div className="max-w-4xl mx-auto space-y-6">
+                    {messages.length === 0 ? (
+                      /* Empty State with Quick Actions */
+                      <div className="space-y-8 py-8">
+                        <div className="text-center space-y-3">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center mx-auto shadow-lg">
+                            <Sparkles className="h-8 w-8 text-primary-foreground" />
+                          </div>
+                          <h2 className="text-2xl font-bold">
+                            Ready to analyze {selectedDeck.name}
+                          </h2>
+                          <p className="text-muted-foreground max-w-md mx-auto">
+                            Ask me anything about your deck's strategy, card choices, or optimization opportunities.
+                          </p>
+                        </div>
+
+                        {/* Quick Actions Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {QUICK_ACTIONS.map((action) => (
+                            <button
+                              key={action.id}
+                              onClick={() => handleQuickAction(action)}
+                              className="group p-4 rounded-xl border bg-card hover:shadow-md transition-all text-left hover:border-primary/50"
+                            >
+                              <div className={cn(
+                                "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center mb-3",
+                                action.gradient
+                              )}>
+                                <action.icon className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="font-medium text-sm group-hover:text-primary transition-colors">
+                                {action.label}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {action.description}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Example Prompts */}
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground text-center">
+                            Or try asking:
+                          </p>
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            {EXAMPLE_PROMPTS.map((prompt, i) => (
+                              <button
+                                key={i}
+                                onClick={() => handleSendMessage(prompt)}
+                                className="px-3 py-1.5 text-sm rounded-full border bg-muted/50 hover:bg-muted transition-colors"
+                              >
+                                {prompt}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      </button>
-                    ))}
+                      </div>
+                    ) : (
+                      /* Message Thread */
+                      <AnimatePresence mode="popLayout">
+                        {messages.map((message) => (
+                          <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className={cn(
+                              "flex gap-3",
+                              message.type === 'user' ? 'justify-end' : 'justify-start'
+                            )}
+                          >
+                            {message.type === 'assistant' && (
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center shrink-0 mt-1">
+                                <Bot className="h-4 w-4 text-primary-foreground" />
+                              </div>
+                            )}
+                            
+                            <div className={cn(
+                              "max-w-[85%] rounded-2xl",
+                              message.type === 'user' 
+                                ? 'bg-primary text-primary-foreground px-4 py-3'
+                                : 'bg-muted/50 border px-4 py-3'
+                            )}>
+                              {message.type === 'assistant' ? (
+                                <div className="space-y-4">
+                                  <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5">
+                                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                                  </div>
+                                  
+                                  {/* Visual Data */}
+                                  {message.visualData && (
+                                    <AIVisualDisplay data={message.visualData} />
+                                  )}
+                                  
+                                  {/* Card Recommendations */}
+                                  {message.cards && message.cards.length > 0 && (
+                                    <CardRecommendationDisplay
+                                      cards={message.cards}
+                                      onCardClick={(card) => {
+                                        const normalized = {
+                                          ...card,
+                                          image_uris: (card as any).image_uris || (card.image_uri ? { normal: card.image_uri } : undefined)
+                                        };
+                                        setModalCard(normalized);
+                                        setModalOpen(true);
+                                      }}
+                                      compact={false}
+                                    />
+                                  )}
+                                  
+                                  {/* Message Actions */}
+                                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={() => copyMessage(message.id, message.content)}
+                                    >
+                                      {copiedMessageId === message.id ? (
+                                        <>
+                                          <Check className="h-3 w-3 mr-1" />
+                                          Copied
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3 w-3 mr-1" />
+                                          Copy
+                                        </>
+                                      )}
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                                  <span className="text-xs opacity-70 mt-1 block">
+                                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {message.type === 'user' && (
+                              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0 mt-1">
+                                <User className="h-4 w-4 text-primary-foreground" />
+                              </div>
+                            )}
+                          </motion.div>
+                        ))}
+
+                        {/* Loading Indicator */}
+                        {isLoading && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex gap-3"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center shrink-0">
+                              <Bot className="h-4 w-4 text-primary-foreground" />
+                            </div>
+                            <div className="bg-muted/50 border rounded-2xl px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex gap-1">
+                                  <span className="w-2 h-2 bg-spacecraft rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <span className="w-2 h-2 bg-spacecraft rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <span className="w-2 h-2 bg-spacecraft rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                                <span className="text-sm text-muted-foreground">Analyzing...</span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                </ScrollArea>
+
+                {/* Input Area */}
+                <div className="border-t bg-background/95 backdrop-blur-sm p-4">
+                  <div className="max-w-4xl mx-auto">
+                    <div className="flex gap-3">
+                      <div className="flex-1 relative">
+                        <Textarea
+                          ref={inputRef}
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Ask about your deck..."
+                          className="min-h-[52px] max-h-32 resize-none pr-12 text-base"
+                          disabled={isLoading}
+                          rows={1}
+                        />
+                        <Button
+                          onClick={() => handleSendMessage()}
+                          disabled={isLoading || !input.trim()}
+                          size="icon"
+                          className="absolute right-2 bottom-2 h-8 w-8"
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Press Enter to send, Shift+Enter for new line
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* No Deck Selected State */
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center space-y-4 max-w-md">
+                  <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+                    <Layers className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <h2 className="text-xl font-bold">Select a Deck to Begin</h2>
+                  <p className="text-muted-foreground">
+                    Choose a deck from the sidebar to start your AI-powered analysis session.
+                  </p>
+                  {loadingDecks && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading your decks...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Card Modal */}
         {modalOpen && (
           <UniversalCardViewModal 
             card={modalCard}

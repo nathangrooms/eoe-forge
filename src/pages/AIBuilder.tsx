@@ -456,18 +456,34 @@ export default function AIBuilder() {
         });
       }
 
-      // Add deck cards
+      // Add deck cards - handle quantities properly
       if (deckRecord && buildResult.cards.length > 0) {
-        const cardInserts = buildResult.cards.map((card: any) => ({
-          deck_id: deckRecord.id,
-          card_id: card.id,
-          card_name: card.name,
-          quantity: card.quantity || 1,
-          is_commander: false,
-          is_sideboard: false
-        }));
+        const cardInserts: any[] = [];
+        
+        for (const card of buildResult.cards) {
+          // Skip cards without valid IDs
+          if (!card.id || card.id.startsWith('missing-basic-')) {
+            console.warn('Skipping card with invalid ID:', card.name);
+            continue;
+          }
+          
+          cardInserts.push({
+            deck_id: deckRecord.id,
+            card_id: card.id,
+            card_name: card.name,
+            quantity: card.quantity || 1,
+            is_commander: false,
+            is_sideboard: false
+          });
+        }
 
-        await supabase.from('deck_cards').insert(cardInserts);
+        if (cardInserts.length > 0) {
+          const { error: cardsError } = await supabase.from('deck_cards').insert(cardInserts);
+          if (cardsError) {
+            console.error('Error saving deck cards:', cardsError);
+            throw cardsError;
+          }
+        }
       }
 
       navigate('/decks');

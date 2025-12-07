@@ -19,8 +19,8 @@ interface Feature {
 
 const heroFeatures: Feature[] = [
   {
-    title: 'AI Deck Builder',
-    description: 'Advanced AI creates optimized decks based on strategy, meta, and budget. Smart real-time suggestions.',
+    title: 'Smart Deck Builder',
+    description: 'Advanced tools create optimized decks based on strategy, meta, and budget. Smart real-time suggestions.',
     icon: Brain,
     gradient: 'from-purple-500 to-pink-500'
   },

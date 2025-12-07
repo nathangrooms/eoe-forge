@@ -112,7 +112,7 @@ function AppContent() {
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
             <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
-            <Route path="/ai-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
+            <Route path="/smart-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
             <Route path="/brain" element={<ProtectedRoute><Brain /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />

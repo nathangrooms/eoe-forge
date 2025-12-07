@@ -158,7 +158,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
                   size="sm"
                   className="flex-1 bg-gradient-cosmic"
                 >
-                  <Link to="/ai-builder">
+                  <Link to="/smart-builder">
                     <Sparkles className="h-4 w-4 mr-2" />
                     Deck Builder
                   </Link>

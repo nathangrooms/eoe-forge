@@ -85,7 +85,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     title: 'Deck Builder',
-    href: '/ai-builder',
+    href: '/smart-builder',
     icon: Sparkles,
     badge: 'New',
     section: 'tools'

@@ -630,10 +630,10 @@ export default function AIBuilder() {
               </div>
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  AI Deck Builder
+                  Smart Deck Builder
                 </h1>
                 <p className="text-muted-foreground text-sm md:text-base">
-                  Build the perfect Commander deck with intelligent AI assistance
+                  Build the perfect Commander deck with intelligent assistance
                 </p>
               </div>
             </div>

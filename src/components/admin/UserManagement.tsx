@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Users, Search, Shield, Mail } from 'lucide-react';
+import { UserDetailsModal } from './UserDetailsModal';
 
 interface Profile {
   id: string;
@@ -21,6 +22,7 @@ export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUser, setSelectedUser] = useState<{ id: string; username: string | null } | null>(null);
 
   useEffect(() => {
     loadProfiles();
@@ -65,92 +67,108 @@ export function UserManagement() {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          User Management
-        </CardTitle>
-        <CardDescription>
-          View and manage user accounts and permissions
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by username or ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            User Management
+          </CardTitle>
+          <CardDescription>
+            View and manage user accounts and permissions. Click a row to view detailed stats.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by username or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
 
-        {loading ? (
-          <div className="text-center py-8 text-muted-foreground">Loading users...</div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProfiles.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No users found
-                    </TableCell>
+                    <TableHead>Username</TableHead>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredProfiles.map((profile) => (
-                    <TableRow key={profile.id}>
-                      <TableCell className="font-medium">
-                        {profile.username || 'No username'}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {profile.id.slice(0, 8)}...
-                      </TableCell>
-                      <TableCell>
-                        {profile.is_admin ? (
-                          <Badge variant="default">
-                            <Shield className="h-3 w-3 mr-1" />
-                            Admin
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">User</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(profile.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAdmin(profile.id, profile.is_admin)}
-                        >
-                          {profile.is_admin ? 'Remove Admin' : 'Make Admin'}
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {filteredProfiles.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        No users found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                  ) : (
+                    filteredProfiles.map((profile) => (
+                      <TableRow 
+                        key={profile.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setSelectedUser({ id: profile.id, username: profile.username })}
+                      >
+                        <TableCell className="font-medium">
+                          {profile.username || 'No username'}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {profile.id.slice(0, 8)}...
+                        </TableCell>
+                        <TableCell>
+                          {profile.is_admin ? (
+                            <Badge variant="default">
+                              <Shield className="h-3 w-3 mr-1" />
+                              Admin
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">User</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(profile.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAdmin(profile.id, profile.is_admin);
+                            }}
+                          >
+                            {profile.is_admin ? 'Remove Admin' : 'Make Admin'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Mail className="h-4 w-4" />
-          <p>Total users: {profiles.length}</p>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Mail className="h-4 w-4" />
+            <p>Total users: {profiles.length}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <UserDetailsModal
+        open={!!selectedUser}
+        onOpenChange={(open) => !open && setSelectedUser(null)}
+        userId={selectedUser?.id || ''}
+        username={selectedUser?.username || null}
+      />
+    </>
   );
 }

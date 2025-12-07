@@ -33,7 +33,7 @@ interface DeckPlan {
   recommendations: string[];
 }
 
-// Basic lands - these are always valid in any deck regardless of color filtering
+// Basic lands - always valid
 const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
 const COLOR_TO_BASIC: Record<string, string> = {
   W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest'
@@ -54,34 +54,35 @@ serve(async (req) => {
     const config = getAdminConfig();
     
     const commanderColors = new Set(buildRequest.commander.color_identity || []);
-    // If colorless commander, allow all colors for lands but no colored spells
     const isColorless = commanderColors.size === 0;
+    const targetBudget = buildRequest.budget || 500;
+    const targetPower = buildRequest.powerLevel;
     
-    console.log('='.repeat(80));
-    console.log('AI DECK BUILDER V2 - STRICT 100 CARD ENFORCEMENT');
-    console.log('='.repeat(80));
-    console.log('Commander:', buildRequest.commander.name);
-    console.log('Color Identity:', [...commanderColors].join(', ') || 'Colorless');
-    console.log('Archetype:', buildRequest.archetype);
-    console.log('Power Level Target:', buildRequest.powerLevel);
-    console.log('Budget:', buildRequest.budget || 'unlimited');
-    console.log('Max Iterations:', config.maxBuildIterations);
-    console.log('='.repeat(80));
+    console.log('═'.repeat(80));
+    console.log('AI DECK BUILDER V2 - ITERATIVE REFINEMENT ENGINE');
+    console.log('═'.repeat(80));
+    console.log(`Commander: ${buildRequest.commander.name}`);
+    console.log(`Colors: [${[...commanderColors].join(', ') || 'Colorless'}]`);
+    console.log(`Archetype: ${buildRequest.archetype}`);
+    console.log(`Target Power: ${targetPower}`);
+    console.log(`Target Budget: $${targetBudget}`);
+    console.log(`Max Iterations: ${config.maxBuildIterations}`);
+    console.log('═'.repeat(80));
 
-    // Phase 1: AI Planning
+    // ========== PHASE 1: AI PLANNING ==========
+    console.log('\n📋 PHASE 1: AI Strategy Planning...');
     let deckPlan: DeckPlan | null = null;
     
     if (buildRequest.useAIPlanning !== false && lovableApiKey) {
-      console.log('\n📋 Phase 1: AI Strategy Planning...');
       deckPlan = await generateDeckPlan(buildRequest, lovableApiKey, config);
       if (deckPlan) {
-        console.log('✓ Strategy:', deckPlan.strategy?.substring(0, 80) + '...');
-        console.log('✓ Key Cards Suggested:', deckPlan.keyCards?.length || 0);
+        console.log(`  ✓ Strategy: ${deckPlan.strategy?.substring(0, 60)}...`);
+        console.log(`  ✓ Key Cards: ${deckPlan.keyCards?.length || 0}`);
       }
     }
 
-    // Phase 2: Fetch ALL cards - we need basic lands regardless of color
-    console.log('\n📦 Phase 2: Fetching card pool...');
+    // ========== PHASE 2: FETCH CARD POOL ==========
+    console.log('\n📦 PHASE 2: Fetching card pool...');
     const { data: allCards, error: cardsError } = await supabase
       .from('cards')
       .select('*')
@@ -90,36 +91,35 @@ serve(async (req) => {
     if (cardsError) throw new Error(`Failed to fetch cards: ${cardsError.message}`);
     if (!allCards || allCards.length === 0) throw new Error('No legal cards found');
     
-    console.log(`Total legal cards: ${allCards.length}`);
+    console.log(`  Total legal cards: ${allCards.length}`);
     
-    // Separate basic lands - they are ALWAYS valid
+    // Separate basic lands
     const basicLandCards = allCards.filter(c => BASIC_LANDS.includes(c.name));
-    console.log(`Basic lands found: ${basicLandCards.length}`);
+    console.log(`  Basic lands: ${basicLandCards.length}`);
     
-    // Filter non-basic cards by color identity
+    // Filter non-basic by color identity
     const colorFilteredCards = allCards.filter(card => {
-      // Skip basic lands - handled separately
       if (BASIC_LANDS.includes(card.name)) return false;
-      
       const cardIdentity = card.color_identity || [];
-      // For colorless commanders, only allow colorless cards
-      if (isColorless) {
-        return cardIdentity.length === 0;
-      }
-      // Card's identity must be subset of commander's identity
+      if (isColorless) return cardIdentity.length === 0;
       return cardIdentity.every((c: string) => commanderColors.has(c));
     });
     
-    console.log(`Color-filtered cards (non-basic): ${colorFilteredCards.length}`);
+    console.log(`  Color-filtered cards: ${colorFilteredCards.length}`);
 
-    // Phase 3: Build deck with STRICT 99 card enforcement
-    console.log('\n🔄 Phase 3: Building deck with strict 99 card target...');
+    // ========== PHASE 3: ITERATIVE DECK BUILDING ==========
+    console.log('\n🔄 PHASE 3: Iterative Deck Building...');
     
     let bestDeck: any[] = [];
     let bestValidation: any = null;
     let bestEdhPower: number | null = null;
+    let bestEdhData: any = null;
+    let bestScore = -Infinity;
     let iteration = 0;
-    const targetNonLands = 99 - config.minLandCount; // ~63 non-lands
+    
+    // Track cards to avoid/prefer across iterations
+    const cardsToAvoid = new Set<string>();
+    const expensiveCards = new Set<string>();
     
     while (iteration < config.maxBuildIterations) {
       iteration++;
@@ -130,37 +130,41 @@ serve(async (req) => {
       const usedCardNames = new Set<string>();
       const deck: any[] = [];
       
-      // Helper to add cards with singleton check
+      // Helper: Add card with singleton check
       const addCard = (card: any): boolean => {
         if (!card) return false;
         const isBasic = BASIC_LANDS.includes(card.name);
         if (!isBasic && usedCardNames.has(card.name)) return false;
+        if (cardsToAvoid.has(card.name)) return false;
         
         deck.push(card);
         if (!isBasic) usedCardNames.add(card.name);
         return true;
       };
       
-      // Score cards for quality
+      // Score card for quality (budget-aware)
       const scoreCard = (card: any, isKeyCard: boolean = false): number => {
         let score = 0;
-        const text = (card.oracle_text || '').toLowerCase();
         const price = parseFloat(card.prices?.usd || '0');
+        const text = (card.oracle_text || '').toLowerCase();
         
-        // Price bonus (correlates with power for older cards)
-        score += Math.min(price * 0.3, 8);
+        // Penalize expensive cards if over budget
+        if (expensiveCards.has(card.name)) score -= 50;
+        
+        // Prefer cards with good price/value ratio
+        score += Math.min(price * 0.2, 5);
+        if (price > 20) score -= (price - 20) * 0.5; // Penalize very expensive
         
         // Rarity bonus
-        if (card.rarity === 'mythic') score += 5;
-        if (card.rarity === 'rare') score += 3;
+        if (card.rarity === 'mythic') score += 4;
+        if (card.rarity === 'rare') score += 2;
         
-        // Low CMC is good
+        // Low CMC is efficient
         score += Math.max(0, 5 - (card.cmc || 0));
         
         // Commander synergy
         const cmdrText = (buildRequest.commander.oracle_text || '').toLowerCase();
-        const synergyKeywords = ['token', 'counter', 'sacrifice', 'graveyard', 'draw', 'creature', 'enchantment'];
-        for (const kw of synergyKeywords) {
+        for (const kw of ['token', 'counter', 'sacrifice', 'graveyard', 'draw', 'creature', 'enchantment', 'artifact']) {
           if (cmdrText.includes(kw) && text.includes(kw)) score += 2;
         }
         
@@ -168,8 +172,9 @@ serve(async (req) => {
         if (isKeyCard) score += 25;
         
         // EDH staples
-        if (/sol ring|mana crypt|arcane signet|command tower/i.test(card.name)) score += 20;
+        if (/sol ring|arcane signet|command tower/i.test(card.name)) score += 20;
         if (/rhystic study|smothering tithe|cyclonic rift|demonic tutor|swords to plowshares/i.test(card.name)) score += 15;
+        if (/mana crypt|mox diamond|chrome mox|mana vault/i.test(card.name)) score += 10;
         
         return score;
       };
@@ -199,191 +204,218 @@ serve(async (req) => {
         }
       };
       
-      // Step 1: Add staples that every deck needs
-      console.log('  Adding essential staples...');
-      const stapleNames = ['Sol Ring', 'Arcane Signet', 'Command Tower'];
-      for (const name of stapleNames) {
+      // ===== BUILD DECK =====
+      
+      // Step 1: Essential staples
+      console.log('  Building deck...');
+      for (const name of ['Sol Ring', 'Arcane Signet', 'Command Tower']) {
         const card = colorFilteredCards.find(c => c.name === name);
         if (card) addCard(card);
       }
-      console.log(`    Staples: ${deck.length}`);
       
-      // Step 2: Add AI-recommended key cards (fuzzy match)
+      // Step 2: AI key cards (fuzzy match)
       if (deckPlan?.keyCards?.length) {
-        console.log('  Adding AI-recommended cards...');
-        const keyMatches: any[] = [];
+        let keyAdded = 0;
         for (const keyName of deckPlan.keyCards) {
           const keyLower = keyName.toLowerCase().trim();
-          // Try exact match first
           let match = colorFilteredCards.find(c => 
-            c.name.toLowerCase() === keyLower && !usedCardNames.has(c.name)
+            c.name.toLowerCase() === keyLower && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name)
           );
-          // Then fuzzy match
           if (!match) {
             match = colorFilteredCards.find(c => 
               (c.name.toLowerCase().includes(keyLower) || keyLower.includes(c.name.toLowerCase())) &&
-              !usedCardNames.has(c.name)
+              !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name)
             );
           }
-          if (match) keyMatches.push(match);
+          if (match && addCard(match)) keyAdded++;
+          if (keyAdded >= 15) break;
         }
-        keyMatches
-          .sort((a, b) => scoreCard(b, true) - scoreCard(a, true))
-          .slice(0, 15)
-          .forEach(c => addCard(c));
-        console.log(`    Key cards: ${keyMatches.length}`);
+        console.log(`    Key cards: ${keyAdded}`);
       }
       
-      // Step 3: Add cards by role
+      // Step 3: Cards by role
       const roleTargets = [
-        { role: 'ramp', min: config.minRampCount, label: 'Ramp' },
-        { role: 'draw', min: config.minDrawCount, label: 'Card Draw' },
-        { role: 'removal', min: config.minRemovalCount, label: 'Removal' },
+        { role: 'ramp', count: config.minRampCount, label: 'Ramp' },
+        { role: 'draw', count: config.minDrawCount, label: 'Draw' },
+        { role: 'removal', count: config.minRemovalCount, label: 'Removal' },
       ];
-      
-      // Add counterspells if blue
       if (commanderColors.has('U')) {
-        roleTargets.push({ role: 'counter', min: 4, label: 'Counterspells' });
+        roleTargets.push({ role: 'counter', count: 4, label: 'Counters' });
       }
       
-      for (const { role, min, label } of roleTargets) {
+      for (const { role, count, label } of roleTargets) {
         const roleCards = colorFilteredCards
-          .filter(c => cardHasRole(c, role) && !usedCardNames.has(c.name))
+          .filter(c => cardHasRole(c, role) && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name))
           .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, min);
+          .slice(0, count);
         roleCards.forEach(c => addCard(c));
-        console.log(`    ${label}: ${roleCards.length}/${min}`);
+        console.log(`    ${label}: ${roleCards.length}/${count}`);
       }
       
-      // Step 4: Add creatures by curve
-      console.log('  Adding creatures by mana curve...');
-      const curveCounts = [
-        { cmc: 1, count: 4 },
-        { cmc: 2, count: 8 },
-        { cmc: 3, count: 10 },
-        { cmc: 4, count: 7 },
-        { cmc: 5, count: 5 },
-        { cmc: 6, count: 3 },
-      ];
-      
-      let totalCreatures = 0;
-      for (const { cmc, count } of curveCounts) {
+      // Step 4: Creatures by curve
+      const targetCreatures = 30;
+      let creaturesAdded = 0;
+      for (const { cmc, count } of [{ cmc: 1, count: 4 }, { cmc: 2, count: 8 }, { cmc: 3, count: 10 }, { cmc: 4, count: 5 }, { cmc: 5, count: 3 }]) {
         const creatures = colorFilteredCards
-          .filter(c => 
-            cardHasRole(c, 'creature') && 
-            !usedCardNames.has(c.name) &&
-            Math.floor(c.cmc || 0) === cmc
-          )
+          .filter(c => cardHasRole(c, 'creature') && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name) && Math.floor(c.cmc || 0) === cmc)
           .sort((a, b) => scoreCard(b) - scoreCard(a))
           .slice(0, count);
         creatures.forEach(c => addCard(c));
-        totalCreatures += creatures.length;
+        creaturesAdded += creatures.length;
       }
-      console.log(`    Creatures: ${totalCreatures}`);
+      console.log(`    Creatures: ${creaturesAdded}`);
       
-      // Step 5: Fill remaining non-land slots
-      const nonLandCount = deck.length;
-      const fillNeeded = targetNonLands - nonLandCount;
-      console.log(`  Current non-lands: ${nonLandCount}, need ${fillNeeded} more...`);
-      
+      // Step 5: Fill to target non-lands (63 non-lands for ~36 lands)
+      const targetNonLands = 99 - config.minLandCount;
+      const fillNeeded = targetNonLands - deck.length;
       if (fillNeeded > 0) {
         const fillers = colorFilteredCards
-          .filter(c => !cardHasRole(c, 'land') && !usedCardNames.has(c.name))
+          .filter(c => !cardHasRole(c, 'land') && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name))
           .sort((a, b) => scoreCard(b) - scoreCard(a))
           .slice(0, fillNeeded);
         fillers.forEach(c => addCard(c));
-        console.log(`    Fillers added: ${fillers.length}`);
+        console.log(`    Fillers: ${fillers.length}`);
       }
       
-      // Step 6: Build manabase - CRITICAL for hitting 99
-      const nonLandTotal = deck.length;
-      const landsNeeded = 99 - nonLandTotal;
-      console.log(`  Building manabase: need ${landsNeeded} lands...`);
+      // Step 6: Lands
+      const landsNeeded = 99 - deck.length;
+      console.log(`    Lands needed: ${landsNeeded}`);
       
-      // Add utility lands (singleton)
+      // Utility lands
       const utilityLands = colorFilteredCards
-        .filter(c => 
-          cardHasRole(c, 'land') && 
-          !BASIC_LANDS.includes(c.name) && 
-          !usedCardNames.has(c.name)
-        )
+        .filter(c => cardHasRole(c, 'land') && !BASIC_LANDS.includes(c.name) && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name))
         .sort((a, b) => scoreCard(b) - scoreCard(a))
         .slice(0, Math.min(15, landsNeeded));
-      
       utilityLands.forEach(c => addCard(c));
-      console.log(`    Utility lands: ${utilityLands.length}`);
       
-      // Fill rest with basic lands (CAN be duplicates)
+      // Fill with basics
       const basicsNeeded = 99 - deck.length;
-      console.log(`    Basics needed: ${basicsNeeded}`);
-      
-      // Get color distribution for basics
       const colors = [...commanderColors];
-      if (colors.length === 0) colors.push('W'); // Default for colorless
+      if (colors.length === 0) colors.push('W');
       
       for (let i = 0; i < basicsNeeded; i++) {
         const color = colors[i % colors.length];
         const basicName = COLOR_TO_BASIC[color] || 'Plains';
         const basic = basicLandCards.find(c => c.name === basicName);
         if (basic) {
-          // Create unique ID for each basic land copy
-          deck.push({ ...basic, id: `${basic.id}-basic-${i}-${Date.now()}` });
+          deck.push({ ...basic, id: `${basic.id}-b${iteration}-${i}` });
         }
       }
-      console.log(`    Total lands: ${deck.filter(c => c.type_line?.toLowerCase().includes('land')).length}`);
+      
       console.log(`  DECK TOTAL: ${deck.length} cards`);
       
-      // Validate
-      const validation = validateDeck(deck, buildRequest.commander, buildRequest.powerLevel, buildRequest.budget || 500, config);
+      // ===== VALIDATION =====
+      const validation = validateDeck(deck, buildRequest.commander, targetPower, targetBudget, config);
       console.log(`  Validation: ${validation.isValid ? '✓ PASS' : '✗ FAIL'}`);
       if (validation.issues.length > 0) {
         console.log(`    Issues: ${validation.issues.join(', ')}`);
       }
       
-      // If we have 99 cards and pass validation, check EDH power
-      if (deck.length === 99 && validation.issues.length === 0) {
-        console.log('  Checking EDH power level...');
-        const edhPower = await checkEdhPower(supabaseUrl, supabaseKey, buildRequest.commander, deck);
-        console.log(`  EDH Power: ${edhPower || 'N/A'}`);
-        
-        const targetPower = buildRequest.powerLevel;
-        const tolerance = config.powerLevelTolerance;
-        const minPower = targetPower * (1 - tolerance);
-        const maxPower = targetPower * (1 + tolerance);
-        
-        if (edhPower !== null && (edhPower < minPower || edhPower > maxPower)) {
-          console.log(`  Power ${edhPower} outside target range ${minPower.toFixed(1)}-${maxPower.toFixed(1)}`);
-          
-          // Store as best if closer to target
-          if (!bestEdhPower || Math.abs(edhPower - targetPower) < Math.abs(bestEdhPower - targetPower)) {
-            bestDeck = [...deck];
-            bestValidation = validation;
-            bestEdhPower = edhPower;
-          }
-          continue; // Try again with different cards
+      // If not 99 cards, fail fast
+      if (deck.length !== 99) {
+        console.log(`  ✗ CRITICAL: ${deck.length}/99 cards - retrying...`);
+        continue;
+      }
+      
+      // ===== EDH POWER CHECK =====
+      console.log('  Fetching EDH power level...');
+      const edhResult = await checkEdhPowerFull(supabaseUrl, supabaseKey, buildRequest.commander, deck);
+      const edhPower = edhResult?.powerLevel || null;
+      console.log(`  EDH Power: ${edhPower ?? 'N/A'}`);
+      
+      // ===== SCORE THIS BUILD =====
+      let buildScore = 0;
+      
+      // Power level score (closer to target = better)
+      if (edhPower !== null) {
+        const powerDiff = Math.abs(edhPower - targetPower);
+        const tolerance = targetPower * config.powerLevelTolerance;
+        if (powerDiff <= tolerance) {
+          buildScore += 50 - (powerDiff * 5);
+        } else {
+          buildScore -= powerDiff * 10;
         }
-        
-        // Perfect deck found!
-        bestDeck = deck;
+      }
+      
+      // Budget score
+      const budgetTolerance = targetBudget * config.budgetTolerance;
+      if (validation.totalCost <= targetBudget + budgetTolerance) {
+        buildScore += 30;
+      } else {
+        buildScore -= (validation.totalCost - targetBudget) * 0.1;
+        // Mark expensive cards to avoid next iteration
+        deck.filter(c => parseFloat(c.prices?.usd || '0') > 15)
+          .forEach(c => expensiveCards.add(c.name));
+      }
+      
+      // Card count bonus
+      if (deck.length === 99) buildScore += 20;
+      
+      // Land count bonus
+      if (validation.landCount >= config.minLandCount) buildScore += 10;
+      
+      console.log(`  Build Score: ${buildScore.toFixed(1)}`);
+      
+      // Is this the best build?
+      if (buildScore > bestScore) {
+        bestScore = buildScore;
+        bestDeck = [...deck];
         bestValidation = validation;
         bestEdhPower = edhPower;
-        console.log('  ✓ Deck meets all requirements!');
+        bestEdhData = edhResult;
+        console.log(`  ✓ NEW BEST BUILD`);
+      }
+      
+      // Check if good enough to stop
+      const powerOk = edhPower === null || Math.abs(edhPower - targetPower) <= (targetPower * config.powerLevelTolerance);
+      const budgetOk = validation.totalCost <= targetBudget * (1 + config.budgetTolerance);
+      const countOk = deck.length === 99;
+      
+      if (powerOk && budgetOk && countOk && validation.isValid) {
+        console.log(`  ✓ All requirements met - stopping early`);
         break;
       }
       
-      // Store best result
-      if (!bestDeck.length || deck.length > bestDeck.length) {
-        bestDeck = [...deck];
-        bestValidation = validation;
+      // If over budget, mark expensive non-essential cards to avoid
+      if (!budgetOk) {
+        const sortedByPrice = [...deck]
+          .filter(c => !['Sol Ring', 'Arcane Signet', 'Command Tower'].includes(c.name))
+          .sort((a, b) => parseFloat(b.prices?.usd || '0') - parseFloat(a.prices?.usd || '0'));
+        
+        // Mark top 5 expensive cards to avoid
+        sortedByPrice.slice(0, 5).forEach(c => cardsToAvoid.add(c.name));
+        console.log(`  Marked ${Math.min(5, sortedByPrice.length)} expensive cards to avoid`);
       }
     }
 
-    // Final stats
-    console.log(`\n${'='.repeat(60)}`);
+    // ========== PHASE 4: FINAL CARD COUNT CHECK ==========
+    console.log('\n📊 PHASE 4: Final Validation...');
+    
+    // CRITICAL: If still not 99 cards, pad with basics
+    while (bestDeck.length < 99) {
+      const colors = [...commanderColors];
+      if (colors.length === 0) colors.push('W');
+      const color = colors[bestDeck.length % colors.length];
+      const basicName = COLOR_TO_BASIC[color] || 'Plains';
+      const basic = basicLandCards.find(c => c.name === basicName);
+      if (basic) {
+        bestDeck.push({ ...basic, id: `${basic.id}-pad-${bestDeck.length}` });
+      } else {
+        break;
+      }
+    }
+    
+    console.log(`  Final card count: ${bestDeck.length}`);
+
+    // ========== BUILD RESULT ==========
+    console.log('\n═'.repeat(60));
     console.log('BUILD COMPLETE');
-    console.log(`${'='.repeat(60)}`);
+    console.log('═'.repeat(60));
     console.log(`Iterations: ${iteration}`);
-    console.log(`Final deck: ${bestDeck.length} cards`);
+    console.log(`Best Score: ${bestScore.toFixed(1)}`);
+    console.log(`Final Cards: ${bestDeck.length}`);
+    console.log(`EDH Power: ${bestEdhPower ?? 'N/A'}`);
+    console.log(`Total Cost: $${bestValidation?.totalCost?.toFixed(2) ?? 'N/A'}`);
     
     const typeBreakdown = {
       creatures: bestDeck.filter(c => c.type_line?.toLowerCase().includes('creature')).length,
@@ -394,12 +426,6 @@ serve(async (req) => {
       enchantments: bestDeck.filter(c => c.type_line?.toLowerCase().includes('enchantment')).length,
       planeswalkers: bestDeck.filter(c => c.type_line?.toLowerCase().includes('planeswalker')).length
     };
-    
-    console.log(`Creatures: ${typeBreakdown.creatures}`);
-    console.log(`Lands: ${typeBreakdown.lands}`);
-    console.log(`Instants/Sorceries: ${typeBreakdown.instants + typeBreakdown.sorceries}`);
-    
-    const totalValue = bestDeck.reduce((sum, c) => sum + parseFloat(c.prices?.usd || '0'), 0);
     
     const manaCurve: Record<string, number> = {};
     bestDeck.filter(c => !c.type_line?.includes('Land')).forEach(c => {
@@ -412,31 +438,56 @@ serve(async (req) => {
       .reduce((sum, c) => sum + (c.cmc || 0), 0) / 
       Math.max(1, bestDeck.filter(c => !c.type_line?.includes('Land')).length);
 
+    // Build EDH URL
+    let edhUrl = bestEdhData?.url || null;
+    if (!edhUrl) {
+      let decklistParam = `1x+${encodeURIComponent(buildRequest.commander.name)}~`;
+      bestDeck.forEach(card => {
+        decklistParam += `1x+${encodeURIComponent(card.name)}~`;
+      });
+      if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+      edhUrl = `https://edhpowerlevel.com/?d=${decklistParam}`;
+    }
+
     return new Response(
       JSON.stringify({
         status: 'complete',
         result: {
           deck: bestDeck,
           analysis: {
-            power: bestEdhPower || buildRequest.powerLevel,
+            power: bestEdhPower || targetPower,
             typeBreakdown,
             manaCurve,
             avgCmc,
-            totalValue
+            totalValue: bestValidation?.totalCost || 0,
+            strategy: deckPlan?.strategy || null,
+            edhMetrics: bestEdhData?.metrics || null,
+            bracket: bestEdhData?.bracket || null,
+            cardAnalysis: bestEdhData?.cardAnalysis || null,
+            landAnalysis: bestEdhData?.landAnalysis || null
           },
           changeLog: [
-            `Built ${bestDeck.length}/99 cards (+ commander = 100)`,
-            `Color identity: [${[...commanderColors].join(', ')}]`,
-            `Creatures: ${typeBreakdown.creatures}`,
-            `Lands: ${typeBreakdown.lands}`,
-            `Total value: $${totalValue.toFixed(2)}`,
-            `Iterations: ${iteration}`,
-            bestValidation?.isValid ? '✓ All checks passed' : `Issues: ${bestValidation?.issues?.join(', ')}`
+            `✓ Built ${bestDeck.length}/99 cards (+ commander = 100)`,
+            `✓ Color identity: [${[...commanderColors].join(', ')}]`,
+            `✓ Creatures: ${typeBreakdown.creatures}`,
+            `✓ Lands: ${typeBreakdown.lands}`,
+            `✓ Total value: $${(bestValidation?.totalCost || 0).toFixed(2)}`,
+            `✓ Iterations: ${iteration}`,
+            `✓ EDH Power: ${bestEdhPower ?? 'Pending'}`,
+            bestValidation?.isValid ? '✓ All validation checks passed' : `⚠ Issues: ${bestValidation?.issues?.join(', ')}`
           ],
           validation: bestValidation || { isValid: false, issues: ['Build incomplete'] }
         },
         plan: deckPlan,
         edhPowerLevel: bestEdhPower,
+        edhPowerUrl: edhUrl,
+        edhAnalysis: {
+          metrics: bestEdhData?.metrics || null,
+          bracket: bestEdhData?.bracket || null,
+          cardAnalysis: bestEdhData?.cardAnalysis || null,
+          landAnalysis: bestEdhData?.landAnalysis || null,
+          url: edhUrl
+        },
         iterations: iteration,
         config: {
           maxIterations: config.maxBuildIterations,
@@ -456,8 +507,8 @@ serve(async (req) => {
   }
 });
 
-// Check EDH power level via external service
-async function checkEdhPower(supabaseUrl: string, supabaseKey: string, commander: any, deck: any[]): Promise<number | null> {
+// Get full EDH power data including card analysis
+async function checkEdhPowerFull(supabaseUrl: string, supabaseKey: string, commander: any, deck: any[]): Promise<any> {
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/edh-power-check`, {
       method: 'POST',
@@ -471,8 +522,7 @@ async function checkEdhPower(supabaseUrl: string, supabaseKey: string, commander
     });
     
     if (response.ok) {
-      const data = await response.json();
-      return data?.powerLevel || null;
+      return await response.json();
     }
   } catch (e) {
     console.log('EDH power check failed:', e);
@@ -480,19 +530,16 @@ async function checkEdhPower(supabaseUrl: string, supabaseKey: string, commander
   return null;
 }
 
-// Validate deck meets requirements
+// Validate deck
 function validateDeck(deck: any[], commander: any, targetPower: number, targetBudget: number, config: any) {
   const issues: string[] = [];
   
-  // Card count
   if (deck.length !== 99) {
-    issues.push(`Has ${deck.length} cards, needs 99`);
+    issues.push(`${deck.length}/99 cards`);
   }
   
-  // Singleton check (excluding basic lands)
-  const nonBasicNames = deck
-    .filter(c => !BASIC_LANDS.includes(c.name))
-    .map(c => c.name);
+  // Singleton check
+  const nonBasicNames = deck.filter(c => !BASIC_LANDS.includes(c.name)).map(c => c.name);
   const seen = new Set<string>();
   const duplicates: string[] = [];
   for (const name of nonBasicNames) {
@@ -500,7 +547,7 @@ function validateDeck(deck: any[], commander: any, targetPower: number, targetBu
     seen.add(name);
   }
   if (duplicates.length > 0) {
-    issues.push(`Duplicates: ${[...new Set(duplicates)].slice(0, 3).join(', ')}`);
+    issues.push(`Duplicates: ${[...new Set(duplicates)].slice(0, 2).join(', ')}`);
   }
   
   // Color identity
@@ -511,20 +558,20 @@ function validateDeck(deck: any[], commander: any, targetPower: number, targetBu
     return cardColors.some((c: string) => !commanderColors.has(c));
   });
   if (violations.length > 0) {
-    issues.push(`${violations.length} color identity violations`);
+    issues.push(`${violations.length} color violations`);
   }
   
   // Land count
   const landCount = deck.filter(c => c.type_line?.toLowerCase().includes('land')).length;
   if (landCount < config.minLandCount) {
-    issues.push(`Only ${landCount} lands, need ${config.minLandCount}+`);
+    issues.push(`Only ${landCount} lands`);
   }
   
   // Budget
   const totalCost = deck.reduce((sum, c) => sum + parseFloat(c.prices?.usd || '0'), 0);
   const budgetMax = targetBudget * (1 + config.budgetTolerance);
   if (totalCost > budgetMax) {
-    issues.push(`Cost $${totalCost.toFixed(0)} exceeds budget $${targetBudget}`);
+    issues.push(`$${totalCost.toFixed(0)} > budget`);
   }
   
   return { isValid: issues.length === 0, issues, totalCost, landCount };
@@ -549,7 +596,7 @@ async function generateDeckPlan(buildRequest: any, apiKey: string, config: any):
       body: JSON.stringify({
         model: config.aiValidationModel,
         messages: [
-          { role: 'system', content: 'You are an expert MTG Commander deck builder. Return valid JSON only, no markdown.' },
+          { role: 'system', content: 'You are an expert MTG Commander deck builder. Return valid JSON only.' },
           { role: 'user', content: prompt }
         ],
       }),
@@ -560,7 +607,6 @@ async function generateDeckPlan(buildRequest: any, apiKey: string, config: any):
     const data = await response.json();
     const text = data.choices[0].message.content;
     
-    // Extract JSON
     let jsonStr = text.trim();
     const codeBlock = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (codeBlock) jsonStr = codeBlock[1];

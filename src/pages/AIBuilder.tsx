@@ -37,15 +37,17 @@ import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence'
 import { motion, AnimatePresence } from 'framer-motion';
 import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
 
-// Build phases for progress tracking
+// Build phases for progress tracking - more detailed iterative process
 const BUILD_PHASES = [
-  { id: 'analyzing', label: 'Analyzing Commander', description: 'Understanding commander synergies' },
-  { id: 'generating', label: 'Generating Deck', description: 'AI selecting optimal cards' },
-  { id: 'validating-colors', label: 'Validating Colors', description: 'Checking color identity compliance' },
+  { id: 'analyzing', label: 'Analyzing Commander', description: 'Understanding commander synergies and strategy' },
+  { id: 'planning', label: 'AI Planning', description: 'Generating optimal card recommendations' },
+  { id: 'generating', label: 'Building Deck', description: 'Selecting cards by role and synergy' },
+  { id: 'validating-colors', label: 'Validating Colors', description: 'Enforcing color identity rules' },
   { id: 'checking-edh', label: 'EDH Analysis', description: 'Fetching power level from edhpowerlevel.com' },
-  { id: 'budget-check', label: 'Budget Check', description: 'Ensuring deck meets price target' },
-  { id: 'optimizing', label: 'Optimizing', description: 'Final adjustments for playability' },
-  { id: 'complete', label: 'Complete', description: 'Your deck is ready!' }
+  { id: 'budget-check', label: 'Budget Optimization', description: 'Finding cheaper alternatives if needed' },
+  { id: 'refining', label: 'Iterative Refinement', description: 'Replacing weak cards with better options' },
+  { id: 'final-check', label: 'Final Validation', description: 'Ensuring 100 cards and all rules met' },
+  { id: 'complete', label: 'Complete', description: 'Your optimized deck is ready!' }
 ];
 
 const POPULAR_COMMANDERS = [

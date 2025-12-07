@@ -204,24 +204,14 @@ export function MobileNavigation() {
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">
           <div className="flex h-full flex-col">
-            <div className="flex h-14 items-center border-b px-4">
-              <button 
-                onClick={handleQuickBuild}
-                className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-                Quick Build
-              </button>
-            </div>
-            
             <div className="flex-1 overflow-auto py-4 space-y-6">
               {Object.keys(SECTIONS).map(renderSection)}
             </div>
             
             <div className="border-t p-4">
               <div className="text-xs text-muted-foreground">
-                <p>MTG Builder v1.0</p>
-                <p>Enhanced with AI</p>
+                <p>DeckMatrix v1.0</p>
+                <p>Currently in early development</p>
               </div>
             </div>
           </div>

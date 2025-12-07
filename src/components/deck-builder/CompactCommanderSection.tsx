@@ -59,89 +59,93 @@ export function CompactCommanderSection({ currentCommander }: CompactCommanderSe
   return (
     <Card className="bg-muted/30 border-primary/30">
       <CardContent className="p-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          {/* Commander Image */}
-          <div className="relative flex-shrink-0 mx-auto md:mx-0">
-            {currentCommander.image_uris?.normal ? (
-              <img 
-                src={currentCommander.image_uris.normal} 
-                alt={currentCommander.name}
-                className="w-32 md:w-16 h-auto rounded border-2 border-primary/30"
-                onError={(e) => {
-                  e.currentTarget.src = '/placeholder.svg';
-                  e.currentTarget.onerror = null;
-                }}
-              />
-            ) : (
-              <div className="w-32 md:w-16 h-44 md:h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">
-                <Crown className="h-6 w-6 text-primary" />
-              </div>
-            )}
-            <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
-              <Crown className="h-3 w-3 text-primary-foreground" />
-            </div>
-          </div>
-
-          {/* Commander Info */}
-          <div className="flex-1 text-center md:text-left">
-            <Badge variant="outline" className="text-xs text-primary mb-1">COMMANDER</Badge>
-            <h3 className="font-bold text-lg">{currentCommander.name}</h3>
-            <p className="text-sm text-muted-foreground mb-2">{currentCommander.type_line}</p>
-            <div className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
-              {currentCommander.mana_cost && (
-                <Badge variant="outline" className="font-mono text-xs">
-                  {currentCommander.mana_cost}
-                </Badge>
-              )}
-              {(currentCommander.power && currentCommander.toughness) && (
-                <Badge variant="secondary" className="text-xs">
-                  {currentCommander.power}/{currentCommander.toughness}
-                </Badge>
-              )}
-              {currentCommander.colors.length > 0 && (
-                <div className="flex gap-1">
-                  {currentCommander.colors.map(color => (
-                    <div 
-                      key={color}
-                      className={`w-3 h-3 rounded-full border ${getColorClass(color)}`}
-                    />
-                  ))}
+        <div className="flex flex-col gap-4">
+          {/* Top row: Image + Info + Actions */}
+          <div className="flex items-start gap-4">
+            {/* Commander Image */}
+            <div className="relative flex-shrink-0">
+              {currentCommander.image_uris?.normal ? (
+                <img 
+                  src={currentCommander.image_uris.normal} 
+                  alt={currentCommander.name}
+                  className="w-16 h-auto rounded border-2 border-primary/30"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                    e.currentTarget.onerror = null;
+                  }}
+                />
+              ) : (
+                <div className="w-16 h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">
+                  <Crown className="h-6 w-6 text-primary" />
                 </div>
               )}
+              <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1">
+                <Crown className="h-3 w-3 text-primary-foreground" />
+              </div>
+            </div>
+
+            {/* Commander Info */}
+            <div className="flex-1 min-w-0">
+              <Badge variant="outline" className="text-xs text-primary mb-1">COMMANDER</Badge>
+              <h3 className="font-bold text-base md:text-lg truncate">{currentCommander.name}</h3>
+              <p className="text-xs md:text-sm text-muted-foreground mb-2 truncate">{currentCommander.type_line}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {currentCommander.mana_cost && (
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {currentCommander.mana_cost}
+                  </Badge>
+                )}
+                {(currentCommander.power && currentCommander.toughness) && (
+                  <Badge variant="secondary" className="text-xs">
+                    {currentCommander.power}/{currentCommander.toughness}
+                  </Badge>
+                )}
+                {currentCommander.colors?.length > 0 && (
+                  <div className="flex gap-1">
+                    {currentCommander.colors.map((color: string) => (
+                      <div 
+                        key={color}
+                        className={`w-3 h-3 rounded-full border ${getColorClass(color)}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 flex-shrink-0">
+              <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Edit className="h-4 w-4 md:mr-1" />
+                    <span className="hidden md:inline">Change</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-primary" />
+                      Choose Your Commander
+                    </DialogTitle>
+                  </DialogHeader>
+                  <CommanderSelector 
+                    currentCommander={currentCommander}
+                  />
+                </DialogContent>
+              </Dialog>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={removeCommander}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-1" />
-                  Change
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Crown className="h-5 w-5 text-primary" />
-                    Choose Your Commander
-                  </DialogTitle>
-                </DialogHeader>
-                <CommanderSelector 
-                  currentCommander={currentCommander}
-                />
-              </DialogContent>
-            </Dialog>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={removeCommander}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </CardContent>
     </Card>

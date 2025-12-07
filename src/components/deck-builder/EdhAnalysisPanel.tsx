@@ -149,30 +149,32 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
       "bg-gradient-to-br from-muted/50 to-muted/20",
       needsRefresh && "ring-2 ring-orange-500/50"
     )}>
-      <div className="p-4 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Zap className="h-5 w-5 text-amber-500 flex-shrink-0" />
-          <h3 className="font-semibold">EDH Power Analysis</h3>
-          <Badge variant="outline" className="text-xs">edhpowerlevel.com</Badge>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {needsRefresh && (
-            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500/50 animate-pulse">
-              Cards Changed
-            </Badge>
-          )}
-          {data?.url && (
-            <Button variant="ghost" size="sm" asChild>
-              <a href={data.url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-1" />
-                Details
-              </a>
+      <div className="p-4 border-b border-border/50">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Zap className="h-5 w-5 text-amber-500 flex-shrink-0" />
+            <h3 className="font-semibold text-sm sm:text-base">EDH Power Analysis</h3>
+            <Badge variant="outline" className="text-[10px] sm:text-xs">edhpowerlevel.com</Badge>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {needsRefresh && (
+              <Badge variant="outline" className="text-[10px] sm:text-xs text-orange-500 border-orange-500/50 animate-pulse">
+                Cards Changed
+              </Badge>
+            )}
+            {data?.url && (
+              <Button variant="ghost" size="sm" className="h-8 text-xs" asChild>
+                <a href={data.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Details
+                </a>
+              </Button>
+            )}
+            <Button variant={needsRefresh ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={onRefresh} disabled={isLoading}>
+              <RefreshCw className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+              Refresh
             </Button>
-          )}
-          <Button variant={needsRefresh ? "default" : "outline"} size="sm" onClick={onRefresh} disabled={isLoading}>
-            <RefreshCw className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")} />
-            Refresh
-          </Button>
+          </div>
         </div>
       </div>
 

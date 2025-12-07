@@ -28,9 +28,10 @@ const tabs = [
 ];
 
 export function DeckBuilderTabs({ activeTab, onTabChange, totalCards, format }: DeckBuilderTabsProps) {
-  const targetCards = format === 'commander' ? 100 : 60;
-  // For commander, totalCards already excludes commander, so display as totalCards + 1 (commander)
-  const displayCards = format === 'commander' ? totalCards + 1 : totalCards;
+  const isCommander = format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh';
+  const targetCards = isCommander ? 100 : 60;
+  // For commander, add 1 for the commander card itself
+  const displayCards = isCommander ? totalCards + 1 : totalCards;
 
   return (
     <div className="border-b border-border bg-muted/30 overflow-x-auto scrollbar-none">

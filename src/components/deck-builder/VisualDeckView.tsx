@@ -346,9 +346,24 @@ export function VisualDeckView({
       {/* Commander Section */}
       {format === 'commander' && commander && (
         <Card className="p-4 border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-transparent">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Commander Image - larger on mobile, original size on desktop */}
-            <div className="w-40 md:w-48 flex-shrink-0 mx-auto md:mx-0">
+          {/* Mobile: Simple centered layout */}
+          <div className="md:hidden text-center">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Crown className="h-5 w-5 text-amber-400" />
+              <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
+            </div>
+            <h3 className="text-lg font-bold mb-3">{commander.name}</h3>
+            <img 
+              src={getCommanderImage() || '/placeholder.svg'} 
+              alt={commander.name}
+              className="w-full max-w-sm mx-auto h-auto rounded-xl shadow-lg"
+              onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+            />
+          </div>
+          
+          {/* Desktop: Full layout with details */}
+          <div className="hidden md:flex gap-4">
+            <div className="w-48 flex-shrink-0">
               <img 
                 src={getCommanderImage() || '/placeholder.svg'} 
                 alt={commander.name}
@@ -357,16 +372,14 @@ export function VisualDeckView({
               />
             </div>
             
-            {/* Commander Details */}
-            <div className="flex-1 min-w-0 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
                 <Crown className="h-5 w-5 text-amber-400" />
                 <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
               </div>
               <h3 className="text-xl font-bold mb-1">{commander.name}</h3>
               <p className="text-sm text-muted-foreground mb-3">{commander.type_line}</p>
               
-              {/* Oracle Text - Always show full text on desktop */}
               {commander.oracle_text && (
                 <div className="text-sm leading-relaxed space-y-2 max-h-40 overflow-y-auto pr-2">
                   {commander.oracle_text.split('\n').map((line: string, i: number) => (
@@ -375,8 +388,7 @@ export function VisualDeckView({
                 </div>
               )}
               
-              {/* Stats */}
-              <div className="flex items-center justify-center md:justify-start gap-4 mt-3 pt-3 border-t border-border/40">
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
                 {commander.mana_cost && (
                   <Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>
                 )}

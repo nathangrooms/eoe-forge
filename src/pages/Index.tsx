@@ -9,7 +9,6 @@ import {
   BarChart3, 
   Search,
   Target,
-  Layers,
   Globe,
   Zap,
   ArrowRight,
@@ -19,6 +18,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 
 const Index = () => {
   const features = [
@@ -87,7 +87,7 @@ const Index = () => {
             The ultimate Magic: The Gathering deck builder powered by advanced AI. 
             Build, analyze, and perfect your decks with intelligent optimization and comprehensive analytics.
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link to="/auth">
               <Button size="lg" className="bg-gradient-cosmic hover:opacity-90">
                 <Sparkles className="h-5 w-5 mr-2" />
@@ -101,6 +101,7 @@ const Index = () => {
                 Browse Cards
               </Button>
             </Link>
+            <InstallAppButton />
           </div>
         </div>
       </section>

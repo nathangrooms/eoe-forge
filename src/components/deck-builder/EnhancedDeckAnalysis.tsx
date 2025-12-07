@@ -248,19 +248,21 @@ const optimizations = useMemo(() => {
 
       {/* Detailed Analysis Tabs */}
       <Tabs defaultValue="curve" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="curve">Mana Curve</TabsTrigger>
-          <TabsTrigger value="lands">Land Base</TabsTrigger>
-          <TabsTrigger value="synergy">Synergy</TabsTrigger>
-          <TabsTrigger value="validation">Validation</TabsTrigger>
-          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-          <TabsTrigger value="ai" className="bg-gradient-cosmic text-primary-foreground border-spacecraft data-[state=active]:bg-gradient-cosmic">
-            <span className="flex items-center gap-1">
-              <Brain className="h-4 w-4" />
-              AI Analysis
-            </span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-max md:grid md:w-full md:grid-cols-6 h-auto">
+            <TabsTrigger value="curve" className="whitespace-nowrap">Mana Curve</TabsTrigger>
+            <TabsTrigger value="lands" className="whitespace-nowrap">Land Base</TabsTrigger>
+            <TabsTrigger value="synergy" className="whitespace-nowrap">Synergy</TabsTrigger>
+            <TabsTrigger value="validation" className="whitespace-nowrap">Validation</TabsTrigger>
+            <TabsTrigger value="suggestions" className="whitespace-nowrap">Suggestions</TabsTrigger>
+            <TabsTrigger value="ai" className="whitespace-nowrap bg-gradient-cosmic text-primary-foreground border-spacecraft data-[state=active]:bg-gradient-cosmic">
+              <span className="flex items-center gap-1">
+                <Brain className="h-4 w-4" />
+                Analysis
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Mana Curve Tab */}
         <TabsContent value="curve" className="space-y-4">

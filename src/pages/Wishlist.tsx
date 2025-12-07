@@ -408,32 +408,34 @@ export default function Wishlist() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <TabsList className="bg-muted/50 p-1 h-auto">
-              <TabsTrigger value="wishlist" className="gap-2 data-[state=active]:bg-background">
-                <Heart className="h-4 w-4" />
-                <span className="hidden sm:inline">My Cards</span>
-                {wishlistItems.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {wishlistItems.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="by-deck" className="gap-2 data-[state=active]:bg-background">
-                <Layers className="h-4 w-4" />
-                <span className="hidden sm:inline">By Deck</span>
-              </TabsTrigger>
-              <TabsTrigger value="add" className="gap-2 data-[state=active]:bg-background">
-                <Search className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Cards</span>
-              </TabsTrigger>
-            </TabsList>
+          <div className="flex flex-col gap-4">
+            <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+              <TabsList className="bg-muted/50 p-1 h-auto w-max sm:w-auto">
+                <TabsTrigger value="wishlist" className="gap-1.5 sm:gap-2 data-[state=active]:bg-background whitespace-nowrap">
+                  <Heart className="h-4 w-4" />
+                  <span>Cards</span>
+                  {wishlistItems.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      {wishlistItems.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="by-deck" className="gap-1.5 sm:gap-2 data-[state=active]:bg-background whitespace-nowrap">
+                  <Layers className="h-4 w-4" />
+                  <span>Decks</span>
+                </TabsTrigger>
+                <TabsTrigger value="add" className="gap-1.5 sm:gap-2 data-[state=active]:bg-background whitespace-nowrap">
+                  <Search className="h-4 w-4" />
+                  <span>Add</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* View Controls - Only on wishlist tab */}
             {activeTab === 'wishlist' && wishlistItems.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {/* Priority Filter */}
-                <div className="flex items-center gap-1 border rounded-lg p-0.5">
+                <div className="flex items-center gap-1 border rounded-lg p-0.5 flex-shrink-0">
                   {PRIORITY_FILTERS.map((f) => (
                     <Button
                       key={f.value}
@@ -454,7 +456,7 @@ export default function Wishlist() {
 
                 {/* Sort */}
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                  <SelectTrigger className="w-[100px] h-8 text-xs">
+                  <SelectTrigger className="w-[100px] h-8 text-xs flex-shrink-0">
                     <ArrowUpDown className="h-3 w-3 mr-1" />
                     <SelectValue />
                   </SelectTrigger>
@@ -468,7 +470,7 @@ export default function Wishlist() {
                 </Select>
 
                 {/* View Toggle */}
-                <div className="flex border rounded-lg p-0.5">
+                <div className="flex border rounded-lg p-0.5 flex-shrink-0">
                   <Button
                     size="sm"
                     variant={viewMode === 'grid' ? 'secondary' : 'ghost'}

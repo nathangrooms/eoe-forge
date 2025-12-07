@@ -163,36 +163,38 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="features" className="flex items-center gap-2">
-            <Flag className="h-4 w-4" />
-            <span className="hidden sm:inline">Features</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscriptions" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Subs</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Users</span>
-          </TabsTrigger>
-          <TabsTrigger value="tasks" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Tasks</span>
-          </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            <span className="hidden sm:inline">AI</span>
-          </TabsTrigger>
-          <TabsTrigger value="sync" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Sync</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-max sm:grid sm:w-full sm:grid-cols-7 h-auto">
+            <TabsTrigger value="overview" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="features" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <Flag className="h-4 w-4" />
+              <span className="hidden sm:inline">Features</span>
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Subs</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">AI</span>
+            </TabsTrigger>
+            <TabsTrigger value="sync" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Sync</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-6">
           <div className="space-y-6">

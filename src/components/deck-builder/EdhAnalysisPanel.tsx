@@ -149,63 +149,66 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
       "bg-gradient-to-br from-muted/50 to-muted/20",
       needsRefresh && "ring-2 ring-orange-500/50"
     )}>
-      <div className="p-4 border-b border-border/50 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-amber-500" />
+      <div className="p-4 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Zap className="h-5 w-5 text-amber-500 flex-shrink-0" />
           <h3 className="font-semibold">EDH Power Analysis</h3>
           <Badge variant="outline" className="text-xs">edhpowerlevel.com</Badge>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
           {needsRefresh && (
             <Badge variant="outline" className="text-xs text-orange-500 border-orange-500/50 animate-pulse">
-              Deck Changed - Click Refresh
+              Cards Changed
             </Badge>
           )}
-        </div>
-        <div className="flex items-center gap-2">
           {data?.url && (
             <Button variant="ghost" size="sm" asChild>
               <a href={data.url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-1" />
-                View Full
+                Details
               </a>
             </Button>
           )}
           <Button variant={needsRefresh ? "default" : "outline"} size="sm" onClick={onRefresh} disabled={isLoading}>
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")} />
+            Refresh
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
-          <TabsTrigger 
-            value="overview" 
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger 
-            value="bracket"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            Bracket
-          </TabsTrigger>
-          <TabsTrigger 
-            value="cards"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Card Analysis
-          </TabsTrigger>
-          <TabsTrigger 
-            value="lands"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-          >
-            <Mountain className="h-4 w-4 mr-2" />
-            Mana Base
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-none">
+          <TabsList className="w-max min-w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
+            <TabsTrigger 
+              value="overview" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 whitespace-nowrap"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bracket"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 whitespace-nowrap"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Bracket
+            </TabsTrigger>
+            <TabsTrigger 
+              value="cards"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 whitespace-nowrap"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Card Analysis
+            </TabsTrigger>
+            <TabsTrigger 
+              value="lands"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 whitespace-nowrap"
+            >
+              <Mountain className="h-4 w-4 mr-2" />
+              Mana Base
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="p-4 space-y-4">

@@ -21,7 +21,7 @@ const tabs = [
   { id: 'cards', label: 'Cards', icon: Eye, mobileLabel: 'Cards' },
   { id: 'search', label: 'Add Cards', icon: Search, mobileLabel: 'Add' },
   { id: 'analysis', label: 'Analysis', icon: BarChart3, mobileLabel: 'Stats' },
-  { id: 'ai', label: 'Optimizer', icon: Brain, mobileLabel: 'Opt' },
+  { id: 'ai', label: 'Optimizer', icon: Brain, mobileLabel: 'Optimize' },
   { id: 'import-export', label: 'Import/Export', icon: Upload, mobileLabel: 'I/O' },
   { id: 'proxies', label: 'Proxies', icon: Printer, mobileLabel: 'Print' },
   { id: 'test', label: 'Playtest', icon: Play, mobileLabel: 'Test' },
@@ -29,6 +29,8 @@ const tabs = [
 
 export function DeckBuilderTabs({ activeTab, onTabChange, totalCards, format }: DeckBuilderTabsProps) {
   const targetCards = format === 'commander' ? 100 : 60;
+  // For commander, totalCards already excludes commander, so display as totalCards + 1 (commander)
+  const displayCards = format === 'commander' ? totalCards + 1 : totalCards;
 
   return (
     <div className="border-b border-border bg-muted/30 overflow-x-auto scrollbar-none">
@@ -53,10 +55,10 @@ export function DeckBuilderTabs({ activeTab, onTabChange, totalCards, format }: 
                   variant="secondary" 
                   className={cn(
                     "text-[10px] px-1.5 py-0",
-                    totalCards >= targetCards ? "bg-green-500/20 text-green-500" : "bg-muted"
+                    displayCards >= targetCards ? "bg-green-500/20 text-green-500" : "bg-muted"
                   )}
                 >
-                  {totalCards}/{targetCards}
+                  {displayCards}/{targetCards}
                 </Badge>
               )}
             </button>

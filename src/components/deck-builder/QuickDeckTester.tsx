@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Shuffle, Play, RotateCcw, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface DeckCard {
   id: string;
@@ -12,6 +13,11 @@ interface DeckCard {
   cmc: number;
   type_line: string;
   mana_cost?: string;
+  image_uris?: {
+    small?: string;
+    normal?: string;
+    large?: string;
+  };
 }
 
 interface QuickDeckTesterProps {
@@ -186,22 +192,36 @@ export function QuickDeckTester({ deck }: QuickDeckTesterProps) {
               </div>
             )}
 
-            {/* Hand Display */}
+            {/* Hand Display - Visual Cards */}
             <div className="space-y-2">
               <p className="text-sm font-medium">Cards in Hand ({hand.length})</p>
-              <div className="grid grid-cols-1 gap-1">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
                 {hand.map((card, index) => (
                   <div 
                     key={`${card.id}-${index}`}
-                    className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
+                    className="relative group"
                   >
-                    <span className="truncate flex-1">{card.name}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
+                    {card.image_uris?.normal || card.image_uris?.small ? (
+                      <img 
+                        src={card.image_uris?.normal || card.image_uris?.small}
+                        alt={card.name}
+                        className="w-full h-auto rounded-lg border border-border/50 shadow-md hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={cn(
+                      "aspect-[2.5/3.5] bg-muted rounded-lg border border-border/50 flex flex-col items-center justify-center p-2 text-center",
+                      (card.image_uris?.normal || card.image_uris?.small) ? "hidden" : ""
+                    )}>
+                      <span className="text-xs font-medium line-clamp-3">{card.name}</span>
+                      <Badge variant="outline" className="text-[10px] mt-1">
                         {card.cmc}
                       </Badge>
                       {isLand(card) && (
-                        <Badge variant="secondary" className="text-xs">Land</Badge>
+                        <Badge variant="secondary" className="text-[10px] mt-1">Land</Badge>
                       )}
                     </div>
                   </div>

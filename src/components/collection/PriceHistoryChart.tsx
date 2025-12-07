@@ -212,40 +212,41 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              Collection Value History
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2 flex-wrap">
+              <DollarSign className="h-5 w-5 text-primary shrink-0" />
+              <span>Value History</span>
               {hasRealData && (
-                <Badge variant="outline" className="ml-2 bg-green-500/10 text-green-600 border-green-500/30">
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
                   <Database className="h-3 w-3 mr-1" />
-                  Live Data
+                  Live
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription>Track your collection's value over time</CardDescription>
+            <CardDescription className="mt-1">Track your collection's value over time</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={captureSnapshot}
               disabled={capturing}
+              className="whitespace-nowrap"
             >
-              <RefreshCw className={`h-4 w-4 mr-1 ${capturing ? 'animate-spin' : ''}`} />
-              {capturing ? 'Capturing...' : 'Capture Now'}
+              <RefreshCw className={`h-4 w-4 ${capturing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-1">{capturing ? 'Capturing...' : 'Capture'}</span>
             </Button>
             <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-[100px] sm:w-[130px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7d">Last 7 Days</SelectItem>
-                <SelectItem value="30d">Last 30 Days</SelectItem>
-                <SelectItem value="90d">Last 90 Days</SelectItem>
-                <SelectItem value="1y">Last Year</SelectItem>
+                <SelectItem value="7d">7 Days</SelectItem>
+                <SelectItem value="30d">30 Days</SelectItem>
+                <SelectItem value="90d">90 Days</SelectItem>
+                <SelectItem value="1y">1 Year</SelectItem>
               </SelectContent>
             </Select>
           </div>

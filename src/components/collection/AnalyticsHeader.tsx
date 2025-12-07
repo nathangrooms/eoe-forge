@@ -38,12 +38,6 @@ export function AnalyticsHeader({
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI-Powered Insights
-            </Badge>
-          </div>
         </div>
 
         {/* Quick Stats Row */}

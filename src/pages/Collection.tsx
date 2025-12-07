@@ -415,7 +415,7 @@ export default function Collection() {
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Enhanced Header */}
-      <div className="border-b bg-gradient-to-r from-card to-background px-4 md:px-6 py-4 md:py-5">
+      <div className="border-b bg-gradient-to-r from-card to-background px-3 md:px-6 py-2 md:py-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">

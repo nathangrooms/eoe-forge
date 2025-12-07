@@ -54,7 +54,8 @@ interface Message {
   visualData?: VisualData;
 }
 
-const QUICK_ACTIONS = [
+// Quick actions for when a deck IS selected
+const DECK_QUICK_ACTIONS = [
   {
     id: 'analyze',
     label: 'Analyze Deck',
@@ -105,7 +106,66 @@ const QUICK_ACTIONS = [
   }
 ];
 
-const EXAMPLE_PROMPTS = [
+// Quick actions for general MTG questions (no deck)
+const GENERAL_QUICK_ACTIONS = [
+  {
+    id: 'rules',
+    label: 'Rules Question',
+    description: 'Ask about MTG rules & mechanics',
+    icon: BookOpen,
+    prompt: 'Explain how the stack works and priority in Magic.',
+    gradient: 'from-blue-500 to-cyan-500'
+  },
+  {
+    id: 'commander',
+    label: 'Commander Advice',
+    description: 'EDH strategy & deck building',
+    icon: Crown,
+    prompt: 'What makes a good Commander deck? Explain the key components and ratios.',
+    gradient: 'from-amber-500 to-orange-500'
+  },
+  {
+    id: 'staples',
+    label: 'Format Staples',
+    description: 'Must-have cards by format',
+    icon: Zap,
+    prompt: 'What are the must-have staple cards for Commander in each color?',
+    gradient: 'from-red-500 to-pink-500'
+  },
+  {
+    id: 'archetypes',
+    label: 'Archetypes',
+    description: 'Learn deck archetypes',
+    icon: Target,
+    prompt: 'Explain the main Commander archetypes like Voltron, Aristocrats, and Spellslinger.',
+    gradient: 'from-emerald-500 to-green-500'
+  },
+  {
+    id: 'budget',
+    label: 'Budget Building',
+    description: 'Build on a budget',
+    icon: Lightbulb,
+    prompt: 'How can I build a competitive Commander deck on a $50-100 budget?',
+    gradient: 'from-purple-500 to-violet-500'
+  },
+  {
+    id: 'meta',
+    label: 'Meta Analysis',
+    description: 'Current format trends',
+    icon: TrendingUp,
+    prompt: 'What are the current top strategies and commanders in Commander?',
+    gradient: 'from-indigo-500 to-blue-500'
+  }
+];
+
+const GENERAL_EXAMPLE_PROMPTS = [
+  "What's the best removal in black?",
+  "Explain combat damage steps",
+  "Budget alternatives to Rhystic Study?",
+  "How does EDH power level work?",
+];
+
+const DECK_EXAMPLE_PROMPTS = [
   "What ramp cards would work best?",
   "How do I deal with aggro decks?",
   "Is my mana base optimal?",
@@ -144,9 +204,7 @@ export default function Brain() {
     try {
       const decks = await DeckAPI.getDeckSummaries();
       setAvailableDecks(decks);
-      if (decks.length > 0 && !selectedDeck) {
-        setSelectedDeck(decks[0]);
-      }
+      // Don't auto-select a deck - let user choose or ask general questions
     } catch (error) {
       console.error('Error loading decks:', error);
     } finally {
@@ -169,6 +227,12 @@ export default function Brain() {
   };
 
   const handleDeckChange = (deckId: string) => {
+    if (deckId === 'none') {
+      setSelectedDeck(null);
+      setDeckCards([]);
+      setMessages([]);
+      return;
+    }
     const deck = availableDecks.find(d => d.id === deckId);
     if (deck) {
       setSelectedDeck(deck);
@@ -242,7 +306,7 @@ export default function Brain() {
 
   const handleSendMessage = async (customMessage?: string) => {
     const messageText = customMessage || input.trim();
-    if (!messageText || isLoading || !selectedDeck) return;
+    if (!messageText || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -281,7 +345,7 @@ export default function Brain() {
     }
   };
 
-  const handleQuickAction = (action: typeof QUICK_ACTIONS[0]) => {
+  const handleQuickAction = (action: typeof DECK_QUICK_ACTIONS[0]) => {
     handleSendMessage(action.prompt);
   };
 
@@ -329,7 +393,7 @@ export default function Brain() {
                 </div>
                 <div>
                   <h1 className="font-bold text-lg">MTG Brain</h1>
-                  <p className="text-xs text-muted-foreground">AI Deck Analyst</p>
+                  <p className="text-xs text-muted-foreground">AI Magic Assistant</p>
                 </div>
               </div>
 
@@ -338,18 +402,21 @@ export default function Brain() {
               {/* Deck Selector */}
               <div className="space-y-3">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Active Deck
+                  Deck Context (Optional)
                 </Label>
-                <Select value={selectedDeck?.id || ''} onValueChange={handleDeckChange}>
+                <Select value={selectedDeck?.id || 'none'} onValueChange={handleDeckChange}>
                   <SelectTrigger className="w-full bg-background">
-                    <SelectValue placeholder={loadingDecks ? "Loading..." : "Select a deck"} />
+                    <SelectValue placeholder={loadingDecks ? "Loading..." : "No deck selected"} />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                  <SelectContent className="bg-popover z-50 max-w-[280px]">
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No deck - General questions</span>
+                    </SelectItem>
                     {availableDecks.map((deck) => (
                       <SelectItem key={deck.id} value={deck.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{deck.name}</span>
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center gap-2 max-w-[240px]">
+                          <span className="truncate flex-1">{deck.name}</span>
+                          <Badge variant="outline" className="text-xs shrink-0">
                             {deck.format}
                           </Badge>
                         </div>
@@ -357,6 +424,9 @@ export default function Brain() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select a deck for specific analysis or ask general MTG questions
+                </p>
               </div>
 
               {/* Deck Stats */}
@@ -426,81 +496,74 @@ export default function Brain() {
                 </div>
               )}
 
-              {!selectedDeck && !loadingDecks && availableDecks.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No decks found</p>
-                  <p className="text-xs mt-1">Create a deck to start analyzing</p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Main Chat Area */}
           <div className="flex-1 flex flex-col min-h-0">
-            {selectedDeck ? (
-              <>
-                {/* Chat Messages */}
-                <ScrollArea className="flex-1 p-4 lg:p-6">
-                  <div className="max-w-4xl mx-auto space-y-6">
-                    {messages.length === 0 ? (
-                      /* Empty State with Quick Actions */
-                      <div className="space-y-8 py-8">
-                        <div className="text-center space-y-3">
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center mx-auto shadow-lg">
-                            <Sparkles className="h-8 w-8 text-primary-foreground" />
-                          </div>
-                          <h2 className="text-2xl font-bold">
-                            Ready to analyze {selectedDeck.name}
-                          </h2>
-                          <p className="text-muted-foreground max-w-md mx-auto">
-                            Ask me anything about your deck's strategy, card choices, or optimization opportunities.
-                          </p>
-                        </div>
-
-                        {/* Quick Actions Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {QUICK_ACTIONS.map((action) => (
-                            <button
-                              key={action.id}
-                              onClick={() => handleQuickAction(action)}
-                              className="group p-4 rounded-xl border bg-card hover:shadow-md transition-all text-left hover:border-primary/50"
-                            >
-                              <div className={cn(
-                                "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center mb-3",
-                                action.gradient
-                              )}>
-                                <action.icon className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="font-medium text-sm group-hover:text-primary transition-colors">
-                                {action.label}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {action.description}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Example Prompts */}
-                        <div className="space-y-3">
-                          <p className="text-sm text-muted-foreground text-center">
-                            Or try asking:
-                          </p>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            {EXAMPLE_PROMPTS.map((prompt, i) => (
-                              <button
-                                key={i}
-                                onClick={() => handleSendMessage(prompt)}
-                                className="px-3 py-1.5 text-sm rounded-full border bg-muted/50 hover:bg-muted transition-colors"
-                              >
-                                {prompt}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+            {/* Chat Messages */}
+            <ScrollArea className="flex-1 p-4 lg:p-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                {messages.length === 0 ? (
+                  /* Empty State with Quick Actions */
+                  <div className="space-y-8 py-8">
+                    <div className="text-center space-y-3">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center mx-auto shadow-lg">
+                        <Sparkles className="h-8 w-8 text-primary-foreground" />
                       </div>
-                    ) : (
+                      <h2 className="text-2xl font-bold">
+                        {selectedDeck ? `Analyzing ${selectedDeck.name}` : 'Ask Me Anything About Magic'}
+                      </h2>
+                      <p className="text-muted-foreground max-w-md mx-auto">
+                        {selectedDeck 
+                          ? 'Ask me anything about your deck\'s strategy, card choices, or optimization opportunities.'
+                          : 'I can help with rules, deck building, card recommendations, strategy, and more. Select a deck for specific analysis.'}
+                      </p>
+                    </div>
+
+                    {/* Quick Actions Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {(selectedDeck ? DECK_QUICK_ACTIONS : GENERAL_QUICK_ACTIONS).map((action) => (
+                        <button
+                          key={action.id}
+                          onClick={() => handleQuickAction(action)}
+                          className="group p-4 rounded-xl border bg-card hover:shadow-md transition-all text-left hover:border-primary/50"
+                        >
+                          <div className={cn(
+                            "w-10 h-10 rounded-lg bg-gradient-to-br flex items-center justify-center mb-3",
+                            action.gradient
+                          )}>
+                            <action.icon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="font-medium text-sm group-hover:text-primary transition-colors">
+                            {action.label}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {action.description}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Example Prompts */}
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground text-center">
+                        Or try asking:
+                      </p>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {(selectedDeck ? DECK_EXAMPLE_PROMPTS : GENERAL_EXAMPLE_PROMPTS).map((prompt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSendMessage(prompt)}
+                            className="px-3 py-1.5 text-sm rounded-full border bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                       /* Message Thread */
                       <AnimatePresence mode="popLayout">
                         {messages.map((message) => (
@@ -527,9 +590,9 @@ export default function Brain() {
                                 : 'bg-muted/50 border px-4 py-3'
                             )}>
                               {message.type === 'assistant' ? (
-                                <div className="space-y-4">
-                                  <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-li:my-0.5">
-                                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                            <div className="space-y-4">
+                              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-3 prose-p:leading-relaxed prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-ul:my-3 prose-ul:space-y-1 prose-ol:my-3 prose-ol:space-y-1 prose-li:my-1 prose-strong:text-foreground prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:rounded-lg prose-blockquote:border-l-primary prose-blockquote:pl-4 prose-blockquote:italic">
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
                                   </div>
                                   
                                   {/* Visual Data */}
@@ -634,7 +697,7 @@ export default function Brain() {
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
                           onKeyDown={handleKeyDown}
-                          placeholder="Ask about your deck..."
+                          placeholder={selectedDeck ? "Ask about your deck..." : "Ask anything about Magic..."}
                           className="min-h-[52px] max-h-32 resize-none pr-12 text-base"
                           disabled={isLoading}
                           rows={1}
@@ -658,27 +721,6 @@ export default function Brain() {
                     </p>
                   </div>
                 </div>
-              </>
-            ) : (
-              /* No Deck Selected State */
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center space-y-4 max-w-md">
-                  <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto">
-                    <Layers className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                  <h2 className="text-xl font-bold">Select a Deck to Begin</h2>
-                  <p className="text-muted-foreground">
-                    Choose a deck from the sidebar to start your AI-powered analysis session.
-                  </p>
-                  {loadingDecks && (
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading your decks...
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

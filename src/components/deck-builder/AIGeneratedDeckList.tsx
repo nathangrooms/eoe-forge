@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   BarChart3,
-  Eye
+  Eye,
+  Zap
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { showSuccess } from '@/components/ui/toast-helpers';
@@ -289,6 +290,83 @@ export function AIGeneratedDeckList({
         </TabsContent>
 
         <TabsContent value="analysis" className="mt-6 space-y-6">
+          {/* EDH Power Overview */}
+          {(edhPowerLevel || analysis?.edhMetrics) && (
+            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  EDH Power Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-background/50 rounded-lg">
+                    <div className="text-3xl font-bold text-primary">{edhPowerLevel ?? '--'}</div>
+                    <div className="text-xs text-muted-foreground">Power Level</div>
+                  </div>
+                  {analysis?.edhMetrics?.efficiency && (
+                    <div className="text-center p-3 bg-background/50 rounded-lg">
+                      <div className="text-2xl font-bold">{analysis.edhMetrics.efficiency.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">Efficiency</div>
+                    </div>
+                  )}
+                  {analysis?.edhMetrics?.impact && (
+                    <div className="text-center p-3 bg-background/50 rounded-lg">
+                      <div className="text-2xl font-bold">{analysis.edhMetrics.impact.toFixed(0)}</div>
+                      <div className="text-xs text-muted-foreground">Impact</div>
+                    </div>
+                  )}
+                  {analysis?.edhMetrics?.playability && (
+                    <div className="text-center p-3 bg-background/50 rounded-lg">
+                      <div className="text-2xl font-bold">{analysis.edhMetrics.playability.toFixed(0)}%</div>
+                      <div className="text-xs text-muted-foreground">Playability</div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Bracket info */}
+                {analysis?.bracket && (
+                  <div className="mt-4 p-3 bg-background/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Recommended Bracket:</span>
+                      <Badge variant="outline" className="text-lg">{analysis.bracket.recommended ?? '--'}</Badge>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Land Analysis */}
+          {analysis?.landAnalysis && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Mana Base Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <div className="text-2xl font-bold">{analysis.landAnalysis.landCount}</div>
+                    <div className="text-xs text-muted-foreground">Lands</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <div className="text-2xl font-bold">{analysis.landAnalysis.nonLandCount}</div>
+                    <div className="text-xs text-muted-foreground">Non-Lands</div>
+                  </div>
+                  <div className="text-center p-3 bg-red-500/10 rounded-lg">
+                    <div className="text-2xl font-bold text-red-500">{analysis.landAnalysis.manaScrewPct ?? '--'}%</div>
+                    <div className="text-xs text-muted-foreground">Screw Risk</div>
+                  </div>
+                  <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-500">{analysis.landAnalysis.manaFloodPct ?? '--'}%</div>
+                    <div className="text-xs text-muted-foreground">Flood Risk</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Mana Curve */}
           <Card>
             <CardHeader>
@@ -304,6 +382,32 @@ export function AIGeneratedDeckList({
                     <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Type Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Type Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
+                {[
+                  { label: 'Creatures', count: stats.creatures, color: 'bg-green-500' },
+                  { label: 'Lands', count: stats.lands, color: 'bg-amber-500' },
+                  { label: 'Instants', count: stats.instants, color: 'bg-blue-500' },
+                  { label: 'Sorceries', count: stats.sorceries, color: 'bg-red-500' },
+                  { label: 'Artifacts', count: stats.artifacts, color: 'bg-slate-500' },
+                  { label: 'Enchantments', count: stats.enchantments, color: 'bg-purple-500' },
+                  { label: 'Planeswalkers', count: stats.planeswalkers, color: 'bg-orange-500' },
+                ].map(({ label, count, color }) => (
+                  <div key={label} className="text-center p-2 bg-muted/30 rounded-lg">
+                    <div className={`w-3 h-3 rounded-full ${color} mx-auto mb-1`} />
+                    <div className="text-lg font-bold">{count}</div>
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

@@ -307,35 +307,51 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
   };
 
   const parseJsonResponse = (text: string): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
-    // Try to extract JSON from the response
+    // Step 1: Strip markdown code blocks
+    let cleanText = text
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    
+    // Step 2: Try to extract and parse JSON
     try {
-      // Look for JSON object in the text
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          summary: parsed.summary || '',
-          issues: (parsed.issues || []).map((i: any) => ({
-            card: i.card || '',
-            reason: i.reason || '',
-            severity: i.severity || 'medium'
-          })),
-          strengths: (parsed.strengths || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-          strategy: (parsed.strategy || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-          manabase: (parsed.manabase || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-          missingCount: missingCards,
-          recommendations: [],
-          replacements: parsed.replacements || [],
-          additions: parsed.additions || []
-        };
+      // Try direct parse first (in case it's clean JSON)
+      const parsed = JSON.parse(cleanText);
+      return normalizeAnalysis(parsed);
+    } catch {
+      // Step 3: Try to find JSON object boundaries more carefully
+      try {
+        const startIdx = cleanText.indexOf('{');
+        if (startIdx === -1) throw new Error('No JSON object found');
+        
+        // Find matching closing brace by counting braces
+        let depth = 0;
+        let endIdx = -1;
+        for (let i = startIdx; i < cleanText.length; i++) {
+          if (cleanText[i] === '{') depth++;
+          else if (cleanText[i] === '}') {
+            depth--;
+            if (depth === 0) {
+              endIdx = i;
+              break;
+            }
+          }
+        }
+        
+        if (endIdx === -1) throw new Error('No matching closing brace');
+        
+        const jsonStr = cleanText.substring(startIdx, endIdx + 1);
+        const parsed = JSON.parse(jsonStr);
+        return normalizeAnalysis(parsed);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', e);
+        console.error('Raw text:', text.substring(0, 500));
       }
-    } catch (e) {
-      console.error('Failed to parse JSON response:', e);
     }
 
-    // Fallback: return empty result
+    // Fallback: return error result
     return {
-      summary: 'Analysis could not be parsed. Please try again.',
+      summary: 'Analysis could not be parsed. The AI response was malformed. Please try again.',
       issues: [],
       strengths: [],
       strategy: [],
@@ -344,6 +360,24 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
       recommendations: [],
       replacements: [],
       additions: []
+    };
+  };
+
+  const normalizeAnalysis = (parsed: any): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
+    return {
+      summary: parsed.summary || '',
+      issues: (parsed.issues || []).map((i: any) => ({
+        card: i.card || '',
+        reason: i.reason || '',
+        severity: i.severity || 'medium'
+      })),
+      strengths: (parsed.strengths || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+      strategy: (parsed.strategy || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+      manabase: (parsed.manabase || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
+      missingCount: 0,
+      recommendations: [],
+      replacements: parsed.replacements || [],
+      additions: parsed.additions || []
     };
   };
 

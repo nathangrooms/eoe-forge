@@ -54,7 +54,7 @@ async function updateSyncStatus(
   total?: number, 
   step?: string, 
   stepProgress?: number,
-  error?: string
+  stateJson?: string | null
 ) {
   const updateData: Record<string, any> = { 
     status, 
@@ -65,8 +65,7 @@ async function updateSyncStatus(
   if (total !== undefined) updateData.total_records = total;
   if (step) updateData.current_step = step;
   if (stepProgress !== undefined) updateData.step_progress = stepProgress;
-  if (error) updateData.error_message = error;
-  else updateData.error_message = null;
+  if (stateJson !== undefined) updateData.error_message = stateJson;
 
   await supabase.from('sync_status').upsert({ id: 'scryfall_cards', ...updateData }, { onConflict: 'id' });
 }
@@ -78,11 +77,27 @@ async function getSyncState(): Promise<SyncState | null> {
     .eq('id', 'scryfall_cards')
     .maybeSingle();
   
-  if (data?.current_step === 'resumable' && data?.error_message) {
+  // Try to parse state from error_message field (used to store resume state)
+  if (data?.error_message) {
     try {
-      return JSON.parse(data.error_message) as SyncState;
-    } catch { return null; }
+      const parsed = JSON.parse(data.error_message);
+      if (parsed.next_page_url && parsed.current_page) {
+        return parsed as SyncState;
+      }
+    } catch { /* not valid JSON */ }
   }
+  
+  // If running/stuck but no resume state, try to reconstruct from step_progress
+  if (data?.status === 'running' && data?.step_progress > 0) {
+    const pageNum = data.step_progress;
+    return {
+      next_page_url: `https://api.scryfall.com/cards/search?q=-is%3Adigital+game%3Apaper&unique=cards&page=${pageNum}`,
+      total_processed: data.records_processed || 0,
+      total_cards: data.total_records || 0,
+      current_page: pageNum
+    };
+  }
+  
   return null;
 }
 
@@ -322,17 +337,18 @@ serve(async (req) => {
       // Check for resumable state
       const resumeState = await getSyncState();
       
-      // Check if already running (not resumable)
+      // Check if already running
       const { data: status } = await supabase
         .from('sync_status')
         .select('status, current_step, last_sync')
         .eq('id', 'scryfall_cards')
         .maybeSingle();
       
-      // If it's running but NOT resumable, check if stuck (more than 2 minutes)
-      if (status?.status === 'running' && status?.current_step !== 'resumable') {
+      // If running, check how long ago (allow resume if stuck > 1 minute)
+      if (status?.status === 'running') {
         const minutesAgo = (Date.now() - new Date(status.last_sync).getTime()) / 60000;
-        if (minutesAgo < 2) {
+        // If recently updated AND no resume state, it's actively running
+        if (minutesAgo < 1 && !resumeState) {
           return new Response(JSON.stringify({ 
             message: 'Sync already in progress',
             status: 'running'
@@ -341,10 +357,12 @@ serve(async (req) => {
             status: 409
           });
         }
+        // If stuck (>1 min) or has resume state, allow to continue
+        console.log(`⚠️ Sync was stuck for ${minutesAgo.toFixed(1)} mins. Resuming...`);
       }
       
-      // For resume, use existing state. For sync, start fresh unless there's a resumable state
-      const useResume = resumeState !== null;
+      // For 'sync' action without resume state, start fresh. Otherwise resume.
+      const useResume = action === 'resume' || (resumeState !== null && status?.status === 'running');
       
       // Run sync
       const result = await syncCards(useResume ? resumeState : undefined);

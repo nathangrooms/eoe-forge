@@ -732,7 +732,7 @@ export default function Simulate() {
               <h1 className="text-4xl font-bold">Deck Simulation</h1>
               <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-400 gap-1.5">
                 <AlertTriangle className="h-3 w-3" />
-                BETA - Still in very early stages of development
+                ALPHA - Still in very early stages of development
               </Badge>
               <p className="text-muted-foreground max-w-md mx-auto">
                 Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in

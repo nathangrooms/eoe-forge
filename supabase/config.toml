@@ -34,3 +34,6 @@ verify_jwt = false
 
 [functions.fetch-precons]
 verify_jwt = false
+
+[functions.deck-optimizer]
+verify_jwt = false

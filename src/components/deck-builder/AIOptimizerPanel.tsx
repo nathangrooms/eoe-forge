@@ -149,98 +149,38 @@ export function AIOptimizerPanel({
         setLoadingCollection(false);
       }
 
-      const cardList = deckCards.map(c => c.name).join('\n');
-      const cardTypes = deckCards.reduce((acc, c) => {
-        const type = c.type_line?.split('—')[0].trim() || 'Unknown';
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      console.log('Calling deck-optimizer with', deckCards.length, 'cards');
 
-      const typeBreakdown = Object.entries(cardTypes)
-        .sort((a, b) => b[1] - a[1])
-        .map(([type, count]) => `${type}: ${count}`)
-        .join(', ');
-
-      // Build EDH analysis context
-      let edhContext = '';
-      if (edhAnalysis) {
-        const metrics = edhAnalysis.metrics;
-        edhContext = `
-**EDH Power Analysis:**
-- Power Level: ${metrics?.powerLevel?.toFixed(2) || 'Unknown'}/10
-- Tipping Point: Turn ${metrics?.tippingPoint ?? 'Unknown'}
-- Efficiency: ${metrics?.efficiency?.toFixed(1) ?? 'Unknown'}/10
-
-**Low Playability Cards (prioritize replacing these):**
-${lowPlayabilityCards.map(c => `- ${c.name}: ${c.playability}% playability`).join('\n') || 'None'}
-`;
-      }
-
-      let collectionContext = '';
-      if (fromCollection && collectionCards.length > 0) {
-        collectionContext = `
-**IMPORTANT: Only suggest cards from the user's collection:**
-${collectionCards.slice(0, 200).join(', ')}
-`;
-      }
-
-      const prompt = `Analyze this ${format} deck and provide structured recommendations.
-
-**Deck:** ${deckName || 'Deck'}
-${commander ? `**Commander:** ${commander.name}` : ''}
-**Format:** ${format}
-**Cards:** ${totalCardsWithCommander}/${requiredCards} (${missingCards > 0 ? `MISSING ${missingCards} CARDS` : 'Complete'})
-**Types:** ${typeBreakdown}
-
-${edhContext}
-${collectionContext}
-
-**Current Decklist:**
-${cardList}
-
-Respond in EXACTLY this JSON format (no markdown, just JSON):
-{
-  "summary": "One paragraph deck analysis",
-  "issues": [
-    {"card": "Card Name", "reason": "Why it's problematic", "severity": "high|medium|low"}
-  ],
-  "strengths": ["Strength 1", "Strength 2"],
-  "strategy": ["Strategic tip 1", "Strategic tip 2"],
-  "manabase": ["Mana observation 1"],
-  "replacements": [
-    {
-      "remove": "Card to remove",
-      "removeReason": "Why remove this card",
-      "add": "Card to add",
-      "addBenefit": "Why this is better",
-      "addType": "Creature/Instant/etc"
-    }
-  ]${missingCards > 0 ? `,
-  "additions": [
-    {
-      "name": "Card to add",
-      "reason": "Why add this",
-      "type": "Card type"
-    }
-  ]` : ''}
-}
-
-${missingCards > 0 ? `IMPORTANT: This deck needs ${missingCards} more cards. Include ${Math.min(missingCards, 10)} card addition suggestions.` : ''}
-Prioritize replacing low playability cards. Suggest real, legal cards only.`;
-
-      const { data, error: fnError } = await supabase.functions.invoke('mtg-brain', {
+      // Use the dedicated optimizer edge function with tool calling for reliable structured output
+      const { data, error: fnError } = await supabase.functions.invoke('deck-optimizer', {
         body: {
-          message: prompt,
-          conversationHistory: [],
-          responseStyle: 'detailed',
           deckContext: {
             id: deckId,
             name: deckName,
             format,
             commander,
-            cards: deckCards,
+            cards: deckCards.map(c => ({
+              name: c.name,
+              type_line: c.type_line,
+              mana_cost: c.mana_cost,
+              cmc: c.cmc,
+              quantity: c.quantity || 1
+            })),
             power: { score: powerLevel }
-          }
+          },
+          edhAnalysis: edhAnalysis ? {
+            metrics: edhAnalysis.metrics,
+            cardAnalysis: lowPlayabilityCards.map(c => ({
+              name: c.name,
+              playability: c.playability,
+              isCommander: false
+            })),
+            tippingPoint: edhAnalysis.metrics?.tippingPoint,
+            efficiency: edhAnalysis.metrics?.efficiency,
+            impact: edhAnalysis.metrics?.impact
+          } : null,
+          useCollection: fromCollection,
+          collectionCards: collectionCards.slice(0, 200)
         }
       });
 
@@ -256,9 +196,9 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
         throw fnError;
       }
 
-      // Check for error in response data (rate limit/payment returns as JSON error)
+      // Check for error in response data
       if (data?.error) {
-        console.error('Response error:', data.error);
+        console.error('Response error:', data.error, data.type);
         if (data.type === 'rate_limit' || /rate/i.test(data.error)) {
           throw new Error('RATE_LIMIT');
         }
@@ -268,9 +208,9 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
         throw new Error(data.error);
       }
 
-      if (data?.text || data?.message) {
-        const responseText = data.text || data.message;
-        const parsed = parseJsonResponse(responseText);
+      // The new endpoint returns { analysis: {...} }
+      if (data?.analysis) {
+        const parsed = normalizeAnalysis(data.analysis);
         setAnalysis(parsed);
         
         // Parse replacements and fetch card images
@@ -285,16 +225,16 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
           setAdditionSuggestions(additions);
         }
         
-        setActiveTab(suggestions.length > 0 ? 'replacements' : 'overview');
+        setActiveTab(parsed.replacements?.length > 0 ? 'replacements' : 'overview');
         toast.success('Analysis complete');
       } else {
-        throw new Error('No response generated');
+        throw new Error('No analysis returned');
       }
     } catch (err: any) {
-      console.error('AI optimizer error:', err);
+      console.error('Optimizer error:', err);
       const msg = String(err?.message || err);
       if (msg === 'RATE_LIMIT' || /429|rate/i.test(msg)) {
-        setError('Rate limit exceeded. Please wait 30 seconds and try again.');
+        setError('Rate limit exceeded. Please wait 30-60 seconds and try again.');
       } else if (msg === 'PAYMENT_REQUIRED' || /402|credit|payment/i.test(msg)) {
         setError('AI credits required. Please add credits in Settings → Workspace → Usage.');
       } else {
@@ -304,63 +244,6 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
       setLoading(false);
       setLoadingCollection(false);
     }
-  };
-
-  const parseJsonResponse = (text: string): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
-    // Step 1: Strip markdown code blocks
-    let cleanText = text
-      .replace(/```json\s*/gi, '')
-      .replace(/```\s*/g, '')
-      .trim();
-    
-    // Step 2: Try to extract and parse JSON
-    try {
-      // Try direct parse first (in case it's clean JSON)
-      const parsed = JSON.parse(cleanText);
-      return normalizeAnalysis(parsed);
-    } catch {
-      // Step 3: Try to find JSON object boundaries more carefully
-      try {
-        const startIdx = cleanText.indexOf('{');
-        if (startIdx === -1) throw new Error('No JSON object found');
-        
-        // Find matching closing brace by counting braces
-        let depth = 0;
-        let endIdx = -1;
-        for (let i = startIdx; i < cleanText.length; i++) {
-          if (cleanText[i] === '{') depth++;
-          else if (cleanText[i] === '}') {
-            depth--;
-            if (depth === 0) {
-              endIdx = i;
-              break;
-            }
-          }
-        }
-        
-        if (endIdx === -1) throw new Error('No matching closing brace');
-        
-        const jsonStr = cleanText.substring(startIdx, endIdx + 1);
-        const parsed = JSON.parse(jsonStr);
-        return normalizeAnalysis(parsed);
-      } catch (e) {
-        console.error('Failed to parse JSON response:', e);
-        console.error('Raw text:', text.substring(0, 500));
-      }
-    }
-
-    // Fallback: return error result
-    return {
-      summary: 'Analysis could not be parsed. The AI response was malformed. Please try again.',
-      issues: [],
-      strengths: [],
-      strategy: [],
-      manabase: [],
-      missingCount: missingCards,
-      recommendations: [],
-      replacements: [],
-      additions: []
-    };
   };
 
   const normalizeAnalysis = (parsed: any): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
@@ -374,12 +257,13 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
       strengths: (parsed.strengths || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
       strategy: (parsed.strategy || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
       manabase: (parsed.manabase || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-      missingCount: 0,
+      missingCount: missingCards,
       recommendations: [],
       replacements: parsed.replacements || [],
       additions: parsed.additions || []
     };
   };
+
 
   const fetchReplacementImages = async (
     replacements: any[],

@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/AuthProvider';
@@ -12,23 +11,22 @@ import {
   Heart, 
   Plus, 
   Download,
-  ExternalLink,
-  ShoppingCart,
-  TrendingDown,
-  Bell,
-  DollarSign,
-  Package,
-  Filter,
   Grid3X3,
   List,
-  AlertTriangle,
-  Sparkles,
-  ArrowUpDown
+  LayoutGrid,
+  Layers,
+  Search,
+  Filter,
+  ArrowUpDown,
+  X
 } from 'lucide-react';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
-import { WishlistImportFromURL } from '@/components/wishlist/WishlistImportFromURL';
-import { WishlistDeckNeeds } from '@/components/wishlist/WishlistDeckNeeds';
+import { WishlistQuickStats } from '@/components/wishlist/WishlistQuickStats';
+import { WishlistCardGrid } from '@/components/wishlist/WishlistCardGrid';
+import { WishlistListView } from '@/components/wishlist/WishlistListView';
+import { WishlistByDeck } from '@/components/wishlist/WishlistByDeck';
+import { WishlistEmptyState } from '@/components/wishlist/WishlistEmptyState';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -41,7 +39,6 @@ interface WishlistItem {
   created_at: string;
   target_price_usd?: number;
   alert_enabled?: boolean;
-  last_notified_at?: string;
   card?: {
     id?: string;
     name: string;
@@ -75,20 +72,24 @@ interface UserDeck {
   colors: string[];
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 'all', label: 'All Priorities' },
-  { value: 'high', label: 'High Priority' },
-  { value: 'medium', label: 'Medium Priority' },
-  { value: 'low', label: 'Low Priority' },
-];
+type ViewMode = 'grid' | 'compact' | 'list';
+type SortOption = 'date-desc' | 'date-asc' | 'price-desc' | 'price-asc' | 'name-asc' | 'priority';
+type PriorityFilter = 'all' | 'high' | 'medium' | 'low';
 
 const SORT_OPTIONS = [
-  { value: 'date-desc', label: 'Newest First' },
-  { value: 'date-asc', label: 'Oldest First' },
-  { value: 'price-desc', label: 'Price: High to Low' },
-  { value: 'price-asc', label: 'Price: Low to High' },
-  { value: 'name-asc', label: 'Name: A-Z' },
+  { value: 'date-desc', label: 'Newest' },
+  { value: 'date-asc', label: 'Oldest' },
+  { value: 'price-desc', label: 'Price ↓' },
+  { value: 'price-asc', label: 'Price ↑' },
+  { value: 'name-asc', label: 'Name' },
   { value: 'priority', label: 'Priority' },
+];
+
+const PRIORITY_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
 ];
 
 export default function Wishlist() {
@@ -99,20 +100,23 @@ export default function Wishlist() {
   const [decksLoading, setDecksLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<WishlistItem | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('date-desc');
+  
+  // View & filter state
   const [activeTab, setActiveTab] = useState('wishlist');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
+  // Load data
   useEffect(() => {
     if (user) {
       loadWishlist();
       loadUserDecks();
     }
     
-    const handleWishlistUpdate = () => loadWishlist();
-    window.addEventListener('wishlist-updated', handleWishlistUpdate);
-    return () => window.removeEventListener('wishlist-updated', handleWishlistUpdate);
+    const handleUpdate = () => loadWishlist();
+    window.addEventListener('wishlist-updated', handleUpdate);
+    return () => window.removeEventListener('wishlist-updated', handleUpdate);
   }, [user]);
 
   const loadWishlist = async () => {
@@ -121,49 +125,58 @@ export default function Wishlist() {
     try {
       setLoading(true);
       
-      // Single optimized query with join
-      const { data: wishlistData, error: wishlistError } = await supabase
+      const { data: wishlistData, error } = await supabase
         .from('wishlist')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (wishlistError) throw wishlistError;
+      if (error) throw error;
 
-      if (!wishlistData || wishlistData.length === 0) {
+      if (!wishlistData?.length) {
         setWishlistItems([]);
         return;
       }
 
-      // Batch fetch card details efficiently
-      const cardIds = [...new Set(wishlistData.map(item => item.card_id))];
-      
+      // Batch fetch cards
+      const cardIds = [...new Set(wishlistData.map(i => i.card_id))];
       const { data: cardsData } = await supabase
         .from('cards')
         .select('id, name, set_code, type_line, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris')
         .in('id', cardIds);
 
-      const cardsMap = new Map(cardsData?.map(card => [card.id, card]) || []);
+      const cardsMap = new Map(cardsData?.map(c => [c.id, c]) || []);
 
-      const transformedData = wishlistData.map((item: any) => ({
-        ...item,
-        card: cardsMap.get(item.card_id) || {
-          id: item.card_id,
-          name: item.card_name,
-          type_line: 'Unknown',
-          colors: [],
-          rarity: 'common',
-          image_uris: {},
-          prices: {},
-          set_code: 'UNK'
-        }
+      setWishlistItems(wishlistData.map(item => {
+        const cardData = cardsMap.get(item.card_id);
+        return {
+          ...item,
+          card: cardData ? {
+            id: cardData.id,
+            name: cardData.name,
+            set_code: cardData.set_code,
+            type_line: cardData.type_line,
+            colors: cardData.colors || [],
+            color_identity: cardData.color_identity || [],
+            rarity: cardData.rarity || 'common',
+            cmc: cardData.cmc || 0,
+            mana_cost: cardData.mana_cost || '',
+            prices: (cardData.prices as any) || {},
+            image_uris: (cardData.image_uris as any) || {},
+          } : {
+            name: item.card_name,
+            set_code: 'UNK',
+            type_line: 'Unknown',
+            colors: [],
+            rarity: 'common',
+            prices: {},
+            image_uris: {},
+          }
+        };
       }));
-      
-      setWishlistItems(transformedData);
     } catch (error) {
       console.error('Error loading wishlist:', error);
       showError('Failed to load wishlist');
-      setWishlistItems([]);
     } finally {
       setLoading(false);
     }
@@ -178,27 +191,25 @@ export default function Wishlist() {
         .from('user_decks')
         .select('id, name, format, colors')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
       setUserDecks(data || []);
     } catch (error) {
-      console.error('Error loading user decks:', error);
+      console.error('Error loading decks:', error);
     } finally {
       setDecksLoading(false);
     }
   };
 
-  // Memoized filtered and sorted items
+  // Filtered & sorted items
   const filteredItems = useMemo(() => {
     let items = [...wishlistItems];
     
-    // Apply priority filter
     if (priorityFilter !== 'all') {
-      items = items.filter(item => item.priority === priorityFilter);
+      items = items.filter(i => i.priority === priorityFilter);
     }
     
-    // Apply sorting
     items.sort((a, b) => {
       switch (sortBy) {
         case 'date-desc':
@@ -211,10 +222,10 @@ export default function Wishlist() {
           return parseFloat(a.card?.prices?.usd || '0') - parseFloat(b.card?.prices?.usd || '0');
         case 'name-asc':
           return a.card_name.localeCompare(b.card_name);
-        case 'priority':
-          const priorityOrder = { high: 0, medium: 1, low: 2 };
-          return (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) - 
-                 (priorityOrder[b.priority as keyof typeof priorityOrder] || 2);
+        case 'priority': {
+          const order = { high: 0, medium: 1, low: 2 };
+          return (order[a.priority as keyof typeof order] ?? 2) - (order[b.priority as keyof typeof order] ?? 2);
+        }
         default:
           return 0;
       }
@@ -223,24 +234,8 @@ export default function Wishlist() {
     return items;
   }, [wishlistItems, priorityFilter, sortBy]);
 
-  // Stats calculations
-  const stats = useMemo(() => {
-    const totalValue = wishlistItems.reduce((sum, item) => {
-      const price = parseFloat(item.card?.prices?.usd || '0');
-      return sum + (price * item.quantity);
-    }, 0);
-    
-    const highPriorityCount = wishlistItems.filter(i => i.priority === 'high').length;
-    const alertsEnabled = wishlistItems.filter(i => i.alert_enabled && i.target_price_usd).length;
-    const priceDrops = wishlistItems.filter(i => {
-      if (!i.target_price_usd || !i.card?.prices?.usd) return false;
-      return parseFloat(i.card.prices.usd) <= i.target_price_usd;
-    }).length;
-    
-    return { totalValue, highPriorityCount, alertsEnabled, priceDrops };
-  }, [wishlistItems]);
-
-  const addToWishlist = async (card: any) => {
+  // Actions
+  const addToWishlist = useCallback(async (card: any) => {
     if (!user) return;
 
     try {
@@ -256,7 +251,7 @@ export default function Wishlist() {
           .from('wishlist')
           .update({ quantity: existing.quantity + 1 })
           .eq('id', existing.id);
-        showSuccess('Updated Wishlist', `Increased quantity of ${card.name}`);
+        showSuccess('Updated', `Increased quantity of ${card.name}`);
       } else {
         await supabase
           .from('wishlist')
@@ -265,9 +260,10 @@ export default function Wishlist() {
             card_id: card.id,
             card_name: card.name,
             quantity: 1,
-            priority: 'medium'
+            priority: 'medium',
+            alert_enabled: true,
           });
-        showSuccess('Added to Wishlist', `${card.name} added`);
+        showSuccess('Added', `${card.name} added to wishlist`);
       }
       
       loadWishlist();
@@ -275,20 +271,48 @@ export default function Wishlist() {
       console.error('Error adding to wishlist:', error);
       showError('Failed to add to wishlist');
     }
-  };
+  }, [user]);
 
-  const removeFromWishlist = async (itemId: string) => {
+  const removeFromWishlist = useCallback(async (itemId: string) => {
     try {
       await supabase.from('wishlist').delete().eq('id', itemId);
-      showSuccess('Removed', 'Item removed from wishlist');
+      showSuccess('Removed', 'Card removed from wishlist');
       loadWishlist();
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
-      showError('Failed to remove item');
+      console.error('Error removing:', error);
+      showError('Failed to remove');
     }
-  };
+  }, []);
 
-  const addToCollection = async (item: WishlistItem) => {
+  const updatePriority = useCallback(async (itemId: string, priority: string) => {
+    try {
+      await supabase.from('wishlist').update({ priority }).eq('id', itemId);
+      loadWishlist();
+    } catch (error) {
+      console.error('Error updating priority:', error);
+    }
+  }, []);
+
+  const updateTargetPrice = useCallback(async (itemId: string, price: number | null) => {
+    try {
+      await supabase.from('wishlist').update({ target_price_usd: price }).eq('id', itemId);
+      showSuccess('Updated', 'Target price set');
+      loadWishlist();
+    } catch (error) {
+      console.error('Error updating target price:', error);
+    }
+  }, []);
+
+  const toggleAlert = useCallback(async (itemId: string, enabled: boolean) => {
+    try {
+      await supabase.from('wishlist').update({ alert_enabled: enabled }).eq('id', itemId);
+      loadWishlist();
+    } catch (error) {
+      console.error('Error toggling alert:', error);
+    }
+  }, []);
+
+  const addToCollection = useCallback(async (item: WishlistItem) => {
     if (!user || !item.card) return;
 
     try {
@@ -298,247 +322,176 @@ export default function Wishlist() {
         card_name: item.card_name,
         set_code: item.card.set_code || 'UNK',
         quantity: item.quantity,
-        condition: 'near_mint'
+        condition: 'near_mint',
       });
 
       await supabase.from('wishlist').delete().eq('id', item.id);
-      showSuccess('Moved to Collection', `${item.card_name} moved from wishlist to collection`);
+      showSuccess('Moved', `${item.card_name} moved to collection`);
       loadWishlist();
     } catch (error) {
       console.error('Error moving to collection:', error);
       showError('Failed to move to collection');
     }
-  };
+  }, [user]);
 
-  const openBuyLinks = (item: WishlistItem) => {
+  const openBuyLink = useCallback((item: WishlistItem) => {
     const cardName = encodeURIComponent(item.card_name);
-    const setCode = item.card?.set_code?.toUpperCase() || '';
-    
-    // TCGPlayer affiliate-ready link structure
     const tcgPlayerUrl = `https://www.tcgplayer.com/search/magic/product?productLineName=magic&q=${cardName}&view=grid`;
     window.open(tcgPlayerUrl, '_blank');
-  };
+  }, []);
 
-  const exportToCSV = () => {
-    const csvData = [
-      'Card Name,Quantity,Priority,Set,Price USD,Total Value,Target Price,Note',
-      ...wishlistItems.map(item => [
-        `"${item.card_name}"`,
-        item.quantity,
-        item.priority,
-        item.card?.set_code?.toUpperCase() || 'UNK',
-        item.card?.prices?.usd || '0',
-        (parseFloat(item.card?.prices?.usd || '0') * item.quantity).toFixed(2),
-        item.target_price_usd || '',
-        `"${item.note || ''}"`
+  const handleBuyAll = useCallback((items: WishlistItem[]) => {
+    // Open TCGPlayer mass entry or shopping list
+    const cardList = items.map(i => `${i.quantity} ${i.card_name}`).join('\n');
+    const tcgUrl = `https://www.tcgplayer.com/massentry?productline=Magic`;
+    window.open(tcgUrl, '_blank');
+    // Could also copy card list to clipboard
+    navigator.clipboard.writeText(cardList);
+    showSuccess('Copied', 'Card list copied to clipboard');
+  }, []);
+
+  const exportToCSV = useCallback(() => {
+    const csv = [
+      'Card Name,Quantity,Priority,Set,Price USD,Total,Target Price,Note',
+      ...wishlistItems.map(i => [
+        `"${i.card_name}"`,
+        i.quantity,
+        i.priority,
+        i.card?.set_code?.toUpperCase() || 'UNK',
+        i.card?.prices?.usd || '0',
+        (parseFloat(i.card?.prices?.usd || '0') * i.quantity).toFixed(2),
+        i.target_price_usd || '',
+        `"${i.note || ''}"`,
       ].join(','))
     ].join('\n');
     
-    const blob = new Blob([csvData], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'wishlist.csv';
     a.click();
     URL.revokeObjectURL(url);
-    showSuccess('Export Complete', 'Wishlist exported as CSV');
-  };
+    showSuccess('Exported', 'Wishlist exported as CSV');
+  }, [wishlistItems]);
 
-  const exportToMoxfield = () => {
-    const moxfieldFormat = wishlistItems.map(item => 
-      `${item.quantity} ${item.card_name}`
-    ).join('\n');
-    
-    const blob = new Blob([moxfieldFormat], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'wishlist_moxfield.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-    showSuccess('Export Complete', 'Wishlist exported for Moxfield');
-  };
+  const handleCardClick = useCallback((item: WishlistItem) => {
+    setSelectedItem(item);
+    setShowCardModal(true);
+  }, []);
 
-  const getWishlistForDeck = (deck: UserDeck) => {
-    return wishlistItems.filter(item => {
-      const cardColors = item.card?.color_identity || item.card?.colors || [];
-      if (deck.colors.length === 0) {
-        return cardColors.length === 0 || item.card?.type_line?.toLowerCase().includes('artifact');
-      }
-      if (cardColors.length === 0) return true;
-      return cardColors.every(color => deck.colors.includes(color));
-    });
-  };
-
-  const getPriorityStyles = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-500/10 text-red-400 border-red-500/30';
-      case 'medium': return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-      case 'low': return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const isPriceBelowTarget = (item: WishlistItem) => {
-    if (!item.target_price_usd || !item.card?.prices?.usd) return false;
-    return parseFloat(item.card.prices.usd) <= item.target_price_usd;
-  };
+  const hasActiveFilter = priorityFilter !== 'all';
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full px-4 md:px-6 py-4">
+      <div className="w-full px-4 md:px-6 py-4 space-y-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-              <Heart className="h-6 w-6 text-red-500" />
+              <Heart className="h-6 w-6 text-rose-500" />
               Wishlist
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Track cards you want and find the best prices
+              Track prices, set alerts, and find the best deals
             </p>
           </div>
           
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="outline" size="sm" onClick={exportToMoxfield}>
-              <Download className="h-4 w-4 mr-2" />
-              Moxfield
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportToCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              CSV
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Value</p>
-                  <p className="text-lg font-bold text-green-500">${stats.totalValue.toFixed(2)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Cards</p>
-                  <p className="text-lg font-bold">{wishlistItems.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">High Priority</p>
-                  <p className="text-lg font-bold">{stats.highPriorityCount}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  stats.priceDrops > 0 ? "bg-green-500/10" : "bg-amber-500/10"
-                )}>
-                  <TrendingDown className={cn(
-                    "h-5 w-5",
-                    stats.priceDrops > 0 ? "text-green-500" : "text-amber-500"
-                  )} />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Price Drops</p>
-                  <p className={cn(
-                    "text-lg font-bold",
-                    stats.priceDrops > 0 ? "text-green-500" : ""
-                  )}>{stats.priceDrops}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <WishlistQuickStats items={wishlistItems} />
 
-        {/* Main Tabs */}
+        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-            <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="wishlist" className="data-[state=active]:bg-background">
-                <Heart className="h-4 w-4 mr-2" />
-                My Wishlist
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <TabsList className="bg-muted/50 p-1 h-auto">
+              <TabsTrigger value="wishlist" className="gap-2 data-[state=active]:bg-background">
+                <Heart className="h-4 w-4" />
+                <span className="hidden sm:inline">My Cards</span>
+                {wishlistItems.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {wishlistItems.length}
+                  </Badge>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="by-deck" className="data-[state=active]:bg-background">
-                <Sparkles className="h-4 w-4 mr-2" />
-                By Deck
+              <TabsTrigger value="by-deck" className="gap-2 data-[state=active]:bg-background">
+                <Layers className="h-4 w-4" />
+                <span className="hidden sm:inline">By Deck</span>
               </TabsTrigger>
-              <TabsTrigger value="add" className="data-[state=active]:bg-background">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Cards
+              <TabsTrigger value="add" className="gap-2 data-[state=active]:bg-background">
+                <Search className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Cards</span>
               </TabsTrigger>
             </TabsList>
-            
-            {activeTab === 'wishlist' && (
-              <div className="flex items-center gap-2">
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger className="w-[140px] h-9">
-                    <Filter className="h-4 w-4 mr-2" />
+
+            {/* View Controls - Only on wishlist tab */}
+            {activeTab === 'wishlist' && wishlistItems.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Priority Filter */}
+                <div className="flex items-center gap-1 border rounded-lg p-0.5">
+                  {PRIORITY_FILTERS.map((f) => (
+                    <Button
+                      key={f.value}
+                      size="sm"
+                      variant={priorityFilter === f.value ? 'secondary' : 'ghost'}
+                      className={cn(
+                        "h-7 px-2 text-xs",
+                        priorityFilter === f.value && f.value === 'high' && "text-rose-500",
+                        priorityFilter === f.value && f.value === 'medium' && "text-amber-500",
+                        priorityFilter === f.value && f.value === 'low' && "text-slate-500"
+                      )}
+                      onClick={() => setPriorityFilter(f.value as PriorityFilter)}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Sort */}
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs">
+                    <ArrowUpDown className="h-3 w-3 mr-1" />
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRIORITY_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    {SORT_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[160px] h-9">
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <div className="flex border rounded-md">
+
+                {/* View Toggle */}
+                <div className="flex border rounded-lg p-0.5">
                   <Button
-                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                     size="sm"
-                    className="h-9 px-3"
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    className="h-7 px-2"
                     onClick={() => setViewMode('grid')}
                   >
-                    <Grid3X3 className="h-4 w-4" />
+                    <Grid3X3 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
-                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
                     size="sm"
-                    className="h-9 px-3"
+                    variant={viewMode === 'compact' ? 'secondary' : 'ghost'}
+                    className="h-7 px-2"
+                    onClick={() => setViewMode('compact')}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    className="h-7 px-2"
                     onClick={() => setViewMode('list')}
                   >
-                    <List className="h-4 w-4" />
+                    <List className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -546,385 +499,80 @@ export default function Wishlist() {
           </div>
 
           {/* Wishlist Tab */}
-          <TabsContent value="wishlist" className="mt-0">
-            {/* Import & Deck Needs */}
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
-              <WishlistImportFromURL onImportComplete={loadWishlist} />
-              <WishlistDeckNeeds />
-            </div>
-            
+          <TabsContent value="wishlist" className="mt-4">
             {loading ? (
-              <div className={cn(
-                viewMode === 'grid' 
-                  ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-                  : "space-y-3"
-              )}>
-                {[...Array(8)].map((_, i) => (
-                  <Card key={i} className="overflow-hidden">
-                    <Skeleton className="aspect-[5/7]" />
-                    <CardContent className="p-3 space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </CardContent>
-                  </Card>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="aspect-[5/7] rounded-lg" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
                 ))}
               </div>
             ) : filteredItems.length === 0 ? (
-              <Card className="p-12 text-center border-dashed">
-                <Heart className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-                <h3 className="text-lg font-medium mb-2">
-                  {priorityFilter !== 'all' ? 'No cards match your filter' : 'Your wishlist is empty'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {priorityFilter !== 'all' 
-                    ? 'Try changing the priority filter'
-                    : 'Start adding cards you want to collect'}
-                </p>
-                <Button onClick={() => setActiveTab('add')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Cards
-                </Button>
-              </Card>
-            ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredItems.map((item) => (
-                  <Card 
-                    key={item.id} 
-                    className="overflow-hidden group hover:shadow-lg transition-all hover:border-primary/50"
-                  >
-                    <div className="aspect-[5/7] relative bg-muted">
-                      {item.card?.image_uris?.normal ? (
-                        <img 
-                          src={item.card.image_uris.normal}
-                          alt={item.card_name}
-                          className="w-full h-full object-cover cursor-pointer"
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowCardModal(true);
-                          }}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div 
-                          className="w-full h-full flex items-center justify-center text-muted-foreground cursor-pointer"
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowCardModal(true);
-                          }}
-                        >
-                          No Image
-                        </div>
-                      )}
-                      
-                      {/* Priority Badge */}
-                      <Badge 
-                        className={cn(
-                          "absolute top-2 left-2 text-xs",
-                          getPriorityStyles(item.priority)
-                        )}
-                      >
-                        {item.priority}
-                      </Badge>
-                      
-                      {/* Price Drop Indicator */}
-                      {isPriceBelowTarget(item) && (
-                        <Badge className="absolute top-2 right-2 bg-green-500 text-white">
-                          <TrendingDown className="h-3 w-3 mr-1" />
-                          Deal!
-                        </Badge>
-                      )}
-                      
-                      {/* Quick Actions Overlay */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => openBuyLinks(item)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-1" />
-                          Buy
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          onClick={() => addToCollection(item)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <CardContent className="p-3">
-                      <h3 
-                        className="font-medium text-sm truncate cursor-pointer hover:text-primary"
-                        onClick={() => {
-                          setSelectedItem(item);
-                          setShowCardModal(true);
-                        }}
-                      >
-                        {item.card_name}
-                      </h3>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {item.card?.set_code?.toUpperCase() || 'UNK'}
-                        </span>
-                        <span className={cn(
-                          "text-sm font-medium",
-                          isPriceBelowTarget(item) ? "text-green-500" : ""
-                        )}>
-                          {item.card?.prices?.usd ? `$${item.card.prices.usd}` : 'N/A'}
-                        </span>
-                      </div>
-                      {item.quantity > 1 && (
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          ×{item.quantity}
-                        </Badge>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <WishlistEmptyState
+                hasFilter={hasActiveFilter}
+                onClearFilter={() => setPriorityFilter('all')}
+                onAddCards={() => setActiveTab('add')}
+              />
+            ) : viewMode === 'list' ? (
+              <WishlistListView
+                items={filteredItems}
+                onCardClick={handleCardClick}
+                onBuy={openBuyLink}
+                onAddToCollection={addToCollection}
+                onRemove={removeFromWishlist}
+                onUpdatePriority={updatePriority}
+                onUpdateTargetPrice={updateTargetPrice}
+                onToggleAlert={toggleAlert}
+              />
             ) : (
-              <div className="space-y-2">
-                {filteredItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden hover:border-primary/50 transition-colors">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                          {item.card?.image_uris?.small ? (
-                            <img 
-                              src={item.card.image_uris.small}
-                              alt={item.card_name}
-                              className="w-full h-full object-cover cursor-pointer"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setShowCardModal(true);
-                              }}
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                              N/A
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h3 
-                            className="font-medium truncate cursor-pointer hover:text-primary"
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setShowCardModal(true);
-                            }}
-                          >
-                            {item.card_name}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {item.card?.set_code?.toUpperCase() || 'UNK'}
-                            </Badge>
-                            <Badge className={cn("text-xs", getPriorityStyles(item.priority))}>
-                              {item.priority}
-                            </Badge>
-                            {item.quantity > 1 && (
-                              <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <div className={cn(
-                            "font-medium",
-                            isPriceBelowTarget(item) ? "text-green-500" : ""
-                          )}>
-                            {item.card?.prices?.usd ? `$${item.card.prices.usd}` : 'N/A'}
-                          </div>
-                          {isPriceBelowTarget(item) && (
-                            <Badge className="text-xs bg-green-500/10 text-green-500 border-green-500/20">
-                              <TrendingDown className="h-3 w-3 mr-1" />
-                              Below Target
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => openBuyLinks(item)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <ShoppingCart className="h-4 w-4 mr-1" />
-                            Buy
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => addToCollection(item)}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <WishlistCardGrid
+                items={filteredItems}
+                viewMode={viewMode}
+                onCardClick={handleCardClick}
+                onBuy={openBuyLink}
+                onAddToCollection={addToCollection}
+                onRemove={removeFromWishlist}
+                onUpdatePriority={updatePriority}
+                onUpdateTargetPrice={updateTargetPrice}
+                onToggleAlert={toggleAlert}
+              />
             )}
           </TabsContent>
 
           {/* By Deck Tab */}
-          <TabsContent value="by-deck" className="mt-0">
-            {decksLoading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i}>
-                    <CardContent className="p-6">
-                      <Skeleton className="h-6 w-1/3 mb-3" />
-                      <Skeleton className="h-4 w-2/3 mb-4" />
-                      <Skeleton className="h-24" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : userDecks.length === 0 ? (
-              <Card className="p-12 text-center border-dashed">
-                <Sparkles className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-                <h3 className="text-lg font-medium mb-2">No decks found</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create decks to see which wishlist cards fit each deck
-                </p>
-                <Button onClick={() => window.location.href = '/decks'}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Deck
-                </Button>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {userDecks.map((deck) => {
-                  const deckWishlist = getWishlistForDeck(deck);
-                  if (deckWishlist.length === 0) return null;
-                  
-                  const deckValue = deckWishlist.reduce((sum, item) => {
-                    return sum + (parseFloat(item.card?.prices?.usd || '0') * item.quantity);
-                  }, 0);
-                  
-                  return (
-                    <Card key={deck.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="font-semibold">{deck.name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {deck.format}
-                              </Badge>
-                              <div className="flex gap-0.5">
-                                {deck.colors.map((color, i) => (
-                                  <div
-                                    key={i}
-                                    className={cn(
-                                      "w-4 h-4 rounded-full border",
-                                      color === 'W' ? 'bg-amber-100 border-amber-400' :
-                                      color === 'U' ? 'bg-blue-500 border-blue-600' :
-                                      color === 'B' ? 'bg-gray-800 border-gray-900' :
-                                      color === 'R' ? 'bg-red-500 border-red-600' :
-                                      color === 'G' ? 'bg-green-500 border-green-600' :
-                                      'bg-gray-400'
-                                    )}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xl font-bold text-green-500">
-                              ${deckValue.toFixed(2)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {deckWishlist.length} cards needed
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          {deckWishlist.slice(0, 8).map((item) => (
-                            <div
-                              key={item.id}
-                              className="w-16 h-22 bg-muted rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setShowCardModal(true);
-                              }}
-                            >
-                              {item.card?.image_uris?.small ? (
-                                <img 
-                                  src={item.card.image_uris.small}
-                                  alt={item.card_name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground p-1 text-center">
-                                  {item.card_name.split(' ').slice(0, 2).join(' ')}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {deckWishlist.length > 8 && (
-                            <div className="w-16 h-22 bg-muted rounded flex items-center justify-center text-sm text-muted-foreground">
-                              +{deckWishlist.length - 8}
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                
-                {userDecks.every(deck => getWishlistForDeck(deck).length === 0) && (
-                  <Card className="p-12 text-center border-dashed">
-                    <h3 className="text-lg font-medium mb-2">No matching cards</h3>
-                    <p className="text-muted-foreground">
-                      None of your wishlist cards match your deck color identities
-                    </p>
-                  </Card>
-                )}
-              </div>
-            )}
+          <TabsContent value="by-deck" className="mt-4">
+            <WishlistByDeck
+              wishlistItems={wishlistItems}
+              userDecks={userDecks}
+              loading={decksLoading}
+              onCardClick={handleCardClick}
+              onBuyAll={handleBuyAll}
+              onNavigateToDeck={(deckId) => window.location.href = `/decks?deck=${deckId}`}
+            />
           </TabsContent>
 
           {/* Add Cards Tab */}
-          <TabsContent value="add" className="mt-0">
+          <TabsContent value="add" className="mt-4">
             <EnhancedUniversalCardSearch
-              onCardAdd={addToWishlist}
               onCardWishlist={addToWishlist}
-              onCardSelect={(card) => console.log('Selected:', card)}
-              placeholder="Search cards to add to your wishlist..."
-              showFilters={true}
-              showAddButton={false}
               showWishlistButton={true}
-              showViewModes={true}
             />
           </TabsContent>
         </Tabs>
 
         {/* Card Modal */}
-        {selectedItem && (
+        {selectedItem && selectedItem.card && (
           <UniversalCardModal
-            card={selectedItem.card || { 
-              id: selectedItem.card_id, 
-              name: selectedItem.card_name, 
-              type_line: '', 
-              colors: [], 
-              rarity: 'common' 
+            card={{
+              id: selectedItem.card_id,
+              name: selectedItem.card_name,
+              ...selectedItem.card,
             }}
             isOpen={showCardModal}
-            onClose={() => {
-              setShowCardModal(false);
-              setSelectedItem(null);
-            }}
-            onAddToCollection={() => addToCollection(selectedItem)}
-            onAddToWishlist={() => {}}
+            onClose={() => setShowCardModal(false)}
           />
         )}
       </div>

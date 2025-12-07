@@ -460,49 +460,53 @@ export default function Collection() {
       </div>
 
       {/* Enhanced Tabs */}
-      <div className="border-b px-3 sm:px-6 bg-card/50">
+      <div className="border-b px-3 sm:px-6 bg-card/50 overflow-x-auto scrollbar-none">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="inline-flex min-w-full sm:w-auto bg-transparent p-0 h-12 gap-1">
+          <TabsList className="inline-flex w-max sm:w-auto bg-transparent p-0 h-12 gap-1">
             <TabsTrigger 
               value="collection" 
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
                 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
                 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
-              <Layers className="h-4 w-4 mr-2" />
-              Collection
+              <Layers className="h-4 w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden xs:inline">Collection</span>
+              <span className="xs:hidden">Cards</span>
               {cards.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
+                <Badge variant="secondary" className="ml-1.5 sm:ml-2 text-xs hidden sm:inline-flex">
                   {stats.uniqueCards}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger 
               value="analytics"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
                 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
                 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analytics
+              <BarChart3 className="h-4 w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden xs:inline">Analytics</span>
+              <span className="xs:hidden">Stats</span>
             </TabsTrigger>
             <TabsTrigger 
               value="add-cards"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
                 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
                 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
-              <Search className="h-4 w-4 mr-2" />
-              Add Cards
+              <Search className="h-4 w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden xs:inline">Add Cards</span>
+              <span className="xs:hidden">Add</span>
             </TabsTrigger>
             <TabsTrigger 
               value="storage"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-4 py-2 font-medium transition-all
+              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
                 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
                 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
             >
-              <Package className="h-4 w-4 mr-2" />
-              Storage
+              <Package className="h-4 w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden xs:inline">Storage</span>
+              <span className="xs:hidden">Box</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>

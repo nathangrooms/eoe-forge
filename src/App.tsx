@@ -83,7 +83,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
       {/* Top Navigation - Fixed at top */}
       <div className="fixed top-0 left-0 right-0 z-50">
         <TopNavigation />
@@ -97,7 +97,7 @@ function AppContent() {
         </div>
         
         {/* Main Content Area - Offset by left nav width on desktop */}
-        <main className="flex-1 min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-4rem)] w-full md:ml-64 overflow-x-hidden py-2 md:py-4">
+        <main className="flex-1 min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-64 overflow-x-hidden py-2 md:py-4">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

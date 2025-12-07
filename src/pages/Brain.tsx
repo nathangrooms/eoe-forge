@@ -380,7 +380,7 @@ export default function Brain() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-6rem)] md:h-[calc(100vh-4rem)] bg-background overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-6.5rem)] md:h-[calc(100vh-5rem)] bg-background overflow-hidden -mt-2 md:-mt-4">
       {/* Sidebar - Deck Context */}
       <div className="w-full lg:w-80 lg:h-full border-b lg:border-b-0 lg:border-r bg-muted/30 p-4 lg:p-6 shrink-0 lg:overflow-y-auto">
         <div className="space-y-6">

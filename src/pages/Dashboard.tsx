@@ -130,49 +130,11 @@ const Dashboard = () => {
               Welcome back, Planeswalker
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Your command center for deck building, collection management, and AI-powered insights
+              Your command center for deck building, collection management, and strategic insights
             </p>
           </div>
         </div>
 
-        {/* AI Feature Strip */}
-        <Card className="border-spacecraft/30 bg-gradient-to-r from-spacecraft/5 via-celestial/5 to-cosmic/5">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow shrink-0">
-                  <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                    DeckMatrix AI Super Brain
-                    <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft text-xs">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Powered by Gemini
-                    </Badge>
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Get expert analysis, deck optimization, and strategic insights powered by advanced AI
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Link to="/brain" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full sm:w-auto border-spacecraft/30 hover:bg-spacecraft/10">
-                    <Brain className="h-4 w-4 mr-2" />
-                    Open AI Brain
-                  </Button>
-                </Link>
-                <Link to="/ai-builder" className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto bg-gradient-cosmic hover:opacity-90">
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    AI Deck Builder
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -294,7 +256,7 @@ const Dashboard = () => {
                     <div className="p-3 rounded-lg bg-gradient-cosmic group-hover:shadow-cosmic-glow transition-all">
                       <Brain className="h-5 w-5 text-primary-foreground" />
                     </div>
-                    <span className="text-sm font-medium">AI Brain</span>
+                    <span className="text-sm font-medium">MTG Brain</span>
                   </div>
                 </div>
               </Link>

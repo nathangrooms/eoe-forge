@@ -346,50 +346,47 @@ export function VisualDeckView({
       {/* Commander Section */}
       {format === 'commander' && commander && (
         <Card className="p-4 border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-transparent">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Commander Image */}
-            <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 mx-auto sm:mx-0">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Commander Image - larger on mobile, original size on desktop */}
+            <div className="w-40 md:w-48 flex-shrink-0 mx-auto md:mx-0">
               <img 
                 src={getCommanderImage() || '/placeholder.svg'} 
                 alt={commander.name}
-                className="w-full h-auto rounded-lg shadow-lg"
+                className="w-full h-auto rounded-xl shadow-lg"
                 onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
               />
             </div>
             
             {/* Commander Details */}
-            <div className="flex-1 min-w-0 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                <Crown className="h-4 w-4 text-amber-400" />
+            <div className="flex-1 min-w-0 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                <Crown className="h-5 w-5 text-amber-400" />
                 <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
               </div>
-              <h3 className="text-lg sm:text-xl font-bold mb-1 truncate">{commander.name}</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2">{commander.type_line}</p>
+              <h3 className="text-xl font-bold mb-1">{commander.name}</h3>
+              <p className="text-sm text-muted-foreground mb-3">{commander.type_line}</p>
               
-              {/* Stats - Show first on mobile */}
-              <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap mb-3">
-                {commander.mana_cost && (
-                  <Badge variant="outline" className="font-mono text-xs">{commander.mana_cost}</Badge>
-                )}
-                {commander.power && commander.toughness && (
-                  <Badge variant="secondary" className="text-xs">{commander.power}/{commander.toughness}</Badge>
-                )}
-                {commander.loyalty && (
-                  <Badge variant="secondary" className="text-xs">Loyalty: {commander.loyalty}</Badge>
-                )}
-              </div>
-              
-              {/* Oracle Text - Hidden on mobile, shown on larger screens */}
+              {/* Oracle Text - Always show full text on desktop */}
               {commander.oracle_text && (
-                <div className="hidden sm:block text-xs sm:text-sm leading-relaxed space-y-1 max-h-32 overflow-y-auto pr-2 text-foreground/80">
-                  {commander.oracle_text.split('\n').slice(0, 3).map((line: string, i: number) => (
-                    <p key={i}>{line}</p>
+                <div className="text-sm leading-relaxed space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {commander.oracle_text.split('\n').map((line: string, i: number) => (
+                    <p key={i} className="text-foreground/90">{line}</p>
                   ))}
-                  {commander.oracle_text.split('\n').length > 3 && (
-                    <p className="text-muted-foreground">...</p>
-                  )}
                 </div>
               )}
+              
+              {/* Stats */}
+              <div className="flex items-center justify-center md:justify-start gap-4 mt-3 pt-3 border-t border-border/40">
+                {commander.mana_cost && (
+                  <Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>
+                )}
+                {commander.power && commander.toughness && (
+                  <Badge variant="secondary">{commander.power}/{commander.toughness}</Badge>
+                )}
+                {commander.loyalty && (
+                  <Badge variant="secondary">Loyalty: {commander.loyalty}</Badge>
+                )}
+              </div>
             </div>
           </div>
         </Card>

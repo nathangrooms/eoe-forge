@@ -53,7 +53,7 @@ export function ArchetypeSelectionStep({
             <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent">
               <Target className="h-5 w-5 text-primary-foreground" />
             </div>
-            {isAISuggested ? 'AI-Recommended Archetypes' : 'Choose Archetype'}
+            {isAISuggested ? 'Recommended Archetypes' : 'Choose Archetype'}
             <Badge variant="secondary" className="ml-2">Step 2</Badge>
           </div>
           {onReanalyze && commanderName && (
@@ -78,7 +78,7 @@ export function ArchetypeSelectionStep({
           <div className="p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl border border-primary/20">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-primary">AI Analysis Complete</span>
+              <span className="font-semibold text-primary">Analysis Complete</span>
             </div>
             <p className="text-sm text-muted-foreground">
               These archetypes were specifically recommended for <strong>{commanderName}</strong> based on their abilities and color identity.
@@ -144,7 +144,7 @@ export function ArchetypeSelectionStep({
           <div className="text-center p-4 bg-muted/30 rounded-lg">
             <p className="text-sm text-muted-foreground">
               <Sparkles className="h-4 w-4 inline mr-1" />
-              Select a commander first to get AI-recommended archetypes tailored to your legendary creature
+              Select a commander first to get recommended archetypes tailored to your legendary creature
             </p>
           </div>
         )}

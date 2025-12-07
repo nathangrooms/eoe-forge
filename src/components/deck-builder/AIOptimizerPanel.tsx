@@ -672,7 +672,7 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
             <h3 className="font-semibold mb-2">Ready to Optimize</h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
               {deckCards.length === 0 
-                ? 'Add cards to your deck to get AI-powered analysis.'
+                ? 'Add cards to your deck to get optimization analysis.'
                 : 'Get card replacement suggestions with visual previews.'}
             </p>
             {deckCards.length > 0 && (

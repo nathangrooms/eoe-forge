@@ -391,7 +391,7 @@ export default function Brain() {
                 </div>
                 <div>
                   <h1 className="font-bold text-lg">MTG Brain</h1>
-                  <p className="text-xs text-muted-foreground">AI Magic Assistant</p>
+                  <p className="text-xs text-muted-foreground">Your Magic Assistant</p>
                 </div>
               </div>
 

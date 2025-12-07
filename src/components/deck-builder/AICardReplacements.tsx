@@ -98,7 +98,7 @@ export function AICardReplacements({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-spacecraft" />
-          AI Card Replacements
+          Smart Card Replacements
         </CardTitle>
         <CardDescription>
           Get intelligent suggestions to optimize your deck
@@ -109,7 +109,7 @@ export function AICardReplacements({
           <div className="text-center py-8">
             <Sparkles className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">
-              Click below to analyze your deck and get AI-powered card replacement suggestions
+              Click below to analyze your deck and get smart card replacement suggestions
             </p>
             <Button 
               onClick={analyzeDeckForReplacements}

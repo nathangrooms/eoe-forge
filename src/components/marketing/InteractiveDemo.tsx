@@ -60,8 +60,8 @@ export function InteractiveDemo() {
               <TabsList className="grid w-full grid-cols-3 mb-6 sm:mb-8">
                 <TabsTrigger value="builder" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">AI Builder</span>
-                  <span className="xs:hidden">AI</span>
+                  <span className="hidden xs:inline">Builder</span>
+                  <span className="xs:hidden">Build</span>
                 </TabsTrigger>
                 <TabsTrigger value="analysis" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -84,7 +84,7 @@ export function InteractiveDemo() {
                     className="space-y-4"
                   >
                     <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 mb-4 sm:mb-6">
-                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">AI Deck Suggestions</h3>
+                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">Smart Deck Suggestions</h3>
                       <Badge className="bg-gradient-primary w-fit">Live</Badge>
                     </div>
                     

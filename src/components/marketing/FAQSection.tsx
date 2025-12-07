@@ -11,8 +11,8 @@ import { motion } from 'framer-motion';
 
 const faqs = [
   {
-    question: 'How does the AI deck builder work?',
-    answer: 'Our AI analyzes thousands of high-performing decks, card synergies, and meta trends to suggest optimal card choices. It considers your budget, playstyle preferences, and deck strategy to build competitive decks in seconds.'
+    question: 'How does the deck builder work?',
+    answer: 'Our intelligent system analyzes thousands of high-performing decks, card synergies, and meta trends to suggest optimal card choices. It considers your budget, playstyle preferences, and deck strategy to build competitive decks in seconds.'
   },
   {
     question: 'Is my collection data secure?',
@@ -40,7 +40,7 @@ const faqs = [
   },
   {
     question: 'What makes DeckMatrix different from competitors?',
-    answer: 'We\'re the only platform that combines AI deck building, power level analysis, collection tracking, and marketplace features in one place. Our unique synergy detection and storage management tools set us apart.'
+    answer: 'We\'re the only platform that combines smart deck building, power level analysis, collection tracking, and marketplace features in one place. Our unique synergy detection and storage management tools set us apart.'
   }
 ];
 

@@ -19,11 +19,11 @@ import { Link } from 'react-router-dom';
 const features = [
   {
     icon: Wand2,
-    title: 'AI Deck Builder',
-    description: 'Build competitive decks instantly with AI that understands synergies, mana curves, and win conditions.',
+    title: 'Smart Deck Builder',
+    description: 'Build competitive decks instantly with intelligent algorithms that understand synergies, mana curves, and win conditions.',
     color: 'primary',
     link: '/deck-builder',
-    badge: 'Smart AI',
+    badge: 'Smart',
     stats: '50,000+ optimized builds'
   },
   {

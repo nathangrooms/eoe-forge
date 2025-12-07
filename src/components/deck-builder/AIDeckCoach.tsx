@@ -277,7 +277,7 @@ Be specific with card names. Keep each point concise (1-2 sentences max).`;
   };
 
   return (
-    <AIErrorBoundary featureName="AI Deck Coach">
+    <AIErrorBoundary featureName="Deck Coach">
       <div className="space-y-4">
         {/* Header */}
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -288,7 +288,7 @@ Be specific with card names. Keep each point concise (1-2 sentences max).`;
                   <Brain className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">AI Deck Coach</h3>
+                  <h3 className="font-bold text-lg">Deck Coach</h3>
                   <p className="text-sm text-muted-foreground">
                     {hasEdhData ? 'Analysis powered by EDH data' : 'Strategic deck analysis'}
                   </p>
@@ -412,7 +412,7 @@ Be specific with card names. Keep each point concise (1-2 sentences max).`;
               <h3 className="font-semibold mb-2">Ready to Analyze</h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                 {deckCards.length === 0 
-                  ? 'Add cards to your deck to get AI-powered analysis and improvement suggestions.'
+                  ? 'Add cards to your deck to get analysis and improvement suggestions.'
                   : 'Click "Analyze Deck" to get strategic insights, card recommendations, and improvement suggestions.'}
               </p>
               {deckCards.length > 0 && (

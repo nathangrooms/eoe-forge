@@ -80,7 +80,8 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
     return 'text-emerald-500';
   };
 
-  const getRarityColor = (rarity: string) => {
+  const getRarityColor = (rarity: string | undefined) => {
+    if (!rarity) return 'text-gray-600';
     switch (rarity.toLowerCase()) {
       case 'mythic': return 'text-orange-500';
       case 'rare': return 'text-yellow-500';

@@ -100,14 +100,13 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Deck Simulation',
     href: '/simulate',
     icon: Swords,
-    badge: 'New',
+    badge: 'Beta',
     section: 'tools'
   },
   {
     title: 'Tournaments',
     href: '/tournament',
     icon: Trophy,
-    badge: 'New',
     section: 'tools'
   },
   {

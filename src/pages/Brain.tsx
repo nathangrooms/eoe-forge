@@ -179,7 +179,7 @@ export default function Brain() {
   const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
   const [deckCards, setDeckCards] = useState<any[]>([]);
-  const [loadingDecks, setLoadingDecks] = useState(false);
+  const [loadingDecks, setLoadingDecks] = useState(true); // Start true to prevent layout shift
   const [detailedResponses, setDetailedResponses] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);

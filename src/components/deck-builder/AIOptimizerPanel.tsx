@@ -73,6 +73,7 @@ interface AIOptimizerPanelProps {
   deckCards: Array<{
     id: string;
     name: string;
+    quantity?: number;
     type_line?: string;
     mana_cost?: string;
     cmc?: number;
@@ -110,15 +111,13 @@ export function AIOptimizerPanel({
   const [useCollection, setUseCollection] = useState(false);
 
   // Calculate required cards based on format
-  const getRequiredCards = () => {
-    if (format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh') {
-      return 100;
-    }
-    return 60; // Standard/Modern/etc
-  };
-
-  const requiredCards = getRequiredCards();
-  const missingCards = Math.max(0, requiredCards - deckCards.length);
+  const isCommander = format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh';
+  const requiredCards = isCommander ? 100 : 60;
+  
+  // Calculate total card count including quantities and commander
+  const cardQuantityTotal = deckCards.reduce((sum, c) => sum + (c.quantity || 1), 0);
+  const totalCardsWithCommander = isCommander && commander ? cardQuantityTotal + 1 : cardQuantityTotal;
+  const missingCards = Math.max(0, requiredCards - totalCardsWithCommander);
 
   // Extract low playability cards from EDH analysis
   const lowPlayabilityCards = (edhAnalysis?.cardAnalysis || [])
@@ -190,7 +189,7 @@ ${collectionCards.slice(0, 200).join(', ')}
 **Deck:** ${deckName || 'Deck'}
 ${commander ? `**Commander:** ${commander.name}` : ''}
 **Format:** ${format}
-**Cards:** ${deckCards.length}/${requiredCards} (${missingCards > 0 ? `MISSING ${missingCards} CARDS` : 'Complete'})
+**Cards:** ${totalCardsWithCommander}/${requiredCards} (${missingCards > 0 ? `MISSING ${missingCards} CARDS` : 'Complete'})
 **Types:** ${typeBreakdown}
 
 ${edhContext}
@@ -246,7 +245,8 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
       });
 
       if (fnError) {
-        const errMsg = fnError.message || String(fnError);
+        console.error('Function error:', fnError);
+        const errMsg = String(fnError?.message || fnError);
         if (/429|rate/i.test(errMsg)) {
           throw new Error('RATE_LIMIT');
         }
@@ -255,9 +255,22 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
         }
         throw fnError;
       }
-      
-      if (data?.text) {
-        const parsed = parseJsonResponse(data.text);
+
+      // Check for error in response data (rate limit/payment returns as JSON error)
+      if (data?.error) {
+        console.error('Response error:', data.error);
+        if (data.type === 'rate_limit' || /rate/i.test(data.error)) {
+          throw new Error('RATE_LIMIT');
+        }
+        if (data.type === 'payment_required' || /credit|payment/i.test(data.error)) {
+          throw new Error('PAYMENT_REQUIRED');
+        }
+        throw new Error(data.error);
+      }
+
+      if (data?.text || data?.message) {
+        const responseText = data.text || data.message;
+        const parsed = parseJsonResponse(responseText);
         setAnalysis(parsed);
         
         // Parse replacements and fetch card images
@@ -509,9 +522,9 @@ Prioritize replacing low playability cards. Suggest real, legal cards only.`;
                 <Brain className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h3 className="font-bold text-lg">AI Deck Optimizer</h3>
+                <h3 className="font-bold text-lg">Deck Optimizer</h3>
                 <p className="text-sm text-muted-foreground">
-                  {deckCards.length}/{requiredCards} cards
+                  {totalCardsWithCommander}/{requiredCards} cards
                   {missingCards > 0 && (
                     <span className="text-orange-400 ml-2">• {missingCards} needed</span>
                   )}

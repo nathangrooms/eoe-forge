@@ -695,28 +695,26 @@ const DeckBuilder = () => {
               "px-4 md:px-6 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent",
               edhNeedsRefresh && "from-orange-500/10 to-transparent"
             )}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Target className={cn("h-5 w-5", edhNeedsRefresh ? "text-orange-500" : "text-primary")} />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">EDH Power Level</p>
-                      {edhNeedsRefresh && (
-                        <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-500 border-orange-500/30">
-                          Cards Changed
-                        </Badge>
-                      )}
-                    </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Target className={cn("h-5 w-5 flex-shrink-0", edhNeedsRefresh ? "text-orange-500" : "text-primary")} />
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-sm font-medium whitespace-nowrap">EDH Power Level</p>
                     {loadingEdhPower ? (
-                      <p className="text-xs text-muted-foreground">Calculating...</p>
+                      <p className="text-lg font-bold">...</p>
                     ) : edhPowerLevel !== null ? (
-                      <p className="text-xl font-bold">{edhPowerLevel.toFixed(2)}/10</p>
+                      <p className="text-lg font-bold">{edhPowerLevel.toFixed(2)}/10</p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Click to calculate</p>
+                      <p className="text-xs text-muted-foreground">Not calculated</p>
+                    )}
+                    {edhNeedsRefresh && (
+                      <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-500 border-orange-500/30">
+                        Cards Changed
+                      </Badge>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <Button 
                     variant={edhNeedsRefresh ? "default" : "outline"}
                     size="sm"
@@ -724,14 +722,14 @@ const DeckBuilder = () => {
                     disabled={loadingEdhPower}
                     className={edhNeedsRefresh ? "bg-orange-500 hover:bg-orange-600" : ""}
                   >
-                    <RefreshCw className={cn("h-4 w-4 mr-2", loadingEdhPower && "animate-spin")} />
-                    {edhNeedsRefresh ? 'Refresh' : 'Calculate'}
+                    <RefreshCw className={cn("h-4 w-4 mr-1", loadingEdhPower && "animate-spin")} />
+                    <span className="hidden xs:inline">{edhNeedsRefresh ? 'Refresh' : 'Calculate'}</span>
                   </Button>
                   {edhPowerUrl && (
                     <Button variant="outline" size="sm" asChild>
                       <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Details
+                        <ExternalLink className="h-4 w-4" />
+                        <span className="hidden xs:inline ml-1">Details</span>
                       </a>
                     </Button>
                   )}

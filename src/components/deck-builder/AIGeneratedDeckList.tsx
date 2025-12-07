@@ -5,20 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
+import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { 
   Crown,
   Save,
   RotateCcw,
   ExternalLink,
   Copy,
-  FolderOpen,
   List,
-  LayoutGrid,
   CheckCircle2,
   AlertTriangle,
   BarChart3,
-  Eye,
-  Zap
+  Eye
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { showSuccess } from '@/components/ui/toast-helpers';
@@ -32,9 +30,9 @@ interface AIGeneratedDeckListProps {
   edhPowerUrl?: string | null;
   totalValue?: number;
   analysis?: any;
+  edhAnalysisData?: EdhAnalysisData | null;
   changelog?: any[];
   onSaveDeck: () => void;
-  onApplyToDeckBuilder?: () => void;
   onStartOver: () => void;
 }
 
@@ -47,9 +45,9 @@ export function AIGeneratedDeckList({
   edhPowerUrl,
   totalValue, 
   analysis,
+  edhAnalysisData,
   changelog,
   onSaveDeck,
-  onApplyToDeckBuilder,
   onStartOver 
 }: AIGeneratedDeckListProps) {
   const [activeTab, setActiveTab] = useState('cards');
@@ -212,10 +210,6 @@ export function AIGeneratedDeckList({
                 <Save className="h-4 w-4 mr-2" />
                 Save Deck
               </Button>
-              <Button onClick={onApplyToDeckBuilder} variant="outline" size="sm">
-                <FolderOpen className="h-4 w-4 mr-2" />
-                Open in Deck Builder
-              </Button>
               <Button onClick={copyDecklist} variant="outline" size="sm">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy List
@@ -290,82 +284,13 @@ export function AIGeneratedDeckList({
         </TabsContent>
 
         <TabsContent value="analysis" className="mt-6 space-y-6">
-          {/* EDH Power Overview */}
-          {(edhPowerLevel || analysis?.edhMetrics) && (
-            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
-                  EDH Power Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-background/50 rounded-lg">
-                    <div className="text-3xl font-bold text-primary">{edhPowerLevel ?? '--'}</div>
-                    <div className="text-xs text-muted-foreground">Power Level</div>
-                  </div>
-                  {analysis?.edhMetrics?.efficiency && (
-                    <div className="text-center p-3 bg-background/50 rounded-lg">
-                      <div className="text-2xl font-bold">{analysis.edhMetrics.efficiency.toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">Efficiency</div>
-                    </div>
-                  )}
-                  {analysis?.edhMetrics?.impact && (
-                    <div className="text-center p-3 bg-background/50 rounded-lg">
-                      <div className="text-2xl font-bold">{analysis.edhMetrics.impact.toFixed(0)}</div>
-                      <div className="text-xs text-muted-foreground">Impact</div>
-                    </div>
-                  )}
-                  {analysis?.edhMetrics?.playability && (
-                    <div className="text-center p-3 bg-background/50 rounded-lg">
-                      <div className="text-2xl font-bold">{analysis.edhMetrics.playability.toFixed(0)}%</div>
-                      <div className="text-xs text-muted-foreground">Playability</div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Bracket info */}
-                {analysis?.bracket && (
-                  <div className="mt-4 p-3 bg-background/50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Recommended Bracket:</span>
-                      <Badge variant="outline" className="text-lg">{analysis.bracket.recommended ?? '--'}</Badge>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Land Analysis */}
-          {analysis?.landAnalysis && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Mana Base Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-bold">{analysis.landAnalysis.landCount}</div>
-                    <div className="text-xs text-muted-foreground">Lands</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-bold">{analysis.landAnalysis.nonLandCount}</div>
-                    <div className="text-xs text-muted-foreground">Non-Lands</div>
-                  </div>
-                  <div className="text-center p-3 bg-red-500/10 rounded-lg">
-                    <div className="text-2xl font-bold text-red-500">{analysis.landAnalysis.manaScrewPct ?? '--'}%</div>
-                    <div className="text-xs text-muted-foreground">Screw Risk</div>
-                  </div>
-                  <div className="text-center p-3 bg-blue-500/10 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-500">{analysis.landAnalysis.manaFloodPct ?? '--'}%</div>
-                    <div className="text-xs text-muted-foreground">Flood Risk</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Use the same EdhAnalysisPanel as DeckBuilder */}
+          <EdhAnalysisPanel 
+            data={edhAnalysisData || null}
+            isLoading={false}
+            needsRefresh={false}
+            onRefresh={() => {}}
+          />
 
           {/* Mana Curve */}
           <Card>

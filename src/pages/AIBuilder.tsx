@@ -456,29 +456,44 @@ export default function AIBuilder() {
         });
       }
 
-      // Add deck cards - handle quantities properly
+      // Add deck cards - use upsert to handle potential duplicates
       if (deckRecord && buildResult.cards.length > 0) {
-        const cardInserts: any[] = [];
+        // Deduplicate cards by card_id, summing quantities
+        const cardMap = new Map<string, { id: string; name: string; quantity: number }>();
         
         for (const card of buildResult.cards) {
           // Skip cards without valid IDs
-          if (!card.id || card.id.startsWith('missing-basic-')) {
+          if (!card.id || card.id.startsWith('missing-basic-') || card.id.startsWith('pad-')) {
             console.warn('Skipping card with invalid ID:', card.name);
             continue;
           }
           
-          cardInserts.push({
-            deck_id: deckRecord.id,
-            card_id: card.id,
-            card_name: card.name,
-            quantity: card.quantity || 1,
-            is_commander: false,
-            is_sideboard: false
-          });
+          const existing = cardMap.get(card.id);
+          if (existing) {
+            existing.quantity += card.quantity || 1;
+          } else {
+            cardMap.set(card.id, {
+              id: card.id,
+              name: card.name,
+              quantity: card.quantity || 1
+            });
+          }
         }
 
+        const cardInserts = Array.from(cardMap.values()).map(card => ({
+          deck_id: deckRecord.id,
+          card_id: card.id,
+          card_name: card.name,
+          quantity: card.quantity,
+          is_commander: false,
+          is_sideboard: false
+        }));
+
         if (cardInserts.length > 0) {
-          const { error: cardsError } = await supabase.from('deck_cards').insert(cardInserts);
+          const { error: cardsError } = await supabase
+            .from('deck_cards')
+            .upsert(cardInserts, { onConflict: 'deck_id,card_id' });
+          
           if (cardsError) {
             console.error('Error saving deck cards:', cardsError);
             throw cardsError;
@@ -1036,9 +1051,15 @@ export default function AIBuilder() {
                 edhPowerUrl={buildResult.edhPowerUrl}
                 totalValue={buildResult.totalValue}
                 analysis={buildResult.analysis}
+                edhAnalysisData={buildResult.analysis?.edhMetrics ? {
+                  metrics: buildResult.analysis.edhMetrics,
+                  bracket: buildResult.analysis.bracket || null,
+                  cardAnalysis: buildResult.analysis.cardAnalysis || [],
+                  landAnalysis: buildResult.analysis.landAnalysis || null,
+                  url: buildResult.edhPowerUrl
+                } : null}
                 changelog={buildResult.changelog}
                 onSaveDeck={saveDeckToDatabase}
-                onApplyToDeckBuilder={() => navigate('/decks')}
                 onStartOver={resetBuilder}
               />
             </motion.div>

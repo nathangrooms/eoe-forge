@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Deck Optimizer function called');
+    console.log('Deck Optimizer v2 - Enhanced analysis');
     
     const { deckContext, edhAnalysis, useCollection, collectionCards = [] } = await req.json();
     
@@ -34,14 +34,17 @@ serve(async (req) => {
     const totalWithCommander = totalCards + commanderCount;
     const missingCards = Math.max(0, requiredCards - totalWithCommander);
 
-    // Build card type breakdown
+    // Build detailed type breakdown
     const typeBreakdown = buildTypeBreakdown(cards || []);
     
     // Extract low playability cards from EDH analysis
     const lowPlayabilityCards = extractLowPlayabilityCards(edhAnalysis);
+    
+    // Calculate mana curve data
+    const manaCurve = calculateManaCurve(cards || []);
 
-    // Build the prompt
-    const prompt = buildPrompt({
+    // Build the enhanced prompt
+    const prompt = buildEnhancedPrompt({
       name,
       format,
       commander,
@@ -54,84 +57,100 @@ serve(async (req) => {
       lowPlayabilityCards,
       edhAnalysis,
       useCollection,
-      collectionCards
+      collectionCards,
+      manaCurve
     });
 
-    console.log('Sending request to AI with structured output via tool calling');
+    console.log('Sending enhanced request to AI with comprehensive tool schema');
 
-    // Use tool calling to enforce structured JSON output
+    // Enhanced tool schema for better structured output
     const tools = [
       {
         type: "function",
         function: {
           name: "deck_analysis",
-          description: "Provide deck analysis with issues, strengths, strategy tips, and card replacement suggestions",
+          description: "Provide comprehensive deck analysis with scoring, issues, strengths, strategy tips, and card replacement suggestions",
           parameters: {
             type: "object",
             properties: {
               summary: {
                 type: "string",
-                description: "2-3 sentence summary of the deck's current state and main improvement areas"
+                description: "2-3 sentence executive summary highlighting the deck's main strengths and priority improvements"
+              },
+              categories: {
+                type: "object",
+                description: "Score each aspect from 0-100",
+                properties: {
+                  synergy: { type: "number", description: "How well cards work together (0-100)" },
+                  consistency: { type: "number", description: "Draw quality and redundancy (0-100)" },
+                  power: { type: "number", description: "Raw power level and win conditions (0-100)" },
+                  interaction: { type: "number", description: "Removal, counterspells, protection (0-100)" },
+                  manabase: { type: "number", description: "Land count, fixing, ramp quality (0-100)" }
+                },
+                required: ["synergy", "consistency", "power", "interaction", "manabase"]
               },
               issues: {
                 type: "array",
-                description: "List of problematic cards to consider removing",
+                description: "Problematic cards that should be replaced, ordered by priority",
                 items: {
                   type: "object",
                   properties: {
-                    card: { type: "string", description: "Name of the problematic card" },
-                    reason: { type: "string", description: "Why this card should be replaced" },
-                    severity: { type: "string", enum: ["low", "medium", "high"], description: "How urgently this should be replaced" }
+                    card: { type: "string", description: "Exact card name" },
+                    reason: { type: "string", description: "Specific reason why this card underperforms" },
+                    severity: { type: "string", enum: ["low", "medium", "high"], description: "high = must replace, medium = should replace, low = consider replacing" },
+                    category: { type: "string", description: "Issue category: 'synergy', 'power', 'mana', 'strategy'" }
                   },
                   required: ["card", "reason", "severity"]
                 }
               },
               strengths: {
                 type: "array",
-                description: "List of deck strengths",
+                description: "What the deck does well - be specific about card combinations",
                 items: {
                   type: "object",
                   properties: {
-                    text: { type: "string", description: "Description of a deck strength" }
+                    text: { type: "string", description: "Specific strength with card names" }
                   },
                   required: ["text"]
                 }
               },
               strategy: {
                 type: "array",
-                description: "Strategic tips for piloting the deck",
+                description: "Actionable gameplay tips for piloting this specific deck",
                 items: {
                   type: "object",
                   properties: {
-                    text: { type: "string", description: "A strategic tip" }
+                    text: { type: "string", description: "Strategic tip with specific examples" }
                   },
                   required: ["text"]
                 }
               },
               manabase: {
                 type: "array",
-                description: "Mana base observations and suggestions",
+                description: "Mana base analysis - land count, fixing, curve alignment",
                 items: {
                   type: "object",
                   properties: {
-                    text: { type: "string", description: "Mana base observation" }
+                    text: { type: "string", description: "Specific mana base observation" }
                   },
                   required: ["text"]
                 }
               },
               replacements: {
                 type: "array",
-                description: "Specific card replacement suggestions (remove X, add Y)",
+                description: "Specific card-for-card replacements. Each must include real MTG card names.",
                 items: {
                   type: "object",
                   properties: {
-                    remove: { type: "string", description: "Name of card to remove" },
-                    removeReason: { type: "string", description: "Why to remove this card" },
-                    add: { type: "string", description: "Name of card to add instead" },
-                    addBenefit: { type: "string", description: "Why the new card is better" },
-                    addType: { type: "string", description: "Card type of the replacement" }
+                    remove: { type: "string", description: "Exact name of card to remove" },
+                    removeReason: { type: "string", description: "Why remove this specific card" },
+                    add: { type: "string", description: "Exact name of card to add (must be a real MTG card)" },
+                    addBenefit: { type: "string", description: "Specific benefit of the replacement" },
+                    addType: { type: "string", description: "Card type of the replacement" },
+                    synergy: { type: "string", description: "How it synergizes with commander/strategy" },
+                    priority: { type: "string", enum: ["high", "medium", "low"], description: "How urgently this swap should be made" }
                   },
-                  required: ["remove", "removeReason", "add", "addBenefit"]
+                  required: ["remove", "removeReason", "add", "addBenefit", "priority"]
                 }
               },
               additions: {
@@ -140,15 +159,16 @@ serve(async (req) => {
                 items: {
                   type: "object",
                   properties: {
-                    name: { type: "string", description: "Name of card to add" },
-                    reason: { type: "string", description: "Why to add this card" },
-                    type: { type: "string", description: "Card type" }
+                    name: { type: "string", description: "Exact card name to add" },
+                    reason: { type: "string", description: "Why this card improves the deck" },
+                    type: { type: "string", description: "Card type" },
+                    priority: { type: "string", enum: ["high", "medium", "low"] }
                   },
                   required: ["name", "reason"]
                 }
               }
             },
-            required: ["summary", "issues", "strengths", "strategy", "manabase", "replacements"]
+            required: ["summary", "categories", "issues", "strengths", "strategy", "manabase", "replacements"]
           }
         }
       }
@@ -165,12 +185,31 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: `You are an expert Magic: The Gathering deck optimizer. Analyze decks and provide specific, actionable recommendations. Focus on card-level analysis. Always use real, legal MTG card names.`
+            content: `You are an elite Magic: The Gathering deck optimizer with deep knowledge of competitive and casual play.
+
+Your analysis must be:
+- SPECIFIC: Reference actual card names, not generic descriptions
+- ACTIONABLE: Every suggestion should be immediately implementable
+- BALANCED: Consider both budget and optimal options
+- SYNERGY-FOCUSED: Prioritize cards that work with the commander's strategy
+
+For Commander/EDH decks, consider:
+- Color identity restrictions
+- Singleton format implications
+- Commander synergy and protection
+- Mana curve (aim for avg CMC 2.5-3.5)
+- Ideal land count (35-38 lands typically)
+- Ramp package (10+ sources recommended)
+- Card draw engines
+- Removal package (8-12 pieces)
+- Win conditions and combos
+
+IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal in the format.`
           },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 4000,
+        max_tokens: 5000,
         tools,
         tool_choice: { type: "function", function: { name: "deck_analysis" } }
       }),
@@ -218,7 +257,7 @@ serve(async (req) => {
         try {
           const parsed = parseJsonFallback(content);
           console.log('Parsed from content fallback');
-          return new Response(JSON.stringify({ analysis: parsed }), {
+          return new Response(JSON.stringify({ analysis: normalizeAnalysis(parsed) }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (e) {
@@ -242,15 +281,10 @@ serve(async (req) => {
       throw new Error('Invalid tool call response');
     }
 
-    // Ensure arrays exist
-    analysis.issues = analysis.issues || [];
-    analysis.strengths = analysis.strengths || [];
-    analysis.strategy = analysis.strategy || [];
-    analysis.manabase = analysis.manabase || [];
-    analysis.replacements = analysis.replacements || [];
-    analysis.additions = analysis.additions || [];
+    // Normalize and validate the analysis
+    analysis = normalizeAnalysis(analysis);
 
-    console.log(`Analysis complete: ${analysis.issues.length} issues, ${analysis.replacements.length} replacements`);
+    console.log(`Analysis complete: ${analysis.issues?.length || 0} issues, ${analysis.replacements?.length || 0} replacements`);
 
     return new Response(JSON.stringify({ analysis }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -267,6 +301,49 @@ serve(async (req) => {
     });
   }
 });
+
+function normalizeAnalysis(analysis: any): any {
+  return {
+    summary: analysis.summary || 'Deck analysis complete.',
+    categories: {
+      synergy: Math.min(100, Math.max(0, analysis.categories?.synergy || 70)),
+      consistency: Math.min(100, Math.max(0, analysis.categories?.consistency || 65)),
+      power: Math.min(100, Math.max(0, analysis.categories?.power || 70)),
+      interaction: Math.min(100, Math.max(0, analysis.categories?.interaction || 60)),
+      manabase: Math.min(100, Math.max(0, analysis.categories?.manabase || 75))
+    },
+    issues: (analysis.issues || []).map((i: any) => ({
+      card: String(i.card || ''),
+      reason: String(i.reason || ''),
+      severity: ['high', 'medium', 'low'].includes(i.severity) ? i.severity : 'medium',
+      category: i.category || null
+    })),
+    strengths: (analysis.strengths || []).map((s: any) => ({ 
+      text: typeof s === 'string' ? s : String(s.text || '') 
+    })),
+    strategy: (analysis.strategy || []).map((s: any) => ({ 
+      text: typeof s === 'string' ? s : String(s.text || '') 
+    })),
+    manabase: (analysis.manabase || []).map((s: any) => ({ 
+      text: typeof s === 'string' ? s : String(s.text || '') 
+    })),
+    replacements: (analysis.replacements || []).map((r: any) => ({
+      remove: String(r.remove || ''),
+      removeReason: String(r.removeReason || ''),
+      add: String(r.add || ''),
+      addBenefit: String(r.addBenefit || ''),
+      addType: r.addType || null,
+      synergy: r.synergy || null,
+      priority: ['high', 'medium', 'low'].includes(r.priority) ? r.priority : 'medium'
+    })),
+    additions: (analysis.additions || []).map((a: any) => ({
+      name: String(a.name || ''),
+      reason: String(a.reason || ''),
+      type: a.type || null,
+      priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium'
+    }))
+  };
+}
 
 function buildTypeBreakdown(cards: any[]): string {
   const types: Record<string, number> = {};
@@ -285,6 +362,18 @@ function buildTypeBreakdown(cards: any[]): string {
   return Object.entries(types).map(([t, c]) => `${t}: ${c}`).join(', ');
 }
 
+function calculateManaCurve(cards: any[]): Record<string, number> {
+  const curve: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6+': 0 };
+  for (const card of cards) {
+    if (card.type_line?.includes('Land')) continue;
+    const cmc = card.cmc || 0;
+    const qty = card.quantity || 1;
+    if (cmc >= 6) curve['6+'] += qty;
+    else curve[String(cmc)] += qty;
+  }
+  return curve;
+}
+
 function extractLowPlayabilityCards(edhAnalysis: any): string[] {
   if (!edhAnalysis?.cardAnalysis) return [];
   return edhAnalysis.cardAnalysis
@@ -294,7 +383,7 @@ function extractLowPlayabilityCards(edhAnalysis: any): string[] {
     .map((c: any) => `${c.name} (${c.playability}% playability)`);
 }
 
-function buildPrompt(params: {
+function buildEnhancedPrompt(params: {
   name: string;
   format: string;
   commander: any;
@@ -308,71 +397,105 @@ function buildPrompt(params: {
   edhAnalysis: any;
   useCollection: boolean;
   collectionCards: string[];
+  manaCurve: Record<string, number>;
 }): string {
   const {
     name, format, commander, cards, power,
     totalWithCommander, requiredCards, missingCards,
     typeBreakdown, lowPlayabilityCards, edhAnalysis,
-    useCollection, collectionCards
+    useCollection, collectionCards, manaCurve
   } = params;
 
-  let prompt = `Analyze this Magic: The Gathering deck and provide optimization recommendations.
+  const avgCMC = cards.filter(c => !c.type_line?.includes('Land'))
+    .reduce((sum, c) => sum + ((c.cmc || 0) * (c.quantity || 1)), 0) / 
+    cards.filter(c => !c.type_line?.includes('Land'))
+    .reduce((sum, c) => sum + (c.quantity || 1), 1);
 
-**Deck:** ${name || 'Unnamed Deck'}
-${commander ? `**Commander:** ${commander.name}` : ''}
+  let prompt = `# Deck Optimization Request
+
+## Deck Information
+**Name:** ${name || 'Unnamed Deck'}
 **Format:** ${format}
-**Cards:** ${totalWithCommander}/${requiredCards} ${missingCards > 0 ? `(MISSING ${missingCards} CARDS)` : '(Complete)'}
-**Type Breakdown:** ${typeBreakdown}
-${power?.score ? `**Power Level:** ${power.score}/10` : ''}
+${commander ? `**Commander:** ${commander.name}` : ''}
+**Card Count:** ${totalWithCommander}/${requiredCards} ${missingCards > 0 ? `⚠️ INCOMPLETE - needs ${missingCards} more cards` : '✅ Complete'}
+**Target Power Level:** ${power?.score || 'Not specified'}/10
+
+## Composition Breakdown
+${typeBreakdown}
+
+## Mana Curve (Non-Land)
+${Object.entries(manaCurve).map(([cmc, count]) => `CMC ${cmc}: ${count} cards`).join(' | ')}
+**Average CMC:** ${avgCMC.toFixed(2)}
 
 `;
 
   if (lowPlayabilityCards.length > 0) {
-    prompt += `**Low Playability Cards (from EDH analysis - prioritize replacing these):**
-${lowPlayabilityCards.join('\n')}
+    prompt += `## 🔴 Low Playability Cards (PRIORITY REPLACEMENTS)
+These cards have been flagged as underperforming based on EDH statistics:
+${lowPlayabilityCards.map(c => `- ${c}`).join('\n')}
 
 `;
   }
 
   if (edhAnalysis) {
-    prompt += `**EDH Analysis Data:**
+    prompt += `## EDH Analysis Metrics
 - Tipping Point: Turn ${edhAnalysis.tippingPoint || 'N/A'}
-- Efficiency: ${edhAnalysis.efficiency || 'N/A'}/10
+- Efficiency Score: ${edhAnalysis.efficiency || 'N/A'}/10
 - Impact Score: ${edhAnalysis.impact || 'N/A'}/10
 
 `;
   }
 
-  prompt += `**Current Card List:**
-${(cards || []).map((c: any) => `- ${c.name} (${c.type_line || 'Unknown'})`).join('\n')}
+  prompt += `## Complete Card List
+${(cards || []).map((c: any) => `- ${c.name}${c.quantity > 1 ? ` (x${c.quantity})` : ''} [${c.type_line || 'Unknown'}]${c.cmc ? ` CMC:${c.cmc}` : ''}`).join('\n')}
 
 `;
 
   if (useCollection && collectionCards.length > 0) {
-    prompt += `**User's Collection (prefer these for replacements):**
-${collectionCards.slice(0, 50).join(', ')}
+    prompt += `## User's Collection (PREFER THESE FOR REPLACEMENTS)
+The user owns these cards - prioritize suggestions from this list when possible:
+${collectionCards.slice(0, 100).join(', ')}
 
 `;
   }
 
-  prompt += `**Instructions:**
-1. Identify 3-8 cards that should be replaced (focus on low playability cards)
-2. For each card to remove, suggest a specific replacement card
-3. Provide 3-5 deck strengths
-4. Provide 3-5 strategic tips for piloting
-5. Note any mana base issues
-${missingCards > 0 ? `6. Suggest ${Math.min(missingCards, 10)} cards to add to complete the deck` : ''}
+  prompt += `## Analysis Requirements
 
-Use ONLY real, legal Magic: The Gathering card names. Be specific and actionable.`;
+1. **ISSUES**: Identify 4-8 problematic cards with specific reasons. Focus on:
+   - Cards that don't support the commander's strategy
+   - Overcosted effects
+   - Dead draws in typical game situations
+   - Cards with low EDH playability (if data provided above)
+
+2. **REPLACEMENTS**: For each issue, suggest a specific replacement. Consider:
+   - Similar mana cost where possible
+   - Better synergy with commander
+   - Format staples that improve consistency
+   ${useCollection ? '- PREFER cards from the user\'s collection listed above' : ''}
+
+3. **CATEGORY SCORES**: Rate the deck objectively from 0-100:
+   - Synergy: How well cards work together
+   - Consistency: Card selection and redundancy
+   - Power: Win conditions and threat density
+   - Interaction: Removal, counters, protection
+   - Manabase: Land count, color fixing, ramp
+
+4. **STRENGTHS**: Identify 3-5 things the deck does well
+
+5. **STRATEGY**: Provide 3-5 gameplay tips specific to this deck
+
+6. **MANABASE**: Analyze the mana base - land count, fixing, ramp
+
+${missingCards > 0 ? `7. **ADDITIONS**: The deck needs ${missingCards} more cards. Suggest the most impactful additions.` : ''}
+
+IMPORTANT: All card names MUST be real Magic: The Gathering cards that are legal in ${format}.`;
 
   return prompt;
 }
 
 function parseJsonFallback(text: string): any {
-  // Strip markdown code blocks
   let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
   
-  // Find JSON boundaries
   const startIdx = clean.indexOf('{');
   if (startIdx === -1) throw new Error('No JSON found');
   

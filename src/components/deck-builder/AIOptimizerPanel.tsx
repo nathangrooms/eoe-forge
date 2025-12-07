@@ -1,10 +1,9 @@
-// Comprehensive AI Optimizer Panel with proper formatting
-import { useState, useEffect } from 'react';
+// Premium Deck Optimizer Panel with enhanced UI and comprehensive analysis
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   AlertDialog,
@@ -16,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { 
   Brain, 
   Sparkles, 
@@ -25,21 +25,26 @@ import {
   TrendingDown,
   ArrowRight,
   AlertTriangle,
-  CheckCircle,
-  Lightbulb,
   Zap,
   RefreshCw,
-  DollarSign,
   Check,
   Plus,
-  Package,
-  Library
+  Library,
+  Settings2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { EdhAnalysisData } from './EdhAnalysisPanel';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { OptimizerProgress } from './optimizer/OptimizerProgress';
+import { OptimizerOverview } from './optimizer/OptimizerOverview';
+import { ReplacementRow, type ReplacementSuggestion } from './optimizer/ReplacementRow';
+import { OptimizerFilters, OptimizerFiltersState } from './optimizer/OptimizerFilters';
+import { OptimizerCard } from './optimizer/OptimizerCard';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CheckCircle, Lightbulb, Package, DollarSign } from 'lucide-react';
 
 interface CardSuggestion {
   name: string;
@@ -51,7 +56,7 @@ interface CardSuggestion {
   inCollection?: boolean;
 }
 
-interface ReplacementSuggestion {
+interface LocalReplacementSuggestion {
   currentCard: CardSuggestion;
   newCard: CardSuggestion;
   selected: boolean;

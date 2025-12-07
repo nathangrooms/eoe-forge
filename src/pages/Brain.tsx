@@ -380,12 +380,10 @@ export default function Brain() {
   };
 
   return (
-    <div className="h-[calc(100vh-7rem)] md:h-[calc(100vh-5rem)] bg-background overflow-hidden">
-      <div className="w-full h-full">
-        <div className="flex flex-col lg:flex-row h-full">
-          {/* Sidebar - Deck Context */}
-          <div className="w-full lg:w-80 lg:h-full border-b lg:border-b-0 lg:border-r bg-muted/30 p-4 lg:p-6 shrink-0 lg:overflow-y-auto">
-            <div className="space-y-6">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-6.5rem)] md:h-[calc(100vh-4.5rem)] bg-background">
+      {/* Sidebar - Deck Context */}
+      <div className="w-full lg:w-80 lg:h-full border-b lg:border-b-0 lg:border-r bg-muted/30 p-4 lg:p-6 shrink-0 lg:overflow-y-auto">
+        <div className="space-y-6">
               {/* Header */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-spacecraft to-celestial flex items-center justify-center shadow-lg">
@@ -722,7 +720,6 @@ export default function Brain() {
                   </div>
                 </div>
           </div>
-        </div>
 
         {/* Card Modal */}
         {modalOpen && (
@@ -734,7 +731,6 @@ export default function Brain() {
             showWishlistButton={false}
           />
         )}
-      </div>
     </div>
   );
 }

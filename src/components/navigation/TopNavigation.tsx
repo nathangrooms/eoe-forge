@@ -108,13 +108,10 @@ export function TopNavigation() {
 
         {/* Right: Quick actions + auth */}
         <div className="flex items-center gap-1 md:gap-2 flex-1 md:flex-initial justify-end">
-          {/* Mobile essentials */}
+          {/* Mobile: just search */}
           <div className="md:hidden flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => navigate('/cards')}>
               <Search className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleNewDeck}>
-              <Plus className="h-4 w-4" />
             </Button>
           </div>
 
@@ -134,13 +131,9 @@ export function TopNavigation() {
             </Button>
           </div>
 
-          {/* Auth control - avatar removed per request */}
-          {user ? (
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              Sign out
-            </Button>
-          ) : (
-            <Button onClick={() => navigate('/auth')}>Sign In</Button>
+          {/* Auth control - only show sign in on mobile, sign out moved to nav menu */}
+          {!user && (
+            <Button onClick={() => navigate('/auth')} size="sm">Sign In</Button>
           )}
         </div>
       </div>

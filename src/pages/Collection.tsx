@@ -36,7 +36,7 @@ import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
 import { StorageContainer } from '@/types/storage';
-import { AICollectionInsights } from '@/components/collection/AICollectionInsights';
+
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
 import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
@@ -570,21 +570,6 @@ export default function Collection() {
                     topRarityCount={collectionStats.rarityDistribution?.mythic || 0}
                   />
                   
-                  {/* AI Insights */}
-                  <AICollectionInsights
-                    stats={{
-                      totalCards: collectionStats.totalCards,
-                      uniqueCards: collectionStats.uniqueCards,
-                      totalValue: collectionStats.totalValue,
-                      byColor: collectionStats.colorDistribution,
-                      byRarity: collectionStats.rarityDistribution
-                    }}
-                    topCards={collectionStats.topValueCards?.slice(0, 10).map(c => ({
-                      name: c.card_name,
-                      quantity: c.quantity,
-                      value: c.price_usd
-                    }))}
-                  />
                   
                   {/* Charts Row */}
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

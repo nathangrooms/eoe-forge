@@ -78,15 +78,15 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
   }, [collectionCards]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <DollarSign className="h-8 w-8 text-primary" />
-              <div className="text-right">
-                <div className="text-2xl font-bold">${analytics.totalValue.toFixed(2)}</div>
+          <CardContent className="p-3 md:pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+              <div className="md:text-right">
+                <div className="text-lg md:text-2xl font-bold">${analytics.totalValue.toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">Total Value</div>
               </div>
             </div>
@@ -94,11 +94,11 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <Percent className="h-8 w-8 text-blue-500" />
-              <div className="text-right">
-                <div className="text-2xl font-bold">{analytics.top10Percent.toFixed(0)}%</div>
+          <CardContent className="p-3 md:pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+              <Percent className="h-6 w-6 md:h-8 md:w-8 text-blue-500" />
+              <div className="md:text-right">
+                <div className="text-lg md:text-2xl font-bold">{analytics.top10Percent.toFixed(0)}%</div>
                 <div className="text-xs text-muted-foreground">Top 10 Cards</div>
               </div>
             </div>
@@ -106,11 +106,11 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <TrendingUp className="h-8 w-8 text-green-500" />
-              <div className="text-right">
-                <div className="text-2xl font-bold">${analytics.avgValue.toFixed(2)}</div>
+          <CardContent className="p-3 md:pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+              <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-green-500" />
+              <div className="md:text-right">
+                <div className="text-lg md:text-2xl font-bold">${analytics.avgValue.toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">Avg Card Value</div>
               </div>
             </div>
@@ -118,11 +118,11 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <DollarSign className="h-8 w-8 text-yellow-500" />
-              <div className="text-right">
-                <div className="text-2xl font-bold">${analytics.foilValue.toFixed(2)}</div>
+          <CardContent className="p-3 md:pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500" />
+              <div className="md:text-right">
+                <div className="text-lg md:text-2xl font-bold">${analytics.foilValue.toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">Foil Value</div>
               </div>
             </div>

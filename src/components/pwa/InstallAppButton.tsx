@@ -63,7 +63,7 @@ export function InstallAppButton({ variant = 'outline', size = 'lg', className, 
         className={className}
       >
         <Download className="h-5 w-5 mr-2" />
-        Install App
+        Save to Home Screen
       </Button>
 
       <Dialog open={showIOSInstructions} onOpenChange={setShowIOSInstructions}>

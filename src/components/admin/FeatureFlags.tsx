@@ -19,8 +19,8 @@ export function FeatureFlags() {
   const [flags, setFlags] = useState<FeatureFlag[]>([
     {
       id: 'ai_deck_coach',
-      name: 'AI Deck Coach',
-      description: 'Enhanced AI coaching with real-time deck suggestions',
+      name: 'Deck Coach',
+      description: 'Enhanced coaching with real-time deck suggestions',
       enabled: true,
       category: 'beta'
     },
@@ -41,7 +41,7 @@ export function FeatureFlags() {
     {
       id: 'deck_simulation',
       name: 'Deck Simulation',
-      description: 'Test play your decks with AI opponents',
+      description: 'Test play your decks with simulated opponents',
       enabled: true,
       category: 'beta'
     },

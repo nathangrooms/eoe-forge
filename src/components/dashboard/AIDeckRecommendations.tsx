@@ -85,7 +85,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
   };
 
   return (
-    <AIErrorBoundary featureName="AI Deck Recommendations">
+    <AIErrorBoundary featureName="Deck Recommendations">
       <Card className="border-primary/20">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -93,7 +93,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
               <Brain className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-bold text-lg">AI Deck Strategist</h3>
+              <h3 className="font-bold text-lg">Deck Strategist</h3>
               <p className="text-sm text-muted-foreground">Personalized deck building recommendations</p>
             </div>
           </div>
@@ -101,7 +101,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
           {!recommendations && !loading && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Get AI-powered insights on what decks to build next based on your collection and playstyle.
+                Get smart insights on what decks to build next based on your collection and playstyle.
               </p>
               <Button 
                 onClick={generateRecommendations}
@@ -133,7 +133,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
               <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                    <span className="text-xs font-bold text-primary-foreground">AI</span>
+                    <Sparkles className="h-3 w-3 text-primary-foreground" />
                   </div>
                   <span className="text-xs font-bold text-spacecraft">STRATEGIC RECOMMENDATIONS</span>
                 </div>
@@ -160,7 +160,7 @@ Keep it actionable and specific. End with: Referenced Cards: [commanders and key
                 >
                   <Link to="/ai-builder">
                     <Sparkles className="h-4 w-4 mr-2" />
-                    AI Builder
+                    Deck Builder
                   </Link>
                 </Button>
               </div>

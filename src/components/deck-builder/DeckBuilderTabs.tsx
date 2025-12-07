@@ -21,7 +21,7 @@ const tabs = [
   { id: 'cards', label: 'Cards', icon: Eye, mobileLabel: 'Cards' },
   { id: 'search', label: 'Add Cards', icon: Search, mobileLabel: 'Add' },
   { id: 'analysis', label: 'Analysis', icon: BarChart3, mobileLabel: 'Stats' },
-  { id: 'ai', label: 'AI Optimizer', icon: Brain, mobileLabel: 'AI' },
+  { id: 'ai', label: 'Optimizer', icon: Brain, mobileLabel: 'Opt' },
   { id: 'import-export', label: 'Import/Export', icon: Upload, mobileLabel: 'I/O' },
   { id: 'proxies', label: 'Proxies', icon: Printer, mobileLabel: 'Print' },
   { id: 'test', label: 'Playtest', icon: Play, mobileLabel: 'Test' },

@@ -28,7 +28,7 @@ const plans = [
     description: 'For serious deck builders',
     features: [
       'Unlimited decks',
-      'AI Deck Builder',
+      'Smart Deck Builder',
       'Power level analysis',
       'Storage management',
       'Advanced analytics',

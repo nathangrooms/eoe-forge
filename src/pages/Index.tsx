@@ -24,14 +24,14 @@ const Index = () => {
   const features = [
     {
       icon: Brain,
-      title: 'DeckMatrix AI Super Brain',
-      description: 'Advanced AI assistant with deep MTG knowledge for comprehensive deck analysis, strategic insights, and expert recommendations.',
-      badge: 'AI-Powered',
+      title: 'DeckMatrix Super Brain',
+      description: 'Advanced assistant with deep MTG knowledge for comprehensive deck analysis, strategic insights, and expert recommendations.',
+      badge: 'Smart',
       highlight: true
     },
     {
       icon: Wand2,
-      title: 'AI Deck Builder',
+      title: 'Smart Deck Builder',
       description: 'Generate optimized decks using intelligent algorithms that analyze synergies, mana curves, and power levels for any format.',
       badge: 'Smart Build'
     },

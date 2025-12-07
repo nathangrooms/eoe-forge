@@ -28,7 +28,7 @@ const plans = [
     badge: 'Most Popular',
     features: [
       'Unlimited decks',
-      'AI Deck Builder',
+      'Smart Deck Builder',
       'Power level analysis',
       'Storage management',
       'Priority support',

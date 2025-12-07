@@ -4,8 +4,8 @@ import { Sparkles, Zap, Globe, Link as LinkIcon, Crown } from 'lucide-react';
 const technologies = [
   {
     icon: Crown,
-    label: 'AI Builder',
-    description: 'Neural deck construction',
+    label: 'Smart Builder',
+    description: 'Intelligent deck construction',
     color: 'primary'
   },
   {
@@ -51,12 +51,12 @@ export function AITechnologySection() {
             <span className="text-foreground">Powered by Real Magic:</span>
             <br />
             <span className="bg-gradient-primary bg-clip-text text-transparent">
-              The AI Engine
+              The Smart Engine
             </span>
           </h2>
           <p className="text-xl md:text-2xl text-muted-foreground max-w-5xl mx-auto leading-relaxed">
             DeckMatrix combines competitive deck theory, real-time data from Scryfall, 
-            and advanced AI synergy detection — creating decks that actually win.
+            and advanced synergy detection — creating decks that actually win.
           </p>
         </div>
 

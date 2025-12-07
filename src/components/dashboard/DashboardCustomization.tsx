@@ -23,7 +23,7 @@ export function DashboardCustomization({ onSave }: DashboardCustomizationProps) 
   const [widgets, setWidgets] = useState<WidgetConfig[]>([
     { id: 'stats', name: 'Collection Stats', description: 'Total cards, value, and unique count', enabled: true },
     { id: 'recent-activity', name: 'Recent Activity', description: 'Your latest actions and updates', enabled: true },
-    { id: 'deck-recommendations', name: 'AI Deck Recommendations', description: 'AI-suggested decks based on your collection', enabled: true },
+    { id: 'deck-recommendations', name: 'Deck Recommendations', description: 'Smart deck suggestions based on your collection', enabled: true },
     { id: 'favorite-decks', name: 'Favorite Decks', description: 'Quick access to your starred decks', enabled: true },
     { id: 'price-alerts', name: 'Price Alerts', description: 'Cards that hit target prices', enabled: true },
     { id: 'missing-cards', name: 'Missing Cards', description: 'Cards needed for your decks', enabled: false },
@@ -125,7 +125,7 @@ export function getDashboardWidgets(): WidgetConfig[] {
   return [
     { id: 'stats', name: 'Collection Stats', description: 'Total cards, value, and unique count', enabled: true },
     { id: 'recent-activity', name: 'Recent Activity', description: 'Your latest actions and updates', enabled: true },
-    { id: 'deck-recommendations', name: 'AI Deck Recommendations', description: 'AI-suggested decks based on your collection', enabled: true },
+    { id: 'deck-recommendations', name: 'Deck Recommendations', description: 'Smart deck suggestions based on your collection', enabled: true },
     { id: 'favorite-decks', name: 'Favorite Decks', description: 'Quick access to your starred decks', enabled: true },
     { id: 'price-alerts', name: 'Price Alerts', description: 'Cards that hit target prices', enabled: true },
     { id: 'missing-cards', name: 'Missing Cards', description: 'Cards needed for your decks', enabled: false },

@@ -350,13 +350,13 @@ export function AIGeneratedDeckList({
             deckName={deckName}
           />
 
-          {/* AI Strategy Summary */}
+          {/* Strategy Summary */}
           {analysis?.strategy && (
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Crown className="h-5 w-5 text-primary" />
-                  AI Strategy
+                  Deck Strategy
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -389,12 +389,12 @@ export function AIGeneratedDeckList({
                 <p className="text-muted-foreground text-center py-8">No build log available</p>
               )}
 
-              {/* AI Feedback if available */}
+              {/* Builder Feedback if available */}
               {analysis?.aiFeedback && (
                 <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     <Crown className="h-4 w-4 text-primary" />
-                    AI Analysis
+                    Analysis
                   </h4>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                     {analysis.aiFeedback}

@@ -17,8 +17,8 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    title: 'AI Deck Builder',
-    description: 'Build tournament-ready decks instantly with AI that understands meta, synergy, and strategy.',
+    title: 'Smart Deck Builder',
+    description: 'Build tournament-ready decks instantly with intelligent algorithms that understand meta, synergy, and strategy.',
     icon: Brain,
     color: 'from-primary to-primary/50'
   },
@@ -102,7 +102,7 @@ const features: Feature[] = [
   },
   {
     title: 'Deck Templates',
-    description: 'Pre-built archetypes for every format with AI customization.',
+    description: 'Pre-built archetypes for every format with smart customization.',
     icon: FileText,
     color: 'from-mana-green to-mana-blue'
   },

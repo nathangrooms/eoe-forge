@@ -74,7 +74,7 @@ const NAV_ITEMS: NavItem[] = [
     section: 'tools'
   },
   {
-    title: 'AI Builder',
+    title: 'Deck Builder',
     href: '/ai-builder',
     icon: Sparkles,
     badge: 'New',
@@ -84,7 +84,6 @@ const NAV_ITEMS: NavItem[] = [
     title: 'MTG Brain',
     href: '/brain',
     icon: Brain,
-    badge: 'AI',
     section: 'tools'
   },
   {

@@ -60,7 +60,7 @@ const DeckBuilder = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Check AI Optimizer feature flag
+  // Check Optimizer feature flag
   const { isEnabled: isAiOptimizerEnabled, isLoading: aiOptimizerLoading } = useIsFeatureEnabled('ai_deck_optimizer');
 
   // State for deck management
@@ -920,17 +920,17 @@ const DeckBuilder = () => {
               </div>
             )}
 
-            {/* AI Optimizer */}
+            {/* Optimizer */}
             {activeTab === 'ai' && !isAiOptimizerEnabled && (
               <Card className="border-dashed border-2 border-muted">
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                     <Brain className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">AI Optimizer</h3>
+                  <h3 className="text-xl font-semibold mb-2">Optimizer</h3>
                   <Badge variant="secondary" className="mb-4">In Development</Badge>
                   <p className="text-muted-foreground max-w-md">
-                    Our AI-powered deck optimization feature is currently being enhanced with new capabilities. 
+                    Our deck optimization feature is currently being enhanced with new capabilities. 
                     Check back soon for intelligent card suggestions and deck improvements.
                   </p>
                 </CardContent>
@@ -987,7 +987,7 @@ const DeckBuilder = () => {
 
             {activeTab === 'ai' && isAiOptimizerEnabled && deck.cards.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="font-medium">Add cards to get AI optimization</p>
+                <p className="font-medium">Add cards to get optimization suggestions</p>
               </div>
             )}
 

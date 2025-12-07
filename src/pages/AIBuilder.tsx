@@ -444,16 +444,34 @@ export default function AIBuilder() {
 
       if (deckError) throw deckError;
 
-      // Add commander
+      // Add commander - need to get proper card ID from database if not present
       if (commander && deckRecord) {
-        await supabase.from('deck_cards').insert({
-          deck_id: deckRecord.id,
-          card_id: commander.id,
-          card_name: commander.name,
-          quantity: 1,
-          is_commander: true,
-          is_sideboard: false
-        });
+        let commanderId = commander.id;
+        
+        // If commander doesn't have an ID (e.g., from popular commanders list), fetch it
+        if (!commanderId) {
+          const { data: cardData } = await supabase
+            .from('cards')
+            .select('id')
+            .eq('name', commander.name)
+            .limit(1)
+            .maybeSingle();
+          
+          commanderId = cardData?.id;
+        }
+        
+        if (commanderId) {
+          await supabase.from('deck_cards').insert({
+            deck_id: deckRecord.id,
+            card_id: commanderId,
+            card_name: commander.name,
+            quantity: 1,
+            is_commander: true,
+            is_sideboard: false
+          });
+        } else {
+          console.warn('Could not find commander ID for:', commander.name);
+        }
       }
 
       // Add deck cards - use upsert to handle potential duplicates

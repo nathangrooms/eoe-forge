@@ -143,6 +143,8 @@ export class BuilderOrchestrator {
 
   /**
    * Advanced build using proper deck building algorithm
+   * CRITICAL: Enforces singleton rule (1 copy of each card except basic lands)
+   * CRITICAL: Must produce exactly 99 cards (commander counts as 1, making 100 total)
    */
   private static async advancedBuild(
     pool: Card[],
@@ -151,6 +153,7 @@ export class BuilderOrchestrator {
     plan?: any
   ): Promise<BuildResult> {
     console.log('Executing advanced build algorithm...');
+    console.log('SINGLETON RULE: All cards must be unique (except basic lands)');
     
     // Filter pool for commander colors and quality
     const filteredPool = pool.filter(c => {
@@ -167,55 +170,83 @@ export class BuilderOrchestrator {
     // Tag all cards
     filteredPool.forEach(card => this.tagCard(card));
     
-    // Phase 1: Core Infrastructure (Ramp, Draw, Removal)
+    // SINGLETON TRACKING - Use Set to track unique card names
+    const usedCardNames = new Set<string>();
     const deck: Card[] = [];
+    
+    // Helper to add cards while respecting singleton
+    const addUnique = (cards: Card[], limit: number): Card[] => {
+      const added: Card[] = [];
+      for (const card of cards) {
+        if (added.length >= limit) break;
+        // Basic lands can be duplicated
+        const isBasic = this.isBasicLand(card);
+        if (!isBasic && usedCardNames.has(card.name)) continue;
+        
+        added.push(card);
+        if (!isBasic) usedCardNames.add(card.name);
+      }
+      return added;
+    };
+    
+    // Phase 1: Core Infrastructure (Ramp, Draw, Removal)
     const rampTarget = template.quotas.counts['ramp']?.min || 10;
     const drawTarget = template.quotas.counts['draw']?.min || 10;
     const removalTarget = (template.quotas.counts['removal-spot']?.min || 6) + 
                           (template.quotas.counts['removal-sweeper']?.min || 2);
     
     // Select ramp (prioritize quality and CMC efficiency)
-    const rampCards = filteredPool
-      .filter(c => c.tags.has('ramp'))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, rampTarget);
+    const rampCards = addUnique(
+      filteredPool
+        .filter(c => c.tags.has('ramp'))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      rampTarget
+    );
     deck.push(...rampCards);
     console.log(`Added ${rampCards.length} ramp cards (target: ${rampTarget})`);
     
     // Select card draw
-    const drawCards = filteredPool
-      .filter(c => c.tags.has('draw') && !deck.includes(c))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, drawTarget);
+    const drawCards = addUnique(
+      filteredPool
+        .filter(c => c.tags.has('draw') && !usedCardNames.has(c.name))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      drawTarget
+    );
     deck.push(...drawCards);
     console.log(`Added ${drawCards.length} draw cards (target: ${drawTarget})`);
     
     // Select removal (mix of spot and sweepers)
-    const spotRemoval = filteredPool
-      .filter(c => c.tags.has('removal-spot') && !deck.includes(c))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, template.quotas.counts['removal-spot']?.min || 6);
+    const spotRemoval = addUnique(
+      filteredPool
+        .filter(c => c.tags.has('removal-spot') && !usedCardNames.has(c.name))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      template.quotas.counts['removal-spot']?.min || 6
+    );
     deck.push(...spotRemoval);
     
-    const sweepers = filteredPool
-      .filter(c => c.tags.has('removal-sweeper') && !deck.includes(c))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, template.quotas.counts['removal-sweeper']?.min || 2);
+    const sweepers = addUnique(
+      filteredPool
+        .filter(c => c.tags.has('removal-sweeper') && !usedCardNames.has(c.name))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      template.quotas.counts['removal-sweeper']?.min || 2
+    );
     deck.push(...sweepers);
     console.log(`Added ${spotRemoval.length} spot removal + ${sweepers.length} sweepers (target: ${removalTarget})`);
     
     // Phase 2: Synergy & Theme Cards
     const synergyTags = plan?.synergies || ['counters', 'tokens', 'etb', 'blink'];
-    const synergyCards = filteredPool
-      .filter(c => !deck.includes(c) && synergyTags.some((tag: string) => c.tags.has(tag)))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, 20);
+    const synergyCards = addUnique(
+      filteredPool
+        .filter(c => !usedCardNames.has(c.name) && synergyTags.some((tag: string) => c.tags.has(tag)))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      20
+    );
     deck.push(...synergyCards);
     console.log(`Added ${synergyCards.length} synergy cards`);
     
     // Phase 3: Creatures (filling curve)
     const creaturesByMV = this.groupByManaCost(
-      filteredPool.filter(c => c.type_line.includes('Creature') && !c.is_legendary && !deck.includes(c))
+      filteredPool.filter(c => c.type_line.includes('Creature') && !c.is_legendary && !usedCardNames.has(c.name))
     );
     
     const creatureCurve = [
@@ -227,49 +258,93 @@ export class BuilderOrchestrator {
       { mv: 6, count: 3 }
     ];
     
+    let creatureCount = 0;
     for (const { mv, count } of creatureCurve) {
-      const creatures = (creaturesByMV[mv] || [])
-        .filter(c => !deck.includes(c))
-        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-        .slice(0, count);
+      const creatures = addUnique(
+        (creaturesByMV[mv] || [])
+          .filter(c => !usedCardNames.has(c.name))
+          .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+        count
+      );
       deck.push(...creatures);
+      creatureCount += creatures.length;
     }
-    console.log(`Added ${deck.filter(c => c.type_line.includes('Creature')).length} creatures`);
+    console.log(`Added ${creatureCount} creatures`);
     
     // Phase 4: Win Conditions
-    const wincons = filteredPool
-      .filter(c => !deck.includes(c) && (c.tags.has('wincon') || c.tags.has('combo-piece')))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, 5);
+    const wincons = addUnique(
+      filteredPool
+        .filter(c => !usedCardNames.has(c.name) && (c.tags.has('wincon') || c.tags.has('combo-piece')))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      5
+    );
     deck.push(...wincons);
     console.log(`Added ${wincons.length} win conditions`);
     
     // Phase 5: Protection & Utility
-    const protection = filteredPool
-      .filter(c => !deck.includes(c) && c.tags.has('protection'))
-      .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-      .slice(0, 4);
+    const protection = addUnique(
+      filteredPool
+        .filter(c => !usedCardNames.has(c.name) && c.tags.has('protection'))
+        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+      4
+    );
     deck.push(...protection);
     console.log(`Added ${protection.length} protection cards`);
     
-    // Phase 6: Fill remaining non-land slots
-    const nonLandTarget = 63; // 99 - 36 lands
-    const remaining = nonLandTarget - deck.length;
+    // Phase 6: Fill remaining non-land slots to reach 63 (99 - 36 lands)
+    const nonLandTarget = 63;
+    let remaining = nonLandTarget - deck.length;
+    console.log(`Current deck: ${deck.length} cards, need ${remaining} more non-lands`);
+    
     if (remaining > 0) {
-      const fillers = filteredPool
-        .filter(c => !deck.includes(c) && !c.type_line.includes('Land'))
-        .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan))
-        .slice(0, remaining);
+      const fillers = addUnique(
+        filteredPool
+          .filter(c => !usedCardNames.has(c.name) && !c.type_line.includes('Land'))
+          .sort((a, b) => this.scoreCardAdvanced(b, template, plan) - this.scoreCardAdvanced(a, template, plan)),
+        remaining
+      );
       deck.push(...fillers);
       console.log(`Added ${fillers.length} filler cards`);
     }
     
-    // Phase 7: Manabase
-    const lands = this.buildManabase(filteredPool, context, deck);
+    // Phase 7: Manabase (exactly 36 lands to make 99 total)
+    const landTarget = 99 - deck.length;
+    console.log(`Need exactly ${landTarget} lands to reach 99 cards`);
+    
+    const lands = this.buildManabaseExact(filteredPool, context, deck, usedCardNames, landTarget);
     deck.push(...lands);
     console.log(`Added ${lands.length} lands`);
     
-    console.log(`Final deck size: ${deck.length} cards`);
+    // FINAL CHECK: Ensure exactly 99 cards
+    if (deck.length < 99) {
+      console.log(`WARNING: Deck has ${deck.length} cards, padding to 99`);
+      const padding = 99 - deck.length;
+      // Add more basics if needed
+      const basicNames = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+      const identity = context.identity || ['W'];
+      for (let i = 0; i < padding; i++) {
+        const color = identity[i % identity.length];
+        const basicName = { 'W': 'Plains', 'U': 'Island', 'B': 'Swamp', 'R': 'Mountain', 'G': 'Forest' }[color] || 'Plains';
+        const basic = filteredPool.find(l => l.name === basicName);
+        if (basic) {
+          deck.push({ ...basic, id: `${basic.id}-pad-${i}` });
+        }
+      }
+    } else if (deck.length > 99) {
+      console.log(`WARNING: Deck has ${deck.length} cards, trimming to 99`);
+      deck.length = 99;
+    }
+    
+    console.log(`FINAL deck size: ${deck.length} cards (singleton verified)`);
+    
+    // Verify singleton rule
+    const nonBasicNames = deck.filter(c => !this.isBasicLand(c)).map(c => c.name);
+    const duplicates = nonBasicNames.filter((name, index) => nonBasicNames.indexOf(name) !== index);
+    if (duplicates.length > 0) {
+      console.error('SINGLETON VIOLATION:', [...new Set(duplicates)]);
+    } else {
+      console.log('✓ Singleton rule verified - all non-basic cards are unique');
+    }
     
     // Analyze deck
     const analysis = this.analyzeDeck(deck, context);
@@ -280,19 +355,101 @@ export class BuilderOrchestrator {
       sideboard: [],
       analysis,
       changeLog: [
-        'AI-guided deck build with advanced algorithm',
+        'AI-guided deck build with singleton enforcement',
+        `Total cards: ${deck.length}/99 (+ commander = 100)`,
         `Ramp: ${rampCards.length}/${rampTarget}`,
         `Draw: ${drawCards.length}/${drawTarget}`,
         `Removal: ${spotRemoval.length + sweepers.length}/${removalTarget}`,
         `Synergy pieces: ${synergyCards.length}`,
-        `Win conditions: ${wincons.length}`
+        `Win conditions: ${wincons.length}`,
+        `Lands: ${lands.length}`,
+        duplicates.length === 0 ? '✓ All cards unique (singleton verified)' : `⚠ ${duplicates.length} duplicates found`
       ],
       validation: {
-        isLegal: deck.length === 99,
-        errors: deck.length !== 99 ? [`Deck has ${deck.length} cards, needs 99`] : [],
+        isLegal: deck.length === 99 && duplicates.length === 0,
+        errors: [
+          ...(deck.length !== 99 ? [`Deck has ${deck.length} cards, needs 99`] : []),
+          ...(duplicates.length > 0 ? [`Duplicate cards: ${[...new Set(duplicates)].join(', ')}`] : [])
+        ],
         warnings: this.validateDeckQuality(deck, template, plan)
       }
     };
+  }
+  
+  /**
+   * Build exact manabase with singleton enforcement
+   */
+  private static buildManabaseExact(
+    pool: Card[], 
+    context: BuildContext, 
+    deck: Card[], 
+    usedNames: Set<string>,
+    targetLands: number
+  ): Card[] {
+    const lands: Card[] = [];
+    const identity = context.identity || [];
+    const landPool = pool.filter(c => c.type_line.includes('Land'));
+    
+    // Calculate color requirements from deck
+    const colorPips: Record<string, number> = {};
+    for (const card of deck) {
+      const cost = card.mana_cost || '';
+      for (const color of ['W', 'U', 'B', 'R', 'G']) {
+        const matches = cost.match(new RegExp(`{${color}}`, 'g'));
+        colorPips[color] = (colorPips[color] || 0) + (matches?.length || 0);
+      }
+    }
+    
+    // Sort colors by requirement
+    const sortedColors = identity.length > 0 
+      ? identity.sort((a, b) => (colorPips[b] || 0) - (colorPips[a] || 0))
+      : ['W'];
+    
+    // Add high-quality utility lands (unique only)
+    const utilityLands = landPool
+      .filter(l => !this.isBasicLand(l) && !usedNames.has(l.name) && (l.oracle_text?.length || 0) > 10)
+      .sort((a, b) => this.scoreCard(b) - this.scoreCard(a))
+      .slice(0, Math.min(8, targetLands));
+    
+    for (const land of utilityLands) {
+      if (lands.length >= targetLands) break;
+      lands.push(land);
+      usedNames.add(land.name);
+    }
+    
+    // Add dual lands (unique only)
+    const dualLands = landPool
+      .filter(l => !usedNames.has(l.name) && this.isDualLand(l, identity))
+      .sort((a, b) => this.scoreCard(b) - this.scoreCard(a))
+      .slice(0, Math.min(10, targetLands - lands.length));
+    
+    for (const land of dualLands) {
+      if (lands.length >= targetLands) break;
+      lands.push(land);
+      usedNames.add(land.name);
+    }
+    
+    // Fill remaining with basics (can duplicate)
+    const basicsNeeded = targetLands - lands.length;
+    const basicNames: Record<string, string> = {
+      'W': 'Plains',
+      'U': 'Island',
+      'B': 'Swamp',
+      'R': 'Mountain',
+      'G': 'Forest'
+    };
+    
+    for (let i = 0; i < basicsNeeded; i++) {
+      const color = sortedColors[i % sortedColors.length];
+      const basicName = basicNames[color] || 'Plains';
+      const basic = landPool.find(l => l.name === basicName);
+      if (basic) {
+        // Basic lands get unique IDs to allow multiples
+        lands.push({ ...basic, id: `${basic.id}-basic-${i}` });
+      }
+    }
+    
+    return lands;
   }
   
   /**

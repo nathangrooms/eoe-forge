@@ -1,61 +1,31 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
+import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { 
-  LayoutGrid, 
-  List, 
-  ChevronDown, 
-  ChevronRight,
   Crown,
-  Swords,
-  Shield,
-  Scroll,
-  Gem,
-  Sparkles,
-  Mountain,
-  Users,
-  Skull,
   Save,
   RotateCcw,
+  Download,
+  ExternalLink,
+  Copy,
+  FolderOpen,
   TrendingUp,
   DollarSign,
   Hash,
-  Download,
-  ExternalLink
+  BarChart3,
+  List,
+  LayoutGrid,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { showSuccess } from '@/components/ui/toast-helpers';
 
-type ViewMode = 'list' | 'visual';
-type Category = 'creatures' | 'lands' | 'instants' | 'sorceries' | 'enchantments' | 'artifacts' | 'planeswalkers' | 'battles';
-
-const CATEGORY_ICONS = {
-  creatures: Users,
-  lands: Mountain,
-  instants: Sparkles,
-  sorceries: Scroll,
-  enchantments: Gem,
-  artifacts: Shield,
-  planeswalkers: Swords,
-  battles: Skull
-};
-
-const CATEGORY_LABELS = {
-  creatures: 'Creatures',
-  lands: 'Lands',
-  instants: 'Instants',
-  sorceries: 'Sorceries',
-  enchantments: 'Enchantments',
-  artifacts: 'Artifacts',
-  planeswalkers: 'Planeswalkers',
-  battles: 'Battles'
-};
-
-const TYPE_COLORS = ['#0088fe', '#00c49f', '#ffbb28', '#ff8042', '#8884d8', '#82ca9d', '#ffc658'];
+const TYPE_COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#a855f7', '#f59e0b', '#64748b', '#ec4899', '#14b8a6'];
 
 interface AIGeneratedDeckListProps {
   deckName: string;
@@ -86,50 +56,26 @@ export function AIGeneratedDeckList({
   onApplyToDeckBuilder,
   onStartOver 
 }: AIGeneratedDeckListProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
+  const [activeTab, setActiveTab] = useState('cards');
+  const [isListView, setIsListView] = useState(false);
 
-  const toggleCategory = (category: Category) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
-    }
-    setExpandedCategories(newExpanded);
-  };
+  // Transform cards for VisualDeckView format
+  const transformedCards = useMemo(() => {
+    return cards.map(card => ({
+      id: card.id || `card-${Math.random()}`,
+      name: card.name,
+      quantity: card.quantity || 1,
+      cmc: card.cmc || 0,
+      type_line: card.type_line || '',
+      colors: card.colors || [],
+      mana_cost: card.mana_cost,
+      image_uris: card.image_uris,
+      prices: card.prices,
+      oracle_text: card.oracle_text
+    }));
+  }, [cards]);
 
-  // Group cards by category
-  const groupedCards = cards.reduce((acc, card) => {
-    let category: Category = 'creatures';
-    const typeLine = card.type_line?.toLowerCase() || '';
-    
-    if (typeLine.includes('land')) {
-      category = 'lands';
-    } else if (typeLine.includes('creature')) {
-      category = 'creatures';
-    } else if (typeLine.includes('instant')) {
-      category = 'instants';
-    } else if (typeLine.includes('sorcery')) {
-      category = 'sorceries';
-    } else if (typeLine.includes('enchantment')) {
-      category = 'enchantments';
-    } else if (typeLine.includes('artifact')) {
-      category = 'artifacts';
-    } else if (typeLine.includes('planeswalker')) {
-      category = 'planeswalkers';
-    } else if (typeLine.includes('battle')) {
-      category = 'battles';
-    }
-    
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(card);
-    return acc;
-  }, {} as Record<string, any[]>);
-
-  // Calculate deck analysis
+  // Calculate stats
   const totalCards = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
   const nonLands = cards.filter(card => !card.type_line?.toLowerCase().includes('land'));
   const lands = cards.filter(card => card.type_line?.toLowerCase().includes('land'));
@@ -138,323 +84,209 @@ export function AIGeneratedDeckList({
     : 0;
 
   // Mana curve data
-  const manaCurve = Array.from({ length: 8 }, (_, i) => ({
-    cmc: i === 7 ? '7+' : i.toString(),
-    count: nonLands.filter(card => {
-      const cmc = card.cmc || 0;
-      return i === 7 ? cmc >= 7 : cmc === i;
-    }).length
-  }));
+  const manaCurve = useMemo(() => {
+    return Array.from({ length: 8 }, (_, i) => ({
+      cmc: i === 7 ? '7+' : i.toString(),
+      count: nonLands.filter(card => {
+        const cmc = card.cmc || 0;
+        return i === 7 ? cmc >= 7 : cmc === i;
+      }).length
+    }));
+  }, [nonLands]);
 
   // Type distribution
-  const typeCounts: Record<string, number> = {};
-  cards.forEach(card => {
-    const type = card.type_line?.toLowerCase() || '';
-    let primaryType = 'Other';
-    
-    if (type.includes('creature')) primaryType = 'Creature';
-    else if (type.includes('instant')) primaryType = 'Instant';
-    else if (type.includes('sorcery')) primaryType = 'Sorcery';
-    else if (type.includes('artifact')) primaryType = 'Artifact';
-    else if (type.includes('enchantment')) primaryType = 'Enchantment';
-    else if (type.includes('planeswalker')) primaryType = 'Planeswalker';
-    else if (type.includes('land')) primaryType = 'Land';
-    
-    typeCounts[primaryType] = (typeCounts[primaryType] || 0) + 1;
-  });
-
-  const typeDistribution = Object.entries(typeCounts).map(([type, count]) => ({
-    type,
-    count,
-    percentage: (count / cards.length) * 100
-  }));
-
-  const CategoryCard = ({ category, cards: categoryCards }: { category: Category, cards: any[] }) => {
-    const Icon = CATEGORY_ICONS[category] || Users;
-    const isExpanded = expandedCategories.has(category);
-    const totalCards = categoryCards.reduce((sum, card) => sum + (card.quantity || 1), 0);
-
-    const getCategoryColor = (category: Category) => {
-      const colors = {
-        creatures: 'border-l-green-500 bg-green-500/10',
-        lands: 'border-l-orange-500 bg-orange-500/10', 
-        instants: 'border-l-blue-500 bg-blue-500/10',
-        sorceries: 'border-l-red-500 bg-red-500/10',
-        enchantments: 'border-l-purple-500 bg-purple-500/10',
-        artifacts: 'border-l-gray-500 bg-gray-500/10',
-        planeswalkers: 'border-l-pink-500 bg-pink-500/10',
-        battles: 'border-l-orange-600 bg-orange-600/10'
-      };
-      return colors[category] || 'border-l-gray-500 bg-gray-500/10';
-    };
-
-    return (
-      <Card className={`mb-4 border-l-4 ${getCategoryColor(category)}`}>
-        <CardHeader 
-          className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => toggleCategory(category)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              <Icon className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">{CATEGORY_LABELS[category]}</CardTitle>
-              <Badge variant="secondary">{totalCards}</Badge>
-            </div>
-          </div>
-        </CardHeader>
-        
-        {isExpanded && (
-          <CardContent className="pt-0">
-            {viewMode === 'list' ? (
-              <div className="space-y-2">
-                {categoryCards.map((card, index) => (
-                  <div key={`${card.id}-${index}`} className="flex items-center justify-between p-3 bg-muted/30 rounded hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex items-center gap-2 min-w-[60px]">
-                        <Badge variant="outline" className="font-mono">
-                          {card.quantity || 1}x
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="font-medium">{card.name}</div>
-                        <div className="text-sm text-muted-foreground">{card.type_line}</div>
-                        {card.reason && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {typeof card.reason === 'string' ? card.reason : 
-                             typeof card.reason === 'object' ? card.reason?.reason || 'Added to deck' :
-                             'Added to deck'}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {card.cmc !== undefined && (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            CMC {card.cmc}
-                          </Badge>
-                        )}
-                        {card.prices?.usd && (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            ${parseFloat(card.prices.usd).toFixed(2)}
-                          </Badge>
-                        )}
-                        {card.colors?.length > 0 && (
-                          <div className="flex gap-1">
-                            {card.colors.map((color: string) => (
-                              <div 
-                                key={color}
-                                className={`w-3 h-3 rounded-full border ${getColorClass(color)}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 gap-4">
-                {categoryCards.map((card, index) => (
-                  <div key={`${card.id}-${index}`} className="relative group">
-                    <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden border-2 border-transparent group-hover:border-primary transition-colors">
-                      {card.image_uris?.normal ? (
-                        <img 
-                          src={card.image_uris.normal} 
-                          alt={card.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <Icon className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      
-                      <div className="absolute top-2 left-2">
-                        <Badge className="bg-background/90 text-foreground border">
-                          {card.quantity || 1}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-2 text-center">
-                      <div className="font-medium text-sm line-clamp-1">{card.name}</div>
-                      <div className="text-xs text-muted-foreground">CMC {card.cmc || 0}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
-    );
-  };
-
-  // Generate EDH Power Level URL
-  const generateEDHPowerLevelURL = () => {
-    let decklistParam = '';
-    
-    // Add commander
-    if (commander) {
-      decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
-    }
-    
-    // Add all other cards
+  const typeDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
     cards.forEach(card => {
-      const quantity = card.quantity || 1;
-      decklistParam += `${quantity}x+${encodeURIComponent(card.name)}~`;
+      const type = card.type_line?.toLowerCase() || '';
+      let primaryType = 'Other';
+      if (type.includes('creature')) primaryType = 'Creature';
+      else if (type.includes('instant')) primaryType = 'Instant';
+      else if (type.includes('sorcery')) primaryType = 'Sorcery';
+      else if (type.includes('artifact')) primaryType = 'Artifact';
+      else if (type.includes('enchantment')) primaryType = 'Enchantment';
+      else if (type.includes('planeswalker')) primaryType = 'Planeswalker';
+      else if (type.includes('land')) primaryType = 'Land';
+      counts[primaryType] = (counts[primaryType] || 0) + 1;
     });
-    
-    // Remove trailing ~
-    if (decklistParam.endsWith('~')) {
-      decklistParam = decklistParam.slice(0, -1);
+    return Object.entries(counts).map(([type, count]) => ({
+      type,
+      count,
+      percentage: cards.length > 0 ? (count / cards.length) * 100 : 0
+    }));
+  }, [cards]);
+
+  // Generate decklist text
+  const generateDecklistText = () => {
+    let text = '';
+    if (commander) {
+      text += `1 ${commander.name} *CMDR*\n\n`;
     }
     
-    return `https://edhpowerlevel.com/?d=${decklistParam}`;
+    const grouped = cards.reduce((acc, card) => {
+      const type = card.type_line?.split('—')[0].trim() || 'Other';
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(card);
+      return acc;
+    }, {} as Record<string, any[]>);
+    
+    for (const [type, typeCards] of Object.entries(grouped)) {
+      text += `// ${type}\n`;
+      for (const card of typeCards as any[]) {
+        text += `${card.quantity || 1} ${card.name}\n`;
+      }
+      text += '\n';
+    }
+    return text;
   };
+
+  const copyDecklist = () => {
+    navigator.clipboard.writeText(generateDecklistText());
+    showSuccess('Decklist Copied', 'Decklist has been copied to clipboard');
+  };
+
+  const edhUrl = edhPowerUrl || (() => {
+    let decklistParam = '';
+    if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+    cards.forEach(card => {
+      const qty = card.quantity || 1;
+      decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
+    });
+    if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+    return `https://edhpowerlevel.com/?d=${decklistParam}`;
+  })();
+
+  // Check if deck meets requirements
+  const totalWithCommander = totalCards + (commander ? 1 : 0);
+  const isValidCount = totalWithCommander === 100;
 
   return (
     <div className="space-y-6">
-      {/* Header with Deck Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5" />
-            {deckName}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <div className="text-2xl font-bold">{Math.round(power || 0)}/10</div>
+      {/* Action Bar - At Top */}
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+        <CardContent className="py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent">
+                <Crown className="h-5 w-5 text-primary-foreground" />
               </div>
-              <div className="text-sm text-muted-foreground">AI Power Score</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <ExternalLink className="h-4 w-4 text-blue-600" />
-                <div className="text-2xl font-bold text-blue-600">
-                  {edhPowerLevel !== null && edhPowerLevel !== undefined 
-                    ? `${edhPowerLevel.toFixed(1)}/10` 
-                    : 'N/A'}
+              <div>
+                <h2 className="font-bold text-lg">{deckName}</h2>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>{totalWithCommander} cards</span>
+                  {isValidCount ? (
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Valid
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {totalWithCommander}/100
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <div className="text-sm text-muted-foreground">
-                {edhPowerUrl ? (
-                  <a 
-                    href={edhPowerUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="hover:text-blue-600 hover:underline"
-                  >
-                    EDH Power Level
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={copyDecklist} variant="outline" size="sm">
+                <Copy className="h-4 w-4 mr-2" />
+                Copy List
+              </Button>
+              {edhUrl && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={edhUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    EDH Power
                   </a>
-                ) : (
-                  'EDH Power Level'
-                )}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-green-600" />
-                <div className="text-2xl font-bold text-green-600">${(totalValue || 0).toFixed(2)}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Est. Price</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Hash className="h-4 w-4 text-blue-600" />
-                <div className="text-2xl font-bold">{totalCards}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Total Cards</div>
+                </Button>
+              )}
+              <Button onClick={onApplyToDeckBuilder} variant="outline" size="sm">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Open in Deck Builder
+              </Button>
+              <Button onClick={onSaveDeck} size="sm" className="bg-gradient-to-r from-primary to-accent">
+                <Save className="h-4 w-4 mr-2" />
+                Save Deck
+              </Button>
+              <Button onClick={onStartOver} variant="ghost" size="sm">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Start Over
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="cards" className="w-full">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="bg-card/50">
+          <CardContent className="py-4 text-center">
+            <TrendingUp className="h-5 w-5 mx-auto mb-1 text-primary" />
+            <div className="text-2xl font-bold">{Math.round(power || 0)}/10</div>
+            <div className="text-xs text-muted-foreground">AI Power</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="py-4 text-center">
+            <ExternalLink className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+            <div className="text-2xl font-bold text-blue-500">
+              {edhPowerLevel != null ? `${edhPowerLevel.toFixed(1)}` : 'N/A'}
+            </div>
+            <div className="text-xs text-muted-foreground">EDH Power</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="py-4 text-center">
+            <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-500" />
+            <div className="text-2xl font-bold text-green-500">${(totalValue || 0).toFixed(0)}</div>
+            <div className="text-xs text-muted-foreground">Est. Price</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="py-4 text-center">
+            <Hash className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+            <div className="text-2xl font-bold">{avgCmc.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground">Avg CMC</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="py-4 text-center">
+            <BarChart3 className="h-5 w-5 mx-auto mb-1 text-purple-500" />
+            <div className="text-2xl font-bold">{lands.length}</div>
+            <div className="text-xs text-muted-foreground">Lands</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs for content */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="cards">Cards</TabsTrigger>
-          <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="changelog">Build Log</TabsTrigger>
+          <TabsTrigger value="cards" className="flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            Cards
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analysis
+          </TabsTrigger>
+          <TabsTrigger value="log" className="flex items-center gap-2">
+            <List className="h-4 w-4" />
+            Build Log
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cards" className="space-y-4">
-          {/* View Mode Selector */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">Deck List</h2>
-              <p className="text-sm text-muted-foreground">{totalCards} cards total</p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4 mr-2" />
-                List
-              </Button>
-              <Button
-                variant={viewMode === 'visual' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('visual')}
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                Visual
-              </Button>
-            </div>
-          </div>
-
-          {/* Commander Section */}
-          {commander && (
-            <Card className="mb-4 border-l-4 border-l-yellow-500 bg-yellow-500/10">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <Crown className="h-5 w-5 text-yellow-600" />
-                  <CardTitle className="text-lg">Commander</CardTitle>
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">1</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  {commander.image_uris?.normal ? (
-                    <img 
-                      src={commander.image_uris.normal} 
-                      alt={commander.name}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-                      <Crown className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="font-medium">{commander.name}</div>
-                    <div className="text-sm text-muted-foreground">CMC {commander.cmc || 0}</div>
-                    <div className="text-sm text-muted-foreground">{commander.type_line}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Categories */}
-          {Object.entries(groupedCards).map(([category, categoryCards]) => (
-            <CategoryCard
-              key={category}
-              category={category as Category}
-              cards={categoryCards as any[]}
-            />
-          ))}
+        <TabsContent value="cards" className="mt-6">
+          {/* Use VisualDeckView - same as deck builder */}
+          <VisualDeckView
+            cards={transformedCards}
+            commander={commander}
+            format="commander"
+          />
         </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-4">
+        <TabsContent value="analysis" className="mt-6 space-y-6">
           {/* Mana Curve */}
           <Card>
             <CardHeader>
@@ -466,216 +298,111 @@ export function AIGeneratedDeckList({
                   <BarChart data={manaCurve}>
                     <XAxis dataKey="cmc" />
                     <YAxis />
-                    <Bar dataKey="count" fill="#8884d8" />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                Average CMC: {avgCmc.toFixed(2)}
-              </div>
             </CardContent>
           </Card>
 
-          {/* Card Types */}
+          {/* Type Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Card Types</CardTitle>
+              <CardTitle className="text-lg">Type Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={typeDistribution}
-                      dataKey="count"
-                      nameKey="type"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ type, percentage }) => `${type} ${percentage.toFixed(0)}%`}
-                    >
-                      {typeDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={typeDistribution}
+                        dataKey="count"
+                        nameKey="type"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        label={({ type, percentage }) => `${type}: ${percentage.toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {typeDistribution.map((_, index) => (
+                          <Cell key={index} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-2">
+                  {typeDistribution.map((item, index) => (
+                    <div key={item.type} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: TYPE_COLORS[index % TYPE_COLORS.length] }}
+                        />
+                        <span className="text-sm">{item.type}</span>
+                      </div>
+                      <span className="text-sm font-medium">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Deck Stats */}
+        <TabsContent value="log" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Deck Statistics</CardTitle>
+              <CardTitle className="text-lg">Build Log</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              {changelog && changelog.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Non-lands:</span>
-                    <span>{nonLands.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Lands:</span>
-                    <span>{lands.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Creatures:</span>
-                    <span>{cards.filter(c => c.type_line?.toLowerCase().includes('creature')).length}</span>
-                  </div>
+                  {changelog.map((entry, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 text-sm">
+                        {typeof entry === 'string' ? entry : JSON.stringify(entry)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Instants:</span>
-                    <span>{cards.filter(c => c.type_line?.toLowerCase().includes('instant')).length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sorceries:</span>
-                    <span>{cards.filter(c => c.type_line?.toLowerCase().includes('sorcery')).length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Others:</span>
-                    <span>{cards.filter(c => !['creature', 'instant', 'sorcery', 'land'].some(t => c.type_line?.toLowerCase().includes(t))).length}</span>
-                  </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">No build log available</p>
+              )}
+
+              {/* AI Feedback if available */}
+              {analysis?.aiFeedback && (
+                <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    AI Analysis
+                  </h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {analysis.aiFeedback}
+                  </p>
                 </div>
-              </div>
-
-              {analysis && (
-                <>
-                  <Separator className="my-4" />
-                  <div className="space-y-3">
-              {analysis && analysis.strengths && Array.isArray(analysis.strengths) && analysis.strengths.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-green-600 mb-2">Strengths</h4>
-                        <ul className="text-sm space-y-1">
-                          {(analysis.strengths as string[]).map((strength: string, index: number) => (
-                            <li key={index} className="text-muted-foreground">• {strength}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {analysis && analysis.weaknesses && Array.isArray(analysis.weaknesses) && analysis.weaknesses.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-orange-600 mb-2">Areas for Improvement</h4>
-                        <ul className="text-sm space-y-1">
-                          {analysis.weaknesses.map((weakness: string, index: number) => (
-                            <li key={index} className="text-muted-foreground">• {weakness}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {analysis && analysis.suggestions && Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-blue-600 mb-2">Suggestions</h4>
-                        <ul className="text-sm space-y-1">
-                          {analysis.suggestions.map((suggestion: string, index: number) => (
-                            <li key={index} className="text-muted-foreground">• {suggestion}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="changelog" className="space-y-2">
-          {changelog && changelog.length > 0 ? (
-            changelog.map((change: any, index: number) => (
-              <div key={index} className="p-3 bg-muted/30 rounded text-sm">
-                {typeof change === 'string' ? change : 
-                 typeof change === 'object' && change ? (
-                   <div className="flex items-center justify-between">
-                     <span>
-                       <Badge variant={change.action === 'add' ? 'default' : 'secondary'} className="mr-2">
-                         {change.action || 'Action'}
-                       </Badge>
-                       {change.card || 'Card'} - {change.reason || 'No reason'}
-                     </span>
-                     <Badge variant="outline" className="text-xs">
-                       {change.stage || 'Stage'}
-                     </Badge>
-                   </div>
-                 ) : String(change)}
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No build log available
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Button onClick={onSaveDeck} className="flex-1">
-            <Save className="h-4 w-4 mr-2" />
-            Save to My Decks
-          </Button>
-          {onApplyToDeckBuilder && (
-            <Button variant="outline" onClick={onApplyToDeckBuilder} className="flex-1">
-              <Swords className="h-4 w-4 mr-2" />
-              Open in Deck Builder
-            </Button>
-          )}
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            className="flex-1"
-            onClick={async () => {
-              // Generate deck list export (same format as DeckImportExport)
-              let output = '';
-              
-              // Commander
-              if (commander) {
-                output += `1x ${commander.name} (Commander)\n\n`;
-              }
-              
-              // Main deck
-              Object.entries(groupedCards).forEach(([category, categoryCards]) => {
-                (categoryCards as any[]).forEach(card => {
-                  output += `${card.quantity || 1}x ${card.name}\n`;
-                });
-              });
-              
-              // Copy to clipboard
-              try {
-                await navigator.clipboard.writeText(output);
-                showSuccess("Copied to Clipboard", "Deck list copied successfully");
-              } catch (error) {
-                showSuccess("Export Failed", "Could not copy to clipboard");
-              }
-            }}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Copy Decklist
-          </Button>
-          <Button variant="outline" onClick={onStartOver} className="flex-1">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Build Another Deck
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
 
-function getColorClass(color: string): string {
-  const colorMap: Record<string, string> = {
-    W: 'bg-yellow-100 border-yellow-300',
-    U: 'bg-blue-100 border-blue-300',
-    B: 'bg-gray-100 border-gray-300',
-    R: 'bg-red-100 border-red-300',
-    G: 'bg-green-100 border-green-300'
+function getColorClass(color: string) {
+  const colors: Record<string, string> = {
+    'W': 'bg-amber-100 border-amber-300',
+    'U': 'bg-blue-500 border-blue-600',
+    'B': 'bg-gray-800 border-gray-900',
+    'R': 'bg-red-500 border-red-600',
+    'G': 'bg-green-500 border-green-600'
   };
-  return colorMap[color] || 'bg-gray-200 border-gray-300';
+  return colors[color] || 'bg-gray-300 border-gray-400';
 }

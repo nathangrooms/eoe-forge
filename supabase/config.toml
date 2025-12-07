@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.daily-price-capture]
 verify_jwt = false
+
+[functions.fetch-precons]
+verify_jwt = false

@@ -15,8 +15,11 @@ import {
   RefreshCw,
   Download,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  Plus
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -132,27 +135,27 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
   ];
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Enhanced Header */}
-      <div className="border-b bg-gradient-to-r from-card via-card to-background px-4 md:px-6 py-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={onBack} size="sm" className="gap-2 hover:bg-accent">
+    <div className="h-full flex flex-col bg-background overflow-y-auto">
+      {/* Enhanced Header - not sticky on mobile */}
+      <div className="border-b bg-gradient-to-r from-card via-card to-background px-3 md:px-6 py-4 md:py-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-5">
+          <div className="flex items-center gap-3 md:gap-4">
+            <Button variant="outline" onClick={onBack} size="sm" className="gap-2 hover:bg-accent shrink-0">
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Back</span>
             </Button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/10"
+                className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/10 shrink-0"
                 style={{ backgroundColor: container.color || '#6366F1' }}
               >
-                <Package className="h-6 w-6" />
+                <Package className="h-5 w-5 md:h-6 md:w-6" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl md:text-2xl font-bold">{container.name}</h1>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg md:text-2xl font-bold truncate">{container.name}</h1>
                   {items.length === 0 && !loading && (
-                    <Badge variant="outline" className="text-orange-500 border-orange-500/30">Empty</Badge>
+                    <Badge variant="outline" className="text-orange-500 border-orange-500/30 shrink-0">Empty</Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -160,7 +163,7 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
                   {container.deck_id && (
                     <Badge variant="secondary" className="text-xs gap-1">
                       <Sparkles className="h-3 w-3" />
-                      Deck Linked
+                      Deck
                     </Badge>
                   )}
                 </div>
@@ -168,12 +171,12 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button 
               variant="outline" 
               size="sm"
               onClick={loadItems}
-              className="gap-2"
+              className="gap-1"
             >
               <RefreshCw className="h-4 w-4" />
               <span className="hidden sm:inline">Refresh</span>
@@ -181,7 +184,7 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-1">
                   <Settings2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Manage</span>
                 </Button>
@@ -206,32 +209,51 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button 
-              onClick={() => setShowQuickActions(true)} 
-              size="sm"
-              className="gap-2 bg-gradient-cosmic hover:opacity-90"
-            >
-              <Zap className="h-4 w-4" />
-              Add Cards
-            </Button>
+            {/* Add Cards Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  size="sm"
+                  className="gap-1 bg-gradient-cosmic hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Add Cards</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem 
+                  className="gap-2"
+                  onClick={() => setShowQuickActions(true)}
+                >
+                  <Search className="h-4 w-4" />
+                  Search Manually
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/scan" className="gap-2 flex items-center">
+                    <Camera className="h-4 w-4" />
+                    Scan with Camera
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
         {/* Enhanced Stats Overview */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 md:gap-3">
           {stats.map((stat) => (
             <Card key={stat.label} className={cn("relative overflow-hidden", stat.borderColor, "group hover:shadow-md transition-all duration-300")}>
               <div className="absolute top-0 right-0 w-16 h-16 bg-current opacity-[0.03] rounded-full -translate-y-8 translate-x-8 group-hover:scale-125 transition-transform" />
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2.5 rounded-xl", stat.bgColor)}>
-                    <stat.icon className={cn("h-5 w-5", stat.color)} />
+              <CardContent className="p-2.5 md:p-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className={cn("p-1.5 md:p-2.5 rounded-lg md:rounded-xl", stat.bgColor)}>
+                    <stat.icon className={cn("h-4 w-4 md:h-5 md:w-5", stat.color)} />
                   </div>
-                  <div>
-                    <div className={cn("text-xl font-bold", stat.label === 'Total Value' && 'text-green-500')}>
+                  <div className="min-w-0">
+                    <div className={cn("text-sm md:text-xl font-bold truncate", stat.label === 'Total Value' && 'text-green-500')}>
                       {stat.value}
                     </div>
-                    <div className="text-xs text-muted-foreground">{stat.label}</div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</div>
                   </div>
                 </div>
               </CardContent>
@@ -241,7 +263,7 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto px-4 md:px-6 py-4">
+      <div className="flex-1 px-3 md:px-6 py-4">
         {loading ? (
           <div className="space-y-4">
             <div className="flex gap-3">

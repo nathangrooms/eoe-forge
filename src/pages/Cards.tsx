@@ -47,11 +47,11 @@ export default function Cards() {
         
         const uniqueSets = new Set(setsData?.map(c => c.set_code) || []);
 
-        // Get sync status
+        // Get sync status - check both possible IDs for backwards compatibility
         const { data: syncData } = await supabase
           .from('sync_status')
           .select('last_sync')
-          .eq('id', 'scryfall_sync')
+          .eq('id', 'scryfall_cards')
           .maybeSingle();
 
         setDbStats({

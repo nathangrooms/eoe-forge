@@ -34,6 +34,7 @@ import PublicDeck from "./pages/PublicDeck";
 import Simulate from "./pages/Simulate";
 import Tournament from "./pages/Tournament";
 import ResetPassword from "./pages/ResetPassword";
+import Precons from "./pages/Precons";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,7 @@ function AppContent() {
             <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
+            <Route path="/precons" element={<ProtectedRoute><Precons /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
             <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />

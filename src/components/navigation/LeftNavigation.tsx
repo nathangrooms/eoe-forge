@@ -18,7 +18,8 @@ import {
   ShoppingCart,
   Brain,
   Swords,
-  Trophy
+  Trophy,
+  Layers
 } from 'lucide-react';
 
 interface NavItem {
@@ -52,6 +53,12 @@ const NAV_ITEMS: NavItem[] = [
     title: 'Decks',
     href: '/decks',
     icon: Crown,
+    section: 'main'
+  },
+  {
+    title: 'Precons',
+    href: '/precons',
+    icon: Layers,
     section: 'main'
   },
   {

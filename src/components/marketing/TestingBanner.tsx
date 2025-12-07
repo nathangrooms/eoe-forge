@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logo from '@/assets/deckmatrix-logo.png';
+import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 
 export function TestingBanner() {
   const navigate = useNavigate();
@@ -135,6 +136,16 @@ export function TestingBanner() {
           >
             Sign In
           </Button>
+        </motion.div>
+
+        {/* Install App Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="mt-6"
+        >
+          <InstallAppButton variant="ghost" size="lg" className="text-muted-foreground hover:text-foreground" />
         </motion.div>
 
         {/* Footer note */}

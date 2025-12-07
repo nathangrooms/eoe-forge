@@ -138,31 +138,34 @@ export default function Precons() {
 
       if (deckError) throw deckError;
 
-      // Find commander(s)
-      const commanders = preconDetails.cards.filter(c => c.is_commander);
-      const mainboardCards = preconDetails.cards.filter(c => !c.is_commander);
+      // Build list of card names to look up
+      const cardNames = preconDetails.cards.map(c => c.card_name);
+      
+      // Look up all cards by name in our database
+      const { data: foundCards, error: lookupError } = await supabase
+        .from('cards')
+        .select('id, name')
+        .in('name', cardNames);
 
-      // Insert cards - we need to look up card IDs from our cards table
+      if (lookupError) {
+        console.error('Error looking up cards:', lookupError);
+      }
+
+      // Create a map of card name -> id
+      const cardIdMap: Record<string, string> = {};
+      if (foundCards) {
+        for (const card of foundCards) {
+          cardIdMap[card.name.toLowerCase()] = card.id;
+        }
+      }
+
+      // Insert cards that we found in our database
       const cardInserts = [];
+      const notFound: string[] = [];
       
       for (const card of preconDetails.cards) {
-        // Try to find the card in our database by scryfall_id or name
-        let cardId = card.scryfall_id;
+        const cardId = cardIdMap[card.card_name.toLowerCase()];
         
-        if (!cardId) {
-          // Look up by name
-          const { data: foundCard } = await supabase
-            .from('cards')
-            .select('id')
-            .ilike('name', card.card_name)
-            .limit(1)
-            .single();
-          
-          if (foundCard) {
-            cardId = foundCard.id;
-          }
-        }
-
         if (cardId) {
           cardInserts.push({
             deck_id: deck.id,
@@ -172,6 +175,8 @@ export default function Precons() {
             is_commander: card.is_commander,
             is_sideboard: false
           });
+        } else {
+          notFound.push(card.card_name);
         }
       }
 
@@ -182,11 +187,21 @@ export default function Precons() {
 
         if (cardsError) {
           console.error('Error inserting cards:', cardsError);
+          toast.error('Failed to save some cards to deck');
         }
       }
 
-      toast.success(`Saved "${preconDetails.name}" to your decks!`);
-      navigate(`/deck-builder?deck=${deck.id}`);
+      if (notFound.length > 0) {
+        console.log('Cards not found in database:', notFound);
+        toast.warning(`${notFound.length} cards not in local database. Run a card sync from Admin panel.`);
+      }
+
+      if (cardInserts.length > 0) {
+        toast.success(`Saved "${preconDetails.name}" with ${cardInserts.length} cards!`);
+        navigate(`/deck-builder?deck=${deck.id}`);
+      } else {
+        toast.error('No cards could be added. Please sync cards from Admin panel first.');
+      }
     } catch (error) {
       console.error('Error saving precon:', error);
       toast.error('Failed to save deck');

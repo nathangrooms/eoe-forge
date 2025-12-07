@@ -29,7 +29,7 @@ import { asUSD } from '@/features/dashboard/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { KeyboardShortcutsPanel } from '@/components/dashboard/KeyboardShortcutsPanel';
+
 import { SearchHistory } from '@/components/dashboard/SearchHistory';
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 
@@ -417,8 +417,6 @@ const Dashboard = () => {
         {/* Search History */}
         <SearchHistory />
 
-        {/* Keyboard Shortcuts Panel */}
-        <KeyboardShortcutsPanel />
 
       </div>
     </div>

@@ -34,7 +34,7 @@ import { SearchHistory } from '@/components/dashboard/SearchHistory';
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 
 // Lazy load heavy components for better initial load performance
-const AIDeckRecommendations = lazy(() => import('@/components/dashboard/AIDeckRecommendations').then(m => ({ default: m.AIDeckRecommendations })));
+
 const RecentActivity = lazy(() => import('@/components/dashboard/RecentActivity').then(m => ({ default: m.RecentActivity })));
 const BadgesSection = lazy(() => import('@/components/dashboard/BadgeDisplay').then(m => ({ default: m.BadgesSection })));
 
@@ -389,30 +389,6 @@ const Dashboard = () => {
           <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
         </Suspense>
 
-        {/* AI Deck Recommendations */}
-        {dashboardData?.decks?.count > 0 && (
-          <Suspense fallback={
-            <Card>
-              <CardContent className="p-6">
-                <Skeleton className="h-48 w-full" />
-              </CardContent>
-            </Card>
-          }>
-            <AIDeckRecommendations 
-              userDecks={favorites.map(d => ({
-                id: d.id,
-                name: d.name,
-                format: d.format,
-                colors: d.colors,
-                power_level: d.power_level
-              }))}
-              collectionStats={{
-                totalCards: dashboardData?.collection?.totalCards || 0,
-                byColor: {}
-              }}
-            />
-          </Suspense>
-        )}
 
         {/* Search History */}
         <SearchHistory />

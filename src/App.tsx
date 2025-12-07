@@ -96,7 +96,7 @@ function AppContent() {
         </div>
         
         {/* Main Content Area - Offset by left nav width on desktop */}
-        <main className="flex-1 min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-4rem)] w-full md:ml-64 overflow-x-hidden py-2 md:py-6">
+        <main className="flex-1 min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-4rem)] w-full md:ml-64 overflow-x-hidden py-2 md:pb-6">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

@@ -163,7 +163,7 @@ const Dashboard = () => {
                     Open AI Brain
                   </Button>
                 </Link>
-                <Link to="/deck-builder" className="w-full sm:w-auto">
+                <Link to="/ai-builder" className="w-full sm:w-auto">
                   <Button className="w-full sm:w-auto bg-gradient-cosmic hover:opacity-90">
                     <Wand2 className="h-4 w-4 mr-2" />
                     AI Deck Builder

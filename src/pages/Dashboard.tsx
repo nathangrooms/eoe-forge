@@ -137,7 +137,7 @@ const Dashboard = () => {
 
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="relative overflow-hidden hover:shadow-md transition-all group">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-station to-station/50" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

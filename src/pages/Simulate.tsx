@@ -16,6 +16,8 @@ import { clearTriggerTracking } from '@/lib/simulation/triggerSystem';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { AlertTriangle } from 'lucide-react';
 import { Loader2, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
@@ -728,6 +730,10 @@ export default function Simulate() {
             <div className="text-center space-y-2">
               <Swords className="h-16 w-16 mx-auto text-primary" />
               <h1 className="text-4xl font-bold">Deck Simulation</h1>
+              <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-400 gap-1.5">
+                <AlertTriangle className="h-3 w-3" />
+                BETA - Still in very early stages of development
+              </Badge>
               <p className="text-muted-foreground max-w-md mx-auto">
                 Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in
                 real-time.

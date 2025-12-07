@@ -14,27 +14,11 @@ interface InstallAppButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   className?: string;
-  autoShowIOS?: boolean;
 }
 
-export function InstallAppButton({ variant = 'outline', size = 'lg', className, autoShowIOS = true }: InstallAppButtonProps) {
+export function InstallAppButton({ variant = 'outline', size = 'lg', className }: InstallAppButtonProps) {
   const { isInstallable, isIOS, isStandalone, promptInstall } = usePWAInstall();
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
-
-  // Auto-show iOS instructions on first visit
-  useEffect(() => {
-    if (autoShowIOS && isIOS && !isStandalone) {
-      const hasSeenIOSPrompt = localStorage.getItem('deckmatrix-ios-prompt-seen');
-      if (!hasSeenIOSPrompt) {
-        // Small delay to let page load first
-        const timer = setTimeout(() => {
-          setShowIOSInstructions(true);
-          localStorage.setItem('deckmatrix-ios-prompt-seen', 'true');
-        }, 1500);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [isIOS, isStandalone, autoShowIOS]);
 
   // Don't show if already installed
   if (isStandalone) {
@@ -71,7 +55,7 @@ export function InstallAppButton({ variant = 'outline', size = 'lg', className, 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Smartphone className="h-5 w-5" />
-              Install DeckMatrix
+              Save to Home Screen
             </DialogTitle>
             <DialogDescription>
               Add DeckMatrix to your home screen for quick access

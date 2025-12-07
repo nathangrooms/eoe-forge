@@ -5,10 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Crown, Package, Plus, Check, Box, ChevronDown, ChevronUp, Minimize2 } from 'lucide-react';
-import { useDeckManagementStore } from '@/stores/deckManagementStore';
+import { Crown, Package, Plus, Check, Box, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageContainer } from '@/types/storage';
+import { supabase } from '@/integrations/supabase/client';
+
+interface DeckOption {
+  id: string;
+  name: string;
+  format: string;
+  colors: string[];
+}
 
 interface DeckAdditionPanelProps {
   selectedDeckId?: string;
@@ -35,7 +42,8 @@ export function DeckAdditionPanel({
   collapsed: initialCollapsed = false,
   onSelectionChange 
 }: DeckAdditionPanelProps) {
-  const { decks } = useDeckManagementStore();
+  const [decks, setDecks] = useState<DeckOption[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState(false);
   const [selectedDeckId, setSelectedDeckId] = useState<string>(initialDeckId);
   const [selectedBoxId, setSelectedBoxId] = useState<string>(initialBoxId);
   const [addToCollection, setAddToCollection] = useState(initialAddToCollection);
@@ -43,6 +51,31 @@ export function DeckAdditionPanel({
   const [addToBox, setAddToBox] = useState(initialAddToBox);
   const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
+
+  // Load decks from Supabase
+  useEffect(() => {
+    const loadDecks = async () => {
+      try {
+        setLoadingDecks(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await supabase
+          .from('user_decks')
+          .select('id, name, format, colors')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+        setDecks(data || []);
+      } catch (error) {
+        console.error('Failed to load decks:', error);
+      } finally {
+        setLoadingDecks(false);
+      }
+    };
+    loadDecks();
+  }, []);
 
   // Load storage containers
   useEffect(() => {
@@ -240,12 +273,6 @@ export function DeckAdditionPanel({
                     const selectedDeck = decks.find(d => d.id === selectedDeckId);
                     return selectedDeck ? (
                       <div className="flex items-center gap-3">
-                        {selectedDeck.commander && (
-                          <div className="flex items-center gap-2">
-                            <Crown className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm truncate">{selectedDeck.commander.name}</span>
-                          </div>
-                        )}
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-xs">
                             {selectedDeck.format}

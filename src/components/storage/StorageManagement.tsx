@@ -120,7 +120,7 @@ export function StorageManagement({
   const unassignedValue = overview?.unassigned.valueUSD || 0;
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background overflow-y-auto">
       {/* Enhanced Header Section */}
       <div className="px-4 md:px-6 py-5 border-b bg-gradient-to-r from-card to-background">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
@@ -212,7 +212,7 @@ export function StorageManagement({
       </div>
 
       {/* Containers Section */}
-      <div className="flex-1 overflow-auto px-6 py-6">
+      <div className="flex-1 px-3 md:px-6 py-4 md:py-6">
         <div className="flex items-center gap-2 mb-6">
           <Box className="h-5 w-5 text-muted-foreground" />
           <h3 className="text-lg font-semibold">Your Containers</h3>

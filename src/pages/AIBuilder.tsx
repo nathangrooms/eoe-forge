@@ -141,6 +141,7 @@ export default function AIBuilder() {
   const [buildPhase, setBuildPhase] = useState(0);
   const [buildResult, setBuildResult] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [loadingEdhAnalysis, setLoadingEdhAnalysis] = useState(false);
 
   // Search commanders from Scryfall
   const searchCommanders = async (query: string) => {
@@ -522,6 +523,46 @@ export default function AIBuilder() {
       navigate('/decks');
     } catch (error) {
       console.error('Error saving deck:', error);
+    }
+  };
+
+  // Refresh EDH analysis for the generated deck
+  const refreshEdhAnalysis = async () => {
+    if (!buildResult || !commander) return;
+    
+    setLoadingEdhAnalysis(true);
+    try {
+      // Build decklist for EDH power check
+      const deckCards = buildResult.cards || [];
+      
+      const { data: powerCheckData } = await supabase.functions.invoke('edh-power-check', {
+        body: {
+          decklist: {
+            commander: commander,
+            cards: deckCards
+          }
+        }
+      });
+      
+      if (powerCheckData) {
+        // Update build result with new EDH analysis data
+        setBuildResult((prev: any) => ({
+          ...prev,
+          edhPowerLevel: powerCheckData.powerLevel ?? prev.edhPowerLevel,
+          edhPowerUrl: powerCheckData.url || prev.edhPowerUrl,
+          analysis: {
+            ...prev.analysis,
+            edhMetrics: powerCheckData.metrics || prev.analysis?.edhMetrics,
+            bracket: powerCheckData.bracket || prev.analysis?.bracket,
+            cardAnalysis: powerCheckData.cardAnalysis || prev.analysis?.cardAnalysis,
+            landAnalysis: powerCheckData.landAnalysis || prev.analysis?.landAnalysis
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to refresh EDH analysis:', error);
+    } finally {
+      setLoadingEdhAnalysis(false);
     }
   };
 
@@ -1079,6 +1120,8 @@ export default function AIBuilder() {
                 changelog={buildResult.changelog}
                 onSaveDeck={saveDeckToDatabase}
                 onStartOver={resetBuilder}
+                onRefreshEdhAnalysis={refreshEdhAnalysis}
+                isLoadingEdhAnalysis={loadingEdhAnalysis}
               />
             </motion.div>
           )}

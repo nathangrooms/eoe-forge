@@ -16,6 +16,7 @@ import { SubscriptionManager } from '@/components/admin/SubscriptionManager';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { TaskManagement } from '@/components/admin/TaskManagement';
 import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
+import { HomepageModeToggle } from '@/components/admin/HomepageModeToggle';
 import SyncDashboard from '@/components/SyncDashboard';
 
 // ============= Overview Section =============
@@ -194,7 +195,10 @@ export default function Admin() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
-          <OverviewSection />
+          <div className="space-y-6">
+            <HomepageModeToggle />
+            <OverviewSection />
+          </div>
         </TabsContent>
 
         <TabsContent value="features" className="mt-6">

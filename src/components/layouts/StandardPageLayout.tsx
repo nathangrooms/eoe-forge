@@ -18,7 +18,7 @@ export function StandardPageLayout({
 }: StandardPageLayoutProps) {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      <div className="w-full max-w-full px-4 md:px-6 py-4 pb-6">
+      <div className="w-full max-w-full px-3 md:px-6 py-2 md:py-4 pb-6">
         <StandardSectionHeader
           title={title}
           description={description}

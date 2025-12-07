@@ -31,7 +31,7 @@ export function Screenshots() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <Badge variant="outline" className="text-primary border-primary/30 bg-primary/10">
-                🎯 AI Deck Builder
+                🎯 Smart Deck Builder
               </Badge>
               <h3 className="text-4xl font-bold">
                 Build Perfect Decks

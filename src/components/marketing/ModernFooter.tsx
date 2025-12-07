@@ -6,7 +6,7 @@ const footerLinks = {
   product: [
     { label: 'Features', href: '/#features' },
     { label: 'Pricing', href: '/#pricing' },
-    { label: 'AI Deck Builder', href: '/ai-builder' },
+    { label: 'Smart Deck Builder', href: '/smart-builder' },
     { label: 'Collection', href: '/collection' }
   ],
   resources: [

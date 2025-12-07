@@ -90,7 +90,7 @@ export function EnhancedHero() {
             transition={{ delay: 0.7 }}
           >
             {[
-              { icon: Zap, text: 'AI Deck Builder' },
+              { icon: Zap, text: 'Smart Deck Builder' },
               { icon: TrendingUp, text: 'Live Card Prices' },
               { icon: Sparkles, text: 'Power Analysis' }
             ].map((item, i) => {

@@ -22,7 +22,8 @@ import {
   Brain,
   Swords,
   Trophy,
-  Layers
+  Layers,
+  LogOut
 } from 'lucide-react';
 
 interface NavItem {
@@ -140,7 +141,13 @@ export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    setIsOpen(false);
+    await signOut();
+    navigate('/auth');
+  };
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
@@ -218,7 +225,18 @@ export function MobileNavigation() {
               {Object.keys(SECTIONS).map(renderSection)}
             </div>
             
-            <div className="border-t p-4">
+            <div className="border-t p-4 space-y-3">
+              {user && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="h-4 w-4 mr-3" />
+                  Sign Out
+                </Button>
+              )}
               <div className="text-xs text-muted-foreground">
                 <p>DeckMatrix v1.0</p>
                 <p>Currently in early development</p>

@@ -193,56 +193,67 @@ export function UniversalLocalSearch({
   }, [cards, query, filters]);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top controls */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="px-6 py-3 flex items-center gap-3">
-          {onToggleSelectionMode && (
+        <div className="px-3 sm:px-6 py-3 space-y-3">
+          {/* Search row */}
+          <div className="flex items-center gap-2 w-full">
+            <div className="flex-1 min-w-0">
+              <Input
+                placeholder="Search cards..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search cards"
+                className="w-full text-base"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowFilters((s) => !s)} className="gap-1 shrink-0">
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (<Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>)}
+            </Button>
+          </div>
+          
+          {/* Actions row */}
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Button
-                variant={selectionMode ? 'default' : 'outline'}
-                size="sm"
-                onClick={onToggleSelectionMode}
-              >
-                {selectionMode ? <CheckSquare className="h-4 w-4 mr-1" /> : <Square className="h-4 w-4 mr-1" />}
-                Select
-              </Button>
-              {selectionMode && onSelectAll && (
-                <Button variant="outline" size="sm" onClick={onSelectAll}>
-                  Select All
-                </Button>
+              {onToggleSelectionMode && (
+                <>
+                  <Button
+                    variant={selectionMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={onToggleSelectionMode}
+                  >
+                    {selectionMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    <span className="hidden sm:inline ml-1">Select</span>
+                  </Button>
+                  {selectionMode && onSelectAll && (
+                    <Button variant="outline" size="sm" onClick={onSelectAll}>
+                      All
+                    </Button>
+                  )}
+                </>
+              )}
+              {(activeFilterCount > 0 || query) && (
+                <Button variant="ghost" size="sm" onClick={clearAll}>Clear</Button>
               )}
             </div>
-          )}
-          <div className="flex-1">
-            <Input
-              placeholder="Search cards by name, type, or set..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search cards"
-            />
+            <div className="flex items-center gap-1">
+              <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="icon" className="h-8 w-8" onClick={() => setMode('grid')} aria-label="Grid view">
+                <Grid2x2 className="h-4 w-4" />
+              </Button>
+              <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="icon" className="h-8 w-8" onClick={() => setMode('list')} aria-label="List view">
+                <List className="h-4 w-4" />
+              </Button>
+              <Button variant={viewMode === 'compact' ? 'default' : 'outline'} size="icon" className="h-8 w-8" onClick={() => setMode('compact')} aria-label="Compact view">
+                <Rows className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <Button variant="outline" onClick={() => setShowFilters((s) => !s)} className="gap-2">
-            <Filter className="h-4 w-4" />
-            Filters {activeFilterCount > 0 && (<Badge variant="secondary" className="ml-1">{activeFilterCount}</Badge>)}
-          </Button>
-          <div className="flex items-center gap-1">
-            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="icon" onClick={() => setMode('grid')} aria-label="Grid view">
-              <Grid2x2 className="h-4 w-4" />
-            </Button>
-            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setMode('list')} aria-label="List view">
-              <List className="h-4 w-4" />
-            </Button>
-            <Button variant={viewMode === 'compact' ? 'default' : 'outline'} size="icon" onClick={() => setMode('compact')} aria-label="Compact view">
-              <Rows className="h-4 w-4" />
-            </Button>
-          </div>
-          {activeFilterCount > 0 || query ? (
-            <Button variant="ghost" onClick={clearAll}>Clear</Button>
-          ) : null}
         </div>
         {showFilters && (
-          <div className="px-6 pb-3">
+          <div className="px-3 sm:px-6 pb-3">
             <UniversalFilterPanel
               filters={filters as any}
               onFiltersChange={setFilters as any}
@@ -253,7 +264,7 @@ export function UniversalLocalSearch({
       </div>
 
       {/* Results */}
-      <div className="px-6 py-6">
+      <div className="px-3 sm:px-6 py-6">
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[1,2,3,4,5,6,7,8].map((i) => (

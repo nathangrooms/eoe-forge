@@ -59,21 +59,21 @@ export function CompactCommanderSection({ currentCommander }: CompactCommanderSe
   return (
     <Card className="bg-muted/30 border-primary/30">
       <CardContent className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
           {/* Commander Image */}
-          <div className="relative">
+          <div className="relative flex-shrink-0 mx-auto md:mx-0">
             {currentCommander.image_uris?.normal ? (
               <img 
                 src={currentCommander.image_uris.normal} 
                 alt={currentCommander.name}
-                className="w-16 h-auto rounded border-2 border-primary/30"
+                className="w-32 md:w-16 h-auto rounded border-2 border-primary/30"
                 onError={(e) => {
                   e.currentTarget.src = '/placeholder.svg';
                   e.currentTarget.onerror = null;
                 }}
               />
             ) : (
-              <div className="w-16 h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">
+              <div className="w-32 md:w-16 h-44 md:h-20 bg-muted rounded border-2 border-primary/30 flex items-center justify-center">
                 <Crown className="h-6 w-6 text-primary" />
               </div>
             )}
@@ -83,18 +83,21 @@ export function CompactCommanderSection({ currentCommander }: CompactCommanderSe
           </div>
 
           {/* Commander Info */}
-          <div className="flex-1">
+          <div className="flex-1 text-center md:text-left">
+            <Badge variant="outline" className="text-xs text-primary mb-1">COMMANDER</Badge>
             <h3 className="font-bold text-lg">{currentCommander.name}</h3>
             <p className="text-sm text-muted-foreground mb-2">{currentCommander.type_line}</p>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
               {currentCommander.mana_cost && (
                 <Badge variant="outline" className="font-mono text-xs">
                   {currentCommander.mana_cost}
                 </Badge>
               )}
-              <Badge variant="secondary" className="text-xs">
-                CMC {currentCommander.cmc}
-              </Badge>
+              {(currentCommander.power && currentCommander.toughness) && (
+                <Badge variant="secondary" className="text-xs">
+                  {currentCommander.power}/{currentCommander.toughness}
+                </Badge>
+              )}
               {currentCommander.colors.length > 0 && (
                 <div className="flex gap-1">
                   {currentCommander.colors.map(color => (

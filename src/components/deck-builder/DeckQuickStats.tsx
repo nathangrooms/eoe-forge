@@ -111,10 +111,11 @@ export function DeckQuickStats({
   const powerBand = getPowerBand(displayPower);
   const powerStyle = powerBandConfig[powerBand];
 
-  const targetCards = format === 'commander' ? 100 : 60;
-  const completionPct = Math.min((totalCards / targetCards) * 100, 100);
-
-  const isCommander = format === 'commander';
+  const isCommander = format === 'commander' || format === 'edh';
+  const targetCards = isCommander ? 100 : 60;
+  // For commander decks, add 1 to account for the commander card
+  const displayCards = isCommander ? totalCards + 1 : totalCards;
+  const completionPct = Math.min((displayCards / targetCards) * 100, 100);
 
   return (
     <div className="space-y-4">
@@ -126,7 +127,7 @@ export function DeckQuickStats({
             <Layers className="h-5 w-5 text-primary" />
             <Badge variant="outline" className="text-[10px]">{format}</Badge>
           </div>
-          <div className="text-2xl font-bold">{totalCards}</div>
+          <div className="text-2xl font-bold">{displayCards}</div>
           <div className="text-xs text-muted-foreground">/ {targetCards} cards</div>
           <Progress value={completionPct} className="h-1.5 mt-2" />
         </Card>
@@ -231,7 +232,7 @@ export function DeckQuickStats({
 
       {/* EDH Metrics Row - Only show for Commander format when metrics are available */}
       {isCommander && edhMetrics && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
           {/* Tipping Point */}
           <Card className="p-3 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
             <div className="flex items-center gap-2 mb-1">

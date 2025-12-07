@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import logo from '@/assets/deckmatrix-logo.png';
 
 interface AuthLayoutProps {
   title: string;
@@ -41,9 +41,12 @@ export function AuthLayout({ title, description, children, showBackToHome = true
 
           {/* Logo */}
           <div className="text-center">
-            <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold">
-              <Sparkles className="h-8 w-8 text-primary animate-glow" />
-              DeckMatrix
+            <Link to="/" className="inline-flex items-center justify-center">
+              <img 
+                src={logo} 
+                alt="DeckMatrix Logo" 
+                className="h-16 md:h-20 w-auto"
+              />
             </Link>
           </div>
 

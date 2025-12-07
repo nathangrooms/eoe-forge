@@ -7,9 +7,9 @@ const corsHeaders = {
 };
 
 const USER_AGENT = 'MTGDeckBuilder/1.0';
-const RATE_LIMIT_DELAY = 100; // 100ms between requests
-const BATCH_SIZE = 175;
-const MAX_PAGES_PER_RUN = 100; // Increased from 50 to process more per run
+const RATE_LIMIT_DELAY = 120; // 120ms between requests (safer rate limit)
+const BATCH_SIZE = 100; // Smaller batches for less memory
+const MAX_PAGES_PER_RUN = 25; // Much smaller - avoid worker limits
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -176,25 +176,6 @@ async function fetchPage(url: string): Promise<{ cards: ScryfallCard[]; nextPage
   };
 }
 
-// Self-invoking function to continue sync
-async function triggerContinuation() {
-  try {
-    console.log('🔄 Triggering auto-continuation...');
-    // Call ourselves to continue the sync
-    const response = await fetch(`${supabaseUrl}/functions/v1/scryfall-sync`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({ action: 'resume' })
-    });
-    console.log('✅ Auto-continuation triggered, status:', response.status);
-  } catch (error) {
-    console.error('❌ Failed to trigger continuation:', error);
-  }
-}
-
 async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; processed: number; needsResume: boolean; error?: string }> {
   console.log('🚀 Starting card sync from Scryfall...');
   
@@ -258,8 +239,8 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
           console.log(`✅ Page ${currentPage}: saved ${transformed.length} cards (total: ${totalProcessed})`);
         }
         
-        // Update progress every 10 pages to reduce DB writes
-        if (currentPage % 10 === 0) {
+        // Update status every 5 pages
+        if (currentPage % 5 === 0) {
           await updateSyncStatus('running', totalProcessed, estimatedTotal, 'processing', currentPage);
         }
         
@@ -284,16 +265,13 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
     
     // Check if we need to continue
     if (currentUrl && pagesProcessedThisRun >= MAX_PAGES_PER_RUN) {
-      console.log(`⏸️ Pausing sync - processed ${pagesProcessedThisRun} pages this run`);
+      console.log(`⏸️ Pausing sync after ${pagesProcessedThisRun} pages. Will auto-resume...`);
       await saveSyncState({
         next_page_url: currentUrl,
         total_processed: totalProcessed,
         total_cards: estimatedTotal,
         current_page: currentPage
       });
-      
-      // Auto-trigger continuation using EdgeRuntime.waitUntil
-      EdgeRuntime.waitUntil(triggerContinuation());
       
       return { success: true, processed: totalProcessed, needsResume: true };
     }
@@ -328,17 +306,6 @@ serve(async (req) => {
         .eq('id', 'scryfall_cards')
         .maybeSingle();
       
-      // If resumable, show as still running
-      if (data?.current_step === 'resumable') {
-        return new Response(JSON.stringify({
-          ...data,
-          status: 'running',
-          current_step: 'processing (auto-resuming)'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
       return new Response(JSON.stringify(data || { status: 'never' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -362,10 +329,10 @@ serve(async (req) => {
         .eq('id', 'scryfall_cards')
         .maybeSingle();
       
-      // If it's running but NOT resumable, check if stuck (more than 5 minutes)
+      // If it's running but NOT resumable, check if stuck (more than 2 minutes)
       if (status?.status === 'running' && status?.current_step !== 'resumable') {
         const minutesAgo = (Date.now() - new Date(status.last_sync).getTime()) / 60000;
-        if (minutesAgo < 5) {
+        if (minutesAgo < 2) {
           return new Response(JSON.stringify({ 
             message: 'Sync already in progress',
             status: 'running'
@@ -376,14 +343,38 @@ serve(async (req) => {
         }
       }
       
-      // For resume action, always use existing state if available
-      const useResume = action === 'resume' || (action === 'sync' && resumeState);
-      const result = await syncCards(useResume ? resumeState || undefined : undefined);
+      // For resume, use existing state. For sync, start fresh unless there's a resumable state
+      const useResume = resumeState !== null;
+      
+      // Run sync
+      const result = await syncCards(useResume ? resumeState : undefined);
+      
+      // If needs resume, trigger continuation in background
+      if (result.needsResume) {
+        // Schedule continuation
+        EdgeRuntime.waitUntil((async () => {
+          // Small delay before triggering next batch
+          await new Promise(r => setTimeout(r, 2000));
+          console.log('🔄 Auto-triggering next batch...');
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/scryfall-sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({ action: 'resume' })
+            });
+          } catch (e) {
+            console.error('Failed to trigger continuation:', e);
+          }
+        })());
+      }
       
       return new Response(JSON.stringify({
         ...result,
         message: result.needsResume 
-          ? `Processed ${result.processed} cards. Auto-continuing...`
+          ? `Processed ${result.processed} cards. Auto-continuing in background...`
           : result.success 
             ? `Sync complete! ${result.processed} cards synced.`
             : `Sync failed: ${result.error}`

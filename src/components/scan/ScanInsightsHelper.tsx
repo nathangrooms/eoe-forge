@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Brain, Sparkles, Search, Loader2, AlertCircle, HelpCircle } from 'lucide-react';
+import { Lightbulb, Sparkles, Search, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 
-interface AIScanHelperProps {
+interface ScanInsightsHelperProps {
   recentScans?: Array<{
     name: string;
     setCode: string;
@@ -14,7 +14,7 @@ interface AIScanHelperProps {
   }>;
 }
 
-export function AIScanHelper({ recentScans = [] }: AIScanHelperProps) {
+export function ScanInsightsHelper({ recentScans = [] }: ScanInsightsHelperProps) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -63,7 +63,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
         throw new Error('No suggestions generated');
       }
     } catch (err) {
-      console.error('AI scan helper error:', err);
+      console.error('Scan helper error:', err);
       setError('Failed to generate suggestions. Please try again.');
     } finally {
       setLoading(false);
@@ -72,25 +72,25 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
   return (
     <Card className="border-primary/20">
-      <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
-            <Brain className="h-5 w-5 text-primary-foreground" />
+      <CardContent className="p-4 md:p-6">
+        <div className="flex items-center gap-3 mb-3 md:mb-4">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <Lightbulb className="h-4 w-4 md:h-5 md:w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-bold text-lg">AI Scan Insights</h3>
-            <p className="text-sm text-muted-foreground">Analyze your scanned cards and get recommendations</p>
+            <h3 className="font-bold text-base md:text-lg">Scan Insights</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">Analyze your scanned cards</p>
           </div>
         </div>
 
         {!suggestions && !loading && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Get AI-powered insights on your recently scanned cards, synergies, and what to look for next.
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Get insights on your recently scanned cards, synergies, and recommendations.
             </p>
             <Button 
               onClick={generateSuggestions}
-              className="w-full bg-gradient-cosmic hover:opacity-90"
+              className="w-full"
               disabled={loading || recentScans.length === 0}
             >
               <Sparkles className="h-4 w-4 mr-2" />
@@ -100,29 +100,27 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
         )}
 
         {loading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Analyzing scanned cards...</span>
+          <div className="flex items-center justify-center py-6 md:py-8">
+            <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin text-primary" />
+            <span className="ml-3 text-muted-foreground text-sm">Analyzing...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-            <AlertCircle className="h-5 w-5 text-destructive" />
-            <span className="text-sm text-destructive">{error}</span>
+          <div className="flex items-center gap-2 p-3 md:p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-destructive flex-shrink-0" />
+            <span className="text-xs md:text-sm text-destructive">{error}</span>
           </div>
         )}
 
         {suggestions && (
-          <div className="space-y-4">
-            <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary-foreground">AI</span>
-                </div>
-                <span className="text-xs font-bold text-spacecraft">SCAN INSIGHTS</span>
+          <div className="space-y-3 md:space-y-4">
+            <div className="border-l-4 border-primary/50 pl-3 md:pl-4 bg-primary/5 rounded-r-lg p-3 md:p-4">
+              <div className="flex items-center gap-2 mb-2 md:mb-3">
+                <Lightbulb className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-primary">INSIGHTS</span>
               </div>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
                 <ReactMarkdown>{suggestions}</ReactMarkdown>
               </div>
             </div>
@@ -134,7 +132,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
               className="w-full"
             >
               <Search className="h-4 w-4 mr-2" />
-              Refresh Analysis
+              Refresh
             </Button>
           </div>
         )}

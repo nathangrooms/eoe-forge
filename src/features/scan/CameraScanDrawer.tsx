@@ -389,7 +389,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
   const getStatusText = () => {
     switch (scanStatus) {
       case 'capturing': return 'Capturing...';
-      case 'analyzing': return 'AI Analyzing...';
+      case 'analyzing': return 'Analyzing...';
       case 'matching': return 'Finding Card...';
       case 'success': return 'Card Added!';
       case 'error': return 'Try Again';

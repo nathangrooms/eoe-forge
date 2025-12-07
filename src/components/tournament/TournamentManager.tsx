@@ -906,7 +906,7 @@ export function TournamentManager() {
   );
 }
 
-// Match Card Component
+// Match Card Component - Redesigned with intuitive win buttons
 function MatchCard({ 
   match, 
   isActive, 
@@ -918,128 +918,231 @@ function MatchCard({
 }) {
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
+  const [showScoreEntry, setShowScoreEntry] = useState(false);
 
+  // BYE matches
   if (match.player2 === 'BYE') {
     return (
       <div className="p-4 rounded-lg border bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+              <Crown className="h-4 w-4 text-green-500" />
+            </div>
             <span className="font-medium">{match.player1}</span>
             <Badge variant="outline">BYE</Badge>
           </div>
-          <CheckCircle className="h-5 w-5 text-green-500" />
+          <Badge className="bg-green-500/10 text-green-500 border-green-500/30">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Auto-Win
+          </Badge>
         </div>
       </div>
     );
   }
 
+  // Completed matches
   if (match.winner) {
+    const isP1Winner = match.winner === match.player1;
+    const isP2Winner = match.winner === match.player2;
+    
     return (
       <div className="p-4 rounded-lg border bg-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className={cn(
-              "flex items-center gap-2",
-              match.winner === match.player1 && "font-bold text-green-500"
+        <div className="flex items-center justify-between gap-4">
+          {/* Player 1 */}
+          <div className={cn(
+            "flex-1 flex items-center gap-3 p-3 rounded-lg transition-all",
+            isP1Winner ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
+          )}>
+            {isP1Winner && <Crown className="h-5 w-5 text-green-500 flex-shrink-0" />}
+            <span className={cn("font-medium truncate", isP1Winner && "text-green-500")}>
+              {match.player1}
+            </span>
+            <Badge variant={isP1Winner ? "default" : "outline"} className={cn(
+              "ml-auto",
+              isP1Winner && "bg-green-500"
             )}>
-              {match.winner === match.player1 && <Crown className="h-4 w-4" />}
-              <span>{match.player1}</span>
-              <Badge variant="outline">{match.player1Score}</Badge>
-            </div>
-            <span className="text-muted-foreground">vs</span>
-            <div className={cn(
-              "flex items-center gap-2",
-              match.winner === match.player2 && "font-bold text-green-500"
-            )}>
-              {match.winner === match.player2 && <Crown className="h-4 w-4" />}
-              <span>{match.player2}</span>
-              <Badge variant="outline">{match.player2Score}</Badge>
-            </div>
+              {match.player1Score}
+            </Badge>
           </div>
-          <CheckCircle className="h-5 w-5 text-green-500" />
+          
+          <span className="text-muted-foreground font-medium">vs</span>
+          
+          {/* Player 2 */}
+          <div className={cn(
+            "flex-1 flex items-center gap-3 p-3 rounded-lg transition-all",
+            isP2Winner ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"
+          )}>
+            {isP2Winner && <Crown className="h-5 w-5 text-green-500 flex-shrink-0" />}
+            <span className={cn("font-medium truncate", isP2Winner && "text-green-500")}>
+              {match.player2}
+            </span>
+            <Badge variant={isP2Winner ? "default" : "outline"} className={cn(
+              "ml-auto",
+              isP2Winner && "bg-green-500"
+            )}>
+              {match.player2Score}
+            </Badge>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Active match - waiting for result
   return (
     <div className={cn(
-      "p-4 rounded-lg border transition-all",
-      isActive ? "ring-2 ring-primary bg-primary/5" : "bg-muted/30"
+      "rounded-lg border transition-all overflow-hidden",
+      isActive ? "ring-2 ring-primary" : "opacity-60"
     )}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex items-center gap-2 flex-1">
-            <span className="font-medium">{match.player1}</span>
+      {/* Main match display */}
+      <div className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Player 1 */}
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                1
+              </div>
+              <span className="font-medium truncate">{match.player1}</span>
+            </div>
+            {isActive && !showScoreEntry && (
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => onRecordResult(match.player1, 2, 0)}
+              >
+                <Crown className="h-4 w-4 mr-2" />
+                {match.player1} Wins
+              </Button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={p1Score > 0 ? "default" : "outline"}
-              className="w-8 h-8 p-0"
-              onClick={() => setP1Score(Math.max(0, p1Score - 1))}
-              disabled={!isActive}
-            >
-              -
-            </Button>
-            <span className="w-8 text-center font-mono text-lg">{p1Score}</span>
-            <Button
-              size="sm"
-              variant={p1Score > 0 ? "default" : "outline"}
-              className="w-8 h-8 p-0"
-              onClick={() => setP1Score(p1Score + 1)}
-              disabled={!isActive}
-            >
-              +
-            </Button>
+          
+          <div className="flex flex-col items-center gap-1">
+            <Swords className="h-6 w-6 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-medium">VS</span>
           </div>
-        </div>
-
-        <Swords className="h-5 w-5 text-muted-foreground hidden md:block" />
-
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={p2Score > 0 ? "default" : "outline"}
-              className="w-8 h-8 p-0"
-              onClick={() => setP2Score(Math.max(0, p2Score - 1))}
-              disabled={!isActive}
-            >
-              -
-            </Button>
-            <span className="w-8 text-center font-mono text-lg">{p2Score}</span>
-            <Button
-              size="sm"
-              variant={p2Score > 0 ? "default" : "outline"}
-              className="w-8 h-8 p-0"
-              onClick={() => setP2Score(p2Score + 1)}
-              disabled={!isActive}
-            >
-              +
-            </Button>
-          </div>
-          <div className="flex items-center gap-2 flex-1 justify-end md:justify-start">
-            <span className="font-medium">{match.player2}</span>
+          
+          {/* Player 2 */}
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2 justify-end">
+              <span className="font-medium truncate">{match.player2}</span>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
+                2
+              </div>
+            </div>
+            {isActive && !showScoreEntry && (
+              <Button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => onRecordResult(match.player2, 0, 2)}
+              >
+                <Crown className="h-4 w-4 mr-2" />
+                {match.player2} Wins
+              </Button>
+            )}
           </div>
         </div>
-
-        {isActive && (p1Score > 0 || p2Score > 0) && (
-          <Button 
-            size="sm"
-            onClick={() => {
-              const winner = p1Score > p2Score ? match.player1 : match.player2;
-              onRecordResult(winner, p1Score, p2Score);
-            }}
-            disabled={p1Score === p2Score}
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Submit
-          </Button>
-        )}
       </div>
-      {isActive && p1Score === p2Score && p1Score > 0 && (
-        <p className="text-xs text-amber-500 mt-2">Matches cannot end in a tie. Adjust scores.</p>
+      
+      {/* Score entry toggle */}
+      {isActive && (
+        <div className="border-t bg-muted/30 p-3">
+          {!showScoreEntry ? (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full text-muted-foreground"
+              onClick={() => setShowScoreEntry(true)}
+            >
+              Enter exact game scores instead
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground text-center">Enter game wins for each player</p>
+              <div className="flex items-center justify-center gap-6">
+                {/* P1 Score */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate max-w-[80px]">{match.player1}</span>
+                  <div className="flex items-center bg-background rounded-lg border">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 p-0 rounded-r-none"
+                      onClick={() => setP1Score(Math.max(0, p1Score - 1))}
+                    >
+                      -
+                    </Button>
+                    <span className="w-10 text-center font-mono text-lg font-bold">{p1Score}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 p-0 rounded-l-none"
+                      onClick={() => setP1Score(p1Score + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+                
+                <span className="text-muted-foreground">-</span>
+                
+                {/* P2 Score */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-background rounded-lg border">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 p-0 rounded-r-none"
+                      onClick={() => setP2Score(Math.max(0, p2Score - 1))}
+                    >
+                      -
+                    </Button>
+                    <span className="w-10 text-center font-mono text-lg font-bold">{p2Score}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 p-0 rounded-l-none"
+                      onClick={() => setP2Score(p2Score + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <span className="text-sm font-medium truncate max-w-[80px]">{match.player2}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowScoreEntry(false);
+                    setP1Score(0);
+                    setP2Score(0);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm"
+                  className="flex-1"
+                  disabled={p1Score === p2Score || (p1Score === 0 && p2Score === 0)}
+                  onClick={() => {
+                    const winner = p1Score > p2Score ? match.player1 : match.player2;
+                    onRecordResult(winner, p1Score, p2Score);
+                  }}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Submit Result
+                </Button>
+              </div>
+              
+              {p1Score === p2Score && p1Score > 0 && (
+                <p className="text-xs text-amber-500 text-center">Matches cannot end in a tie</p>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useAuth } from '@/components/AuthProvider';
 import { 
   Home,
   Package,
@@ -134,6 +135,7 @@ export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
@@ -163,6 +165,9 @@ export function MobileNavigation() {
   };
 
   const renderSection = (sectionKey: string) => {
+    // Hide admin section for non-admin users
+    if (sectionKey === 'admin' && !isAdmin) return null;
+    
     const sectionItems = NAV_ITEMS.filter(item => item.section === sectionKey);
     if (sectionItems.length === 0) return null;
 

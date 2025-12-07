@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/components/AuthProvider';
 import { 
   Home,
   Package,
@@ -123,6 +124,7 @@ const SECTIONS = {
 export function LeftNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
@@ -151,6 +153,9 @@ export function LeftNavigation() {
   };
 
   const renderSection = (sectionKey: string) => {
+    // Hide admin section for non-admin users
+    if (sectionKey === 'admin' && !isAdmin) return null;
+    
     const sectionItems = NAV_ITEMS.filter(item => item.section === sectionKey);
     if (sectionItems.length === 0) return null;
 

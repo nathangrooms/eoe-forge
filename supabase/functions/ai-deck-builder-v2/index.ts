@@ -29,13 +29,13 @@ const COLOR_TO_BASIC: Record<string, string> = {
   W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest'
 };
 
-// Create fake basic land objects for filling
+// Basic land template (will get real ID from database)
 const BASIC_LAND_TEMPLATES: Record<string, any> = {
-  Plains: { id: 'basic-plains', name: 'Plains', type_line: 'Basic Land — Plains', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {W}.' },
-  Island: { id: 'basic-island', name: 'Island', type_line: 'Basic Land — Island', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {U}.' },
-  Swamp: { id: 'basic-swamp', name: 'Swamp', type_line: 'Basic Land — Swamp', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {B}.' },
-  Mountain: { id: 'basic-mountain', name: 'Mountain', type_line: 'Basic Land — Mountain', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {R}.' },
-  Forest: { id: 'basic-forest', name: 'Forest', type_line: 'Basic Land — Forest', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {G}.' },
+  Plains: { name: 'Plains', type_line: 'Basic Land — Plains', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {W}.' },
+  Island: { name: 'Island', type_line: 'Basic Land — Island', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {U}.' },
+  Swamp: { name: 'Swamp', type_line: 'Basic Land — Swamp', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {B}.' },
+  Mountain: { name: 'Mountain', type_line: 'Basic Land — Mountain', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {R}.' },
+  Forest: { name: 'Forest', type_line: 'Basic Land — Forest', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {G}.' },
 };
 
 serve(async (req) => {
@@ -105,9 +105,29 @@ serve(async (req) => {
     
     console.log(`  Total cards fetched: ${allCards.length}`);
 
-    // Get basic lands from database OR use templates
-    const basicLandCards = allCards.filter(c => BASIC_LANDS.includes(c.name));
-    console.log(`  Basic lands from DB: ${basicLandCards.length}`);
+    // Get basic lands from database - need REAL IDs
+    const basicLandMap: Record<string, any> = {};
+    for (const name of BASIC_LANDS) {
+      const basic = allCards.find(c => c.name === name);
+      if (basic) {
+        basicLandMap[name] = basic;
+      }
+    }
+    console.log(`  Basic lands from DB: ${Object.keys(basicLandMap).length}`);
+    
+    // If missing any basics, fetch them directly
+    for (const name of BASIC_LANDS) {
+      if (!basicLandMap[name]) {
+        const { data: basicData } = await supabase
+          .from('cards')
+          .select('*')
+          .eq('name', name)
+          .limit(1);
+        if (basicData?.[0]) {
+          basicLandMap[name] = basicData[0];
+        }
+      }
+    }
     
     // Filter non-basic by color identity
     const colorFilteredCards = allCards.filter(card => {
@@ -262,27 +282,41 @@ serve(async (req) => {
       utilityLands.forEach(c => addCard(c));
       console.log(`  Utility lands: ${utilityLands.length}`);
       
-      // Step 7: CRITICAL - Fill remaining with basic lands
+      // Step 7: CRITICAL - Fill remaining with basic lands (use REAL IDs from database)
       const basicsNeeded = 99 - deck.length;
       console.log(`  Basics needed: ${basicsNeeded}`);
       
       const colors = [...commanderColors];
       if (colors.length === 0) colors.push('W');
       
+      // Count how many of each basic we need
+      const basicCounts: Record<string, number> = {};
       for (let i = 0; i < basicsNeeded; i++) {
         const color = colors[i % colors.length];
         const basicName = COLOR_TO_BASIC[color] || 'Plains';
-        
-        // Try to find in database first
-        let basic = basicLandCards.find(c => c.name === basicName);
-        
-        // If not found, use template
-        if (!basic) {
-          basic = { ...BASIC_LAND_TEMPLATES[basicName] };
+        basicCounts[basicName] = (basicCounts[basicName] || 0) + 1;
+      }
+      
+      // Add each basic land with quantity
+      for (const [basicName, count] of Object.entries(basicCounts)) {
+        const basicFromDb = basicLandMap[basicName];
+        if (basicFromDb) {
+          // Add as a single entry with quantity
+          deck.push({ 
+            ...basicFromDb, 
+            quantity: count,
+            isBasicLand: true
+          });
+        } else {
+          // Fallback: still add something but warn
+          console.log(`  ⚠ Could not find ${basicName} in database`);
+          deck.push({ 
+            ...BASIC_LAND_TEMPLATES[basicName], 
+            id: `missing-basic-${basicName}`,
+            quantity: count,
+            isBasicLand: true
+          });
         }
-        
-        // Add with unique ID
-        deck.push({ ...basic, id: `${basic.id}-${iteration}-${i}-${Date.now()}` });
       }
       
       console.log(`  TOTAL CARDS: ${deck.length}`);
@@ -328,17 +362,35 @@ serve(async (req) => {
     // ========== FINAL FAILSAFE ==========
     console.log('\n📊 Final check...');
     
-    // If bestDeck is still under 99, pad with basics
-    while (bestDeck.length < 99) {
+    // Count total cards including quantities
+    const countTotalCards = (deck: any[]) => deck.reduce((sum, c) => sum + (c.quantity || 1), 0);
+    
+    // If bestDeck is still under 99 total cards, pad with basics
+    let currentTotal = countTotalCards(bestDeck);
+    if (currentTotal < 99) {
+      const needed = 99 - currentTotal;
       const colors = [...commanderColors];
       if (colors.length === 0) colors.push('W');
-      const color = colors[bestDeck.length % colors.length];
-      const basicName = COLOR_TO_BASIC[color] || 'Plains';
-      const basic = { ...BASIC_LAND_TEMPLATES[basicName], id: `pad-${bestDeck.length}-${Date.now()}` };
-      bestDeck.push(basic);
+      const basicName = COLOR_TO_BASIC[colors[0]] || 'Plains';
+      const basicFromDb = basicLandMap[basicName];
+      
+      if (basicFromDb) {
+        // Find existing basic land entry and add to quantity
+        const existingBasic = bestDeck.find(c => c.name === basicName && c.isBasicLand);
+        if (existingBasic) {
+          existingBasic.quantity = (existingBasic.quantity || 1) + needed;
+        } else {
+          bestDeck.push({ 
+            ...basicFromDb, 
+            quantity: needed,
+            isBasicLand: true
+          });
+        }
+      }
     }
     
-    console.log(`  Final deck: ${bestDeck.length} cards`);
+    const finalTotal = countTotalCards(bestDeck);
+    console.log(`  Final deck: ${bestDeck.length} unique cards, ${finalTotal} total cards`);
 
     // ========== BUILD RESULT ==========
     const typeBreakdown = {

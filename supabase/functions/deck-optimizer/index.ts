@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Deck Optimizer v2 - Enhanced analysis');
+    console.log('Deck Optimizer v3 - Comprehensive multi-phase analysis');
     
     const { deckContext, edhAnalysis, useCollection, collectionCards = [] } = await req.json();
     
@@ -33,17 +33,31 @@ serve(async (req) => {
     const commanderCount = isCommander && commander ? 1 : 0;
     const totalWithCommander = totalCards + commanderCount;
     const missingCards = Math.max(0, requiredCards - totalWithCommander);
+    const excessCards = Math.max(0, totalWithCommander - requiredCards);
+    const isDeckComplete = totalWithCommander === requiredCards;
 
     // Build detailed type breakdown
     const typeBreakdown = buildTypeBreakdown(cards || []);
+    
+    // Extract existing card names to prevent duplicate suggestions
+    const existingCardNames = new Set((cards || []).map((c: any) => c.name.toLowerCase()));
     
     // Extract low playability cards from EDH analysis
     const lowPlayabilityCards = extractLowPlayabilityCards(edhAnalysis);
     
     // Calculate mana curve data
     const manaCurve = calculateManaCurve(cards || []);
+    
+    // Calculate average CMC
+    const nonLandCards = (cards || []).filter((c: any) => !c.type_line?.includes('Land'));
+    const avgCMC = nonLandCards.length > 0 
+      ? nonLandCards.reduce((sum: number, c: any) => sum + ((c.cmc || 0) * (c.quantity || 1)), 0) / 
+        nonLandCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 1)
+      : 0;
 
-    // Build the enhanced prompt
+    console.log(`Deck status: ${totalWithCommander}/${requiredCards} cards. Missing: ${missingCards}, Excess: ${excessCards}`);
+
+    // Build the prompt based on deck status
     const prompt = buildEnhancedPrompt({
       name,
       format,
@@ -53,29 +67,31 @@ serve(async (req) => {
       totalWithCommander,
       requiredCards,
       missingCards,
+      excessCards,
+      isDeckComplete,
       typeBreakdown,
       lowPlayabilityCards,
       edhAnalysis,
       useCollection,
       collectionCards,
-      manaCurve
+      manaCurve,
+      avgCMC,
+      existingCardNames: Array.from(existingCardNames)
     });
 
-    console.log('Sending enhanced request to AI with comprehensive tool schema');
-
-    // Enhanced tool schema for better structured output
+    // Enhanced tool schema for comprehensive output
     const tools = [
       {
         type: "function",
         function: {
           name: "deck_analysis",
-          description: "Provide comprehensive deck analysis with scoring, issues, strengths, strategy tips, and card replacement suggestions",
+          description: "Provide comprehensive deck analysis with scoring, issues, and recommendations based on deck status",
           parameters: {
             type: "object",
             properties: {
               summary: {
                 type: "string",
-                description: "2-3 sentence executive summary highlighting the deck's main strengths and priority improvements"
+                description: "2-3 sentence executive summary of deck status and priority actions"
               },
               categories: {
                 type: "object",
@@ -89,15 +105,23 @@ serve(async (req) => {
                 },
                 required: ["synergy", "consistency", "power", "interaction", "manabase"]
               },
+              currentPowerLevel: {
+                type: "number",
+                description: "Estimated current EDH power level (1-10)"
+              },
+              projectedPowerLevel: {
+                type: "number", 
+                description: "Estimated power level after applying all recommendations (1-10)"
+              },
               issues: {
                 type: "array",
-                description: "Problematic cards that should be replaced, ordered by priority",
+                description: "Problematic cards that should be addressed",
                 items: {
                   type: "object",
                   properties: {
                     card: { type: "string", description: "Exact card name" },
-                    reason: { type: "string", description: "Specific reason why this card underperforms" },
-                    severity: { type: "string", enum: ["low", "medium", "high"], description: "high = must replace, medium = should replace, low = consider replacing" },
+                    reason: { type: "string", description: "Specific reason why this card is problematic" },
+                    severity: { type: "string", enum: ["low", "medium", "high"] },
                     category: { type: "string", description: "Issue category: 'synergy', 'power', 'mana', 'strategy'" }
                   },
                   required: ["card", "reason", "severity"]
@@ -105,74 +129,73 @@ serve(async (req) => {
               },
               strengths: {
                 type: "array",
-                description: "What the deck does well - be specific about card combinations",
-                items: {
-                  type: "object",
-                  properties: {
-                    text: { type: "string", description: "Specific strength with card names" }
-                  },
-                  required: ["text"]
-                }
+                items: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }
               },
               strategy: {
                 type: "array",
-                description: "Actionable gameplay tips for piloting this specific deck",
-                items: {
-                  type: "object",
-                  properties: {
-                    text: { type: "string", description: "Strategic tip with specific examples" }
-                  },
-                  required: ["text"]
-                }
+                items: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }
               },
               manabase: {
                 type: "array",
-                description: "Mana base analysis - land count, fixing, curve alignment",
+                items: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }
+              },
+              additions: {
+                type: "array",
+                description: "Cards to ADD to incomplete deck. ONLY suggest if deck needs more cards. Each must be a DIFFERENT card not already in deck.",
                 items: {
                   type: "object",
                   properties: {
-                    text: { type: "string", description: "Specific mana base observation" }
+                    name: { type: "string", description: "Exact card name (must not already be in deck)" },
+                    reason: { type: "string", description: "Why this card improves the deck" },
+                    type: { type: "string", description: "Card type line" },
+                    category: { type: "string", description: "Role category: 'Essential', 'Ramp', 'Card Draw', 'Removal', 'Creatures', 'Lands', 'Other'" },
+                    priority: { type: "string", enum: ["high", "medium", "low"] },
+                    edhImpact: { type: "number", description: "Estimated power level impact (+0.1 to +0.5)" }
                   },
-                  required: ["text"]
+                  required: ["name", "reason", "priority"]
+                }
+              },
+              removals: {
+                type: "array",
+                description: "Cards to REMOVE from overloaded deck. ONLY suggest if deck has too many cards.",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", description: "Exact card name to remove" },
+                    reason: { type: "string", description: "Why this card should be cut" },
+                    priority: { type: "string", enum: ["high", "medium", "low"] },
+                    edhImpact: { type: "number", description: "Power level impact of removal (usually negative or 0)" }
+                  },
+                  required: ["name", "reason", "priority"]
                 }
               },
               replacements: {
                 type: "array",
-                description: "Specific card-for-card replacements. Each must include real MTG card names.",
+                description: "Card-for-card swaps to improve deck. Only for complete decks or as additional optimization.",
                 items: {
                   type: "object",
                   properties: {
                     remove: { type: "string", description: "Exact name of card to remove" },
                     removeReason: { type: "string", description: "Why remove this specific card" },
-                    add: { type: "string", description: "Exact name of card to add (must be a real MTG card)" },
+                    add: { type: "string", description: "Exact name of card to add (must be real MTG card)" },
                     addBenefit: { type: "string", description: "Specific benefit of the replacement" },
                     addType: { type: "string", description: "Card type of the replacement" },
                     synergy: { type: "string", description: "How it synergizes with commander/strategy" },
-                    priority: { type: "string", enum: ["high", "medium", "low"], description: "How urgently this swap should be made" }
+                    category: { type: "string", description: "Replacement category: 'Upgrade', 'Synergy', 'Mana Fix', 'Power'" },
+                    priority: { type: "string", enum: ["high", "medium", "low"] },
+                    edhImpact: { type: "number", description: "Estimated power level change (+/- 0.1 to 0.3)" }
                   },
                   required: ["remove", "removeReason", "add", "addBenefit", "priority"]
                 }
-              },
-              additions: {
-                type: "array",
-                description: "Cards to add if deck is missing cards",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string", description: "Exact card name to add" },
-                    reason: { type: "string", description: "Why this card improves the deck" },
-                    type: { type: "string", description: "Card type" },
-                    priority: { type: "string", enum: ["high", "medium", "low"] }
-                  },
-                  required: ["name", "reason"]
-                }
               }
             },
-            required: ["summary", "categories", "issues", "strengths", "strategy", "manabase", "replacements"]
+            required: ["summary", "categories", "issues", "strengths", "strategy", "manabase"]
           }
         }
       }
     ];
+
+    console.log('Sending enhanced request to AI Gateway');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -185,31 +208,33 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: `You are an elite Magic: The Gathering deck optimizer with deep knowledge of competitive and casual play.
+            content: `You are an elite Magic: The Gathering deck optimizer with deep knowledge of Commander/EDH format.
 
 Your analysis must be:
-- SPECIFIC: Reference actual card names, not generic descriptions
+- SPECIFIC: Reference actual card names
 - ACTIONABLE: Every suggestion should be immediately implementable
-- BALANCED: Consider both budget and optimal options
-- SYNERGY-FOCUSED: Prioritize cards that work with the commander's strategy
+- CONTEXT-AWARE: Respond appropriately to deck status (incomplete vs overloaded vs complete)
+- UNIQUE: Never suggest cards already in the deck
 
-For Commander/EDH decks, consider:
-- Color identity restrictions
-- Singleton format implications
-- Commander synergy and protection
-- Mana curve (aim for avg CMC 2.5-3.5)
-- Ideal land count (35-38 lands typically)
-- Ramp package (10+ sources recommended)
-- Card draw engines
-- Removal package (8-12 pieces)
-- Win conditions and combos
+CRITICAL RULES:
+1. For INCOMPLETE decks (missing cards): Focus on ADDITIONS - suggest many diverse cards to fill gaps
+2. For OVERLOADED decks (too many cards): Focus on REMOVALS - identify weakest cards to cut
+3. For COMPLETE decks: Focus on SWAPS - suggest upgrades and optimizations
+4. NEVER suggest a card that's already in the deck
+5. All card names MUST be real Magic: The Gathering cards legal in the format
+6. Provide estimated EDH power level impact for suggestions
 
-IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal in the format.`
+Commander deck guidelines:
+- Ideal land count: 35-38 lands
+- Ramp sources: 10+ pieces
+- Card draw: 8-10 sources
+- Removal: 8-12 pieces
+- Average CMC: 2.5-3.5`
           },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 5000,
+        max_tokens: 6000,
         tools,
         tool_choice: { type: "function", function: { name: "deck_analysis" } }
       }),
@@ -219,7 +244,6 @@ IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.log('Rate limit hit');
         return new Response(JSON.stringify({ 
           error: 'Rate limits exceeded. Please wait a moment and try again.',
           type: 'rate_limit' 
@@ -229,7 +253,6 @@ IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal
         });
       }
       if (response.status === 402) {
-        console.log('Payment required');
         return new Response(JSON.stringify({ 
           error: 'AI credits exhausted. Please add credits to continue.',
           type: 'payment_required' 
@@ -245,19 +268,16 @@ IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal
     }
 
     const aiResponse = await response.json();
-    console.log('AI response received');
-
-    // Extract the tool call result
     const toolCalls = aiResponse.choices?.[0]?.message?.tool_calls;
     
     if (!toolCalls || toolCalls.length === 0) {
-      // Fallback: try to parse content as JSON if no tool calls
       const content = aiResponse.choices?.[0]?.message?.content;
       if (content) {
         try {
           const parsed = parseJsonFallback(content);
-          console.log('Parsed from content fallback');
-          return new Response(JSON.stringify({ analysis: normalizeAnalysis(parsed) }), {
+          return new Response(JSON.stringify({ 
+            analysis: normalizeAnalysis(parsed, existingCardNames, missingCards, excessCards) 
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (e) {
@@ -268,23 +288,18 @@ IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal
     }
 
     const toolCall = toolCalls[0];
-    if (toolCall.function?.name !== 'deck_analysis') {
-      throw new Error('Unexpected tool call');
-    }
-
     let analysis;
     try {
       analysis = JSON.parse(toolCall.function.arguments);
-      console.log('Successfully parsed tool call arguments');
     } catch (e) {
       console.error('Failed to parse tool arguments:', e);
       throw new Error('Invalid tool call response');
     }
 
-    // Normalize and validate the analysis
-    analysis = normalizeAnalysis(analysis);
+    // Normalize and filter the analysis
+    analysis = normalizeAnalysis(analysis, existingCardNames, missingCards, excessCards);
 
-    console.log(`Analysis complete: ${analysis.issues?.length || 0} issues, ${analysis.replacements?.length || 0} replacements`);
+    console.log(`Analysis complete: ${analysis.additions?.length || 0} additions, ${analysis.removals?.length || 0} removals, ${analysis.replacements?.length || 0} swaps`);
 
     return new Response(JSON.stringify({ analysis }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -302,7 +317,53 @@ IMPORTANT: Only suggest REAL Magic: The Gathering cards that exist and are legal
   }
 });
 
-function normalizeAnalysis(analysis: any): any {
+function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missingCards: number, excessCards: number): any {
+  // Filter out additions that are already in the deck
+  const filteredAdditions = (analysis.additions || [])
+    .filter((a: any) => !existingCardNames.has(String(a.name || '').toLowerCase()))
+    .map((a: any) => ({
+      name: String(a.name || ''),
+      reason: String(a.reason || ''),
+      type: a.type || null,
+      category: a.category || 'Other',
+      priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium',
+      edhImpact: typeof a.edhImpact === 'number' ? a.edhImpact : 0.2
+    }));
+
+  // Only include additions if deck is incomplete
+  const additions = missingCards > 0 ? filteredAdditions.slice(0, Math.max(missingCards + 5, 15)) : [];
+
+  // Filter removals to only cards in deck
+  const filteredRemovals = (analysis.removals || [])
+    .filter((r: any) => existingCardNames.has(String(r.name || '').toLowerCase()))
+    .map((r: any) => ({
+      name: String(r.name || ''),
+      reason: String(r.reason || ''),
+      priority: ['high', 'medium', 'low'].includes(r.priority) ? r.priority : 'medium',
+      edhImpact: typeof r.edhImpact === 'number' ? r.edhImpact : -0.1
+    }));
+
+  // Only include removals if deck has too many cards
+  const removals = excessCards > 0 ? filteredRemovals.slice(0, Math.max(excessCards + 3, 10)) : [];
+
+  // Filter replacements: remove card must be in deck, add card must not be in deck
+  const filteredReplacements = (analysis.replacements || [])
+    .filter((r: any) => 
+      existingCardNames.has(String(r.remove || '').toLowerCase()) &&
+      !existingCardNames.has(String(r.add || '').toLowerCase())
+    )
+    .map((r: any) => ({
+      remove: String(r.remove || ''),
+      removeReason: String(r.removeReason || ''),
+      add: String(r.add || ''),
+      addBenefit: String(r.addBenefit || ''),
+      addType: r.addType || null,
+      synergy: r.synergy || null,
+      category: r.category || null,
+      priority: ['high', 'medium', 'low'].includes(r.priority) ? r.priority : 'medium',
+      edhImpact: typeof r.edhImpact === 'number' ? r.edhImpact : 0.1
+    }));
+
   return {
     summary: analysis.summary || 'Deck analysis complete.',
     categories: {
@@ -312,6 +373,8 @@ function normalizeAnalysis(analysis: any): any {
       interaction: Math.min(100, Math.max(0, analysis.categories?.interaction || 60)),
       manabase: Math.min(100, Math.max(0, analysis.categories?.manabase || 75))
     },
+    currentPowerLevel: typeof analysis.currentPowerLevel === 'number' ? analysis.currentPowerLevel : null,
+    projectedPowerLevel: typeof analysis.projectedPowerLevel === 'number' ? analysis.projectedPowerLevel : null,
     issues: (analysis.issues || []).map((i: any) => ({
       card: String(i.card || ''),
       reason: String(i.reason || ''),
@@ -327,21 +390,9 @@ function normalizeAnalysis(analysis: any): any {
     manabase: (analysis.manabase || []).map((s: any) => ({ 
       text: typeof s === 'string' ? s : String(s.text || '') 
     })),
-    replacements: (analysis.replacements || []).map((r: any) => ({
-      remove: String(r.remove || ''),
-      removeReason: String(r.removeReason || ''),
-      add: String(r.add || ''),
-      addBenefit: String(r.addBenefit || ''),
-      addType: r.addType || null,
-      synergy: r.synergy || null,
-      priority: ['high', 'medium', 'low'].includes(r.priority) ? r.priority : 'medium'
-    })),
-    additions: (analysis.additions || []).map((a: any) => ({
-      name: String(a.name || ''),
-      reason: String(a.reason || ''),
-      type: a.type || null,
-      priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium'
-    }))
+    additions,
+    removals,
+    replacements: filteredReplacements.slice(0, 10)
   };
 }
 
@@ -392,68 +443,82 @@ function buildEnhancedPrompt(params: {
   totalWithCommander: number;
   requiredCards: number;
   missingCards: number;
+  excessCards: number;
+  isDeckComplete: boolean;
   typeBreakdown: string;
   lowPlayabilityCards: string[];
   edhAnalysis: any;
   useCollection: boolean;
   collectionCards: string[];
   manaCurve: Record<string, number>;
+  avgCMC: number;
+  existingCardNames: string[];
 }): string {
   const {
     name, format, commander, cards, power,
-    totalWithCommander, requiredCards, missingCards,
+    totalWithCommander, requiredCards, missingCards, excessCards, isDeckComplete,
     typeBreakdown, lowPlayabilityCards, edhAnalysis,
-    useCollection, collectionCards, manaCurve
+    useCollection, collectionCards, manaCurve, avgCMC, existingCardNames
   } = params;
 
-  const avgCMC = cards.filter(c => !c.type_line?.includes('Land'))
-    .reduce((sum, c) => sum + ((c.cmc || 0) * (c.quantity || 1)), 0) / 
-    cards.filter(c => !c.type_line?.includes('Land'))
-    .reduce((sum, c) => sum + (c.quantity || 1), 1);
+  let deckStatus = '✅ Complete';
+  let priorityAction = 'SWAPS - optimize card choices';
+  
+  if (missingCards > 0) {
+    deckStatus = `⚠️ INCOMPLETE - needs ${missingCards} more cards`;
+    priorityAction = `ADDITIONS - suggest ${missingCards}+ cards to add (no duplicates!)`;
+  } else if (excessCards > 0) {
+    deckStatus = `⚠️ OVERLOADED - has ${excessCards} too many cards`;
+    priorityAction = `REMOVALS - identify ${excessCards}+ cards to cut`;
+  }
 
   let prompt = `# Deck Optimization Request
+
+## Deck Status: ${deckStatus}
+## PRIORITY ACTION: ${priorityAction}
 
 ## Deck Information
 **Name:** ${name || 'Unnamed Deck'}
 **Format:** ${format}
 ${commander ? `**Commander:** ${commander.name}` : ''}
-**Card Count:** ${totalWithCommander}/${requiredCards} ${missingCards > 0 ? `⚠️ INCOMPLETE - needs ${missingCards} more cards` : '✅ Complete'}
+**Card Count:** ${totalWithCommander}/${requiredCards}
 **Target Power Level:** ${power?.score || 'Not specified'}/10
 
-## Composition Breakdown
+## Composition
 ${typeBreakdown}
 
 ## Mana Curve (Non-Land)
-${Object.entries(manaCurve).map(([cmc, count]) => `CMC ${cmc}: ${count} cards`).join(' | ')}
+${Object.entries(manaCurve).map(([cmc, count]) => `CMC ${cmc}: ${count}`).join(' | ')}
 **Average CMC:** ${avgCMC.toFixed(2)}
 
 `;
 
   if (lowPlayabilityCards.length > 0) {
-    prompt += `## 🔴 Low Playability Cards (PRIORITY REPLACEMENTS)
-These cards have been flagged as underperforming based on EDH statistics:
+    prompt += `## 🔴 Low Playability Cards
 ${lowPlayabilityCards.map(c => `- ${c}`).join('\n')}
 
 `;
   }
 
   if (edhAnalysis) {
-    prompt += `## EDH Analysis Metrics
+    prompt += `## EDH Metrics
 - Tipping Point: Turn ${edhAnalysis.tippingPoint || 'N/A'}
-- Efficiency Score: ${edhAnalysis.efficiency || 'N/A'}/10
-- Impact Score: ${edhAnalysis.impact || 'N/A'}/10
+- Efficiency: ${edhAnalysis.efficiency || 'N/A'}/10
+- Impact: ${edhAnalysis.impact || 'N/A'}/10
 
 `;
   }
 
-  prompt += `## Complete Card List
-${(cards || []).map((c: any) => `- ${c.name}${c.quantity > 1 ? ` (x${c.quantity})` : ''} [${c.type_line || 'Unknown'}]${c.cmc ? ` CMC:${c.cmc}` : ''}`).join('\n')}
+  prompt += `## Current Cards (DO NOT SUGGEST THESE AS ADDITIONS)
+${existingCardNames.slice(0, 100).join(', ')}
+
+## Complete Card List
+${(cards || []).map((c: any) => `- ${c.name}${c.quantity > 1 ? ` (x${c.quantity})` : ''} [${c.type_line || 'Unknown'}]`).join('\n')}
 
 `;
 
   if (useCollection && collectionCards.length > 0) {
-    prompt += `## User's Collection (PREFER THESE FOR REPLACEMENTS)
-The user owns these cards - prioritize suggestions from this list when possible:
+    prompt += `## User's Collection (prefer these)
 ${collectionCards.slice(0, 100).join(', ')}
 
 `;
@@ -461,34 +526,52 @@ ${collectionCards.slice(0, 100).join(', ')}
 
   prompt += `## Analysis Requirements
 
-1. **ISSUES**: Identify 4-8 problematic cards with specific reasons. Focus on:
-   - Cards that don't support the commander's strategy
-   - Overcosted effects
-   - Dead draws in typical game situations
-   - Cards with low EDH playability (if data provided above)
+`;
 
-2. **REPLACEMENTS**: For each issue, suggest a specific replacement. Consider:
-   - Similar mana cost where possible
-   - Better synergy with commander
-   - Format staples that improve consistency
-   ${useCollection ? '- PREFER cards from the user\'s collection listed above' : ''}
+  if (missingCards > 0) {
+    prompt += `### PRIORITY: ADDITIONS (deck needs ${missingCards} cards)
+Suggest at least ${Math.min(missingCards + 5, 20)} cards to add. Group by category:
+- Essential (must-have staples)
+- Ramp (mana acceleration)
+- Card Draw (card advantage)
+- Removal (interaction)
+- Creatures (threats/blockers)
+- Lands (mana base)
 
-3. **CATEGORY SCORES**: Rate the deck objectively from 0-100:
-   - Synergy: How well cards work together
-   - Consistency: Card selection and redundancy
-   - Power: Win conditions and threat density
-   - Interaction: Removal, counters, protection
-   - Manabase: Land count, color fixing, ramp
+For each addition, estimate the EDH power level impact (+0.1 to +0.5).
+CRITICAL: Do NOT suggest any card already in the deck!
 
-4. **STRENGTHS**: Identify 3-5 things the deck does well
+`;
+  } else if (excessCards > 0) {
+    prompt += `### PRIORITY: REMOVALS (deck has ${excessCards} too many cards)
+Identify at least ${excessCards + 2} cards that could be cut, prioritized by:
+- high: Weakest cards that hurt consistency
+- medium: Redundant effects or off-theme cards
+- low: Cards that could go but aren't critical cuts
 
-5. **STRATEGY**: Provide 3-5 gameplay tips specific to this deck
+For each removal, estimate the EDH power level impact (usually negative or 0).
 
-6. **MANABASE**: Analyze the mana base - land count, fixing, ramp
+`;
+  } else {
+    prompt += `### PRIORITY: SWAPS (deck is complete - optimize)
+Suggest 5-8 card replacements to improve the deck:
+- Focus on upgrading low playability cards
+- Consider budget and collection availability
+- Prioritize synergy with commander
 
-${missingCards > 0 ? `7. **ADDITIONS**: The deck needs ${missingCards} more cards. Suggest the most impactful additions.` : ''}
+For each swap, estimate the net EDH power level change.
 
-IMPORTANT: All card names MUST be real Magic: The Gathering cards that are legal in ${format}.`;
+`;
+  }
+
+  prompt += `### Also provide:
+1. Category scores (0-100): synergy, consistency, power, interaction, manabase
+2. Current estimated power level (1-10) and projected level after changes
+3. 3-5 key strengths
+4. 3-5 strategic tips
+5. Mana base observations
+
+All card names MUST be real MTG cards legal in ${format}.`;
 
   return prompt;
 }

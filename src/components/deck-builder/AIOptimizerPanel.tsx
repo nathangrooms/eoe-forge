@@ -302,8 +302,11 @@ export function AIOptimizerPanel({
               price: Number(newCardData.prices?.usd) || 0,
               reason: rep.addBenefit || 'Better synergy',
               type: rep.addType || newCardData.type_line,
-              inCollection: collectionCards.some(c => c.toLowerCase() === rep.add.toLowerCase())
+              inCollection: collectionCards.some(c => c.toLowerCase() === rep.add.toLowerCase()),
+              synergy: rep.synergy || null
             },
+            priority: rep.priority || 'medium',
+            category: rep.category || null,
             selected: true
           });
         }

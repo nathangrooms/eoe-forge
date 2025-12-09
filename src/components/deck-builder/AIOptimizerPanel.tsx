@@ -1,9 +1,8 @@
-// Premium Deck Optimizer Panel with enhanced UI and comprehensive analysis
+// Premium Deck Optimizer Panel - Complete integrated solution
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   AlertDialog,
@@ -15,7 +14,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { 
   Brain, 
   Sparkles, 
@@ -27,49 +25,38 @@ import {
   AlertTriangle,
   Zap,
   RefreshCw,
-  Check,
   Plus,
   Library,
-  Settings2
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { EdhAnalysisData } from './EdhAnalysisPanel';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { OptimizerProgress } from './optimizer/OptimizerProgress';
 import { OptimizerOverview } from './optimizer/OptimizerOverview';
-import { ReplacementRow, type ReplacementSuggestion } from './optimizer/ReplacementRow';
-import { OptimizerFilters, OptimizerFiltersState } from './optimizer/OptimizerFilters';
-import { OptimizerCard } from './optimizer/OptimizerCard';
-import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle, Lightbulb, Package, DollarSign } from 'lucide-react';
-
-interface CardSuggestion {
-  name: string;
-  image: string;
-  price: number;
-  reason: string;
-  type?: string;
-  playability?: number | null;
-  inCollection?: boolean;
-}
-
-interface LocalReplacementSuggestion {
-  currentCard: CardSuggestion;
-  newCard: CardSuggestion;
-  selected: boolean;
-}
+import { AdditionsSection, AdditionSuggestion } from './optimizer/AdditionsSection';
+import { RemovalsSection, RemovalSuggestion } from './optimizer/RemovalsSection';
+import { SwapsSection, SwapSuggestion } from './optimizer/SwapsSection';
+import { PowerImpactBadge } from './optimizer/PowerImpactBadge';
 
 interface AnalysisResult {
-  issues: Array<{ card: string; reason: string; severity: 'high' | 'medium' | 'low' }>;
+  issues: Array<{ card: string; reason: string; severity: 'high' | 'medium' | 'low'; category?: string }>;
   strengths: Array<{ text: string }>;
   strategy: Array<{ text: string }>;
   manabase: Array<{ text: string }>;
   summary: string;
-  missingCount: number;
-  recommendations: CardSuggestion[];
+  categories?: {
+    synergy: number;
+    consistency: number;
+    power: number;
+    interaction: number;
+    manabase: number;
+  };
+  currentPowerLevel?: number;
+  projectedPowerLevel?: number;
 }
 
 interface AIOptimizerPanelProps {
@@ -90,6 +77,7 @@ interface AIOptimizerPanelProps {
   edhAnalysis?: EdhAnalysisData | null;
   onApplyReplacements: (replacements: Array<{ remove: string; add: string }>) => void;
   onAddCard?: (cardName: string) => void;
+  onRemoveCard?: (cardName: string) => void;
 }
 
 export function AIOptimizerPanel({
@@ -101,17 +89,19 @@ export function AIOptimizerPanel({
   powerLevel,
   edhAnalysis,
   onApplyReplacements,
-  onAddCard
+  onAddCard,
+  onRemoveCard
 }: AIOptimizerPanelProps) {
   const [loading, setLoading] = useState(false);
   const [loadingCollection, setLoadingCollection] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [suggestions, setSuggestions] = useState<ReplacementSuggestion[]>([]);
-  const [additionSuggestions, setAdditionSuggestions] = useState<CardSuggestion[]>([]);
+  const [additionSuggestions, setAdditionSuggestions] = useState<AdditionSuggestion[]>([]);
+  const [removalSuggestions, setRemovalSuggestions] = useState<RemovalSuggestion[]>([]);
+  const [swapSuggestions, setSwapSuggestions] = useState<SwapSuggestion[]>([]);
   const [error, setError] = useState<string>('');
   const [isApplying, setIsApplying] = useState(false);
-  const [showConfirmAll, setShowConfirmAll] = useState(false);
-  const [showConfirmSingle, setShowConfirmSingle] = useState<number | null>(null);
+  const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [useCollection, setUseCollection] = useState(false);
 
@@ -123,6 +113,11 @@ export function AIOptimizerPanel({
   const cardQuantityTotal = deckCards.reduce((sum, c) => sum + (c.quantity || 1), 0);
   const totalCardsWithCommander = isCommander && commander ? cardQuantityTotal + 1 : cardQuantityTotal;
   const missingCards = Math.max(0, requiredCards - totalCardsWithCommander);
+  const excessCards = Math.max(0, totalCardsWithCommander - requiredCards);
+  const isDeckComplete = totalCardsWithCommander === requiredCards;
+
+  // Determine deck status for UI
+  const deckStatus = missingCards > 0 ? 'incomplete' : excessCards > 0 ? 'overloaded' : 'complete';
 
   // Extract low playability cards from EDH analysis
   const lowPlayabilityCards = (edhAnalysis?.cardAnalysis || [])
@@ -131,10 +126,16 @@ export function AIOptimizerPanel({
     .slice(0, 10);
 
   const hasEdhData = edhAnalysis && edhAnalysis.cardAnalysis?.length > 0;
-  const hasResults = analysis || suggestions.length > 0 || additionSuggestions.length > 0;
+  const hasResults = analysis || additionSuggestions.length > 0 || removalSuggestions.length > 0 || swapSuggestions.length > 0;
+
+  // Calculate projected power level change
+  const projectedPowerChange = analysis?.projectedPowerLevel && analysis?.currentPowerLevel
+    ? analysis.projectedPowerLevel - analysis.currentPowerLevel
+    : null;
 
   const generateOptimizations = async (fromCollection = false) => {
     setLoading(true);
+    setLoadingStep(0);
     setError('');
     setUseCollection(fromCollection);
     
@@ -143,6 +144,7 @@ export function AIOptimizerPanel({
       let collectionCards: string[] = [];
       if (fromCollection) {
         setLoadingCollection(true);
+        setLoadingStep(0);
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data } = await supabase
@@ -154,9 +156,9 @@ export function AIOptimizerPanel({
         setLoadingCollection(false);
       }
 
-      console.log('Calling deck-optimizer with', deckCards.length, 'cards');
+      setLoadingStep(1);
+      console.log('Calling deck-optimizer with', deckCards.length, 'cards, status:', deckStatus);
 
-      // Use the dedicated optimizer edge function with tool calling for reliable structured output
       const { data, error: fnError } = await supabase.functions.invoke('deck-optimizer', {
         body: {
           deckContext: {
@@ -192,45 +194,57 @@ export function AIOptimizerPanel({
       if (fnError) {
         console.error('Function error:', fnError);
         const errMsg = String(fnError?.message || fnError);
-        if (/429|rate/i.test(errMsg)) {
-          throw new Error('RATE_LIMIT');
-        }
-        if (/402|payment|credit/i.test(errMsg)) {
-          throw new Error('PAYMENT_REQUIRED');
-        }
+        if (/429|rate/i.test(errMsg)) throw new Error('RATE_LIMIT');
+        if (/402|payment|credit/i.test(errMsg)) throw new Error('PAYMENT_REQUIRED');
         throw fnError;
       }
 
-      // Check for error in response data
       if (data?.error) {
         console.error('Response error:', data.error, data.type);
-        if (data.type === 'rate_limit' || /rate/i.test(data.error)) {
-          throw new Error('RATE_LIMIT');
-        }
-        if (data.type === 'payment_required' || /credit|payment/i.test(data.error)) {
-          throw new Error('PAYMENT_REQUIRED');
-        }
+        if (data.type === 'rate_limit' || /rate/i.test(data.error)) throw new Error('RATE_LIMIT');
+        if (data.type === 'payment_required' || /credit|payment/i.test(data.error)) throw new Error('PAYMENT_REQUIRED');
         throw new Error(data.error);
       }
 
-      // The new endpoint returns { analysis: {...} }
-      if (data?.analysis) {
-        const parsed = normalizeAnalysis(data.analysis);
-        setAnalysis(parsed);
-        
-        // Parse replacements and fetch card images
-        if (parsed.replacements?.length > 0) {
-          const replacements = await fetchReplacementImages(parsed.replacements, fromCollection ? collectionCards : []);
-          setSuggestions(replacements);
-        }
+      setLoadingStep(2);
 
-        // Parse additions if deck is missing cards
-        if (parsed.additions?.length > 0) {
-          const additions = await fetchAdditionImages(parsed.additions, fromCollection ? collectionCards : []);
-          setAdditionSuggestions(additions);
+      if (data?.analysis) {
+        const parsed = data.analysis;
+        setAnalysis({
+          summary: parsed.summary || '',
+          issues: parsed.issues || [],
+          strengths: parsed.strengths || [],
+          strategy: parsed.strategy || [],
+          manabase: parsed.manabase || [],
+          categories: parsed.categories,
+          currentPowerLevel: parsed.currentPowerLevel,
+          projectedPowerLevel: parsed.projectedPowerLevel
+        });
+
+        setLoadingStep(3);
+
+        // Fetch images for all suggestions in parallel
+        const [additions, removals, swaps] = await Promise.all([
+          fetchAdditionImages(parsed.additions || [], collectionCards),
+          fetchRemovalImages(parsed.removals || []),
+          fetchSwapImages(parsed.replacements || [], collectionCards)
+        ]);
+
+        setAdditionSuggestions(additions);
+        setRemovalSuggestions(removals);
+        setSwapSuggestions(swaps);
+        
+        // Set appropriate default tab based on deck status
+        if (missingCards > 0 && additions.length > 0) {
+          setActiveTab('additions');
+        } else if (excessCards > 0 && removals.length > 0) {
+          setActiveTab('removals');
+        } else if (swaps.length > 0) {
+          setActiveTab('swaps');
+        } else {
+          setActiveTab('overview');
         }
         
-        setActiveTab(parsed.replacements?.length > 0 ? 'replacements' : 'overview');
         toast.success('Analysis complete');
       } else {
         throw new Error('No analysis returned');
@@ -251,32 +265,89 @@ export function AIOptimizerPanel({
     }
   };
 
-  const normalizeAnalysis = (parsed: any): AnalysisResult & { replacements?: any[]; additions?: any[] } => {
-    return {
-      summary: parsed.summary || '',
-      issues: (parsed.issues || []).map((i: any) => ({
-        card: i.card || '',
-        reason: i.reason || '',
-        severity: i.severity || 'medium'
-      })),
-      strengths: (parsed.strengths || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-      strategy: (parsed.strategy || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-      manabase: (parsed.manabase || []).map((s: any) => ({ text: typeof s === 'string' ? s : s.text })),
-      missingCount: missingCards,
-      recommendations: [],
-      replacements: parsed.replacements || [],
-      additions: parsed.additions || []
-    };
+  const fetchCardData = async (cardName: string): Promise<any> => {
+    try {
+      const card = await scryfallAPI.getCardByName(cardName);
+      return {
+        name: card.name,
+        image_uri: card.image_uris?.normal || card.image_uris?.large,
+        prices: card.prices,
+        type_line: card.type_line
+      };
+    } catch (error) {
+      console.error(`Failed to fetch card: ${cardName}`, error);
+      return null;
+    }
   };
 
-
-  const fetchReplacementImages = async (
-    replacements: any[],
-    collectionCards: string[]
-  ): Promise<ReplacementSuggestion[]> => {
-    const results: ReplacementSuggestion[] = [];
+  const fetchAdditionImages = async (additions: any[], collectionCards: string[]): Promise<AdditionSuggestion[]> => {
+    const results: AdditionSuggestion[] = [];
+    const batchSize = 5;
     
-    for (const rep of replacements.slice(0, 8)) {
+    for (let i = 0; i < additions.length; i += batchSize) {
+      const batch = additions.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (add) => {
+          try {
+            const cardData = await fetchCardData(add.name);
+            if (cardData) {
+              return {
+                name: add.name,
+                image: cardData.image_uri || '/placeholder.svg',
+                price: Number(cardData.prices?.usd) || 0,
+                reason: add.reason || 'Recommended addition',
+                type: add.type || cardData.type_line,
+                priority: add.priority || 'medium',
+                category: add.category || 'Other',
+                inCollection: collectionCards.some(c => c.toLowerCase() === add.name.toLowerCase()),
+                edhImpact: add.edhImpact || 0.2,
+                selected: false
+              };
+            }
+            return null;
+          } catch (e) {
+            return null;
+          }
+        })
+      );
+      results.push(...batchResults.filter(Boolean) as AdditionSuggestion[]);
+    }
+    return results;
+  };
+
+  const fetchRemovalImages = async (removals: any[]): Promise<RemovalSuggestion[]> => {
+    const results: RemovalSuggestion[] = [];
+    
+    for (const removal of removals.slice(0, 15)) {
+      try {
+        const cardData = await fetchCardData(removal.name);
+        const edhCardData = edhAnalysis?.cardAnalysis?.find(
+          c => c.name.toLowerCase() === removal.name.toLowerCase()
+        );
+        if (cardData) {
+          results.push({
+            name: removal.name,
+            image: cardData.image_uri || '/placeholder.svg',
+            price: Number(cardData.prices?.usd) || 0,
+            reason: removal.reason || 'Consider removing',
+            type: cardData.type_line,
+            priority: removal.priority || 'medium',
+            playability: edhCardData?.playability ?? null,
+            edhImpact: removal.edhImpact || 0,
+            selected: false
+          });
+        }
+      } catch (e) {
+        console.error('Error fetching removal card:', e);
+      }
+    }
+    return results;
+  };
+
+  const fetchSwapImages = async (replacements: any[], collectionCards: string[]): Promise<SwapSuggestion[]> => {
+    const results: SwapSuggestion[] = [];
+    
+    for (const rep of replacements.slice(0, 10)) {
       try {
         const [currentCardData, newCardData] = await Promise.all([
           fetchCardData(rep.remove),
@@ -307,70 +378,86 @@ export function AIOptimizerPanel({
             },
             priority: rep.priority || 'medium',
             category: rep.category || null,
+            edhImpact: rep.edhImpact || 0.1,
             selected: true
           });
         }
       } catch (e) {
-        console.error('Error fetching replacement card:', e);
+        console.error('Error fetching swap cards:', e);
       }
     }
-
     return results;
   };
 
-  const fetchAdditionImages = async (
-    additions: any[],
-    collectionCards: string[]
-  ): Promise<CardSuggestion[]> => {
-    const results: CardSuggestion[] = [];
-    
-    for (const add of additions.slice(0, 10)) {
-      try {
-        const cardData = await fetchCardData(add.name);
-        if (cardData) {
-          results.push({
-            name: add.name,
-            image: cardData.image_uri || '/placeholder.svg',
-            price: Number(cardData.prices?.usd) || 0,
-            reason: add.reason || 'Recommended addition',
-            type: add.type || cardData.type_line,
-            inCollection: collectionCards.some(c => c.toLowerCase() === add.name.toLowerCase())
-          });
-        }
-      } catch (e) {
-        console.error('Error fetching addition card:', e);
-      }
-    }
-
-    return results;
-  };
-
-  const fetchCardData = async (cardName: string): Promise<any> => {
-    try {
-      const card = await scryfallAPI.getCardByName(cardName);
-      return {
-        name: card.name,
-        image_uri: card.image_uris?.normal || card.image_uris?.large,
-        prices: card.prices,
-        type_line: card.type_line
-      };
-    } catch (error) {
-      console.error(`Failed to fetch card: ${cardName}`, error);
-      return null;
+  // Handler functions for child components
+  const handleAddCard = (cardName: string) => {
+    if (onAddCard) {
+      onAddCard(cardName);
+      setAdditionSuggestions(prev => prev.filter(c => c.name !== cardName));
+      toast.success(`Added ${cardName}`);
     }
   };
 
-  const toggleSuggestion = (index: number) => {
-    setSuggestions(prev => prev.map((s, i) => 
+  const handleAddMultipleCards = (cardNames: string[]) => {
+    if (onAddCard) {
+      setIsApplying(true);
+      cardNames.forEach(name => onAddCard(name));
+      setAdditionSuggestions(prev => prev.filter(c => !cardNames.includes(c.name)));
+      toast.success(`Added ${cardNames.length} cards`);
+      setIsApplying(false);
+    }
+  };
+
+  const handleRemoveCard = (cardName: string) => {
+    if (onRemoveCard) {
+      onRemoveCard(cardName);
+      setRemovalSuggestions(prev => prev.filter(c => c.name !== cardName));
+      toast.success(`Removed ${cardName}`);
+    } else if (onApplyReplacements) {
+      // Fallback: use replacement with empty add
+      onApplyReplacements([{ remove: cardName, add: '' }]);
+      setRemovalSuggestions(prev => prev.filter(c => c.name !== cardName));
+      toast.success(`Removed ${cardName}`);
+    }
+  };
+
+  const handleRemoveMultipleCards = (cardNames: string[]) => {
+    setIsApplying(true);
+    cardNames.forEach(name => handleRemoveCard(name));
+    setIsApplying(false);
+  };
+
+  const toggleSwapSuggestion = (index: number) => {
+    setSwapSuggestions(prev => prev.map((s, i) => 
       i === index ? { ...s, selected: !s.selected } : s
     ));
   };
 
-  const applySelectedReplacements = async () => {
-    const selected = suggestions.filter(s => s.selected);
+  const applySingleSwap = async (index: number) => {
+    const swap = swapSuggestions[index];
+    setIsApplying(true);
+    
+    try {
+      await onApplyReplacements([{
+        remove: swap.currentCard.name,
+        add: swap.newCard.name
+      }]);
+      
+      toast.success(`Replaced ${swap.currentCard.name} with ${swap.newCard.name}`);
+      setSwapSuggestions(prev => prev.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error('Error applying swap:', error);
+      toast.error('Failed to apply swap');
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const applySelectedSwaps = async () => {
+    const selected = swapSuggestions.filter(s => s.selected);
     
     if (selected.length === 0) {
-      toast.error('No replacements selected');
+      toast.error('No swaps selected');
       return;
     }
 
@@ -384,58 +471,42 @@ export function AIOptimizerPanel({
 
       await onApplyReplacements(replacements);
       toast.success(`Applied ${selected.length} replacement${selected.length > 1 ? 's' : ''}`);
-      setSuggestions([]);
+      setSwapSuggestions(prev => prev.filter(s => !s.selected));
     } catch (error) {
-      console.error('Error applying replacements:', error);
-      toast.error('Failed to apply replacements');
+      console.error('Error applying swaps:', error);
+      toast.error('Failed to apply swaps');
     } finally {
       setIsApplying(false);
-      setShowConfirmAll(false);
+      setShowConfirmSwaps(false);
     }
   };
 
-  const applySingleReplacement = async (index: number) => {
-    const suggestion = suggestions[index];
-    
-    setIsApplying(true);
-    
-    try {
-      await onApplyReplacements([{
-        remove: suggestion.currentCard.name,
-        add: suggestion.newCard.name
-      }]);
-      
-      toast.success(`Replaced ${suggestion.currentCard.name}`);
-      setSuggestions(prev => prev.filter((_, i) => i !== index));
-    } catch (error) {
-      console.error('Error applying replacement:', error);
-      toast.error('Failed to apply replacement');
-    } finally {
-      setIsApplying(false);
-      setShowConfirmSingle(null);
+  // Get status-specific styling
+  const statusConfig = {
+    incomplete: {
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/10',
+      borderColor: 'border-orange-500/30',
+      icon: Plus,
+      label: `${missingCards} cards needed`
+    },
+    overloaded: {
+      color: 'text-destructive',
+      bgColor: 'bg-destructive/10',
+      borderColor: 'border-destructive/30',
+      icon: Trash2,
+      label: `${excessCards} cards over`
+    },
+    complete: {
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      borderColor: 'border-green-500/30',
+      icon: Zap,
+      label: 'Deck Complete'
     }
   };
 
-  const handleAddCard = (cardName: string) => {
-    if (onAddCard) {
-      onAddCard(cardName);
-      setAdditionSuggestions(prev => prev.filter(c => c.name !== cardName));
-      toast.success(`Added ${cardName}`);
-    }
-  };
-
-  const totalCostDifference = suggestions
-    .filter(s => s.selected)
-    .reduce((sum, s) => sum + (s.newCard.price - s.currentCard.price), 0);
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'bg-destructive/20 text-destructive border-destructive/30';
-      case 'medium': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      case 'low': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
+  const status = statusConfig[deckStatus];
 
   return (
     <div className="space-y-4">
@@ -449,12 +520,18 @@ export function AIOptimizerPanel({
               </div>
               <div>
                 <h3 className="font-bold text-lg">Deck Optimizer</h3>
-                <p className="text-sm text-muted-foreground">
-                  {totalCardsWithCommander}/{requiredCards} cards
-                  {missingCards > 0 && (
-                    <span className="text-orange-400 ml-2">• {missingCards} needed</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {totalCardsWithCommander}/{requiredCards} cards
+                  </span>
+                  <Badge variant="outline" className={cn("text-xs", status.color, status.bgColor, status.borderColor)}>
+                    <status.icon className="h-3 w-3 mr-1" />
+                    {status.label}
+                  </Badge>
+                  {projectedPowerChange !== null && projectedPowerChange !== 0 && (
+                    <PowerImpactBadge impact={projectedPowerChange} size="sm" />
                   )}
-                </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -504,26 +581,6 @@ export function AIOptimizerPanel({
         </CardContent>
       </Card>
 
-      {/* Missing Cards Warning */}
-      {missingCards > 0 && !hasResults && !loading && (
-        <Card className="border-orange-500/30 bg-orange-500/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-orange-400" />
-              <span className="font-medium text-orange-400">
-                Deck Incomplete: {missingCards} Cards Needed
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {format === 'commander' || format === 'edh'
-                ? 'Commander decks require exactly 100 cards including the commander.'
-                : 'Standard deck requires at least 60 cards.'}
-              {' '}Run the optimizer to get card recommendations.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Low Playability Preview */}
       {hasEdhData && lowPlayabilityCards.length > 0 && !hasResults && !loading && (
         <Card className="border-orange-500/30 bg-orange-500/5">
@@ -536,11 +593,7 @@ export function AIOptimizerPanel({
             </div>
             <div className="flex flex-wrap gap-2">
               {lowPlayabilityCards.slice(0, 6).map((card, i) => (
-                <Badge 
-                  key={i} 
-                  variant="outline" 
-                  className="text-xs bg-orange-500/10 border-orange-500/30"
-                >
+                <Badge key={i} variant="outline" className="text-xs bg-orange-500/10 border-orange-500/30">
                   {card.name} 
                   <span className="ml-1 text-orange-400">({card.playability}%)</span>
                 </Badge>
@@ -568,11 +621,6 @@ export function AIOptimizerPanel({
                     Too many requests. Please wait before trying again.
                   </p>
                 )}
-                {error.includes('credits') && (
-                  <Button variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
-                    Add Credits →
-                  </Button>
-                )}
               </div>
             </div>
           </CardContent>
@@ -581,24 +629,7 @@ export function AIOptimizerPanel({
 
       {/* Loading State */}
       {loading && (
-        <Card>
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center justify-center gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-                <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium">
-                  {loadingCollection ? 'Loading your collection...' : 'Analyzing your deck...'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Finding optimizations and fetching card images
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <OptimizerProgress currentStep={loadingStep} loadingCollection={loadingCollection} />
       )}
 
       {/* Empty State */}
@@ -612,7 +643,11 @@ export function AIOptimizerPanel({
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
               {deckCards.length === 0 
                 ? 'Add cards to your deck to get optimization analysis.'
-                : 'Get card replacement suggestions with visual previews.'}
+                : deckStatus === 'incomplete'
+                ? `Your deck needs ${missingCards} more cards. Get suggestions to complete it.`
+                : deckStatus === 'overloaded'
+                ? `Your deck has ${excessCards} too many cards. Get cut suggestions.`
+                : 'Get card swap suggestions to optimize your complete deck.'}
             </p>
             {deckCards.length > 0 && (
               <div className="flex gap-2 justify-center">
@@ -630,362 +665,204 @@ export function AIOptimizerPanel({
         </Card>
       )}
 
-      {/* Results Tabs */}
+      {/* Results Tabs - Dynamic based on deck status */}
       {hasResults && !loading && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="replacements" className="flex items-center gap-2">
-              <ArrowRight className="h-4 w-4" />
-              Swaps
-              {suggestions.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                  {suggestions.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="additions" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Cards
-              {additionSuggestions.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                  {additionSuggestions.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview">
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                {analysis?.summary && (
-                  <div className="p-3 rounded-lg bg-muted/50 border">
-                    <p className="text-sm leading-relaxed">{analysis.summary}</p>
-                  </div>
-                )}
-
-                {analysis?.issues && analysis.issues.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-400" />
-                      Issues ({analysis.issues.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {analysis.issues.map((issue, i) => (
-                        <div key={i} className={cn("p-3 rounded-lg border text-sm", getSeverityColor(issue.severity))}>
-                          <span className="font-medium">{issue.card}:</span> {issue.reason}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {analysis?.strengths && analysis.strengths.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-green-400">
-                      <CheckCircle className="h-4 w-4" />
-                      Strengths
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {analysis.strengths.map((s, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-green-400 mt-0.5">•</span>
-                          {s.text}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {analysis?.strategy && analysis.strategy.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-400">
-                      <Lightbulb className="h-4 w-4" />
-                      Tips
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {analysis.strategy.map((s, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-blue-400 mt-0.5">•</span>
-                          {s.text}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Replacements Tab */}
-          <TabsContent value="replacements">
-            {suggestions.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">No replacement suggestions available.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4 text-primary" />
-                      {suggestions.length} Replacements
-                      {useCollection && (
-                        <Badge variant="outline" className="ml-2">
-                          <Package className="h-3 w-3 mr-1" />
-                          From Collection
-                        </Badge>
-                      )}
-                    </span>
-                    <span className={cn(
-                      "text-sm font-normal flex items-center",
-                      totalCostDifference >= 0 ? 'text-destructive' : 'text-green-500'
-                    )}>
-                      <DollarSign className="h-3 w-3" />
-                      {totalCostDifference >= 0 ? '+' : ''}
-                      {totalCostDifference.toFixed(2)}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[450px] pr-2">
-                    <div className="space-y-4">
-                      {suggestions.map((suggestion, index) => (
-                        <div 
-                          key={index} 
-                          className={cn(
-                            "p-3 rounded-lg border transition-colors",
-                            suggestion.selected ? "border-primary/50 bg-primary/5" : "border-border"
-                          )}
-                        >
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={suggestion.selected}
-                              onCheckedChange={() => toggleSuggestion(index)}
-                              className="mt-1"
-                            />
-                            
-                            {/* Current Card */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs">
-                                  Remove
-                                </Badge>
-                                {suggestion.currentCard.playability !== null && (
-                                  <Badge variant="outline" className="text-xs bg-orange-500/10 border-orange-500/30 text-orange-400">
-                                    {suggestion.currentCard.playability}% play
-                                  </Badge>
-                                )}
-                              </div>
-                              <img 
-                                src={suggestion.currentCard.image}
-                                alt={suggestion.currentCard.name}
-                                className="w-32 rounded-lg shadow-md mb-2"
-                                onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                              />
-                              <p className="text-sm font-medium truncate">{suggestion.currentCard.name}</p>
-                              <p className="text-xs text-muted-foreground">${suggestion.currentCard.price.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{suggestion.currentCard.reason}</p>
-                            </div>
-
-                            {/* Arrow */}
-                            <div className="flex items-center py-8">
-                              <ArrowRight className="h-5 w-5 text-primary flex-shrink-0" />
-                            </div>
-
-                            {/* New Card */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30 text-xs">
-                                  Add
-                                </Badge>
-                                {suggestion.newCard.inCollection && (
-                                  <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-400">
-                                    <Package className="h-3 w-3 mr-1" />
-                                    Owned
-                                  </Badge>
-                                )}
-                              </div>
-                              <img 
-                                src={suggestion.newCard.image}
-                                alt={suggestion.newCard.name}
-                                className="w-32 rounded-lg shadow-md mb-2"
-                                onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                              />
-                              <p className="text-sm font-medium truncate">{suggestion.newCard.name}</p>
-                              <p className="text-xs text-muted-foreground">${suggestion.newCard.price.toFixed(2)}</p>
-                              <p className="text-xs text-green-600 mt-1 line-clamp-2">{suggestion.newCard.reason}</p>
-                            </div>
-
-                            {/* Apply Button */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setShowConfirmSingle(index)}
-                              disabled={isApplying}
-                              className="flex-shrink-0"
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-
-                  {/* Bulk Actions */}
-                  <div className="flex gap-2 mt-4 pt-4 border-t">
-                    <Button
-                      onClick={() => setShowConfirmAll(true)}
-                      disabled={isApplying || suggestions.filter(s => s.selected).length === 0}
-                      className="flex-1"
-                    >
-                      {isApplying ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4 mr-2" />
-                      )}
-                      Apply Selected ({suggestions.filter(s => s.selected).length})
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setSuggestions(prev => prev.map(s => ({ ...s, selected: !prev.every(p => p.selected) })))}
-                    >
-                      {suggestions.every(s => s.selected) ? 'Deselect All' : 'Select All'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Additions Tab */}
-          <TabsContent value="additions">
-            {additionSuggestions.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
-                    <Plus className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground mb-2">
-                    {missingCards > 0 
-                      ? 'Run the optimizer to get card recommendations.'
-                      : 'Your deck is complete!'}
-                  </p>
-                  {missingCards > 0 && (
-                    <Badge variant="outline" className="text-orange-400 border-orange-400/30">
-                      {missingCards} cards needed
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-primary" />
-                    Recommended Additions
-                    <Badge variant="secondary" className="ml-2">
-                      {additionSuggestions.length} cards
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[450px] pr-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {additionSuggestions.map((card, index) => (
-                        <div 
-                          key={index}
-                          className="p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
-                        >
-                          <div className="flex gap-3">
-                            <img 
-                              src={card.image}
-                              alt={card.name}
-                              className="w-24 rounded-lg shadow-md flex-shrink-0"
-                              onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                {card.inCollection && (
-                                  <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-400">
-                                    <Package className="h-3 w-3 mr-1" />
-                                    Owned
-                                  </Badge>
-                                )}
-                                {card.type && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {card.type.split('—')[0].trim()}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm font-medium truncate">{card.name}</p>
-                              <p className="text-xs text-muted-foreground">${card.price.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.reason}</p>
-                              <Button
-                                size="sm"
-                                className="mt-2 w-full"
-                                onClick={() => handleAddCard(card.name)}
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add to Deck
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {/* Confirm All Dialog */}
-      <AlertDialog open={showConfirmAll} onOpenChange={setShowConfirmAll}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Apply All Selected Replacements?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will replace {suggestions.filter(s => s.selected).length} cards in your deck. 
-              Price difference: ${totalCostDifference >= 0 ? '+' : ''}{totalCostDifference.toFixed(2)}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={applySelectedReplacements}>
-              Apply Replacements
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirm Single Dialog */}
-      <AlertDialog open={showConfirmSingle !== null} onOpenChange={() => setShowConfirmSingle(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Apply This Replacement?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {showConfirmSingle !== null && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className={cn(
+              "grid w-full mb-4",
+              deckStatus === 'incomplete' ? "grid-cols-3" :
+              deckStatus === 'overloaded' ? "grid-cols-3" :
+              "grid-cols-3"
+            )}>
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                <span className="hidden sm:inline">Overview</span>
+              </TabsTrigger>
+              
+              {deckStatus === 'incomplete' ? (
                 <>
-                  Replace <strong>{suggestions[showConfirmSingle]?.currentCard.name}</strong> with{' '}
-                  <strong>{suggestions[showConfirmSingle]?.newCard.name}</strong>?
+                  <TabsTrigger value="additions" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Add Cards</span>
+                    {additionSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {additionSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="swaps" className="flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Swaps</span>
+                    {swapSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {swapSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </>
+              ) : deckStatus === 'overloaded' ? (
+                <>
+                  <TabsTrigger value="removals" className="flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Remove</span>
+                    {removalSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {removalSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="swaps" className="flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Swaps</span>
+                    {swapSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {swapSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="swaps" className="flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Swaps</span>
+                    {swapSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {swapSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="additions" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Ideas</span>
+                    {additionSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {additionSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
                 </>
               )}
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview">
+              {analysis ? (
+                <OptimizerOverview 
+                  analysis={analysis}
+                  replacementCount={swapSuggestions.length}
+                  additionCount={additionSuggestions.length}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No overview available.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Additions Tab */}
+            <TabsContent value="additions">
+              {additionSuggestions.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground mb-2">
+                      {missingCards > 0 
+                        ? 'Run the optimizer to get card recommendations.'
+                        : 'Your deck is complete! Check out swaps for optimization ideas.'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AdditionsSection
+                  suggestions={additionSuggestions}
+                  missingCards={missingCards}
+                  onAddCard={handleAddCard}
+                  onAddMultiple={handleAddMultipleCards}
+                  isAdding={isApplying}
+                />
+              )}
+            </TabsContent>
+
+            {/* Removals Tab */}
+            <TabsContent value="removals">
+              {removalSuggestions.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                      <Trash2 className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground mb-2">
+                      {excessCards > 0 
+                        ? 'Run the optimizer to get removal suggestions.'
+                        : 'Your deck has the right number of cards!'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <RemovalsSection
+                  suggestions={removalSuggestions}
+                  excessCards={excessCards}
+                  onRemoveCard={handleRemoveCard}
+                  onRemoveMultiple={handleRemoveMultipleCards}
+                  isRemoving={isApplying}
+                />
+              )}
+            </TabsContent>
+
+            {/* Swaps Tab */}
+            <TabsContent value="swaps">
+              {swapSuggestions.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                      <ArrowRight className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground mb-2">
+                      {isDeckComplete 
+                        ? 'Run the optimizer to get card swap suggestions.'
+                        : deckStatus === 'incomplete'
+                        ? 'Complete your deck first to get swap suggestions.'
+                        : 'Reduce your deck size first to get swap suggestions.'}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <SwapsSection
+                  suggestions={swapSuggestions}
+                  onToggle={toggleSwapSuggestion}
+                  onApplySingle={applySingleSwap}
+                  onApplySelected={() => setShowConfirmSwaps(true)}
+                  isApplying={isApplying}
+                  useCollection={useCollection}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+      )}
+
+      {/* Confirm Swaps Dialog */}
+      <AlertDialog open={showConfirmSwaps} onOpenChange={setShowConfirmSwaps}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Selected Swaps?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace {swapSuggestions.filter(s => s.selected).length} cards in your deck.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => showConfirmSingle !== null && applySingleReplacement(showConfirmSingle)}>
-              Apply
+            <AlertDialogAction onClick={applySelectedSwaps}>
+              Apply Swaps
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

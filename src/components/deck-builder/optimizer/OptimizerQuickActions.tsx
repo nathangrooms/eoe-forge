@@ -1,4 +1,4 @@
-// Smart quick actions bar for optimizer
+// Smart quick actions bar for optimizer - Mobile optimized
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -7,8 +7,6 @@ import {
   Wand2, 
   RotateCcw,
   CheckCheck,
-  Filter,
-  SortAsc,
   Undo2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,10 +44,10 @@ export function OptimizerQuickActions({
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border/50"
+        className="flex flex-wrap items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 border border-border/50"
       >
-        <span className="text-xs font-medium text-muted-foreground mr-2">
-          Quick Actions:
+        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground mr-1 sm:mr-2 hidden xs:inline">
+          Quick:
         </span>
         
         {/* Context-specific actions */}
@@ -61,10 +59,10 @@ export function OptimizerQuickActions({
                 variant="outline"
                 onClick={onAutoFill}
                 disabled={isProcessing || missingCards === 0}
-                className="h-8 text-xs bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
               >
-                <Wand2 className="h-3.5 w-3.5 mr-1.5 text-green-400" />
-                Auto-Fill {missingCards}
+                <Wand2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-green-400" />
+                <span className="hidden xs:inline">Auto-Fill </span>{missingCards}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -81,10 +79,10 @@ export function OptimizerQuickActions({
                 variant="outline"
                 onClick={onAutoCut}
                 disabled={isProcessing || excessCards === 0}
-                className="h-8 text-xs bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
               >
-                <Wand2 className="h-3.5 w-3.5 mr-1.5 text-destructive" />
-                Auto-Cut {excessCards}
+                <Wand2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-destructive" />
+                <span className="hidden xs:inline">Auto-Cut </span>{excessCards}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -101,10 +99,10 @@ export function OptimizerQuickActions({
                 variant="outline"
                 onClick={onAutoOptimize}
                 disabled={isProcessing}
-                className="h-8 text-xs bg-primary/10 border-primary/30 hover:bg-primary/20"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-primary/10 border-primary/30 hover:bg-primary/20"
               >
-                <Sparkles className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                Auto-Optimize
+                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-primary" />
+                <span className="hidden xs:inline">Auto-</span>Optimize
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -113,8 +111,8 @@ export function OptimizerQuickActions({
           </Tooltip>
         )}
 
-        {/* Divider */}
-        <div className="h-6 w-px bg-border mx-1" />
+        {/* Divider - hidden on very small screens */}
+        <div className="h-5 sm:h-6 w-px bg-border mx-0.5 sm:mx-1 hidden xs:block" />
 
         {/* Common actions */}
         {canUndo && onUndo && (
@@ -125,10 +123,10 @@ export function OptimizerQuickActions({
                 variant="ghost"
                 onClick={onUndo}
                 disabled={isProcessing}
-                className="h-8 text-xs"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2"
               >
-                <Undo2 className="h-3.5 w-3.5 mr-1.5" />
-                Undo
+                <Undo2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline ml-1.5">Undo</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -145,10 +143,10 @@ export function OptimizerQuickActions({
                 variant="ghost"
                 onClick={onReset}
                 disabled={isProcessing}
-                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 text-muted-foreground hover:text-foreground"
               >
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                Reset
+                <RotateCcw className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline ml-1.5">Reset</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -164,9 +162,9 @@ export function OptimizerQuickActions({
             animate={{ scale: 1, opacity: 1 }}
             className="ml-auto"
           >
-            <Badge className="bg-primary/20 text-primary border-primary/30">
-              <CheckCheck className="h-3 w-3 mr-1" />
-              {selectedCount} selected
+            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] sm:text-xs">
+              <CheckCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+              {selectedCount}
             </Badge>
           </motion.div>
         )}

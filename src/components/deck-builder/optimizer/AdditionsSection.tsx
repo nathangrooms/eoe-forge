@@ -1,4 +1,4 @@
-// Premium additions section for incomplete decks with search/filter
+// Premium additions section for incomplete decks - Mobile optimized
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Plus, Package, Loader2, Sparkles, CheckCheck, Wand2, Info } from 'lucide-react';
+import { Plus, Package, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PowerImpactBadge } from './PowerImpactBadge';
@@ -97,29 +97,44 @@ export function AdditionsSection({
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
+        {/* Header - Mobile optimized */}
         <Card className="border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Plus className="h-5 w-5 text-green-500" />
-                  Complete Your Deck
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {missingCards} cards needed • {suggestions.length} suggestions
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
+                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" />
+                    <span className="truncate">Complete Your Deck</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {missingCards} needed • {suggestions.length} suggestions
+                  </p>
+                </div>
                 {selectedCards.size > 0 && selectedImpact > 0 && (
-                  <PowerImpactBadge impact={selectedImpact} size="sm" currentLevel={currentPowerLevel} showProjection animated />
+                  <PowerImpactBadge impact={selectedImpact} size="sm" currentLevel={currentPowerLevel} animated />
                 )}
-                <Button variant="outline" size="sm" onClick={() => selectBest(Math.min(missingCards, suggestions.length))}>
-                  <Wand2 className="h-4 w-4 mr-1" />
+              </div>
+              
+              {/* Action buttons - stacked on mobile */}
+              <div className="flex flex-col xs:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => selectBest(Math.min(missingCards, suggestions.length))}
+                  className="flex-1 h-9 text-xs sm:text-sm"
+                >
+                  <Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
                   Select Best {Math.min(missingCards, suggestions.length)}
                 </Button>
-                <Button size="sm" onClick={addSelected} disabled={selectedCards.size === 0 || isAdding} className="bg-green-600 hover:bg-green-700">
-                  {isAdding ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                <Button 
+                  size="sm" 
+                  onClick={addSelected} 
+                  disabled={selectedCards.size === 0 || isAdding} 
+                  className="flex-1 h-9 text-xs sm:text-sm bg-green-600 hover:bg-green-700"
+                >
+                  {isAdding ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
                   Add Selected ({selectedCards.size})
                 </Button>
               </div>
@@ -127,18 +142,21 @@ export function AdditionsSection({
           </CardContent>
         </Card>
 
-        <ScrollArea className="h-[500px]">
-          <div className="space-y-6 pr-4">
+        {/* Card list - Mobile optimized scroll */}
+        <ScrollArea className="h-[60vh] sm:h-[500px]">
+          <div className="space-y-4 sm:space-y-6 pr-2 sm:pr-4">
             <AnimatePresence mode="popLayout">
               {sortedCategories.map((category) => (
                 <motion.div key={category} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}>
-                  <div className="mb-3">
-                    <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <div className="mb-2 sm:mb-3 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
+                    <h4 className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
                       {category}
-                      <Badge variant="secondary" className="text-xs">{grouped[category].length}</Badge>
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs">{grouped[category].length}</Badge>
                     </h4>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  
+                  {/* Responsive grid - 1 col on mobile, 2 on tablet+ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {grouped[category].map((card, idx) => {
                       const style = priorityStyles[card.priority];
                       const isSelected = selectedCards.has(card.name);
@@ -151,41 +169,74 @@ export function AdditionsSection({
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: idx * 0.02 }}
                           className={cn(
-                            "group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer",
+                            "group relative p-2 sm:p-3 rounded-lg sm:rounded-xl border transition-all duration-200 cursor-pointer",
                             isSelected ? "border-green-500/50 bg-green-500/10" : "border-border hover:border-primary/30",
-                            "hover:shadow-lg"
+                            "active:scale-[0.98]"
                           )}
                           onClick={() => toggleCard(card.name)}
                         >
-                          <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-xl", style.dot)} />
-                          <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
-                            <Checkbox checked={isSelected} onCheckedChange={() => toggleCard(card.name)} className="h-5 w-5 bg-background/80" />
+                          {/* Priority indicator */}
+                          <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-lg sm:rounded-l-xl", style.dot)} />
+                          
+                          {/* Checkbox - positioned for mobile touch */}
+                          <div className="absolute top-2 left-2 z-10" onClick={e => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isSelected} 
+                              onCheckedChange={() => toggleCard(card.name)} 
+                              className="h-5 w-5 bg-background/80" 
+                            />
                           </div>
-                          <div className="flex gap-3 pl-4">
+                          
+                          <div className="flex gap-2 sm:gap-3 pl-5 sm:pl-4">
+                            {/* Card image - smaller on mobile */}
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="relative w-24 flex-shrink-0">
-                                  <img src={card.image} alt={card.name} className="w-full rounded-lg shadow-md" onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }} />
+                                <div className="relative w-16 sm:w-24 flex-shrink-0">
+                                  <img 
+                                    src={card.image} 
+                                    alt={card.name} 
+                                    className="w-full rounded-md sm:rounded-lg shadow-md" 
+                                    onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }} 
+                                  />
                                   {card.inCollection && (
-                                    <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] bg-blue-500">
-                                      <Package className="h-2.5 w-2.5 mr-0.5" />Owned
+                                    <Badge className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] px-1 bg-blue-500">
+                                      <Package className="h-2 w-2 mr-0.5" />Owned
                                     </Badge>
                                   )}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent side="right" className="p-0">
+                              <TooltipContent side="right" className="p-0 hidden sm:block">
                                 <img src={card.image} alt={card.name} className="w-64 rounded-lg" />
                               </TooltipContent>
                             </Tooltip>
+                            
+                            {/* Card details */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <Badge variant="outline" className={cn("text-xs", style.text, style.bg, style.border)}>{style.label}</Badge>
-                                {card.edhImpact && card.edhImpact > 0 && <PowerImpactBadge impact={card.edhImpact} size="sm" showLabel={false} />}
+                              <div className="flex items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn("text-[9px] sm:text-xs px-1 sm:px-1.5", style.text, style.bg, style.border)}
+                                >
+                                  {style.label}
+                                </Badge>
+                                {card.edhImpact && card.edhImpact > 0 && (
+                                  <PowerImpactBadge impact={card.edhImpact} size="sm" showLabel={false} />
+                                )}
                               </div>
-                              <p className="font-medium text-sm truncate">{card.name}</p>
-                              <p className="text-xs text-muted-foreground">${card.price.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{card.reason}</p>
-                              <Button size="sm" variant={isSelected ? "secondary" : "default"} className="mt-2 w-full h-7 text-xs" onClick={(e) => { e.stopPropagation(); onAddCard(card.name); }} disabled={isAdding}>
+                              <p className="font-medium text-xs sm:text-sm truncate">{card.name}</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">${card.price.toFixed(2)}</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden xs:block">
+                                {card.reason}
+                              </p>
+                              
+                              {/* Add button */}
+                              <Button 
+                                size="sm" 
+                                variant={isSelected ? "secondary" : "default"} 
+                                className="mt-1.5 sm:mt-2 w-full h-7 sm:h-8 text-[10px] sm:text-xs" 
+                                onClick={(e) => { e.stopPropagation(); onAddCard(card.name); }} 
+                                disabled={isAdding}
+                              >
                                 <Plus className="h-3 w-3 mr-1" />Add Now
                               </Button>
                             </div>

@@ -509,69 +509,73 @@ export function AIOptimizerPanel({
   const status = statusConfig[deckStatus];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-3 sm:space-y-4">
+      {/* Header - Mobile optimized */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
-                <Brain className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">Deck Optimizer</h3>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">
-                    {totalCardsWithCommander}/{requiredCards} cards
-                  </span>
-                  <Badge variant="outline" className={cn("text-xs", status.color, status.bgColor, status.borderColor)}>
-                    <status.icon className="h-3 w-3 mr-1" />
-                    {status.label}
-                  </Badge>
-                  {projectedPowerChange !== null && projectedPowerChange !== 0 && (
-                    <PowerImpactBadge impact={projectedPowerChange} size="sm" />
-                  )}
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg truncate">Deck Optimizer</h3>
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm flex-wrap">
+                    <span className="text-muted-foreground">
+                      {totalCardsWithCommander}/{requiredCards}
+                    </span>
+                    <Badge variant="outline" className={cn("text-[10px] sm:text-xs px-1 sm:px-1.5", status.color, status.bgColor, status.borderColor)}>
+                      <status.icon className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                      <span className="hidden xs:inline">{status.label}</span>
+                    </Badge>
+                    {hasEdhData && (
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 bg-green-500/20 text-green-400 border-green-500/30 hidden xs:flex">
+                        <Zap className="h-2.5 w-2.5 mr-0.5" />
+                        EDH
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {hasEdhData && (
-                <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
-                  <Zap className="h-3 w-3 mr-1" />
-                  EDH Data
-                </Badge>
-              )}
+            
+            {/* Action buttons - stacked on mobile */}
+            <div className="flex flex-col xs:flex-row gap-2">
               <Button 
                 variant="outline"
                 onClick={() => generateOptimizations(true)}
                 disabled={loading}
                 size="sm"
+                className="flex-1 h-9 text-xs sm:text-sm"
               >
                 {loadingCollection ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 ) : (
-                  <Library className="h-4 w-4 mr-2" />
+                  <Library className="h-3.5 w-3.5 mr-1.5" />
                 )}
-                From Collection
+                <span className="hidden xs:inline">From </span>Collection
               </Button>
               <Button 
                 onClick={() => generateOptimizations(false)}
                 disabled={loading || deckCards.length === 0}
                 size="sm"
+                className="flex-1 h-9 text-xs sm:text-sm"
               >
                 {loading && !loadingCollection ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <span className="hidden xs:inline">Analyzing...</span>
+                    <span className="xs:hidden">...</span>
                   </>
                 ) : hasResults ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                     Refresh
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
                     Optimize
                   </>
                 )}

@@ -1,4 +1,4 @@
-// Real-time optimizer statistics dashboard
+// Real-time optimizer statistics dashboard - Mobile optimized
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -77,7 +77,7 @@ export function OptimizerStats({
       color: 'text-purple-400',
       change: powerChange,
       changeLabel: powerChange !== null && powerChange !== 0 
-        ? `${powerChange > 0 ? '+' : ''}${powerChange.toFixed(1)} projected` 
+        ? `${powerChange > 0 ? '+' : ''}${powerChange.toFixed(1)}` 
         : null,
       tooltip: 'EDH Power Level (1-10)'
     },
@@ -106,8 +106,9 @@ export function OptimizerStats({
   return (
     <TooltipProvider>
       <Card className="border-primary/10 bg-gradient-to-r from-background to-muted/30">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="p-3 sm:p-4">
+          {/* Stats grid - 2x2 on mobile, 4 columns on desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {stats.map((stat, index) => (
               <Tooltip key={stat.label}>
                 <TooltipTrigger asChild>
@@ -117,40 +118,40 @@ export function OptimizerStats({
                     transition={{ delay: index * 0.05 }}
                     className="relative"
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <stat.icon className={cn("h-4 w-4", stat.color)} />
-                      <span className="text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                      <stat.icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", stat.color)} />
+                      <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                         {stat.label}
                       </span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className={cn("text-xl font-bold", stat.color)}>
+                    <div className="flex items-baseline gap-1 sm:gap-2 flex-wrap">
+                      <span className={cn("text-lg sm:text-xl font-bold", stat.color)}>
                         {stat.value}
                       </span>
                       {stat.change !== undefined && stat.change !== null && stat.change !== 0 && (
                         <Badge 
                           variant="outline" 
                           className={cn(
-                            "text-[10px] px-1 py-0",
+                            "text-[9px] sm:text-[10px] px-1 py-0",
                             stat.change > 0 
                               ? "text-green-400 bg-green-500/10 border-green-500/30"
                               : "text-amber-400 bg-amber-500/10 border-amber-500/30"
                           )}
                         >
                           {stat.change > 0 ? (
-                            <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                            <TrendingUp className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
                           ) : (
-                            <TrendingDown className="h-2.5 w-2.5 mr-0.5" />
+                            <TrendingDown className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
                           )}
                           {stat.changeLabel}
                         </Badge>
                       )}
                     </div>
                     {stat.progress !== undefined && (
-                      <div className="mt-2">
+                      <div className="mt-1.5 sm:mt-2">
                         <Progress 
                           value={stat.progress} 
-                          className="h-1.5" 
+                          className="h-1 sm:h-1.5" 
                         />
                       </div>
                     )}
@@ -163,25 +164,25 @@ export function OptimizerStats({
             ))}
           </div>
           
-          {/* Action summary */}
-          <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border/50">
+          {/* Action summary - scrollable on mobile */}
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/50 overflow-x-auto">
             {additionsCount > 0 && (
-              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
+              <Badge variant="outline" className="text-[10px] sm:text-xs bg-green-500/10 text-green-400 border-green-500/30 whitespace-nowrap">
                 +{additionsCount} to add
               </Badge>
             )}
             {removalsCount > 0 && (
-              <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
+              <Badge variant="outline" className="text-[10px] sm:text-xs bg-destructive/10 text-destructive border-destructive/30 whitespace-nowrap">
                 -{removalsCount} to remove
               </Badge>
             )}
             {swapsCount > 0 && (
-              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+              <Badge variant="outline" className="text-[10px] sm:text-xs bg-primary/10 text-primary border-primary/30 whitespace-nowrap">
                 ↔ {swapsCount} swaps
               </Badge>
             )}
             {additionsCount === 0 && removalsCount === 0 && swapsCount === 0 && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
                 <Minus className="h-3 w-3" />
                 No pending changes
               </span>

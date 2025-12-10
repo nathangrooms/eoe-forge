@@ -1,7 +1,7 @@
-// EDH Power level impact indicator with visual projection
+// EDH Power level impact indicator with visual projection - Mobile optimized
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { TrendingUp, TrendingDown, Minus, Zap, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Zap, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -27,15 +27,15 @@ export function PowerImpactBadge({
   const projectedLevel = currentLevel ? currentLevel + impact : null;
   
   const sizeClasses = {
-    sm: 'text-[10px] px-1.5 py-0 h-5',
-    md: 'text-xs px-2 py-0.5 h-6',
-    lg: 'text-sm px-2.5 py-1 h-7'
+    sm: 'text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-4 sm:h-5',
+    md: 'text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-6',
+    lg: 'text-xs sm:text-sm px-2 sm:px-2.5 py-1 h-6 sm:h-7'
   };
 
   const iconSize = {
-    sm: 'h-2.5 w-2.5',
-    md: 'h-3 w-3',
-    lg: 'h-4 w-4'
+    sm: 'h-2 w-2 sm:h-2.5 sm:w-2.5',
+    md: 'h-2.5 w-2.5 sm:h-3 sm:w-3',
+    lg: 'h-3 w-3 sm:h-4 sm:w-4'
   };
 
   // Determine impact strength for visual styling
@@ -45,9 +45,9 @@ export function PowerImpactBadge({
 
   if (isNeutral) {
     return (
-      <Badge variant="outline" className={cn(sizeClasses[size], "text-muted-foreground gap-1")}>
+      <Badge variant="outline" className={cn(sizeClasses[size], "text-muted-foreground gap-0.5 sm:gap-1")}>
         <Minus className={iconSize[size]} />
-        {showLabel && 'No Change'}
+        {showLabel && <span className="hidden xs:inline">No Change</span>}
       </Badge>
     );
   }
@@ -57,7 +57,7 @@ export function PowerImpactBadge({
       variant="outline" 
       className={cn(
         sizeClasses[size],
-        "gap-1 transition-all",
+        "gap-0.5 sm:gap-1 transition-all",
         isPositive 
           ? isStrong 
             ? "text-green-400 bg-green-500/15 border-green-500/40 shadow-green-500/10 shadow-sm"
@@ -79,7 +79,7 @@ export function PowerImpactBadge({
       <span className="font-semibold">
         {isPositive ? '+' : ''}{impact.toFixed(1)}
       </span>
-      {showLabel && <span className="font-normal opacity-80">Power</span>}
+      {showLabel && <span className="font-normal opacity-80 hidden xs:inline">Power</span>}
     </Badge>
   );
 
@@ -88,7 +88,7 @@ export function PowerImpactBadge({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="inline-flex items-center gap-1.5">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5">
               {animated ? (
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
@@ -99,10 +99,10 @@ export function PowerImpactBadge({
                 </motion.div>
               ) : badgeContent}
               {currentLevel && (
-                <span className="text-xs text-muted-foreground flex items-center">
+                <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center hidden xs:flex">
                   {currentLevel.toFixed(1)}
                   <ArrowUp className={cn(
-                    "h-3 w-3 mx-0.5",
+                    "h-2.5 w-2.5 sm:h-3 sm:w-3 mx-0.5",
                     isPositive ? "text-green-400" : "text-amber-400 rotate-180"
                   )} />
                   <span className={cn(

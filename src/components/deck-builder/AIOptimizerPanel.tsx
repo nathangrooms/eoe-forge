@@ -27,7 +27,8 @@ import {
   RefreshCw,
   Plus,
   Library,
-  Trash2
+  Trash2,
+  Mountain
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ import { OptimizerOverview } from './optimizer/OptimizerOverview';
 import { AdditionsSection, AdditionSuggestion } from './optimizer/AdditionsSection';
 import { RemovalsSection, RemovalSuggestion } from './optimizer/RemovalsSection';
 import { SwapsSection, SwapSuggestion } from './optimizer/SwapsSection';
+import { LandRecommendationsSection, LandRecommendation } from './optimizer/LandRecommendationsSection';
 import { PowerImpactBadge } from './optimizer/PowerImpactBadge';
 
 interface AnalysisResult {
@@ -99,6 +101,9 @@ export function AIOptimizerPanel({
   const [additionSuggestions, setAdditionSuggestions] = useState<AdditionSuggestion[]>([]);
   const [removalSuggestions, setRemovalSuggestions] = useState<RemovalSuggestion[]>([]);
   const [swapSuggestions, setSwapSuggestions] = useState<SwapSuggestion[]>([]);
+  const [landRecommendations, setLandRecommendations] = useState<LandRecommendation[]>([]);
+  const [landCount, setLandCount] = useState(0);
+  const [idealLandCount, setIdealLandCount] = useState(37);
   const [error, setError] = useState<string>('');
   const [isApplying, setIsApplying] = useState(false);
   const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
@@ -126,7 +131,8 @@ export function AIOptimizerPanel({
     .slice(0, 10);
 
   const hasEdhData = edhAnalysis && edhAnalysis.cardAnalysis?.length > 0;
-  const hasResults = analysis || additionSuggestions.length > 0 || removalSuggestions.length > 0 || swapSuggestions.length > 0;
+  const hasResults = analysis || additionSuggestions.length > 0 || removalSuggestions.length > 0 || swapSuggestions.length > 0 || landRecommendations.length > 0;
+  const hasLandIssues = Math.abs(landCount - idealLandCount) > 2;
 
   // Calculate projected power level change
   const projectedPowerChange = analysis?.projectedPowerLevel && analysis?.currentPowerLevel
@@ -221,21 +227,27 @@ export function AIOptimizerPanel({
           projectedPowerLevel: parsed.projectedPowerLevel
         });
 
-        setLoadingStep(3);
-
         // Fetch images for all suggestions in parallel
-        const [additions, removals, swaps] = await Promise.all([
+        const [additions, removals, swaps, lands] = await Promise.all([
           fetchAdditionImages(parsed.additions || [], collectionCards),
           fetchRemovalImages(parsed.removals || []),
-          fetchSwapImages(parsed.replacements || [], collectionCards)
+          fetchSwapImages(parsed.replacements || [], collectionCards),
+          fetchLandImages(parsed.landRecommendations || [])
         ]);
 
         setAdditionSuggestions(additions);
         setRemovalSuggestions(removals);
         setSwapSuggestions(swaps);
+        setLandRecommendations(lands);
         
-        // Set appropriate default tab based on deck status
-        if (missingCards > 0 && additions.length > 0) {
+        // Set land counts from response
+        if (parsed.landCount !== undefined) setLandCount(parsed.landCount);
+        if (parsed.idealLandCount !== undefined) setIdealLandCount(parsed.idealLandCount);
+        
+        // Set appropriate default tab based on deck status and recommendations
+        if (lands.length > 0) {
+          setActiveTab('lands');
+        } else if (missingCards > 0 && additions.length > 0) {
           setActiveTab('additions');
         } else if (excessCards > 0 && removals.length > 0) {
           setActiveTab('removals');
@@ -389,11 +401,40 @@ export function AIOptimizerPanel({
     return results;
   };
 
+  const fetchLandImages = async (lands: any[]): Promise<LandRecommendation[]> => {
+    const results: LandRecommendation[] = [];
+    
+    for (const land of lands.slice(0, 10)) {
+      try {
+        const cardData = await fetchCardData(land.name);
+        results.push({
+          type: land.type === 'add' ? 'add' : 'remove',
+          name: land.name,
+          image: cardData?.image_uri || undefined,
+          reason: land.reason || 'Land adjustment',
+          priority: land.priority || 'medium',
+          category: land.category || 'Basic'
+        });
+      } catch (e) {
+        // Still add without image
+        results.push({
+          type: land.type === 'add' ? 'add' : 'remove',
+          name: land.name,
+          reason: land.reason || 'Land adjustment',
+          priority: land.priority || 'medium',
+          category: land.category || 'Basic'
+        });
+      }
+    }
+    return results;
+  };
+
   // Handler functions for child components
   const handleAddCard = (cardName: string) => {
     if (onAddCard) {
       onAddCard(cardName);
       setAdditionSuggestions(prev => prev.filter(c => c.name !== cardName));
+      setLandRecommendations(prev => prev.filter(c => !(c.type === 'add' && c.name === cardName)));
       toast.success(`Added ${cardName}`);
     }
   };
@@ -403,6 +444,7 @@ export function AIOptimizerPanel({
       setIsApplying(true);
       cardNames.forEach(name => onAddCard(name));
       setAdditionSuggestions(prev => prev.filter(c => !cardNames.includes(c.name)));
+      setLandRecommendations(prev => prev.filter(c => !(c.type === 'add' && cardNames.includes(c.name))));
       toast.success(`Added ${cardNames.length} cards`);
       setIsApplying(false);
     }
@@ -410,6 +452,11 @@ export function AIOptimizerPanel({
 
   const handleRemoveCard = (cardName: string) => {
     if (onRemoveCard) {
+      onRemoveCard(cardName);
+      setRemovalSuggestions(prev => prev.filter(c => c.name !== cardName));
+      setLandRecommendations(prev => prev.filter(c => !(c.type === 'remove' && c.name === cardName)));
+      toast.success(`Removed ${cardName}`);
+    } else if (onApplyReplacements) {
       onRemoveCard(cardName);
       setRemovalSuggestions(prev => prev.filter(c => c.name !== cardName));
       toast.success(`Removed ${cardName}`);
@@ -676,82 +723,103 @@ export function AIOptimizerPanel({
           animate={{ opacity: 1, y: 0 }}
         >
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={cn(
-              "grid w-full mb-4",
-              deckStatus === 'incomplete' ? "grid-cols-3" :
-              deckStatus === 'overloaded' ? "grid-cols-3" :
-              "grid-cols-3"
-            )}>
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                <span className="hidden sm:inline">Overview</span>
-              </TabsTrigger>
-              
-              {deckStatus === 'incomplete' ? (
-                <>
-                  <TabsTrigger value="additions" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Add Cards</span>
+            {/* Mobile-optimized scrollable tabs */}
+            <div className="overflow-x-auto -mx-2 px-2 pb-1">
+              <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-4 gap-1 mb-3">
+                <TabsTrigger value="overview" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                  <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Overview</span>
+                </TabsTrigger>
+                
+                {deckStatus === 'incomplete' ? (
+                  <TabsTrigger value="additions" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Add</span>
                     {additionSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
                         {additionSuggestions.length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="swaps" className="flex items-center gap-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span className="hidden sm:inline">Swaps</span>
-                    {swapSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                        {swapSuggestions.length}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                </>
-              ) : deckStatus === 'overloaded' ? (
-                <>
-                  <TabsTrigger value="removals" className="flex items-center gap-2">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Remove</span>
+                ) : deckStatus === 'overloaded' ? (
+                  <TabsTrigger value="removals" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Cut</span>
                     {removalSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
                         {removalSuggestions.length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="swaps" className="flex items-center gap-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span className="hidden sm:inline">Swaps</span>
+                ) : (
+                  <TabsTrigger value="swaps" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Swaps</span>
                     {swapSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
                         {swapSuggestions.length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                </>
-              ) : (
-                <>
-                  <TabsTrigger value="swaps" className="flex items-center gap-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span className="hidden sm:inline">Swaps</span>
+                )}
+
+                {/* Lands tab - always show if recommendations exist */}
+                <TabsTrigger 
+                  value="lands" 
+                  className={cn(
+                    "flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap",
+                    hasLandIssues && "text-orange-400"
+                  )}
+                >
+                  <Mountain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Lands</span>
+                  {landRecommendations.length > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "ml-0.5 h-4 px-1 text-[10px]",
+                        hasLandIssues && "bg-orange-500/20 text-orange-400"
+                      )}
+                    >
+                      {landRecommendations.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+
+                {/* Secondary tab based on status */}
+                {deckStatus === 'incomplete' ? (
+                  <TabsTrigger value="swaps" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Swaps</span>
                     {swapSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
                         {swapSuggestions.length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="additions" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Ideas</span>
+                ) : deckStatus === 'overloaded' ? (
+                  <TabsTrigger value="swaps" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Swaps</span>
+                    {swapSuggestions.length > 0 && (
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
+                        {swapSuggestions.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                ) : (
+                  <TabsTrigger value="additions" className="flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">
+                    <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Ideas</span>
                     {additionSuggestions.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">
                         {additionSuggestions.length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                </>
-              )}
-            </TabsList>
+                )}
+              </TabsList>
+            </div>
 
             {/* Overview Tab */}
             <TabsContent value="overview">
@@ -849,6 +917,18 @@ export function AIOptimizerPanel({
                   useCollection={useCollection}
                 />
               )}
+            </TabsContent>
+
+            {/* Lands Tab */}
+            <TabsContent value="lands">
+              <LandRecommendationsSection
+                currentLandCount={landCount}
+                idealLandCount={idealLandCount}
+                recommendations={landRecommendations}
+                onAddLand={handleAddCard}
+                onRemoveLand={handleRemoveCard}
+                isApplying={isApplying}
+              />
             </TabsContent>
           </Tabs>
         </motion.div>

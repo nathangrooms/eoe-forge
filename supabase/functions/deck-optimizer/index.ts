@@ -5,13 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Deterministic seed for consistent results
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Deck Optimizer v3 - Comprehensive multi-phase analysis');
+    console.log('Deck Optimizer v4 - Consistent multi-phase analysis with land recommendations');
     
     const { deckContext, edhAnalysis, useCollection, collectionCards = [] } = await req.json();
     
@@ -55,7 +66,16 @@ serve(async (req) => {
         nonLandCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 1)
       : 0;
 
-    console.log(`Deck status: ${totalWithCommander}/${requiredCards} cards. Missing: ${missingCards}, Excess: ${excessCards}`);
+    // Calculate land count
+    const landCount = (cards || []).filter((c: any) => c.type_line?.toLowerCase().includes('land'))
+      .reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
+    const idealLandCount = isCommander ? 37 : 24;
+    const landDiff = landCount - idealLandCount;
+
+    // Generate deterministic seed for consistent results
+    const deckHash = hashString(existingCardNames.sort().join(',') + (commander?.name || ''));
+    
+    console.log(`Deck status: ${totalWithCommander}/${requiredCards} cards. Missing: ${missingCards}, Excess: ${excessCards}. Lands: ${landCount}/${idealLandCount}`);
 
     // Build the prompt based on deck status
     const prompt = buildEnhancedPrompt({
@@ -76,7 +96,11 @@ serve(async (req) => {
       collectionCards,
       manaCurve,
       avgCMC,
-      existingCardNames: Array.from(existingCardNames)
+      existingCardNames: Array.from(existingCardNames),
+      landCount,
+      idealLandCount,
+      landDiff,
+      deckHash
     });
 
     // Enhanced tool schema for comprehensive output
@@ -187,6 +211,21 @@ serve(async (req) => {
                   },
                   required: ["remove", "removeReason", "add", "addBenefit", "priority"]
                 }
+              },
+              landRecommendations: {
+                type: "array",
+                description: "Land-specific recommendations if mana base needs adjustment",
+                items: {
+                  type: "object",
+                  properties: {
+                    type: { type: "string", enum: ["add", "remove"], description: "Whether to add or remove this land" },
+                    name: { type: "string", description: "Land card name" },
+                    reason: { type: "string", description: "Why this change helps the mana base" },
+                    priority: { type: "string", enum: ["high", "medium", "low"] },
+                    category: { type: "string", description: "Land type: 'Basic', 'Dual', 'Fetch', 'Utility'" }
+                  },
+                  required: ["type", "name", "reason", "priority"]
+                }
               }
             },
             required: ["summary", "categories", "issues", "strengths", "strategy", "manabase"]
@@ -212,8 +251,9 @@ serve(async (req) => {
 
 Your analysis must be:
 - SPECIFIC: Reference actual card names
-- ACTIONABLE: Every suggestion should be immediately implementable
+- ACTIONABLE: Every suggestion should be immediately implementable  
 - CONTEXT-AWARE: Respond appropriately to deck status (incomplete vs overloaded vs complete)
+- CONSISTENT: Given the same deck, provide the same core recommendations
 - UNIQUE: Never suggest cards already in the deck
 
 CRITICAL RULES:
@@ -223,17 +263,25 @@ CRITICAL RULES:
 4. NEVER suggest a card that's already in the deck
 5. All card names MUST be real Magic: The Gathering cards legal in the format
 6. Provide estimated EDH power level impact for suggestions
+7. ALWAYS analyze land count and provide land recommendations if not optimal
+
+CONSISTENCY REQUIREMENT:
+- Prioritize the SAME swap targets each time (lowest playability cards first)
+- Suggest the SAME replacement cards for the same weak cards
+- Focus on the 5 most obvious improvements first before suggesting alternatives
 
 Commander deck guidelines:
-- Ideal land count: 35-38 lands
+- Ideal land count: 35-38 lands (37 recommended)
 - Ramp sources: 10+ pieces
 - Card draw: 8-10 sources
 - Removal: 8-12 pieces
-- Average CMC: 2.5-3.5`
+- Average CMC: 2.5-3.5
+- Too few lands (<34): Risk of mana screw
+- Too many lands (>40): Risk of flood`
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
+        temperature: 0.3, // Lower temperature for more consistent results
         max_tokens: 6000,
         tools,
         tool_choice: { type: "function", function: { name: "deck_analysis" } }
@@ -297,9 +345,9 @@ Commander deck guidelines:
     }
 
     // Normalize and filter the analysis
-    analysis = normalizeAnalysis(analysis, existingCardNames, missingCards, excessCards);
+    analysis = normalizeAnalysis(analysis, existingCardNames, missingCards, excessCards, landCount, idealLandCount);
 
-    console.log(`Analysis complete: ${analysis.additions?.length || 0} additions, ${analysis.removals?.length || 0} removals, ${analysis.replacements?.length || 0} swaps`);
+    console.log(`Analysis complete: ${analysis.additions?.length || 0} additions, ${analysis.removals?.length || 0} removals, ${analysis.replacements?.length || 0} swaps, ${analysis.landRecommendations?.length || 0} land recs`);
 
     return new Response(JSON.stringify({ analysis }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -317,7 +365,7 @@ Commander deck guidelines:
   }
 });
 
-function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missingCards: number, excessCards: number): any {
+function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missingCards: number, excessCards: number, landCount: number, idealLandCount: number): any {
   // Filter out additions that are already in the deck
   const filteredAdditions = (analysis.additions || [])
     .filter((a: any) => !existingCardNames.has(String(a.name || '').toLowerCase()))
@@ -347,6 +395,7 @@ function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missin
   const removals = excessCards > 0 ? filteredRemovals.slice(0, Math.max(excessCards + 3, 10)) : [];
 
   // Filter replacements: remove card must be in deck, add card must not be in deck
+  // Sort by priority to ensure consistency
   const filteredReplacements = (analysis.replacements || [])
     .filter((r: any) => 
       existingCardNames.has(String(r.remove || '').toLowerCase()) &&
@@ -362,6 +411,28 @@ function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missin
       category: r.category || null,
       priority: ['high', 'medium', 'low'].includes(r.priority) ? r.priority : 'medium',
       edhImpact: typeof r.edhImpact === 'number' ? r.edhImpact : 0.1
+    }))
+    // Sort by priority for consistency
+    .sort((a: any, b: any) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder];
+    });
+
+  // Process land recommendations
+  const landDiff = landCount - idealLandCount;
+  const landRecommendations = (analysis.landRecommendations || [])
+    .filter((l: any) => {
+      const name = String(l.name || '').toLowerCase();
+      if (l.type === 'add') return !existingCardNames.has(name);
+      if (l.type === 'remove') return existingCardNames.has(name);
+      return false;
+    })
+    .map((l: any) => ({
+      type: l.type === 'add' ? 'add' : 'remove',
+      name: String(l.name || ''),
+      reason: String(l.reason || ''),
+      priority: ['high', 'medium', 'low'].includes(l.priority) ? l.priority : 'medium',
+      category: l.category || 'Basic'
     }));
 
   return {
@@ -392,7 +463,10 @@ function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missin
     })),
     additions,
     removals,
-    replacements: filteredReplacements.slice(0, 10)
+    replacements: filteredReplacements.slice(0, 10),
+    landRecommendations: landRecommendations.slice(0, 8),
+    landCount,
+    idealLandCount
   };
 }
 
@@ -453,12 +527,17 @@ function buildEnhancedPrompt(params: {
   manaCurve: Record<string, number>;
   avgCMC: number;
   existingCardNames: string[];
+  landCount: number;
+  idealLandCount: number;
+  landDiff: number;
+  deckHash: number;
 }): string {
   const {
     name, format, commander, cards, power,
     totalWithCommander, requiredCards, missingCards, excessCards, isDeckComplete,
     typeBreakdown, lowPlayabilityCards, edhAnalysis,
-    useCollection, collectionCards, manaCurve, avgCMC, existingCardNames
+    useCollection, collectionCards, manaCurve, avgCMC, existingCardNames,
+    landCount, idealLandCount, landDiff, deckHash
   } = params;
 
   let deckStatus = '✅ Complete';
@@ -472,7 +551,13 @@ function buildEnhancedPrompt(params: {
     priorityAction = `REMOVALS - identify ${excessCards}+ cards to cut`;
   }
 
+  // Land status
+  let landStatus = '✅ Optimal';
+  if (landDiff < -2) landStatus = `⚠️ LOW - needs ${Math.abs(landDiff)} more lands`;
+  else if (landDiff > 2) landStatus = `⚠️ HIGH - ${landDiff} too many lands`;
+
   let prompt = `# Deck Optimization Request
+## Consistency Seed: ${deckHash}
 
 ## Deck Status: ${deckStatus}
 ## PRIORITY ACTION: ${priorityAction}
@@ -483,6 +568,10 @@ function buildEnhancedPrompt(params: {
 ${commander ? `**Commander:** ${commander.name}` : ''}
 **Card Count:** ${totalWithCommander}/${requiredCards}
 **Target Power Level:** ${power?.score || 'Not specified'}/10
+
+## Mana Base Status: ${landStatus}
+**Current Lands:** ${landCount}
+**Ideal Lands:** ${idealLandCount}
 
 ## Composition
 ${typeBreakdown}
@@ -564,14 +653,33 @@ For each swap, estimate the net EDH power level change.
 `;
   }
 
+  // Add land recommendation section
+  if (Math.abs(landDiff) > 2) {
+    prompt += `### LAND RECOMMENDATIONS
+Current: ${landCount} lands, Ideal: ${idealLandCount} lands
+${landDiff < 0 ? `Suggest ${Math.abs(landDiff)} lands to ADD. Consider:
+- Basic lands matching color identity
+- Dual lands that enter untapped
+- Utility lands that fit the strategy` : 
+`Suggest ${landDiff} lands to REMOVE. Prioritize:
+- Lands that enter tapped with minimal benefit
+- Lands outside color identity
+- Excess basic lands`}
+
+`;
+  }
+
   prompt += `### Also provide:
 1. Category scores (0-100): synergy, consistency, power, interaction, manabase
 2. Current estimated power level (1-10) and projected level after changes
 3. 3-5 key strengths
 4. 3-5 strategic tips
 5. Mana base observations
+6. Land recommendations if mana base needs adjustment
 
 All card names MUST be real MTG cards legal in ${format}.`;
+
+  return prompt;
 
   return prompt;
 }

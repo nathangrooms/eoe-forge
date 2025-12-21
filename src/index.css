@@ -4,18 +4,14 @@
 
 /* Mobile-optimized scanning styles */
 @layer components {
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
+  /* touch-target is defined in the mobile media query below */
   #lovable-badge {
     display: none !important;
   }
 
   .touch-friendly {
-    @apply transform transition-transform duration-200 active:scale-95;
+    @apply transform transition-transform duration-200;
   }
-
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -165,10 +161,11 @@ All colors MUST be HSL.
 }
 
 @layer base {
-  * {
+  *,
+  ::before,
+  ::after {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
     background-image: var(--gradient-starfield);
@@ -304,6 +301,9 @@ All colors MUST be HSL.
     min-width: 44px;
   }
 
+  .touch-friendly {
+    @apply active:scale-95;
+  }
   /* Improve readability on mobile */
   .mobile-text {
     line-height: 1.6;

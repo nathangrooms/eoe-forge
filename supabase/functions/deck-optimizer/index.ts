@@ -51,7 +51,7 @@ serve(async (req) => {
     const typeBreakdown = buildTypeBreakdown(cards || []);
     
     // Extract existing card names to prevent duplicate suggestions
-    const existingCardNames = new Set((cards || []).map((c: any) => c.name.toLowerCase()));
+    const existingCardNames = new Set((cards || []).map((c: any) => String(c.name || '').toLowerCase()));
     
     // Extract low playability cards from EDH analysis
     const lowPlayabilityCards = extractLowPlayabilityCards(edhAnalysis);
@@ -73,7 +73,8 @@ serve(async (req) => {
     const landDiff = landCount - idealLandCount;
 
     // Generate deterministic seed for consistent results
-    const deckHash = hashString(existingCardNames.sort().join(',') + (commander?.name || ''));
+    const existingCardNamesSorted = Array.from(existingCardNames).sort();
+    const deckHash = hashString(existingCardNamesSorted.join(',') + (commander?.name || ''));
     
     console.log(`Deck status: ${totalWithCommander}/${requiredCards} cards. Missing: ${missingCards}, Excess: ${excessCards}. Lands: ${landCount}/${idealLandCount}`);
 

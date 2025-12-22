@@ -15,7 +15,8 @@ import {
   TrendingUp, 
   TrendingDown,
   Loader2,
-  Zap
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -48,7 +49,9 @@ interface SwapsSectionProps {
   onToggle: (index: number) => void;
   onApplySingle: (index: number) => void;
   onApplySelected: () => void;
+  onFindMoreSwaps?: () => void;
   isApplying: boolean;
+  isLoadingMore?: boolean;
   useCollection?: boolean;
 }
 
@@ -57,7 +60,9 @@ export function SwapsSection({
   onToggle,
   onApplySingle,
   onApplySelected,
+  onFindMoreSwaps,
   isApplying,
+  isLoadingMore,
   useCollection
 }: SwapsSectionProps) {
   const selectedCount = suggestions.filter(s => s.selected).length;
@@ -123,20 +128,40 @@ export function SwapsSection({
                 </div>
               </div>
               
-              {/* Apply button */}
-              <Button
-                size="sm"
-                onClick={onApplySelected}
-                disabled={selectedCount === 0 || isApplying}
-                className="w-full h-9 text-xs sm:text-sm"
-              >
-                {isApplying ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 mr-1.5" />
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={onApplySelected}
+                  disabled={selectedCount === 0 || isApplying}
+                  className="flex-1 h-9 text-xs sm:text-sm"
+                >
+                  {isApplying ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Apply ({selectedCount})
+                </Button>
+                {onFindMoreSwaps && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onFindMoreSwaps}
+                    disabled={isLoadingMore || isApplying}
+                    className="h-9 text-xs sm:text-sm px-3"
+                  >
+                    {isLoadingMore ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                        More
+                      </>
+                    )}
+                  </Button>
                 )}
-                Apply Selected ({selectedCount})
-              </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -464,8 +464,8 @@ function normalizeAnalysis(analysis: any, existingCardNames: Set<string>, missin
     })),
     additions,
     removals,
-    replacements: filteredReplacements.slice(0, 10),
-    landRecommendations: landRecommendations.slice(0, 8),
+    replacements: filteredReplacements.slice(0, 15),
+    landRecommendations: landRecommendations.slice(0, 12),
     landCount,
     idealLandCount
   };
@@ -644,8 +644,8 @@ For each removal, estimate the EDH power level impact (usually negative or 0).
 `;
   } else {
     prompt += `### PRIORITY: SWAPS (deck is complete - optimize)
-Suggest 5-8 card replacements to improve the deck:
-- Focus on upgrading low playability cards
+Suggest 10-15 card replacements to improve the deck:
+- Focus on upgrading low playability cards first
 - Consider budget and collection availability
 - Prioritize synergy with commander
 

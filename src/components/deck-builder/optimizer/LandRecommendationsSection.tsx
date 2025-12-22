@@ -90,12 +90,12 @@ export function LandRecommendationsSection({
 
       {/* Recommendations */}
       {recommendations.length > 0 && (
-        <ScrollArea className="h-[300px]">
-          <div className="space-y-3 pr-2">
+        <ScrollArea className="h-[400px]">
+          <div className="space-y-3 pr-3">
             {/* Lands to add */}
             {landsToAdd.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
+                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-green-400" />
                   <span className="text-xs font-medium text-green-400">Add Lands</span>
                   <Badge variant="secondary" className="text-[10px]">{landsToAdd.length}</Badge>
@@ -114,25 +114,30 @@ export function LandRecommendationsSection({
                         <img 
                           src={land.image} 
                           alt={land.name}
-                          className="w-10 h-14 rounded object-cover"
+                          className="w-10 h-14 rounded object-cover flex-shrink-0"
                           onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                         />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-xs truncate">{land.name}</p>
                         <p className="text-[10px] text-muted-foreground line-clamp-1">{land.reason}</p>
+                        {land.category && (
+                          <Badge variant="outline" className="text-[9px] mt-0.5">{land.category}</Badge>
+                        )}
                       </div>
                       <Button
                         size="sm"
-                        variant="ghost"
                         onClick={() => onAddLand(land.name)}
                         disabled={isApplying}
-                        className="h-7 w-7 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/20"
+                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
                       >
                         {isApplying ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Plus className="h-3.5 w-3.5" />
+                          <>
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Add
+                          </>
                         )}
                       </Button>
                     </motion.div>
@@ -144,7 +149,7 @@ export function LandRecommendationsSection({
             {/* Lands to remove */}
             {landsToRemove.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
+                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5">
                   <TrendingDown className="h-3.5 w-3.5 text-destructive" />
                   <span className="text-xs font-medium text-destructive">Remove Lands</span>
                   <Badge variant="secondary" className="text-[10px]">{landsToRemove.length}</Badge>
@@ -163,25 +168,31 @@ export function LandRecommendationsSection({
                         <img 
                           src={land.image} 
                           alt={land.name}
-                          className="w-10 h-14 rounded object-cover"
+                          className="w-10 h-14 rounded object-cover flex-shrink-0"
                           onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
                         />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-xs truncate">{land.name}</p>
                         <p className="text-[10px] text-muted-foreground line-clamp-1">{land.reason}</p>
+                        {land.category && (
+                          <Badge variant="outline" className="text-[9px] mt-0.5">{land.category}</Badge>
+                        )}
                       </div>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="destructive"
                         onClick={() => onRemoveLand(land.name)}
                         disabled={isApplying}
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/20"
+                        className="h-8 px-3 text-xs flex-shrink-0"
                       >
                         {isApplying ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Minus className="h-3.5 w-3.5" />
+                          <>
+                            <Minus className="h-3.5 w-3.5 mr-1" />
+                            Remove
+                          </>
                         )}
                       </Button>
                     </motion.div>

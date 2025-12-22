@@ -106,6 +106,7 @@ export function AIOptimizerPanel({
   const [idealLandCount, setIdealLandCount] = useState(37);
   const [error, setError] = useState<string>('');
   const [isApplying, setIsApplying] = useState(false);
+  const [isLoadingMoreSwaps, setIsLoadingMoreSwaps] = useState(false);
   const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [useCollection, setUseCollection] = useState(false);
@@ -244,18 +245,8 @@ export function AIOptimizerPanel({
         if (parsed.landCount !== undefined) setLandCount(parsed.landCount);
         if (parsed.idealLandCount !== undefined) setIdealLandCount(parsed.idealLandCount);
         
-        // Set appropriate default tab based on deck status and recommendations
-        if (lands.length > 0) {
-          setActiveTab('lands');
-        } else if (missingCards > 0 && additions.length > 0) {
-          setActiveTab('additions');
-        } else if (excessCards > 0 && removals.length > 0) {
-          setActiveTab('removals');
-        } else if (swaps.length > 0) {
-          setActiveTab('swaps');
-        } else {
-          setActiveTab('overview');
-        }
+        // Always default to overview tab after analysis
+        setActiveTab('overview');
         
         toast.success('Analysis complete');
       } else {
@@ -359,7 +350,8 @@ export function AIOptimizerPanel({
   const fetchSwapImages = async (replacements: any[], collectionCards: string[]): Promise<SwapSuggestion[]> => {
     const results: SwapSuggestion[] = [];
     
-    for (const rep of replacements.slice(0, 10)) {
+    // Process up to 15 swaps for more variety
+    for (const rep of replacements.slice(0, 15)) {
       try {
         const [currentCardData, newCardData] = await Promise.all([
           fetchCardData(rep.remove),
@@ -528,6 +520,74 @@ export function AIOptimizerPanel({
     }
   };
 
+  // Find more swaps - regenerate analysis focusing on different cards
+  const findMoreSwaps = async () => {
+    setIsLoadingMoreSwaps(true);
+    try {
+      // Get existing swap cards to exclude
+      const existingSwapCards = swapSuggestions.flatMap(s => [
+        s.currentCard.name.toLowerCase(),
+        s.newCard.name.toLowerCase()
+      ]);
+      
+      const { data, error: fnError } = await supabase.functions.invoke('deck-optimizer', {
+        body: {
+          deckContext: {
+            id: deckId,
+            name: deckName,
+            format,
+            commander,
+            cards: deckCards.map(c => ({
+              name: c.name,
+              type_line: c.type_line,
+              mana_cost: c.mana_cost,
+              cmc: c.cmc,
+              quantity: c.quantity || 1
+            })),
+            power: { score: powerLevel }
+          },
+          edhAnalysis: edhAnalysis ? {
+            metrics: edhAnalysis.metrics,
+            cardAnalysis: lowPlayabilityCards.map(c => ({
+              name: c.name,
+              playability: c.playability,
+              isCommander: false
+            }))
+          } : null,
+          useCollection,
+          excludeSwaps: existingSwapCards
+        }
+      });
+
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.analysis?.replacements) {
+        // Filter out already suggested swaps and fetch images
+        const newReplacements = (data.analysis.replacements || [])
+          .filter((r: any) => 
+            !existingSwapCards.includes(r.remove?.toLowerCase()) &&
+            !existingSwapCards.includes(r.add?.toLowerCase())
+          );
+        
+        const collectionCards: string[] = [];
+        const newSwaps = await fetchSwapImages(newReplacements, collectionCards);
+        
+        if (newSwaps.length > 0) {
+          setSwapSuggestions(prev => [...prev, ...newSwaps]);
+          toast.success(`Found ${newSwaps.length} more swap suggestions`);
+        } else {
+          toast.info('No additional swaps found');
+        }
+      }
+    } catch (err) {
+      console.error('Error finding more swaps:', err);
+      toast.error('Failed to find more swaps');
+    } finally {
+      setIsLoadingMoreSwaps(false);
+    }
+  };
+
   // Get status-specific styling
   const statusConfig = {
     incomplete: {
@@ -683,35 +743,23 @@ export function AIOptimizerPanel({
         <OptimizerProgress currentStep={loadingStep} loadingCollection={loadingCollection} />
       )}
 
-      {/* Empty State */}
+      {/* Empty State - just informational, buttons are in header */}
       {!hasResults && !loading && !error && (
         <Card>
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-              <Brain className="h-8 w-8 text-muted-foreground" />
+          <CardContent className="p-6 text-center">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+              <Brain className="h-7 w-7 text-muted-foreground" />
             </div>
             <h3 className="font-semibold mb-2">Ready to Optimize</h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {deckCards.length === 0 
                 ? 'Add cards to your deck to get optimization analysis.'
                 : deckStatus === 'incomplete'
-                ? `Your deck needs ${missingCards} more cards. Get suggestions to complete it.`
+                ? `Your deck needs ${missingCards} more cards. Click Optimize above to get suggestions.`
                 : deckStatus === 'overloaded'
-                ? `Your deck has ${excessCards} too many cards. Get cut suggestions.`
-                : 'Get card swap suggestions to optimize your complete deck.'}
+                ? `Your deck has ${excessCards} too many cards. Click Optimize above for cut suggestions.`
+                : 'Click Optimize above to get card swap suggestions.'}
             </p>
-            {deckCards.length > 0 && (
-              <div className="flex gap-2 justify-center">
-                <Button onClick={() => generateOptimizations(false)}>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Optimize Deck
-                </Button>
-                <Button variant="outline" onClick={() => generateOptimizations(true)}>
-                  <Library className="h-4 w-4 mr-2" />
-                  Use My Collection
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -913,7 +961,9 @@ export function AIOptimizerPanel({
                   onToggle={toggleSwapSuggestion}
                   onApplySingle={applySingleSwap}
                   onApplySelected={() => setShowConfirmSwaps(true)}
+                  onFindMoreSwaps={findMoreSwaps}
                   isApplying={isApplying}
+                  isLoadingMore={isLoadingMoreSwaps}
                   useCollection={useCollection}
                 />
               )}

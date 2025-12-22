@@ -647,42 +647,39 @@ export function AIOptimizerPanel({
               </div>
             </div>
             
-            {/* Action buttons - stacked on mobile */}
-            <div className="flex flex-col xs:flex-row gap-2">
+            {/* Action buttons - side by side on desktop, appropriate sizing */}
+            <div className="flex gap-2 sm:gap-3">
               <Button 
                 variant="outline"
                 onClick={() => generateOptimizations(true)}
                 disabled={loading}
-                size="sm"
-                className="flex-1 h-9 text-xs sm:text-sm"
+                className="h-10 px-4 text-sm"
               >
                 {loadingCollection ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Library className="h-3.5 w-3.5 mr-1.5" />
+                  <Library className="h-4 w-4 mr-2" />
                 )}
-                <span className="hidden xs:inline">From </span>Collection
+                Collection
               </Button>
               <Button 
                 onClick={() => generateOptimizations(false)}
                 disabled={loading || deckCards.length === 0}
-                size="sm"
-                className="flex-1 h-9 text-xs sm:text-sm"
+                className="h-10 px-6 text-sm"
               >
                 {loading && !loadingCollection ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    <span className="hidden xs:inline">Analyzing...</span>
-                    <span className="xs:hidden">...</span>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
                   </>
                 ) : hasResults ? (
                   <>
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    <Sparkles className="h-4 w-4 mr-2" />
                     Optimize
                   </>
                 )}

@@ -164,7 +164,8 @@ All colors MUST be HSL.
   *,
   ::before,
   ::after {
-    @apply border-border;
+    border-color: hsl(var(--border));
+    border-width: 0;
   }
   body {
     @apply bg-background text-foreground;

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Plus, 
   Minus, 
@@ -23,9 +24,11 @@ import {
   RefreshCw,
   Trash2,
   LayoutList,
-  Grid3X3
+  Grid3X3,
+  Edit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CommanderSelector } from './CommanderSelector';
 
 interface DeckCard {
   id: string;
@@ -77,6 +80,7 @@ export function VisualDeckView({
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
   const [isListView, setIsListView] = useState(false);
+  const [showCommanderDialog, setShowCommanderDialog] = useState(false);
 
   const getCategory = (card: DeckCard): Category => {
     const typeLine = card.type_line?.toLowerCase() || '';
@@ -344,63 +348,127 @@ export function VisualDeckView({
       </div>
 
       {/* Commander Section */}
-      {format === 'commander' && commander && (
+      {format === 'commander' && (
         <Card className="p-4 border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-transparent">
-          {/* Mobile: Simple centered layout */}
-          <div className="md:hidden text-center">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <Crown className="h-5 w-5 text-amber-400" />
-              <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
-            </div>
-            <h3 className="text-lg font-bold mb-3">{commander.name}</h3>
-            <img 
-              src={getCommanderImage() || '/placeholder.svg'} 
-              alt={commander.name}
-              className="w-full max-w-sm mx-auto h-auto rounded-xl shadow-lg"
-              onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-            />
-          </div>
-          
-          {/* Desktop: Full layout with details */}
-          <div className="hidden md:flex gap-4">
-            <div className="w-48 flex-shrink-0">
-              <img 
-                src={getCommanderImage() || '/placeholder.svg'} 
-                alt={commander.name}
-                className="w-full h-auto rounded-xl shadow-lg"
-                onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-              />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Crown className="h-5 w-5 text-amber-400" />
-                <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
-              </div>
-              <h3 className="text-xl font-bold mb-1">{commander.name}</h3>
-              <p className="text-sm text-muted-foreground mb-3">{commander.type_line}</p>
-              
-              {commander.oracle_text && (
-                <div className="text-sm leading-relaxed space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {commander.oracle_text.split('\n').map((line: string, i: number) => (
-                    <p key={i} className="text-foreground/90">{line}</p>
-                  ))}
+          {commander ? (
+            <>
+              {/* Mobile: Simple centered layout */}
+              <div className="md:hidden text-center">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Crown className="h-5 w-5 text-amber-400" />
+                  <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
                 </div>
-              )}
-              
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
-                {commander.mana_cost && (
-                  <Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>
-                )}
-                {commander.power && commander.toughness && (
-                  <Badge variant="secondary">{commander.power}/{commander.toughness}</Badge>
-                )}
-                {commander.loyalty && (
-                  <Badge variant="secondary">Loyalty: {commander.loyalty}</Badge>
-                )}
+                <h3 className="text-lg font-bold mb-3">{commander.name}</h3>
+                <img 
+                  src={getCommanderImage() || '/placeholder.svg'} 
+                  alt={commander.name}
+                  className="w-full max-w-sm mx-auto h-auto rounded-xl shadow-lg mb-3"
+                  onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                />
+                <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="border-amber-500/30 hover:bg-amber-500/10">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Change Commander
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Crown className="h-5 w-5 text-amber-400" />
+                        Choose Your Commander
+                      </DialogTitle>
+                    </DialogHeader>
+                    <CommanderSelector currentCommander={commander} />
+                  </DialogContent>
+                </Dialog>
               </div>
+              
+              {/* Desktop: Full layout with details */}
+              <div className="hidden md:flex gap-4">
+                <div className="w-48 flex-shrink-0">
+                  <img 
+                    src={getCommanderImage() || '/placeholder.svg'} 
+                    alt={commander.name}
+                    className="w-full h-auto rounded-xl shadow-lg"
+                    onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                  />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-amber-400" />
+                      <span className="text-xs uppercase tracking-wider text-amber-400 font-medium">Commander</span>
+                    </div>
+                    <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-amber-500/30 hover:bg-amber-500/10">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Change
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Crown className="h-5 w-5 text-amber-400" />
+                            Choose Your Commander
+                          </DialogTitle>
+                        </DialogHeader>
+                        <CommanderSelector currentCommander={commander} />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <h3 className="text-xl font-bold mb-1">{commander.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{commander.type_line}</p>
+                  
+                  {commander.oracle_text && (
+                    <div className="text-sm leading-relaxed space-y-2 max-h-40 overflow-y-auto pr-2">
+                      {commander.oracle_text.split('\n').map((line: string, i: number) => (
+                        <p key={i} className="text-foreground/90">{line}</p>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
+                    {commander.mana_cost && (
+                      <Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>
+                    )}
+                    {commander.power && commander.toughness && (
+                      <Badge variant="secondary">{commander.power}/{commander.toughness}</Badge>
+                    )}
+                    {commander.loyalty && (
+                      <Badge variant="secondary">Loyalty: {commander.loyalty}</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            // No commander selected - show picker
+            <div className="text-center py-6">
+              <Crown className="h-12 w-12 mx-auto mb-3 text-amber-400/50" />
+              <h3 className="text-lg font-semibold mb-2">No Commander Selected</h3>
+              <p className="text-sm text-muted-foreground mb-4">Choose a legendary creature to lead your deck</p>
+              <Dialog open={showCommanderDialog} onOpenChange={setShowCommanderDialog}>
+                <DialogTrigger asChild>
+                  <Button className="bg-amber-500 hover:bg-amber-600 text-black">
+                    <Crown className="h-4 w-4 mr-2" />
+                    Select Commander
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-amber-400" />
+                      Choose Your Commander
+                    </DialogTitle>
+                  </DialogHeader>
+                  <CommanderSelector currentCommander={commander} />
+                </DialogContent>
+              </Dialog>
             </div>
-          </div>
+          )}
         </Card>
       )}
 

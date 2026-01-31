@@ -446,8 +446,10 @@ export default function AIBuilder() {
       if (deckError) throw deckError;
 
       // Add commander - need to get proper card ID from database if not present
+      let commanderId: string | undefined;
+      
       if (commander && deckRecord) {
-        let commanderId = commander.id;
+        commanderId = commander.id;
         
         // If commander doesn't have an ID (e.g., from popular commanders list), fetch it
         if (!commanderId) {
@@ -475,15 +477,20 @@ export default function AIBuilder() {
         }
       }
 
-      // Add deck cards - use upsert to handle potential duplicates
+      // Add deck cards - handle duplicates manually
       if (deckRecord && buildResult.cards.length > 0) {
         // Deduplicate cards by card_id, summing quantities
         const cardMap = new Map<string, { id: string; name: string; quantity: number }>();
         
         for (const card of buildResult.cards) {
-          // Skip cards without valid IDs
+          // Skip cards without valid IDs or cards that are the commander
           if (!card.id || card.id.startsWith('missing-basic-') || card.id.startsWith('pad-')) {
             console.warn('Skipping card with invalid ID:', card.name);
+            continue;
+          }
+          
+          // Skip if this is the commander (already added)
+          if (commanderId && card.id === commanderId) {
             continue;
           }
           
@@ -509,9 +516,10 @@ export default function AIBuilder() {
         }));
 
         if (cardInserts.length > 0) {
+          // Use regular insert, not upsert (no unique constraint on deck_id,card_id)
           const { error: cardsError } = await supabase
             .from('deck_cards')
-            .upsert(cardInserts, { onConflict: 'deck_id,card_id' });
+            .insert(cardInserts);
           
           if (cardsError) {
             console.error('Error saving deck cards:', cardsError);

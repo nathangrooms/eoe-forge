@@ -138,6 +138,7 @@ serve(async (req) => {
       console.log('\n--- Building deck (single pass) ---');
       
       const usedCardNames = new Set<string>();
+      const cardsToAvoid = new Set<string>(); // Cards AI says to avoid (can be populated from deckPlan if available)
       const deck: any[] = [];
       
       // Helper: Add card

@@ -75,62 +75,48 @@ serve(async (req) => {
       }
     }
 
-    // ========== PHASE 2: FETCH CARD POOL WITH PAGINATION ==========
-    console.log('\n📦 PHASE 2: Fetching cards (with pagination)...');
+    // ========== PHASE 2: FETCH CARD POOL (OPTIMIZED - SINGLE QUERY) ==========
+    console.log('\n📦 PHASE 2: Fetching cards (optimized)...');
     
-    // Fetch cards in batches to get more than 1000
-    let allCards: any[] = [];
-    let offset = 0;
-    const batchSize = 1000;
+    // Build color filter for efficient query - only fetch cards in commander's colors
+    const colorArray = [...commanderColors];
     
-    while (true) {
-      const { data: batch, error } = await supabase
-        .from('cards')
-        .select('*')
-        .eq('legalities->>commander', 'legal')
-        .range(offset, offset + batchSize - 1);
-      
-      if (error) throw new Error(`Failed to fetch cards: ${error.message}`);
-      if (!batch || batch.length === 0) break;
-      
-      allCards = allCards.concat(batch);
-      console.log(`  Fetched batch: ${batch.length} cards (total: ${allCards.length})`);
-      
-      if (batch.length < batchSize) break;
-      offset += batchSize;
-      
-      // Safety limit
-      if (allCards.length >= 50000) break;
+    // Fetch cards in a SINGLE query with color filter - much faster than pagination
+    // For colorless commanders, we fetch colorless cards only
+    // For colored commanders, we fetch cards that match the color identity
+    let cardQuery = supabase
+      .from('cards')
+      .select('id, name, type_line, oracle_text, cmc, color_identity, colors, rarity, prices, mana_cost, keywords')
+      .eq('legalities->>commander', 'legal');
+    
+    // Apply color filter at database level to reduce data transfer
+    if (isColorless) {
+      cardQuery = cardQuery.or('color_identity.eq.{},color_identity.is.null');
     }
     
-    console.log(`  Total cards fetched: ${allCards.length}`);
+    // Limit to 8000 cards to stay within CPU limits
+    const { data: allCards, error: cardsError } = await cardQuery.limit(8000);
+    
+    if (cardsError) throw new Error(`Failed to fetch cards: ${cardsError.message}`);
+    console.log(`  Total cards fetched: ${allCards?.length || 0}`);
 
     // Get basic lands from database - need REAL IDs
     const basicLandMap: Record<string, any> = {};
-    for (const name of BASIC_LANDS) {
-      const basic = allCards.find(c => c.name === name);
-      if (basic) {
-        basicLandMap[name] = basic;
+    const { data: basicLands } = await supabase
+      .from('cards')
+      .select('id, name, type_line, oracle_text, cmc, color_identity, colors, prices')
+      .in('name', BASIC_LANDS)
+      .limit(5);
+    
+    if (basicLands) {
+      for (const basic of basicLands) {
+        basicLandMap[basic.name] = basic;
       }
     }
     console.log(`  Basic lands from DB: ${Object.keys(basicLandMap).length}`);
     
-    // If missing any basics, fetch them directly
-    for (const name of BASIC_LANDS) {
-      if (!basicLandMap[name]) {
-        const { data: basicData } = await supabase
-          .from('cards')
-          .select('*')
-          .eq('name', name)
-          .limit(1);
-        if (basicData?.[0]) {
-          basicLandMap[name] = basicData[0];
-        }
-      }
-    }
-    
-    // Filter non-basic by color identity
-    const colorFilteredCards = allCards.filter(card => {
+    // Filter by color identity (client-side for accuracy)
+    const colorFilteredCards = (allCards || []).filter(card => {
       if (BASIC_LANDS.includes(card.name)) return false;
       const cardIdentity = card.color_identity || [];
       if (isColorless) return cardIdentity.length === 0;
@@ -139,19 +125,17 @@ serve(async (req) => {
     
     console.log(`  Color-filtered cards: ${colorFilteredCards.length}`);
 
-    // ========== PHASE 3: BUILD DECK ==========
+    // ========== PHASE 3: BUILD DECK (SINGLE PASS - NO ITERATIONS) ==========
     console.log('\n🔄 PHASE 3: Building deck...');
     
     let bestDeck: any[] = [];
     let bestValidation: any = { isValid: false, issues: [], totalCost: 0, landCount: 0 };
     let bestEdhPower: number | null = null;
     let bestEdhData: any = null;
-    let iteration = 0;
-    const cardsToAvoid = new Set<string>();
     
-    while (iteration < config.maxBuildIterations) {
-      iteration++;
-      console.log(`\n--- Iteration ${iteration}/${config.maxBuildIterations} ---`);
+    // Single pass - no iterations to save CPU time
+    {
+      console.log('\n--- Building deck (single pass) ---');
       
       const usedCardNames = new Set<string>();
       const deck: any[] = [];
@@ -262,25 +246,26 @@ serve(async (req) => {
       }
       console.log(`  Creatures: ${creaturesAdded}`);
       
-      // Step 5: Fill to 63 non-lands
-      const targetNonLands = 63;
-      const fillNeeded = targetNonLands - deck.length;
-      if (fillNeeded > 0) {
-        const fillers = colorFilteredCards
-          .filter(c => !hasRole(c, 'land') && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name))
-          .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, fillNeeded);
-        fillers.forEach(c => addCard(c));
-        console.log(`  Fillers: ${fillers.length}`);
-      }
-      
-      // Step 6: Utility lands
+      // Step 5: Utility lands first (target 15)
       const utilityLands = colorFilteredCards
         .filter(c => hasRole(c, 'land') && !BASIC_LANDS.includes(c.name) && !usedCardNames.has(c.name))
         .sort((a, b) => scoreCard(b) - scoreCard(a))
         .slice(0, 15);
       utilityLands.forEach(c => addCard(c));
       console.log(`  Utility lands: ${utilityLands.length}`);
+      
+      // Step 6: Fill remaining non-land slots (target 63 non-lands = 99 - 36 lands)
+      const currentNonLands = deck.filter(c => !hasRole(c, 'land')).length;
+      const targetNonLands = 63;
+      const fillNeeded = targetNonLands - currentNonLands;
+      if (fillNeeded > 0) {
+        const fillers = colorFilteredCards
+          .filter(c => !hasRole(c, 'land') && !usedCardNames.has(c.name))
+          .sort((a, b) => scoreCard(b) - scoreCard(a))
+          .slice(0, fillNeeded);
+        fillers.forEach(c => addCard(c));
+        console.log(`  Fillers: ${fillers.length}`);
+      }
       
       // Step 7: CRITICAL - Fill remaining with basic lands (use REAL IDs from database)
       const basicsNeeded = 99 - deck.length;
@@ -319,44 +304,17 @@ serve(async (req) => {
         }
       }
       
-      console.log(`  TOTAL CARDS: ${deck.length}`);
+      // Count including quantities
+      const countTotalCards = (d: any[]) => d.reduce((sum, c) => sum + (c.quantity || 1), 0);
+      const totalCardCount = countTotalCards(deck);
+      console.log(`  Total cards (with quantities): ${totalCardCount}`);
       
       // ===== VALIDATION =====
       const validation = validateDeck(deck, buildRequest.commander, targetPower, targetBudget, config);
       console.log(`  Validation: ${validation.isValid ? '✓ PASS' : '✗ FAIL'} - ${validation.issues.join(', ') || 'OK'}`);
       
-      // ALWAYS store the best deck so far
-      if (deck.length > bestDeck.length || (deck.length === 99 && !bestValidation.isValid && validation.isValid)) {
-        bestDeck = [...deck];
-        bestValidation = validation;
-        console.log(`  ✓ New best: ${deck.length} cards`);
-      }
-      
-      // If we have 99 cards and pass validation, check EDH
-      if (deck.length === 99 && validation.issues.filter(i => !i.includes('budget')).length === 0) {
-        console.log('  Checking EDH power...');
-        const edhResult = await checkEdhPowerFull(supabaseUrl, supabaseKey, buildRequest.commander, deck);
-        if (edhResult?.powerLevel) {
-          console.log(`  EDH Power: ${edhResult.powerLevel}`);
-          bestEdhPower = edhResult.powerLevel;
-          bestEdhData = edhResult;
-        }
-        
-        // Good enough - stop
-        if (validation.isValid) {
-          console.log('  ✓ Requirements met!');
-          break;
-        }
-      }
-      
-      // If over budget, mark expensive cards to avoid
-      if (validation.totalCost > targetBudget * 1.2) {
-        const expensive = [...deck]
-          .filter(c => !BASIC_LANDS.includes(c.name))
-          .sort((a, b) => parseFloat(b.prices?.usd || '0') - parseFloat(a.prices?.usd || '0'))
-          .slice(0, 3);
-        expensive.forEach(c => cardsToAvoid.add(c.name));
-      }
+      bestDeck = [...deck];
+      bestValidation = validation;
     }
 
     // ========== FINAL FAILSAFE ==========

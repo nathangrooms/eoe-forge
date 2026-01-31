@@ -223,7 +223,7 @@ export default function Decks() {
     }
   };
 
-  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom') => {
+  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => {
     if (!user) return;
     
     setCreatingFirstDeck(true);
@@ -242,6 +242,40 @@ export default function Decks() {
         .single();
 
       if (error) throw error;
+      
+      // If commander was selected, add it to deck_cards
+      if (commanderId && newDeck) {
+        // Fetch commander details from Scryfall
+        try {
+          const response = await fetch(`https://api.scryfall.com/cards/${commanderId}`);
+          if (response.ok) {
+            const commanderCard = await response.json();
+            
+            // Insert commander into deck_cards
+            await supabase
+              .from('deck_cards')
+              .insert({
+                deck_id: newDeck.id,
+                card_id: commanderId,
+                card_name: commanderCard.name,
+                quantity: 1,
+                is_commander: true,
+                is_sideboard: false
+              });
+            
+            // Update deck colors based on commander color identity
+            if (commanderCard.color_identity && commanderCard.color_identity.length > 0) {
+              await supabase
+                .from('user_decks')
+                .update({ colors: commanderCard.color_identity })
+                .eq('id', newDeck.id);
+            }
+          }
+        } catch (cmdError) {
+          console.error('Error adding commander:', cmdError);
+          // Continue anyway - deck is created
+        }
+      }
       
       showSuccess("Deck Created", `"${name}" has been created`);
       
@@ -566,8 +600,8 @@ export default function Decks() {
   // Show onboarding if user has no decks OR if user clicked New Deck
   const showOnboarding = !loading && (deckSummaries.length === 0 || showOnboardingFlow);
 
-  const handleOnboardingCreate = async (name: string, format: 'commander' | 'standard' | 'custom') => {
-    await handleCreateFirstDeck(name, format);
+  const handleOnboardingCreate = async (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => {
+    await handleCreateFirstDeck(name, format, commanderId);
     setShowOnboardingFlow(false);
   };
 

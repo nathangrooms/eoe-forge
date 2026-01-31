@@ -159,7 +159,8 @@ serve(async (req) => {
         const price = parseFloat(card.prices?.usd || '0');
         const text = (card.oracle_text || '').toLowerCase();
         
-        if (price > 20 && iteration > 1) score -= (price - 20) * 0.5;
+        // Penalize expensive cards
+        if (price > 20) score -= (price - 20) * 0.5;
         if (card.rarity === 'mythic') score += 4;
         if (card.rarity === 'rare') score += 2;
         score += Math.max(0, 5 - (card.cmc || 0));
@@ -404,13 +405,13 @@ serve(async (req) => {
             cardAnalysis: bestEdhData?.cardAnalysis || null,
             landAnalysis: bestEdhData?.landAnalysis || null
           },
-          changeLog: [
+        changeLog: [
             `✓ ${bestDeck.length}/99 cards (+ commander = 100)`,
             `✓ Colors: [${[...commanderColors].join(', ')}]`,
             `✓ Creatures: ${typeBreakdown.creatures}`,
             `✓ Lands: ${typeBreakdown.lands}`,
             `✓ Value: $${totalValue.toFixed(2)}`,
-            `✓ Iterations: ${iteration}`,
+            `✓ Build: Single-pass`,
             bestEdhPower ? `✓ EDH Power: ${bestEdhPower}` : '⏳ EDH Power: Pending'
           ],
           validation: bestValidation
@@ -425,7 +426,7 @@ serve(async (req) => {
           landAnalysis: bestEdhData.landAnalysis,
           url: edhUrl
         } : null,
-        iterations: iteration
+        iterations: 1
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

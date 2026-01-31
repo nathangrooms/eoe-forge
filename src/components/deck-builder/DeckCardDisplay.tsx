@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Minus, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -105,97 +106,128 @@ export function DeckCardDisplay({
             compact && "space-y-0.5"
           )}>
             {groupCards.sort((a, b) => a.name.localeCompare(b.name)).map(card => (
-              <Card 
-                key={card.id}
-                className={cn(
-                  "group hover:shadow-md transition-all",
-                  compact ? "p-1.5 xs:p-2" : "p-2 xs:p-3"
-                )}
-              >
-                <CardContent className="p-0 flex items-center justify-between gap-2 xs:gap-3">
-                  <div className="flex items-center gap-2 xs:gap-3 flex-1 min-w-0">
-                    {card.image_uris?.small && !compact && (
-                      <img 
-                        src={card.image_uris.small} 
-                        alt={card.name}
-                        className="hidden xs:block w-12 h-12 object-cover rounded"
-                      />
+              <HoverCard key={card.id} openDelay={200} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <Card 
+                    className={cn(
+                      "group hover:shadow-md transition-all cursor-pointer",
+                      compact ? "p-1.5 xs:p-2" : "p-2 xs:p-3"
                     )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 xs:gap-2">
-                        <span className={cn(
-                          "font-medium truncate",
-                          compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
-                        )}>
-                          {card.name}
-                        </span>
-                        {card.mana_cost && !compact && (
-                          <span className="hidden xs:inline text-xs text-muted-foreground font-mono">
-                            {card.mana_cost}
-                          </span>
+                  >
+                    <CardContent className="p-0 flex items-center justify-between gap-2 xs:gap-3">
+                      <div className="flex items-center gap-2 xs:gap-3 flex-1 min-w-0">
+                        {card.image_uris?.small && !compact && (
+                          <img 
+                            src={card.image_uris.small} 
+                            alt={card.name}
+                            className="hidden xs:block w-12 h-12 object-cover rounded"
+                          />
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 xs:gap-2">
+                            <span className={cn(
+                              "font-medium truncate",
+                              compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
+                            )}>
+                              {card.name}
+                            </span>
+                            {card.mana_cost && !compact && (
+                              <span className="hidden xs:inline text-xs text-muted-foreground font-mono">
+                                {card.mana_cost}
+                              </span>
+                            )}
+                          </div>
+                          {!compact && (
+                            <p className="text-xs text-muted-foreground truncate hidden xs:block">
+                              {card.type_line}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 xs:gap-2 shrink-0">
+                        {onQuantityChange && (
+                          <div className="flex items-center gap-0.5 xs:gap-1">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className={cn(
+                                "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
+                                compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onQuantityChange(card.id, -1);
+                              }}
+                            >
+                              <Minus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
+                            </Button>
+                            
+                            <span className={cn(
+                              "font-mono font-medium min-w-[2ch] text-center",
+                              compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
+                            )}>
+                              {card.quantity}
+                            </span>
+                            
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className={cn(
+                                "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
+                                compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onQuantityChange(card.id, 1);
+                              }}
+                            >
+                              <Plus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {onRemove && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={cn(
+                              "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity text-destructive",
+                              compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemove(card.id);
+                            }}
+                          >
+                            <X className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
+                          </Button>
                         )}
                       </div>
-                      {!compact && (
-                        <p className="text-xs text-muted-foreground truncate hidden xs:block">
-                          {card.type_line}
-                        </p>
-                      )}
+                    </CardContent>
+                  </Card>
+                </HoverCardTrigger>
+                <HoverCardContent side="left" align="start" className="w-auto p-2">
+                  {card.image_uris?.normal ? (
+                    <img 
+                      src={card.image_uris.normal} 
+                      alt={card.name}
+                      className="w-64 rounded-lg shadow-lg"
+                    />
+                  ) : card.image_uris?.large ? (
+                    <img 
+                      src={card.image_uris.large} 
+                      alt={card.name}
+                      className="w-64 rounded-lg shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-64 aspect-[5/7] bg-muted rounded-lg flex items-center justify-center">
+                      <span className="text-muted-foreground">{card.name}</span>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 xs:gap-2 shrink-0">
-                    {onQuantityChange && (
-                      <div className="flex items-center gap-0.5 xs:gap-1">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className={cn(
-                            "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
-                            compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
-                          )}
-                          onClick={() => onQuantityChange(card.id, -1)}
-                        >
-                          <Minus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
-                        </Button>
-                        
-                        <span className={cn(
-                          "font-mono font-medium min-w-[2ch] text-center",
-                          compact ? "text-xs xs:text-sm" : "text-sm xs:text-base"
-                        )}>
-                          {card.quantity}
-                        </span>
-                        
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className={cn(
-                            "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity",
-                            compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
-                          )}
-                          onClick={() => onQuantityChange(card.id, 1)}
-                        >
-                          <Plus className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {onRemove && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={cn(
-                          "xs:opacity-0 xs:group-hover:opacity-100 transition-opacity text-destructive",
-                          compact ? "h-5 w-5 xs:h-6 xs:w-6" : "h-6 w-6 xs:h-8 xs:w-8"
-                        )}
-                        onClick={() => onRemove(card.id)}
-                      >
-                        <X className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                </HoverCardContent>
+              </HoverCard>
             ))}
           </div>
         </div>

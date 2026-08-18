@@ -3,6 +3,24 @@
 Superseding direction for `/play`. This overrides the rotated-pinwheel seating that
 `src/lib/game/seating.ts` currently implements as the default.
 
+> ## ⚠️ THE SINGLE MOST IMPORTANT THING
+>
+> Owner: *"Most important thing on play mode though, just so you dont forget, is being able to
+> click and preview your card, then select a button action or close."*
+>
+> **Click a card → it opens a PREVIEW at readable size → you choose an ACTION or CLOSE.**
+>
+> A tap must never itself be the action. Today clicking a card in hand plays it immediately, at a
+> size where the card cannot even be read. The required flow is:
+>
+> 1. **Click** any card — in hand, on the battlefield, in any zone, yours or an opponent's.
+> 2. **Preview** opens: the card large enough to read its rules text in full.
+> 3. **Act or close**: explicit buttons for what is legal right now (Cast, Play land, Attack, Tap,
+>    Cancel/Close). Nothing happens until one is pressed.
+>
+> This applies everywhere in play mode, not just the hand. If only one thing from this document
+> gets built, it is this.
+
 ## The core change: everything is readable
 
 The current board rotates each seat to face its own player, SpellTable-style. The owner does
@@ -36,15 +54,6 @@ concept; `seating.ts` geometry stays for *placement*, but seats render upright.
 
 > "Hand mode is the full screen version just your board."
 > "should be able to view other peoples boards in view mode"
-
-## Card interaction
-
-> "I need a much clearer way of selecting and viewing a card before making an action - it always
-> just plays from hand and I cant even read it"
-
-Clicking a card in hand must **select and enlarge it first**, showing the card readably along
-with the actions available for it (cast, play land, cancel). Playing must never be the immediate
-consequence of a single tap on a small image.
 
 ## Sizing
 

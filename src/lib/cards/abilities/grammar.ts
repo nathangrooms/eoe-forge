@@ -224,6 +224,15 @@ const SUBTYPE_BLOCKLIST = new Set([
 
 const SUBTYPES = new Set(SUBTYPES_RAW.filter((s) => !SUBTYPE_BLOCKLIST.has(s)));
 
+/**
+ * Is this word a creature/permanent subtype? `normalize.ts` asks before it
+ * shortens a legendary card's name: "Rhino, Wrecker of Walls" must not turn the
+ * subtype "Rhino" into a self-reference in its own rules text.
+ */
+export function isSubtypeWord(word: string): boolean {
+  return SUBTYPES.has(word.trim().toLowerCase());
+}
+
 /** Irregular plurals oracle text actually uses. `s`-stripping handles the rest. */
 const PLURALS: Record<string, string> = {
   elves: 'elf', dwarves: 'dwarf', wolves: 'wolf', werewolves: 'werewolf',

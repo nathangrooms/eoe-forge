@@ -115,6 +115,40 @@ function isManaOnly(effects: readonly Effect[]): boolean {
   });
 }
 
+/**
+ * Peels the activation restrictions off the end of an activated ability's body.
+ *
+ * These read like sentences but are ability properties, and the difference
+ * matters: an "activate only as a sorcery" left in the effect list becomes a
+ * `{do:'manual'}` note, and a note is something a player reads AFTER deciding
+ * to activate. `timing: 'sorcery'` is something the legality check enforces
+ * BEFORE they can. Same text, opposite outcomes.
+ */
+function readActivationLimits(body: string): {
+  body: string;
+  sorceryOnly: boolean;
+  limit?: { per: 'turn' | 'game'; count: number };
+} {
+  let rest = body.trim();
+  let sorceryOnly = false;
+  let limit: { per: 'turn' | 'game'; count: number } | undefined;
+
+  for (;;) {
+    const sorcery = rest.match(/[.\s]*activate (?:this ability )?only (?:as a sorcery|any time you could cast a sorcery)\.?$/);
+    if (sorcery) { rest = rest.slice(0, sorcery.index).trim(); sorceryOnly = true; continue; }
+
+    const once = rest.match(/[.\s]*activate (?:this ability )?only once each (turn|game)\.?$/);
+    if (once) {
+      rest = rest.slice(0, once.index).trim();
+      limit = { per: once[1] === 'game' ? 'game' : 'turn', count: 1 };
+      continue;
+    }
+    break;
+  }
+
+  return limit ? { body: rest, sorceryOnly, limit } : { body: rest, sorceryOnly };
+}
+
 /* ------------------------------------------------------------------ *
  * Modal runs — "Choose one —" plus its bullet paragraphs
  * ------------------------------------------------------------------ */
@@ -253,7 +287,13 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
     const costs = parseCosts(activated[1]);
     if (costs) {
       const build = newBuild(typeLine);
-      const effects = compileEffectBody(activated[2], build.ctx);
+      // "Activate only as a sorcery" and "only once each turn" are properties of
+      // the ABILITY, not effects it produces. Left in the effect body they
+      // become `{do:'manual'}` notes, and a note does not stop a player
+      // activating a sorcery-speed ability at instant speed — so they are lifted
+      // out to the fields the DSL has for them.
+      const activation = readActivationLimits(activated[2]);
+      const effects = compileEffectBody(activation.body, build.ctx);
       if (anyAutomated(effects)) {
         const isMana = isManaOnly(effects) && build.targets.length === 0;
         const a: Ability = {
@@ -263,6 +303,8 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
         };
         if (build.targets.length) (a as { targets?: TargetSpec[] }).targets = build.targets;
         if (isMana) (a as { isManaAbility?: boolean }).isManaAbility = true;
+        if (activation.sorceryOnly) (a as { timing?: 'any' | 'sorcery' }).timing = 'sorcery';
+        if (activation.limit) (a as { limit?: { per: 'turn' | 'game'; count: number } }).limit = activation.limit;
         return { rule: isMana ? 'mana-ability' : 'activated', abilities: [a] };
       }
     }

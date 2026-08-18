@@ -130,7 +130,14 @@ export type PlayerSelector =
   | { who: 'owner-of'; of: Selector };
 
 /* ------------------------------------------------------------------ *
- * Values and conditions — Forge's `Count$` idea with a type on it.
+ * Values and conditions.
+ *
+ * A quantity that has to be counted from the board ("where X is the number of
+ * creatures you control") is a typed expression tree, not a number and not a
+ * closure. A closure could not be replayed on a client that received only an
+ * action log; a bare number could not express the count at all. The tree is
+ * evaluated against state at the moment the rules ask for it, and it survives
+ * `JSON.stringify` on the way there.
  * ------------------------------------------------------------------ */
 
 export type ValueExpr =

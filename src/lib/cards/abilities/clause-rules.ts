@@ -66,6 +66,20 @@ const STEP_TRIGGERS: Array<[RegExp, Step, PlayerSelector]> = [
 ];
 
 /**
+ * The thing a trigger is about: the source, an Aura's or Equipment's host, or a
+ * group of permanents. Anything else — a player, a spell, a phrase we cannot
+ * read — comes back `null` and the whole triggered ability is refused.
+ */
+function triggerSubject(phrase: string): Selector | null {
+  const s = phrase.trim();
+  if (s === '~') return { sel: 'self' };
+  if (/^(equipped|enchanted) /.test(s)) return { sel: 'attached' };
+  const ref = parseObject(s);
+  if (!ref || ref.targeted) return null;
+  return objectSelector(ref);
+}
+
+/**
  * A trigger condition -> one or more `TriggerEvent`s.
  *
  * More than one is returned for "enters or attacks" and "attacks or blocks".
@@ -92,12 +106,15 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     return [{ on: 'zone-change', who: { sel: 'self' }, from: 'any', to: 'graveyard' }];
   }
 
-  /* --- damage the source deals --- */
-  const dealt = p.match(/^~ deals (combat )?damage(?: to (a player|an opponent|a creature|a planeswalker|any target))?$/);
+  /* --- damage a subject deals. The subject may be the source, an Aura's or
+         Equipment's host, or a whole group ("a creature you control"). --- */
+  const dealt = p.match(/^(.+?) deals (combat )?damage(?: to (a player|an opponent|a creature|a planeswalker|any target))?$/);
   if (dealt) {
-    const e: TriggerEvent = { on: 'deals-damage', source: { sel: 'self' } };
-    if (dealt[1]) (e as { combatOnly?: boolean }).combatOnly = true;
-    const to = dealt[2];
+    const source = triggerSubject(dealt[1]);
+    if (!source) return null;
+    const e: TriggerEvent = { on: 'deals-damage', source };
+    if (dealt[2]) (e as { combatOnly?: boolean }).combatOnly = true;
+    const to = dealt[3];
     if (to === 'a player' || to === 'an opponent') (e as { to?: string }).to = 'player';
     else if (to === 'a creature') (e as { to?: string }).to = 'creature';
     else if (to === 'a planeswalker') (e as { to?: string }).to = 'planeswalker';
@@ -160,27 +177,28 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     }
   }
 
-  /* --- other permanents --- */
-  const others = p.match(/^(?:a|an|another|one or more) (.+?) (enters|dies|attacks|is put into a graveyard from the battlefield)(?: under your control)?$/);
-  if (others) {
-    const ref = parseObject(others[1]);
-    if (!ref || ref.targeted) return null;
-    const who = objectSelector(ref);
-    switch (others[2]) {
+  /* --- any other subject: another permanent, a group, an Aura's host ---
+         `triggerSubject` owns the vocabulary, so "another creature you control
+         dies", "a creature you control attacks" and "equipped creature attacks"
+         all take the same path and none of them needs its own rule. */
+  const subjectEvent = p.match(
+    /^(?:(?:a|an|another|one or more) )?(.+?) (enters|dies|attacks|blocks|becomes tapped|becomes untapped|is put into a graveyard from the battlefield)(?: under your control)?$/,
+  );
+  if (subjectEvent) {
+    const who = triggerSubject(
+      /^(?:a|an|another|one or more) /.test(p) && /^another /.test(p)
+        ? 'another ' + subjectEvent[1]
+        : subjectEvent[1],
+    );
+    if (!who) return null;
+    switch (subjectEvent[2]) {
       case 'enters': return [{ on: 'enters', who }];
       case 'attacks': return [{ on: 'attacks', who }];
+      case 'blocks': return [{ on: 'blocks', who }];
+      case 'becomes tapped': return [{ on: 'tapped', who }];
+      case 'becomes untapped': return [{ on: 'untapped', who }];
       default: return [{ on: 'dies', who }];
     }
-  }
-  // "another creature you control enters" already covered; "~ or another X" is not.
-  const anotherAdj = p.match(/^another (.+?) (enters|dies|attacks)$/);
-  if (anotherAdj) {
-    const ref = parseObject('another ' + anotherAdj[1]);
-    if (!ref || ref.targeted) return null;
-    const who = objectSelector(ref);
-    return anotherAdj[2] === 'enters' ? [{ on: 'enters', who }]
-      : anotherAdj[2] === 'attacks' ? [{ on: 'attacks', who }]
-      : [{ on: 'dies', who }];
   }
 
   const sacrificed = p.match(/^you sacrifice (?:a|an) (.+)$/);
@@ -317,9 +335,13 @@ function staticSubject(phrase: string, ctx: BuildCtx): Selector | null {
 /**
  * A whole paragraph -> a continuous effect, or `null`.
  *
- * Every rule here writes an EXPLICIT layer. The plan takes that from XMage
- * deliberately: Forge infers the layer from which parameters are present, and
- * inferred layers are how interactions surprise you.
+ * Every rule here writes an EXPLICIT layer, following XMage's model, where a
+ * continuous effect declares the CR 613 layers it acts in rather than having
+ * them deduced from whichever fields it happens to set. Deduction reads tidier
+ * and is wrong exactly where it matters: an effect that both changes a type and
+ * modifies power belongs in two layers, and a scheme that infers one layer per
+ * effect silently picks one of them. CR 613 is an ordering rule, so the
+ * ordering has to be stated rather than guessed.
  */
 export function parseStatic(paragraph: string, ctx: BuildCtx): StaticShape | null {
   const p = paragraph.trim().replace(/[.]+$/, '');

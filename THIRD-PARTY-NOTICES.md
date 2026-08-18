@@ -141,6 +141,28 @@ concept would be lawful, but this project does not do it, because the cheapest w
 line clean is not to approach it. Design questions are answered from XMage or from the Magic
 Comprehensive Rules.
 
+### One thing that was corrected, recorded rather than quietly fixed
+
+During the 2026-08-18 review, source comments in the ability-DSL work described Forge's internal
+design in specific terms and framed our design as a contrast to it — a header stating Forge had
+been "read for architecture", and rationale comments referring to Forge's script tokens and to
+how Forge infers CR 613 layers.
+
+No Forge code, script or data was present. But the framing was wrong twice over: the direction
+record says design questions are answered from XMage or the Comprehensive Rules and never from
+Forge, and a written record inside the repository saying Forge was studied is precisely the
+document a GPL claimant would want, whatever the underlying facts. Comments that would be cited
+against the project are a liability even when the code they sit above is clean.
+
+Those comments were rewritten so the rationale stands on its own or cites XMage and CR 613
+directly. The code was not changed, because the code was not the problem.
+
+Recorded here rather than silently corrected, because a future contributor deciding how careful
+to be should be able to see that this was caught, why it mattered, and that the answer was to
+restate the reasoning rather than to keep the reference. **A reviewer wanting independent
+assurance should read `src/lib/cards/abilities/` on its own merits** — this note reports what
+inspection found, and inspection of comments is not the same as proof of provenance.
+
 ---
 
 ## Scryfall — card data

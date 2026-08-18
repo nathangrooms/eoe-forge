@@ -1,6 +1,10 @@
 # Rules engine — an honest coverage report
 
-**Date:** 2026-08-18 · **Scope:** `src/lib/game/` · **Companion to:** `RULES-ENGINE-DIRECTION.md`
+**Date:** 2026-08-18 · **Scope:** `src/lib/game/`, `src/lib/cards/abilities/`
+
+**Companions:** `RULES-ENGINE-DIRECTION.md` (the decision and the licence line) ·
+`RULES-ENGINE-DECISION.md` (why we port rather than host) · `../../THIRD-PARTY-NOTICES.md`
+(attribution, and the Forge-contamination check)
 
 This document exists to be believed. Its job is to say what the engine does, what it does not,
 and — the part that actually matters — **what happens to a card whose text is not implemented**.
@@ -157,6 +161,31 @@ A closed, finite set, which is why it is the one part of the card pool implement
 — flash, ward, prowess, cascade, infect, storm, persist, undying, myriad and the rest. The split
 is a public API: `keywordSupport(keyword)` returns `'engine'` or `'advisory'`, and any keyword
 not in either list is reported `'advisory'`, never silently "supported".
+
+### Card abilities from oracle text — `src/lib/cards/abilities/`
+
+This is what replaces XMage's 25,000 hand-written card classes: a compiler from normalised
+oracle text to the declarative ability DSL, with `book.ts`-style hand-authored entries beating
+the compiler where it cannot parse.
+
+The important property is not how much it parses — it is **clause accounting**, in
+`coverage.ts`:
+
+> `assertClausesAccounted` checks that the spans of every compiled ability plus the spans of
+> every `UnparsedClause` cover the whole normalised oracle text. A clause the compiler quietly
+> dropped fails this check, so a dropped clause is a failing TEST rather than a card that
+> mysteriously does nothing at a table three weeks later.
+
+That is the anti-silent-no-op contract turned into a proof rather than a promise, and it is the
+same discipline `tagger.ts` uses to keep its TypeScript and SQL byte-identical. Every character
+of a card's rules text must land in one of two places: an ability the engine will run, or a
+recorded gap with a `GapReason`. There is no third bucket, so there is nowhere for a clause to
+disappear to.
+
+Abilities are **data** — no functions, no closures, no regex objects, no classes. A
+`CardAbilities` value survives `structuredClone`, `JSON.stringify` and a Supabase `jsonb`
+column unchanged, which is what lets the compiled result be cached server-side and shipped to a
+client that then runs the whole engine locally.
 
 ### Networked play — `net/`, `transport.ts`
 
@@ -321,12 +350,26 @@ A sample spanning vanilla creatures, keyword-only creatures, clean ETB triggers,
 cards, and genuinely hard ones (Doubling Season, Rhystic Study, Smothering Tithe, Whisperwood
 Elemental, Aetherflux Reservoir):
 
+| `AutomationLevel` | Cards |
+|---|---|
+| `manual` | 26 |
+| `vanilla` | 7 |
+| `partial` | 3 |
+| `keywords` | 2 |
+| `automated` | 2 |
+
 - 13 triggers detected, 5 automated.
 - **Silently dropped: 0.** Every card whose text is not fully handled reported
   `needsManual: true`. The classification layer is sound.
 - **Played but produced no visible signal: 16 of 40.** All of them permanents whose unimplemented
-  text is not a trigger firing at that moment. This is the headline finding: the engine knows,
-  and nothing tells the player.
+  text is not a trigger firing at that moment — Blood Artist, Impact Tremors, Rhystic Study,
+  Smothering Tithe, Doubling Season, Sanguine Bond, Skullclamp and the rest. Each reported
+  `needsManual: true` to any caller that asked; the game log for each read only
+  `"One played Blood Artist."` This is the headline finding: the engine knows, and nothing tells
+  the player.
+
+The 26/40 in `manual` mirrors the catalogue-wide ratio and is the honest shape of this problem.
+It is also why the fix is a badge and an inspector panel rather than more log lines.
 
 ---
 
@@ -345,8 +388,13 @@ performed is recorded in **`THIRD-PARTY-NOTICES.md`** at the repository root.
 npx tsc -p tsconfig.app.json --noEmit
 
 # Tests — no runner is installed; node's own is used, as tagger.test.ts does
-node --test --experimental-strip-types src/lib/game/*.test.ts src/lib/cards/*.test.ts
+node --test --experimental-strip-types $(find src -name "*.test.ts" | tr '\n' ' ')
 
 # Build
 npm run build
 ```
+
+**As of 2026-08-18: 457 tests passing, typecheck clean, build clean.** Every module in the core
+carries its own test file — `combat`, `effects`, `layers`, `replacement`, `sba`, `stack`,
+`triggers`, `net`, plus `integration.test.ts` for the cross-cutting guarantees above and
+`tagger` / `tag-signal` for the card classification the ability compiler reuses.

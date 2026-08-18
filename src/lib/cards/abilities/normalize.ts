@@ -44,6 +44,7 @@
  */
 
 import type { GapReason } from './dsl.ts';
+import { isSubtypeWord } from './grammar.ts';
 
 /* ------------------------------------------------------------------ *
  * Card shape — structurally satisfied by a `cards` row, and by a live
@@ -159,15 +160,50 @@ function faceList(card: AbilityCard): AbilityCardFace[] {
   return Array.isArray(faces) ? faces : [];
 }
 
-/** Every spelling of the card's own name, longest first. */
+/**
+ * Short names that are also ordinary words. "Will, Scholar of Frost" must not
+ * turn every "will" in the catalogue into a self-reference.
+ */
+const UNSAFE_SHORT_NAMES = new Set([
+  'will', 'time', 'fire', 'ice', 'life', 'death', 'gift', 'wish', 'hope',
+  'fear', 'rage', 'mask', 'crown', 'blood', 'storm', 'flame', 'light', 'dark',
+  'shadow', 'spirit', 'ring', 'sword', 'shield', 'song', 'dream', 'water',
+  'earth', 'wind', 'stone', 'iron', 'gold', 'silver', 'plague', 'wall',
+  'anger', 'greed', 'brawl', 'growth', 'chaos', 'order',
+]);
+
+/**
+ * Every spelling of the card's own name, longest first.
+ *
+ * The important entry is the LAST one. A legendary permanent's oracle text uses
+ * the short name — "When Sephiroth enters", not "When Sephiroth, Planet's Heir
+ * enters" — so a name set built only from the full printed name replaces
+ * nothing and the card's own triggers read as though they were about some other
+ * permanent. Sephiroth, Planet's Heir lost its whole enters trigger to exactly
+ * that before this existed.
+ *
+ * The short name is taken only from a comma-separated title, only at four
+ * characters or more, and never from `UNSAFE_SHORT_NAMES` — the guard against
+ * "Will, Scholar of Frost" rewriting the word "will" across the catalogue.
+ */
 function selfNames(card: AbilityCard): string[] {
   const names = new Set<string>();
-  if (card.name) {
-    const lower = card.name.toLowerCase();
+  const addWithShortForm = (raw: string): void => {
+    const lower = raw.toLowerCase().trim();
+    if (!lower) return;
     names.add(lower);
-    for (const part of lower.split(' // ')) names.add(part.trim());
+    const comma = lower.indexOf(',');
+    if (comma < 0) return;
+    const short = lower.slice(0, comma).trim();
+    if (short.length >= 4 && !UNSAFE_SHORT_NAMES.has(short) && !isSubtypeWord(short)) names.add(short);
+  };
+
+  if (card.name) {
+    for (const part of card.name.split(' // ')) addWithShortForm(part);
+    addWithShortForm(card.name);
   }
-  for (const face of faceList(card)) if (face?.name) names.add(String(face.name).toLowerCase());
+  for (const face of faceList(card)) if (face?.name) addWithShortForm(String(face.name));
+
   return Array.from(names)
     .filter((n) => n.length >= 3)
     .sort((a, b) => b.length - a.length);

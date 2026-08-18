@@ -274,6 +274,14 @@ export interface CardInstance {
    * that silently does nothing is the bug this field exists to fix.
    */
   oracleText?: string;
+  /**
+   * Scryfall `oracle_id` — stable across every printing of a card, where
+   * `cardId` is per-printing. It is the key the ability compiler and any
+   * hand-authored ability entry are filed under, so two printings of one card
+   * resolve to the same abilities. Optional: absent, the compiler falls back to
+   * the card's name.
+   */
+  oracleId?: string;
 
   /* --- manual intervention: the player's own overrides --- */
 

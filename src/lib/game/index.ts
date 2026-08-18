@@ -71,4 +71,6 @@ export * from './moves.ts';
 export * from './setup.ts';
 export * from './bot.ts';
 
+export * from './abilities/index.ts';
+
 export * from './transport.ts';

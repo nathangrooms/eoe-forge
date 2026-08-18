@@ -183,7 +183,11 @@ export function NewDeck() {
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
-      <div className="mx-auto w-full max-w-2xl">
+      {/* Wider from `lg` up because the commander picker is a wall of card
+          faces and that is the half of this page worth looking at. At
+          `max-w-2xl` the whole form was a 672px ribbon down the middle of a
+          1344px column and the picker showed four commanders a row. */}
+      <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
         {/* Back / forward, plus a labelled destination so the control does not
             depend on browser chrome that PWA and mobile do not show. */}
         <div className="mb-3 flex items-center gap-2">
@@ -204,7 +208,19 @@ export function NewDeck() {
           </p>
         </header>
 
-        <div className="space-y-5 rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-6">
+        {/* Two columns once there is a commander to choose: the settings are a
+            short list and the picker wants everything that is left. A format
+            with no commander keeps the single column — an empty right-hand
+            half would be worse than a narrow form. */}
+        <div
+          className={cn(
+            'rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-6',
+            wantsCommander
+              ? 'space-y-5 lg:grid lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0'
+              : 'space-y-5',
+          )}
+        >
+          <div className="space-y-5">
           <fieldset className="space-y-2">
             <legend className="pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Format
@@ -260,6 +276,7 @@ export function NewDeck() {
               // `ui/input` ships a hairline border; this surface uses a tint instead.
               className="h-10 border-none bg-muted/40"
             />
+          </div>
           </div>
 
           {wantsCommander && (
@@ -349,7 +366,7 @@ export function NewDeck() {
       {/* Sticky action row: the commander grid is tall, and the primary action
           should not scroll off the bottom of it. */}
       <div className="sticky bottom-0 z-10 mt-4 bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex w-full max-w-2xl justify-end gap-2">
+        <div className="mx-auto flex w-full max-w-2xl justify-end gap-2 lg:max-w-5xl">
           {/* A real button, not `asChild` around a Link: `disabled` does nothing
               to an anchor, and Cancel must not fire mid-create. */}
           <Button variant="ghost" onClick={() => navigate('/decks')} disabled={creating}>

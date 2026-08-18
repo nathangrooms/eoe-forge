@@ -321,3 +321,28 @@ goldfish-only solitaire.
 > our normal frame/nav etc until you press start"
 
 Setup stays inside the normal app shell with the nav visible. Only the RUNNING game goes immersive.
+
+## Combat must actually happen
+
+> "doesnt seem like enemy on play mode is attacking, no way to attack with it and block stages -
+> needs to be just like real MTG game and all actions that can be taken"
+
+This is a core game-loop failure, not a polish item. A game where nobody ever attacks is not a game.
+
+Required, end to end:
+- **Bots attack.** The bot policy must declare attackers when it has a profitable or even a
+  reasonable attack. If it currently never swings, that is the first thing to fix and the first
+  thing to verify in a live test.
+- **You can declare attackers.** Select which of your untapped, non-summoning-sick creatures attack,
+  and WHICH opponent or planeswalker each one is attacking — multiplayer means choosing a target,
+  not just "attack".
+- **You can declare blockers.** When attacked, assign blockers per attacker, respecting flying,
+  reach, menace and protection.
+- **Damage resolves visibly.** First strike and double strike as separate steps, trample excess to
+  the player, deathtouch, lifelink gain. Show the numbers moving.
+- **Every legal action is reachable.** Cast, activate, tap for mana, attack, block, respond, pass.
+  If an action is legal in Magic at that moment, there must be a way to take it — and if the engine
+  does not implement it, say so on the card rather than offering nothing.
+
+Verify by PLAYING: two real 100-card decks, several turns, until combat has happened in both
+directions with blocks assigned. Report what a real Magic player would find wrong.

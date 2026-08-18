@@ -59,6 +59,22 @@ import { DeckPowerInline, DeckPowerMeter } from './DeckPowerMeter';
 
 export type DeckTileVariant = 'grid' | 'list';
 
+/**
+ * Geometry of the hero column, exported so the page's loading skeleton lands on
+ * exactly the same footprint and the grid does not jump on first paint.
+ *
+ * Percentage-first with a generous cap: the card grows with the tile instead of
+ * being pinned to one size, and `max-w` only bites on very wide screens where
+ * 46% would start to look absurd rather than heroic.
+ *
+ * `self-center` rather than the default stretch. A Magic card has a fixed
+ * aspect ratio, so it can never be as tall as the stack of readouts beside it;
+ * top-aligning it left a wedge of dead space under the art. Centred, the
+ * leftover height reads as deliberate padding.
+ */
+export const DECK_HERO_COLUMN =
+  'mx-auto w-[64%] min-w-0 max-w-[280px] shrink-0 sm:mx-0 sm:w-[46%] sm:max-w-[340px] sm:self-center';
+
 interface DeckTileProps {
   deckSummary: DeckSummary;
   variant?: DeckTileVariant;
@@ -75,6 +91,9 @@ interface DeckTileProps {
   onShare?: () => void;
   className?: string;
 }
+
+/** Tightened from the default `sm` button so "Favourited" survives a 115px cell. */
+const CTA_CLASS = 'min-w-0 gap-1.5 px-2 text-xs';
 
 function currency(value: number | null | undefined): string {
   return `$${Math.round(Number(value ?? 0)).toLocaleString()}`;
@@ -456,7 +475,7 @@ export function DeckTile({
     >
       <div className="flex h-full flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
         {/* The hero. Everything else on the tile is sized against this. */}
-        <div className="mx-auto w-[64%] min-w-0 max-w-[260px] shrink-0 sm:mx-0 sm:w-[40%] sm:max-w-[230px] lg:w-[42%] lg:max-w-[260px]">
+        <div className={DECK_HERO_COLUMN}>
           <CommanderHero
             commander={deckSummary.commander}
             deckName={deckSummary.name}
@@ -546,12 +565,14 @@ export function DeckTile({
             />
           </div>
 
+          {/* The four CTAs the owner asked for, on a 2×2 so they stay legible
+              in the narrow body column of a two-up tile. */}
           <div className="grid grid-cols-2 gap-2">
-            <Button size="sm" onClick={onEdit} className="min-w-0">
+            <Button size="sm" onClick={onEdit} className={CTA_CLASS}>
               <Edit className="h-4 w-4" />
               <span className="truncate">Edit</span>
             </Button>
-            <Button variant="secondary" size="sm" onClick={onAnalysis} className="min-w-0">
+            <Button variant="secondary" size="sm" onClick={onAnalysis} className={CTA_CLASS}>
               <BarChart3 className="h-4 w-4" />
               <span className="truncate">Stats</span>
             </Button>
@@ -565,7 +586,7 @@ export function DeckTile({
                   ? 'You already own every card in this deck'
                   : `Add ${missingCount} missing cards to your wishlist`
               }
-              className="min-w-0"
+              className={CTA_CLASS}
             >
               {addingToWishlist ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
@@ -580,7 +601,7 @@ export function DeckTile({
               onClick={handleFavoriteToggle}
               disabled={favoriteLoading}
               aria-pressed={isFavorite}
-              className="min-w-0"
+              className={CTA_CLASS}
             >
               {favoriteLoading ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />

@@ -88,15 +88,18 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
               <CardImage
                 key={leads[i]?.scryfallId ?? i}
                 card={card}
-                width={62}
+                // 72px, not 64: `cardSizeForWidth` drops to the 146px `small`
+                // scan at 64 and under, which is the exact softness this
+                // redesign exists to remove. 72 pulls the 488px `normal`.
+                width={72}
                 hideFlip
                 eager={eager}
-                className={i > 0 ? '-ml-9' : undefined}
+                className={i > 0 ? '-ml-10' : undefined}
                 imageClassName="shadow-xl shadow-black/50"
               />
             ))
           ) : (
-            <CardImage card={{ name: precon.name }} width={62} hideFlip />
+            <CardImage card={{ name: precon.name }} width={72} hideFlip />
           )}
         </div>
 
@@ -137,7 +140,7 @@ export function PreconTileSkeleton() {
       <div className="h-24 w-full animate-pulse bg-muted motion-reduce:animate-none sm:h-28" />
       <div className="flex gap-3 px-3 pb-3 pt-2">
         <div
-          className="-mt-12 w-[62px] shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none"
+          className="-mt-12 w-[72px] shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none"
           style={{ aspectRatio: '488 / 680' }}
         />
         <div className="flex-1 space-y-2 pt-1">

@@ -78,9 +78,10 @@ function metricsFor(contentWidth: number, contentHeight: number): SeatMetrics {
     contentHeight >= 320 ? 'lg' : contentHeight >= 210 ? 'md' : 'sm';
 
   const available = Math.max(60, contentHeight - STRIP_HEIGHT[lifeSize]);
-  // Two rows of cards — non-lands and lands — have to fit in what is left.
+  // Two rows of cards — non-lands and lands — have to fit in what is left, and
+  // a narrow seat must not end up with four enormous cards jammed across it.
   const cardWidth = Math.round(
-    Math.min(112, Math.max(34, (available / 2) * CARD_RATIO))
+    Math.max(34, Math.min(112, contentWidth / 4.5, (available / 2) * CARD_RATIO))
   );
   const capacity = Math.max(3, Math.floor((contentWidth * 0.94) / (cardWidth * 1.08)));
 

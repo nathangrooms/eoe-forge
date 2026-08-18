@@ -145,6 +145,11 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
             {visible.map((deck, index) => {
               const commander = lookup.resolve(deck.commanderCardId, deck.commanderName);
               const banner = bannerFor(commander);
+              /* `user_decks.colors` is empty on plenty of real rows, which used
+                 to render a Commander deck as colourless. The commander's own
+                 identity is the authority when the deck has not recorded one. */
+              const colors =
+                deck.colors.length > 0 ? deck.colors : (commander?.color_identity ?? []);
 
               return (
                 <Reveal as="li" key={deck.id} index={index} delay={index * 45}>
@@ -168,7 +173,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                         /* No commander (or no art yet): the deck still reads
                            visually through its colour identity, at size. */
                         <div className="flex h-full w-full items-center justify-center">
-                          <ColorIdentity colors={deck.colors} size="lg" />
+                          <ColorIdentity colors={colors} size="lg" />
                         </div>
                       )}
 
@@ -222,7 +227,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                       )}
 
                       <div className="mt-2 flex items-center gap-2">
-                        <ColorIdentity colors={deck.colors} size="xs" />
+                        <ColorIdentity colors={colors} size="xs" />
                         <span className="truncate text-[11px] text-muted-foreground">
                           <span className="capitalize">{deck.format}</span>
                           {deck.cardCount > 0 && <> &middot; {deck.cardCount} cards</>}

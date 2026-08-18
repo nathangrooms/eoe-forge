@@ -398,7 +398,10 @@ export default function Play() {
   const blockerIds = state.combat.attackers.flatMap(d => d.blockedBy);
 
   return (
-    <div className="flex h-[calc(100vh-5.5rem)] min-h-[36rem] w-full flex-col gap-2 px-2 pb-2 md:px-4">
+    // 6rem is the app shell's own furniture: a 4rem top bar plus the main
+    // element's vertical padding. Matching it exactly means the board fills the
+    // viewport without the page itself gaining a scrollbar.
+    <div className="flex h-[calc(100vh-6rem)] min-h-[36rem] w-full flex-col gap-2 px-1 pb-1 md:px-3">
       <PlayHUD
         state={state}
         view={view}

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
+import { Wordmark } from '@/components/Wordmark';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import logo from '@/assets/deckmatrix-logo.png';
 
 interface AuthLayoutProps {
   title: string;
@@ -51,7 +51,7 @@ export function AuthLayout({
 
         <div className="relative flex h-full flex-col justify-between p-10">
           <Link to="/" className="inline-flex w-fit">
-            <img src={logo} alt="DeckMatrix" className="h-10 w-auto" />
+            <Wordmark size="md" />
           </Link>
 
           <div className="max-w-sm">
@@ -91,7 +91,7 @@ export function AuthLayout({
           )}
 
           <Link to="/" className="mb-8 inline-flex lg:hidden">
-            <img src={logo} alt="DeckMatrix" className="h-10 w-auto" />
+            <Wordmark size="md" />
           </Link>
 
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

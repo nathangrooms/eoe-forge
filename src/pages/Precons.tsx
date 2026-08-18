@@ -1,511 +1,410 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
-import { ColorIdentity } from '@/components/ui/mana-cost';
-import { toast } from 'sonner';
-import { ChevronRight, Crown, Layers, Loader2, Package, Save, Search } from 'lucide-react';
+import { CardGrid } from '@/components/cards';
+import { PreconTile, PreconTileSkeleton } from '@/components/precons/PreconTile';
+import { PreconDeckView } from '@/components/precons/PreconDeckView';
 import {
-  cardImage,
-  computeDeckStats,
-  fetchCardsByIds,
-  scryfallImageUrl,
-  type DeckCardRow,
-} from '@/lib/deck/deckCards';
-import { averageManaValue } from '@/lib/deck/curve';
+  PreconFilterBar,
+  type PreconSort,
+} from '@/components/precons/PreconFilterBar';
+import { preconIndexEntry } from '@/data/precon-index';
+import type { DeckCardRow } from '@/lib/deck/deckCards';
+import {
+  fetchCommanderCards,
+  fetchPreconDeck,
+  fetchPreconList,
+  resolvePreconRows,
+  summarizePrecons,
+  type CommanderCardMap,
+  type PreconDeck,
+  type PreconSummary,
+} from '@/lib/precons/precon-api';
 
 /**
- * Precon browser.
+ * The precon browser.
  *
- * Previously this page fired `supabase.functions.invoke('fetch-precons')` and
- * discarded the result, then immediately re-fetched the same function with
- * `fetch()` against a hardcoded project URL — a wasted round trip on every
- * load. It also rendered a 100-card decklist as two plain text columns with no
- * card imagery for a product line that is chosen almost entirely on commander
- * art and colour identity.
+ * This used to be a text list: a collapsible tree of set names on the left and
+ * a decklist on the right, with no commander, no colour identity and no art
+ * until something was already selected — for a product line people pick almost
+ * entirely on "who's the commander and what colours is it". Every precon now
+ * leads with its commander's art and card, and opening one is a full page
+ * rather than a panel.
+ *
+ * The commander is not in the edge function's list response, so it comes from
+ * the generated `precon-index` (see `scripts/generate-precon-index.mjs`) —
+ * resolving it live would mean downloading 85 MB of decklists to paint a grid.
  */
 
-const FUNCTIONS_BASE = `${
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? ''
-}/functions/v1`;
+const TILE_WIDTH = 300;
 
-interface PreconListItem {
-  id: string;
-  name: string;
-  set: string;
-  filename: string;
-}
-
-interface PreconCard {
-  quantity: number;
-  card_name: string;
-  scryfall_id: string;
-  is_commander: boolean;
-}
-
-interface PreconDeck {
-  name: string;
-  set: string;
-  format: string;
-  cards: PreconCard[];
-  totalCards: number;
-}
-
-async function callPreconFunction(path: string) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-
-  const response = await fetch(`${FUNCTIONS_BASE}/fetch-precons${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
-
-  if (!response.ok) throw new Error(`fetch-precons failed: ${response.status}`);
-  return response.json();
+/** A precon opened by deep link, before the catalogue has answered. */
+function summaryFromIndex(id: string): PreconSummary | null {
+  const entry = preconIndexEntry(id);
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    name: entry.name,
+    set: entry.set,
+    filename: `${entry.id}.json`,
+    total: entry.total,
+    ci: entry.ci,
+    released: entry.released,
+    commanders: entry.commanders,
+  };
 }
 
 export default function Precons() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [precons, setPrecons] = useState<PreconListItem[]>([]);
-  const [bySet, setBySet] = useState<Record<string, PreconListItem[]>>({});
-  const [loading, setLoading] = useState(true);
+  const selectedId = searchParams.get('deck');
+
+  const [summaries, setSummaries] = useState<PreconSummary[]>([]);
+  const [commanderCards, setCommanderCards] = useState<CommanderCardMap | undefined>();
+  const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedSet, setExpandedSet] = useState<string | null>(null);
-  const [selectedPrecon, setSelectedPrecon] = useState<PreconListItem | null>(null);
-  const [preconDetails, setPreconDetails] = useState<PreconDeck | null>(null);
-  const [preconRows, setPreconRows] = useState<DeckCardRow[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-  const [savingDeck, setSavingDeck] = useState(false);
+
+  const [query, setQuery] = useState('');
+  const [colors, setColors] = useState<string[]>([]);
+  const [set, setSet] = useState('all');
+  const [sort, setSort] = useState<PreconSort>('newest');
+
+  const [deck, setDeck] = useState<PreconDeck | null>(null);
+  const [rows, setRows] = useState<DeckCardRow[]>([]);
+  const [loadingDeck, setLoadingDeck] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const browseScroll = useRef(0);
+
+  /* -------------------------------------------------- catalogue ------- */
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchPreconList = async () => {
-      setLoading(true);
-      setListError(null);
-      try {
-        const result = await callPreconFunction('?action=list');
-        if (cancelled) return;
-        setPrecons(result.precons ?? []);
-        setBySet(result.bySet ?? {});
-      } catch (error) {
-        console.error('Error fetching precons:', error);
-        if (!cancelled) setListError('Could not load the precon catalogue.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
+    // The commander art comes from the `cards` table and the catalogue from the
+    // edge function; neither blocks the other.
+    fetchCommanderCards()
+      .then(map => {
+        if (!cancelled) setCommanderCards(map);
+      })
+      .catch(error => {
+        // Not fatal — `commanderCard` falls back to Scryfall's image paths.
+        console.error('[precons] commander lookup failed', error);
+        if (!cancelled) setCommanderCards(new Map());
+      });
 
-    fetchPreconList();
+    fetchPreconList()
+      .then(items => {
+        if (!cancelled) setSummaries(summarizePrecons(items));
+      })
+      .catch(error => {
+        console.error('[precons] catalogue failed', error);
+        if (!cancelled) setListError('Could not load the precon catalogue.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingList(false);
+      });
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const fetchPreconDetails = async (precon: PreconListItem) => {
-    setLoadingDetails(true);
-    setSelectedPrecon(precon);
-    setPreconDetails(null);
-    setPreconRows([]);
+  /* -------------------------------------------------- selection ------- */
 
-    try {
-      const result: PreconDeck = await callPreconFunction(
-        `?action=get&deck=${encodeURIComponent(precon.id)}`
-      );
-      setPreconDetails(result);
+  const selected = useMemo<PreconSummary | null>(() => {
+    if (!selectedId) return null;
+    return summaries.find(p => p.id === selectedId) ?? summaryFromIndex(selectedId);
+  }, [selectedId, summaries]);
 
-      const base: DeckCardRow[] = (result.cards ?? []).map((card, index) => ({
-        id: `${card.scryfall_id || card.card_name}-${index}`,
-        card_id: card.scryfall_id,
-        card_name: card.card_name,
-        quantity: card.quantity,
-        is_commander: card.is_commander,
-        is_sideboard: false,
-        card: null,
-      }));
+  useEffect(() => {
+    if (!selectedId) return;
 
-      try {
-        const details = await fetchCardsByIds(base.map(row => row.card_id));
-        setPreconRows(
-          base.map(row => ({ ...row, card: details.get(row.card_id) ?? null }))
-        );
-      } catch (lookupError) {
-        console.error('Precon card lookup failed:', lookupError);
-        setPreconRows(base);
+    let cancelled = false;
+    setLoadingDeck(true);
+    setDeck(null);
+    setRows([]);
+
+    fetchPreconDeck(selectedId)
+      .then(async result => {
+        if (cancelled) return;
+        setDeck(result);
+        const resolved = await resolvePreconRows(result.cards ?? []);
+        if (!cancelled) setRows(resolved);
+      })
+      .catch(error => {
+        console.error('[precons] deck failed', error);
+        if (!cancelled) toast.error('Failed to load that precon');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDeck(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  const openPrecon = useCallback(
+    (precon: PreconSummary) => {
+      browseScroll.current = window.scrollY;
+      setSearchParams({ deck: precon.id });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    },
+    [setSearchParams]
+  );
+
+  const closePrecon = useCallback(() => {
+    setSearchParams({});
+    const y = browseScroll.current;
+    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+  }, [setSearchParams]);
+
+  /* -------------------------------------------------- filtering ------- */
+
+  const sets = useMemo(() => {
+    const counts = new Map<string, { count: number; newest: string }>();
+    for (const precon of summaries) {
+      const entry = counts.get(precon.set);
+      const released = precon.released ?? '';
+      if (entry) {
+        entry.count += 1;
+        if (released > entry.newest) entry.newest = released;
+      } else {
+        counts.set(precon.set, { count: 1, newest: released });
       }
-    } catch (error) {
-      console.error('Error fetching precon details:', error);
-      toast.error('Failed to load deck details');
-    } finally {
-      setLoadingDetails(false);
     }
-  };
+    return Array.from(counts.entries())
+      .map(([name, value]) => ({ name, count: value.count, newest: value.newest }))
+      .sort((a, b) => b.newest.localeCompare(a.newest) || a.name.localeCompare(b.name));
+  }, [summaries]);
 
-  const savePreconToDeck = async () => {
-    if (!preconDetails || !user) return;
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
 
-    setSavingDeck(true);
+    const matches = summaries.filter(precon => {
+      if (set !== 'all' && precon.set !== set) return false;
+      if (colors.length > 0 && !colors.every(color => precon.ci.includes(color))) return false;
+      if (needle) {
+        const haystack = `${precon.name} ${precon.set} ${precon.commanders
+          .map(c => c.name)
+          .join(' ')}`.toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+
+    // Undated precons sort last in both directions rather than pretending to be
+    // the oldest thing in the catalogue.
+    const byDate = (a: PreconSummary, b: PreconSummary, dir: 1 | -1) => {
+      if (!a.released && !b.released) return a.name.localeCompare(b.name);
+      if (!a.released) return 1;
+      if (!b.released) return -1;
+      return dir * b.released.localeCompare(a.released) || a.name.localeCompare(b.name);
+    };
+
+    const sorted = [...matches];
+    switch (sort) {
+      case 'newest':
+        sorted.sort((a, b) => byDate(a, b, 1));
+        break;
+      case 'oldest':
+        sorted.sort((a, b) => byDate(a, b, -1));
+        break;
+      case 'name':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'set':
+        sorted.sort((a, b) => a.set.localeCompare(b.set) || a.name.localeCompare(b.name));
+        break;
+    }
+    return sorted;
+  }, [summaries, query, colors, set, sort]);
+
+  const activeFilters = (query ? 1 : 0) + colors.length + (set !== 'all' ? 1 : 0);
+
+  const resetFilters = useCallback(() => {
+    setQuery('');
+    setColors([]);
+    setSet('all');
+  }, []);
+
+  /* -------------------------------------------------- saving ---------- */
+
+  const savePrecon = useCallback(async () => {
+    if (!selected || !user) return;
+    const resolvedRows = rows.filter(row => row.card);
+    if (resolvedRows.length === 0) {
+      toast.error('No cards could be matched to the card database yet.');
+      return;
+    }
+
+    setSaving(true);
     try {
       const identity = Array.from(
         new Set(
-          preconRows
-            .filter(row => row.is_commander)
-            .flatMap(row => row.card?.color_identity ?? [])
+          rows.filter(row => row.is_commander).flatMap(row => row.card?.color_identity ?? [])
         )
       );
 
-      const { data: deck, error: deckError } = await supabase
+      const { data: created, error: deckError } = await supabase
         .from('user_decks')
         .insert({
           user_id: user.id,
-          name: `${preconDetails.name} (Precon)`,
+          name: `${deck?.name ?? selected.name} (Precon)`,
           format: 'commander',
-          colors: identity,
+          colors: identity.length > 0 ? identity : selected.ci,
           power_level: 5,
-          description: `Official precon deck from ${preconDetails.set}`,
+          description: `Official precon deck from ${selected.set}`,
         })
         .select()
         .single();
 
       if (deckError) throw deckError;
 
-      const cardNames = preconDetails.cards.map(c => c.card_name);
-      const { data: foundCards, error: lookupError } = await supabase
-        .from('cards')
-        .select('id, name')
-        .in('name', cardNames);
+      // `resolvePreconRows` has already swapped in the local card id for any
+      // printing the table does not carry, so every row here is insertable.
+      const { error: cardsError } = await supabase.from('deck_cards').insert(
+        resolvedRows.map(row => ({
+          deck_id: created.id,
+          card_id: row.card_id,
+          card_name: row.card_name,
+          quantity: row.quantity,
+          is_commander: row.is_commander,
+          is_sideboard: false,
+        }))
+      );
+      if (cardsError) throw cardsError;
 
-      if (lookupError) console.error('Error looking up cards:', lookupError);
-
-      const cardIdMap: Record<string, string> = {};
-      for (const card of foundCards ?? []) {
-        cardIdMap[card.name.toLowerCase()] = card.id;
-      }
-
-      const cardInserts: Array<{
-        deck_id: string;
-        card_id: string;
-        card_name: string;
-        quantity: number;
-        is_commander: boolean;
-        is_sideboard: boolean;
-      }> = [];
-      const notFound: string[] = [];
-
-      for (const card of preconDetails.cards) {
-        const cardId = cardIdMap[card.card_name.toLowerCase()];
-        if (cardId) {
-          cardInserts.push({
-            deck_id: deck.id,
-            card_id: cardId,
-            card_name: card.card_name,
-            quantity: card.quantity,
-            is_commander: card.is_commander,
-            is_sideboard: false,
-          });
-        } else {
-          notFound.push(card.card_name);
-        }
-      }
-
-      if (cardInserts.length > 0) {
-        const { error: cardsError } = await supabase.from('deck_cards').insert(cardInserts);
-        if (cardsError) {
-          console.error('Error inserting cards:', cardsError);
-          toast.error('Failed to save some cards to deck');
-        }
-      }
-
-      if (notFound.length > 0) {
+      const missing = rows.length - resolvedRows.length;
+      if (missing > 0) {
         toast.warning(
-          `${notFound.length} cards are not in the local card database. Run a card sync from the admin panel.`
+          `${missing} card${missing === 1 ? ' is' : 's are'} not in the local card database and were skipped.`
         );
       }
-
-      if (cardInserts.length > 0) {
-        toast.success(`Saved "${preconDetails.name}" with ${cardInserts.length} cards`);
-        navigate(`/deck-builder?deck=${deck.id}`);
-      } else {
-        toast.error('No cards could be added. Sync cards from the admin panel first.');
-      }
+      toast.success(`Loaded "${selected.name}" with ${resolvedRows.length} cards`);
+      navigate(`/deck-builder?deck=${created.id}`);
     } catch (error) {
-      console.error('Error saving precon:', error);
-      toast.error('Failed to save deck');
+      console.error('[precons] save failed', error);
+      toast.error('Failed to load that list into your decks');
     } finally {
-      setSavingDeck(false);
+      setSaving(false);
     }
-  };
+  }, [selected, user, rows, deck, navigate]);
 
-  const filteredSets = useMemo(() => {
-    if (!searchQuery) return bySet;
+  /* -------------------------------------------------- render ---------- */
 
-    const query = searchQuery.toLowerCase();
-    const filtered: Record<string, PreconListItem[]> = {};
-
-    for (const [set, decks] of Object.entries(bySet)) {
-      const matching = decks.filter(
-        d => d.name.toLowerCase().includes(query) || d.set.toLowerCase().includes(query)
-      );
-      if (matching.length > 0) filtered[set] = matching;
-    }
-
-    return filtered;
-  }, [bySet, searchQuery]);
-
-  const sortedSets = useMemo(
-    () =>
-      Object.keys(filteredSets).sort((a, b) => {
-        const yearA = a.match(/\d{4}/)?.[0] || '0';
-        const yearB = b.match(/\d{4}/)?.[0] || '0';
-        return yearB.localeCompare(yearA) || a.localeCompare(b);
-      }),
-    [filteredSets]
-  );
-
-  const commanderRow = preconRows.find(row => row.is_commander) ?? null;
-  const commanderArt = commanderRow
-    ? cardImage(commanderRow, 'art_crop') ?? scryfallImageUrl(commanderRow.card_id, 'art_crop')
-    : null;
-  const identity = Array.from(
-    new Set(preconRows.filter(r => r.is_commander).flatMap(r => r.card?.color_identity ?? []))
-  );
-  const detailStats = computeDeckStats(preconRows);
-  const curveBins = preconRows.reduce<Record<string, number>>((bins, row) => {
-    const mv = row.card?.cmc ?? 0;
-    const key =
-      mv <= 1 ? '0-1' : mv <= 5 ? String(mv) : mv <= 7 ? '6-7' : mv <= 9 ? '8-9' : '10+';
-    bins[key] = (bins[key] ?? 0) + row.quantity;
-    return bins;
-  }, {});
-  const landCount = preconRows.reduce(
-    (sum, row) =>
-      (row.card?.type_line || '').toLowerCase().includes('land') ? sum + row.quantity : sum,
-    0
-  );
+  if (selectedId) {
+    return (
+      <StandardPageLayout
+        title={selected?.name ?? 'Precon'}
+        description={selected?.set}
+        breadcrumbs={false}
+      >
+        {selected ? (
+          <PreconDeckView
+            precon={selected}
+            deck={deck}
+            rows={rows}
+            loading={loadingDeck}
+            saving={saving}
+            canSave={Boolean(user)}
+            onBack={closePrecon}
+            onSave={savePrecon}
+          />
+        ) : (
+          <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
+            <p className="text-muted-foreground">Loading precon…</p>
+            <Button variant="ghost" size="sm" onClick={closePrecon} className="mt-3">
+              Back to all precons
+            </Button>
+          </div>
+        )}
+      </StandardPageLayout>
+    );
+  }
 
   return (
     <StandardPageLayout
-      title="Precon Decks"
-      description="Browse and save official Commander preconstructed decks"
+      title="Precons"
+      description="Every official Commander preconstructed deck, led by its commander."
     >
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-3">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Layers className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-bold tabular-nums">{precons.length}</p>
-                <p className="text-xs text-muted-foreground">Precons</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Package className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-bold tabular-nums">{Object.keys(bySet).length}</p>
-                <p className="text-xs text-muted-foreground">Sets</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="space-y-5">
+        <PreconFilterBar
+          query={query}
+          onQueryChange={setQuery}
+          colors={colors}
+          onColorsChange={setColors}
+          set={set}
+          sets={sets}
+          onSetChange={setSet}
+          sort={sort}
+          onSortChange={setSort}
+          activeCount={activeFilters}
+          onReset={resetFilters}
+        />
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search precon decks…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10"
-            aria-label="Search precon decks"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(280px,340px)_1fr]">
-          <Card className="flex max-h-[70vh] flex-col">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Available precons</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-hidden p-0">
-              {loading ? (
-                <div className="space-y-3 p-4">
-                  {[...Array(8)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : listError ? (
-                <p className="p-6 text-center text-sm text-destructive">{listError}</p>
-              ) : sortedSets.length === 0 ? (
-                <p className="p-6 text-center text-sm text-muted-foreground">
-                  No precon decks match “{searchQuery}”.
-                </p>
-              ) : (
-                <ScrollArea className="h-full">
-                  <div className="space-y-2 p-3">
-                    {sortedSets.map(setName => (
-                      <div key={setName} className="space-y-1">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedSet(expandedSet === setName ? null : setName)}
-                          aria-expanded={expandedSet === setName}
-                          className="flex w-full items-center justify-between rounded-md p-2 text-left transition-colors hover:bg-muted"
-                        >
-                          <span className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-normal tabular-nums">
-                              {filteredSets[setName].length}
-                            </Badge>
-                            <span className="text-sm font-medium">{setName}</span>
-                          </span>
-                          <ChevronRight
-                            className={`h-4 w-4 text-muted-foreground transition-transform ${
-                              expandedSet === setName ? 'rotate-90' : ''
-                            }`}
-                          />
-                        </button>
-
-                        {expandedSet === setName && (
-                          <ul className="ml-3 space-y-1">
-                            {filteredSets[setName].map(precon => (
-                              <li key={precon.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => fetchPreconDetails(precon)}
-                                  aria-current={selectedPrecon?.id === precon.id}
-                                  className={`flex w-full items-center gap-2 rounded-md p-2 text-left transition-colors ${
-                                    selectedPrecon?.id === precon.id
-                                      ? 'bg-secondary text-secondary-foreground'
-                                      : 'hover:bg-muted'
-                                  }`}
-                                >
-                                  <Crown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                  <span className="truncate text-sm">{precon.name}</span>
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+        <p className="text-sm text-muted-foreground">
+          {loadingList ? (
+            'Loading the precon catalogue…'
+          ) : (
+            <>
+              <span className="font-medium tabular-nums text-foreground">{visible.length}</span>{' '}
+              {visible.length === 1 ? 'precon' : 'precons'}
+              {activeFilters > 0 && summaries.length > 0 && (
+                <span className="tabular-nums"> of {summaries.length}</span>
               )}
-            </CardContent>
-          </Card>
+              {sets.length > 0 && set === 'all' && (
+                <span className="tabular-nums"> across {sets.length} sets</span>
+              )}
+            </>
+          )}
+        </p>
 
-          <div className="space-y-4">
-            {loadingDetails ? (
-              <Card>
-                <CardContent className="space-y-3 p-6">
-                  <Skeleton className="h-8 w-3/5" />
-                  <Skeleton className="h-4 w-2/5" />
-                  <Skeleton className="h-40 w-full" />
-                </CardContent>
-              </Card>
-            ) : preconDetails ? (
-              <>
-                <Card className="overflow-hidden">
-                  <div className="relative">
-                    {commanderArt && (
-                      <img
-                        src={commanderArt}
-                        alt=""
-                        className="h-36 w-full object-cover md:h-44"
-                        loading="lazy"
-                      />
-                    )}
-                    <div
-                      className={
-                        commanderArt
-                          ? 'absolute inset-0 flex flex-col justify-end bg-black/55 p-4'
-                          : 'flex flex-col justify-end bg-muted p-4'
-                      }
-                    >
-                      <h2
-                        className={`text-lg font-bold md:text-xl ${
-                          commanderArt ? 'text-white' : 'text-foreground'
-                        }`}
-                      >
-                        {preconDetails.name}
-                      </h2>
-                      <p
-                        className={`text-sm ${
-                          commanderArt ? 'text-white/80' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {preconDetails.set}
-                        {commanderRow ? ` · ${commanderRow.card_name}` : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Badge variant="secondary" className="tabular-nums">
-                        {preconDetails.totalCards} cards
-                      </Badge>
-                      {identity.length > 0 && <ColorIdentity colors={identity} size="sm" />}
-                      <span className="text-sm text-muted-foreground tabular-nums">
-                        Avg MV {averageManaValue(curveBins, landCount).toFixed(2)}
-                      </span>
-                      {detailStats.totalValueUSD > 0 && (
-                        <span className="text-sm text-muted-foreground tabular-nums">
-                          ${detailStats.totalValueUSD.toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-
-                    {detailStats.missingMetadata > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        {detailStats.missingMetadata} card
-                        {detailStats.missingMetadata === 1 ? ' is' : 's are'} not in the local card
-                        database yet, so their price is excluded.
-                      </p>
-                    )}
-
-                    <Button
-                      onClick={savePreconToDeck}
-                      disabled={savingDeck || !user}
-                      className="w-full"
-                    >
-                      {savingDeck ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                      )}
-                      Save to my decks
-                    </Button>
-                    {!user && (
-                      <p className="text-center text-xs text-muted-foreground">
-                        Sign in to save this deck.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <DeckCardGrid rows={preconRows} collapsedByDefault={['lands']} />
-              </>
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-                  <Package className="mb-4 h-10 w-10 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    Select a precon deck to see its commander, colour identity and full list.
-                  </p>
-                </CardContent>
-              </Card>
+        {listError ? (
+          <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
+            <p className="font-medium">{listError}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The precon catalogue is fetched live from a public repository. Try again shortly.
+            </p>
+          </div>
+        ) : loadingList ? (
+          <CardGrid width={TILE_WIDTH}>
+            {Array.from({ length: 12 }, (_, i) => (
+              <PreconTileSkeleton key={i} />
+            ))}
+          </CardGrid>
+        ) : visible.length === 0 ? (
+          <div className="rounded-xl bg-card p-12 text-center shadow-lg shadow-black/20">
+            <p className="font-medium">No precons match those filters</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Try a different colour combination or clear the search.
+            </p>
+            {activeFilters > 0 && (
+              <Button variant="secondary" size="sm" onClick={resetFilters} className="mt-4">
+                Clear filters
+              </Button>
             )}
           </div>
-        </div>
+        ) : (
+          <CardGrid width={TILE_WIDTH}>
+            {visible.map((precon, index) => (
+              <PreconTile
+                key={precon.id}
+                precon={precon}
+                cards={commanderCards}
+                onSelect={openPrecon}
+                eager={index < 4}
+              />
+            ))}
+          </CardGrid>
+        )}
       </div>
     </StandardPageLayout>
   );

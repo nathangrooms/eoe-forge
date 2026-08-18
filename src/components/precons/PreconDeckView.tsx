@@ -15,7 +15,6 @@ import {
   commanderArt,
   commanderCard,
   rowCard,
-  type CommanderCardMap,
   type PreconDeck,
   type PreconSummary,
 } from '@/lib/precons/precon-api';
@@ -61,7 +60,7 @@ export function PreconDeckView({
   canSave,
   onBack,
   onSave,
-}: PreconDeckViewProps & { cards?: CommanderCardMap }) {
+}: PreconDeckViewProps) {
   const [cardWidth, setCardWidth] = useCardSize('precons', 150);
   const [openCard, setOpenCard] = useState<DeckCardRow | null>(null);
 

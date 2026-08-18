@@ -23,7 +23,7 @@ import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
 import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
 import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
 import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
-import { DeckTile } from '@/components/deck/DeckTile';
+import { DeckTile, DECK_HERO_COLUMN } from '@/components/deck/DeckTile';
 import { DeckExportDialog } from '@/components/deck/DeckExportDialog';
 import {
   DeckViewControls,
@@ -37,19 +37,24 @@ import { useDeckFilters } from '@/hooks/useDeckFilters';
 /**
  * Two tiles per row on desktop, and never more.
  *
- * This is a hard ceiling rather than an `auto-fill` track: the commander card
- * is the hero of the tile, so the tile has to stay wide enough for the art to
- * be big. A third column at 1600px would shrink every commander back towards
- * the thumbnail this redesign exists to get rid of.
+ * A hard ceiling rather than an `auto-fill` track: the commander card is the
+ * hero of the tile, so the tile has to stay wide enough for the art to be big.
+ * A third column at 1600px would shrink every commander back towards the
+ * thumbnail this redesign exists to get rid of.
+ *
+ * The second column starts at `xl`, not `lg`. With the 280px rail, `lg` leaves
+ * each tile ~350px wide — the commander would be back down to 130px and the
+ * action buttons would not fit. Below `xl` a single full-width tile gives the
+ * card ~340px instead.
  */
-const DECK_GRID_CLASS = 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5';
+const DECK_GRID_CLASS = 'grid grid-cols-1 gap-4 xl:grid-cols-2 xl:gap-5';
 
 /** Same footprint as a real tile, so the first paint does not jump. */
 function DeckTileSkeleton() {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
-        <div className="mx-auto w-[64%] max-w-[260px] shrink-0 sm:mx-0 sm:w-[40%] sm:max-w-[230px] lg:w-[42%] lg:max-w-[260px]">
+        <div className={DECK_HERO_COLUMN}>
           <CardImageSkeleton size="xl" fill />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-3">

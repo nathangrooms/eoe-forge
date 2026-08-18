@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Wordmark } from '@/components/Wordmark';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, ScanLine, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
 import { NewDeckDialog } from './NewDeckDialog';
-import logo from '@/assets/deckmatrix-logo.png';
 
 /**
  * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
@@ -65,7 +65,7 @@ export function TopNavigation() {
             className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="DeckMatrix home"
           >
-            <img src={logo} alt="DeckMatrix" className="h-7 w-auto md:h-8" />
+            <Wordmark size="md" />
           </Link>
         </div>
 

@@ -11,6 +11,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import Collection from "./pages/Collection";
 import Homepage from "./pages/Homepage";
 import Dashboard from "./pages/Dashboard";
+import DashboardPreviewTemp from "./pages/__DashboardPreview";
 import Scan from "./pages/Scan";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
@@ -85,6 +86,7 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/p/:slug" element={<PublicDeck />} />
+        <Route path="/__dashboard-preview" element={<DashboardPreviewTemp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

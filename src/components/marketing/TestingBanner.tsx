@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
+import { Wordmark } from '@/components/Wordmark';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import logo from '@/assets/deckmatrix-logo.png';
 import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 
 export function TestingBanner() {
@@ -68,11 +68,7 @@ export function TestingBanner() {
           transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
           className="flex justify-center mb-8"
         >
-          <img 
-            src={logo} 
-            alt="DeckMatrix Logo" 
-            className="h-24 md:h-32 w-auto"
-          />
+          <Wordmark size="md" />
         </motion.div>
 
         {/* Badge */}

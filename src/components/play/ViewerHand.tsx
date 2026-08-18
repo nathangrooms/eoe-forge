@@ -42,7 +42,13 @@ export interface ViewerHandProps {
   className?: string;
 }
 
-/** Fan geometry: total sweep in degrees, and how far the ends drop. */
+/**
+ * Fan geometry: total sweep in degrees, and the height of the arc.
+ *
+ * The arc is applied as a *lift* on the middle cards rather than a drop on the
+ * outer ones, so the whole fan stays on or above its baseline. Pushing the ends
+ * downward instead would hang them off the bottom of the screen.
+ */
 function fanGeometry(count: number) {
   if (count <= 1) return { step: 0, arc: 0 };
   const sweep = Math.min(30, count * 4.5);
@@ -103,7 +109,10 @@ export function ViewerHand({
           const reason = (land ? landPlan?.reason : castPlan?.reason) ?? '';
           const offset = index - middle;
           const rotate = offset * step;
-          const drop = middle === 0 ? 0 : (offset * offset / (middle * middle)) * arc;
+          // 0 at the ends, -arc in the middle: the fan curves upward off its
+          // baseline instead of dropping its outer cards off the screen.
+          const drop =
+            middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
 
           const action = land ? 'Play' : fromCommand ? 'Cast from the command zone' : 'Cast';
           const label = playable

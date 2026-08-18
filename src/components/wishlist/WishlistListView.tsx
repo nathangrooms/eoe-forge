@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { 
   ShoppingCart, 
   Plus, 
@@ -14,6 +12,7 @@ import {
   ChevronUp,
   ExternalLink
 } from 'lucide-react';
+import { CardImage } from '@/components/cards';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
@@ -26,19 +25,8 @@ interface WishlistItem {
   note?: string;
   target_price_usd?: number;
   alert_enabled?: boolean;
-  card?: {
-    set_code?: string;
-    type_line?: string;
-    rarity?: string;
-    prices?: {
-      usd?: string;
-      usd_foil?: string;
-    };
-    image_uris?: {
-      small?: string;
-      normal?: string;
-    };
-  };
+  /** The full card record, so the row can draw a real card thumbnail. */
+  card?: any;
 }
 
 interface WishlistListViewProps {
@@ -52,10 +40,11 @@ interface WishlistListViewProps {
   onToggleAlert: (itemId: string, enabled: boolean) => void;
 }
 
+/** Priority is a contrast ramp on the monochrome ink, never a hue. */
 const PRIORITY_CONFIG = {
-  high: { label: 'High', color: 'bg-accent text-accent-foreground border-foreground/40', dot: 'bg-foreground' },
-  medium: { label: 'Medium', color: 'bg-accent text-accent-foreground border-border', dot: 'bg-muted-foreground' },
-  low: { label: 'Low', color: 'bg-muted text-muted-foreground border-border', dot: 'bg-border' },
+  high: { label: 'High', color: 'bg-primary text-primary-foreground', dot: 'bg-foreground' },
+  medium: { label: 'Medium', color: 'bg-muted text-foreground', dot: 'bg-muted-foreground' },
+  low: { label: 'Low', color: 'bg-muted/60 text-muted-foreground', dot: 'bg-muted-foreground/50' },
 };
 
 export function WishlistListView({
@@ -95,34 +84,23 @@ export function WishlistListView({
         const priorityConfig = PRIORITY_CONFIG[item.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
 
         return (
-          <Card 
+          <div
             key={item.id}
             className={cn(
-              "overflow-hidden transition-all hover:border-primary/50",
-              isBelowTarget && "border-foreground"
+              'overflow-hidden rounded-lg bg-card shadow-lg shadow-black/20 transition-colors',
+              isBelowTarget && 'bg-muted'
             )}
           >
-            <CardContent className="p-0">
+            <div>
               {/* Main Row */}
               <div className="flex items-center gap-3 p-3">
-                {/* Card Image */}
-                <div 
-                  className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0 cursor-pointer"
+                <CardImage
+                  card={item.card ?? { name: item.card_name }}
+                  width={52}
+                  hideFlip
                   onClick={() => onCardClick(item)}
-                >
-                  {item.card?.image_uris?.small ? (
-                    <img
-                      src={item.card.image_uris.small}
-                      alt={item.card_name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                      N/A
-                    </div>
-                  )}
-                </div>
+                  className="shrink-0"
+                />
 
                 {/* Card Info */}
                 <div className="flex-1 min-w-0">
@@ -134,15 +112,15 @@ export function WishlistListView({
                       {item.card_name}
                     </h3>
                     {item.quantity > 1 && (
-                      <Badge variant="outline" className="text-xs px-1.5">
+                      <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium tabular-nums text-foreground">
                         ×{item.quantity}
-                      </Badge>
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className="text-xs uppercase">
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs uppercase text-muted-foreground">
                       {item.card?.set_code || 'UNK'}
-                    </Badge>
+                    </span>
                     <div className="flex items-center gap-1">
                       <div className={cn("w-2 h-2 rounded-full", priorityConfig.dot)} />
                       <span className="text-xs text-muted-foreground">{priorityConfig.label}</span>
@@ -161,10 +139,10 @@ export function WishlistListView({
                   <div className="text-right">
                     <div className="font-bold tabular-nums">{formatPrice(currentPrice)}</div>
                     {isBelowTarget && (
-                      <Badge variant="secondary" className="text-xs">
+                      <span className="inline-flex items-center rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">
                         <TrendingDown className="mr-1 h-3 w-3" aria-hidden="true" />
                         Below target
-                      </Badge>
+                      </span>
                     )}
                   </div>
 
@@ -179,7 +157,7 @@ export function WishlistListView({
 
                   <Button 
                     size="sm" 
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => onAddToCollection(item)}
                     className="h-9"
                   >
@@ -203,7 +181,7 @@ export function WishlistListView({
 
               {/* Expanded Section */}
               {isExpanded && (
-                <div className="px-3 pb-3 pt-0 border-t bg-muted/30">
+                <div className="bg-muted/30 px-3 pb-3 pt-0">
                   <div className="flex flex-wrap items-center gap-3 py-3">
                     {/* Priority Selector */}
                     <div className="flex items-center gap-2">
@@ -235,7 +213,7 @@ export function WishlistListView({
                             min="0"
                             value={targetValue}
                             onChange={(e) => setTargetValue(e.target.value)}
-                            className="h-7 w-20 text-sm"
+                            className="h-7 w-20 border-0 bg-muted/50 text-sm"
                             autoFocus
                           />
                           <Button size="sm" className="h-7 px-2" onClick={() => handleSaveTarget(item)}>
@@ -248,7 +226,7 @@ export function WishlistListView({
                       ) : (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           className="h-7 px-2 text-xs"
                           onClick={() => {
                             setEditingTarget(item.id);
@@ -264,7 +242,7 @@ export function WishlistListView({
                     {/* Alert Toggle */}
                     <Button
                       size="sm"
-                      variant={item.alert_enabled ? 'secondary' : 'outline'}
+                      variant={item.alert_enabled ? 'secondary' : 'ghost'}
                       className="h-7 px-2 text-xs"
                       onClick={() => onToggleAlert(item.id, !item.alert_enabled)}
                     >
@@ -303,8 +281,8 @@ export function WishlistListView({
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

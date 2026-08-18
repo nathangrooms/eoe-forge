@@ -36,8 +36,10 @@ export interface ActivityEntry {
   title: string;
   /** What happened to it, e.g. "Scanned into collection". */
   detail: string;
-  /** Copies involved, when the event has a count worth showing. */
+  /** Copies involved. Summed when a run of repeats is collapsed into one row. */
   quantity: number | null;
+  /** How many source events this row stands for. 1 unless a run was collapsed. */
+  occurrences: number;
   /** Card whose art represents this row: the card itself, or a deck's commander. */
   artCardId: string | null;
   artCardName: string | null;
@@ -129,7 +131,8 @@ function fromLog(row: ActivityLogRow): ActivityEntry | null {
         row.type === 'card_added' && scanned
           ? 'Scanned into collection'
           : CARD_DETAIL[row.type] ?? 'Collection updated',
-      quantity: quantity && quantity > 1 ? quantity : null,
+      quantity: quantity && quantity > 0 ? quantity : 1,
+      occurrences: 1,
       artCardId: row.entity_id || null,
       artCardName: name,
       href: hrefFor(row.type, kind, row.entity_id, name),
@@ -147,6 +150,7 @@ function fromLog(row: ActivityLogRow): ActivityEntry | null {
       title: name ?? 'Untitled deck',
       detail: format ? `${base} · ${format}` : base,
       quantity: null,
+      occurrences: 1,
       // Filled in below from deck_cards — a deck's face is its commander.
       artCardId: null,
       artCardName: null,
@@ -170,6 +174,7 @@ function fromLog(row: ActivityLogRow): ActivityEntry | null {
     title,
     detail: str(meta.description) ?? (source ? `From ${source.replace(/_/g, ' ')}` : ''),
     quantity: null,
+    occurrences: 1,
     artCardId: null,
     artCardName: null,
     href: hrefFor(row.type, kind, row.entity_id, name),
@@ -192,7 +197,8 @@ function fromCollection(row: CollectionRow): ActivityEntry | null {
     at,
     title: row.card_name,
     detail: isNew ? 'Added to collection' : 'Collection updated',
-    quantity: copies > 1 ? copies : null,
+    quantity: copies > 0 ? copies : 1,
+    occurrences: 1,
     artCardId: row.card_id,
     artCardName: row.card_name,
     href: '/collection',
@@ -201,6 +207,49 @@ function fromCollection(row: CollectionRow): ActivityEntry | null {
 
 /** Two records of the same card within this window are one event, logged twice. */
 const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+
+/** Consecutive repeats further apart than this stay separate rows. */
+const RUN_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Collapse consecutive repeats of the same subject into one row.
+ *
+ * A scanning session is the normal case here, not an edge case: adding four
+ * copies of a card writes four rows, and the feed then says the same sentence
+ * four times and shows nothing else. Adjacent identical events become a single
+ * row whose count is the total copies involved, which is both shorter and more
+ * informative than the run it replaces.
+ *
+ * Bounded by a day so a staple bought every few months does not silently merge
+ * into one row stamped with today's date.
+ */
+function collapseRuns(entries: ActivityEntry[]): ActivityEntry[] {
+  const out: ActivityEntry[] = [];
+
+  for (const entry of entries) {
+    const previous = out[out.length - 1];
+    const sameSubject =
+      previous &&
+      previous.kind === entry.kind &&
+      previous.type === entry.type &&
+      previous.title === entry.title &&
+      (previous.artCardId ?? previous.artCardName) ===
+        (entry.artCardId ?? entry.artCardName) &&
+      new Date(previous.at).getTime() - new Date(entry.at).getTime() < RUN_WINDOW_MS;
+
+    if (sameSubject) {
+      previous.occurrences += 1;
+      if (previous.quantity !== null) {
+        previous.quantity += entry.quantity ?? 1;
+      }
+      continue;
+    }
+
+    out.push({ ...entry });
+  }
+
+  return out;
+}
 
 export function useActivityFeed(limit = 8) {
   const { user } = useAuth();
@@ -223,14 +272,15 @@ export function useActivityFeed(limit = 8) {
           .from('activity_log')
           .select('id, type, entity, entity_id, meta, created_at')
           .eq('user_id', user.id)
+          // Over-fetched because runs of repeats collapse away below.
           .order('created_at', { ascending: false })
-          .limit(limit * 3),
+          .limit(limit * 6),
         supabase
           .from('user_collections')
           .select('id, card_id, card_name, quantity, foil, created_at, updated_at')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
-          .limit(limit * 2),
+          .limit(limit * 3),
       ]);
 
       if (logError) throw logError;
@@ -295,11 +345,12 @@ export function useActivityFeed(limit = 8) {
           );
         });
 
-      const merged = [...logEntries, ...collectionEntries]
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-        .slice(0, limit);
+      const merged = [...logEntries, ...collectionEntries].sort(
+        (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()
+      );
 
-      setEntries(merged);
+      // Collapse before slicing, so a run of repeats does not eat the whole feed.
+      setEntries(collapseRuns(merged).slice(0, limit));
     } catch (err) {
       console.error('Error building activity feed:', err);
       setError('Could not load your recent activity.');

@@ -417,9 +417,10 @@ export function EnhancedUniversalCardSearch({
                   <Button variant="secondary" className="h-11 gap-2">
                     <SlidersHorizontal className="h-4 w-4" />
                     <span className="hidden sm:inline">Filters</span>
-                    {filters.activeCount > 0 && (
+                    {/* Facets only. The text box is not a "filter" the sheet can show. */}
+                    {facetCount > 0 && (
                       <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[0.7rem] font-bold leading-none text-primary-foreground">
-                        {filters.activeCount}
+                        {facetCount}
                       </span>
                     )}
                   </Button>

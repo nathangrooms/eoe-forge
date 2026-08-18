@@ -72,8 +72,11 @@ function FallbackThumb({ entry }: { entry: ActivityEntry }) {
   );
 }
 
-export function RecentActivity() {
-  const { entries, loading, error } = useActivityFeed(8);
+export function RecentActivity({ previewEntries }: { previewEntries?: ActivityEntry[] } = {}) {
+  const feed = useActivityFeed(8);
+  const entries = previewEntries ?? feed.entries;
+  const loading = previewEntries ? false : feed.loading;
+  const error = previewEntries ? null : feed.error;
 
   /* One batched join back to `cards` for the whole feed — the added card for a
      collection entry, the commander for a deck entry. */

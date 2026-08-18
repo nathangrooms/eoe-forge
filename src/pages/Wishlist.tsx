@@ -11,19 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import {
   Heart,
   Download,
-  Grid3X3,
-  List,
   LayoutGrid,
+  List,
   Layers,
   Search,
   ArrowUpDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
@@ -37,6 +36,9 @@ import {
   type MoveToCollectionValues,
 } from '@/components/wishlist/MoveToCollectionDialog';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
+import { CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
+import { matchesCardFilter, toLocalCard } from '@/lib/cards/local-filter';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -49,19 +51,12 @@ interface WishlistItem {
   created_at: string;
   target_price_usd?: number;
   alert_enabled?: boolean;
-  card?: {
-    id?: string;
-    name: string;
-    set_code: string;
-    type_line: string;
-    colors: string[];
-    color_identity?: string[];
-    rarity: string;
-    cmc?: number;
-    mana_cost?: string;
-    prices?: { usd?: string; usd_foil?: string; eur?: string };
-    image_uris?: { small?: string; normal?: string };
-  };
+  /**
+   * The full `cards` row. Deliberately untyped: it is handed straight to
+   * `CardImage` and `toLocalCard`, both of which reconcile the Scryfall and
+   * Supabase shapes themselves.
+   */
+  card?: any;
 }
 
 interface UserDeck {
@@ -71,7 +66,7 @@ interface UserDeck {
   colors: string[];
 }
 
-type ViewMode = 'grid' | 'compact' | 'list';
+type ViewMode = 'grid' | 'list';
 type SortOption = 'date-desc' | 'date-asc' | 'price-desc' | 'price-asc' | 'name-asc' | 'priority';
 type PriorityFilter = 'all' | 'high' | 'medium' | 'low';
 
@@ -109,9 +104,14 @@ export default function Wishlist() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
-  // The wishlist could previously only be filtered by priority, on a list that
-  // can run to hundreds of cards.
-  const [query, setQuery] = useState('');
+
+  /**
+   * The same filter the card-search pages use, evaluated locally against the
+   * wishlist rows. Priority stays separate because it is a property of the
+   * *entry*, not of the card, and no Scryfall query can express it.
+   */
+  const filters = useCardFilterState();
+  const [cardWidth, setCardWidth] = useCardSize('wishlist');
 
   const loadWishlist = useCallback(async () => {
     if (!user) return;
@@ -133,8 +133,10 @@ export default function Wishlist() {
       const cardIds = [...new Set(wishlistData.map(i => i.card_id))];
       const { data: cardsData } = await supabase
         .from('cards')
+        // Every column the shared filter can ask about — oracle text, legality,
+        // keywords, P/T — plus `faces` so double-faced cards can flip.
         .select(
-          'id, name, set_code, type_line, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris'
+          'id, name, set_code, collector_number, type_line, oracle_text, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris, legalities, keywords, layout, faces, power, toughness, loyalty, is_reserved'
         )
         .in('id', cardIds);
 
@@ -145,29 +147,17 @@ export default function Wishlist() {
           const cardData = cardsMap.get(item.card_id);
           return {
             ...item,
-            card: cardData
-              ? {
-                  id: cardData.id,
-                  name: cardData.name,
-                  set_code: cardData.set_code,
-                  type_line: cardData.type_line,
-                  colors: cardData.colors || [],
-                  color_identity: cardData.color_identity || [],
-                  rarity: cardData.rarity || 'common',
-                  cmc: cardData.cmc || 0,
-                  mana_cost: cardData.mana_cost || '',
-                  prices: (cardData.prices as WishlistItem['card']['prices']) || {},
-                  image_uris: (cardData.image_uris as WishlistItem['card']['image_uris']) || {},
-                }
-              : {
-                  name: item.card_name,
-                  set_code: '',
-                  type_line: '',
-                  colors: [],
-                  rarity: 'common',
-                  prices: {},
-                  image_uris: {},
-                },
+            // The row is passed through whole; nothing is dropped on the way in,
+            // which is what makes the advanced facets work on the wishlist.
+            card: cardData ?? {
+              name: item.card_name,
+              set_code: '',
+              type_line: '',
+              colors: [],
+              rarity: 'common',
+              prices: {},
+              image_uris: {},
+            },
           } as WishlistItem;
         })
       );
@@ -236,7 +226,7 @@ export default function Wishlist() {
         ),
       ];
 
-      const priceById = new Map<string, { price: number; image?: string }>();
+      const priceById = new Map<string, { price: number; images?: Record<string, string> }>();
       if (neededIds.length > 0) {
         const { data: cardRows } = await supabase
           .from('cards')
@@ -244,10 +234,11 @@ export default function Wishlist() {
           .in('id', neededIds);
         for (const row of cardRows ?? []) {
           const prices = (row.prices ?? {}) as Record<string, string | null>;
-          const images = (row.image_uris ?? {}) as Record<string, string>;
+          // The whole image set travels, so the row thumbnail and the deck face
+          // can each ask for the resolution they are actually drawn at.
           priceById.set(row.id, {
             price: toNumber(prices.usd),
-            image: images.small ?? images.normal,
+            images: (row.image_uris ?? {}) as Record<string, string>,
           });
         }
       }
@@ -267,7 +258,7 @@ export default function Wishlist() {
                 owned: ownedQty,
                 missing: required - ownedQty,
                 price: meta?.price ?? 0,
-                imageUrl: meta?.image,
+                images: meta?.images,
                 onWishlist: wishlistByCard.has(dc.card_id),
                 wishlistItemId: wishlistByCard.get(dc.card_id),
               };
@@ -309,17 +300,23 @@ export default function Wishlist() {
     return () => window.removeEventListener('wishlist-updated', handleUpdate);
   }, [user, loadWishlist, loadDeckGaps]);
 
+  /** Projected once per load, not once per keystroke. */
+  const projected = useMemo(
+    () =>
+      wishlistItems.map(item => ({
+        item,
+        local: toLocalCard(item.card, { name: item.card_name }),
+      })),
+    [wishlistItems]
+  );
+
   const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let items = wishlistItems.filter(item => {
-      if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false;
-      if (!q) return true;
-      return (
-        item.card_name.toLowerCase().includes(q) ||
-        (item.card?.type_line ?? '').toLowerCase().includes(q) ||
-        (item.card?.set_code ?? '').toLowerCase().includes(q)
-      );
-    });
+    let items = projected
+      .filter(({ item, local }) => {
+        if (priorityFilter !== 'all' && item.priority !== priorityFilter) return false;
+        return matchesCardFilter(local, filters.state);
+      })
+      .map(({ item }) => item);
 
     items = [...items].sort((a, b) => {
       switch (sortBy) {
@@ -343,7 +340,7 @@ export default function Wishlist() {
     });
 
     return items;
-  }, [wishlistItems, priorityFilter, sortBy, query]);
+  }, [projected, priorityFilter, sortBy, filters.state]);
 
   const addToWishlist = useCallback(
     async (card: { id: string; name: string }) => {
@@ -558,7 +555,13 @@ export default function Wishlist() {
     [wishlistItems]
   );
 
-  const hasActiveFilter = priorityFilter !== 'all' || query.trim().length > 0;
+  const activeFilterCount = filters.activeCount + (priorityFilter === 'all' ? 0 : 1);
+  const hasActiveFilter = activeFilterCount > 0;
+
+  const clearFilters = useCallback(() => {
+    setPriorityFilter('all');
+    filters.reset();
+  }, [filters]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -614,87 +617,116 @@ export default function Wishlist() {
             </div>
 
             {activeTab === 'wishlist' && wishlistItems.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Search wishlist"
-                  aria-label="Search wishlist"
-                  className="h-8 w-full max-w-xs text-sm"
-                />
+              <div className="space-y-3 rounded-lg bg-card p-3 shadow-lg shadow-black/20">
+                <div className="flex flex-wrap items-center gap-2">
+                  <WishlistSearchBox
+                    value={filters.state.text ?? ''}
+                    onCommit={commitFilterText}
+                  />
 
-                <div className="flex flex-shrink-0 items-center gap-1 rounded-lg border border-border p-0.5">
+                  <CardFilterSheet
+                    controller={filters}
+                    showSort={false}
+                    showChips={false}
+                    trigger={
+                      <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5">
+                        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                        Filters
+                        {activeFilterCount > 0 && (
+                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
+                            {activeFilterCount}
+                          </span>
+                        )}
+                      </Button>
+                    }
+                  />
+
+                  <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
+                    <SelectTrigger
+                      className="h-8 w-[130px] shrink-0 border-0 bg-muted/50 text-xs"
+                      aria-label="Sort by"
+                    >
+                      <ArrowUpDown className="mr-1 h-3 w-3" aria-hidden="true" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-0">
+                      {SORT_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="ml-auto flex items-center gap-3">
+                    {viewMode === 'grid' && (
+                      <CardSizeSlider
+                        storageKey="wishlist"
+                        value={cardWidth}
+                        onValueChange={setCardWidth}
+                        showValue={false}
+                        className="hidden sm:flex"
+                      />
+                    )}
+                    <div className="flex shrink-0 items-center gap-1 rounded-md bg-muted/40 p-0.5">
+                      {(
+                        [
+                          { mode: 'grid' as const, icon: LayoutGrid, label: 'Card grid' },
+                          { mode: 'list' as const, icon: List, label: 'List' },
+                        ]
+                      ).map(({ mode, icon: Icon, label }) => (
+                        <Button
+                          key={mode}
+                          size="sm"
+                          variant={viewMode === mode ? 'secondary' : 'ghost'}
+                          className={cn('h-7 px-2')}
+                          onClick={() => setViewMode(mode)}
+                          aria-label={label}
+                          aria-pressed={viewMode === mode}
+                          title={label}
+                        >
+                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Priority is a property of the wishlist entry, not the card. */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+                    Priority
+                  </span>
                   {PRIORITY_FILTERS.map(f => (
-                    <Button
+                    <button
                       key={f.value}
-                      size="sm"
-                      variant={priorityFilter === f.value ? 'secondary' : 'ghost'}
-                      className="h-7 px-2 text-xs"
+                      type="button"
                       onClick={() => setPriorityFilter(f.value)}
                       aria-pressed={priorityFilter === f.value}
+                      className={cn(
+                        'rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        priorityFilter === f.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
                     >
                       {f.label}
-                    </Button>
+                    </button>
                   ))}
                 </div>
 
-                <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
-                  <SelectTrigger className="h-8 w-[130px] flex-shrink-0 text-xs" aria-label="Sort by">
-                    <ArrowUpDown className="mr-1 h-3 w-3" aria-hidden="true" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex flex-shrink-0 rounded-lg border border-border p-0.5">
-                  {(
-                    [
-                      { mode: 'grid' as const, icon: Grid3X3, label: 'Grid' },
-                      { mode: 'compact' as const, icon: LayoutGrid, label: 'Compact grid' },
-                      { mode: 'list' as const, icon: List, label: 'List' },
-                    ]
-                  ).map(({ mode, icon: Icon, label }) => (
-                    <Button
-                      key={mode}
-                      size="sm"
-                      variant={viewMode === mode ? 'secondary' : 'ghost'}
-                      className={cn('h-7 px-2')}
-                      onClick={() => setViewMode(mode)}
-                      aria-label={label}
-                      aria-pressed={viewMode === mode}
-                      title={label}
-                    >
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  ))}
-                </div>
+                {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
               </div>
             )}
           </div>
 
           <TabsContent value="wishlist" className="mt-4">
             {loading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="aspect-[5/7] rounded-lg" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                ))}
-              </div>
+              <CardGridSkeleton width={cardWidth} count={12} />
             ) : filteredItems.length === 0 ? (
               <WishlistEmptyState
                 hasFilter={hasActiveFilter}
-                onClearFilter={() => {
-                  setPriorityFilter('all');
-                  setQuery('');
-                }}
+                onClearFilter={clearFilters}
                 onAddCards={() => setActiveTab('add')}
               />
             ) : viewMode === 'list' ? (
@@ -716,7 +748,7 @@ export default function Wishlist() {
             ) : (
               <WishlistCardGrid
                 items={filteredItems}
-                viewMode={viewMode}
+                width={cardWidth}
                 onCardClick={item => {
                   const full = wishlistItems.find(i => i.id === item.id);
                   if (full) handleCardClick(full);
@@ -773,6 +805,58 @@ export default function Wishlist() {
           busy={moving}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Debounced free-text box for the wishlist toolbar.
+ *
+ * The same 250ms commit the collection browser uses, so typing into a
+ * several-hundred-card wishlist does not re-run the predicate per keystroke.
+ */
+function WishlistSearchBox({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (next: string | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [committed, setCommitted] = useState(value);
+
+  useEffect(() => {
+    if (value !== committed) {
+      setCommitted(value);
+      setDraft(value);
+    }
+    // Adopts external changes (chip removal, clear all) without stomping typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (draft === committed) return;
+    const id = window.setTimeout(() => {
+      setCommitted(draft);
+      onCommit(draft.trim() ? draft : undefined);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [draft, committed, onCommit]);
+
+  return (
+    <div className="relative min-w-0 flex-1 sm:max-w-xs">
+      <Search
+        className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        placeholder="Name, type, or Scryfall syntax"
+        aria-label="Search wishlist"
+        spellCheck={false}
+        className="h-8 border-0 bg-muted/50 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+      />
     </div>
   );
 }

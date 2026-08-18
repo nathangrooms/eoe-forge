@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Layers, ShoppingCart, ChevronRight, Heart, Plus } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards';
 import { formatPrice } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +18,11 @@ export interface DeckGapCard {
   /** required - owned, always > 0. */
   missing: number;
   price: number;
-  imageUrl?: string;
+  /**
+   * The card's whole `image_uris` object rather than one pre-picked URL, so the
+   * shared `CardImage` chooses the resolution for the size it is drawn at.
+   */
+  images?: Record<string, string>;
   /** True when this card is already on the wishlist. */
   onWishlist: boolean;
   wishlistItemId?: string;
@@ -70,18 +73,16 @@ export function WishlistByDeck({
     return (
       <div className="space-y-4">
         {[1, 2, 3].map(i => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <Skeleton className="h-14 w-14 rounded" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-                <Skeleton className="h-8 w-20" />
+          <div key={i} className="rounded-lg bg-card p-4 shadow-lg shadow-black/20">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-16 w-12 rounded" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-24" />
               </div>
-            </CardContent>
-          </Card>
+              <Skeleton className="h-8 w-20" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -89,26 +90,26 @@ export function WishlistByDeck({
 
   if (!hasDecks) {
     return (
-      <Card className="border-dashed p-12 text-center">
+      <div className="rounded-lg bg-muted/30 p-12 text-center">
         <Layers className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <h3 className="mb-2 text-lg font-medium text-foreground">No decks yet</h3>
         <p className="mb-4 text-sm text-muted-foreground">
           Build a deck and this tab lists exactly which cards you still need to buy.
         </p>
         <Button onClick={onCreateDeck}>Go to decks</Button>
-      </Card>
+      </div>
     );
   }
 
   if (gaps.length === 0) {
     return (
-      <Card className="border-dashed p-12 text-center">
+      <div className="rounded-lg bg-muted/30 p-12 text-center">
         <Layers className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
         <h3 className="mb-2 text-lg font-medium text-foreground">Every deck is complete</h3>
         <p className="text-sm text-muted-foreground">
           You already own every card in each of your deck lists.
         </p>
-      </Card>
+      </div>
     );
   }
 
@@ -120,28 +121,35 @@ export function WishlistByDeck({
         const wishlisted = deck.cards.filter(c => c.onWishlist).length;
 
         return (
-          <Card key={deck.deckId} className="overflow-hidden">
-            <CardContent className="p-0">
+          <div
+            key={deck.deckId}
+            className="overflow-hidden rounded-lg bg-card shadow-lg shadow-black/20"
+          >
+            <div>
               <button
                 type="button"
                 className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-accent"
                 onClick={() => setExpandedDeck(isExpanded ? null : deck.deckId)}
                 aria-expanded={isExpanded}
               >
-                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  {deck.cards[0]?.imageUrl ? (
-                    <img src={deck.cards[0].imageUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <Layers className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-                  )}
-                </div>
+                {/* The priciest missing card stands in as the deck's face. */}
+                <CardImage
+                  card={{
+                    name: deck.cards[0]?.name ?? deck.name,
+                    image_uris: deck.cards[0]?.images,
+                  }}
+                  width={48}
+                  hideFlip
+                  interactive={false}
+                  className="shrink-0"
+                />
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-semibold text-card-foreground">{deck.name}</h3>
+                  <h3 className="truncate font-semibold text-foreground">{deck.name}</h3>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="text-xs capitalize">
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium capitalize text-foreground">
                       {deck.format}
-                    </Badge>
+                    </span>
                     <ColorIdentity colors={deck.colors} size="xs" />
                     {wishlisted > 0 && (
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -153,7 +161,7 @@ export function WishlistByDeck({
                 </div>
 
                 <div className="text-right">
-                  <div className="text-lg font-bold tabular-nums text-card-foreground">
+                  <div className="text-lg font-bold tabular-nums text-foreground">
                     {formatPrice(deck.totalCost)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -171,30 +179,22 @@ export function WishlistByDeck({
               </button>
 
               {isExpanded && (
-                <div className="border-t border-border bg-muted/30 p-4">
+                <div className="bg-muted/30 p-4">
                   <ul className="mb-4 max-h-72 space-y-1 overflow-y-auto">
                     {deck.cards.map(card => (
                       <li
                         key={card.cardId}
-                        className="flex items-center gap-3 rounded border border-border bg-card px-2 py-1.5"
+                        className="flex items-center gap-3 rounded bg-card px-2 py-1.5"
                       >
-                        <button
-                          type="button"
+                        <CardImage
+                          card={{ name: card.name, image_uris: card.images }}
+                          width={40}
+                          hideFlip
                           onClick={() => onCardClick(card.cardId)}
-                          className="h-12 w-9 shrink-0 overflow-hidden rounded bg-muted"
-                          aria-label={`${card.name} details`}
-                        >
-                          {card.imageUrl ? (
-                            <img
-                              src={card.imageUrl}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : null}
-                        </button>
+                          className="shrink-0"
+                        />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-card-foreground">
+                          <p className="truncate text-sm font-medium text-foreground">
                             {card.name}
                           </p>
                           <p className="text-xs text-muted-foreground tabular-nums">
@@ -205,14 +205,14 @@ export function WishlistByDeck({
                           {formatPrice(card.price * card.missing)}
                         </span>
                         {card.onWishlist ? (
-                          <Badge variant="secondary" className="shrink-0 gap-1">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-muted/60 px-2 py-1 text-xs font-medium text-foreground">
                             <Heart className="h-3 w-3" aria-hidden="true" />
                             Wishlisted
-                          </Badge>
+                          </span>
                         ) : (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             className="shrink-0"
                             onClick={() => onAddToWishlist(card)}
                           >
@@ -231,7 +231,7 @@ export function WishlistByDeck({
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => onNavigateToDeck(deck.deckId)}
                     >
                       View deck
@@ -240,8 +240,8 @@ export function WishlistByDeck({
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

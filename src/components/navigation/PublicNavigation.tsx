@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { Wordmark } from '@/components/Wordmark';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import logo from '@/assets/deckmatrix-logo.png';
 
 /** Anchors resolve to sections rendered by the marketing homepage. */
 const LINKS = [
@@ -26,7 +26,7 @@ export function PublicNavigation() {
             className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="DeckMatrix home"
           >
-            <img src={logo} alt="DeckMatrix" className="h-8 w-auto sm:h-9" />
+            <Wordmark size="md" />
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">

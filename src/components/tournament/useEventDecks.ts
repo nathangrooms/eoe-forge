@@ -82,6 +82,31 @@ export function commanderCardFor(
   return { name: hit.name, image_uris: uris };
 }
 
+/**
+ * Formats where a registered deck can be checked against the event's format.
+ *
+ * Limited deliberately: a Draft, Sealed, Cube or Casual event has no
+ * constructed list to compare against, so flagging a mismatch there would be
+ * noise rather than a warning.
+ */
+const CHECKABLE_FORMATS: Record<string, string> = {
+  Standard: 'standard',
+  Pioneer: 'pioneer',
+  Modern: 'modern',
+  Legacy: 'legacy',
+  Vintage: 'vintage',
+  Pauper: 'pauper',
+  Commander: 'commander',
+};
+
+/** True when a registered deck is built for a different format than the event. */
+export function formatMismatch(gameFormat: string, deck: PlayerDeck | undefined): boolean {
+  if (!deck) return false;
+  const expected = CHECKABLE_FORMATS[gameFormat];
+  if (!expected) return false;
+  return (deck.format ?? '').toLowerCase() !== expected;
+}
+
 /** Every commander name on an event's roster, for a single batched art lookup. */
 export function commanderNames(decks: Record<string, PlayerDeck>): string[] {
   return Array.from(

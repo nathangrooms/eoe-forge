@@ -9,15 +9,21 @@
  * The library is shown in order with the top card first and clearly labelled,
  * because "search your library" and "look at the top three" are different
  * actions and confusing them silently invalidates a test.
+ *
+ * It slides in from the right rather than landing in the middle of the screen.
+ * Looking in a zone is something you do *while* looking at the board — a
+ * centred modal covers the exact thing you are reasoning about, and the board
+ * is now the whole viewport, so there is nowhere for it to land that is not on
+ * top of a battlefield.
  */
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { GameCardView } from './GameCardView';
@@ -66,20 +72,25 @@ export function ZoneBrowser({
   const destinations: Zone[] = ZONES.filter(target => target !== zone);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {/* z-[70] clears the fixed board overlay `/play` renders itself into;
+          border-0 because this app does not draw hairlines. */}
+      <SheetContent
+        side="right"
+        className="z-[70] flex w-full flex-col gap-4 border-0 p-4 sm:max-w-lg"
+      >
+        <SheetHeader className="space-y-1 text-left">
+          <SheetTitle className="text-base">
             {player.name} · {ZONE_LABEL[zone]}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription className="text-xs">
             {hidden
               ? 'Hidden zone — you can see the count, not the cards.'
               : zone === 'library'
                 ? `${cards.length} cards, top of the library first. Looking here is a search.`
                 : `${cards.length} card${cards.length === 1 ? '' : 's'}.`}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <div className="flex flex-wrap gap-1">
           {ZONES.map(target => (
@@ -161,7 +172,7 @@ export function ZoneBrowser({
             </ul>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

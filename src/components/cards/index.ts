@@ -54,3 +54,22 @@ export {
   type CardDetailPaneProps,
   type CardDetailSplitProps,
 } from './CardDetailPane';
+
+/**
+ * Pieces of the routed card page (`/cards/:id`). Each owns one query, so they
+ * stay separate rather than collapsing into one file, and several are reusable
+ * anywhere a card is the subject: `OracleText` renders rules text with real
+ * mana pips, `CardLegalityGrid` renders every format Scryfall reports.
+ */
+export { OracleText, type OracleTextProps } from './OracleText';
+export { CardLegalityGrid, type CardLegalityGridProps } from './CardLegalityGrid';
+export { CardPrintingsRow, type CardPrintingsRowProps } from './CardPrintingsRow';
+export { CardPriceHistory, type CardPriceHistoryProps } from './CardPriceHistory';
+export {
+  CardWorksWellWith,
+  CardSimilar,
+  cardHref,
+  type CardRelatedProps,
+  type RelatedGroup,
+} from './CardRelated';
+export { CardAddToDeckPanel, type CardAddToDeckPanelProps } from './CardAddToDeckPanel';

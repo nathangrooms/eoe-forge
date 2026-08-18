@@ -301,72 +301,12 @@ export function HomeBrain() {
 
 /* ------------------------------------------------------------------- precons */
 
-export function HomePrecons() {
-  const [count, setCount] = useState<number | null>(null);
-  const [cards, setCards] = useState<any[] | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,mana_cost,color_identity,image_uris')
-        .eq('is_legendary', true)
-        .ilike('type_line', '%Creature%')
-        .not('image_uris', 'is', null)
-        .limit(40);
-      setCards((data ?? []).filter((c: any) => c.image_uris?.art_crop).slice(0, 8));
-      setCount(184);
-    })();
-  }, []);
-
-  return (
-    <Section tint>
-      <SectionHeading
-        title="Start from a precon, then make it yours"
-        lead={
-          <>
-            {count ? `${count} Commander precon lists` : 'Commander precon lists'} you can load,
-            compare against your collection, and upgrade card by card.
-          </>
-        }
-      />
-
-      <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {cards === null
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[4/3] rounded-xl" />
-            ))
-          : cards.map((c: any) => (
-              <figure
-                key={c.id}
-                className="group relative aspect-[4/3] overflow-hidden rounded-xl shadow-lg shadow-black/30"
-              >
-                <img
-                  src={c.image_uris.art_crop}
-                  alt={c.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-                <figcaption className="absolute inset-x-0 bottom-0 p-3">
-                  <p className="truncate text-xs font-medium text-white">{c.name}</p>
-                  <div className="mt-1">
-                    <ManaCost cost={c.mana_cost} size="xs" />
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-      </div>
-
-      <div className="mt-10 text-center">
-        <Button asChild size="lg" variant="outline">
-          <Link to="/precons">
-            Browse precons
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
-    </Section>
-  );
-}
+/**
+ * HomePrecons now lives in its own module.
+ *
+ * It was rebuilt on `PRECON_INDEX` (184 real products, whole 5:7 commander
+ * cards) and grew past the size that belongs in a shared file that three other
+ * sections also live in. Re-exported here so every existing import keeps
+ * working.
+ */
+export { HomePrecons } from '@/components/marketing/HomePrecons';

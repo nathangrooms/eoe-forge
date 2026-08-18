@@ -35,15 +35,26 @@ import {
 const ART_ASPECT = '626 / 457';
 
 /**
- * Rendered width of the commander card, in px.
+ * The card is sized as a share of the tile, not in pixels.
  *
- * `cardSizeForWidth` steps up to the 672px `large` scan above 128, and at this
- * size — the card is the focal point of the tile — that is worth the bytes.
+ * The grid is `auto-fill minmax(TILE_WIDTH, 1fr)`, so a tile is anywhere from
+ * 380px to nearly 600px wide depending on how the columns fall. A fixed 132px
+ * card is right in the middle of that range and wrong at both ends — lost
+ * against the art on a wide screen, crowding it on a narrow one.
  */
-const COMMANDER_WIDTH = 132;
+const CARD_COLUMN = 'w-[30%] min-w-[92px] max-w-[200px]';
+const PARTNER_COLUMN = 'w-[40%] min-w-[124px] max-w-[268px]';
 
-/** How far the card climbs into the artwork. */
-const OVERLAP = 'mt-[-88px]';
+/**
+ * How far the card climbs into the artwork.
+ *
+ * Percentage margins resolve against the containing block's *width*, so this
+ * tracks the card, which is itself a percentage of that width: a card is
+ * 30% × 680/488 ≈ 42% of the body width tall, and −19% of it is a hair under
+ * half the card. The overlap therefore looks identical at every tile size,
+ * which a pixel value cannot do.
+ */
+const OVERLAP = 'mt-[-19%]';
 
 export interface PreconTileProps {
   precon: PreconSummary;
@@ -114,24 +125,44 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
       {/* Commander card, hung over the foot of the art. */}
       <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
         <div className="flex gap-4">
-          <div className={cn('relative z-10 flex shrink-0', OVERLAP)}>
+          <div
+            className={cn(
+              'relative z-10 flex shrink-0',
+              leads.length > 1 ? PARTNER_COLUMN : CARD_COLUMN,
+              OVERLAP
+            )}
+          >
             {cardObjects.length > 0 ? (
               cardObjects.map((card, i) => (
-                <CardImage
+                <div
                   key={leads[i]?.scryfallId ?? i}
-                  card={card}
-                  width={COMMANDER_WIDTH}
-                  hideFlip
-                  eager={eager}
-                  interactive={false}
-                  className={i > 0 ? '-ml-[86px]' : undefined}
-                  imageClassName="shadow-2xl shadow-black/60"
-                />
+                  // Partners overlap like a fan rather than shrinking to two
+                  // half-width cards: 75% + 75% − 50% fills the column exactly.
+                  className={cn(
+                    'shrink-0',
+                    leads.length > 1 ? 'w-[75%]' : 'w-full',
+                    i > 0 && '-ml-[50%]'
+                  )}
+                >
+                  <CardImage
+                    card={card}
+                    // `md` and above draw the 672px `large` scan and skip the
+                    // blur-up under-layer, so a page of tiles is one request
+                    // per image however wide the column lands.
+                    size="md"
+                    fill
+                    hideFlip
+                    eager={eager}
+                    interactive={false}
+                    imageClassName="shadow-2xl shadow-black/60"
+                  />
+                </div>
               ))
             ) : (
               <CardImage
                 card={{ name: precon.name }}
-                width={COMMANDER_WIDTH}
+                size="md"
+                fill
                 hideFlip
                 interactive={false}
               />
@@ -182,9 +213,10 @@ export function PreconTileSkeleton() {
         <div
           className={cn(
             'shrink-0 animate-pulse rounded-lg bg-muted motion-reduce:animate-none',
+            CARD_COLUMN,
             OVERLAP
           )}
-          style={{ width: COMMANDER_WIDTH, aspectRatio: '488 / 680' }}
+          style={{ aspectRatio: '488 / 680' }}
         />
         <div className="flex-1 space-y-2.5 pt-1.5">
           <div className="h-4 w-4/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />

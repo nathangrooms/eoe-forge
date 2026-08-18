@@ -1,36 +1,76 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
-import { Crown, Heart, Plus, ChevronRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Check, ChevronRight, Crown, Heart, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { useDeckStore } from '@/stores/deckStore';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { showError } from '@/components/ui/toast-helpers';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { CardImage } from '@/components/cards';
-import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { CommanderHero } from '@/components/deck/CommanderHero';
+import { PowerScore } from '@/components/deck/PowerScore';
+import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 
-interface FavoriteDeck {
-  deck_id: string;
-  user_decks: {
-    id: string;
-    name: string;
-    format: string;
-    colors: string[];
-    power_level: number;
-    updated_at: string;
-  };
+/**
+ * Favourite decks, on the collection page.
+ *
+ * This used to be four cells across, each one a 54px thumbnail of the
+ * commander beside a truncated name — a deck reduced to something smaller than
+ * a postage stamp, on a page that is otherwise entirely about cards. The
+ * commander is how a player recognises their own deck, so it is the hero here
+ * now: the full card, uncropped, at size, through the shared `CommanderHero`,
+ * with at most three decks to a row so there is room for it.
+ *
+ * Every figure beside the card is real. Card count, deck value, cards still
+ * missing and collection progress come from `compute_deck_summary`; the power
+ * score comes from the one canonical engine through the one `PowerScore`
+ * component. A deck that lives only in the local builder store has never been
+ * priced or matched against the collection, so it shows the counts it
+ * genuinely has and omits the rest — a fabricated value or a "100% owned" for
+ * a deck nobody has checked is worse than a gap.
+ */
+
+/** A summary plus where it came from — local decks have no economy data. */
+interface FavoriteEntry {
+  summary: DeckSummary;
+  local: boolean;
+}
+
+/** Three across at most, so the commander card never shrinks to a thumbnail. */
+const MAX_FAVORITES = 3;
+
+function currency(value: number | null | undefined): string {
+  return `$${Math.round(Number(value ?? 0)).toLocaleString()}`;
+}
+
+/** One figure on its own muted panel. Surface tint for depth, never a border. */
+function Stat({
+  value,
+  label,
+  hint,
+}: {
+  value: React.ReactNode;
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-muted/40 px-2 py-2 text-center" title={hint}>
+      <span className="flex items-center justify-center gap-1 text-lg font-bold leading-none tabular-nums text-foreground">
+        {value}
+      </span>
+      <span className="mt-1.5 block text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 export function FavoriteDecksPreview() {
-  const [favoriteDecks, setFavoriteDecks] = useState<DeckSummary[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const deck = useDeckStore();
 
   useEffect(() => {
     loadFavoriteDecks();
@@ -81,28 +121,37 @@ export function FavoriteDecksPreview() {
           power: computeDeckPower(entriesFromStoreCards(deck.cards as any), {
             format: deck.format,
           }),
+          // Never priced and never matched against the collection. The tile
+          // reads `local` and shows counts instead of these placeholders.
           economy: { priceUSD: 0, ownedPct: 100, missing: 0 },
           tags: [],
           updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date().toISOString(),
           favorite: true
         }));
 
-      let allFavorites: DeckSummary[] = [...localSummaries];
+      let allFavorites: FavoriteEntry[] = localSummaries.map(summary => ({
+        summary,
+        local: true,
+      }));
 
       // Then try to load database favorites if user is authenticated
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           const dbSummaries = await DeckAPI.getDeckSummaries();
-          const dbFavorites = dbSummaries.filter(deck => deck.favorite);
-          allFavorites = [...allFavorites, ...dbFavorites];
+          allFavorites = [
+            ...allFavorites,
+            ...dbSummaries
+              .filter(deck => deck.favorite)
+              .map(summary => ({ summary, local: false })),
+          ];
         }
       } catch (error) {
         console.error('Error loading database favorites:', error);
         // Continue with just local favorites
       }
 
-      setFavoriteDecks(allFavorites.slice(0, 4));
+      setFavorites(allFavorites.slice(0, MAX_FAVORITES));
     } catch (error) {
       console.error('Error loading favorite decks:', error);
     } finally {
@@ -110,54 +159,49 @@ export function FavoriteDecksPreview() {
     }
   };
 
-  const getColorIndicator = (colors: string[]) => (
-    <ColorIdentity colors={colors} size="xs" />
-  );
-
-  const handleDeckClick = async (deckSummary: DeckSummary) => {
+  const handleDeckClick = (entry: FavoriteEntry) => {
     try {
-      if (deckSummary.name.includes('(Local)')) {
-        // Handle local deck loading - navigate directly without loading into store
-        navigate(`/builder?loadLocal=${deckSummary.id}`);
-      } else {
-        // Handle database deck loading - navigate directly without loading into store
-        navigate(`/builder?loadDeck=${deckSummary.id}`);
-      }
+      // Navigate straight in rather than loading into the store first.
+      navigate(
+        entry.local
+          ? `/builder?loadLocal=${entry.summary.id}`
+          : `/builder?loadDeck=${entry.summary.id}`
+      );
     } catch (error) {
       console.error('Error loading deck:', error);
-      showError("Error", "Failed to load deck");
+      showError('Error', 'Failed to load deck');
     }
   };
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Favorite Decks</h3>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 bg-muted rounded-lg animate-pulse"></div>
+        <h3 className="text-lg font-semibold">Favourite decks</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <div
+              key={i}
+              className="h-72 animate-pulse rounded-xl bg-muted motion-reduce:animate-none"
+            />
           ))}
         </div>
       </div>
     );
   }
 
-  if (favoriteDecks.length === 0) {
+  if (favorites.length === 0) {
     return (
-      <Card className="">
-        <CardContent className="p-6 text-center">
-          <Heart className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <h3 className="font-medium mb-2">No Favorite Decks</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add some decks to your favorites to see them here
-          </p>
-          <Button variant="secondary" onClick={() => navigate('/decks')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Browse Decks
-          </Button>
-        </CardContent>
+      <Card className="p-8 text-center">
+        <Heart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" />
+        <h3 className="font-medium">No favourite decks yet</h3>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+          Star a deck and it sits here with its commander, so you can see what your
+          collection is feeding at a glance.
+        </p>
+        <Button variant="secondary" onClick={() => navigate('/decks')} className="mt-4">
+          <Plus className="mr-2 h-4 w-4" />
+          Browse decks
+        </Button>
       </Card>
     );
   }
@@ -165,63 +209,134 @@ export function FavoriteDecksPreview() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Favorite Decks</h3>
+        <h3 className="text-lg font-semibold">Favourite decks</h3>
         <Button variant="ghost" size="sm" onClick={() => navigate('/decks')}>
-          View All
-          <ChevronRight className="h-4 w-4 ml-1" />
+          View all
+          <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {favoriteDecks.map((deck) => {
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {favorites.map(entry => {
+          const deck = entry.summary;
+          const counts = deck.counts;
+          const identity = deck.identity?.length ? deck.identity : deck.colors;
+          const missing = deck.economy?.missing ?? 0;
+          const owned = Math.max(counts.total - missing, 0);
+          const ownedPct = counts.total > 0 ? Math.round((owned / counts.total) * 100) : 0;
+          const complete = missing === 0;
+          const showPower = usesPowerLevel(deck.format);
+
           return (
             <Card
               key={deck.id}
-              className="cursor-pointer transition-all hover:shadow-xl hover:shadow-black/30"
-              onClick={() => handleDeckClick(deck)}
+              role="button"
+              tabIndex={0}
+              onClick={() => handleDeckClick(entry)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleDeckClick(entry);
+                }
+              }}
+              aria-label={`Open ${deck.name}`}
+              className="cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-2xl hover:shadow-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
             >
-              <CardContent className="flex gap-3 p-3">
-                {/* A deck is recognised by its commander long before its name. */}
-                <CardImage
-                  card={{
-                    name: deck.commander?.name ?? deck.name,
-                    image_uris: deck.commander?.image
-                      ? { large: deck.commander.image }
-                      : undefined,
-                  }}
-                  width={54}
-                  hideFlip
-                  interactive={false}
-                />
-
-                <div className="flex min-w-0 flex-1 flex-col justify-between">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-medium">{deck.name}</h4>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {deck.format}
-                        </Badge>
-                        {deck.format === 'commander' && (
-                          <Crown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                        )}
-                      </div>
-                    </div>
-                    <Heart
-                      className="h-4 w-4 shrink-0 fill-current text-foreground"
-                      aria-hidden="true"
-                    />
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between">
-                    {(deck.colors?.length ?? 0) > 0 && getColorIndicator(deck.colors)}
-                    {/* One renderer, so a favourite shows the same figure here
-                        as it does on its own tile. A deck that has never been
-                        scored simply says so rather than borrowing a band. */}
-                    {deck.power && <PowerScoreBadge power={deck.power} />}
-                  </div>
+              <div className="flex gap-4 p-4">
+                {/* The commander card is the deck. Percentage-first so it grows
+                    with the tile, capped so it stays sane on a wide screen. */}
+                <div className="w-[44%] min-w-0 max-w-[230px] shrink-0 self-start">
+                  <CommanderHero
+                    commander={deck.commander}
+                    deckName={deck.name}
+                    format={deck.format}
+                    identity={identity}
+                    cardCount={counts.total}
+                    size="lg"
+                    onClick={() => handleDeckClick(entry)}
+                  >
+                    <span
+                      title="Favourite deck"
+                      className="absolute left-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full bg-background/85 text-foreground shadow-lg shadow-black/40 backdrop-blur"
+                    >
+                      <Heart className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                      <span className="sr-only">Favourite</span>
+                    </span>
+                  </CommanderHero>
                 </div>
-              </CardContent>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                  <div>
+                    <h4 className="line-clamp-2 text-base font-bold leading-tight tracking-tight">
+                      {deck.name}
+                    </h4>
+                    {deck.commander?.name && (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Crown className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{deck.commander.name}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      {formatLabel(deck.format)}
+                    </span>
+                    <ColorIdentity colors={identity} size="sm" className="ml-auto gap-1" />
+                  </div>
+
+                  {showPower && <PowerScore power={deck.power} variant="inline" />}
+
+                  {entry.local ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      <Stat value={counts.total} label="Cards" />
+                      <Stat value={counts.unique} label="Unique" />
+                      <Stat value={counts.lands} label="Lands" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Stat
+                          value={counts.total}
+                          label="Cards"
+                          hint={`${counts.unique} unique cards`}
+                        />
+                        <Stat
+                          value={currency(deck.economy?.priceUSD)}
+                          label="Value"
+                          hint="Sum of USD market prices for every card in the deck"
+                        />
+                        <Stat
+                          value={complete ? <Check className="h-4 w-4" /> : missing}
+                          label={complete ? 'Complete' : 'Missing'}
+                          hint={
+                            complete
+                              ? 'You own every card in this deck'
+                              : `${missing} cards you do not own yet`
+                          }
+                        />
+                      </div>
+
+                      <div className="mt-auto">
+                        <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground">From your collection</span>
+                          <span className="font-semibold tabular-nums">
+                            {ownedPct}%
+                            <span className="ml-1.5 font-normal text-muted-foreground">
+                              {owned}/{counts.total}
+                            </span>
+                          </span>
+                        </div>
+                        <Progress
+                          value={ownedPct}
+                          className="h-2 bg-muted"
+                          aria-label={`${ownedPct}% of this deck is in your collection`}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </Card>
           );
         })}

@@ -47,15 +47,31 @@ interface FeedLine {
 }
 
 /**
+ * Turn-structure bookkeeping. Every step the surface walks through on the
+ * player's behalf writes one of these, so with auto-advance on they are most of
+ * the log by volume and none of it by meaning — and the phase strip in the HUD
+ * already says which step you are in. Hidden in the feed, kept in the panel,
+ * never removed from `GameState.log`, which is the record.
+ */
+const STRUCTURAL: ReadonlySet<string> = new Set(['ADVANCE_STEP', 'PHASE_CHANGE']);
+
+/**
  * The log and the bot's notes, merged into one stream oldest-first.
  *
  * Notes carry no sequence number of their own, so they are appended after the
  * log rather than interleaved by time — which is honest: they describe the
  * decision behind the entries immediately before them.
  */
-function useLines(state: GameState, feed: PlayFeedEntry[], limit: number): FeedLine[] {
+function useLines(
+  state: GameState,
+  feed: PlayFeedEntry[],
+  limit: number,
+  full: boolean
+): FeedLine[] {
   return useMemo(() => {
-    const lines: FeedLine[] = state.log.slice(-limit).map(event => ({
+    const events = full ? state.log : state.log.filter(event => !STRUCTURAL.has(event.type));
+
+    const lines: FeedLine[] = events.slice(-limit).map(event => ({
       key: `log-${event.seq}`,
       turn: event.turn,
       text: event.message,
@@ -67,7 +83,9 @@ function useLines(state: GameState, feed: PlayFeedEntry[], limit: number): FeedL
       intent: false,
     }));
 
-    for (const entry of feed.slice(-3)) {
+    // Collapsed, one note is context; three notes is the bot narrating its own
+    // step counter over the top of the things that actually happened.
+    for (const entry of feed.slice(full ? -4 : -1)) {
       const actor = entry.actorId
         ? state.players.find(p => p.id === entry.actorId)?.name
         : null;
@@ -81,22 +99,20 @@ function useLines(state: GameState, feed: PlayFeedEntry[], limit: number): FeedL
     }
 
     return lines.slice(-limit);
-  }, [state.log, state.players, feed, limit]);
+  }, [state.log, state.players, feed, limit, full]);
 }
 
-export function GameFeed({ state, feed, className, limit = 5, variant = 'feed' }: GameFeedProps) {
+export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }: GameFeedProps) {
   const [expanded, setExpanded] = useState(variant === 'panel');
   const scrollRef = useRef<HTMLOListElement>(null);
 
-  const shown = expanded ? 200 : limit;
-  const lines = useLines(state, feed, shown);
+  const isPanel = variant === 'panel' || expanded;
+  const lines = useLines(state, feed, isPanel ? 200 : limit, isPanel);
 
   useEffect(() => {
     const element = scrollRef.current;
     if (element) element.scrollTop = element.scrollHeight;
   }, [lines.length, expanded]);
-
-  const isPanel = variant === 'panel' || expanded;
 
   return (
     <div className={cn('pointer-events-none flex flex-col justify-end gap-1', className)}>
@@ -105,10 +121,12 @@ export function GameFeed({ state, feed, className, limit = 5, variant = 'feed' }
         aria-live="polite"
         aria-label="Game log"
         className={cn(
-          'flex min-h-0 flex-col gap-0.5 overflow-y-auto',
+          'flex min-h-0 flex-col gap-0.5',
           isPanel
-            ? 'pointer-events-auto max-h-[42vh] rounded-lg bg-background/80 p-2 shadow-lg shadow-black/40 backdrop-blur-md'
-            : 'overflow-hidden'
+            ? 'pointer-events-auto max-h-[42vh] overflow-y-auto rounded-lg bg-background/80 p-2 shadow-lg shadow-black/40 backdrop-blur-md'
+            : // Capped so the strip can never climb up over the viewer's own
+              // life badge, which sits directly above it on every layout.
+              'max-h-[62px] overflow-hidden'
         )}
       >
         {lines.length === 0 && isPanel && (

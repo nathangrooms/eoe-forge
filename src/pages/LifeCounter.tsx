@@ -26,8 +26,10 @@ import { GameMenu } from '@/components/life/GameMenu';
 import { LifeSetup } from '@/components/life/LifeSetup';
 import { PlayerDetail } from '@/components/life/PlayerDetail';
 import { PlayerPanel } from '@/components/life/PlayerPanel';
+import { DEFAULT_MAT_ORDER } from '@/components/life/mats';
 import {
-  defaultConfig,
+  quickStartConfig,
+  savePrefs,
   syncConfig,
   type LifeGameConfig,
 } from '@/components/life/session';
@@ -38,6 +40,7 @@ import {
   useWakeLock,
 } from '@/components/life/useImmersive';
 import { useLifeGame } from '@/components/life/useLifeGame';
+import { useMatArt } from '@/components/life/useMatArt';
 
 export default function LifeCounter() {
   const navigate = useNavigate();
@@ -55,6 +58,11 @@ export default function LifeCounter() {
   const fullscreen = useFullscreen();
   const wakeLock = useWakeLock(!!game.session);
   useScrollLock(true);
+
+  /* One lookup for the whole feature, shared with setup through a module-level
+     cache. Every mat still renders without it — the artwork is the second half
+     of a mat, never the whole of one. */
+  const matArt = useMatArt();
 
   const { session, state, layout, view, undo, flush, dispatch, nudge } = game;
   const showSetup = !session || setupOpen;
@@ -77,7 +85,10 @@ export default function LifeCounter() {
   }, [undo]);
 
   const setupConfig = useMemo<LifeGameConfig>(() => {
-    if (!session) return defaultConfig(4, 'commander');
+    // No game in progress: open on the table this device played last — pod size,
+    // seat colours, names and format all pre-filled, so Start is one press and
+    // nothing needs choosing. Falls back to a four-player Commander pod.
+    if (!session) return quickStartConfig();
     // Carry the live names and colours into setup, not the ones typed at the
     // start of the last game.
     return syncConfig(session.config, session.state);
@@ -86,6 +97,9 @@ export default function LifeCounter() {
   const handleStart = useCallback(
     (config: LifeGameConfig) => {
       game.start(config);
+      // Remember the table, not the game. The session is cleared when a pod
+      // breaks up; these are the habits that should survive it.
+      savePrefs(config);
       setSetupOpen(false);
       setDetailPlayerId(null);
       // Requested from inside the click that started the game, which is the only
@@ -143,6 +157,12 @@ export default function LifeCounter() {
           {state.players.map(player => {
             const seat = seatAt(layout, player.seat);
             if (!seat) return null;
+            // `player.seat` is the index into the config's seat list by
+            // construction — `createGame` numbers seats in the order they were
+            // passed — so the mat chosen at setup follows the player.
+            const mat =
+              session.config.seats[player.seat]?.mat
+              ?? DEFAULT_MAT_ORDER[player.seat % DEFAULT_MAT_ORDER.length];
             return (
               <PlayerPanel
                 key={player.id}
@@ -150,6 +170,8 @@ export default function LifeCounter() {
                 seat={seat}
                 view={view[player.id]}
                 rules={state.rules}
+                mat={mat}
+                matArt={matArt[mat]?.art}
                 interactive={!complete}
                 reducedMotion={reducedMotion}
                 onNudgeLife={delta => nudge({ kind: 'life', playerId: player.id }, delta)}

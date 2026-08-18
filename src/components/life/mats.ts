@@ -20,11 +20,10 @@
  *      texture and atmosphere, never content. Nothing breaks without it.
  *
  * Legibility is not left to chance. Every colour layer is a translucent wash
- * over black, so the alpha *is* the resulting luminance: a mat's peak lightness
- * is `intensity × the token's own lightness`, and white — by far the lightest
- * token at ~73% — is given the lowest intensity of the five for that reason.
- * On top of that every mat carries a centre scrim, which is precisely where the
- * life total is drawn.
+ * over black, so its alpha *is* the resulting luminance, and each colour carries
+ * a hard `peak` that no layer and no surface tone can push through. On top of
+ * that every mat pools darkness under its own middle, which is precisely where
+ * the life total is drawn.
  */
 
 import type { CSSProperties } from 'react';
@@ -75,11 +74,33 @@ export interface MatDefinition {
   /** The `--mana-*` custom property carrying this colour's hue. */
   token: string;
   /**
-   * Ceiling on every colour layer's alpha. Because the layers wash over black,
-   * this doubles as a ceiling on the mat's lightness — which is what keeps a
-   * white life total readable on white's mat.
+   * The brightest this colour is ever allowed to get, as an alpha over black.
+   *
+   * Because every layer is a wash over black, `peak × the token's own lightness`
+   * *is* the mat's maximum relative luminance — so this one number decides both
+   * how strongly the colour reads and whether a white life total survives on top
+   * of it. It is a hard ceiling, not a multiplier: no combination of layers and
+   * no surface tone can push a mat past it.
+   *
+   * The five are deliberately not equal, and not equal in the obvious way
+   * either. White's token is the lightest in the system by a mile, so half of
+   * it is already a bright mat; black's is a mid grey, but black's seat is
+   * *supposed* to be the darkest thing on the table, so it is held lowest of
+   * all. The ceilings are set by how the mats should look side by side, not by
+   * the tokens they are made from.
    */
-  intensity: number;
+  peak: number;
+  /**
+   * Token for the bounce light, when it should differ from the key.
+   *
+   * Only white uses this. `--mana-white` is hue 45, so at the low lightness a
+   * legible mat demands it lands on khaki — correct for a Plains, but it reads
+   * as "gold" rather than "white" next to the other four. Bouncing the neutral
+   * `--mana-colorless` back into it pulls the mat towards parchment and silver,
+   * which is unmistakably white mana. Still a mana token, still no invented
+   * colour.
+   */
+  accent?: string;
   /** Where the key light falls, as a `background-position` pair. */
   light: string;
   /** Where the bounce light comes back from. */
@@ -100,11 +121,15 @@ export const MAT_DEFINITIONS: Record<MatColor, MatDefinition> = {
     label: 'White',
     epithet: 'Order · the high sun',
     token: '--mana-white',
-    // The lightest token in the system by a wide margin. Held right down, or a
-    // white life total sits on a white mat.
-    intensity: 0.3,
-    light: '50% -10%',
-    bounce: '50% 108%',
+    // Half a token that is nearly white already. Reads as pale stone rather
+    // than as a lit page, and lands a shade above black's mat so the two
+    // near-neutral mats are never mistaken for each other.
+    peak: 0.5,
+    accent: '--mana-colorless',
+    // Sun off the top edge rather than on it, so the visible band is the
+    // accent's pale stone and the warm core never sits under the +1 glyph.
+    light: '50% -28%',
+    bounce: '50% 112%',
     sweep: 178,
     art: ['Elesh Norn, Grand Cenobite', 'Approach of the Second Sun', 'Wrath of God', 'Sun Titan', 'Plains'],
   },
@@ -113,9 +138,9 @@ export const MAT_DEFINITIONS: Record<MatColor, MatDefinition> = {
     label: 'Blue',
     epithet: 'Depth · the drowned tide',
     token: '--mana-blue',
-    intensity: 0.82,
-    light: '22% 8%',
-    bounce: '86% 92%',
+    peak: 0.86,
+    light: '18% 4%',
+    bounce: '88% 96%',
     sweep: 200,
     art: ['Cyclonic Rift', 'Consecrated Sphinx', 'Counterspell', 'Brainstorm', 'Island'],
   },
@@ -124,11 +149,12 @@ export const MAT_DEFINITIONS: Record<MatColor, MatDefinition> = {
     label: 'Black',
     epithet: 'Rot · the low mire',
     token: '--mana-black',
-    // The token is a desaturated violet-grey; it needs headroom to read as a
-    // colour at all rather than as more charcoal.
-    intensity: 1,
-    light: '76% 12%',
-    bounce: '14% 96%',
+    // The darkest mat by design. A violet-grey token held low reads as rot
+    // rather than as lavender, and black's seat should be the one the eye
+    // passes over.
+    peak: 0.34,
+    light: '80% 4%',
+    bounce: '10% 100%',
     sweep: 155,
     art: ['Sheoldred, the Apocalypse', 'Damnation', "Bolas's Citadel", 'Gray Merchant of Asphodel', 'Swamp'],
   },
@@ -137,10 +163,11 @@ export const MAT_DEFINITIONS: Record<MatColor, MatDefinition> = {
     label: 'Red',
     epithet: 'Fury · the ember floor',
     token: '--mana-red',
-    intensity: 0.78,
-    // Fire comes from below. The one mat lit from the bottom.
-    light: '50% 104%',
-    bounce: '18% 6%',
+    peak: 0.8,
+    // Fire comes from below. The one mat lit from the bottom, which is why it
+    // is recognisable across a table even before the hue registers.
+    light: '50% 110%',
+    bounce: '14% 0%',
     sweep: 12,
     art: ['Blasphemous Act', 'Terror of the Peaks', 'Inferno Titan', 'Lightning Bolt', 'Mountain'],
   },
@@ -149,9 +176,9 @@ export const MAT_DEFINITIONS: Record<MatColor, MatDefinition> = {
     label: 'Green',
     epithet: 'Growth · the deep canopy',
     token: '--mana-green',
-    intensity: 0.9,
-    light: '28% 4%',
-    bounce: '80% 88%',
+    peak: 0.9,
+    light: '24% 0%',
+    bounce: '84% 92%',
     sweep: 168,
     art: ['Craterhoof Behemoth', 'Avenger of Zendikar', 'Vorinclex, Voice of Hunger', 'Cultivate', 'Forest'],
   },
@@ -199,34 +226,50 @@ interface ToneSpec {
 const TONE: Record<MatTone, ToneSpec> = {
   seat: {
     gain: 1,
-    scrim: 0.22,
-    center: 0.4,
-    vignette: 0.5,
-    art: 0.5,
-    artFilter: 'saturate(0.5) brightness(0.42) contrast(1.08)',
+    // No flat wash at all on the live board. Contrast is bought where it is
+    // actually needed — the pool under the number — instead of by greying out
+    // the whole mat, which is what made five colours look like one.
+    scrim: 0,
+    center: 0.5,
+    vignette: 0.42,
+    // The art is allowed to be genuinely visible here — this is the surface
+    // people look at for two hours, and the pool above keeps the number safe
+    // regardless of what the illustration is doing underneath it.
+    art: 0.72,
+    artFilter: 'saturate(0.68) brightness(0.58) contrast(1.1)',
   },
   preview: {
-    gain: 1.08,
-    scrim: 0.1,
-    center: 0.22,
-    vignette: 0.42,
-    art: 0.62,
-    artFilter: 'saturate(0.62) brightness(0.5) contrast(1.06)',
+    gain: 1.22,
+    scrim: 0,
+    center: 0.24,
+    vignette: 0.3,
+    art: 0.72,
+    artFilter: 'saturate(0.78) brightness(0.6) contrast(1.06)',
   },
   swatch: {
-    gain: 1.15,
+    // A 60px tile has almost no room for a gradient to develop, so it is given
+    // the colour flat out. This is the one place the mat is meant to shout.
+    gain: 1.5,
     scrim: 0,
     center: 0,
-    vignette: 0.24,
-    art: 0.72,
-    artFilter: 'saturate(0.75) brightness(0.6) contrast(1.05)',
+    vignette: 0.14,
+    art: 0.82,
+    artFilter: 'saturate(0.9) brightness(0.7) contrast(1.04)',
   },
 };
 
-/** `hsl(var(--mana-x) / a)`, alpha clamped by the mat's own ceiling and the tone. */
-function wash(def: MatDefinition, alpha: number, gain: number): string {
-  const a = Math.max(0, Math.min(0.95, alpha * def.intensity * gain));
-  return `hsl(var(${def.token}) / ${a.toFixed(3)})`;
+/**
+ * One colour layer, as a fraction of this mat's peak.
+ *
+ * `fraction` is relative — 1 means "as bright as this colour is ever allowed to
+ * get" — and the tone's gain can lift a dim layer towards that ceiling but never
+ * through it. That asymmetry is the whole trick: a swatch can be flooded with
+ * colour and a seat can be lit softly, and neither can make a mat brighter than
+ * the legibility budget its `peak` set.
+ */
+function wash(def: MatDefinition, fraction: number, gain: number, token = def.token): string {
+  const a = Math.max(0, Math.min(def.peak, def.peak * fraction * gain));
+  return `hsl(var(${token}) / ${a.toFixed(3)})`;
 }
 
 const ink = (alpha: number) => `hsl(0 0% 0% / ${alpha.toFixed(3)})`;
@@ -261,13 +304,15 @@ export function matSurfaceStyle(color: MatColor, tone: MatTone = 'seat'): CSSPro
     `radial-gradient(126% 118% at 50% 46%, transparent 26%, ${ink(spec.vignette)} 100%)`,
 
     // Ground sweep along the mat's long axis.
-    `linear-gradient(${def.sweep}deg, ${wash(def, 0.26, g)} 0%, transparent 46%, ${wash(def, 0.16, g)} 100%)`,
+    `linear-gradient(${def.sweep}deg, ${wash(def, 0.42, g, def.accent)} 0%, ${wash(def, 0.14, g, def.accent)} 52%, ${wash(def, 0.3, g, def.accent)} 100%)`,
 
     // Bounce off the far corner, so the unlit side is not dead black.
-    `radial-gradient(92% 76% at ${def.bounce}, ${wash(def, 0.2, g)} 0%, transparent 72%)`,
+    `radial-gradient(96% 82% at ${def.bounce}, ${wash(def, 0.42, g, def.accent)} 0%, transparent 74%)`,
 
-    // Key light. The layer that makes the mat that colour.
-    `radial-gradient(122% 96% at ${def.light}, ${wash(def, 0.56, g)} 0%, ${wash(def, 0.2, g)} 38%, transparent 74%)`,
+    // Key light. The layer that makes the mat that colour. Its outer stops fall
+    // back to the accent where one is set, so white's warm core spreads out into
+    // silver instead of flooding the whole mat with gold.
+    `radial-gradient(128% 104% at ${def.light}, ${wash(def, 1, g)} 0%, ${wash(def, 0.44, g, def.accent)} 42%, ${wash(def, 0.1, g, def.accent)} 82%)`,
   ].filter(Boolean) as string[];
 
   return {

@@ -16,66 +16,13 @@ import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { CardImage, CARD_ASPECT, type CardImageSize } from '@/components/cards';
 import { ManaPip } from '@/components/ui/mana-cost';
-import type { PlayerDeck, Standing, Tournament } from './scoring';
-import { commanderCardFor } from './useEventDecks';
-import type { CardArt } from '@/hooks/useCardArt';
+import type { Standing } from './scoring';
+import type { PlayerView } from './playerViews';
 
 /** Matches `CardImage`'s corner geometry so a fallback sits flush with real cards. */
 const CARD_RADIUS = '4.75% / 3.4%';
 
 const WUBRG = ['W', 'U', 'B', 'R', 'G'];
-
-export interface PlayerView {
-  name: string;
-  deck?: PlayerDeck;
-  /** `CardImage`-shaped commander, or null when there is no art to draw. */
-  card: { name: string; image_uris: Record<string, string> } | null;
-  standing?: Standing;
-  /** 1-based position in the current standings; undefined before any round. */
-  rank?: number;
-  dropped: boolean;
-}
-
-/**
- * Build the render model for every player once, at the top of the tree.
- *
- * The alternative — each pairing card resolving its own artwork — costs one
- * Supabase round trip per player on first paint.
- */
-export function buildPlayerViews(
-  tournament: Tournament,
-  standings: Standing[],
-  art: Map<string, CardArt>
-): Map<string, PlayerView> {
-  const rankOf = new Map(standings.map((s, i) => [s.player, i + 1]));
-  const standingOf = new Map(standings.map(s => [s.player, s]));
-
-  return new Map(
-    tournament.players.map(name => {
-      const deck = tournament.decks[name];
-      return [
-        name,
-        {
-          name,
-          deck,
-          card: commanderCardFor(deck, art),
-          standing: standingOf.get(name),
-          rank: rankOf.get(name),
-          dropped: tournament.dropped.includes(name),
-        },
-      ];
-    })
-  );
-}
-
-/** A stand-in view for a seat that is not a real player — BYE, or a bracket TBD. */
-export function placeholderView(name: string): PlayerView {
-  return { name, card: null, dropped: false };
-}
-
-export function viewFor(views: Map<string, PlayerView>, name: string): PlayerView {
-  return views.get(name) ?? placeholderView(name);
-}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

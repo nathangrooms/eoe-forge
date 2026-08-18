@@ -334,7 +334,9 @@ export function PlayHUD({
           disabled={!myTurn || over || ending}
           title={myTurn ? 'End your turn' : `Waiting on ${active?.name ?? 'another seat'}`}
           className={cn(
-            'flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold uppercase tracking-wide transition-colors md:px-5 md:text-sm',
+            // A fixed floor on the width so the label changing from END TURN to
+            // a player's name does not resize the loudest control on screen.
+            'flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold uppercase tracking-wide transition-colors md:min-w-[9.5rem] md:px-5 md:text-sm',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             myTurn && !over
               ? 'bg-destructive text-destructive-foreground shadow-lg shadow-black/50 hover:bg-destructive/90 disabled:opacity-70'

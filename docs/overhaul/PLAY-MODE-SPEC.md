@@ -133,6 +133,26 @@ size at which a Magic card can be read. Raised to 210px, and it should go furthe
 The hand is where a player STUDIES a card before committing to a play, so it is the largest
 element on the table, not a strip of thumbnails along the bottom edge.
 
+### Scale must be adjustable AND automatic
+
+> "Maybe there is a card scale slider for board and hand in the right hand menu or something?"
+> "I loaded in smaller screen and cards went off page - might need to be dynamic to scale cards
+> smaller automatically if that happens - could have 10+ cards in some cases"
+
+Two separate requirements, and both are needed:
+
+1. **A card scale slider**, for board and hand independently, in the right-hand game menu.
+   `src/components/cards/CardSizeSlider.tsx` already exists and persists per surface to
+   localStorage — reuse it rather than writing another.
+2. **Automatic shrink-to-fit.** The chosen size is a CEILING, not a fixed width. A fanned hand of
+   n cards occupies `w + (n-1) * w * (1 - overlap)`, so the renderer solves that for the largest
+   `w` that fits the measured container and clamps to a readable minimum. Implemented in
+   `ViewerHand` via `fitCardWidth` + a `ResizeObserver`; the battlefield needs the same treatment
+   through its existing `overlapFor`.
+
+Without this the hand simply ran off the side of a narrow screen — ten cards at the preferred
+210px need roughly 970px.
+
 The viewer's hand is the largest element on the table. Card sizes throughout play should be
 substantially larger than the current measurements.
 

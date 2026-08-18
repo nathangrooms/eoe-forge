@@ -112,7 +112,9 @@ export function CardPrintingsRow({
   useEffect(() => {
     if (!activeId || !scroller.current) return;
     const el = scroller.current.querySelector<HTMLElement>(`[data-printing="${activeId}"]`);
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    // `nearest`, not `center`: centring the active printing on first paint
+    // scrolls the row for no reason and hides the earliest printings offscreen.
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }, [activeId, ordered.length]);
 
   return (

@@ -13,13 +13,17 @@
  *   - Every tap lands in a pending buffer and shows as a running delta before it
  *     commits. A mis-tap is visible and reversible for over a second, which is
  *     what actually makes mis-taps harmless.
+ *   - The panel sits on its seat's colour mat rather than on flat charcoal.
+ *     Four identical dark rectangles are genuinely hard to tell apart across a
+ *     table; four mats are not. The mat is scenery underneath everything — every
+ *     tap target above it is unchanged, and the mat's own centre pool is what
+ *     keeps a white life total readable on top of the art.
  */
 
 import { useState } from 'react';
 import { Biohazard, Crown, Minus, Plus, Skull, Sparkles, Zap } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { ColorIdentity } from '@/components/ui/mana-cost';
 import {
   lossReasonLabel,
   seatBoxStyle,
@@ -29,6 +33,8 @@ import {
   type Seat,
 } from '@/lib/game';
 
+import { MatSurface } from './MatSurface';
+import type { MatColor } from './mats';
 import { useHoldRepeat } from './useHoldRepeat';
 import { haptic } from './useImmersive';
 import { COUNTER_ENERGY, COUNTER_EXPERIENCE } from './counters';
@@ -101,6 +107,10 @@ export interface PlayerPanelProps {
   seat: Seat;
   view: PlayerView;
   rules: FormatRules;
+  /** The seat's colour, chosen at setup. Decides the mat under this panel. */
+  mat: MatColor;
+  /** `art_crop` for that colour, if the lookup found one. Optional by design. */
+  matArt?: string | null;
   /** False once the game is complete — the reducer rejects further changes. */
   interactive: boolean;
   onNudgeLife: (delta: number) => void;
@@ -180,9 +190,15 @@ function TapHalf({ direction, label, disabled, glyphSize, onStep, onSwipe, reduc
         handlers.onLostPointerCapture();
       }}
     >
+      {/*
+        White at low opacity rather than `text-muted-foreground`. The glyph now
+        sits on whatever the mat's light is doing at the top or bottom edge of
+        the panel, and a mid-grey the same lightness as a lit mat disappears
+        completely. White with a shadow reads on all five, and stays recessive.
+      */}
       <Glyph
         aria-hidden
-        className="shrink-0 text-muted-foreground"
+        className="shrink-0 text-white/45 drop-shadow-[0_1px_2px_hsl(0_0%_0%/0.8)]"
         strokeWidth={2.5}
         style={{ width: glyphSize, height: glyphSize, margin: `calc(${glyphSize} * 0.25)` }}
       />
@@ -207,7 +223,9 @@ function StatusChip({ icon: Icon, value, tone, fontSize, title }: ChipProps) {
     <span
       title={title}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 font-semibold leading-none tabular-nums',
+        // Solid ground under the chip: these sit on artwork now, and a
+        // translucent muted pill loses its icon against a lit patch of mat.
+        'inline-flex items-center gap-1 rounded-full bg-background/75 px-2 py-0.5 font-semibold leading-none tabular-nums',
         tone ?? 'text-muted-foreground',
       )}
       style={{ fontSize }}
@@ -227,6 +245,8 @@ export function PlayerPanel({
   seat,
   view,
   rules,
+  mat,
+  matArt,
   interactive,
   onNudgeLife,
   onOpenDetail,
@@ -256,7 +276,6 @@ export function PlayerPanel({
 
   const energy = view.counters[COUNTER_ENERGY] ?? 0;
   const experience = view.counters[COUNTER_EXPERIENCE] ?? 0;
-  const colors = player.commanders[0]?.colorIdentity ?? [];
 
   const nameCorner = outerCorner(seat);
   const chipCorner = ALONG_EDGE[nameCorner];
@@ -270,10 +289,15 @@ export function PlayerPanel({
           className={cn(
             'absolute inset-1 overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_hsl(0_0%_0%/0.35)]',
             'select-none',
-            dead && 'bg-muted/40',
           )}
           style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         >
+          {/* The mat. First child, inert, and behind everything — the tap halves
+              that follow are painted straight onto it. An eliminated seat keeps
+              its mat, dimmed by the overlay at the bottom of this panel: the pod
+              can still see whose colour that seat was. */}
+          <MatSurface color={mat} art={matArt} tone="seat" />
+
           {canTap && (
             <>
               <TapHalf
@@ -328,13 +352,14 @@ export function PlayerPanel({
             onClick={onOpenDetail}
             aria-label={`${player.name}: open details`}
             className={cn(
-              'absolute flex max-w-[60%] items-center gap-1.5 bg-muted/50 px-2 py-1 text-left font-medium leading-none text-muted-foreground outline-none focus-visible:bg-muted',
+              // Opaque enough to hold its own over artwork: a 50% muted wash was
+              // legible on flat charcoal and is not on a lit corner of a mat.
+              'absolute flex max-w-[60%] items-center gap-1.5 bg-background/70 px-2 py-1 text-left font-medium leading-none text-foreground/85 outline-none focus-visible:bg-background',
               CORNER_POSITION[nameCorner],
             )}
             style={{ fontSize: nameSize, touchAction: 'none' }}
           >
             <span className="truncate">{player.name}</span>
-            {colors.length > 0 && <ColorIdentity colors={colors} size="xs" />}
           </button>
 
           {/*

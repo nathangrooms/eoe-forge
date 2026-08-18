@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
-import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { supabase } from '@/integrations/supabase/client';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 
@@ -13,6 +14,12 @@ import { Section, SectionHeading } from '@/components/marketing/Section';
  * Set names and release dates are fixed facts about printed products; the card
  * counts and all artwork are read live from the synced catalogue, so this
  * section proves the sync claim rather than just asserting it.
+ *
+ * On art_crop: a SET tile legitimately uses one, because the tile stands for a
+ * set and the crop is being used as a landscape texture. A COMMANDER tile does
+ * not — a commander stands for a deck, so it is drawn as a whole 5:7 card
+ * through `CardImage`. That distinction is the whole reason the spotlight below
+ * looks the way it does.
  */
 
 const FEATURED_SETS: { code: string; name: string; released: string }[] = [
@@ -23,6 +30,8 @@ const FEATURED_SETS: { code: string; name: string; released: string }[] = [
   { code: 'soc', name: 'Secrets of Strixhaven Commander', released: 'Apr 2026' },
   { code: 'tmt', name: 'Teenage Mutant Ninja Turtles', released: 'Mar 2026' },
 ];
+
+const SET_NAME = new Map(FEATURED_SETS.map(s => [s.code, s.name]));
 
 interface SetTile {
   code: string;
@@ -37,10 +46,46 @@ interface Commander {
   id: string;
   name: string;
   type_line: string;
-  mana_cost: string | null;
   color_identity: string[] | null;
   set_code: string;
+  layout: string | null;
+  faces: unknown;
   image_uris: Record<string, string> | null;
+}
+
+/**
+ * One commander per featured set, in the order the sets are listed.
+ *
+ * Straight `.slice(0, 6)` on the query result returns six cards from whichever
+ * set happens to sort first — twenty-four of the sixty rows come from a single
+ * Commander set — so the spotlight would show six Marvel cards under a heading
+ * about six sets. Round-robin keeps the claim and the picture in agreement.
+ */
+function oneCommanderPerSet(rows: Commander[], limit: number): Commander[] {
+  const bySet = new Map<string, Commander[]>();
+  for (const row of rows) {
+    const bucket = bySet.get(row.set_code);
+    if (bucket) bucket.push(row);
+    else bySet.set(row.set_code, [row]);
+  }
+
+  const picked: Commander[] = [];
+  const seen = new Set<string>();
+  // Several passes, so a set with only one legend still contributes and the
+  // remaining slots fill from the sets that have more.
+  for (let round = 0; picked.length < limit && round < 8; round++) {
+    let progressed = false;
+    for (const { code } of FEATURED_SETS) {
+      if (picked.length >= limit) break;
+      const candidate = (bySet.get(code) ?? [])[round];
+      if (!candidate || seen.has(candidate.name)) continue;
+      seen.add(candidate.name);
+      picked.push(candidate);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return picked;
 }
 
 export function HomeNewSets() {
@@ -65,9 +110,7 @@ export function HomeNewSets() {
             .not('image_uris', 'is', null)
             .limit(25);
 
-          const pick = (data ?? []).find(
-            (c: any) => c.image_uris?.art_crop
-          ) as any;
+          const pick = (data ?? []).find((c: any) => c.image_uris?.art_crop) as any;
 
           return {
             ...s,
@@ -85,7 +128,7 @@ export function HomeNewSets() {
     (async () => {
       const { data } = await supabase
         .from('cards')
-        .select('id,name,type_line,mana_cost,color_identity,set_code,image_uris')
+        .select('id,name,type_line,color_identity,set_code,layout,faces,image_uris')
         .in('set_code', FEATURED_SETS.map(s => s.code))
         .eq('is_legendary', true)
         .ilike('type_line', '%Creature%')
@@ -93,9 +136,9 @@ export function HomeNewSets() {
         .limit(60);
 
       const withArt = ((data ?? []) as unknown as Commander[]).filter(
-        c => c.image_uris?.art_crop
+        c => c.image_uris?.large || c.image_uris?.normal
       );
-      setCommanders(withArt.slice(0, 6));
+      setCommanders(oneCommanderPerSet(withArt, 6));
     })();
   }, []);
 
@@ -106,7 +149,7 @@ export function HomeNewSets() {
         lead="The catalogue syncs from Scryfall every night, so a set is searchable and buildable as soon as it is spoiled — not months later."
       />
 
-      {/* ---- set tiles ---- */}
+      {/* ---- set tiles: art_crop is correct here, a tile stands for a SET ---- */}
       <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tiles === null
           ? Array.from({ length: 6 }).map((_, i) => (
@@ -131,14 +174,12 @@ export function HomeNewSets() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-4">
                   <div className="flex items-center gap-2">
-                    <span className="rounded border border-border/25 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/80">
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/90">
                       {t.code}
                     </span>
                     <span className="text-[11px] text-white/60">{t.released}</span>
                   </div>
-                  <h3 className="mt-1.5 text-lg font-medium leading-tight text-white">
-                    {t.name}
-                  </h3>
+                  <h3 className="mt-1.5 text-lg font-medium leading-tight text-white">{t.name}</h3>
                   <p className="text-xs text-white/70">
                     {t.count.toLocaleString()} cards in the catalogue
                   </p>
@@ -147,44 +188,52 @@ export function HomeNewSets() {
             ))}
       </div>
 
-      {/* ---- commander spotlight ---- */}
-      <div className="mt-20">
-        <h3 className="text-center text-xl font-medium">
-          Fresh commanders, already legal to build
-        </h3>
+      {/* ---- commander spotlight: WHOLE cards at 5:7, one per set ---- */}
+      <div className="mt-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Fresh commanders, already legal to build
+          </h3>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            One legend from each set above, printed in full — because a commander is a whole card,
+            not a strip of its artwork.
+          </p>
+        </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
           {commanders === null
             ? Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+                <div key={i}>
+                  <CardImageSkeleton size="lg" fill />
+                  <Skeleton className="mt-3 h-4 w-3/4" />
+                </div>
               ))
             : commanders.map(c => (
-                <div
-                  key={c.id}
-                  className="group relative flex h-28 overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20"
-                >
-                  <div className="relative w-32 shrink-0 overflow-hidden">
-                    <img
-                      src={c.image_uris!.art_crop}
-                      alt={c.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 p-3">
-                    <p className="truncate text-sm font-medium">{c.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{c.type_line}</p>
-                    <div className="flex items-center gap-2">
-                      <ColorIdentity colors={c.color_identity} size="xs" />
-                      <ManaCost cost={c.mana_cost} size="xs" />
+                <figure key={c.id} className="group">
+                  <CardImage
+                    card={c}
+                    size="md"
+                    fill
+                    className="transition-transform duration-500 group-hover:-translate-y-1.5"
+                  />
+                  <figcaption className="mt-3.5">
+                    <p className="text-sm font-medium leading-snug line-clamp-2">{c.name}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground line-clamp-2">
+                      {SET_NAME.get(c.set_code) ?? c.set_code.toUpperCase()}
+                    </p>
+                    {/* Colour identity only. The card above already prints the
+                        mana cost in its own top-right corner, and repeating it
+                        under the art reads as a rendering slip. Identity is the
+                        datum a commander is actually chosen on. */}
+                    <div className="mt-2">
+                      <ColorIdentity colors={c.color_identity} size="sm" />
                     </div>
-                  </div>
-                </div>
+                  </figcaption>
+                </figure>
               ))}
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-14 text-center">
           <Button asChild size="lg" variant="outline">
             <Link to="/cards">
               Browse the full catalogue

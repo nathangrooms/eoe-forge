@@ -7,8 +7,9 @@ import { HomeNewSets } from '@/components/marketing/HomeNewSets';
 import { HomeFormats, HomeColors, HomeCatalogue } from '@/components/marketing/HomeStats';
 import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
 import {
-  HomeSearch, HomeStorage, HomePortability, HomePower, HomeScanner, HomeBrain, HomePrecons,
+  HomeSearch, HomeStorage, HomePortability, HomePower, HomeScanner, HomeBrain,
 } from '@/components/marketing/HomeFeatureSections';
+import { HomePrecons } from '@/components/marketing/HomePrecons';
 import { FAQSection } from '@/components/marketing/FAQSection';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';

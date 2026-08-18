@@ -155,6 +155,7 @@ export function TableView({
   selectedIds,
   lifeDeltas,
   bottomInset = 0,
+  topInset = 0,
   className,
 }: TableViewProps) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -218,17 +219,20 @@ export function TableView({
   }, [state.combat.attackers, state.cards, state.players, seatBySeatIndex, board]);
 
   return (
-    <div className={cn('relative w-full overflow-hidden rounded-2xl', className)}>
-      {/* The table itself, under every mat. */}
-      <Playmat tone="board" rounded="rounded-2xl" className="absolute inset-0 h-full w-full" />
+    <div className={cn('relative w-full overflow-hidden', className)}>
+      {/* The table itself, under every mat. Full bleed: a game board does not
+          have a corner radius, and the viewport edge is the edge of the table. */}
+      <Playmat tone="board" rounded="rounded-none" className="absolute inset-0 h-full w-full" />
 
       {/* The seating area proper. Held off the bottom edge by `bottomInset` so
-          the viewer's fanned hand has somewhere to sit without covering a mat.
-          It is also what gets measured — the seats are positioned against it. */}
+          the viewer's fanned hand has somewhere to sit without covering a mat,
+          and off the top by `topInset` so the floating HUD is not sitting on the
+          far seat's board. It is also what gets measured — the seats are
+          positioned against it. */}
       <div
         ref={boardRef}
-        className="absolute left-0 right-0 top-0"
-        style={{ bottom: bottomInset }}
+        className="absolute left-0 right-0"
+        style={{ top: topInset, bottom: bottomInset }}
       >
         {layout.seats.map(seat => {
           const player = state.players[seat.index];

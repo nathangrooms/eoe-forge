@@ -16,6 +16,7 @@
  * in two tabs. All of it collapses to nothing under `prefers-reduced-motion`.
  */
 
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
@@ -60,6 +61,45 @@ function overlapFraction(count: number): number {
   return Math.min(0.6, Math.max(0.24, 1 - 7 / count));
 }
 
+/** Smallest a hand card may shrink to before it stops being readable at all. */
+const MIN_HAND_CARD = 76;
+
+/**
+ * Widest card that still lets `count` cards fit inside `available` pixels.
+ *
+ * A fanned hand of n cards occupies `w + (n-1) * w * (1 - overlap)`, so solving
+ * for w gives the largest card that fits. Without this the hand used a fixed
+ * width and simply ran off the side of a narrow screen — ten cards at the
+ * preferred size need roughly 970px.
+ */
+function fitCardWidth(available: number, count: number, preferred: number): number {
+  if (count <= 0 || available <= 0) return preferred;
+  const overlap = overlapFraction(count);
+  const spans = 1 + (count - 1) * (1 - overlap);
+  const fits = Math.floor(available / spans);
+  return Math.max(MIN_HAND_CARD, Math.min(preferred, fits));
+}
+
+/** Width of an element, kept current across resizes and orientation changes. */
+function useMeasuredWidth<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const next = entries[0]?.contentRect.width ?? 0;
+      setWidth(prev => (Math.abs(prev - next) > 1 ? next : prev));
+    });
+    observer.observe(el);
+    setWidth(el.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+}
+
 export function ViewerHand({
   state,
   viewerPlayerId,
@@ -83,6 +123,15 @@ export function ViewerHand({
     : [];
   const cards = [...hand, ...command];
 
+  const [fanRef, fanWidth] = useMeasuredWidth<HTMLDivElement>();
+  /* Shrink to fit rather than running off the edge. `cardWidth` is the ceiling
+     (the size the player asked for), not a fixed value. */
+  const renderedWidth = fitCardWidth(
+    fanWidth ? fanWidth - 16 : 0,
+    cards.length,
+    cardWidth
+  );
+
   const { step, arc } = fanGeometry(cards.length);
   const middle = (cards.length - 1) / 2;
   const overlap = overlapFraction(cards.length);
@@ -98,7 +147,7 @@ export function ViewerHand({
   }
 
   return (
-    <div className={cn('flex items-end justify-center', className)}>
+    <div ref={fanRef} className={cn('flex items-end justify-center overflow-hidden', className)}>
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
           const fromCommand = index >= hand.length;
@@ -147,7 +196,7 @@ export function ViewerHand({
               }
               style={{
                 transformOrigin: 'bottom center',
-                marginLeft: index === 0 ? 0 : -cardWidth * overlap,
+                marginLeft: index === 0 ? 0 : -renderedWidth * overlap,
                 zIndex: index,
               }}
               className="relative"
@@ -161,7 +210,7 @@ export function ViewerHand({
               >
                 <GameCardView
                   card={card}
-                  width={cardWidth}
+                  width={renderedWidth}
                   ignoreTapped
                   dimmed={!playable && !freeCast}
                   title={label}

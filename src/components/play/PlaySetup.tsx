@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { seatingFor, seatingVariants, type SeatingVariant } from '@/lib/game';
+import { defaultSeatingFor } from './seatingDefaults';
 import type { DeckSummary } from '@/lib/play/deckSource';
 
 export interface PlaySetupValue {
@@ -113,7 +114,15 @@ export function PlaySetup({
                 key={count}
                 type="button"
                 onClick={() => {
-                  onChange({ ...value, playerCount: count, variant: 'table' });
+                  // Changing the count changes which arrangements exist, so the
+                  // variant resets to whatever that pod size should open in —
+                  // which on a desktop screen means a four-player pod opens in
+                  // quads, not the pinwheel.
+                  onChange({
+                    ...value,
+                    playerCount: count,
+                    variant: defaultSeatingFor(count),
+                  });
                 }}
                 aria-pressed={value.playerCount === count}
                 className={cn(

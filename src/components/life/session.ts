@@ -26,7 +26,7 @@ import {
   type SeatingVariant,
 } from '@/lib/game';
 
-import { defaultMats, isMatColor, nextFreeMat, type MatColor } from './mats';
+import { DEFAULT_MAT_ORDER, defaultMats, isMatColor, nextFreeMat, type MatColor } from './mats';
 
 /* -------------------------------------------------------------------------- */
 /* Config                                                                     */
@@ -210,12 +210,12 @@ export function buildGame(config: LifeGameConfig, now: number): GameState {
           {
             id: commanderIdFor(id, PRIMARY_COMMANDER),
             name,
-            colorIdentity: seat.colors ?? [],
+            colorIdentity: [seat.mat],
           },
           {
             id: commanderIdFor(id, PARTNER_COMMANDER),
             name: `${name} (partner)`,
-            colorIdentity: seat.colors ?? [],
+            colorIdentity: [seat.mat],
           },
         ],
       };
@@ -231,10 +231,14 @@ export function buildGame(config: LifeGameConfig, now: number): GameState {
 export function syncConfig(config: LifeGameConfig, state: GameState): LifeGameConfig {
   return {
     ...config,
-    seats: state.players.map((player, index) => ({
-      name: player.name || seatName(config.seats[index] ?? { name: '', colors: [] }, index),
-      colors: (player.commanders[0]?.colorIdentity ?? config.seats[index]?.colors ?? []) as ManaColor[],
-    })),
+    seats: state.players.map((player, index) => {
+      const seat = config.seats[index];
+      const live = player.commanders[0]?.colorIdentity?.find(isMatColor);
+      return {
+        name: player.name || seatName(seat ?? { name: '', mat: 'W' }, index),
+        mat: live ?? seat?.mat ?? DEFAULT_MAT_ORDER[index % DEFAULT_MAT_ORDER.length],
+      };
+    }),
   };
 }
 
@@ -316,12 +320,20 @@ export function loadSession(): LifeSession | null {
     if (!looksLikeGameState(parsed.state)) return null;
 
     const options = parsed.options ?? defaultOptions();
+    const rebuilt: LifeGameConfig = {
+      format: parsed.state.format,
+      startingLife: parsed.state.rules.startingLife,
+      seats: parsed.state.players.map((player, index) => ({
+        name: player.name,
+        mat: player.commanders?.[0]?.colorIdentity?.find(isMatColor)
+          ?? DEFAULT_MAT_ORDER[index % DEFAULT_MAT_ORDER.length],
+      })),
+    };
+
     return {
-      config: parsed.config ?? {
-        format: parsed.state.format,
-        startingLife: parsed.state.rules.startingLife,
-        seats: parsed.state.players.map(p => ({ name: p.name, colors: [] })),
-      },
+      // A game saved before mats existed carries `colors` on each seat; run it
+      // through the migration rather than dropping the pod on the floor.
+      config: normaliseConfig(parsed.config, rebuilt),
       state: parsed.state,
       past: Array.isArray(parsed.past) ? parsed.past.filter(looksLikeGameState) : [],
       options: {
@@ -360,4 +372,99 @@ export function clearSession(): void {
   } catch {
     /* nothing to do */
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Remembered setup                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What the table looked like last time, kept separately from the session.
+ *
+ * The session is a *game*; these are the table's habits, and they have to
+ * outlive the game or "quick start" would only work while a stale pod was still
+ * sitting in storage. The same four people, the same colours and the same
+ * format come back every week — remembering them is the difference between one
+ * press and a minute of tapping.
+ *
+ * Deliberately small and deliberately optional: every field is re-validated on
+ * read, and a corrupt or absent record just means the stock defaults.
+ */
+export const LIFE_PREFS_KEY = 'dm.life.prefs.v1';
+
+export interface LifePrefs {
+  playerCount: number;
+  format: Format;
+  seats: LifeSeatConfig[];
+  /** Only set when the table played on a total the format does not imply. */
+  startingLife: number | null;
+}
+
+interface StoredPrefs extends LifePrefs {
+  v: 1;
+  savedAt: number;
+}
+
+export function loadPrefs(): LifePrefs | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LIFE_PREFS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredPrefs;
+    if (!parsed || parsed.v !== 1) return null;
+
+    const count = PLAYER_COUNTS.includes(parsed.playerCount as PlayerCount)
+      ? parsed.playerCount
+      : 4;
+    const format = LIFE_FORMATS.some(entry => entry.format === parsed.format)
+      ? parsed.format
+      : 'commander';
+    const seats = resizeSeats(
+      Array.isArray(parsed.seats) ? parsed.seats.map(normaliseSeat) : defaultSeats(count),
+      count,
+    );
+    const life =
+      typeof parsed.startingLife === 'number' &&
+      parsed.startingLife >= MIN_STARTING_LIFE &&
+      parsed.startingLife <= MAX_STARTING_LIFE
+        ? parsed.startingLife
+        : null;
+
+    return { playerCount: count, format, seats, startingLife: life };
+  } catch {
+    return null;
+  }
+}
+
+export function savePrefs(config: LifeGameConfig): void {
+  if (typeof window === 'undefined') return;
+  const implied = startingLifeFor(config.format, config.seats.length);
+  const payload: StoredPrefs = {
+    v: 1,
+    savedAt: Date.now(),
+    playerCount: config.seats.length,
+    format: config.format,
+    seats: config.seats.map(seat => ({ name: seat.name, mat: seat.mat })),
+    startingLife: config.startingLife === implied ? null : config.startingLife,
+  };
+  try {
+    window.localStorage.setItem(LIFE_PREFS_KEY, JSON.stringify(payload));
+  } catch {
+    /* the table just starts from the stock defaults next time */
+  }
+}
+
+/**
+ * The config setup opens on when there is no game to carry forward: last
+ * week's table if we have it, otherwise a four-player Commander pod. Either way
+ * it is complete and startable without touching a single control.
+ */
+export function quickStartConfig(): LifeGameConfig {
+  const prefs = loadPrefs();
+  if (!prefs) return defaultConfig(4, 'commander');
+  return {
+    format: prefs.format,
+    startingLife: prefs.startingLife ?? startingLifeFor(prefs.format, prefs.playerCount),
+    seats: prefs.seats,
+  };
 }

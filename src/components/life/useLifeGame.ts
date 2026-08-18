@@ -371,11 +371,18 @@ export function useLifeGame(): LifeGame {
       for (const key of Object.keys(timers.current)) clearTimer(key);
       commitPending({});
       const existing = sessionRef.current;
-      // Seating preference carries over; partner flags do not — they belong to
-      // the pod that just got up from the table.
+      // Seating preference carries over only while the pod is the same size. A
+      // variant is chosen for a specific number of seats — carrying "table"
+      // from a two-player game into a four-player one silently swaps the quads
+      // for the pinwheel, and setup would have just previewed the quads.
+      const sameSize = existing?.state.players.length === config.seats.length;
+      // Partner flags never carry over — they belong to the pod that just got
+      // up from the table.
       commitSession(
         newSession(config, Date.now(), {
-          variant: existing?.options.variant ?? defaultVariantFor(config.seats.length),
+          variant:
+            (sameSize ? existing?.options.variant : undefined)
+            ?? defaultVariantFor(config.seats.length),
           partners: {},
         }),
       );

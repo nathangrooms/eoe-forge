@@ -4,9 +4,11 @@ import { HomeHero } from '@/components/marketing/HomeHero';
 import { HomeCollection, HomeCTA } from '@/components/marketing/HomeSections';
 import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { HomeNewSets } from '@/components/marketing/HomeNewSets';
+import { HomeFormats, HomeColors, HomeCatalogue } from '@/components/marketing/HomeStats';
+import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
 import {
-  HomeFormats, HomeColors, HomeCatalogue, HomeBuilderPreview,
-} from '@/components/marketing/HomeStats';
+  HomeSearch, HomeStorage, HomePortability, HomePower, HomeScanner, HomeBrain, HomePrecons,
+} from '@/components/marketing/HomeFeatureSections';
 import { FAQSection } from '@/components/marketing/FAQSection';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
@@ -134,9 +136,16 @@ export default function Homepage() {
       <HomeHero cardCount={cardCount} />
       <HomeShowcase />
       <HomeCatalogue />
+      <HomeAppVisual />
+      <HomeStorage />
+      <HomeSearch />
       <HomeNewSets />
-      <HomeBuilderPreview />
+      <HomePower />
+      <HomeScanner />
+      <HomeBrain />
       <HomeFormats />
+      <HomePrecons />
+      <HomePortability />
       <HomeColors />
       <HomeCollection />
       <FAQSection />

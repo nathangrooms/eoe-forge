@@ -112,7 +112,7 @@ function ManaCurve({ cards }: { cards: ShowcaseCard[] }) {
 function DeckRow({ card }: { card: ShowcaseCard }) {
   const usd = card.prices?.usd;
   return (
-    <div className="flex items-center gap-3 border-b px-3 py-2 last:border-0">
+    <div className="flex items-center gap-3 px-3 py-2 odd:bg-foreground/[0.03]">
       <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">1</span>
       <span className="min-w-0 flex-1 truncate text-sm">{card.name}</span>
       <ManaCost cost={card.mana_cost} size="xs" className="shrink-0" />
@@ -132,9 +132,9 @@ function BentoTile({
   children?: React.ReactNode; icon: React.ElementType;
 }) {
   return (
-    <div className={cn('flex flex-col overflow-hidden rounded-xl border bg-card', className)}>
+    <div className={cn('flex flex-col overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20', className)}>
       <div className="p-6 pb-4">
-        <div className="mb-3 inline-flex rounded-md border bg-background p-2">
+        <div className="mb-3 inline-flex rounded-md bg-muted/60 p-2">
           <Icon className="h-4 w-4" />
         </div>
         <h3 className="font-medium">{title}</h3>
@@ -172,7 +172,7 @@ export function HomeShowcase() {
   const list = cards ?? [];
 
   return (
-    <section className="border-t py-24">
+    <section className="py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -199,17 +199,17 @@ export function HomeShowcase() {
 
       {/* bento */}
       <div className="container mx-auto mt-16 px-4">
-        <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-[1500px] gap-4 lg:grid-cols-3">
           <BentoTile
             icon={Search}
             title="Search the whole card pool"
             body="Every paper card, synced nightly from Scryfall. Costs render as pips, not as text."
             className="lg:col-span-2"
           >
-            <div className="rounded-lg border bg-background">
+            <div className="rounded-lg bg-muted/30">
               {loading
                 ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="border-b px-3 py-2 last:border-0">
+                    <div key={i} className="px-3 py-2 odd:bg-foreground/[0.03]">
                       <Skeleton className="h-4 w-full" />
                     </div>
                   ))
@@ -239,7 +239,7 @@ export function HomeShowcase() {
                 : list.slice(0, 10).map(c => (
                     <span
                       key={c.id}
-                      className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1.5"
+                      className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5"
                     >
                       <ColorIdentity colors={c.color_identity} size="xs" />
                       <span className="max-w-[10rem] truncate text-xs">{c.name}</span>

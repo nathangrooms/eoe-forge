@@ -45,7 +45,7 @@ export function HomeFormats() {
   }, []);
 
   return (
-    <section className="border-t py-24">
+    <section className="py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -57,9 +57,9 @@ export function HomeFormats() {
           </p>
         </div>
 
-        <div className="mx-auto mt-14 grid max-w-5xl gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto mt-14 grid max-w-[1200px] gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FORMATS.map(f => (
-            <div key={f.key} className="bg-card p-6">
+            <div key={f.key} className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
               <div className="text-3xl font-semibold tabular-nums tracking-tight">
                 {counts ? counts[f.key].toLocaleString() : <Skeleton className="h-8 w-24" />}
               </div>
@@ -104,7 +104,7 @@ export function HomeColors() {
   const max = counts ? Math.max(...Object.values(counts)) : 1;
 
   return (
-    <section className="border-t bg-card/30 py-24">
+    <section className="bg-card/40 py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -176,9 +176,9 @@ export function HomeCatalogue() {
   ];
 
   return (
-    <section className="border-t py-20">
+    <section className="py-20">
       <div className="container mx-auto px-4">
-        <div className="mx-auto grid max-w-5xl gap-8 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-[1200px] gap-8 sm:grid-cols-3">
           {tiles.map(t => (
             <div key={t.label} className="text-center">
               <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
@@ -249,7 +249,7 @@ export function HomeBuilderPreview() {
   }
 
   return (
-    <section className="border-t bg-card/30 py-24">
+    <section className="bg-card/40 py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -261,9 +261,9 @@ export function HomeBuilderPreview() {
           </p>
         </div>
 
-        <div className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-xl border bg-background">
+        <div className="mx-auto mt-14 max-w-[1200px] overflow-hidden rounded-xl bg-background shadow-2xl shadow-black/40">
           {/* toolbar */}
-          <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 bg-muted/40 px-4 py-3">
             <span className="text-sm font-medium">Untitled Commander deck</span>
             <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               Commander
@@ -273,9 +273,9 @@ export function HomeBuilderPreview() {
             </span>
           </div>
 
-          <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {grouped.map(g => (
-              <div key={g.label} className="bg-background p-4">
+              <div key={g.label} className="rounded-lg bg-muted/25 p-4">
                 <div className="mb-3 flex items-baseline justify-between">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {g.label}

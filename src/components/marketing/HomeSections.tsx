@@ -70,7 +70,7 @@ const FEATURES = [
 
 export function HomeFeatures() {
   return (
-    <section id="features" className="border-t bg-background py-24 sm:py-32">
+    <section id="features" className="py-24 sm:py-32">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -81,7 +81,7 @@ export function HomeFeatures() {
           </p>
         </div>
 
-        <div className="mx-auto mt-16 grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto mt-16 grid max-w-[1500px] gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(f => {
             const Icon = f.icon;
             return (
@@ -114,7 +114,7 @@ const COLOR_LABELS: { c: string; label: string }[] = [
 
 export function HomeColorIdentity() {
   return (
-    <section className="border-t bg-muted/30 py-20">
+    <section className="bg-card/40 py-20">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl text-balance">
@@ -143,9 +143,9 @@ export function HomeColorIdentity() {
 
 export function HomeCollection() {
   return (
-    <section className="border-t py-24">
+    <section className="py-24">
       <div className="container mx-auto px-4">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-[1500px] items-center gap-12 lg:grid-cols-2">
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-balance">
               Your collection, not just your decklists
@@ -180,7 +180,7 @@ export function HomeCollection() {
           </div>
 
           <div className="relative">
-            <div className="overflow-hidden rounded-xl border shadow-glow-elegant">
+            <div className="overflow-hidden rounded-2xl shadow-2xl shadow-black/40">
               <img
                 src="/hero-768.webp"
                 alt="The five colours of Magic rendered as painted panels"
@@ -200,7 +200,7 @@ export function HomeCollection() {
 
 export function HomeCTA() {
   return (
-    <section className="border-t bg-muted/30 py-24">
+    <section className="bg-card/40 py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-balance">

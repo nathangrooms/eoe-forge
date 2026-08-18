@@ -99,7 +99,7 @@ export function HomeNewSets() {
   }, []);
 
   return (
-    <section className="border-t py-24">
+    <section className="py-24">
       <div className="container mx-auto px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
@@ -112,7 +112,7 @@ export function HomeNewSets() {
         </div>
 
         {/* ---- set tiles ---- */}
-        <div className="mx-auto mt-14 grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto mt-14 grid max-w-[1500px] gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiles === null
             ? Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="aspect-[16/9] rounded-xl" />
@@ -120,7 +120,7 @@ export function HomeNewSets() {
             : tiles.map(t => (
                 <article
                   key={t.code}
-                  className="group relative aspect-[16/9] overflow-hidden rounded-xl border"
+                  className="group relative aspect-[16/9] overflow-hidden rounded-xl shadow-lg shadow-black/30"
                 >
                   {t.art ? (
                     <img
@@ -153,7 +153,7 @@ export function HomeNewSets() {
         </div>
 
         {/* ---- commander spotlight ---- */}
-        <div className="mx-auto mt-20 max-w-6xl">
+        <div className="mx-auto mt-20 max-w-[1500px]">
           <h3 className="text-center text-xl font-medium">
             Fresh commanders, already legal to build
           </h3>
@@ -166,7 +166,7 @@ export function HomeNewSets() {
               : commanders.map(c => (
                   <div
                     key={c.id}
-                    className="group relative flex h-28 overflow-hidden rounded-xl border bg-card"
+                    className="group relative flex h-28 overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20"
                   >
                     <div className="relative w-32 shrink-0 overflow-hidden">
                       <img

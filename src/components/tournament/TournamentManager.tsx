@@ -55,19 +55,23 @@ export function TournamentManager() {
   /** null follows the live round; a number pins the board to a played round. */
   const [pinnedRound, setPinnedRound] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  /** Storage is read in an effect, so the first paint has nothing yet. Without
+   *  this the empty state flashes for a frame on every visit with saved events. */
+  const [loaded, setLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { decks, loading: decksLoading } = useMyDecks();
 
   useEffect(() => {
-    const loaded = loadTournaments();
-    setTournaments(loaded);
-    if (loaded.length === 0) return;
+    const saved = loadTournaments();
+    setTournaments(saved);
+    setLoaded(true);
+    if (saved.length === 0) return;
 
     // /tournament?event=<id> is how the create route hands control back.
     const requested = searchParams.get('event');
-    const match = requested ? loaded.find(t => t.id === requested) : null;
-    setSelectedId((match ?? loaded[0]).id);
+    const match = requested ? saved.find(t => t.id === requested) : null;
+    setSelectedId((match ?? saved[0]).id);
     // Reading storage is a mount-time concern.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -85,14 +89,17 @@ export function TournamentManager() {
     }
   }, []);
 
-  const selected = tournaments.find(t => t.id === selectedId) ?? null;
+  // Falls back to the first event rather than showing nothing, so a stale or
+  // missing id — a deleted event, a bad `?event=` — can never strand the page.
+  const selected = tournaments.find(t => t.id === selectedId) ?? tournaments[0] ?? null;
+  const selectedKey = selected?.id ?? null;
 
   const updateSelected = useCallback(
     (mutate: (t: Tournament) => Tournament) => {
-      if (!selectedId) return;
-      save(tournaments.map(t => (t.id === selectedId ? mutate(t) : t)));
+      if (!selectedKey) return;
+      save(tournaments.map(t => (t.id === selectedKey ? mutate(t) : t)));
     },
-    [save, selectedId, tournaments]
+    [save, selectedKey, tournaments]
   );
 
   const standings = useMemo(
@@ -115,7 +122,7 @@ export function TournamentManager() {
   // A new event, or a round advancing, snaps the board back to the live round.
   useEffect(() => {
     setPinnedRound(null);
-  }, [selectedId, liveRound]);
+  }, [selectedKey, liveRound]);
 
   useEffect(() => {
     if (!selected) return;
@@ -382,8 +389,8 @@ export function TournamentManager() {
 
   /* ---------------- render ---------------- */
 
-  if (tournaments.length === 0) return <EventEmptyState />;
-  if (!selected) return <EventEmptyState />;
+  if (!loaded) return <div className="h-64 rounded-2xl bg-muted/20" aria-hidden="true" />;
+  if (!selected) return <EventEmptyState decks={decks} loading={decksLoading} />;
 
   const currentRoundData = selected.rounds.find(r => r.number === selected.currentRound);
   const roundComplete = currentRoundData?.status === 'completed';
@@ -391,7 +398,7 @@ export function TournamentManager() {
 
   return (
     <div className="space-y-4">
-      <EventRail tournaments={tournaments} selectedId={selectedId} onSelect={selectEvent} />
+      <EventRail tournaments={tournaments} selectedId={selectedKey} onSelect={selectEvent} />
 
       <EventHeader
         tournament={selected}

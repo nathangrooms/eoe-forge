@@ -113,7 +113,7 @@ function FocusBrackets() {
 const STEPS = [
   {
     title: 'It waits for a clean frame',
-    body: 'Capture is gated on sharpness, so a blurred or moving card is not read at all.',
+    body: 'Auto-capture measures every frame and only fires once the picture has held sharp and still — you are not fighting the shutter.',
   },
   {
     title: 'It forgives a bad read',
@@ -203,7 +203,7 @@ export function HomeScanner() {
         </SectionHeading>
 
         {/* ---------------------------------------------------------- camera */}
-        <div className="mx-auto w-full max-w-[520px]">
+        <div className="mx-auto w-full max-w-[480px]">
           <div className="rounded-[2rem] bg-card p-3 shadow-2xl shadow-black/50">
             {/* status strip */}
             <div className="flex items-center gap-2.5 px-3 pb-3 pt-2">
@@ -216,7 +216,7 @@ export function HomeScanner() {
             </div>
 
             {/* viewfinder */}
-            <div className="relative aspect-[3/4] overflow-hidden rounded-[1.35rem] bg-black">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-black">
               {/* The card lights its own frame — atmosphere from art, not a gradient. */}
               {art && (
                 <img
@@ -260,8 +260,8 @@ export function HomeScanner() {
               </p>
             </div>
 
-            {/* capture controls */}
-            <div className="flex items-center justify-center gap-10 py-6">
+            {/* capture controls — a drawn shutter, so hidden from the a11y tree */}
+            <div aria-hidden className="flex items-center justify-center gap-10 py-6">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/50 text-muted-foreground">
                 <Pause className="h-4 w-4" />
               </span>
@@ -295,7 +295,7 @@ export function HomeScanner() {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{card?.name ?? TARGET}</p>
+                    <p className="min-w-0 truncate text-sm font-medium">{card?.name ?? TARGET}</p>
                     <ManaCost cost={card?.mana_cost ?? '{R}'} size="xs" />
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-muted-foreground">

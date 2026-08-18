@@ -111,10 +111,15 @@ export function CardLegalityGrid({ legalities, className }: CardLegalityGridProp
                 style.tile
               )}
             >
-              <span className={cn('truncate text-sm', style.text)}>{labelFor(key)}</span>
+              {/* Wraps rather than truncates: at the 2-column mobile width
+                  "Duel Commander" and its state share ~180px, and a clipped
+                  format name is worse than a two-line one. */}
+              <span className={cn('min-w-0 text-[0.8rem] leading-tight', style.text)}>
+                {labelFor(key)}
+              </span>
               <span
                 className={cn(
-                  'shrink-0 text-[0.7rem] font-medium uppercase tracking-wide',
+                  'shrink-0 text-[0.65rem] font-medium uppercase tracking-wide',
                   style.text
                 )}
               >

@@ -35,7 +35,6 @@ interface ShowcaseCard {
   mana_cost: string | null;
   cmc: number;
   type_line: string;
-  rarity: string;
   set_code: string;
   layout: string | null;
   faces: unknown;
@@ -196,7 +195,7 @@ export function HomeShowcase() {
          on sight, which is what makes the row read as Magic. */
       const { data } = await supabase
         .from('cards')
-        .select('id,name,mana_cost,cmc,type_line,rarity,set_code,layout,faces,image_uris,prices')
+        .select('id,name,mana_cost,cmc,type_line,set_code,layout,faces,image_uris,prices')
         .in('rarity', ['mythic', 'rare'])
         .not('image_uris', 'is', null)
         .not('prices', 'is', null)
@@ -250,7 +249,7 @@ export function HomeShowcase() {
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-4 px-3 py-2">
-                      <Skeleton className="h-14 w-10 shrink-0 rounded" />
+                      <Skeleton className="h-[4.2rem] w-12 shrink-0 rounded" />
                       <Skeleton className="h-4 flex-1" />
                     </div>
                   ))

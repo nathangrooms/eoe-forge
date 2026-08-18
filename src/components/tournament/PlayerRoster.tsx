@@ -138,7 +138,7 @@ export function PlayerRoster({
                     view.dropped && 'opacity-50'
                   )}
                 >
-                  <div className="w-[52px] shrink-0">
+                  <div className="w-[58px] shrink-0">
                     <CommanderPortrait view={view} size="sm" />
                   </div>
 

@@ -173,17 +173,18 @@ export function HomeFormatPicker() {
     const def = FORMATS.find(f => f.key === active);
     if (!def) return;
 
+    /* The two requests are deliberately NOT awaited together. An exact count
+       over a 30k-row legal pool is far slower than six primary-key lookups, and
+       a Promise.all would hold the cards behind it — the section then paints as
+       six skeletons for as long as the count takes. */
     (async () => {
-      const [rows, total] = await Promise.all([
-        selectCardsWhere(COLUMNS)
-          .eq(`legalities->>${def.key}`, 'legal')
-          .in(
-            'id',
-            def.picks.map(p => p.id)
-          )
-          .limit(def.picks.length),
-        countCardsWhere().eq(`legalities->>${def.key}`, 'legal'),
-      ]);
+      const rows = await selectCardsWhere(COLUMNS)
+        .eq(`legalities->>${def.key}`, 'legal')
+        .in(
+          'id',
+          def.picks.map(p => p.id)
+        )
+        .limit(def.picks.length);
 
       if (!alive) return;
 
@@ -198,9 +199,12 @@ export function HomeFormatPicker() {
         .filter((s): s is Slot => s !== null);
 
       setSlots(prev => ({ ...prev, [def.key]: resolved }));
-      if (typeof total.count === 'number') {
-        setCounts(prev => ({ ...prev, [def.key]: total.count as number }));
-      }
+    })();
+
+    (async () => {
+      const total = await countCardsWhere().eq(`legalities->>${def.key}`, 'legal');
+      if (!alive || typeof total.count !== 'number') return;
+      setCounts(prev => ({ ...prev, [def.key]: total.count as number }));
     })();
 
     return () => {
@@ -243,7 +247,7 @@ export function HomeFormatPicker() {
       {/* The format's real rules, plus the live size of its pool */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>{format.rules}</span>
-        <span aria-hidden="true" className="text-muted-foreground/40">
+        <span aria-hidden="true" className="hidden text-muted-foreground/40 sm:inline">
           ·
         </span>
         <span className="tabular-nums">

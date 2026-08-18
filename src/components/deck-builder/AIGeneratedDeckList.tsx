@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CardImage } from '@/components/cards';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { OracleText } from '@/components/cards/OracleText';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
@@ -14,7 +16,7 @@ import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
-import { 
+import {
   Crown,
   Save,
   RotateCcw,
@@ -24,10 +26,22 @@ import {
   CheckCircle2,
   AlertTriangle,
   BarChart3,
-  Eye
+  Layers,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { categorizeCard, type CardCategory } from '@/components/deck-builder/deck-categories';
+
+/**
+ * The finished deck.
+ *
+ * This is the surface the owner singled out as worth keeping — the EDH analysis
+ * panel, compatibility checker, validation panel, archetype detection, budget
+ * tracker and enhanced analysis all still mount here, unchanged in behaviour.
+ * What changed is the frame around them: the commander is a whole card instead
+ * of a 48px crop, the canonical power score is the first thing on the page
+ * rather than the fifth item in a tab, and nothing is boxed in a border.
+ */
 
 interface AIGeneratedDeckListProps {
   deckName: string;
@@ -44,23 +58,25 @@ interface AIGeneratedDeckListProps {
   onStartOver: () => void;
   onRefreshEdhAnalysis?: () => void;
   isLoadingEdhAnalysis?: boolean;
+  isSaving?: boolean;
 }
 
-export function AIGeneratedDeckList({ 
-  deckName, 
-  cards, 
-  commander, 
-  power, 
+export function AIGeneratedDeckList({
+  deckName,
+  cards,
+  commander,
+  power,
   edhPowerLevel,
   edhPowerUrl,
-  totalValue, 
+  totalValue,
   analysis,
   edhAnalysisData,
   changelog,
   onSaveDeck,
   onStartOver,
   onRefreshEdhAnalysis,
-  isLoadingEdhAnalysis = false
+  isLoadingEdhAnalysis = false,
+  isSaving = false,
 }: AIGeneratedDeckListProps) {
   const [activeTab, setActiveTab] = useState('cards');
 
@@ -77,7 +93,7 @@ export function AIGeneratedDeckList({
       mana_cost: card.mana_cost,
       image_uris: card.image_uris,
       prices: card.prices,
-      oracle_text: card.oracle_text
+      oracle_text: card.oracle_text,
     }));
   }, [cards]);
 
@@ -109,34 +125,33 @@ export function AIGeneratedDeckList({
       }
     }
 
-    const value = totalValue || cards.reduce((sum, card) => {
-      const price = parseFloat(card.prices?.usd || '0');
-      return sum + (price * (card.quantity || 1));
-    }, 0);
+    const value =
+      totalValue ||
+      cards.reduce((sum, card) => {
+        const price = parseFloat(card.prices?.usd || '0');
+        return sum + price * (card.quantity || 1);
+      }, 0);
 
     return {
       totalCards,
       typeCounts,
       avgCmc: nonLandCopies > 0 ? cmcSum / nonLandCopies : 0,
-      totalValue: value
+      totalValue: value,
     };
   }, [cards, totalValue]);
-
 
   // Generate decklist text
   const generateDecklistText = () => {
     let text = '';
-    if (commander) {
-      text += `1 ${commander.name} *CMDR*\n\n`;
-    }
-    
+    if (commander) text += `1 ${commander.name} *CMDR*\n\n`;
+
     const grouped = cards.reduce((acc, card) => {
       const type = card.type_line?.split('—')[0].trim() || 'Other';
       if (!acc[type]) acc[type] = [];
       acc[type].push(card);
       return acc;
     }, {} as Record<string, any[]>);
-    
+
     for (const [type, typeCards] of Object.entries(grouped)) {
       text += `// ${type}\n`;
       for (const card of typeCards as any[]) {
@@ -152,90 +167,112 @@ export function AIGeneratedDeckList({
     showSuccess('Decklist Copied', 'Decklist has been copied to clipboard');
   };
 
-  const edhUrl = edhPowerUrl || (() => {
-    let decklistParam = '';
-    if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
-    cards.forEach(card => {
-      const qty = card.quantity || 1;
-      decklistParam += `${qty}x+${encodeURIComponent(card.name)}~`;
-    });
-    if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
-    return `https://edhpowerlevel.com/?d=${decklistParam}`;
-  })();
+  const edhUrl =
+    edhPowerUrl ||
+    (() => {
+      let decklistParam = '';
+      if (commander) decklistParam += `1x+${encodeURIComponent(commander.name)}~`;
+      cards.forEach(card => {
+        decklistParam += `${card.quantity || 1}x+${encodeURIComponent(card.name)}~`;
+      });
+      if (decklistParam.endsWith('~')) decklistParam = decklistParam.slice(0, -1);
+      return `https://edhpowerlevel.com/?d=${decklistParam}`;
+    })();
 
-  // Check if deck meets requirements
+  /*
+   * `stats.totalCards` sums quantities, and this is the same array the save
+   * path folds into deck_cards rows — so this badge and the database now agree
+   * by construction. It used to read "100 cards / Legal count" over a deck that
+   * persisted 93, because the save path filtered rows out of this array on its
+   * way to Postgres.
+   */
   const totalWithCommander = stats.totalCards + (commander ? 1 : 0);
-  const isValidCount = totalWithCommander === 100;
+  const isValidCount = totalWithCommander === 100 && !!commander;
 
-  // Get commander colors for display
   const commanderColors = commander?.color_identity || commander?.colors || [];
 
   return (
-    <div className="space-y-6">
-      {/* Action Bar - At Top */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {commander && commander.image_uris?.art_crop && (
-                <img 
-                  src={commander.image_uris.art_crop}
-                  alt={commander.name}
-                  className="w-12 h-12 rounded-lg object-cover border border-border"
-                />
-              )}
-              <div>
-                <h2 className="font-bold text-lg">{deckName}</h2>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{totalWithCommander} cards</span>
-                  {isValidCount ? (
-                    <Badge variant="outline">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Valid
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-destructive border-destructive/40">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      {totalWithCommander}/100
-                    </Badge>
-                  )}
-                  {commander && (
-                    <Badge variant="outline">
-                      <Crown className="h-3 w-3 mr-1 text-type-commander" />
-                      {commander.name.split(',')[0]}
-                    </Badge>
-                  )}
-                </div>
-              </div>
+    <div className="space-y-4">
+      {/* The deck, its commander and the canonical score, on one screen. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+        <aside className="space-y-3 rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+          {commander && (
+            <div className="flex justify-center">
+              <CardImage card={commander} size="xl" eager className="max-w-full" />
             </div>
-            
+          )}
+
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold leading-tight">{deckName}</h2>
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={onSaveDeck} size="sm">
-                <Save className="h-4 w-4 mr-2" />
-                Save Deck
+              <ColorIdentity colors={commanderColors} size="sm" />
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {totalWithCommander} cards
+              </span>
+              {isValidCount ? (
+                <Badge variant="secondary" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Legal count
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="gap-1 text-destructive">
+                  <AlertTriangle className="h-3 w-3" />
+                  {totalWithCommander}/100
+                </Badge>
+              )}
+            </div>
+            {commander && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Crown className="h-3.5 w-3.5 text-type-commander" />
+                {commander.name}
+              </p>
+            )}
+          </div>
+
+          {commander?.oracle_text && (
+            <div className="rounded-lg bg-muted/40 p-3">
+              <OracleText
+                text={commander.oracle_text}
+                size="xs"
+                className="text-xs leading-relaxed"
+              />
+            </div>
+          )}
+
+          <div className="grid gap-2 pt-1">
+            <Button onClick={onSaveDeck} disabled={isSaving}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? 'Saving…' : 'Save to my decks'}
+            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={copyDecklist} variant="secondary" size="sm">
+                <Copy className="mr-2 h-4 w-4" />
+                Copy list
               </Button>
-              <Button onClick={copyDecklist} variant="outline" size="sm">
-                <Copy className="h-4 w-4 mr-2" />
-                Copy List
-              </Button>
-              {edhUrl && (
-                <Button variant="outline" size="sm" asChild>
+              {edhUrl ? (
+                <Button variant="secondary" size="sm" asChild>
                   <a href={edhUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    EDH Power
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    EDH power
                   </a>
                 </Button>
+              ) : (
+                <span />
               )}
-              <Button onClick={onStartOver} variant="ghost" size="sm">
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Start Over
-              </Button>
             </div>
+            <Button onClick={onStartOver} variant="ghost" size="sm">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Start over
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </aside>
 
-      {/* DeckQuickStats - Matches Deck Builder Page */}
+        {/* The one power score, from the one engine, above everything else. */}
+        <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
+          <PowerScore power={generatedPower} variant="expanded" />
+        </div>
+      </div>
+
       <DeckQuickStats
         totalCards={stats.totalCards}
         typeCounts={stats.typeCounts}
@@ -251,47 +288,55 @@ export function AIGeneratedDeckList({
         missingCards={null}
       />
 
-      {/* Tabs for content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="cards" className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Cards
-            <Badge variant="secondary" className="ml-1 text-xs">
-              {stats.totalCards}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Analysis
-          </TabsTrigger>
-          <TabsTrigger value="log" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            Build Log
-          </TabsTrigger>
+        <TabsList className="inline-flex h-auto w-full justify-start gap-1 bg-muted/40 p-1">
+          {(
+            [
+              ['cards', 'Cards', Layers, stats.totalCards],
+              ['analysis', 'Analysis', BarChart3, null],
+              ['log', 'Build log', List, changelog?.length || null],
+            ] as const
+          ).map(([value, label, Icon, count]) => (
+            <TabsTrigger key={value} value={value} className="gap-2 px-4">
+              <Icon className="h-4 w-4" />
+              {label}
+              {count ? (
+                <span
+                  className={cn(
+                    'rounded bg-foreground/10 px-1.5 py-0.5 text-[0.7rem] tabular-nums'
+                  )}
+                >
+                  {count}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="cards" className="mt-6">
-          {/* Use VisualDeckView - same as deck builder */}
+        <TabsContent value="cards" className="mt-4">
+          {/* Real cards, at size, grouped by category — the same view the deck
+              builder uses, so the list looks identical before and after saving. */}
           <VisualDeckView
             cards={transformedCards}
             commander={commander}
             format="commander"
+            // The commander is already the hero of this screen, and this view's
+            // own commander block links to the deck builder's picker — a route
+            // for a deck that does not exist yet.
+            showCommander={false}
           />
         </TabsContent>
 
-        <TabsContent value="analysis" className="mt-6 space-y-6">
-          {/* EDH Power Level Analysis Panel - Same as DeckBuilder */}
-          <EdhAnalysisPanel 
+        <TabsContent value="analysis" className="mt-4 space-y-4">
+          <EdhAnalysisPanel
             data={edhAnalysisData || null}
             isLoading={isLoadingEdhAnalysis}
             needsRefresh={!edhAnalysisData}
             onRefresh={onRefreshEdhAnalysis || (() => {})}
           />
 
-          {/* Deck Compatibility Checker */}
           {commander && (
-            <DeckCompatibilityChecker 
+            <DeckCompatibilityChecker
               cards={transformedCards as any}
               commander={commander}
               format="commander"
@@ -299,94 +344,82 @@ export function AIGeneratedDeckList({
             />
           )}
 
-          {/* Deck Validation Panel */}
-          <DeckValidationPanel 
+          <DeckValidationPanel
             cards={transformedCards as any}
             format="commander"
             commander={commander}
           />
 
-          {/* The generated list scored by the same engine that scores every
-              saved deck, so the number the builder shows is the number the deck
-              will have the moment it is saved. */}
-          <PowerScore power={generatedPower} variant="expanded" />
-
           <CommanderPowerDisplay power={generatedPower} commanderName={commander?.name} />
 
-          {/* Archetype Detection */}
-          <ArchetypeDetection 
+          <ArchetypeDetection
             deckCards={transformedCards as any}
             commander={commander}
             format="commander"
           />
 
-          {/* Budget Tracker */}
-          <DeckBudgetTracker 
+          <DeckBudgetTracker
             deckCards={transformedCards as any}
             targetBudget={totalValue || 200}
           />
 
-          {/* Enhanced Deck Analysis */}
-          <EnhancedDeckAnalysisPanel 
+          <EnhancedDeckAnalysisPanel
             deck={transformedCards as any}
             format="commander"
             commander={commander}
             deckName={deckName}
           />
 
-          {/* Strategy Summary */}
           {analysis?.strategy && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-type-commander" />
-                  Deck Strategy
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{analysis.strategy}</p>
-              </CardContent>
-            </Card>
+            <section className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
+              <h3 className="mb-2 flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <Crown className="h-4 w-4 text-type-commander" />
+                Deck strategy
+              </h3>
+              <p className="text-sm text-muted-foreground">{analysis.strategy}</p>
+            </section>
           )}
         </TabsContent>
 
-        <TabsContent value="log" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Build Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {changelog && changelog.length > 0 ? (
-                <div className="space-y-2">
-                  {changelog.map((entry, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 text-sm">
-                        {typeof entry === 'string' ? entry : JSON.stringify(entry)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">No build log available</p>
-              )}
+        <TabsContent value="log" className="mt-4">
+          <section className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
+            <h3 className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Build log
+            </h3>
+            {changelog && changelog.length > 0 ? (
+              <ol className="space-y-1.5">
+                {changelog.map((entry, index) => (
+                  <li
+                    key={index}
+                    className="flex items-start gap-3 rounded-lg bg-muted/40 p-3 text-sm"
+                  >
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-foreground/10 text-[0.65rem] font-semibold tabular-nums">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      {typeof entry === 'string' ? entry : JSON.stringify(entry)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                The builder did not return a step-by-step log for this deck.
+              </p>
+            )}
 
-              {/* Builder Feedback if available */}
-              {analysis?.aiFeedback && (
-                <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <Crown className="h-4 w-4 text-primary" />
-                    Analysis
-                  </h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {analysis.aiFeedback}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {analysis?.aiFeedback && (
+              <div className="mt-5 rounded-lg bg-muted/40 p-4">
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                  <Crown className="h-4 w-4 text-type-commander" />
+                  Builder notes
+                </h4>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  {analysis.aiFeedback}
+                </p>
+              </div>
+            )}
+          </section>
         </TabsContent>
       </Tabs>
     </div>

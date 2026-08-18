@@ -40,15 +40,15 @@ export function Podium({ standings, views, eventName, gameFormat, rounds }: Podi
 
   return (
     <section className="relative overflow-hidden rounded-2xl bg-card shadow-sm">
+      {/* Texture, not decoration: desaturated and held right down so the three
+          cards on top of it stay the only things with colour, and so nothing
+          here competes with the type. */}
       {backdrop && (
-        <>
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${backdrop})` }}
-          />
-          <div aria-hidden="true" className="absolute inset-0 bg-background/88" />
-        </>
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-cover bg-center opacity-[0.14] grayscale"
+          style={{ backgroundImage: `url(${backdrop})` }}
+        />
       )}
 
       <div className="relative p-5 sm:p-8">

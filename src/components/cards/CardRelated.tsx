@@ -460,10 +460,38 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
       {loading ? (
         <TileRowSkeleton />
       ) : groups.length === 0 ? (
-        <p className="py-4 text-sm text-muted-foreground">
-          Nothing in the card table shares a keyword, tag or type with this card inside its colour
-          identity, and no deck you can see runs it yet.
-        </p>
+        /* Naming the four signals and which of them this card lacks is more use
+           than a padded row — and a padded row would be the fabrication design
+           law item 7 forbids. */
+        <div className="rounded-lg bg-muted/20 px-4 py-4 text-sm">
+          <p className="text-foreground">No honest synergy signal for {name} yet.</p>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+            <li>
+              Decks — no deck you can see runs it. Sign in, or make a deck containing it public.
+            </li>
+            <li>
+              Keywords —{' '}
+              {keywords.length > 0
+                ? `has ${keywords.join(', ')}, but nothing in its colour identity shares them`
+                : 'this card has none'}
+              .
+            </li>
+            <li>
+              Creature or permanent type —{' '}
+              {subtypesOf(typeLine).length > 0
+                ? `${subtypesOf(typeLine).join(' ')}, with no matches inside its identity`
+                : 'this card has no subtype'}
+              .
+            </li>
+            <li>
+              Role tags —{' '}
+              {tags.length > 0
+                ? tags.join(', ')
+                : 'our card table records only its card type, which says nothing about how it plays'}
+              .
+            </li>
+          </ul>
+        </div>
       ) : (
         <div className="space-y-5">
           {groups.map(group => (

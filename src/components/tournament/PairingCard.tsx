@@ -255,7 +255,7 @@ function Seat({ view, games, won, lost, showGames, mirrored = false, onWin }: Se
 
   const body = (
     <>
-      <div className="w-[62px] shrink-0 sm:w-[76px]">
+      <div className="w-[68px] shrink-0 sm:w-[88px]">
         <CommanderPortrait view={view} size="sm" dimmed={lost} />
       </div>
 
@@ -337,7 +337,7 @@ function ByeCard({ tableNumber, player }: { tableNumber: number; player: PlayerV
       </header>
 
       <div className="flex items-stretch gap-3 p-3 sm:p-4 sm:pt-3">
-        <div className="w-[62px] shrink-0 sm:w-[76px]">
+        <div className="w-[68px] shrink-0 sm:w-[88px]">
           <CommanderPortrait view={player} size="sm" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">

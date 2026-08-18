@@ -292,7 +292,9 @@ export function CardPriceHistory({
             <p className="text-sm text-foreground">
               {points.length === 0
                 ? 'No price snapshots have been recorded for this card yet.'
-                : 'Only one snapshot falls in this range.'}
+                : points.length === 1
+                  ? 'Only one snapshot has been recorded so far, and a line needs two.'
+                  : 'No snapshots fall in this range.'}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               DeckMatrix captures prices once a day into <code>card_price_history</code>. The chart

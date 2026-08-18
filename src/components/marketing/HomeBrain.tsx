@@ -367,12 +367,11 @@ export function HomeBrain() {
               ? stats.top.map((e, i) => (
                   <figure key={e.scryfall_id} className="relative">
                     <CardImage card={displayCard(e)} fill title={`${e.card_name} — mana value ${e.mv}`} />
+                    {/* Bottom-left: the top of the card carries its name and cost. */}
                     <figcaption
                       className={cn(
-                        'absolute left-1 top-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                        i < NAMED
-                          ? 'bg-foreground text-background'
-                          : 'bg-black/70 text-white/85'
+                        'absolute bottom-1.5 left-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                        i < NAMED ? 'bg-foreground text-background' : 'bg-black/75 text-white/85'
                       )}
                     >
                       {e.mv}
@@ -387,9 +386,13 @@ export function HomeBrain() {
 
         {/* ---------------------------------------------------- the question */}
         <div className="flex flex-col rounded-3xl bg-background p-6 shadow-2xl shadow-black/30 sm:p-7">
-          <div className="flex items-center gap-2 rounded-full bg-muted/50 px-3.5 py-2 text-xs text-muted-foreground">
-            <Layers className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
+          {/* Wraps rather than truncates: a `truncate` flex child has no
+              automatic minimum of zero, so on a 390 px screen it dragged this
+              panel — and the deck panel sharing its grid column — 77 px wider
+              than the viewport. */}
+          <div className="flex items-start gap-2 rounded-2xl bg-muted/50 px-3.5 py-2 text-xs leading-relaxed text-muted-foreground">
+            <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0">
               Deck context: {index?.name ?? 'Draconic Domination'}
               {stats ? ` — ${stats.total} cards, ${stats.unique} unique` : ''}
             </span>
@@ -455,7 +458,10 @@ export function HomeBrain() {
               : 'In the app your decklist is attached to the question before the assistant sees it.'}
           </p>
 
-          <div className="mt-9">
+          {/* Composer group sits on the floor of the panel — the space above it
+              is the empty conversation area every chat UI has, rather than a
+              hole punched between two blocks. */}
+          <div className="mt-auto pt-9">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Also one tap away
             </p>
@@ -471,12 +477,12 @@ export function HomeBrain() {
             </div>
           </div>
 
-          <div className="mt-auto pt-9">
+          <div className="mt-9">
             <Link
               to="/brain"
               className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
             >
-              <span className="flex-1 truncate">Ask about your own deck</span>
+              <span className="min-w-0 flex-1 truncate">Ask about your own deck</span>
               <SendHorizontal className="h-4 w-4 shrink-0" />
             </Link>
 

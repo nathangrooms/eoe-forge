@@ -71,7 +71,8 @@ function emptyDraft(): Tournament {
     dropped: [],
     rounds: [],
     currentRound: 0,
-    swissRounds: recommendedSwissRounds(2),
+    // Seeded at a sane default; tracks the DCI recommendation as players arrive.
+    swissRounds: 3,
     roundLengthMinutes: 50,
     timer: makeTimer(50),
     createdAt: new Date().toISOString(),
@@ -261,12 +262,14 @@ export function EventSetup() {
                   update(t => ({ ...t, swissRounds: value }));
                 }}
                 hint={
-                  draft.swissRounds === recommended
-                    ? `DCI recommendation for ${Math.max(2, draft.players.length)} players`
-                    : `DCI recommends ${recommended} for ${Math.max(2, draft.players.length)} players`
+                  draft.players.length < 2
+                    ? 'Follows the DCI recommendation as players are added'
+                    : draft.swissRounds === recommended
+                      ? `DCI recommendation for ${draft.players.length} players`
+                      : `DCI recommends ${recommended} for ${draft.players.length} players`
                 }
                 action={
-                  draft.swissRounds !== recommended
+                  draft.players.length >= 2 && draft.swissRounds !== recommended
                     ? {
                         label: 'Use recommended',
                         onClick: () => {

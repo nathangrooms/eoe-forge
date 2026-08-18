@@ -246,15 +246,27 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
   const template = getTemplateById('color-boxes-wubrg');
   const slots = template?.slots ?? [];
 
-  /** The first fetched card that would genuinely file under this colour slot. */
+  /**
+   * A card that would genuinely file under this colour slot, and a different
+   * one per box — the same card appearing in two boxes reads as a bug.
+   * Mono-coloured cards are preferred, since that is what actually ends up in a
+   * colour box; a multicolour card falls back to any slot in its identity.
+   */
+  const taken = new Set<string>();
   const cardFor = (slotName: string): FiledCard | null => {
     if (!cards) return null;
     const pip = SLOT_PIP[slotName] ?? 'C';
-    const match =
+    const free = cards.filter(c => !taken.has(c.id));
+    const identity = (c: FiledCard) => c.color_identity ?? [];
+
+    const chosen =
       pip === 'C'
-        ? cards.find(c => (c.color_identity ?? []).length === 0)
-        : cards.find(c => (c.color_identity ?? []).includes(pip));
-    return match ?? null;
+        ? free.find(c => identity(c).length === 0)
+        : free.find(c => identity(c).length === 1 && identity(c)[0] === pip) ??
+          free.find(c => identity(c).includes(pip));
+
+    if (chosen) taken.add(chosen.id);
+    return chosen ?? null;
   };
 
   return (
@@ -268,7 +280,7 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
               className="flex items-end gap-3 rounded-xl bg-card p-3 shadow-xl shadow-black/40"
             >
               {/* A card standing in the box — whole, not cropped. */}
-              <div className="w-[4.5rem] shrink-0 drop-shadow-xl lg:w-20">
+              <div className="w-20 shrink-0 drop-shadow-xl lg:w-24">
                 {card ? (
                   <CardImage card={card} fill size="sm" hideFlip />
                 ) : (
@@ -321,7 +333,14 @@ export function HomeStorage() {
       if (!alive) return;
 
       const list = ((data ?? []) as unknown as FiledCard[])
-        .filter(c => c.set_code !== 'sld' && Boolean(c.image_uris?.normal ?? c.image_uris?.large))
+        .filter(
+          c =>
+            /* Secret Lair drops (sld, slx, …) are real cards but they are
+               crossovers — Rainbow Dash at the top of a Magic page is exactly
+               the note the audit raised. */
+            !c.set_code.startsWith('sl') &&
+            Boolean(c.image_uris?.normal ?? c.image_uris?.large)
+        )
         .sort((a, b) => Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0))
         .slice(0, 12);
 
@@ -340,7 +359,7 @@ export function HomeStorage() {
   return (
     <Section tint>
       <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
-        <div className="lg:col-span-5">
+        <div className="min-w-0 lg:col-span-5">
           <SectionHeading
             align="left"
             eyebrow="Nobody else does this"
@@ -353,19 +372,29 @@ export function HomeStorage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
+
+            {/* The container names on the right are not decoration: they are the
+                templates the product ships, read straight from the constant. */}
+            <p className="mt-10 text-sm leading-relaxed text-muted-foreground">
+              {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')} — the container templates
+              DeckMatrix ships with. Pages, dividers and colours become named slots, and every card
+              you file is written to one, so the collection can answer "where is it" as well as "do
+              I own it". The cards below are real printings from the catalogue; your containers hold
+              yours.
+            </p>
           </SectionHeading>
         </div>
 
-        <div className="lg:col-span-7">
+        <div className="min-w-0 lg:col-span-7">
           <BinderPage cards={filed} />
         </div>
       </div>
 
       <div className="mt-16 grid gap-10 lg:grid-cols-12 lg:gap-8">
-        <div className="lg:col-span-4">
+        <div className="min-w-0 lg:col-span-4">
           <DeckBox commander={commander} />
         </div>
-        <div className="lg:col-span-8">
+        <div className="min-w-0 lg:col-span-8">
           <LongBox cards={filed} />
         </div>
       </div>
@@ -373,13 +402,6 @@ export function HomeStorage() {
       <div className="mt-16">
         <ColourBoxes cards={cards} />
       </div>
-
-      <p className="mt-12 max-w-4xl text-sm leading-relaxed text-muted-foreground">
-        {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')} — the container templates
-        DeckMatrix ships with. Pages, dividers and colours become named slots, and every card you
-        file is written to one, so the collection can answer "where is it" as well as "do I own
-        it". The cards shown are real printings from the catalogue; your containers hold yours.
-      </p>
     </Section>
   );
 }

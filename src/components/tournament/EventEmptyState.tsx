@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { ListOrdered, MousePointerClick, Swords, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardImage } from '@/components/cards';
-import { useMyDecks } from './useEventDecks';
+import type { DeckOption } from './useEventDecks';
 
 const CAPABILITIES = [
   {
@@ -35,8 +35,13 @@ const CAPABILITIES = [
   },
 ];
 
-export function EventEmptyState() {
-  const { decks, loading } = useMyDecks();
+export interface EventEmptyStateProps {
+  /** Passed down rather than queried again — the manager has already loaded these. */
+  decks: DeckOption[];
+  loading: boolean;
+}
+
+export function EventEmptyState({ decks, loading }: EventEmptyStateProps) {
   const withArt = decks.filter(d => d.commanderCard).slice(0, 7);
 
   return (

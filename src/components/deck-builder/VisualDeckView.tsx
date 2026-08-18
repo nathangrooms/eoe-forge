@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards/CardImage';
+import { OracleText } from '@/components/cards/OracleText';
 import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ManaCurve } from './ManaCurve';
@@ -72,6 +74,13 @@ interface VisualDeckViewProps {
   onDeleteCard?: (cardId: string) => void;
   onUpdateQuantity?: (cardId: string, quantity: number) => void;
   onReplaceCard?: (cardId: string) => void;
+  /**
+   * Draw the commander block above the grid. The Deck Generator turns this off:
+   * it already shows the commander at full size in its own result header, and
+   * this block's "Change" control routes to `/deck-builder/commander`, which is
+   * the wrong destination for a deck that has not been saved yet.
+   */
+  showCommander?: boolean;
 }
 
 interface CardGroup {
@@ -129,6 +138,7 @@ export function VisualDeckView({
   onDeleteCard,
   onUpdateQuantity,
   onReplaceCard,
+  showCommander = true,
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -224,24 +234,14 @@ export function VisualDeckView({
     });
   };
 
-  const cardImage = (card: DeckCard) =>
-    card.image_uris?.normal ||
-    card.image_uris?.small ||
-    (card.id && card.id.length > 2
-      ? `https://cards.scryfall.io/normal/front/${card.id.charAt(0)}/${card.id.charAt(1)}/${card.id}.jpg`
-      : '/placeholder.svg');
-
-  const commanderImage = () => {
-    if (!commander) return null;
-    return (
-      commander.image_uris?.normal ||
-      commander.image_uris?.large ||
-      commander.image ||
-      (commander.id
-        ? `https://cards.scryfall.io/normal/front/${commander.id.charAt(0)}/${commander.id.charAt(1)}/${commander.id}.jpg`
-        : '/placeholder.svg')
-    );
-  };
+  /*
+   * The two local image-URL builders that used to live here — one for grid
+   * cards, one for the commander — both hardcoded Scryfall's `normal` (488px)
+   * asset regardless of how large the card was drawn, which is exactly the
+   * softness `CardImage` exists to fix. Both call sites now use `CardImage`,
+   * which resolves the asset from the rendered width and handles the back face
+   * of a double-faced card.
+   */
 
   const limitFor = (card: DeckCard) => maxCopiesFor(format, card);
 
@@ -324,30 +324,26 @@ export function VisualDeckView({
     >
       {group.cards.map(card => (
         <div key={card.id} className="group relative">
-          <button
-            type="button"
+          {/* `CardImage` rather than a hand-rolled `<img>`: it picks the
+              Scryfall resolution that matches the size the slider is asking
+              for, flips double-faced cards, and carries no border. */}
+          <CardImage
+            card={card}
+            width={prefs.cardSize}
+            fill
             onClick={() => setDetailCard(card)}
-            className="block w-full overflow-hidden rounded-lg border border-border bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // The hover overlay below is the affordance here; the lift would
+            // slide the card out from under its own controls.
+            interactive={false}
             title={`${card.name} — open details`}
           >
-            <img
-              src={cardImage(card)}
-              alt={card.name}
-              className="h-auto w-full"
-              loading="lazy"
-              onError={e => {
-                e.currentTarget.src = '/placeholder.svg';
-                e.currentTarget.onerror = null;
-              }}
-            />
-          </button>
-
-          {(card.quantity || 1) > 1 && (
-            /* Sits on card art, so light-on-dark is the correct ground here. */
-            <span className="pointer-events-none absolute right-2 top-2 rounded bg-black/80 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white">
-              ×{card.quantity}
-            </span>
-          )}
+            {(card.quantity || 1) > 1 && (
+              /* Sits on card art, so light-on-dark is the correct ground here. */
+              <span className="pointer-events-none absolute right-2 top-2 rounded bg-black/80 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white">
+                ×{card.quantity}
+              </span>
+            )}
+          </CardImage>
 
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-black/75 p-2 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
             <div className="flex items-center gap-1">
@@ -501,18 +497,15 @@ export function VisualDeckView({
   return (
     <div className="space-y-6">
       {/* Commander */}
-      {format === 'commander' && (
+      {format === 'commander' && showCommander && (
         <Card className="p-4">
           {commander ? (
             <div className="flex flex-col gap-4 md:flex-row">
-              <img
-                src={commanderImage() || '/placeholder.svg'}
-                alt={commander.name}
-                className="mx-auto h-auto w-40 rounded-lg border border-border md:mx-0 md:w-44"
-                onError={e => {
-                  e.currentTarget.src = '/placeholder.svg';
-                  e.currentTarget.onerror = null;
-                }}
+              <CardImage
+                card={commander}
+                size="lg"
+                eager
+                className="mx-auto md:mx-0"
               />
               <div className="min-w-0 flex-1">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -528,15 +521,11 @@ export function VisualDeckView({
                 <h3 className="text-xl font-semibold">{commander.name}</h3>
                 <p className="mb-3 text-sm text-muted-foreground">{commander.type_line}</p>
                 {commander.oracle_text && (
-                  <div className="max-h-36 space-y-2 overflow-y-auto pr-2 text-sm leading-relaxed">
-                    {String(commander.oracle_text)
-                      .split('\n')
-                      .map((line: string, i: number) => (
-                        <p key={i}>{line}</p>
-                      ))}
+                  <div className="max-h-36 overflow-y-auto pr-2">
+                    <OracleText text={commander.oracle_text} size="sm" className="text-sm" />
                   </div>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+                <div className="mt-3 flex flex-wrap items-center gap-3 pt-3">
                   <ManaCost cost={commander.mana_cost} size="sm" />
                   <ColorIdentity colors={commander.color_identity || commander.colors} size="sm" />
                   {commander.power && commander.toughness && (

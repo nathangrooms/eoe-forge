@@ -136,12 +136,14 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
               cardObjects.map((card, i) => (
                 <div
                   key={leads[i]?.scryfallId ?? i}
-                  // Partners overlap like a fan rather than shrinking to two
-                  // half-width cards: 75% + 75% − 50% fills the column exactly.
+                  // Partners fan rather than shrinking to two half-width
+                  // cards: 70% + 70% − 40% fills the column exactly, and
+                  // leaves 40% of the back card showing — enough to read its
+                  // name and art, which a heavier overlap does not.
                   className={cn(
                     'shrink-0',
-                    leads.length > 1 ? 'w-[75%]' : 'w-full',
-                    i > 0 && '-ml-[50%]'
+                    leads.length > 1 ? 'w-[70%]' : 'w-full',
+                    i > 0 && '-ml-[40%]'
                   )}
                 >
                   <CardImage

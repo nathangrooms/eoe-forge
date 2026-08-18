@@ -53,10 +53,13 @@ function PriceLine({
   series,
   className,
   area = false,
+  baseline,
 }: {
   series: number[];
   className?: string;
   area?: boolean;
+  /** Draw a reference rule at this price — used for "where it started". */
+  baseline?: number;
 }) {
   const width = 300;
   const height = 100;
@@ -86,7 +89,20 @@ function PriceLine({
       {area && (
         <polygon
           points={`0,${height} ${line} ${width},${height}`}
-          className="fill-current opacity-[0.055]"
+          className="fill-current opacity-[0.05]"
+        />
+      )}
+      {baseline !== undefined && (
+        <line
+          x1={0}
+          x2={width}
+          y1={height - ((baseline - floor) / span) * height}
+          y2={height - ((baseline - floor) / span) * height}
+          stroke="currentColor"
+          strokeWidth={1}
+          strokeDasharray="5 5"
+          className="opacity-25"
+          vectorEffect="non-scaling-stroke"
         />
       )}
       <polyline
@@ -220,7 +236,7 @@ export function HomeMarketplace() {
                 </div>
 
                 <div className="mt-6 h-44 w-full text-foreground">
-                  <PriceLine series={hero.series} area />
+                  <PriceLine series={hero.series} area baseline={hero.first} />
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">

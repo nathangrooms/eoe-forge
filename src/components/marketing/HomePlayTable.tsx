@@ -46,6 +46,7 @@ const BOT_COMMANDER = 'Lazav, Dimir Mastermind';
 const YOUR_CREATURES: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Sigarda, Host of Herons' },
   { name: 'Sun Titan', tapped: true },
+  { name: 'Knight of Autumn' },
   { name: 'Eternal Witness' },
   { name: 'Llanowar Elves', tapped: true },
 ];
@@ -54,19 +55,44 @@ const YOUR_LANDS: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Command Tower', tapped: true },
   { name: 'Temple Garden' },
   { name: 'Sunpetal Grove' },
-  { name: 'Forest' },
-  { name: 'Plains', tapped: true },
+  { name: 'Forest', tapped: true },
+  { name: 'Plains' },
 ];
 
 const BOT_CREATURES: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Consecrated Sphinx' },
-  { name: 'Snapcaster Mage', tapped: true },
+  { name: 'Snapcaster Mage' },
+  { name: 'Gray Merchant of Asphodel' },
 ];
 
 const BOT_LANDS: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Watery Grave' },
   { name: 'Island' },
-  { name: 'Swamp', tapped: true },
+  { name: 'Swamp' },
+];
+
+/**
+ * The game log, as the real feed shows it: the last few lines, translucent, no
+ * panel around them. Every line accounts for something visible on the board —
+ * Sun Titan is tapped because it attacked, and the bot is on 34 because a 6/6
+ * connected with it.
+ */
+const FEED: Array<{ turn?: number; text: string; emphasis?: boolean; intent?: boolean }> = [
+  { turn: 6, text: 'Bot casts Consecrated Sphinx' },
+  { turn: 7, text: 'You play Plains' },
+  { turn: 7, text: 'You tap Llanowar Elves for {G}' },
+  { turn: 7, text: 'You cast Eternal Witness' },
+  { turn: 7, text: 'Sun Titan attacks' },
+  { turn: 7, text: 'Bot takes 6 — 34 life', emphasis: true },
+  { text: 'Bot: holds Lazav back this turn', intent: true },
+];
+
+/** The zones the table view lets you browse, beside the battlefield. */
+const ZONES = [
+  { label: 'Library', count: 63 },
+  { label: 'Graveyard', count: 4 },
+  { label: 'Exile', count: 1 },
+  { label: 'Hand', count: 5 },
 ];
 
 const YOUR_HAND = [
@@ -186,8 +212,9 @@ function SeatLine({
   name: string;
   note: string;
   life: number;
-  hand: number;
-  library: number;
+  /** Omitted for the near seat, whose counts live in its own zones rail. */
+  hand?: number;
+  library?: number;
   align?: 'left' | 'right';
 }) {
   return (
@@ -204,22 +231,50 @@ function SeatLine({
         <p className="text-sm font-medium leading-tight">{name}</p>
         <p className="text-[11px] text-muted-foreground">{note}</p>
       </div>
-      <div
-        className={cn(
-          'ml-auto flex shrink-0 gap-2 text-[11px] tabular-nums text-muted-foreground',
-          align === 'right' && 'ml-0 mr-auto'
-        )}
-      >
-        <span className="rounded-full bg-muted/40 px-2.5 py-1">Hand {hand}</span>
-        <span className="rounded-full bg-muted/40 px-2.5 py-1">Library {library}</span>
-      </div>
+      {hand !== undefined && library !== undefined && (
+        <div
+          className={cn(
+            'ml-auto flex shrink-0 gap-2 text-[11px] tabular-nums text-muted-foreground',
+            align === 'right' && 'ml-0 mr-auto'
+          )}
+        >
+          <span className="rounded-full bg-muted/40 px-2.5 py-1">Hand {hand}</span>
+          <span className="rounded-full bg-muted/40 px-2.5 py-1">Library {library}</span>
+        </div>
+      )}
     </div>
   );
 }
 
 /** Magic's turn structure, collapsed to the strip the HUD shows. */
 const PHASES = ['Untap', 'Upkeep', 'Draw', 'Main 1', 'Combat', 'Main 2', 'End'];
-const ACTIVE_PHASE = 'Main 1';
+const ACTIVE_PHASE = 'Main 2';
+
+/** The log, drawn the way the real feed draws it — no card, no column. */
+function GameLog() {
+  return (
+    <ul className="space-y-1.5 text-xs">
+      {FEED.map((line, i) => (
+        <li
+          key={i}
+          className={cn(
+            'flex gap-2.5',
+            line.emphasis
+              ? 'text-foreground'
+              : line.intent
+                ? 'italic text-muted-foreground/60'
+                : 'text-muted-foreground/85'
+          )}
+        >
+          <span className="w-3 shrink-0 text-right tabular-nums text-muted-foreground/40">
+            {line.turn ?? ''}
+          </span>
+          <span>{line.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const VIEWS = [
   { id: 'table', label: 'Table', icon: LayoutGrid },
@@ -302,37 +357,42 @@ export function HomePlayTable() {
               library={71}
               align="right"
             />
-            {/* Mirrored: the seat across the table has its command zone on the
-                far side and its rows running back towards the middle. */}
-            <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+            {/* Mirrored against your own seat: rows centred, command zone on the
+                far side. The log floats in the space that leaves, which is where
+                the real feed sits — over the board, never in a column of its own. */}
+            <div className="mt-4 grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+              <div className="hidden w-56 self-end pb-1 lg:block">
+                <GameLog />
+              </div>
+
               <div className="space-y-3">
                 <div>
-                  <ZoneLabel className="text-right">Lands</ZoneLabel>
+                  <ZoneLabel className="text-center">Lands</ZoneLabel>
                   <PermanentRow
                     cards={BOT_LANDS}
                     lookup={lookup}
-                    width={62}
-                    className="justify-end"
+                    width={68}
+                    className="justify-center"
                   />
                 </div>
                 <div>
-                  <ZoneLabel className="text-right">Battlefield</ZoneLabel>
+                  <ZoneLabel className="text-center">Battlefield</ZoneLabel>
                   <PermanentRow
                     cards={BOT_CREATURES}
                     lookup={lookup}
-                    width={80}
-                    className="justify-end"
+                    width={88}
+                    className="justify-center"
                   />
                 </div>
               </div>
 
-              <div>
+              <div className="w-[100px]">
                 <ZoneLabel className="text-right">Command zone</ZoneLabel>
                 <div className="flex justify-end">
                   {botCommander ? (
-                    <CardImage card={botCommander} size="sm" width={80} />
+                    <CardImage card={botCommander} size="md" width={100} />
                   ) : (
-                    <CardImageSkeleton size="sm" width={80} />
+                    <CardImageSkeleton size="md" width={100} />
                   )}
                 </div>
               </div>
@@ -341,33 +401,53 @@ export function HomePlayTable() {
 
           {/* ---- you, near edge: battlefield then lands underneath ---- */}
           <div className="rounded-2xl bg-muted/30 p-4 sm:p-5">
-            <SeatLine
-              name="You"
-              note="Trostani, Selesnya's Voice · Commander"
-              life={29}
-              hand={5}
-              library={63}
-            />
+            <SeatLine name="You" note="Trostani, Selesnya's Voice · Commander" life={29} />
 
-            <div className="mt-4 grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)]">
+            <div className="mt-4 grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
               <div>
                 <ZoneLabel>Command zone</ZoneLabel>
                 {commander ? (
-                  <CardImage card={commander} size="sm" width={88} />
+                  <CardImage card={commander} size="md" width={100} />
                 ) : (
-                  <CardImageSkeleton size="sm" width={88} />
+                  <CardImageSkeleton size="md" width={100} />
                 )}
               </div>
 
+              {/* Rows centre in the space they are given, as `Battlefield` does. */}
               <div className="space-y-3">
                 <div>
-                  <ZoneLabel>Battlefield</ZoneLabel>
-                  <PermanentRow cards={YOUR_CREATURES} lookup={lookup} width={88} />
+                  <ZoneLabel className="text-center">Battlefield</ZoneLabel>
+                  <PermanentRow
+                    cards={YOUR_CREATURES}
+                    lookup={lookup}
+                    width={100}
+                    className="justify-center"
+                  />
                 </div>
                 <div>
-                  <ZoneLabel>Lands</ZoneLabel>
-                  <PermanentRow cards={YOUR_LANDS} lookup={lookup} width={66} />
+                  <ZoneLabel className="text-center">Lands</ZoneLabel>
+                  <PermanentRow
+                    cards={YOUR_LANDS}
+                    lookup={lookup}
+                    width={74}
+                    className="justify-center"
+                  />
                 </div>
+              </div>
+
+              <div className="hidden w-32 lg:block">
+                <ZoneLabel>Zones</ZoneLabel>
+                <ul className="space-y-1.5">
+                  {ZONES.map(z => (
+                    <li
+                      key={z.label}
+                      className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5 text-[11px]"
+                    >
+                      <span className="text-muted-foreground">{z.label}</span>
+                      <span className="tabular-nums">{z.count}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>

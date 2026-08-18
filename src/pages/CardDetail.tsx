@@ -414,11 +414,21 @@ export default function CardDetailPage() {
     }
   }, [card, dbCardId, user]);
 
-  /** Swapping printing keeps the page — same card, different object. */
+  /**
+   * Swapping printing keeps the page — same card, different object.
+   *
+   * The URL is rewritten with `replaceState` rather than `navigate`, on
+   * purpose. `navigate` would re-run the resolve effect, which flips `loading`
+   * for a frame and blanks the whole page to "Loading card…" even though the
+   * printing is already in hand. Reusing the current history state object keeps
+   * the router's entry key intact, so Back still goes where the player came
+   * from and `HistoryNav` does not gain a phantom entry.
+   */
   const selectPrinting = useCallback((printing: any) => {
+    if (!printing?.id) return;
     setCard(printing);
     setFace(0);
-    if (printing?.id) cache.set(printing.id, printing);
+    cache.set(printing.id, printing);
     window.history.replaceState(window.history.state, '', `/cards/${printing.id}`);
   }, []);
 

@@ -170,6 +170,9 @@ export function CardAddToDeckPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
+        // The panel's own copy is the description; without this Radix logs a
+        // missing-`aria-describedby` warning on every open.
+        aria-describedby={undefined}
         className="flex w-full flex-col gap-0 border-0 bg-card p-0 shadow-2xl shadow-black/50 sm:max-w-md"
       >
         {/* pr-12 clears the Sheet's own absolutely-placed close button. */}

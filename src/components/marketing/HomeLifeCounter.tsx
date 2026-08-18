@@ -11,9 +11,11 @@
  *   - Panels are positioned by `seatBoxStyle` / `seatContentStyle`, which is why
  *     the left and right seats are laid out with their width and height swapped
  *     *before* being rotated rather than overflowing their box.
- *   - The mats are the real `MatSurface`, with its artwork resolved through the
- *     real `useMatArt` — one query, memoised and cached to `localStorage`, so
- *     the homepage warms the same cache the counter itself reads.
+ *   - The mats are the real `MatSurface`, drawn from the real `--mana-*` tokens.
+ *     Its optional `art` layer is deliberately not wired up here: `matSurfaceStyle`
+ *     paints an opaque black behind its own gradients, so the art beneath it is
+ *     never visible anyway, and passing it would only buy five invisible image
+ *     downloads. The CSS mat is the mat — that is exactly what `mats.ts` says.
  *
  * The life totals are a depicted game, and a coherent one: seat four is on four
  * life having taken fifteen from a commander, which is why its total is drawn in
@@ -27,7 +29,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { seatBoxStyle, seatContentStyle, seatingFor, type Seat, type SeatLayout } from '@/lib/game';
 import { MatSurface } from '@/components/life/MatSurface';
-import { useMatArt } from '@/components/life/useMatArt';
 import type { MatColor } from '@/components/life/mats';
 
 import { Section, SectionHeading } from '@/components/marketing/Section';
@@ -79,12 +80,10 @@ const FEATURES = [
 function SeatPanel({
   seat,
   player,
-  art,
   compact = false,
 }: {
   seat: Seat;
   player: PodSeat;
-  art?: string | null;
   compact?: boolean;
 }) {
   const axis = seat.isSideways ? 'cqw' : 'cqh';
@@ -96,7 +95,7 @@ function SeatPanel({
     <div style={seatBoxStyle(seat)}>
       <div style={seatContentStyle(seat)}>
         <div className="absolute inset-[3px] overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_hsl(0_0%_0%/0.35)]">
-          <MatSurface color={player.mat} art={art} tone="seat" />
+          <MatSurface color={player.mat} tone="seat" />
 
           {/* Name sits at the outer edge of the panel, where the real one puts it. */}
           {!compact && (
@@ -143,13 +142,11 @@ function SeatPanel({
 function Device({
   layout,
   aspect,
-  art,
   compact = false,
   className,
 }: {
   layout: SeatLayout;
   aspect: string;
-  art: Partial<Record<MatColor, { art: string }>>;
   compact?: boolean;
   className?: string;
 }) {
@@ -167,13 +164,7 @@ function Device({
         {layout.seats.map(seat => {
           const player = POD[seat.index % POD.length];
           return (
-            <SeatPanel
-              key={seat.index}
-              seat={seat}
-              player={player}
-              art={art[player.mat]?.art}
-              compact={compact}
-            />
+            <SeatPanel key={seat.index} seat={seat} player={player} compact={compact} />
           );
         })}
       </div>
@@ -185,10 +176,7 @@ function Device({
 /* Boards                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Split out so `useMatArt` — and its one query — never runs above the fold. */
 function LifeBoards() {
-  const art = useMatArt();
-
   /* One aspect across the three so their captions sit on a single baseline. */
   const pods = [
     { layout: seatingFor(2, 'table'), label: 'Two players' },
@@ -200,7 +188,7 @@ function LifeBoards() {
     <div>
       {/* The table the device is lying on. */}
       <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-10">
-        <Device layout={seatingFor(4, 'table')} aspect="4 / 3" art={art} />
+        <Device layout={seatingFor(4, 'table')} aspect="4 / 3" />
       </div>
 
       <p className="mt-5 text-center text-xs text-muted-foreground">
@@ -210,7 +198,7 @@ function LifeBoards() {
       <div className="mt-8 grid grid-cols-3 gap-4 sm:gap-6">
         {pods.map(pod => (
           <div key={pod.label}>
-            <Device layout={pod.layout} aspect="9 / 15" art={art} compact />
+            <Device layout={pod.layout} aspect="9 / 15" compact />
             <p className="mt-3 text-center text-[11px] leading-tight text-muted-foreground">
               {pod.label}
             </p>

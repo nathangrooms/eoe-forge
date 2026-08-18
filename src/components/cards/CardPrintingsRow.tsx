@@ -29,7 +29,13 @@ export interface CardPrintingsRowProps {
   className?: string;
 }
 
-const PRINTING_WIDTH = 132;
+/**
+ * 128, not 132, on purpose: `cardSizeForWidth` promotes anything over 128 to
+ * `md`, which requests Scryfall's 672 px `large` asset. A Sol Ring row is 137
+ * printings, so that one pixel doubles the bytes of the heaviest row on the
+ * page for no visible gain at this size.
+ */
+const PRINTING_WIDTH = 128;
 
 export function CardPrintingsRow({
   oracleId,
@@ -158,7 +164,7 @@ export function CardPrintingsRow({
                 <div
                   key={printing.id}
                   data-printing={printing.id}
-                  className="w-[132px] shrink-0 snap-start"
+                  className="w-[128px] shrink-0 snap-start"
                 >
                   <CardImage
                     card={printing}

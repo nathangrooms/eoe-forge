@@ -285,21 +285,44 @@ serve(async (req) => {
       console.log(`  Key cards: ${keyAdded}`);
     }
 
-    // ----- Step 3: Cards by role (each capped by the spell budget) -----
-    for (const { role, count, label } of [
-      { role: 'ramp', count: config.minRampCount ?? 10, label: 'Ramp' },
-      { role: 'draw', count: config.minDrawCount ?? 10, label: 'Draw' },
-      { role: 'removal', count: config.minRemovalCount ?? 8, label: 'Removal' },
-      ...(commanderColors.has('U') ? [{ role: 'counter', count: 4, label: 'Counters' }] : [])
+    /*
+     * Step 3: role quotas, each capped by the spell budget.
+     *
+     * The planner's named picks for a role go in first — that is the whole point
+     * of asking it — and the scored pool tops the quota up. The planner is never
+     * trusted to reach the quota by itself.
+     */
+    const planPicks = (field: string): string[] =>
+      Array.isArray(deckPlan?.[field]) ? deckPlan[field].map((n: any) => String(n)) : [];
+
+    for (const { role, count, label, picks } of [
+      { role: 'ramp', count: config.minRampCount ?? 10, label: 'Ramp', picks: planPicks('rampPicks') },
+      { role: 'draw', count: config.minDrawCount ?? 10, label: 'Draw', picks: planPicks('drawPicks') },
+      { role: 'removal', count: config.minRemovalCount ?? 8, label: 'Removal', picks: planPicks('removalPicks') },
+      ...(commanderColors.has('U') ? [{ role: 'counter', count: 4, label: 'Counters', picks: [] as string[] }] : [])
     ]) {
-      const room = nonLandRoom();
-      if (room <= 0) { console.log(`  ${label}: 0/${count} (no room)`); continue; }
-      const roleCards = colorFilteredCards
-        .filter(c => hasRole(c, role) && !isLandEntry(c) && !usedCardNames.has(c.name))
-        .sort((a, b) => scoreCard(b) - scoreCard(a))
-        .slice(0, Math.min(count, room));
-      roleCards.forEach(c => addCard(c, { protect: true }));
-      console.log(`  ${label}: ${roleCards.length}/${count}`);
+      let added = 0;
+      const quota = Math.min(count, nonLandRoom());
+
+      for (const pick of picks) {
+        if (added >= quota || nonLandRoom() <= 0) break;
+        const lower = pick.toLowerCase().trim();
+        if (!lower) continue;
+        const match = colorFilteredCards.find(c =>
+          c.name.toLowerCase() === lower && !isLandEntry(c) && !usedCardNames.has(c.name)
+        );
+        if (match && addCard(match, { protect: true })) added++;
+      }
+
+      const remaining = Math.min(count - added, nonLandRoom());
+      if (remaining > 0) {
+        const roleCards = colorFilteredCards
+          .filter(c => hasRole(c, role) && !isLandEntry(c) && !usedCardNames.has(c.name))
+          .sort((a, b) => scoreCard(b) - scoreCard(a))
+          .slice(0, remaining);
+        roleCards.forEach(c => { if (addCard(c, { protect: true })) added++; });
+      }
+      console.log(`  ${label}: ${added}/${count}`);
     }
 
     // ----- Step 4: Creatures across the curve, inside whatever room is left -----

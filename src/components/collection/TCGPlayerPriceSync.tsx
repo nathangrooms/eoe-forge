@@ -187,15 +187,15 @@ export function TCGPlayerPriceSync() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-3 bg-muted rounded-lg">
-                <p className="text-2xl font-bold text-green-600">{result.updated}</p>
+                <p className="text-2xl font-bold tabular-nums">{result.updated}</p>
                 <p className="text-xs text-muted-foreground">Updated</p>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
-                <p className="text-2xl font-bold text-red-600">{result.failed}</p>
+                <p className="text-2xl font-bold tabular-nums text-destructive">{result.failed}</p>
                 <p className="text-xs text-muted-foreground">Failed</p>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold tabular-nums">
                   ${result.totalValue.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">Total Value</p>
@@ -228,7 +228,7 @@ export function TCGPlayerPriceSync() {
                             ${change.oldPrice.toFixed(2)}
                           </span>
                           <TrendingUp 
-                            className={`h-4 w-4 ${isIncrease ? 'text-green-600' : 'text-red-600 rotate-180'}`}
+                            className={`h-4 w-4 text-muted-foreground ${isIncrease ? '' : 'rotate-180'}`}
                           />
                           <Badge variant={isIncrease ? 'default' : 'destructive'}>
                             {isIncrease ? '+' : ''}{percentChange}%

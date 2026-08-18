@@ -54,49 +54,51 @@ export class DashboardErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="max-w-2xl w-full">
+        <div className="flex items-center justify-center px-3 py-12 md:px-6">
+          <Card className="w-full max-w-2xl">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-destructive/10">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </span>
                 <div>
-                  <CardTitle>Dashboard Loading Error</CardTitle>
+                  <CardTitle className="text-base font-semibold">
+                    The dashboard failed to load
+                  </CardTitle>
                   <CardDescription>
-                    Something went wrong while loading the dashboard
+                    Reloading usually clears it. Your data is untouched.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {this.state.error && (
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm font-mono text-destructive">
+                <div className="rounded-md border border-border bg-muted p-4">
+                  <p className="font-mono text-sm text-destructive">
                     {this.state.error.toString()}
                   </p>
                 </div>
               )}
-              
+
               <div className="flex gap-3">
                 <Button onClick={this.handleReset} className="flex-1">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reload Dashboard
+                  <RefreshCw className="h-4 w-4" />
+                  Reload dashboard
                 </Button>
-                <Link to="/" className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    <Home className="h-4 w-4 mr-2" />
-                    Go Home
-                  </Button>
-                </Link>
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link to="/decks">
+                    <Home className="h-4 w-4" />
+                    Go to decks
+                  </Link>
+                </Button>
               </div>
 
-              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+              {import.meta.env.DEV && this.state.errorInfo && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-                    Technical Details
+                    Technical details
                   </summary>
-                  <pre className="mt-2 text-xs bg-muted p-4 rounded-lg overflow-auto max-h-64">
+                  <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </details>

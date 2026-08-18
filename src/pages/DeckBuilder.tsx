@@ -6,10 +6,7 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
-import { CompactCommanderSection } from '@/components/deck-builder/CompactCommanderSection';
-import { EnhancedDeckList } from '@/components/deck-builder/EnhancedDeckList';
 import { AIOptimizerPanel } from '@/components/deck-builder/AIOptimizerPanel';
-import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
@@ -20,12 +17,13 @@ import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { DeckProxyGenerator } from '@/components/deck-builder/DeckProxyGenerator';
 import { DeckNotesPanel } from '@/components/deck-builder/DeckNotesPanel';
-import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
 import { EnhancedDeckExport } from '@/components/deck-builder/EnhancedDeckExport';
 import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { DeckBuilderTabs } from '@/components/deck-builder/DeckBuilderTabs';
-import { EdhAnalysisPanel, EdhAnalysisData, BracketData, CardAnalysis, LandAnalysis } from '@/components/deck-builder/EdhAnalysisPanel';
+import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { VisualDeckView } from '@/components/deck-builder/VisualDeckView';
+import { categorizeCard, maxCopiesFor, type CardCategory } from '@/components/deck-builder/deck-categories';
+import { useCollectionOwnership } from '@/components/deck-builder/useCollectionOwnership';
 import { useIsFeatureEnabled } from '@/hooks/useFeatureAccess';
 
 import { scryfallAPI } from '@/lib/api/scryfall';
@@ -34,13 +32,12 @@ import { useDeckStore } from '@/stores/deckStore';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, RefreshCw, Target, Pencil, ArrowLeft, Brain } from 'lucide-react';
+import { ExternalLink, RefreshCw, Pencil, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Deck {
@@ -56,7 +53,7 @@ interface Deck {
 
 const DeckBuilder = () => {
   const deck = useDeckStore();
-  const { decks: localDecks, addCardToDeck, createDeck, setActiveDeck, activeDeck } = useDeckManagementStore();
+  const { decks: localDecks } = useDeckManagementStore();
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -125,11 +122,15 @@ const DeckBuilder = () => {
   const lastSavedCardsRef = useRef<string>('');
   const pendingSaveRef = useRef<boolean>(false);
   
+  // True once this page has actually loaded a deck, so an empty `cards` array
+  // means "the user deleted everything" rather than "nothing has loaded yet".
+  const hasLoadedRef = useRef(false);
+  const loadedForDeckRef = useRef<string | null>(null);
+
   // Save immediately function for critical moments
   const saveImmediately = useCallback(() => {
     const currentState = useDeckStore.getState();
-    if (currentState.cards.length > 0 && currentState.currentDeckId && pendingSaveRef.current) {
-      console.log('Immediate save triggered with', currentState.cards.length, 'cards');
+    if (hasLoadedRef.current && currentState.currentDeckId && pendingSaveRef.current) {
       currentState.updateDeck(currentState.currentDeckId);
       pendingSaveRef.current = false;
       lastSavedCardsRef.current = JSON.stringify(currentState.cards.map(c => ({ id: c.id, qty: c.quantity })));
@@ -147,33 +148,45 @@ const DeckBuilder = () => {
   }, [saveImmediately]);
   
   useEffect(() => {
-    if (!deck.currentDeckId || deck.cards.length === 0) return;
-    
+    if (!deck.currentDeckId) return;
+
+    // A different deck arriving in the store resets the "loaded" latch, so we
+    // never write an empty list over a deck that simply has not loaded yet.
+    if (loadedForDeckRef.current !== deck.currentDeckId) {
+      if (deck.cards.length === 0) return;
+      loadedForDeckRef.current = deck.currentDeckId;
+      lastSavedCardsRef.current = JSON.stringify(deck.cards.map(c => ({ id: c.id, qty: c.quantity })));
+      hasLoadedRef.current = true;
+      return;
+    }
+
     // Create a hash of current cards to compare
     const currentCardsHash = JSON.stringify(deck.cards.map(c => ({ id: c.id, qty: c.quantity })));
-    
+
     // Skip if nothing changed
     if (currentCardsHash === lastSavedCardsRef.current) return;
-    
+
     // Mark that we have pending changes
     pendingSaveRef.current = true;
-    
+
     // Clear any pending save
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
-    // Debounce save by 1 second (reduced from 2)
+
+    // The single debounced save path for the page. `handleAddCardToDeck` used
+    // to run a second timer on a window global; this effect covers it because
+    // adding a card changes `deck.cards`. Deleting the last card is a real
+    // change too, so an empty list is persisted rather than silently skipped.
     saveTimeoutRef.current = setTimeout(() => {
       const currentState = useDeckStore.getState();
-      if (currentState.cards.length > 0 && currentState.currentDeckId) {
-        console.log('Auto-saving deck with', currentState.cards.length, 'cards');
+      if (currentState.currentDeckId) {
         currentState.updateDeck(currentState.currentDeckId);
         lastSavedCardsRef.current = currentCardsHash;
         pendingSaveRef.current = false;
       }
     }, 1000);
-    
+
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -275,44 +288,68 @@ const DeckBuilder = () => {
     }
   };
 
-  const handleAddCardToDeck = (card: any) => {
+  /**
+   * Adds a card, enforcing the two rules the builder previously ignored:
+   * the format's copy limit, and the commander's colour identity.
+   * Returns false when the add was refused.
+   */
+  const handleAddCardToDeck = (card: any): boolean => {
     if (!deck.name) {
-      showSuccess("No Active Deck", "Please select a deck first");
-      return;
+      showError('No active deck', 'Open a deck from the deck list first.');
+      return false;
     }
 
-    const deckCard = {
+    const format = deck.format || 'commander';
+
+    // Colour identity: a Commander deck may only contain cards inside the
+    // commander's identity. Refuse at add time instead of surfacing it two
+    // tabs away in the Analysis panel.
+    const commanderIdentity: string[] =
+      (deck.commander as any)?.color_identity || (deck.commander as any)?.colors || [];
+    if (format === 'commander' && deck.commander && commanderIdentity.length >= 0) {
+      const cardIdentity: string[] = card.color_identity || card.colors || [];
+      const offending = cardIdentity.filter((c: string) => !commanderIdentity.includes(c));
+      if (offending.length > 0) {
+        showError(
+          'Outside colour identity',
+          `${card.name} is ${offending.join('')}, which ${deck.commander.name} cannot support.`
+        );
+        return false;
+      }
+    }
+
+    const existing = deck.cards.find(c => c.id === card.id);
+    const limit = maxCopiesFor(format, card);
+    if (existing && (existing.quantity || 1) + 1 > limit) {
+      showError(
+        'Copy limit',
+        `${card.name} is capped at ${limit} cop${limit === 1 ? 'y' : 'ies'} in ${format}.`
+      );
+      return false;
+    }
+
+    deck.addCard({
       id: card.id,
       name: card.name,
       cmc: card.cmc || 0,
       type_line: card.type_line || '',
       colors: card.colors || [],
+      color_identity: card.color_identity || card.colors || [],
+      oracle_text: card.oracle_text,
+      rarity: card.rarity,
+      set: card.set,
+      set_name: card.set_name,
       mana_cost: card.mana_cost,
       quantity: 1,
-      category: card.type_line?.toLowerCase().includes('creature') ? 'creatures' as const : 
-               card.type_line?.toLowerCase().includes('land') ? 'lands' as const :
-               card.type_line?.toLowerCase().includes('instant') ? 'instants' as const :
-               card.type_line?.toLowerCase().includes('sorcery') ? 'sorceries' as const : 'other' as const,
+      category: categorizeCard(card),
       mechanics: card.keywords || [],
       image_uris: card.image_uris,
-      prices: card.prices
-    };
+      prices: card.prices,
+    });
 
-    deck.addCard(deckCard);
-    
-    // Auto-save if this is a Supabase deck
-    if (deck.currentDeckId) {
-      clearTimeout((window as any).__autoSaveTimeout);
-      (window as any).__autoSaveTimeout = setTimeout(() => {
-        deck.updateDeck(deck.currentDeckId!).then((result) => {
-          if (result.success) {
-            console.log('Auto-saved deck changes');
-          }
-        });
-      }, 1000);
-    }
-    
-    showSuccess("Card Added", `Added ${card.name} to ${deck.name}`);
+    // Persisting is handled by the single debounced auto-save effect above.
+    showSuccess('Card added', `${card.name} → ${deck.name}`);
+    return true;
   };
 
   const checkEdhPowerLevel = async (deckId?: string, forceRefresh: boolean = false) => {
@@ -568,24 +605,26 @@ const DeckBuilder = () => {
     }
   };
 
+  // Owned/missing measured against the real collection rather than the
+  // hardcoded `ownedPct: 100` this page used to report for every deck.
+  const { ownership, loading: ownershipLoading } = useCollectionOwnership(
+    deck.cards as any[],
+    user?.id
+  );
+
   const deckStats = useMemo(() => {
     const cards = deck.cards as any[];
-    let creatures = 0, lands = 0, instants = 0, sorceries = 0, artifacts = 0, enchantments = 0, planeswalkers = 0;
-    let totalCmc = 0, nonLandCount = 0, totalValue = 0;
+    const typeCounts: Partial<Record<CardCategory, number>> = {};
+    let totalCmc = 0;
+    let nonLandCount = 0;
+    let totalValue = 0;
 
     cards.forEach(card => {
       const qty = card.quantity || 1;
-      const typeLine = (card.type_line || '').toLowerCase();
-      
-      if (typeLine.includes('creature')) creatures += qty;
-      else if (typeLine.includes('land')) lands += qty;
-      else if (typeLine.includes('instant')) instants += qty;
-      else if (typeLine.includes('sorcery')) sorceries += qty;
-      else if (typeLine.includes('artifact')) artifacts += qty;
-      else if (typeLine.includes('enchantment')) enchantments += qty;
-      else if (typeLine.includes('planeswalker')) planeswalkers += qty;
-      
-      if (!typeLine.includes('land')) {
+      const category = categorizeCard(card);
+      typeCounts[category] = (typeCounts[category] ?? 0) + qty;
+
+      if (category !== 'lands') {
         totalCmc += (card.cmc || 0) * qty;
         nonLandCount += qty;
       }
@@ -596,16 +635,9 @@ const DeckBuilder = () => {
 
     return {
       totalCards: deck.totalCards,
-      creatures,
-      lands,
-      instants,
-      sorceries,
-      artifacts,
-      enchantments,
-      planeswalkers,
+      typeCounts,
       avgCmc: nonLandCount > 0 ? totalCmc / nonLandCount : 0,
       totalValue,
-      powerLevel: deck.powerLevel,
       edhPowerLevel,
       edhMetrics,
       edhPowerUrl,
@@ -614,11 +646,12 @@ const DeckBuilder = () => {
       onCheckEdhPower: () => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId, true),
       format: deck.format || 'commander',
       commanderName: deck.commander?.name,
-      colors: deck.colors || [],
-      missingCards: 0,
-      ownedPct: 100
+      colors: (deck.commander as any)?.color_identity || deck.colors || [],
+      ownedPct: ownership ? ownership.ownedPct : null,
+      missingCards: ownership ? ownership.missingCopies : null,
+      ownershipLoading,
     };
-  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, deck.powerLevel, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower, edhNeedsRefresh, selectedDeckId, deck.currentDeckId]);
+  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower, edhNeedsRefresh, selectedDeckId, deck.currentDeckId, ownership, ownershipLoading]);
 
   // If loading or no deck loaded yet, show loading state
   if (loading || !deck.name) {
@@ -691,38 +724,31 @@ const DeckBuilder = () => {
 
           {/* EDH Power Level Banner - Commander only */}
           {deck.format === 'commander' && (
-            <div className={cn(
-              "px-4 md:px-6 py-3 border-b bg-gradient-to-r from-primary/5 to-transparent",
-              edhNeedsRefresh && "from-orange-500/10 to-transparent"
-            )}>
+            <div className="px-4 md:px-6 py-3 border-b border-border">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Target className={cn("h-5 w-5 flex-shrink-0", edhNeedsRefresh ? "text-orange-500" : "text-primary")} />
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <p className="text-sm font-medium whitespace-nowrap">EDH Power Level</p>
-                    {loadingEdhPower ? (
-                      <p className="text-lg font-bold">...</p>
-                    ) : edhPowerLevel !== null ? (
-                      <p className="text-lg font-bold">{edhPowerLevel.toFixed(2)}/10</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Not calculated</p>
-                    )}
-                    {edhNeedsRefresh && (
-                      <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-500 border-orange-500/30">
-                        Cards Changed
-                      </Badge>
-                    )}
-                  </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-sm font-medium whitespace-nowrap">EDH power level</p>
+                  {loadingEdhPower ? (
+                    <p className="text-lg font-semibold text-muted-foreground">…</p>
+                  ) : edhPowerLevel !== null ? (
+                    <p className="text-lg font-semibold tabular-nums">{edhPowerLevel.toFixed(2)}/10</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Not calculated</p>
+                  )}
+                  {edhNeedsRefresh && (
+                    <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">
+                      Cards changed since last check
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button 
-                    variant={edhNeedsRefresh ? "default" : "outline"}
+                  <Button
+                    variant={edhNeedsRefresh ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => checkEdhPowerLevel(undefined, true)}
                     disabled={loadingEdhPower}
-                    className={edhNeedsRefresh ? "bg-orange-500 hover:bg-orange-600" : ""}
                   >
-                    <RefreshCw className={cn("h-4 w-4 mr-1", loadingEdhPower && "animate-spin")} />
+                    <RefreshCw className={cn('h-4 w-4 mr-1', loadingEdhPower && 'animate-spin')} />
                     <span className="hidden xs:inline">{edhNeedsRefresh ? 'Refresh' : 'Calculate'}</span>
                   </Button>
                   {edhPowerUrl && (
@@ -739,11 +765,13 @@ const DeckBuilder = () => {
           )}
 
           {/* Tabs Navigation */}
-          <DeckBuilderTabs 
+          <DeckBuilderTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
             totalCards={deck.totalCards}
             format={deck.format || 'commander'}
+            hasCommander={!!deck.commander}
+            hiddenTabs={aiOptimizerLoading || !isAiOptimizerEnabled ? ['ai'] : []}
           />
 
           {/* Tab Content */}
@@ -775,6 +803,9 @@ const DeckBuilder = () => {
                     deck.updateCardQuantity(cardId, 0);
                   }
                 }}
+                onUpdateQuantity={(cardId, quantity) => {
+                  deck.updateCardQuantity(cardId, Math.max(0, quantity));
+                }}
                 onReplaceCard={(cardId) => {
                   setCardToReplace(cardId);
                   setActiveTab('search');
@@ -786,12 +817,14 @@ const DeckBuilder = () => {
             {activeTab === 'search' && (
               <>
                 {cardToReplace ? (
-                  <Card className="p-4 mb-6 bg-orange-500/10 border-orange-500/30">
-                    <div className="flex items-center justify-between">
+                  <Card className="p-4 mb-6">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium text-orange-500">Replacing card</p>
-                        <p className="font-bold">{deck.cards.find(c => c.id === cardToReplace)?.name}</p>
-                        <p className="text-xs text-muted-foreground">Select a card below to replace it</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Replacing
+                        </p>
+                        <p className="font-semibold">{deck.cards.find(c => c.id === cardToReplace)?.name}</p>
+                        <p className="text-xs text-muted-foreground">Pick a card below to swap it in.</p>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => setCardToReplace(null)}>
                         Cancel
@@ -799,28 +832,33 @@ const DeckBuilder = () => {
                     </div>
                   </Card>
                 ) : (
-                  <Card className="p-4 mb-6 bg-muted/30">
-                    <p className="text-sm font-medium">Adding cards to: {deck.name}</p>
-                    <p className="text-xs text-muted-foreground">Format: {deck.format} • Cards: {deck.totalCards}</p>
+                  <Card className="p-4 mb-6">
+                    <p className="text-sm font-medium">Adding cards to {deck.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {deck.format} • {deck.totalCards} cards
+                      {deck.commander ? ` • colour identity of ${deck.commander.name}` : ''}
+                    </p>
                   </Card>
                 )}
                 <EnhancedUniversalCardSearch
                   onCardAdd={(card) => {
                     if (cardToReplace) {
-                      // Replace the old card with the new one
                       const oldCard = deck.cards.find(c => c.id === cardToReplace);
                       if (oldCard) {
-                        deck.removeCard(cardToReplace);
-                        handleAddCardToDeck(card);
-                        showSuccess('Card Replaced', `Replaced ${oldCard.name} with ${card.name}`);
-                        setCardToReplace(null);
-                        setActiveTab('cards');
+                        // Only drop the old card once the new one is accepted —
+                        // a colour-identity or copy-limit refusal must not
+                        // silently delete the card being replaced.
+                        if (handleAddCardToDeck(card)) {
+                          deck.removeCard(cardToReplace);
+                          showSuccess('Card replaced', `${oldCard.name} → ${card.name}`);
+                          setCardToReplace(null);
+                          setActiveTab('cards');
+                        }
                       }
                     } else {
                       handleAddCardToDeck(card);
                     }
                   }}
-                  onCardSelect={(card) => console.log('Selected:', card)}
                   placeholder={cardToReplace ? `Search for a replacement card...` : `Search cards for your ${deck.format} deck...`}
                   showFilters={true}
                   showAddButton={true}
@@ -862,19 +900,14 @@ const DeckBuilder = () => {
                   format={deck.format || 'standard'}
                   commander={deck.commander}
                 />
-                {deck.format === 'commander' && (
-                  <CommanderPowerDisplay
-                    powerLevel={edhPowerLevel ?? deck.powerLevel}
-                    metrics={{
-                      overall: edhPowerLevel ?? deck.powerLevel,
-                      speed: (edhPowerLevel ?? deck.powerLevel) * 0.9,
-                      interaction: (edhPowerLevel ?? deck.powerLevel) * 1.1,
-                      resilience: (edhPowerLevel ?? deck.powerLevel) * 0.8,
-                      comboPotential: (edhPowerLevel ?? deck.powerLevel) * 1.2
-                    }}
-                  />
-                )}
-                <PowerLevelConsistency 
+                {/*
+                  CommanderPowerDisplay used to sit here, fed sub-scores derived
+                  as powerLevel * 0.9 / 1.1 / 0.8 / 1.2 — four invented numbers
+                  presented as speed, interaction, resilience and combo
+                  potential. Removed rather than restyled; the real per-axis
+                  metrics come from edhpowerlevel.com in EdhAnalysisPanel above.
+                */}
+                <PowerLevelConsistency
                   deckCards={deck.cards as any}
                   commander={deck.commander}
                   format={deck.format || 'standard'}
@@ -884,57 +917,42 @@ const DeckBuilder = () => {
                   commander={deck.commander}
                   format={deck.format || 'standard'}
                 />
-                {deck.currentDeckId && (
-                  <EnhancedMatchTracker 
-                    deckId={deck.currentDeckId}
-                    deckName={deck.name}
-                  />
-                )}
-                <DeckBudgetTracker 
+                <DeckBudgetTracker
                   deckCards={deck.cards as any}
                   targetBudget={200}
                 />
-                {deck.currentDeckId && <DeckNotesPanel deckId={deck.currentDeckId} />}
-                {deck.currentDeckId && (
-                  <MatchAnalytics 
-                    deckId={deck.currentDeckId}
-                    deckName={deck.name}
-                  />
-                )}
-                <EnhancedDeckAnalysisPanel 
+                <EnhancedDeckAnalysisPanel
                   deck={deck.cards as any}
                   format={deck.format || 'standard'}
                   commander={deck.commander}
                   deckId={selectedDeckId || deck.currentDeckId || undefined}
                   deckName={deck.name}
                 />
+
+                {/* Match history and notes are records, not analysis. */}
+                {deck.currentDeckId && (
+                  <div className="space-y-6 border-t border-border pt-6">
+                    <EnhancedMatchTracker deckId={deck.currentDeckId} deckName={deck.name} />
+                    <DeckNotesPanel deckId={deck.currentDeckId} />
+                  </div>
+                )}
+                {/*
+                  MatchAnalytics was rendered here as a second match panel over
+                  the same deck_matches rows as EnhancedMatchTracker. Dropped as
+                  a duplicate.
+                */}
               </div>
             )}
 
             {activeTab === 'analysis' && deck.cards.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="font-medium">Add cards to see analysis</p>
-                <p className="text-sm">Get detailed stats, synergy insights, and recommendations</p>
+                <p className="text-sm">Curve, colour identity, legality and budget all read from the decklist.</p>
               </div>
             )}
 
-            {/* Optimizer */}
-            {activeTab === 'ai' && !isAiOptimizerEnabled && (
-              <Card className="border-dashed border-2 border-muted">
-                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <Brain className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Optimizer</h3>
-                  <Badge variant="secondary" className="mb-4">In Development</Badge>
-                  <p className="text-muted-foreground max-w-md">
-                    Our deck optimization feature is currently being enhanced with new capabilities. 
-                    Check back soon for intelligent card suggestions and deck improvements.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
+            {/* Optimizer — the tab is hidden entirely when its flag is off, so
+                there is no "check back soon" panel to land on. */}
             {activeTab === 'ai' && isAiOptimizerEnabled && deck.cards.length > 0 && (
               <div className="space-y-6">
                 <AIOptimizerPanel

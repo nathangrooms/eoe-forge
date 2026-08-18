@@ -36,6 +36,9 @@ import { useNavigate } from 'react-router-dom';
 import { CommanderIntelligence } from '@/lib/deckbuilder/commander-intelligence';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { cn } from '@/lib/utils';
 
 // Build phases for progress tracking - more detailed iterative process
 const BUILD_PHASES = [
@@ -47,65 +50,9 @@ const BUILD_PHASES = [
   { id: 'budget-check', label: 'Budget Optimization', description: 'Finding cheaper alternatives if needed' },
   { id: 'refining', label: 'Iterative Refinement', description: 'Replacing weak cards with better options' },
   { id: 'final-check', label: 'Final Validation', description: 'Ensuring 100 cards and all rules met' },
-  { id: 'complete', label: 'Complete', description: 'Your optimized deck is ready!' }
+  { id: 'complete', label: 'Complete', description: 'Deck list ready to review' }
 ];
 
-const POPULAR_COMMANDERS = [
-  { 
-    name: 'Atraxa, Praetors\' Voice',
-    colors: ['W', 'U', 'B', 'G'],
-    color_identity: ['W', 'U', 'B', 'G'],
-    type_line: 'Legendary Creature — Phyrexian Angel Horror',
-    cmc: 4,
-    oracle_text: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/d/0/d0d33d52-3d28-4635-b985-51e126289259.jpg' }
-  },
-  { 
-    name: 'Edgar Markov', 
-    colors: ['W', 'B', 'R'],
-    color_identity: ['W', 'B', 'R'],
-    type_line: 'Legendary Creature — Vampire Knight',
-    cmc: 6,
-    oracle_text: 'Eminence — Whenever you cast a Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg' }
-  },
-  { 
-    name: 'Korvold, Fae-Cursed King', 
-    colors: ['B', 'R', 'G'],
-    color_identity: ['B', 'R', 'G'],
-    type_line: 'Legendary Creature — Dragon Noble',
-    cmc: 5,
-    oracle_text: 'Flying\nWhenever Korvold attacks, sacrifice another permanent.\nWhenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/9/2/92ea1575-eb64-43b5-b604-c6e23054f228.jpg' }
-  },
-  { 
-    name: 'Yuriko, the Tiger\'s Shadow', 
-    colors: ['U', 'B'],
-    color_identity: ['U', 'B'],
-    type_line: 'Legendary Creature — Human Ninja',
-    cmc: 2,
-    oracle_text: 'Commander ninjutsu {U}{B}\nWhenever a Ninja you control deals combat damage to a player, reveal the top card of your library.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/3/b/3bd81ae6-e628-447a-a36b-597e63ede295.jpg' }
-  },
-  { 
-    name: 'The Ur-Dragon', 
-    colors: ['W', 'U', 'B', 'R', 'G'],
-    color_identity: ['W', 'U', 'B', 'R', 'G'],
-    type_line: 'Legendary Creature — Dragon Avatar',
-    cmc: 9,
-    oracle_text: 'Eminence — Dragon spells you cast cost {1} less to cast.\nFlying\nWhenever one or more Dragons you control attack, draw that many cards.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg' }
-  },
-  { 
-    name: 'Meren of Clan Nel Toth', 
-    colors: ['B', 'G'],
-    color_identity: ['B', 'G'],
-    type_line: 'Legendary Creature — Human Shaman',
-    cmc: 4,
-    oracle_text: 'Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, return target creature from graveyard.',
-    image_uris: { normal: 'https://cards.scryfall.io/normal/front/1/7/17d6703c-ad79-457b-a1b5-c2284e363085.jpg' }
-  }
-];
 
 export default function AIBuilder() {
   const deck = useDeckStore();
@@ -143,6 +90,32 @@ export default function AIBuilder() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [loadingEdhAnalysis, setLoadingEdhAnalysis] = useState(false);
 
+  // Popular commanders, read live from Scryfall in EDHREC order. These used to
+  // be six hardcoded entries carrying paraphrased, incomplete oracle text.
+  const [popularCommanders, setPopularCommanders] = useState<any[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          'https://api.scryfall.com/cards/search?q=' +
+            encodeURIComponent('is:commander legal:commander') +
+            '&order=edhrec&unique=cards'
+        );
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (!cancelled) setPopularCommanders((data.data || []).slice(0, 12));
+      } catch {
+        if (!cancelled) setPopularCommanders([]);
+      } finally {
+        if (!cancelled) setPopularLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Search commanders from Scryfall
   const searchCommanders = async (query: string) => {
     if (!query.trim()) {
@@ -153,7 +126,7 @@ export default function AIBuilder() {
     setSearchingCommanders(true);
     try {
       const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query + ' type:legendary type:creature')}&unique=cards&order=edhrec`
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query + ' is:commander legal:commander')}&unique=cards&order=edhrec`
       );
       
       if (!response.ok) {
@@ -612,11 +585,11 @@ export default function AIBuilder() {
   };
 
   const getPowerLevelLabel = (level: number) => {
-    if (level <= 3) return { label: 'Casual', color: 'text-green-500' };
-    if (level <= 5) return { label: 'Focused', color: 'text-blue-500' };
-    if (level <= 7) return { label: 'Optimized', color: 'text-yellow-500' };
-    if (level <= 9) return { label: 'High Power', color: 'text-orange-500' };
-    return { label: 'cEDH', color: 'text-red-500' };
+    if (level <= 3) return { label: 'Casual', color: 'text-power-1' };
+    if (level <= 5) return { label: 'Focused', color: 'text-power-4' };
+    if (level <= 7) return { label: 'Optimized', color: 'text-power-7' };
+    if (level <= 9) return { label: 'High Power', color: 'text-power-7' };
+    return { label: 'cEDH', color: 'text-power-10' };
   };
 
   const getBudgetLabel = (budget: number) => {
@@ -626,48 +599,54 @@ export default function AIBuilder() {
     return 'Premium';
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent">
-                <Sparkles className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  Smart Deck Builder
-                </h1>
-                <p className="text-muted-foreground text-sm md:text-base">
-                  Build the perfect Commander deck with intelligent assistance
-                </p>
-              </div>
-            </div>
-            
-            {/* Progress indicator */}
-            {step < 4 && !building && (
-              <div className="hidden md:flex items-center gap-3">
-                {[1, 2, 3].map((s) => (
-                  <div key={s} className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-medium transition-all ${
-                      s < step ? 'bg-primary text-primary-foreground' : 
-                      s === step ? 'bg-primary/20 text-primary border-2 border-primary' : 
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                      {s < step ? <CheckCircle2 className="h-5 w-5" /> : s}
-                    </div>
-                    {s < 3 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+  /*
+   * The rail is derived from the real state machine. `setStep` is only ever
+   * called with 1, 2 and 4 — the old `[1, 2, 3].map(...)` rail rendered a third
+   * dot that could never light up. The three stages below are the three screens
+   * the user actually passes through.
+   */
+  const STAGES = ['Commander', 'Configure', 'Build'] as const;
+  const currentStage = building || step === 4 ? 3 : step;
 
-      <div className="container mx-auto px-4 py-8">
+  return (
+    <StandardPageLayout
+      title="Smart Deck Builder"
+      description="Pick a commander, set your constraints, and generate a 100-card list you can edit."
+      action={
+        <div className="hidden items-center gap-2 md:flex">
+          {STAGES.map((label, i) => {
+            const n = i + 1;
+            return (
+              <div key={label} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold',
+                    n < currentStage
+                      ? 'bg-primary text-primary-foreground'
+                      : n === currentStage
+                        ? 'border-2 border-foreground text-foreground'
+                        : 'bg-muted text-muted-foreground'
+                  )}
+                  aria-current={n === currentStage ? 'step' : undefined}
+                >
+                  {n < currentStage ? <CheckCircle2 className="h-4 w-4" /> : n}
+                </span>
+                <span
+                  className={cn(
+                    'text-xs',
+                    n === currentStage ? 'font-medium text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {label}
+                </span>
+                {n < STAGES.length && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+              </div>
+            );
+          })}
+        </div>
+      }
+    >
+      <div className="py-2">
         <AnimatePresence mode="wait">
           {/* Step 1: Commander Selection */}
           {step === 1 && !building && (
@@ -691,27 +670,17 @@ export default function AIBuilder() {
                 <CardContent className="space-y-6">
                   {/* Selected Commander Display */}
                   {commander && (
-                    <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
-                      <img 
-                        src={commander.image_uris?.normal || commander.image_uris?.art_crop || '/placeholder.svg'} 
+                    <div className="flex items-center gap-4 rounded-lg border border-border p-4">
+                      <img
+                        src={commander.image_uris?.normal || commander.image_uris?.art_crop || '/placeholder.svg'}
                         alt={commander.name}
-                        className="w-24 h-auto rounded-lg shadow-lg"
+                        className="w-24 h-auto rounded-lg border border-border"
                       />
                       <div className="flex-1">
-                        <h3 className="font-bold text-lg">{commander.name}</h3>
+                        <h3 className="font-semibold text-lg">{commander.name}</h3>
                         <p className="text-sm text-muted-foreground">{commander.type_line}</p>
-                        <div className="flex gap-1 mt-2">
-                          {(commander.color_identity || []).map((color: string) => (
-                            <div
-                              key={color}
-                              className="w-5 h-5 rounded-full border-2 border-white shadow"
-                              style={{
-                                backgroundColor: {
-                                  W: '#F9FAF4', U: '#0E68AB', B: '#150B00', R: '#D3202A', G: '#00733E'
-                                }[color] || '#888'
-                              }}
-                            />
-                          ))}
+                        <div className="mt-2">
+                          <ColorIdentity colors={commander.color_identity} size="md" />
                         </div>
                       </div>
                       <Button variant="outline" onClick={() => { setCommander(null); setSuggestedArchetypes([]); }}>
@@ -726,7 +695,7 @@ export default function AIBuilder() {
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
-                          placeholder="Search for a legendary creature..."
+                          placeholder="Search commanders, backgrounds and partners…"
                           value={commanderSearch}
                           onChange={(e) => setCommanderSearch(e.target.value)}
                           className="pl-10 h-12 text-lg"
@@ -747,7 +716,7 @@ export default function AIBuilder() {
                                 className="group cursor-pointer transition-all duration-300"
                                 onClick={() => selectCommander(card)}
                               >
-                                <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
+                                <div className="relative rounded-lg overflow-hidden border border-border transition-colors group-hover:border-foreground">
                                   <img 
                                     src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
                                     alt={card.name}
@@ -769,29 +738,40 @@ export default function AIBuilder() {
                         <>
                           <div>
                             <h3 className="font-semibold mb-4 flex items-center gap-2">
-                              <TrendingUp className="h-5 w-5 text-primary" />
-                              Popular Commanders
+                              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                              Most played commanders
+                              <span className="text-xs font-normal text-muted-foreground">by EDHREC rank</span>
                             </h3>
+                            {popularLoading ? (
+                              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Loading from Scryfall…
+                              </div>
+                            ) : popularCommanders.length === 0 ? (
+                              <p className="py-8 text-sm text-muted-foreground">
+                                Could not reach Scryfall. Search by name above instead.
+                              </p>
+                            ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                              {POPULAR_COMMANDERS.map((cmdr) => (
+                              {popularCommanders.map((cmdr) => (
                                 <div
                                   key={cmdr.name}
                                   className="group cursor-pointer transition-all duration-300"
                                   onClick={() => selectCommander(cmdr)}
                                 >
-                                  <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
+                                  <div className="relative rounded-lg overflow-hidden border border-border transition-colors group-hover:border-foreground">
                                     <img 
                                       src={cmdr.image_uris?.normal || '/placeholder.svg'} 
                                       alt={cmdr.name}
                                       className="w-full h-auto"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                                      <p className="text-white text-sm font-bold truncate">{cmdr.name}</p>
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                                      <p className="text-white text-xs font-medium truncate">{cmdr.name}</p>
                                     </div>
                                   </div>
                                 </div>
                               ))}
                             </div>
+                            )}
                           </div>
 
                           {/* Commander Finder Section */}
@@ -825,7 +805,7 @@ export default function AIBuilder() {
               className="space-y-6"
             >
               {/* Commander summary */}
-              <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+              <Card>
                 <CardContent className="py-4">
                   <div className="flex items-center gap-4">
                     <img 
@@ -987,7 +967,7 @@ export default function AIBuilder() {
               </Card>
 
               {/* Build Summary & Action */}
-              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <Card>
                 <CardContent className="py-6">
                   <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-6 flex-wrap">
@@ -1012,7 +992,7 @@ export default function AIBuilder() {
                       size="lg"
                       onClick={handleBuild}
                       disabled={!buildData.archetype}
-                      className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground px-8"
+                      className="px-8"
                     >
                       <Wand2 className="h-5 w-5 mr-2" />
                       Build Deck
@@ -1029,37 +1009,36 @@ export default function AIBuilder() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <Card className="border-primary/30 bg-gradient-to-br from-card via-primary/5 to-accent/5">
+              <Card>
                 <CardContent className="py-12">
                   <div className="max-w-2xl mx-auto text-center space-y-8">
-                    <div className="relative">
-                      <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20 blur-xl" />
-                      <Sparkles className="h-20 w-20 mx-auto text-primary relative animate-pulse" />
-                    </div>
-                    
+                    <Loader2 className="h-10 w-10 mx-auto animate-spin text-muted-foreground" />
+
                     <div>
-                      <h2 className="text-2xl font-bold mb-2">Building Your Perfect Deck</h2>
-                      <p className="text-muted-foreground">
-                        This may take a moment while we validate everything...
+                      <h2 className="text-xl font-semibold mb-2">
+                        Building {commander?.name ? `a deck for ${commander.name}` : 'your deck'}
+                      </h2>
+                      <p className="text-muted-foreground text-sm">
+                        Target {buildData.powerLevel}/10 power, under ${buildData.maxBudget}.
                       </p>
                     </div>
-                    
+
                     {/* Phase Progress */}
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {BUILD_PHASES.map((phase, index) => (
-                        <div 
+                        <div
                           key={phase.id}
-                          className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
-                            index < buildPhase ? 'bg-green-500/10' :
-                            index === buildPhase ? 'bg-primary/10 animate-pulse' :
+                          className={cn(
+                            'flex items-center gap-4 p-3 rounded-lg transition-colors',
+                            index < buildPhase ? 'bg-muted/50' :
+                            index === buildPhase ? 'bg-accent' :
                             'opacity-50'
-                          }`}
+                          )}
                         >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            index < buildPhase ? 'bg-green-500 text-white' :
-                            index === buildPhase ? 'bg-primary text-primary-foreground' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
+                          <div className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-medium',
+                            index <= buildPhase ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          )}>
                             {index < buildPhase ? (
                               <CheckCircle2 className="h-5 w-5" />
                             ) : index === buildPhase ? (
@@ -1092,12 +1071,12 @@ export default function AIBuilder() {
             >
               {/* Validation Status */}
               {validationErrors.length > 0 && (
-                <Card className="border-yellow-500/30 bg-yellow-500/5">
+                <Card className="border-destructive/40">
                   <CardContent className="py-4">
                     <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                       <div>
-                        <h4 className="font-semibold text-yellow-600">Validation Warnings</h4>
+                        <h4 className="font-semibold text-destructive">Validation warnings</h4>
                         <ul className="text-sm text-muted-foreground mt-1">
                           {validationErrors.map((err, i) => (
                             <li key={i}>• {err}</li>
@@ -1135,6 +1114,6 @@ export default function AIBuilder() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </StandardPageLayout>
   );
 }

@@ -104,9 +104,9 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
   const winRate = stats.total > 0 ? ((stats.wins / stats.total) * 100).toFixed(1) : '0';
 
   const resultColors = {
-    win: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    loss: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-    draw: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+    win: 'bg-muted text-foreground border-border',
+    loss: 'bg-destructive/10 text-destructive border-destructive/40',
+    draw: 'bg-muted text-foreground border-border',
   };
 
   return (
@@ -204,17 +204,17 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
                 <div className="text-xs text-muted-foreground">Total Matches</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10">
-              <Trophy className="h-5 w-5 text-emerald-500" />
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+              <Trophy className="h-5 w-5 text-foreground" />
               <div>
-                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.wins}</div>
+                <div className="text-2xl font-bold text-foreground">{stats.wins}</div>
                 <div className="text-xs text-muted-foreground">Wins</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-500/10">
-              <Target className="h-5 w-5 text-red-500" />
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-destructive/10">
+              <Target className="h-5 w-5 text-destructive" />
               <div>
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.losses}</div>
+                <div className="text-2xl font-bold text-destructive">{stats.losses}</div>
                 <div className="text-xs text-muted-foreground">Losses</div>
               </div>
             </div>

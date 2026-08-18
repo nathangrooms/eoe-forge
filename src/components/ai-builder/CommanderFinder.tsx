@@ -2,47 +2,84 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Sparkles, Search, Loader2, Target, Users, Zap, Shield, Scroll, Crown, Heart, Skull, Flame, Leaf, Droplet } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ManaPip, ManaCost } from '@/components/ui/mana-cost';
+import {
+  Search,
+  Loader2,
+  Target,
+  Users,
+  Zap,
+  Shield,
+  Scroll,
+  Crown,
+  Heart,
+  Skull,
+  Leaf,
+  Droplet,
+  Sparkles,
+} from 'lucide-react';
 
 const MANA_COLORS = [
-  { color: 'W', name: 'White', icon: '☀️', bg: 'bg-amber-100 dark:bg-amber-900', text: 'text-amber-800 dark:text-amber-100', border: 'border-amber-400' },
-  { color: 'U', name: 'Blue', icon: '💧', bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' },
-  { color: 'B', name: 'Black', icon: '💀', bg: 'bg-gray-800', text: 'text-white', border: 'border-gray-900' },
-  { color: 'R', name: 'Red', icon: '🔥', bg: 'bg-red-500', text: 'text-white', border: 'border-red-600' },
-  { color: 'G', name: 'Green', icon: '🌲', bg: 'bg-green-500', text: 'text-white', border: 'border-green-600' },
-  { color: 'C', name: 'Colorless', icon: '◇', bg: 'bg-gray-300 dark:bg-gray-600', text: 'text-gray-800 dark:text-gray-100', border: 'border-gray-400' }
+  { color: 'W', name: 'White' },
+  { color: 'U', name: 'Blue' },
+  { color: 'B', name: 'Black' },
+  { color: 'R', name: 'Red' },
+  { color: 'G', name: 'Green' },
+  { color: 'C', name: 'Colorless' },
 ];
 
+/**
+ * Oracle-text heuristics. Several of the originals matched almost nothing or
+ * almost everything — `o:infinite` (no card prints the word), `o:counter`
+ * (matches +1/+1 counters far more often than counterspells) and `o:wheels`
+ * (not a term any card uses) have been replaced with phrases that appear in
+ * real rules text.
+ */
 const PLAYSTYLES = [
-  { value: 'aggro', label: 'Aggro', icon: Zap, description: 'Fast, aggressive, attack-focused', keywords: '(o:haste OR o:"first strike" OR o:"double strike" OR o:attack)' },
-  { value: 'voltron', label: 'Voltron', icon: Shield, description: 'Commander damage focused', keywords: '(o:equipment OR o:aura OR o:attach OR o:"equipped creature")' },
-  { value: 'control', label: 'Control', icon: Target, description: 'Disrupt opponents, slow game', keywords: '(o:counter OR o:destroy OR o:exile OR o:"opponents can\'t")' },
-  { value: 'combo', label: 'Combo', icon: Sparkles, description: 'Win via card combos', keywords: '(o:infinite OR o:untap OR o:whenever)' },
-  { value: 'tokens', label: 'Tokens', icon: Users, description: 'Create token armies', keywords: '(o:token OR o:create)' },
-  { value: 'aristocrats', label: 'Aristocrats', icon: Skull, description: 'Sacrifice for value', keywords: '(o:sacrifice OR o:"when dies" OR o:"whenever a creature dies")' },
-  { value: 'spellslinger', label: 'Spellslinger', icon: Scroll, description: 'Instants/sorceries matter', keywords: '(o:"instant or sorcery" OR o:"you cast" OR o:prowess OR o:magecraft)' },
-  { value: 'tribal', label: 'Tribal', icon: Crown, description: 'Creature type synergy', keywords: '(o:"creature type" OR o:"creatures you control" OR o:"each creature")' },
-  { value: 'lifegain', label: 'Lifegain', icon: Heart, description: 'Gain life, drain opponents', keywords: '(o:"gain life" OR o:lifelink OR o:"you gain")' },
-  { value: 'graveyard', label: 'Graveyard', icon: Skull, description: 'Use cards from graveyard', keywords: '(o:graveyard OR o:"from your graveyard" OR o:reanimate OR o:flashback)' },
-  { value: 'ramp', label: 'Ramp/Lands', icon: Leaf, description: 'Land/mana focused', keywords: '(o:landfall OR o:"search your library for" OR o:"add mana" OR o:"put a land")' },
-  { value: 'draw', label: 'Card Draw', icon: Droplet, description: 'Draw lots of cards', keywords: '(o:"draw card" OR o:"draw a card" OR o:"draw cards" OR o:wheels)' }
+  { value: 'aggro', label: 'Aggro', icon: Zap, description: 'Fast, attack-focused', keywords: '(o:haste OR o:"first strike" OR o:"double strike" OR o:"whenever ~ attacks")' },
+  { value: 'voltron', label: 'Voltron', icon: Shield, description: 'Commander damage', keywords: '(o:equipment OR o:aura OR o:"attach" OR o:"equipped creature")' },
+  { value: 'control', label: 'Control', icon: Target, description: 'Answers and disruption', keywords: '(o:"counter target spell" OR o:"destroy target" OR o:"exile target")' },
+  { value: 'combo', label: 'Combo', icon: Sparkles, description: 'Engine and loop pieces', keywords: '(o:"untap target" OR o:"whenever you cast" OR o:"you may cast")' },
+  { value: 'tokens', label: 'Tokens', icon: Users, description: 'Go wide with tokens', keywords: '(o:"create a token" OR o:"create x" OR o:"token creature")' },
+  { value: 'aristocrats', label: 'Aristocrats', icon: Skull, description: 'Sacrifice for value', keywords: '(o:sacrifice OR o:"whenever a creature dies" OR o:"when this creature dies")' },
+  { value: 'spellslinger', label: 'Spellslinger', icon: Scroll, description: 'Instants and sorceries', keywords: '(o:"instant or sorcery" OR o:prowess OR o:magecraft)' },
+  { value: 'tribal', label: 'Tribal', icon: Crown, description: 'Creature-type synergy', keywords: '(o:"creature type" OR o:"creatures you control get")' },
+  { value: 'lifegain', label: 'Lifegain', icon: Heart, description: 'Gain and drain', keywords: '(o:"gain life" OR o:lifelink OR o:"you gained life")' },
+  { value: 'graveyard', label: 'Graveyard', icon: Skull, description: 'Recursion and reanimation', keywords: '(o:"from your graveyard" OR o:flashback OR o:"return target creature card")' },
+  { value: 'ramp', label: 'Ramp / Lands', icon: Leaf, description: 'Mana and land matters', keywords: '(o:landfall OR o:"search your library for a" OR o:"add one mana")' },
+  { value: 'draw', label: 'Card Draw', icon: Droplet, description: 'Refill your hand', keywords: '(o:"draw a card" OR o:"draw two cards" OR o:"draws a card")' },
 ];
 
-// Tribal types for filtering
+/**
+ * Magic creature types are singular — 'Creature — Elf Druid'. The previous
+ * list used plurals ('Elves', 'Goblins'), and Scryfall's `t:` does substring
+ * matching without lemmatisation, so 23 of these 24 buttons matched nothing.
+ */
 const TRIBAL_TYPES = [
-  'Elves', 'Goblins', 'Zombies', 'Vampires', 'Dragons', 'Angels', 'Demons', 'Wizards',
-  'Humans', 'Merfolk', 'Soldiers', 'Knights', 'Beasts', 'Dinosaurs', 'Slivers', 'Spirits',
-  'Cats', 'Dogs', 'Rats', 'Birds', 'Rogues', 'Warriors', 'Clerics', 'Shamans'
+  'Elf', 'Goblin', 'Zombie', 'Vampire', 'Dragon', 'Angel', 'Demon', 'Wizard',
+  'Human', 'Merfolk', 'Soldier', 'Knight', 'Beast', 'Dinosaur', 'Sliver', 'Spirit',
+  'Cat', 'Dog', 'Rat', 'Bird', 'Rogue', 'Warrior', 'Cleric', 'Shaman',
 ];
 
-// CMC categories
 const CMC_RANGES = [
-  { value: 'low', label: '1-3 CMC', description: 'Fast, early game commander', min: 0, max: 3 },
-  { value: 'mid', label: '4-5 CMC', description: 'Mid-game value engine', min: 4, max: 5 },
-  { value: 'high', label: '6+ CMC', description: 'Late game powerhouse', min: 6, max: 20 }
+  { value: 'low', label: '1-3 MV', description: 'Early-game commander', min: 0, max: 3 },
+  { value: 'mid', label: '4-5 MV', description: 'Mid-game value engine', min: 4, max: 5 },
+  { value: 'high', label: '6+ MV', description: 'Late-game payoff', min: 6, max: 20 },
+];
+
+const SORT_OPTIONS = [
+  { value: 'edhrec', label: 'EDHREC popularity' },
+  { value: 'name', label: 'Name' },
+  { value: 'cmc', label: 'Mana value' },
+  { value: 'released', label: 'Newest' },
 ];
 
 interface CommanderFinderProps {
@@ -55,192 +92,230 @@ export function CommanderFinder({ onSelectCommander }: CommanderFinderProps) {
   const [selectedCmcRange, setSelectedCmcRange] = useState<string | null>(null);
   const [selectedTribal, setSelectedTribal] = useState<string | null>(null);
   const [partnerSearch, setPartnerSearch] = useState(false);
+  const [sortOrder, setSortOrder] = useState('edhrec');
+
   const [finderResults, setFinderResults] = useState<any[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
+  const [nextPage, setNextPage] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const toggleColor = (color: string) => {
-    setFinderColors(prev => 
-      prev.includes(color) 
-        ? prev.filter(c => c !== color)
-        : [...prev, color]
+    setFinderColors(prev =>
+      prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]
     );
   };
 
   const togglePlaystyle = (value: string) => {
     setSelectedPlaystyles(prev =>
-      prev.includes(value)
-        ? prev.filter(p => p !== value)
-        : [...prev, value]
+      prev.includes(value) ? prev.filter(p => p !== value) : [...prev, value]
     );
   };
 
-  const searchCommanders = async () => {
-    if (finderColors.length === 0 && selectedPlaystyles.length === 0 && !selectedTribal) return;
-    
-    setSearching(true);
+  const buildQuery = () => {
+    // `is:commander` is Scryfall's own predicate for "can be your commander".
+    // The old `t:legendary t:creature` missed every planeswalker commander,
+    // every Background, and every legendary non-creature commander.
+    let query = 'is:commander';
+
+    if (finderColors.length > 0) {
+      if (finderColors.includes('C') && finderColors.length === 1) {
+        query += ' id:c';
+      } else {
+        const colorString = finderColors.filter(c => c !== 'C').sort().join('');
+        if (colorString) query += ` id<=${colorString}`;
+      }
+    }
+
+    if (selectedCmcRange) {
+      const range = CMC_RANGES.find(r => r.value === selectedCmcRange);
+      if (range) query += ` cmc>=${range.min} cmc<=${range.max}`;
+    }
+
+    if (selectedTribal) {
+      query += ` t:${selectedTribal}`;
+    }
+
+    if (partnerSearch) {
+      // Covers Partner, Partner with, Friends forever, Doctor's companion and
+      // Background pairings — `o:partner` alone missed three of the five.
+      query += ' (o:partner OR o:"friends forever" OR o:"doctor\'s companion" OR o:"choose a background")';
+    }
+
+    if (selectedPlaystyles.length > 0) {
+      const groups = selectedPlaystyles
+        .map(style => PLAYSTYLES.find(p => p.value === style)?.keywords || '')
+        .filter(Boolean);
+
+      if (groups.length === 1) query += ` ${groups[0]}`;
+      else if (groups.length > 1) query += ` (${groups.join(' OR ')})`;
+    }
+
+    return query;
+  };
+
+  const runSearch = async (url: string, append: boolean) => {
     try {
-      let query = 't:legendary t:creature';
-      
-      // Add color identity filter
-      if (finderColors.length > 0) {
-        if (finderColors.includes('C')) {
-          // Colorless commander
-          query += ' id:c';
-        } else {
-          const colorString = finderColors.filter(c => c !== 'C').sort().join('');
-          query += ` id<=${colorString}`;
-        }
-      }
-      
-      // Add CMC filter
-      if (selectedCmcRange) {
-        const range = CMC_RANGES.find(r => r.value === selectedCmcRange);
-        if (range) {
-          query += ` cmc>=${range.min} cmc<=${range.max}`;
-        }
-      }
-      
-      // Add tribal filter
-      if (selectedTribal) {
-        query += ` t:${selectedTribal}`;
-      }
-      
-      // Add partner filter
-      if (partnerSearch) {
-        query += ' o:partner';
-      }
-      
-      // Add playstyle-based oracle text filters (combine with OR)
-      if (selectedPlaystyles.length > 0) {
-        const keywordGroups = selectedPlaystyles.map(style => {
-          const playstyle = PLAYSTYLES.find(p => p.value === style);
-          return playstyle?.keywords || '';
-        }).filter(Boolean);
-        
-        if (keywordGroups.length === 1) {
-          query += ` ${keywordGroups[0]}`;
-        } else if (keywordGroups.length > 1) {
-          // For multiple playstyles, use any of them
-          query += ` (${keywordGroups.join(' OR ')})`;
-        }
-      }
-      
-      const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=edhrec`
-      );
-      
-      if (!response.ok) {
-        if (response.status === 404) {
+      const response = await fetch(url);
+
+      if (response.status === 404) {
+        // Scryfall returns 404 for a valid query with zero matches.
+        if (!append) {
           setFinderResults([]);
-          return;
+          setTotalResults(0);
+          setNextPage(null);
         }
-        throw new Error('Search failed');
+        return;
       }
-      
+
+      if (!response.ok) throw new Error(`Scryfall returned ${response.status}`);
+
       const data = await response.json();
-      setFinderResults((data.data || []).slice(0, 20));
-    } catch (error) {
+      const cards = data.data || [];
+
+      setFinderResults(prev => (append ? [...prev, ...cards] : cards));
+      setTotalResults(data.total_cards ?? cards.length);
+      setNextPage(data.has_more ? data.next_page : null);
+    } catch (error: any) {
       console.error('Commander finder search error:', error);
-      setFinderResults([]);
-    } finally {
-      setSearching(false);
+      setSearchError(error?.message || 'Search failed. Please try again.');
+      if (!append) {
+        setFinderResults([]);
+        setTotalResults(0);
+        setNextPage(null);
+      }
     }
   };
 
-  const activeFiltersCount = finderColors.length + selectedPlaystyles.length + 
-    (selectedCmcRange ? 1 : 0) + (selectedTribal ? 1 : 0) + (partnerSearch ? 1 : 0);
+  const searchCommanders = async () => {
+    setSearching(true);
+    setSearchError(null);
+    setHasSearched(true);
+
+    const url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(
+      buildQuery()
+    )}&unique=cards&order=${sortOrder}`;
+
+    await runSearch(url, false);
+    setSearching(false);
+  };
+
+  const loadMore = async () => {
+    if (!nextPage) return;
+    setLoadingMore(true);
+    await runSearch(nextPage, true);
+    setLoadingMore(false);
+  };
+
+  const clearAll = () => {
+    setFinderColors([]);
+    setSelectedPlaystyles([]);
+    setSelectedCmcRange(null);
+    setSelectedTribal(null);
+    setPartnerSearch(false);
+    setFinderResults([]);
+    setTotalResults(0);
+    setNextPage(null);
+    setHasSearched(false);
+    setSearchError(null);
+  };
+
+  const activeFiltersCount =
+    finderColors.length +
+    selectedPlaystyles.length +
+    (selectedCmcRange ? 1 : 0) +
+    (selectedTribal ? 1 : 0) +
+    (partnerSearch ? 1 : 0);
 
   return (
-    <Card className="mt-8 border-2 border-dashed border-primary/30 bg-gradient-to-br from-accent/5 to-primary/5">
+    <Card className="mt-8">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-semibold text-lg flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-accent" />
-            Don't know what commander to pick?
-          </h4>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h4 className="text-base font-semibold tracking-tight">Not sure which commander?</h4>
           {activeFiltersCount > 0 && (
-            <Badge variant="secondary">{activeFiltersCount} filters active</Badge>
+            <Badge variant="secondary">
+              {activeFiltersCount} filter{activeFiltersCount === 1 ? '' : 's'}
+            </Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground mb-6">
-          Find your perfect commander by selecting colors, playstyle, and other preferences
+        <p className="mb-6 text-sm text-muted-foreground">
+          Filter by colour identity, playstyle and mana value to find a legal commander.
         </p>
 
         <div className="space-y-6">
-          {/* Color Selector */}
+          {/* Colour identity */}
           <div>
-            <Label className="text-sm font-medium mb-3 block">Color Identity</Label>
+            <Label className="mb-3 block text-sm font-medium">Colour identity</Label>
             <div className="flex flex-wrap gap-2">
-              {MANA_COLORS.map(({ color, name, icon, bg, text, border }) => (
-                <Button
-                  key={color}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleColor(color)}
-                  className={`transition-all ${
-                    finderColors.includes(color) 
-                      ? `${bg} ${text} ${border} ring-2 ring-offset-2 ring-primary scale-105` 
-                      : 'hover:scale-105'
-                  }`}
-                >
-                  <span className="mr-1">{icon}</span>
-                  {name}
-                </Button>
-              ))}
+              {MANA_COLORS.map(({ color, name }) => {
+                const active = finderColors.includes(color);
+                return (
+                  <Button
+                    key={color}
+                    variant={active ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleColor(color)}
+                    aria-pressed={active}
+                  >
+                    <ManaPip symbol={color} size="xs" className="mr-1.5" />
+                    {name}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Playstyle Selector - Button Grid */}
+          {/* Playstyle */}
           <div>
-            <Label className="text-sm font-medium mb-3 block">Playstyle</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              {PLAYSTYLES.map(({ value, label, icon: Icon, description }) => (
-                <Button
-                  key={value}
-                  variant={selectedPlaystyles.includes(value) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => togglePlaystyle(value)}
-                  className={`flex flex-col items-center h-auto py-3 px-2 transition-all ${
-                    selectedPlaystyles.includes(value) 
-                      ? 'ring-2 ring-offset-2 ring-primary scale-105 bg-primary text-primary-foreground' 
-                      : 'hover:scale-105 hover:bg-muted'
-                  }`}
-                  title={description}
-                >
-                  <Icon className="h-5 w-5 mb-1" />
-                  <span className="text-xs">{label}</span>
-                </Button>
-              ))}
+            <Label className="mb-3 block text-sm font-medium">Playstyle</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {PLAYSTYLES.map(({ value, label, icon: Icon, description }) => {
+                const active = selectedPlaystyles.includes(value);
+                return (
+                  <Button
+                    key={value}
+                    variant={active ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => togglePlaystyle(value)}
+                    aria-pressed={active}
+                    className="h-auto flex-col items-center px-2 py-3"
+                    title={description}
+                  >
+                    <Icon className="mb-1 h-4 w-4" />
+                    <span className="text-xs">{label}</span>
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Advanced Filters Toggle */}
+          {/* Advanced */}
           <div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="text-muted-foreground hover:text-foreground"
             >
-              {showAdvanced ? '− Hide' : '+ Show'} Advanced Filters
+              {showAdvanced ? 'Hide advanced filters' : 'Show advanced filters'}
             </Button>
           </div>
 
-          {/* Advanced Filters */}
           {showAdvanced && (
-            <div className="space-y-6 p-4 bg-muted/30 rounded-lg border border-border/50">
-              {/* CMC Range */}
+            <div className="space-y-6 rounded-lg border border-border p-4">
               <div>
-                <Label className="text-sm font-medium mb-3 block">Commander Mana Value</Label>
+                <Label className="mb-3 block text-sm font-medium">Commander mana value</Label>
                 <div className="flex flex-wrap gap-2">
                   {CMC_RANGES.map(({ value, label, description }) => (
                     <Button
                       key={value}
                       variant={selectedCmcRange === value ? 'default' : 'outline'}
                       size="sm"
+                      aria-pressed={selectedCmcRange === value}
                       onClick={() => setSelectedCmcRange(selectedCmcRange === value ? null : value)}
-                      className={selectedCmcRange === value ? 'ring-2 ring-offset-1 ring-primary' : ''}
                       title={description}
                     >
                       {label}
@@ -249,17 +324,17 @@ export function CommanderFinder({ onSelectCommander }: CommanderFinderProps) {
                 </div>
               </div>
 
-              {/* Tribal Filter */}
               <div>
-                <Label className="text-sm font-medium mb-3 block">Tribal (Creature Type)</Label>
+                <Label className="mb-3 block text-sm font-medium">Creature type</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {TRIBAL_TYPES.map(tribe => (
                     <Button
                       key={tribe}
                       variant={selectedTribal === tribe ? 'default' : 'outline'}
                       size="sm"
+                      aria-pressed={selectedTribal === tribe}
                       onClick={() => setSelectedTribal(selectedTribal === tribe ? null : tribe)}
-                      className={`text-xs h-7 ${selectedTribal === tribe ? 'ring-1 ring-offset-1 ring-primary' : ''}`}
+                      className="h-7 text-xs"
                     >
                       {tribe}
                     </Button>
@@ -267,98 +342,136 @@ export function CommanderFinder({ onSelectCommander }: CommanderFinderProps) {
                 </div>
               </div>
 
-              {/* Partner Filter */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant={partnerSearch ? 'default' : 'outline'}
                   size="sm"
+                  aria-pressed={partnerSearch}
                   onClick={() => setPartnerSearch(!partnerSearch)}
-                  className={partnerSearch ? 'ring-2 ring-offset-1 ring-primary' : ''}
                 >
-                  <Users className="h-4 w-4 mr-2" />
-                  Partner Commanders Only
+                  <Users className="mr-2 h-4 w-4" />
+                  Pairable commanders only
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  Show only commanders with Partner ability
+                  Partner, Friends forever, Doctor's companion and Backgrounds
                 </span>
               </div>
             </div>
           )}
 
-          {/* Search Button */}
-          <div className="flex gap-3">
-            <Button 
-              onClick={searchCommanders}
-              disabled={searching || (finderColors.length === 0 && selectedPlaystyles.length === 0 && !selectedTribal)}
-              className="flex-1 md:flex-none"
-            >
+          {/* Search row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={searchCommanders} disabled={searching}>
               {searching ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Searching...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching…
                 </>
               ) : (
                 <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Find Commanders
+                  <Search className="mr-2 h-4 w-4" />
+                  Find commanders
                 </>
               )}
             </Button>
-            
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="commander-sort" className="text-xs text-muted-foreground">
+                Sort
+              </Label>
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger id="commander-sort" className="h-9 w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {activeFiltersCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFinderColors([]);
-                  setSelectedPlaystyles([]);
-                  setSelectedCmcRange(null);
-                  setSelectedTribal(null);
-                  setPartnerSearch(false);
-                  setFinderResults([]);
-                }}
-              >
-                Clear All
+              <Button variant="ghost" size="sm" onClick={clearAll}>
+                Clear all
               </Button>
             )}
           </div>
 
           {/* Results */}
+          {searchError && (
+            <p className="rounded-lg border border-border p-4 text-sm text-destructive">
+              {searchError}
+            </p>
+          )}
+
           {finderResults.length > 0 && (
-            <div className="pt-4 border-t border-border/50">
-              <h5 className="font-medium mb-4 text-sm text-muted-foreground">
-                Found {finderResults.length} matching commanders
-              </h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="space-y-4 border-t border-border pt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {finderResults.length} of {totalResults.toLocaleString()} commanders
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {finderResults.map((card: any) => (
-                  <div
+                  <button
                     key={card.id}
-                    className="group cursor-pointer transition-all duration-300"
+                    type="button"
                     onClick={() => onSelectCommander(card)}
+                    className="group space-y-2 text-left"
                   >
-                    <div className="relative rounded-xl overflow-hidden border-2 border-border group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/20 transition-all transform group-hover:scale-105">
-                      <img 
-                        src={card.image_uris?.normal || card.image_uris?.large || '/placeholder.svg'} 
+                    <div className="overflow-hidden rounded-lg border border-border transition-colors group-hover:border-foreground">
+                      <img
+                        src={
+                          card.image_uris?.normal ||
+                          card.card_faces?.[0]?.image_uris?.normal ||
+                          '/placeholder.svg'
+                        }
                         alt={card.name}
-                        className="w-full h-auto"
+                        className="aspect-[488/680] w-full object-cover"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                        <p className="text-white text-sm font-bold truncate">{card.name}</p>
-                        <p className="text-white/70 text-xs">CMC: {card.cmc}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="truncate text-sm font-medium">{card.name}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <ManaCost cost={card.mana_cost} size="xs" />
+                        {typeof card.edhrec_rank === 'number' && (
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                            #{card.edhrec_rank.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
+
+              {nextPage && (
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      'Load more'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* No results message */}
-          {finderResults.length === 0 && searching === false && activeFiltersCount > 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Click "Find Commanders" to search with your filters</p>
+          {/* Empty states — 'not searched yet' and 'no matches' are different. */}
+          {!searching && !searchError && finderResults.length === 0 && (
+            <div className="border-t border-border py-8 text-center text-sm text-muted-foreground">
+              <Search className="mx-auto mb-2 h-6 w-6 opacity-50" />
+              {hasSearched
+                ? 'No commanders match those filters. Try removing one.'
+                : 'Choose your filters, then run the search.'}
             </div>
           )}
         </div>

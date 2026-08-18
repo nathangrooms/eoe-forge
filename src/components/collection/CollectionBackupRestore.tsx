@@ -249,7 +249,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         {/* Info */}
         <div className="p-3 rounded-lg border bg-muted/50 space-y-2 text-sm">
           <div className="flex items-start gap-2">
-            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+            <CheckCircle className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <div>
               <p className="font-medium">What's included:</p>
               <ul className="text-xs text-muted-foreground mt-1 space-y-1">
@@ -262,11 +262,11 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         </div>
 
         {/* Warning */}
-        <div className="p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+            <AlertCircle className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <div className="text-xs space-y-1">
-              <p className="font-medium text-yellow-600 dark:text-yellow-400">
+              <p className="font-medium text-foreground">
                 Important Notes
               </p>
               <ul className="text-muted-foreground space-y-1">

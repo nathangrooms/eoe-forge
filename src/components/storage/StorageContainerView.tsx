@@ -1,35 +1,31 @@
-import { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Zap, 
-  Package, 
-  Layers, 
-  DollarSign, 
-  Trash2, 
-  Edit, 
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  Package,
+  Layers,
+  DollarSign,
+  Trash2,
+  Edit,
   Settings2,
   Search,
-  Grid3X3,
-  List,
-  LayoutGrid,
   RefreshCw,
   Download,
-  Sparkles,
   AlertCircle,
   Camera,
-  Plus
+  Plus,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -40,34 +36,74 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageQuickActions } from './StorageQuickActions';
+import { EditContainerDialog } from './EditContainerDialog';
 import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
-import { UniversalLocalSearch } from '@/components/universal/UniversalLocalSearch';
+import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
+import type { BrowserAction } from '@/components/collection/browser/actions';
+import {
+  formatPrice,
+  toColors,
+  toNumber,
+  type BrowserCard,
+} from '@/components/collection/browser/types';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { cn } from '@/lib/utils';
 
 interface StorageContainerViewProps {
   container: StorageContainer;
   onBack: () => void;
   onContainerDeleted?: () => void;
+  onContainerUpdated?: (container: StorageContainer) => void;
 }
 
-export function StorageContainerView({ container, onBack, onContainerDeleted }: StorageContainerViewProps) {
+/** Storage rows carry no condition or legality data — those facets stay hidden. */
+function toBrowserCard(item: StorageItemWithCard): BrowserCard {
+  const card = item.card;
+  const usd = toNumber(card?.prices?.usd);
+  return {
+    rowId: item.id,
+    cardId: item.card_id,
+    name: card?.name ?? 'Unknown card',
+    setCode: (card?.set_code ?? '').toLowerCase(),
+    cmc: toNumber(card?.cmc),
+    typeLine: card?.type_line ?? '',
+    rarity: card?.rarity ?? 'common',
+    colors: toColors(card?.colors),
+    colorIdentity: toColors(card?.colors),
+    legalities: {},
+    imageUrl: card?.image_uris?.normal ?? card?.image_uris?.small,
+    quantity: item.foil ? 0 : item.qty,
+    foil: item.foil ? item.qty : 0,
+    condition: 'NM',
+    unitPrice: usd,
+    foilPrice: usd,
+    addedAt: item.created_at,
+    source: item,
+  };
+}
+
+export function StorageContainerView({
+  container: initialContainer,
+  onBack,
+  onContainerDeleted,
+  onContainerUpdated,
+}: StorageContainerViewProps) {
+  const [container, setContainer] = useState(initialContainer);
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [showQuickActions, setShowQuickActions] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<any | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<BrowserCard | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadItems();
-  }, [container.id]);
+    setContainer(initialContainer);
+  }, [initialContainer]);
 
   const loadItems = async () => {
     try {
@@ -82,22 +118,47 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
     }
   };
 
-  const handleUnassign = async (item: StorageItemWithCard, qty: number = 1) => {
+  useEffect(() => {
+    loadItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [container.id]);
+
+  const browserCards = useMemo(() => items.map(toBrowserCard), [items]);
+  const itemsById = useMemo(() => new Map(items.map(item => [item.id, item])), [items]);
+
+  /** Wired at last — `handleUnassign` existed but was referenced nowhere in the JSX. */
+  const handleUnassign = async (item: StorageItemWithCard, qty = 1) => {
     try {
       await StorageAPI.unassignCard({ item_id: item.id, qty });
-      showSuccess('Success', `Removed ${qty} card${qty > 1 ? 's' : ''} from ${container.name}`);
-      loadItems();
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to remove card');
+      showSuccess('Removed', `Removed ${qty} card${qty > 1 ? 's' : ''} from ${container.name}`);
+      await loadItems();
+    } catch (error) {
+      showError('Error', error instanceof Error ? error.message : 'Failed to remove card');
     }
   };
 
-  const handleDeleteContainer = async () => {
-    if (items.length > 0) {
-      showError('Cannot Delete', 'Please remove all cards from the container first');
-      return;
+  const handleAssign = async (item: StorageItemWithCard, qty = 1) => {
+    try {
+      await StorageAPI.assignCard({
+        container_id: container.id,
+        card_id: item.card_id,
+        qty,
+        foil: item.foil,
+      });
+      await loadItems();
+    } catch (error) {
+      showError('Error', error instanceof Error ? error.message : 'Failed to add card');
     }
-    
+  };
+
+  const handleQuantityChange = async (card: BrowserCard, delta: number) => {
+    const item = itemsById.get(card.rowId);
+    if (!item) return;
+    if (delta > 0) await handleAssign(item, delta);
+    else await handleUnassign(item, Math.abs(delta));
+  };
+
+  const handleDeleteContainer = async () => {
     try {
       setDeleting(true);
       await StorageAPI.deleteContainer(container.id);
@@ -105,65 +166,106 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
       setShowDeleteDialog(false);
       onContainerDeleted?.();
       onBack();
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to delete container');
+    } catch (error) {
+      showError('Error', error instanceof Error ? error.message : 'Failed to delete container');
     } finally {
       setDeleting(false);
     }
   };
 
-  // Transform storage items to card format for UniversalCardDisplay
-  const transformedCards = items.map(item => ({
-    ...item.card,
-    id: item.card_id,
-    storageQty: item.qty,
-    storageFoil: item.foil,
-    storageItemId: item.id
-  }));
+  /** Was an inert menu item; now exports the real contents as a text decklist. */
+  const handleExportList = () => {
+    if (items.length === 0) {
+      showError('Nothing to export', 'This container is empty');
+      return;
+    }
+    const lines = items.map(item => {
+      const card = item.card;
+      const set = card?.set_code ? ` (${card.set_code.toUpperCase()})` : '';
+      return `${item.qty} ${card?.name ?? 'Unknown'}${set}${item.foil ? ' *F*' : ''}`;
+    });
+    const blob = new Blob(
+      [`# ${container.name}\n# Exported ${new Date().toLocaleDateString()}\n\n${lines.join('\n')}\n`],
+      { type: 'text/plain' }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${container.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showSuccess('Exported', `${items.length} entries written to a text file`);
+  };
 
   const totalCards = items.reduce((sum, item) => sum + item.qty, 0);
-  const totalValue = items.reduce((sum, item) => {
-    const price = parseFloat(item.card?.prices?.usd || '0');
-    return sum + (price * item.qty);
-  }, 0);
+  const totalValue = items.reduce(
+    (sum, item) => sum + toNumber(item.card?.prices?.usd) * item.qty,
+    0
+  );
   const uniqueCards = new Set(items.map(item => item.card_id)).size;
 
   const stats = [
-    { label: 'Total Cards', value: totalCards.toLocaleString(), icon: Layers, color: 'text-blue-500', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20' },
-    { label: 'Unique Cards', value: uniqueCards.toString(), icon: Package, color: 'text-purple-500', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
-    { label: 'Total Value', value: `$${totalValue.toFixed(2)}`, icon: DollarSign, color: 'text-green-500', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/20' },
+    { label: 'Total cards', value: totalCards.toLocaleString(), icon: Layers },
+    { label: 'Unique cards', value: uniqueCards.toLocaleString(), icon: Package },
+    { label: 'Total value', value: formatPrice(totalValue), icon: DollarSign },
+  ];
+
+  const actions: BrowserAction[] = [
+    {
+      id: 'remove-one',
+      label: 'Remove one copy',
+      icon: X,
+      onSelect: card => {
+        const item = itemsById.get(card.rowId);
+        if (item) handleUnassign(item, 1);
+      },
+    },
+    {
+      id: 'remove-all',
+      label: 'Remove from container',
+      icon: Trash2,
+      destructive: true,
+      onSelect: card => {
+        const item = itemsById.get(card.rowId);
+        if (item) handleUnassign(item, item.qty);
+      },
+    },
   ];
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-y-auto">
-      {/* Enhanced Header - not sticky on mobile */}
-      <div className="border-b bg-gradient-to-r from-card via-card to-background px-3 md:px-6 py-4 md:py-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-5">
+    <div className="flex h-full flex-col overflow-y-auto bg-background">
+      {/* Header */}
+      <div className="border-b border-border bg-card px-3 py-4 md:px-6 md:py-5">
+        <div className="mb-4 flex flex-col justify-between gap-3 md:gap-4 lg:flex-row lg:items-center">
           <div className="flex items-center gap-3 md:gap-4">
-            <Button variant="outline" onClick={onBack} size="sm" className="gap-2 hover:bg-accent shrink-0">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="outline" onClick={onBack} size="sm" className="shrink-0 gap-2">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
             </Button>
-            <div className="flex items-center gap-2 md:gap-3 min-w-0">
-              <div 
-                className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/10 shrink-0"
-                style={{ backgroundColor: container.color || '#6366F1' }}
-              >
-                <Package className="h-5 w-5 md:h-6 md:w-6" />
+            <div className="flex min-w-0 items-center gap-2 md:gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted md:h-12 md:w-12">
+                <Package className="h-5 w-5 text-muted-foreground md:h-6 md:w-6" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg md:text-2xl font-bold truncate">{container.name}</h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-lg font-bold text-foreground md:text-2xl">
+                    {container.name}
+                  </h1>
                   {items.length === 0 && !loading && (
-                    <Badge variant="outline" className="text-orange-500 border-orange-500/30 shrink-0">Empty</Badge>
+                    <Badge variant="outline" className="shrink-0">
+                      Empty
+                    </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <Badge variant="outline" className="capitalize text-xs">{container.type}</Badge>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs capitalize">
+                    {container.type}
+                  </Badge>
                   {container.deck_id && (
-                    <Badge variant="secondary" className="text-xs gap-1">
-                      <Sparkles className="h-3 w-3" />
-                      Deck
+                    <Badge variant="outline" className="text-xs">
+                      Deck-linked
                     </Badge>
                   )}
                 </div>
@@ -171,67 +273,59 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={loadItems}
-              className="gap-1"
-            >
-              <RefreshCw className="h-4 w-4" />
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="sm" onClick={loadItems} className="gap-1">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1">
-                  <Settings2 className="h-4 w-4" />
+                  <Settings2 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Manage</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2">
-                  <Edit className="h-4 w-4" />
-                  Edit Container
+                <DropdownMenuItem className="gap-2" onClick={() => setShowEditDialog(true)}>
+                  <Edit className="h-4 w-4" aria-hidden="true" />
+                  Edit container
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
-                  <Download className="h-4 w-4" />
-                  Export List
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={handleExportList}
+                  disabled={items.length === 0}
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Export list
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="gap-2 text-destructive focus:text-destructive"
                   onClick={() => setShowDeleteDialog(true)}
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Delete Container
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  Delete container
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            {/* Add Cards Dropdown */}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  size="sm"
-                  className="gap-1 bg-gradient-cosmic hover:opacity-90"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Add Cards</span>
+                <Button size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Add cards</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem 
-                  className="gap-2"
-                  onClick={() => setShowQuickActions(true)}
-                >
-                  <Search className="h-4 w-4" />
-                  Search Manually
+                <DropdownMenuItem className="gap-2" onClick={() => setShowQuickActions(true)}>
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                  Search manually
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/scan" className="gap-2 flex items-center">
-                    <Camera className="h-4 w-4" />
-                    Scan with Camera
+                  <Link to="/scan" className="flex items-center gap-2">
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                    Scan with camera
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -239,21 +333,25 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
           </div>
         </div>
 
-        {/* Enhanced Stats Overview */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-2 md:gap-3">
-          {stats.map((stat) => (
-            <Card key={stat.label} className={cn("relative overflow-hidden", stat.borderColor, "group hover:shadow-md transition-all duration-300")}>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-current opacity-[0.03] rounded-full -translate-y-8 translate-x-8 group-hover:scale-125 transition-transform" />
+          {stats.map(stat => (
+            <Card key={stat.label}>
               <CardContent className="p-2.5 md:p-4">
                 <div className="flex items-center gap-2 md:gap-3">
-                  <div className={cn("p-1.5 md:p-2.5 rounded-lg md:rounded-xl", stat.bgColor)}>
-                    <stat.icon className={cn("h-4 w-4 md:h-5 md:w-5", stat.color)} />
+                  <div className="rounded-lg bg-muted p-1.5 md:p-2.5">
+                    <stat.icon
+                      className="h-4 w-4 text-muted-foreground md:h-5 md:w-5"
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="min-w-0">
-                    <div className={cn("text-sm md:text-xl font-bold truncate", stat.label === 'Total Value' && 'text-green-500')}>
+                    <div className="truncate text-sm font-bold tabular-nums text-card-foreground md:text-xl">
                       {stat.value}
                     </div>
-                    <div className="text-[10px] md:text-xs text-muted-foreground truncate">{stat.label}</div>
+                    <div className="truncate text-[10px] text-muted-foreground md:text-xs">
+                      {stat.label}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -262,59 +360,41 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 px-3 md:px-6 py-4">
+      {/* Contents */}
+      <div className="flex-1 px-3 py-4 md:px-6">
         {loading ? (
           <div className="space-y-4">
             <div className="flex gap-3">
               <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-24" />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {[...Array(12)].map((_, i) => (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="space-y-2">
-                  <Skeleton className="aspect-[2.5/3.5] w-full rounded-lg" />
+                  <Skeleton className="aspect-[5/7] w-full rounded-lg" />
                   <Skeleton className="h-4 w-3/4" />
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <UniversalLocalSearch
-            cards={transformedCards}
-            loading={false}
-            initialViewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onCardClick={(card) => {
+          <CollectionBrowser
+            cards={browserCards}
+            storageKey="deckmatrix.storage.view"
+            showOwnershipFilters={false}
+            onCardClick={card => {
               setSelectedCard(card);
               setShowCardModal(true);
             }}
-            onCardAdd={async (card) => {
-              try {
-                await StorageAPI.assignCard({
-                  container_id: container.id,
-                  card_id: card.id,
-                  qty: 1,
-                  foil: !!card.storageFoil,
-                });
-                showSuccess('Added', `Added 1 ${card.name} to ${container.name}`);
-                loadItems();
-              } catch (error: any) {
-                showError('Error', error.message || 'Failed to add card');
-              }
-            }}
-            showWishlistButton={false}
-            emptyState={{
-              title: 'This container is empty',
-              description: 'Add cards from your collection or search for new cards to store here',
-              action: () => setShowQuickActions(true),
-              actionLabel: 'Add Cards'
-            }}
+            actions={actions}
+            onQuantityChange={handleQuantityChange}
+            emptyTitle="This container is empty"
+            emptyDescription="Add cards from your collection, or scan them in."
+            emptyAction={{ label: 'Add cards', onClick: () => setShowQuickActions(true) }}
           />
         )}
       </div>
 
-      {/* Quick Actions Modal */}
       <StorageQuickActions
         isOpen={showQuickActions}
         onClose={() => setShowQuickActions(false)}
@@ -325,47 +405,48 @@ export function StorageContainerView({ container, onBack, onContainerDeleted }: 
         }}
       />
 
+      <EditContainerDialog
+        container={container}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSaved={updated => {
+          setContainer(updated);
+          onContainerUpdated?.(updated);
+        }}
+      />
+
       <UniversalCardModal
-        card={selectedCard}
+        card={selectedCard ? { ...selectedCard, id: selectedCard.cardId, set_code: selectedCard.setCode } : null}
         open={showCardModal}
         onOpenChange={setShowCardModal}
-        onCardAdd={async (card) => {
-          try {
-            await StorageAPI.assignCard({ container_id: container.id, card_id: card.id, qty: 1, foil: !!card.storageFoil });
-            showSuccess('Added', `Added 1 ${card.name} to ${container.name}`);
-            loadItems();
-          } catch (error: any) {
-            showError('Error', error.message || 'Failed to add card');
-          }
-        }}
         showWishlistButton={false}
       />
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Delete Container
+              <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
+              Delete container
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{container.name}"? This action cannot be undone.
+              Delete &ldquo;{container.name}&rdquo;? This cannot be undone.
               {items.length > 0 && (
-                <span className="block mt-2 text-orange-500 font-medium">
-                  This container has {totalCards} cards. You must remove all cards before deleting.
+                <span className="mt-2 block font-medium text-destructive">
+                  This container still holds {totalCards} card{totalCards === 1 ? '' : 's'}.
+                  Remove them first.
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleDeleteContainer}
               disabled={items.length > 0 || deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? 'Deleting...' : 'Delete Container'}
+              {deleting ? 'Deleting…' : 'Delete container'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -17,8 +17,8 @@ import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
 import { ShoppingList } from '@/components/marketplace/ShoppingList';
 import { QuickPriceStats } from '@/components/marketplace/QuickPriceStats';
-import { 
-  Package, 
+import {
+  Package,
   DollarSign,
   Edit,
   Trash2,
@@ -27,8 +27,7 @@ import {
   MessageCircle,
   Search,
   TrendingUp,
-  Star,
-  ShoppingCart
+  Star
 } from 'lucide-react';
 
 interface Listing {
@@ -55,6 +54,18 @@ interface Listing {
   };
 }
 
+interface ShoppingListItem {
+  id: string;
+  name: string;
+  set_code?: string;
+  image_uri?: string;
+  estimatedPrice: number;
+  quantity: number;
+  purchased: boolean;
+  purchaseUrl?: string;
+  notes?: string;
+}
+
 interface WatchlistItem {
   id: string;
   name: string;
@@ -77,11 +88,13 @@ export default function Marketplace() {
   const [showMessagingDrawer, setShowMessagingDrawer] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [activeTab, setActiveTab] = useState('search');
 
   useEffect(() => {
     loadMyListings();
     loadWatchlist();
+    loadShoppingList();
   }, []);
 
   const loadWatchlist = () => {
@@ -107,24 +120,33 @@ export default function Marketplace() {
       priceChange: card.priceChange7d,
       purchaseUrl: card.prices?.[0]?.url || '#'
     };
-    
+
     const updated = [...watchlist, newItem];
     setWatchlist(updated);
     localStorage.setItem('price_watchlist', JSON.stringify(updated));
   };
 
-  const handleAddToShoppingList = (card: any) => {
+  const loadShoppingList = () => {
     const saved = localStorage.getItem('shopping_list');
-    let currentList: any[] = [];
     if (saved) {
       try {
-        currentList = JSON.parse(saved);
+        setShoppingList(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to parse shopping list:', e);
       }
     }
-    
-    const newItem = {
+  };
+
+  // Single source of truth for the shopping list. ShoppingList used to be
+  // mounted twice with no props, so each copy read and wrote localStorage
+  // independently and clobbered the other.
+  const persistShoppingList = (updated: ShoppingListItem[]) => {
+    setShoppingList(updated);
+    localStorage.setItem('shopping_list', JSON.stringify(updated));
+  };
+
+  const handleAddToShoppingList = (card: any) => {
+    const newItem: ShoppingListItem = {
       id: crypto.randomUUID(),
       name: card.name,
       set_code: card.set_code,
@@ -132,12 +154,11 @@ export default function Marketplace() {
       estimatedPrice: card.tcgplayerPrice || card.averagePrice || 0,
       quantity: 1,
       purchased: false,
-      purchaseUrl: card.tcgplayerUrl || card.prices?.[0]?.url || '#',
+      purchaseUrl: card.tcgplayerUrl || card.prices?.[0]?.url,
       notes: ''
     };
-    
-    const updated = [...currentList, newItem];
-    localStorage.setItem('shopping_list', JSON.stringify(updated));
+
+    persistShoppingList([...shoppingList, newItem]);
     showSuccess('Added to Shopping List', `${card.name} added to your shopping list`);
   };
 
@@ -212,7 +233,7 @@ export default function Marketplace() {
         .eq('id', listingId);
 
       if (error) throw error;
-      
+
       showSuccess('Listing Deleted', 'Your listing has been removed');
       loadMyListings();
     } catch (error) {
@@ -285,7 +306,7 @@ export default function Marketplace() {
       }
 
       showSuccess('Card Sold!', `${listing.cards?.name || listing.card_id} marked as sold and removed from collection`);
-      
+
       // Reload to ensure sync with database
       await loadMyListings();
     } catch (error) {
@@ -326,7 +347,7 @@ export default function Marketplace() {
         .eq('id', data.id);
 
       if (error) throw error;
-      
+
       showSuccess('Listing Updated', 'Your changes have been saved');
       loadMyListings();
     } catch (error) {
@@ -335,7 +356,7 @@ export default function Marketplace() {
     }
   };
 
-  const totalListingValue = myListings.reduce((sum, listing) => 
+  const totalListingValue = myListings.reduce((sum, listing) =>
     sum + (listing.price_usd * listing.qty), 0
   );
 
@@ -347,8 +368,8 @@ export default function Marketplace() {
     <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative">
         {getCardImage(listing) ? (
-          <img 
-            src={getCardImage(listing)} 
+          <img
+            src={getCardImage(listing)}
             alt={listing.cards?.name || listing.card_id}
             className="w-full h-64 object-contain bg-background"
           />
@@ -358,7 +379,7 @@ export default function Marketplace() {
           </div>
         )}
         {listing.foil && (
-          <Badge className="absolute top-2 right-2 bg-yellow-500">
+          <Badge className="absolute top-2 right-2" variant="outline">
             Foil
           </Badge>
         )}
@@ -368,7 +389,7 @@ export default function Marketplace() {
           </Badge>
         )}
       </div>
-      
+
       <CardContent className="p-4">
         <h3 className="font-medium text-sm mb-1 truncate">
           {listing.cards?.name || listing.card_id}
@@ -376,14 +397,14 @@ export default function Marketplace() {
         <p className="text-xs text-muted-foreground mb-2">
           {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
         </p>
-        
+
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">{listing.condition || 'NM'}</span>
           <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
         </div>
-        
+
         <div className="flex items-center justify-between mb-3">
-          <span className="text-lg font-bold text-green-600">
+          <span className="text-lg font-semibold tabular-nums text-foreground">
             ${listing.price_usd.toFixed(2)}
           </span>
           {listing.cards?.prices?.usd && (
@@ -403,18 +424,18 @@ export default function Marketplace() {
         <div className="flex gap-2">
           {listing.status !== 'sold' && (
             <>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 className="flex-1"
                 onClick={() => handleShowEditModal(listing)}
               >
                 <Edit className="h-3 w-3 mr-1" />
                 Edit
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 className="flex-1 relative"
                 onClick={() => {
                   setSelectedListing(listing);
@@ -423,14 +444,14 @@ export default function Marketplace() {
               >
                 <MessageCircle className="h-3 w-3 mr-1" />
                 Msg
-                <MessageNotificationBadge 
+                <MessageNotificationBadge
                   listingId={listing.id}
                   className="absolute -top-1 -right-1"
                 />
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
+              <Button
+                size="sm"
+                variant="outline"
                 className="flex-1"
                 onClick={() => handleShowSoldModal(listing)}
               >
@@ -439,9 +460,9 @@ export default function Marketplace() {
               </Button>
             </>
           )}
-          <Button 
-            size="sm" 
-            variant="destructive" 
+          <Button
+            size="sm"
+            variant="destructive"
             className="aspect-square p-0 h-9 w-9 flex-shrink-0"
             onClick={() => deleteListing(listing.id)}
           >
@@ -479,17 +500,14 @@ export default function Marketplace() {
     >
       <div className="space-y-6">
         {/* Header */}
-        <MarketplaceHeader 
-          totalWatchlist={watchlist.length}
-          totalSavings={0}
-        />
+        <MarketplaceHeader totalWatchlist={watchlist.length} />
 
         {/* Quick Stats */}
-        <QuickPriceStats 
+        <QuickPriceStats
           watchlistCount={watchlist.length}
           myListingsCount={myListings.length}
           totalListingValue={totalListingValue}
-          savedAmount={0}
+          shoppingListCount={shoppingList.filter(i => !i.purchased).length}
         />
 
         {/* Main Tabs */}
@@ -526,31 +544,28 @@ export default function Marketplace() {
               )}
             </TabsTrigger>
           </TabsList>
-          
+
           {/* Price Search Tab */}
           <TabsContent value="search" className="mt-6">
-            <PriceSearchPanel 
-              onAddToWatchlist={handleAddToWatchlist} 
+            <PriceSearchPanel
+              onAddToWatchlist={handleAddToWatchlist}
               onAddToShoppingList={handleAddToShoppingList}
             />
           </TabsContent>
 
           {/* Trends Tab */}
           <TabsContent value="trends" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PriceTrendCard />
-              <ShoppingList />
-            </div>
+            <PriceTrendCard />
           </TabsContent>
 
           {/* Watchlist Tab */}
           <TabsContent value="watchlist" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PriceWatchlist 
-                items={watchlist} 
+              <PriceWatchlist
+                items={watchlist}
                 onRemove={handleRemoveFromWatchlist}
               />
-              <ShoppingList />
+              <ShoppingList items={shoppingList} onUpdate={persistShoppingList} />
             </div>
           </TabsContent>
 
@@ -558,47 +573,25 @@ export default function Marketplace() {
           <TabsContent value="listings" className="mt-6 space-y-6">
             {/* Listing Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="border-blue-500/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                      <Package className="h-5 w-5 text-blue-500" />
+              {[
+                { label: 'Active listings', value: myListings.length, icon: Package },
+                { label: 'Sold items', value: soldListings.length, icon: CheckCircle },
+                { label: 'Total value', value: `$${totalListingValue.toFixed(2)}`, icon: DollarSign },
+              ].map((stat) => (
+                <Card key={stat.label}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <stat.icon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-muted-foreground">{stat.label}</p>
+                        <p className="text-2xl font-semibold tabular-nums text-foreground">{stat.value}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Active Listings</p>
-                      <p className="text-2xl font-bold">{myListings.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-green-500/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Sold Items</p>
-                      <p className="text-2xl font-bold">{soldListings.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-purple-500/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Value</p>
-                      <p className="text-2xl font-bold">${totalListingValue.toFixed(2)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             {/* Listings Sub-tabs */}
@@ -613,7 +606,7 @@ export default function Marketplace() {
                   Sold ({soldListings.length})
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="for-sale" className="space-y-4 mt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {myListings.map(renderListingCard)}
@@ -632,7 +625,7 @@ export default function Marketplace() {
                   </div>
                 )}
               </TabsContent>
-              
+
               <TabsContent value="sold" className="space-y-4 mt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {soldListings.map(renderListingCard)}

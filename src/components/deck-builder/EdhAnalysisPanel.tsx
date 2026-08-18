@@ -85,25 +85,25 @@ interface EdhAnalysisPanelProps {
 }
 
 const bracketDescriptions: Record<number, { name: string; description: string; color: string }> = {
-  1: { name: 'Exhibition', description: 'No Extra Turns, No MLD, No 2-Card Combos, No Game Changers', color: 'text-green-500' },
-  2: { name: 'Core', description: 'No Chaining Extra Turns, No MLD, No 2-Card Combos, No Game Changers', color: 'text-blue-500' },
-  3: { name: 'Upgraded', description: 'No Chaining Extra Turns, No MLD, Late-Game Combos Only, 3 Game Changers Max', color: 'text-orange-500' },
-  4: { name: 'Optimized', description: 'No Restrictions', color: 'text-red-500' },
-  5: { name: 'cEDH', description: 'Competitive - No Restrictions', color: 'text-purple-500' },
+  1: { name: 'Exhibition', description: 'No Extra Turns, No MLD, No 2-Card Combos, No Game Changers', color: 'text-power-1' },
+  2: { name: 'Core', description: 'No Chaining Extra Turns, No MLD, No 2-Card Combos, No Game Changers', color: 'text-power-4' },
+  3: { name: 'Upgraded', description: 'No Chaining Extra Turns, No MLD, Late-Game Combos Only, 3 Game Changers Max', color: 'text-power-7' },
+  4: { name: 'Optimized', description: 'No Restrictions', color: 'text-power-10' },
+  5: { name: 'cEDH', description: 'Competitive - No Restrictions', color: 'text-power-10' },
 };
 
+// Power reads on the --power-* scale; it is an MTG measure, so it keeps colour.
 const getPowerColor = (level: number) => {
-  if (level <= 2) return 'text-green-500';
-  if (level <= 4) return 'text-blue-500';
-  if (level <= 6) return 'text-yellow-500';
-  if (level <= 8) return 'text-orange-500';
-  return 'text-red-500';
+  if (level <= 3) return 'text-power-1';
+  if (level <= 6) return 'text-power-4';
+  if (level <= 8) return 'text-power-7';
+  return 'text-power-10';
 };
 
 export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: EdhAnalysisPanelProps) {
   if (!data && !isLoading) {
     return (
-      <Card className="p-6 bg-gradient-to-br from-muted/50 to-muted/20">
+      <Card className="p-6">
         <div className="text-center py-8">
           <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">EDH Power Analysis</h3>
@@ -130,7 +130,7 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
 
   if (isLoading) {
     return (
-      <Card className="p-6 bg-gradient-to-br from-muted/50 to-muted/20">
+      <Card className="p-6">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <span className="ml-3 text-muted-foreground">Fetching analysis from edhpowerlevel.com...</span>
@@ -146,19 +146,19 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
 
   return (
     <Card className={cn(
-      "bg-gradient-to-br from-muted/50 to-muted/20",
-      needsRefresh && "ring-2 ring-orange-500/50"
+      "",
+      needsRefresh && "ring-2 ring-border"
     )}>
       <div className="p-4 border-b border-border/50">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <Zap className="h-5 w-5 text-amber-500 flex-shrink-0" />
+            <Zap className="h-5 w-5 text-foreground flex-shrink-0" />
             <h3 className="font-semibold text-sm sm:text-base">EDH Power Analysis</h3>
             <Badge variant="outline" className="text-[10px] sm:text-xs">edhpowerlevel.com</Badge>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {needsRefresh && (
-              <Badge variant="outline" className="text-[10px] sm:text-xs text-orange-500 border-orange-500/50 animate-pulse">
+              <Badge variant="outline" className="text-[10px] sm:text-xs text-foreground border-border">
                 Cards Changed
               </Badge>
             )}
@@ -229,12 +229,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="p-3 bg-blue-500/10 border-blue-500/20 cursor-help">
+                  <Card className="p-3 bg-muted border-border cursor-help">
                     <div className="flex items-center gap-2 mb-1">
-                      <Scale className="h-4 w-4 text-blue-400" />
+                      <Scale className="h-4 w-4 text-foreground" />
                       <span className="text-xs text-muted-foreground">Tipping Point</span>
                     </div>
-                    <div className="text-xl font-bold text-blue-400">
+                    <div className="text-xl font-bold text-foreground">
                       {metrics?.tippingPoint ?? '--'}
                     </div>
                   </Card>
@@ -248,12 +248,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="p-3 bg-green-500/10 border-green-500/20 cursor-help">
+                  <Card className="p-3 bg-muted border-border cursor-help">
                     <div className="flex items-center gap-2 mb-1">
-                      <Clock className="h-4 w-4 text-green-400" />
+                      <Clock className="h-4 w-4 text-foreground" />
                       <span className="text-xs text-muted-foreground">Efficiency</span>
                     </div>
-                    <div className="text-xl font-bold text-green-400">
+                    <div className="text-xl font-bold text-foreground">
                       {metrics?.efficiency ? `${metrics.efficiency.toFixed(1)}/10` : '--'}
                     </div>
                   </Card>
@@ -267,12 +267,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="p-3 bg-orange-500/10 border-orange-500/20 cursor-help">
+                  <Card className="p-3 bg-muted border-border cursor-help">
                     <div className="flex items-center gap-2 mb-1">
-                      <Crosshair className="h-4 w-4 text-orange-400" />
+                      <Crosshair className="h-4 w-4 text-foreground" />
                       <span className="text-xs text-muted-foreground">Impact</span>
                     </div>
-                    <div className="text-xl font-bold text-orange-400">
+                    <div className="text-xl font-bold text-foreground">
                       {metrics?.impact?.toFixed(0) ?? '--'}
                     </div>
                   </Card>
@@ -286,12 +286,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="p-3 bg-purple-500/10 border-purple-500/20 cursor-help">
+                  <Card className="p-3 bg-muted border-border cursor-help">
                     <div className="flex items-center gap-2 mb-1">
-                      <Target className="h-4 w-4 text-purple-400" />
+                      <Target className="h-4 w-4 text-foreground" />
                       <span className="text-xs text-muted-foreground">Score</span>
                     </div>
-                    <div className="text-xl font-bold text-purple-400">
+                    <div className="text-xl font-bold text-foreground">
                       {metrics?.score ? `${metrics.score}/1000` : '--'}
                     </div>
                   </Card>
@@ -305,12 +305,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="p-3 bg-pink-500/10 border-pink-500/20 cursor-help">
+                  <Card className="p-3 bg-muted border-border cursor-help">
                     <div className="flex items-center gap-2 mb-1">
-                      <Gamepad2 className="h-4 w-4 text-pink-400" />
+                      <Gamepad2 className="h-4 w-4 text-foreground" />
                       <span className="text-xs text-muted-foreground">Playability</span>
                     </div>
-                    <div className="text-xl font-bold text-pink-400">
+                    <div className="text-xl font-bold text-foreground">
                       {metrics?.playability ? `${metrics.playability}%` : '--'}
                     </div>
                   </Card>
@@ -361,11 +361,8 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                         bracket.recommended === b 
                           ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           : "",
-                        b === 1 ? "bg-green-500/20 text-green-500" :
-                        b === 2 ? "bg-blue-500/20 text-blue-500" :
-                        b === 3 ? "bg-orange-500/20 text-orange-500" :
-                        b === 4 ? "bg-red-500/20 text-red-500" :
-                        "bg-purple-500/20 text-purple-500"
+                        "bg-muted",
+                        bracketDescriptions[b]?.color
                       )}
                     >
                       {b}
@@ -382,27 +379,27 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="text-center p-2 rounded bg-muted/30">
-                    <Infinity className="h-4 w-4 mx-auto mb-1 text-blue-400" />
+                    <Infinity className="h-4 w-4 mx-auto mb-1 text-foreground" />
                     <div className="text-lg font-bold">{bracket.extraTurns}</div>
                     <div className="text-[10px] text-muted-foreground">Extra Turns</div>
                   </div>
                   <div className="text-center p-2 rounded bg-muted/30">
-                    <Mountain className="h-4 w-4 mx-auto mb-1 text-red-400" />
+                    <Mountain className="h-4 w-4 mx-auto mb-1 text-destructive" />
                     <div className="text-lg font-bold">{bracket.massLandDenial}</div>
                     <div className="text-[10px] text-muted-foreground">Mass Land Denial</div>
                   </div>
                   <div className="text-center p-2 rounded bg-muted/30">
-                    <Swords className="h-4 w-4 mx-auto mb-1 text-orange-400" />
+                    <Swords className="h-4 w-4 mx-auto mb-1 text-foreground" />
                     <div className="text-lg font-bold">{bracket.earlyTwoCardCombos}</div>
                     <div className="text-[10px] text-muted-foreground">Early Combos</div>
                   </div>
                   <div className="text-center p-2 rounded bg-muted/30">
-                    <Swords className="h-4 w-4 mx-auto mb-1 text-yellow-400" />
+                    <Swords className="h-4 w-4 mx-auto mb-1 text-foreground" />
                     <div className="text-lg font-bold">{bracket.lateTwoCardCombos}</div>
                     <div className="text-[10px] text-muted-foreground">Late Combos</div>
                   </div>
                   <div className="text-center p-2 rounded bg-muted/30">
-                    <Trophy className="h-4 w-4 mx-auto mb-1 text-purple-400" />
+                    <Trophy className="h-4 w-4 mx-auto mb-1 text-foreground" />
                     <div className="text-lg font-bold">{bracket.gameChangers}</div>
                     <div className="text-[10px] text-muted-foreground">Game Changers</div>
                   </div>
@@ -438,7 +435,7 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                         key={idx}
                         className={cn(
                           "grid grid-cols-12 gap-2 items-center p-2 rounded text-sm",
-                          card.isCommander ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/20 hover:bg-muted/40"
+                          card.isCommander ? "bg-muted border border-border" : "bg-muted/20 hover:bg-muted/40"
                         )}
                       >
                         <div className="col-span-5 flex items-center gap-2 truncate">
@@ -451,8 +448,8 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                         <div className="col-span-2 text-center">
                           {card.playability !== null ? (
                             <span className={cn(
-                              card.playability >= 50 ? 'text-green-500' : 
-                              card.playability >= 25 ? 'text-yellow-500' : 'text-red-500'
+                              card.playability >= 50 ? 'text-foreground' : 
+                              card.playability >= 25 ? 'text-foreground' : 'text-destructive'
                             )}>
                               {card.playability.toFixed(1)}%
                             </span>
@@ -462,7 +459,7 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                           {card.impact.toFixed(1)}
                         </div>
                         <div className="col-span-1 text-center">
-                          {card.isGameChanger && <Trophy className="h-4 w-4 text-amber-400 mx-auto" />}
+                          {card.isGameChanger && <Trophy className="h-4 w-4 text-foreground mx-auto" />}
                         </div>
                       </div>
                     ))}
@@ -487,7 +484,7 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                 <div className="text-sm font-medium mb-3">Land Distribution</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-3 rounded bg-muted/30">
-                    <Mountain className="h-5 w-5 mx-auto mb-2 text-amber-500" />
+                    <Mountain className="h-5 w-5 mx-auto mb-2 text-foreground" />
                     <div className="text-2xl font-bold">{landAnalysis.landCount}</div>
                     <div className="text-xs text-muted-foreground">Lands</div>
                   </div>
@@ -501,12 +498,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
 
               {/* Probability Stats */}
               <div className="grid grid-cols-3 gap-3">
-                <Card className="p-4 bg-red-500/10 border-red-500/20">
+                <Card className="p-4 bg-destructive/10 border-destructive/40">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="h-4 w-4 text-red-400" />
+                    <TrendingDown className="h-4 w-4 text-destructive" />
                     <span className="text-xs text-muted-foreground">Mana Screw</span>
                   </div>
-                  <div className="text-2xl font-bold text-red-400">
+                  <div className="text-2xl font-bold text-destructive">
                     {landAnalysis.manaScrewPct !== null ? `${landAnalysis.manaScrewPct.toFixed(1)}%` : 'N/A'}
                   </div>
                   <Progress 
@@ -515,12 +512,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                   />
                 </Card>
 
-                <Card className="p-4 bg-blue-500/10 border-blue-500/20">
+                <Card className="p-4 bg-muted border-border">
                   <div className="flex items-center gap-2 mb-2">
-                    <Droplets className="h-4 w-4 text-blue-400" />
+                    <Droplets className="h-4 w-4 text-foreground" />
                     <span className="text-xs text-muted-foreground">Mana Flood</span>
                   </div>
-                  <div className="text-2xl font-bold text-blue-400">
+                  <div className="text-2xl font-bold text-foreground">
                     {landAnalysis.manaFloodPct !== null ? `${landAnalysis.manaFloodPct.toFixed(1)}%` : 'N/A'}
                   </div>
                   <Progress 
@@ -529,12 +526,12 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
                   />
                 </Card>
 
-                <Card className="p-4 bg-green-500/10 border-green-500/20">
+                <Card className="p-4 bg-muted border-border">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-green-400" />
+                    <TrendingUp className="h-4 w-4 text-foreground" />
                     <span className="text-xs text-muted-foreground">Sweet Spot</span>
                   </div>
-                  <div className="text-2xl font-bold text-green-400">
+                  <div className="text-2xl font-bold text-foreground">
                     {landAnalysis.sweetSpotPct !== null ? `${landAnalysis.sweetSpotPct.toFixed(1)}%` : 'N/A'}
                   </div>
                   <Progress 

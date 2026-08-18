@@ -1,33 +1,40 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  CardSearchState, 
-  Color, 
-  Rarity, 
-  Format, 
-  COLOR_SYMBOLS, 
+import { ManaPip } from '@/components/ui/mana-cost';
+import { cn } from '@/lib/utils';
+import {
+  CardSearchState,
+  ColorOption,
+  Rarity,
+  Format,
+  LegalState,
+  COLOR_SYMBOLS,
+  COLOR_ORDER,
+  IDENTITY_ORDER,
   RARITY_INFO,
-  buildScryfallQuery 
+  buildScryfallQuery,
 } from '@/lib/scryfall/query-builder';
-import { 
-  Plus, 
-  X, 
-  Copy, 
-  Wand2,
-  Palette,
-  Type,
-  BarChart3,
-  Trophy,
-  Settings,
-  DollarSign
-} from 'lucide-react';
+import { Check, Copy, X } from 'lucide-react';
 
 interface AdvancedFilterPanelProps {
   searchState: CardSearchState;
@@ -36,470 +43,623 @@ interface AdvancedFilterPanelProps {
 }
 
 const CARD_TYPES = [
-  'creature', 'instant', 'sorcery', 'artifact', 'enchantment', 
-  'planeswalker', 'land', 'battle', 'tribal'
+  'creature', 'instant', 'sorcery', 'artifact', 'enchantment',
+  'planeswalker', 'land', 'battle', 'kindred',
 ];
 
-const SUPERTYPES = [
-  'legendary', 'basic', 'snow', 'world', 'ongoing'
-];
+const SUPERTYPES = ['legendary', 'basic', 'snow', 'world'];
 
 const FORMATS: Format[] = [
-  'standard', 'pioneer', 'modern', 'legacy', 'vintage', 
-  'commander', 'pauper', 'historic'
+  'standard', 'pioneer', 'modern', 'legacy', 'vintage',
+  'commander', 'oathbreaker', 'pauper', 'brawl', 'historic', 'timeless', 'alchemy',
 ];
 
-const GAMES = ['paper', 'mtgo', 'arena'];
+const GAMES: ('paper' | 'mtgo' | 'arena')[] = ['paper', 'mtgo', 'arena'];
 
-export function AdvancedFilterPanel({ 
-  searchState, 
+const EXTRAS: { key: keyof NonNullable<CardSearchState['extras']>; label: string }[] = [
+  { key: 'foil', label: 'Foil available' },
+  { key: 'nonfoil', label: 'Non-foil available' },
+  { key: 'showcase', label: 'Showcase frame' },
+  { key: 'reprint', label: 'Reprints' },
+  { key: 'reserved', label: 'Reserved list' },
+  { key: 'promo', label: 'Promotional' },
+];
+
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: 'any', label: 'Any language' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'zhs', label: 'Chinese Simplified' },
+];
+
+/** Legal → Banned → Restricted → off. Scryfall's own four states. */
+const LEGAL_CYCLE: (LegalState | null)[] = ['legal', 'banned', 'restricted', null];
+
+const LEGAL_LABEL: Record<LegalState, string> = {
+  legal: 'legal',
+  banned: 'banned',
+  restricted: 'restricted',
+};
+
+interface ScryfallSet {
+  code: string;
+  name: string;
+  released_at?: string;
+}
+
+/** Scryfall's set catalog, fetched once and shared by every mounted panel. */
+let setCatalogCache: ScryfallSet[] | null = null;
+
+function useSetCatalog() {
+  const [sets, setSets] = useState<ScryfallSet[]>(setCatalogCache ?? []);
+
+  useEffect(() => {
+    if (setCatalogCache) return;
+    let cancelled = false;
+    fetch('https://api.scryfall.com/sets')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data?.data) return;
+        const list: ScryfallSet[] = data.data
+          .filter((s: any) => !s.digital && s.card_count > 0)
+          .map((s: any) => ({ code: s.code, name: s.name, released_at: s.released_at }));
+        setCatalogCache = list;
+        setSets(list);
+      })
+      .catch(() => {
+        /* the set picker degrades to "unavailable"; the rest of the panel works */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return sets;
+}
+
+/** A flat, monochrome selectable chip. Selection reads as filled ink. */
+function Chip({
+  selected,
+  onClick,
+  children,
+  className,
+  title,
+}: {
+  selected?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected
+          ? 'border-foreground bg-primary text-primary-foreground'
+          : 'border-border bg-background text-foreground hover:bg-accent',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Optional numeric bound. Empty means "no bound", so a range can be unset. */
+function NumberBound({
+  id,
+  label,
+  value,
+  onChange,
+  min = 0,
+}: {
+  id: string;
+  label: string;
+  value?: number;
+  onChange: (v: number | undefined) => void;
+  min?: number;
+}) {
+  return (
+    <div className="flex-1">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        type="number"
+        min={min}
+        inputMode="numeric"
+        value={value ?? ''}
+        placeholder="any"
+        onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+        className="mt-1 h-9"
+      />
+    </div>
+  );
+}
+
+export function AdvancedFilterPanel({
+  searchState,
   onStateChange,
-  className = "" 
+  className = '',
 }: AdvancedFilterPanelProps) {
-  const [activeTab, setActiveTab] = useState("colors");
+  const [activeTab, setActiveTab] = useState('colors');
+  const [copied, setCopied] = useState(false);
+  const sets = useSetCatalog();
 
-  const updateState = <K extends keyof CardSearchState>(
-    key: K, 
-    value: CardSearchState[K]
-  ) => {
+  const update = <K extends keyof CardSearchState>(key: K, value: CardSearchState[K]) =>
     onStateChange({ ...searchState, [key]: value });
-  };
 
-  const toggleArrayItem = <T,>(
-    array: T[] | undefined, 
-    item: T,
-    key: keyof CardSearchState
-  ) => {
+  const toggleArrayItem = <T,>(array: T[] | undefined, item: T, key: keyof CardSearchState) => {
     const current = array || [];
-    const newArray = current.includes(item)
-      ? current.filter(i => i !== item)
-      : [...current, item];
-    updateState(key, newArray as any);
+    const next = current.includes(item) ? current.filter(i => i !== item) : [...current, item];
+    update(key, (next.length ? next : undefined) as any);
   };
 
-  const { q } = buildScryfallQuery(searchState);
+  const { q } = useMemo(() => buildScryfallQuery(searchState), [searchState]);
+
+  const copyQuery = async () => {
+    try {
+      await navigator.clipboard.writeText(q);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable — the query is visible above anyway */
+    }
+  };
+
+  const toggleColor = (color: ColorOption) => {
+    const current = searchState.colors ?? { mode: 'any' as const, value: [] };
+    const value = current.value.includes(color)
+      ? current.value.filter(c => c !== color)
+      : [...current.value, color];
+    update('colors', value.length ? { ...current, value } : undefined);
+  };
+
+  const cycleFormat = (format: Format) => {
+    const current = searchState.legal ?? [];
+    const existing = current.find(l => l.format === format);
+    const nextState = LEGAL_CYCLE[
+      (LEGAL_CYCLE.indexOf(existing?.state ?? null) + 1) % LEGAL_CYCLE.length
+    ];
+    const without = current.filter(l => l.format !== format);
+    const next = nextState ? [...without, { format, state: nextState }] : without;
+    update('legal', next.length ? next : undefined);
+  };
+
+  const selectedSets = searchState.sets ?? [];
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5" />
-            Advanced Filters
+      <CardHeader className="gap-3 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Scryfall query
+            </Label>
+            <code className="mt-1 block truncate rounded bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
+              {q}
+            </code>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigator.clipboard.writeText(q)}
-          >
-            <Copy className="h-4 w-4 mr-1" />
-            Copy Query
+          <Button variant="outline" size="sm" onClick={copyQuery} className="mt-5 shrink-0 gap-1.5">
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? 'Copied' : 'Copy'}
           </Button>
-        </CardTitle>
-        
-        {/* Live Query Preview */}
-        {q && (
-          <div className="mt-2 p-2 bg-muted rounded-md">
-            <Label className="text-xs text-muted-foreground">Generated Query:</Label>
-            <code className="text-xs font-mono block mt-1">{q}</code>
-          </div>
-        )}
+        </div>
       </CardHeader>
 
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto gap-1">
-            <TabsTrigger value="colors" className="text-xs px-2 py-1.5">
-              <Palette className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Colors</span>
-            </TabsTrigger>
-            <TabsTrigger value="types" className="text-xs px-2 py-1.5">
-              <Type className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Types</span>
-            </TabsTrigger>
-            <TabsTrigger value="stats" className="text-xs px-2 py-1.5">
-              <BarChart3 className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Stats</span>
-            </TabsTrigger>
-            <TabsTrigger value="formats" className="text-xs px-2 py-1.5">
-              <Trophy className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Formats</span>
-            </TabsTrigger>
-            <TabsTrigger value="price" className="text-xs px-2 py-1.5">
-              <DollarSign className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Price</span>
-            </TabsTrigger>
-            <TabsTrigger value="extras" className="text-xs px-2 py-1.5">
-              <Settings className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">Extras</span>
-            </TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-3 gap-1 sm:grid-cols-6">
+            <TabsTrigger value="colors" className="px-2 py-1.5 text-xs">Colors</TabsTrigger>
+            <TabsTrigger value="types" className="px-2 py-1.5 text-xs">Types</TabsTrigger>
+            <TabsTrigger value="stats" className="px-2 py-1.5 text-xs">Stats</TabsTrigger>
+            <TabsTrigger value="formats" className="px-2 py-1.5 text-xs">Formats</TabsTrigger>
+            <TabsTrigger value="sets" className="px-2 py-1.5 text-xs">Sets</TabsTrigger>
+            <TabsTrigger value="extras" className="px-2 py-1.5 text-xs">Extras</TabsTrigger>
           </TabsList>
 
-          {/* Colors Tab */}
-          <TabsContent value="colors" className="space-y-4 mt-4">
+          {/* --------------------------- Colors --------------------------- */}
+          <TabsContent value="colors" className="mt-4 space-y-6">
+            {/* Commander is the dominant format, so identity comes first. */}
             <div>
-              <Label className="text-sm font-medium mb-2 block">Color Identity</Label>
-              <div className="grid grid-cols-5 gap-1 sm:gap-2 mb-4">
-                {(Object.keys(COLOR_SYMBOLS) as Color[]).map((color) => {
-                  const info = COLOR_SYMBOLS[color];
-                  const isSelected = searchState.colors?.value.includes(color);
-                  return (
-                    <button
-                      key={color}
-                      onClick={() => {
-                        const current = searchState.colors || { mode: "any", value: [] };
-                        const newValue = isSelected
-                          ? current.value.filter(c => c !== color)
-                          : [...current.value, color];
-                        updateState('colors', { ...current, value: newValue });
-                      }}
-                      className={`
-                        relative px-3 py-2 rounded-lg border-2 transition-all duration-200 
-                        flex flex-col items-center gap-1 font-medium text-sm
-                        ${isSelected 
-                          ? `${info.className} ring-2 ring-primary/20 shadow-md` 
-                          : `${info.className} opacity-60 hover:opacity-100`
-                        }
-                      `}
-                    >
-                      <div className={`
-                        w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                        ${isSelected ? 'bg-white/30' : 'bg-white/20'}
-                      `}>
-                        {info.symbol}
-                      </div>
-                      <span className="text-xs">{info.name}</span>
-                      {isSelected && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"></div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Color Mode</Label>
-                <Select 
-                  value={searchState.colors?.mode || "any"} 
-                  onValueChange={(value: "any" | "exact" | "atleast") => 
-                    updateState('colors', { 
-                      ...searchState.colors, 
-                      mode: value,
-                      value: searchState.colors?.value || []
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any of these colors</SelectItem>
-                    <SelectItem value="exact">Exactly these colors</SelectItem>
-                    <SelectItem value="atleast">At least these colors</SelectItem>
-                  </SelectContent>
-                </Select>
+              <Label className="mb-1 block text-sm font-medium">Color identity</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                <code className="font-mono">id:</code> — what a Commander deck may contain.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {IDENTITY_ORDER.map(color => (
+                  <Chip
+                    key={`id-${color}`}
+                    selected={searchState.identity?.includes(color)}
+                    onClick={() => toggleArrayItem(searchState.identity, color, 'identity')}
+                  >
+                    <ManaPip symbol={color === 'C' ? 'C' : color} size="xs" />
+                    {COLOR_SYMBOLS[color].name}
+                  </Chip>
+                ))}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Commander Identity</Label>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(COLOR_SYMBOLS) as Color[]).map((color) => {
-                  const info = COLOR_SYMBOLS[color];
-                  const isSelected = searchState.identity?.includes(color);
-                  return (
-                    <button
-                      key={`id-${color}`}
-                      onClick={() => toggleArrayItem(searchState.identity, color, 'identity')}
-                      className={`
-                        px-2 py-1 rounded-full border transition-all text-xs font-medium
-                        ${isSelected 
-                          ? `${info.className} ring-1 ring-primary/20` 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
-                    >
-                      {info.symbol} {info.name}
-                    </button>
-                  );
-                })}
+              <Label className="mb-1 block text-sm font-medium">Colors</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                <code className="font-mono">c:</code> — the colors printed on the card itself.
+              </p>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {COLOR_ORDER.map(color => (
+                  <Chip
+                    key={color}
+                    selected={searchState.colors?.value.includes(color)}
+                    onClick={() => toggleColor(color)}
+                  >
+                    {color === 'M' ? (
+                      <span className="font-mono text-xs">M</span>
+                    ) : (
+                      <ManaPip symbol={color} size="xs" />
+                    )}
+                    {COLOR_SYMBOLS[color].name}
+                  </Chip>
+                ))}
               </div>
+
+              <Label htmlFor="color-mode" className="text-xs text-muted-foreground">
+                Match mode
+              </Label>
+              <Select
+                value={searchState.colors?.mode || 'any'}
+                onValueChange={(mode: 'any' | 'exact' | 'atleast') =>
+                  update('colors', { mode, value: searchState.colors?.value ?? [] })
+                }
+              >
+                <SelectTrigger id="color-mode" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Includes any of these (c:)</SelectItem>
+                  <SelectItem value="exact">Exactly these colors (c=)</SelectItem>
+                  <SelectItem value="atleast">At least these colors (c&gt;=)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </TabsContent>
 
-          {/* Types Tab */}
-          <TabsContent value="types" className="space-y-4">
+          {/* --------------------------- Types ---------------------------- */}
+          <TabsContent value="types" className="mt-4 space-y-6">
             <div>
-              <Label className="text-sm font-medium mb-2 block">Card Types</Label>
+              <Label className="mb-2 block text-sm font-medium">Card types</Label>
               <div className="flex flex-wrap gap-2">
-                {CARD_TYPES.map((type) => {
-                  const isSelected = searchState.types?.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => toggleArrayItem(searchState.types, type, 'types')}
-                      className={`
-                        px-3 py-1.5 rounded-full border transition-all text-sm font-medium capitalize
-                        ${isSelected 
-                          ? 'bg-primary text-primary-foreground border-primary' 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
-                    >
-                      {type}
-                    </button>
-                  );
-                })}
+                {CARD_TYPES.map(type => (
+                  <Chip
+                    key={type}
+                    selected={searchState.types?.includes(type)}
+                    onClick={() => toggleArrayItem(searchState.types, type, 'types')}
+                    className="capitalize"
+                  >
+                    {type}
+                  </Chip>
+                ))}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Supertypes</Label>
+              <Label className="mb-2 block text-sm font-medium">Supertypes</Label>
               <div className="flex flex-wrap gap-2">
-                {SUPERTYPES.map((type) => {
-                  const isSelected = searchState.supertypes?.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => toggleArrayItem(searchState.supertypes, type, 'supertypes')}
-                      className={`
-                        px-3 py-1.5 rounded-full border transition-all text-sm font-medium capitalize
-                        ${isSelected 
-                          ? 'bg-secondary text-secondary-foreground border-secondary' 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
-                    >
-                      {type}
-                    </button>
-                  );
-                })}
+                {SUPERTYPES.map(type => (
+                  <Chip
+                    key={type}
+                    selected={searchState.supertypes?.includes(type)}
+                    onClick={() => toggleArrayItem(searchState.supertypes, type, 'supertypes')}
+                    className="capitalize"
+                  >
+                    {type}
+                  </Chip>
+                ))}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Rarities</Label>
+              <Label className="mb-2 block text-sm font-medium">Rarity</Label>
               <div className="flex flex-wrap gap-2">
-                {(Object.keys(RARITY_INFO) as Rarity[]).map((rarity) => {
-                  const info = RARITY_INFO[rarity];
-                  const isSelected = searchState.rarities?.includes(rarity);
-                  return (
-                    <button
-                      key={rarity}
-                      onClick={() => toggleArrayItem(searchState.rarities, rarity, 'rarities')}
-                      className={`
-                        px-3 py-1.5 rounded-full border transition-all text-sm font-medium
-                        ${isSelected 
-                          ? `bg-background border-border ring-2 ring-primary/20 ${info.className}` 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
-                    >
-                      {info.name}
-                    </button>
-                  );
-                })}
+                {(Object.keys(RARITY_INFO) as Rarity[]).map(rarity => (
+                  <Chip
+                    key={rarity}
+                    selected={searchState.rarities?.includes(rarity)}
+                    onClick={() => toggleArrayItem(searchState.rarities, rarity, 'rarities')}
+                  >
+                    <span className="font-mono text-xs">{RARITY_INFO[rarity].code}</span>
+                    {RARITY_INFO[rarity].name}
+                  </Chip>
+                ))}
               </div>
             </div>
-          </TabsContent>
-
-          {/* Stats Tab */}
-          <TabsContent value="stats" className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Mana Value: {searchState.mv?.min || 0} - {searchState.mv?.max || 20}
-              </Label>
-              <Slider
-                value={[searchState.mv?.min || 0, searchState.mv?.max || 20]}
-                onValueChange={([min, max]) => updateState('mv', { min, max })}
-                max={20}
-                step={1}
-                className="mt-2"
-              />
-            </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Power: {searchState.pow?.min || 0} - {searchState.pow?.max || 20}
+              <Label htmlFor="oracle-text" className="mb-1 block text-sm font-medium">
+                Oracle text contains
               </Label>
-              <Slider
-                value={[searchState.pow?.min || 0, searchState.pow?.max || 20]}
-                onValueChange={([min, max]) => updateState('pow', { min, max })}
-                max={20}
-                step={1}
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Toughness: {searchState.tou?.min || 0} - {searchState.tou?.max || 20}
-              </Label>
-              <Slider
-                value={[searchState.tou?.min || 0, searchState.tou?.max || 20]}
-                onValueChange={([min, max]) => updateState('tou', { min, max })}
-                max={20}
-                step={1}
-                className="mt-2"
+              <Input
+                id="oracle-text"
+                value={searchState.oracle || ''}
+                onChange={e => update('oracle', e.target.value || undefined)}
+                placeholder="e.g. draw a card"
               />
             </div>
           </TabsContent>
 
-          {/* Formats Tab */}
-          <TabsContent value="formats" className="space-y-4">
+          {/* --------------------------- Stats ---------------------------- */}
+          <TabsContent value="stats" className="mt-4 space-y-5">
             <div>
-              <Label className="text-sm font-medium mb-2 block">Legal Formats</Label>
+              <Label className="mb-2 block text-sm font-medium">Mana value</Label>
+              <div className="flex gap-3">
+                <NumberBound
+                  id="mv-min"
+                  label="Min"
+                  value={searchState.mv?.min}
+                  onChange={v => update('mv', { ...searchState.mv, min: v })}
+                />
+                <NumberBound
+                  id="mv-max"
+                  label="Max"
+                  value={searchState.mv?.max}
+                  onChange={v => update('mv', { ...searchState.mv, max: v })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Power</Label>
+              <div className="flex gap-3">
+                <NumberBound
+                  id="pow-min"
+                  label="Min"
+                  value={searchState.pow?.min}
+                  onChange={v => update('pow', { ...searchState.pow, min: v })}
+                />
+                <NumberBound
+                  id="pow-max"
+                  label="Max"
+                  value={searchState.pow?.max}
+                  onChange={v => update('pow', { ...searchState.pow, max: v })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Toughness</Label>
+              <div className="flex gap-3">
+                <NumberBound
+                  id="tou-min"
+                  label="Min"
+                  value={searchState.tou?.min}
+                  onChange={v => update('tou', { ...searchState.tou, min: v })}
+                />
+                <NumberBound
+                  id="tou-max"
+                  label="Max"
+                  value={searchState.tou?.max}
+                  onChange={v => update('tou', { ...searchState.tou, max: v })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block text-sm font-medium">Price (USD)</Label>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="price-min" className="text-xs text-muted-foreground">Min</Label>
+                  <Input
+                    id="price-min"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="any"
+                    value={searchState.price?.usdMin ?? ''}
+                    onChange={e =>
+                      update('price', {
+                        ...searchState.price,
+                        usdMin: e.target.value === '' ? undefined : parseFloat(e.target.value),
+                      })
+                    }
+                    className="mt-1 h-9"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="price-max" className="text-xs text-muted-foreground">Max</Label>
+                  <Input
+                    id="price-max"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="any"
+                    value={searchState.price?.usdMax ?? ''}
+                    onChange={e =>
+                      update('price', {
+                        ...searchState.price,
+                        usdMax: e.target.value === '' ? undefined : parseFloat(e.target.value),
+                      })
+                    }
+                    className="mt-1 h-9"
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* -------------------------- Formats --------------------------- */}
+          <TabsContent value="formats" className="mt-4 space-y-6">
+            <div>
+              <Label className="mb-1 block text-sm font-medium">Format status</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Click a format to cycle legal → banned → restricted → off.
+              </p>
               <div className="flex flex-wrap gap-2">
-                {FORMATS.map((format) => {
-                  const isSelected = searchState.legal?.some(l => l.format === format && l.state === 'legal');
+                {FORMATS.map(format => {
+                  const entry = searchState.legal?.find(l => l.format === format);
                   return (
-                    <button
+                    <Chip
                       key={format}
-                      onClick={() => {
-                        const current = searchState.legal || [];
-                        const newLegal = isSelected
-                          ? current.filter(l => !(l.format === format && l.state === 'legal'))
-                          : [...current.filter(l => l.format !== format), { format, state: 'legal' as const }];
-                        updateState('legal', newLegal);
-                      }}
-                      className={`
-                        px-3 py-1.5 rounded-full border transition-all text-sm font-medium capitalize
-                        ${isSelected 
-                          ? 'bg-green-100 text-green-800 border-green-300' 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
+                      selected={Boolean(entry)}
+                      onClick={() => cycleFormat(format)}
+                      className="capitalize"
                     >
                       {format}
-                    </button>
+                      {entry && (
+                        <span className="font-mono text-[10px] uppercase opacity-80">
+                          {LEGAL_LABEL[entry.state]}
+                        </span>
+                      )}
+                    </Chip>
                   );
                 })}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Game Platforms</Label>
+              <Label className="mb-2 block text-sm font-medium">Available on</Label>
               <div className="flex flex-wrap gap-2">
-                {GAMES.map((game) => {
-                  const isSelected = searchState.game?.includes(game as any);
+                {GAMES.map(game => (
+                  <Chip
+                    key={game}
+                    selected={searchState.game?.includes(game)}
+                    onClick={() => toggleArrayItem(searchState.game, game, 'game')}
+                    className="uppercase"
+                  >
+                    {game}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ---------------------------- Sets ---------------------------- */}
+          <TabsContent value="sets" className="mt-4 space-y-3">
+            <Label className="block text-sm font-medium">Sets</Label>
+
+            {selectedSets.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedSets.map(code => {
+                  const meta = sets.find(s => s.code === code);
                   return (
                     <button
-                      key={game}
-                      onClick={() => toggleArrayItem(searchState.game, game as any, 'game')}
-                      className={`
-                        px-3 py-1.5 rounded-full border transition-all text-sm font-medium capitalize
-                        ${isSelected 
-                          ? 'bg-blue-100 text-blue-800 border-blue-300' 
-                          : 'bg-background border-border hover:bg-accent'
-                        }
-                      `}
+                      key={code}
+                      type="button"
+                      onClick={() =>
+                        update(
+                          'sets',
+                          selectedSets.filter(c => c !== code).length
+                            ? selectedSets.filter(c => c !== code)
+                            : undefined
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent"
                     >
-                      {game}
+                      <span className="font-mono uppercase">{code}</span>
+                      {meta && <span className="max-w-[160px] truncate">{meta.name}</span>}
+                      <X className="h-3 w-3" />
                     </button>
                   );
                 })}
               </div>
-            </div>
+            )}
+
+            {sets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Set list unavailable — Scryfall’s set catalog could not be loaded.
+              </p>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start">
+                    Add a set…
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[320px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search sets…" />
+                    <CommandList>
+                      <CommandEmpty>No sets found.</CommandEmpty>
+                      <CommandGroup>
+                        {sets.map(set => (
+                          <CommandItem
+                            key={set.code}
+                            value={`${set.name} ${set.code}`}
+                            onSelect={() => {
+                              if (selectedSets.includes(set.code)) return;
+                              update('sets', [...selectedSets, set.code]);
+                            }}
+                          >
+                            <span className="mr-2 w-12 shrink-0 font-mono text-xs uppercase text-muted-foreground">
+                              {set.code}
+                            </span>
+                            <span className="truncate">{set.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
           </TabsContent>
 
-          {/* Price Tab */}
-          <TabsContent value="price" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="price-min">Min Price (USD)</Label>
-                <Input
-                  id="price-min"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={searchState.price?.usdMin || ''}
-                  onChange={(e) => updateState('price', {
-                    ...searchState.price,
-                    usdMin: e.target.value ? parseFloat(e.target.value) : undefined
-                  })}
-                  placeholder="0.00"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="price-max">Max Price (USD)</Label>
-                <Input
-                  id="price-max"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={searchState.price?.usdMax || ''}
-                  onChange={(e) => updateState('price', {
-                    ...searchState.price,
-                    usdMax: e.target.value ? parseFloat(e.target.value) : undefined
-                  })}
-                  placeholder="1000.00"
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Extras Tab */}
-          <TabsContent value="extras" className="space-y-4">
+          {/* --------------------------- Extras --------------------------- */}
+          <TabsContent value="extras" className="mt-4 space-y-5">
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: 'foil', label: 'Foil Only' },
-                { key: 'nonfoil', label: 'Non-foil Only' },
-                { key: 'showcase', label: 'Showcase' },
-                { key: 'reprint', label: 'Reprints' },
-                { key: 'reserved', label: 'Reserved List' },
-                { key: 'promo', label: 'Promotional' }
-              ].map(({ key, label }) => {
-                const isSelected = searchState.extras?.[key as keyof typeof searchState.extras];
-                return (
-                  <button
-                    key={key}
-                    onClick={() => updateState('extras', {
-                      ...searchState.extras,
-                      [key]: !isSelected
-                    })}
-                    className={`
-                      px-3 py-2 rounded-lg border transition-all text-sm font-medium
-                      ${isSelected 
-                        ? 'bg-accent text-accent-foreground border-accent' 
-                        : 'bg-background border-border hover:bg-accent'
-                      }
-                    `}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              {EXTRAS.map(({ key, label }) => (
+                <Chip
+                  key={key}
+                  selected={Boolean(searchState.extras?.[key])}
+                  onClick={() => {
+                    const next = { ...searchState.extras, [key]: !searchState.extras?.[key] };
+                    const anySet = Object.values(next).some(Boolean);
+                    update('extras', anySet ? next : undefined);
+                  }}
+                  className="justify-center"
+                >
+                  {label}
+                </Chip>
+              ))}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="artist">Artist</Label>
+            <div>
+              <Label htmlFor="artist" className="mb-1 block text-sm font-medium">Artist</Label>
               <Input
                 id="artist"
                 value={searchState.artist || ''}
-                onChange={(e) => updateState('artist', e.target.value)}
-                placeholder="e.g., Seb McKinnon"
+                onChange={e => update('artist', e.target.value || undefined)}
+                placeholder="e.g. Seb McKinnon"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="language">Language</Label>
-              <Select value={searchState.language || ''} onValueChange={(value) => updateState('language', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any language" />
+            <div>
+              <Label htmlFor="language" className="mb-1 block text-sm font-medium">Language</Label>
+              <Select
+                value={searchState.language || 'any'}
+                onValueChange={value => update('language', value === 'any' ? undefined : value)}
+              >
+                <SelectTrigger id="language">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any language</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="de">German</SelectItem>
-                  <SelectItem value="it">Italian</SelectItem>
-                  <SelectItem value="pt">Portuguese</SelectItem>
-                  <SelectItem value="ja">Japanese</SelectItem>
-                  <SelectItem value="ko">Korean</SelectItem>
-                  <SelectItem value="ru">Russian</SelectItem>
-                  <SelectItem value="zhs">Chinese Simplified</SelectItem>
+                  {LANGUAGES.map(lang => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

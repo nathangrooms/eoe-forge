@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { Swords, Shield, Skull, Sparkles, Zap, Users, Mountain, CircleOff, CircleDot } from 'lucide-react';
 import { GameCard } from '@/lib/simulation/types';
 import { FullCardDisplay } from './FullCardDisplay';
 
@@ -26,7 +27,7 @@ const CardImage = ({ card, delay = 0 }: { card: GameCard; delay?: number }) => {
     >
       <FullCardDisplay card={card} compact={false} />
       <div className="absolute -bottom-12 left-0 right-0 text-center">
-        <div className="text-lg font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+        <div className="text-lg font-bold text-foreground">
           {card.name}
         </div>
       </div>
@@ -51,68 +52,68 @@ export const SimulationCinematicOverlay = ({
     switch (mode) {
       case 'attack':
         return {
-          badge: 'Combat Phase',
-          title: 'All-Out Assault',
-          subtitle: 'Attackers are charging into battle',
-          icon: '⚔️',
+          badge: 'Declare attackers',
+          title: 'Attacking',
+          subtitle: `${attackerCards.length} creature${attackerCards.length === 1 ? '' : 's'} attacking`,
+          Icon: Swords,
         };
       case 'block':
         return {
-          badge: 'Defense Phase',
-          title: 'Defensive Wall',
-          subtitle: 'Blockers step in to absorb the damage',
-          icon: '🛡️',
+          badge: 'Declare blockers',
+          title: 'Blocking',
+          subtitle: `${blockerCards.length} creature${blockerCards.length === 1 ? '' : 's'} blocking`,
+          Icon: Shield,
         };
       case 'destroy':
         return {
-          badge: 'Resolution',
-          title: 'Devastating Blow',
-          subtitle: 'Creatures are destroyed in a flash of power',
-          icon: '💀',
+          badge: 'State-based actions',
+          title: 'Destroyed',
+          subtitle: `${destroyedCards.length} permanent${destroyedCards.length === 1 ? '' : 's'} put into the graveyard`,
+          Icon: Skull,
         };
       case 'cast':
         return {
-          badge: 'Spell Cast',
-          title: castCard?.name || 'Spell Unleashed',
+          badge: 'Spell cast',
+          title: castCard?.name || 'Spell cast',
           subtitle: `${playerName} casts ${castCard?.type_line || 'a spell'}`,
-          icon: '✨',
+          Icon: Sparkles,
         };
       case 'ability':
         return {
-          badge: 'Ability Triggered',
-          title: abilitySource?.name || 'Effect',
-          subtitle: abilityDescription || 'A powerful effect resolves',
-          icon: '⚡',
+          badge: 'Ability triggered',
+          title: abilitySource?.name || 'Triggered ability',
+          subtitle: abilityDescription || 'An ability resolves',
+          Icon: Zap,
         };
       case 'tokens':
         return {
-          badge: 'Summoning',
-          title: 'Creatures Emerge',
+          badge: 'Tokens',
+          title: 'Tokens created',
           subtitle: `${tokensCreated.reduce((sum, t) => sum + t.count, 0)} token${
             tokensCreated.reduce((sum, t) => sum + t.count, 0) > 1 ? 's' : ''
           } enter the battlefield`,
-          icon: '🎭',
+          Icon: Users,
         };
       case 'ramp':
         return {
-          badge: 'Mana Surge',
-          title: 'Lands Awakened',
-          subtitle: `${ramppedLands.length} land${ramppedLands.length > 1 ? 's' : ''} join the battlefield`,
-          icon: '🌿',
+          badge: 'Lands',
+          title: 'Lands entering',
+          subtitle: `${ramppedLands.length} land${ramppedLands.length === 1 ? '' : 's'} enter the battlefield`,
+          Icon: Mountain,
         };
       case 'exile':
         return {
-          badge: 'Banishment',
+          badge: 'Exile',
           title: 'Exiled',
-          subtitle: 'Cards are banished from existence',
-          icon: '🌀',
+          subtitle: `${exiledCards.length} card${exiledCards.length === 1 ? '' : 's'} moved to exile`,
+          Icon: CircleOff,
         };
       default:
         return {
-          badge: 'Game Event',
+          badge: 'Game event',
           title: 'Action',
-          subtitle: 'Something happened',
-          icon: '❓',
+          subtitle: 'The game state changed',
+          Icon: CircleDot,
         };
     }
   };
@@ -126,34 +127,8 @@ export const SimulationCinematicOverlay = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-md flex items-center justify-center pointer-events-none"
+        className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-background/95 backdrop-blur-md"
       >
-        {/* Particle effects */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{
-                opacity: 0.6,
-                x: (Math.random() - 0.5) * 400,
-                y: (Math.random() - 0.5) * 300,
-                scale: Math.random() * 0.5 + 0.5,
-              }}
-              animate={{
-                opacity: [0.6, 0, 0.6],
-                scale: [1, 1.5, 1],
-                rotate: [0, 180, 360],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                delay: i * 0.1,
-              }}
-              className="absolute w-2 h-2 rounded-full bg-primary/40"
-            />
-          ))}
-        </div>
-
         <motion.div
           initial={{ scale: 0.8, opacity: 0, rotateX: -30 }}
           animate={{ scale: 1, opacity: 1, rotateX: 0 }}
@@ -170,12 +145,12 @@ export const SimulationCinematicOverlay = ({
               transition={{ duration: 0.5, ease: "backOut" }}
               className="flex items-center justify-center gap-4 mb-4"
             >
-              <span className="text-6xl drop-shadow-2xl">{config.icon}</span>
+              <config.Icon className="h-12 w-12 shrink-0 text-foreground" aria-hidden />
               <div>
-                <div className="text-sm font-bold tracking-[0.3em] uppercase text-primary drop-shadow-lg">
+                <div className="text-sm font-bold uppercase tracking-[0.3em] text-muted-foreground">
                   {config.badge}
                 </div>
-                <h2 className="text-6xl font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
+                <h2 className="text-4xl font-black tracking-tight text-foreground md:text-6xl">
                   {config.title}
                 </h2>
               </div>
@@ -184,7 +159,7 @@ export const SimulationCinematicOverlay = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-xl font-semibold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
+              className="text-lg font-semibold text-muted-foreground"
             >
               {config.subtitle}
             </motion.p>
@@ -195,7 +170,7 @@ export const SimulationCinematicOverlay = ({
             <div className="flex flex-col gap-8">
               {attackerCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">⚔️ Attackers</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-foreground">Attackers</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {attackerCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -203,10 +178,10 @@ export const SimulationCinematicOverlay = ({
                   </div>
                 </div>
               )}
-              
+
               {blockerCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">🛡️ Blockers</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-foreground">Blockers</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {blockerCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -214,10 +189,10 @@ export const SimulationCinematicOverlay = ({
                   </div>
                 </div>
               )}
-              
+
               {destroyedCards.length > 0 && (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">💀 Destroyed</div>
+                  <div className="text-sm font-bold uppercase tracking-wide text-foreground">Destroyed</div>
                   <div className="flex flex-wrap justify-center gap-6">
                     {destroyedCards.slice(0, 5).map((card, i) => (
                       <CardImage key={card.instanceId} card={card} delay={i * 0.1} />
@@ -246,7 +221,7 @@ export const SimulationCinematicOverlay = ({
                     transition={{ delay: 0.3 }}
                     className="bg-accent/20 border border-accent/40 rounded-lg px-6 py-3 max-w-md"
                   >
-                    <div className="text-sm font-medium text-white drop-shadow-lg italic">"{abilityDescription}"</div>
+                    <div className="text-sm font-medium italic text-foreground">&ldquo;{abilityDescription}&rdquo;</div>
                   </motion.div>
                 )}
               </div>
@@ -264,8 +239,8 @@ export const SimulationCinematicOverlay = ({
                     className="bg-primary/20 border-2 border-primary rounded-xl px-8 py-6 flex flex-col items-center gap-2"
                   >
                     <div className="text-7xl font-black text-primary drop-shadow-lg">{token.count}×</div>
-                    <div className="text-xl font-bold text-white drop-shadow-lg">{token.name}</div>
-                    <div className="text-sm text-white/80 uppercase tracking-wide">Token</div>
+                    <div className="text-xl font-bold text-foreground">{token.name}</div>
+                    <div className="text-sm uppercase tracking-wide text-muted-foreground">Token</div>
                   </motion.div>
                 ))}
               </div>
@@ -296,16 +271,16 @@ export const SimulationCinematicOverlay = ({
             transition={{ delay: 0.4 }}
             className="mt-8 text-center max-w-2xl mx-auto"
           >
-            <div className="bg-black/30 border border-white/30 rounded-lg px-6 py-4 backdrop-blur-sm">
-              <p className="text-base text-white font-medium drop-shadow-lg">
+            <div className="rounded-lg border border-border bg-card px-6 py-4">
+              <p className="text-base font-medium text-foreground">
                 {config.subtitle}
               </p>
             </div>
           </motion.div>
 
           {/* Progress bar */}
-          <motion.div 
-            className="mt-8 h-2 overflow-hidden rounded-full bg-background/50 max-w-md mx-auto"
+          <motion.div
+            className="mx-auto mt-8 h-1.5 max-w-md overflow-hidden rounded-full bg-muted"
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: "100%" }}
             transition={{ delay: 0.2 }}
@@ -314,7 +289,7 @@ export const SimulationCinematicOverlay = ({
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
               transition={{ duration: 3.5, ease: 'linear' }}
-              className="h-full bg-gradient-to-r from-primary via-accent to-primary"
+              className="h-full bg-foreground"
             />
           </motion.div>
         </motion.div>

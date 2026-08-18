@@ -267,9 +267,9 @@ export function ArchetypeDetection({ deckCards, commander, format }: ArchetypeDe
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 70) return 'text-emerald-500';
-    if (confidence >= 50) return 'text-yellow-500';
-    return 'text-orange-500';
+    if (confidence >= 70) return 'text-foreground';
+    if (confidence >= 50) return 'text-foreground';
+    return 'text-foreground';
   };
 
   const getConfidenceLabel = (confidence: number) => {

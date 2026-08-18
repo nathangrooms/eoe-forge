@@ -34,7 +34,7 @@ const ANALYSIS_OPTIONS = [
     label: 'Power Analysis',
     description: 'Deep dive into your deck\'s power level and subscores',
     icon: Zap,
-    color: 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100 dark:bg-yellow-950 dark:border-yellow-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Analyze this deck's power level breakdown in detail:
 
 Power Level: ${data.power}/10 (${data.band})
@@ -55,7 +55,7 @@ Explain what each subscore means in practical gameplay, how to improve weak area
     label: 'Mana Curve',
     description: 'Optimize your curve and mana base',
     icon: Mountain,
-    color: 'bg-orange-50 border-orange-200 hover:bg-orange-100 dark:bg-orange-950 dark:border-orange-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Analyze this deck's mana curve and base:
 
 Total Cards: ${data.totalCards}
@@ -75,7 +75,7 @@ Is my curve optimized? Should I adjust land count? Suggest 2-3 mana rocks or lan
     label: 'Deck Archetype',
     description: 'Identify your strategy and gameplan',
     icon: Target,
-    color: 'bg-purple-50 border-purple-200 hover:bg-purple-100 dark:bg-purple-950 dark:border-purple-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Identify this deck's archetype and strategy:
 
 Commander: ${data.commander?.name || 'Unknown'}
@@ -98,7 +98,7 @@ What archetype is this (combo, stax, midrange, aggro, control)? What's the prima
     label: 'Card Recommendations',
     description: 'Specific cards to add to your deck',
     icon: Sparkles,
-    color: 'bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950 dark:border-blue-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Provide 5-8 specific card recommendations for this deck:
 
 Commander: ${data.commander?.name || 'Unknown'}
@@ -127,7 +127,7 @@ List cards by name with brief explanations of why each fits the strategy and add
     label: 'What to Cut',
     description: 'Identify weak or underperforming cards',
     icon: AlertTriangle,
-    color: 'bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950 dark:border-red-800',
+    color: 'bg-destructive/10 border-destructive/40 hover:bg-destructive/10 dark:bg-destructive/10 dark:border-destructive/40',
     prompt: (data: any) => `Identify 5-8 cards I should consider cutting from this deck:
 
 Commander: ${data.commander?.name || 'Unknown'}
@@ -149,7 +149,7 @@ Provide specific card names and brief explanations.`
     label: 'Strategy Guide',
     description: 'Learn how to pilot your deck',
     icon: Eye,
-    color: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950 dark:border-indigo-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Provide a strategy guide for piloting this deck:
 
 Commander: ${data.commander?.name || 'Unknown'}
@@ -168,7 +168,7 @@ What are my win conditions? When should I hold up interaction vs. developing my 
     label: 'Synergy Map',
     description: 'Discover card interactions and combos',
     icon: Layers,
-    color: 'bg-green-50 border-green-200 hover:bg-green-100 dark:bg-green-950 dark:border-green-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Map out the key synergies and combos in this deck:
 
 **Top Cards:** ${data.topCards?.join(', ') || 'N/A'}
@@ -180,7 +180,7 @@ What are the main synergy packages? Are there any infinite combos? Which card in
     label: 'Budget Options',
     description: 'Cost-effective alternatives and upgrades',
     icon: DollarSign,
-    color: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:border-emerald-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Suggest budget-friendly improvements for this deck:
 
 Power Level: ${data.power}/10
@@ -193,7 +193,7 @@ Recommend 5-8 cards under $5 each that would improve the deck. Focus on solid st
     label: 'Meta Analysis',
     description: 'How your deck performs in the meta',
     icon: Users,
-    color: 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100 dark:bg-cyan-950 dark:border-cyan-800',
+    color: 'bg-muted border-border hover:bg-muted ',
     prompt: (data: any) => `Analyze how this deck performs in the current Commander meta:
 
 Commander: ${data.commander?.name || 'Unknown'}
@@ -411,7 +411,7 @@ I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Sel
       </div>
 
       {/* Messages */}
-      <Card className="bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 dark:from-blue-950/20 dark:via-transparent dark:to-purple-950/20 border-blue-200/50 dark:border-blue-800/50">
+      <Card className="dark: dark: dark: border-border">
         <ScrollArea className="h-[600px] p-6">
           <div className="space-y-4">
             {messages.map((message) => (

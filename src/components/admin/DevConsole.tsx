@@ -300,6 +300,7 @@ export function DevConsole() {
     return {
       overallPct: tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0,
       doneTasks, totalTasks: tasks.length, openFindings, criticalFindings,
+      totalFindings: merged.length,
       activeWs, totalWs: workstreams.length,
     };
   }, [tasks, findings, workstreams, audit]);

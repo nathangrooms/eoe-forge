@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -209,11 +210,11 @@ export function StorageQuickActions({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-card to-background">
+        <div className="border-b border-border px-6 pb-4 pt-6">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-cosmic shadow-lg">
-                <Zap className="h-5 w-5 text-white" />
+              <div className="rounded-lg border border-border bg-muted p-2.5">
+                <Zap className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               </div>
               <div>
                 <DialogTitle className="text-xl">Quick Add to Container</DialogTitle>
@@ -301,15 +302,7 @@ export function StorageQuickActions({
                       {decks.map((deck) => (
                         <SelectItem key={deck.id} value={deck.id}>
                           <div className="flex items-center gap-3">
-                            <div className="flex -space-x-1">
-                              {deck.colors?.slice(0, 3).map((color, i) => (
-                                <div 
-                                  key={i}
-                                  className="w-4 h-4 rounded-full border border-background"
-                                  style={{ backgroundColor: color === 'W' ? '#F9FAF4' : color === 'U' ? '#0E68AB' : color === 'B' ? '#150B00' : color === 'R' ? '#D3202A' : color === 'G' ? '#00733E' : '#888' }}
-                                />
-                              ))}
-                            </div>
+                            <ColorIdentity colors={deck.colors ?? []} size="xs" />
                             <span className="font-medium">{deck.name}</span>
                             <Badge variant="outline" className="ml-auto">{deck.cards.length} cards</Badge>
                           </div>
@@ -320,7 +313,7 @@ export function StorageQuickActions({
                 </div>
 
                 {selectedDeck && (
-                  <Card className="bg-gradient-to-r from-card to-primary/5 border-primary/20">
+                  <Card>
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -340,7 +333,7 @@ export function StorageQuickActions({
                           onClick={handleAddDeck}
                           disabled={processing}
                           size="lg"
-                          className="gap-2 bg-gradient-cosmic hover:opacity-90"
+                          className="gap-2"
                         >
                           {processing ? (
                             <>
@@ -389,7 +382,7 @@ export function StorageQuickActions({
               <Button 
                 onClick={handleAddFromCollection}
                 disabled={selectedCards.length === 0 || processing}
-                className="gap-2 bg-gradient-cosmic hover:opacity-90"
+                className="gap-2"
               >
                 {processing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -447,7 +440,7 @@ export function StorageQuickActions({
                               )}
                               {isSelected && (
                                 <div className="absolute inset-0 bg-primary/80 flex items-center justify-center">
-                                  <Check className="h-5 w-5 text-white" />
+                                  <Check className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
                                 </div>
                               )}
                             </div>

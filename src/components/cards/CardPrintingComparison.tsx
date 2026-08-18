@@ -1,256 +1,277 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Layers, ExternalLink, TrendingUp, Star, ShoppingCart } from 'lucide-react';
-import { showError } from '@/components/ui/toast-helpers';
-
-interface CardPrinting {
-  id: string;
-  set_code: string;
-  set_name: string;
-  collector_number: string;
-  rarity: string;
-  image_uris: any;
-  prices: {
-    usd?: string;
-    usd_foil?: string;
-  };
-  released_at: string;
-}
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import {
+  formatUsd,
+  getCardImage,
+  rarityClass,
+  rarityCode,
+  scryfallUrl,
+  tcgplayerUrl,
+} from '@/lib/scryfall/card-utils';
+import { ExternalLink, ImageOff, Layers, ShoppingCart } from 'lucide-react';
 
 interface CardPrintingComparisonProps {
   cardName: string;
   oracleId?: string;
 }
 
+type SortKey = 'released' | 'price' | 'set';
+
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: 'released', label: 'Newest first' },
+  { value: 'price', label: 'Cheapest first' },
+  { value: 'set', label: 'Set name' },
+];
+
+const priceOf = (printing: any): number | null => {
+  const usd = parseFloat(printing?.prices?.usd ?? '');
+  return isNaN(usd) ? null : usd;
+};
+
 export function CardPrintingComparison({ cardName, oracleId }: CardPrintingComparisonProps) {
-  const [printings, setPrintings] = useState<CardPrinting[]>([]);
+  const [printings, setPrintings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPrinting, setSelectedPrinting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('released');
 
-  useEffect(() => {
-    if (cardName) {
-      loadPrintings();
-    }
-  }, [cardName, oracleId]);
+  const fetchPage = useCallback(async (url: string, append: boolean) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
 
-  const loadPrintings = async () => {
     try {
-      setLoading(true);
-      
-      // Search Scryfall for all printings of this card
-      const searchQuery = oracleId 
-        ? `oracleid:${oracleId}`
-        : `!"${cardName}"`;
-      
-      const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery)}&unique=prints&order=released`
-      );
+      const response = await fetch(url);
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch printings');
+        if (response.status === 404) {
+          if (!append) setPrintings([]);
+          setNextPage(null);
+          setTotal(0);
+          return;
+        }
+        throw new Error(payload?.details || `Scryfall returned ${response.status}`);
       }
 
-      const data = await response.json();
-      
-      // Transform the data
-      const printingsData: CardPrinting[] = data.data.map((card: any) => ({
-        id: card.id,
-        set_code: card.set,
-        set_name: card.set_name,
-        collector_number: card.collector_number,
-        rarity: card.rarity,
-        image_uris: card.image_uris,
-        prices: {
-          usd: card.prices?.usd,
-          usd_foil: card.prices?.usd_foil
-        },
-        released_at: card.released_at
-      }));
-
-      setPrintings(printingsData);
-      
-      // Auto-select cheapest printing
-      if (printingsData.length > 0) {
-        const cheapest = printingsData.reduce((min, current) => {
-          const minPrice = parseFloat(min.prices.usd || '999999');
-          const currentPrice = parseFloat(current.prices.usd || '999999');
-          return currentPrice < minPrice ? current : min;
-        });
-        setSelectedPrinting(cheapest.id);
+      setPrintings(prev => (append ? [...prev, ...(payload?.data ?? [])] : payload?.data ?? []));
+      setTotal(payload?.total_cards ?? payload?.data?.length ?? 0);
+      setNextPage(payload?.has_more ? payload.next_page : null);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load printings');
+      if (!append) {
+        setPrintings([]);
+        setTotal(0);
+        setNextPage(null);
       }
-    } catch (error) {
-      console.error('Error loading printings:', error);
-      showError('Error', 'Failed to load card printings');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, []);
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'mythic':
-        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30';
-      case 'rare':
-        return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30';
-      case 'uncommon':
-        return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/30';
+  useEffect(() => {
+    if (!cardName && !oracleId) return;
+    const query = oracleId ? `oracleid:${oracleId}` : `!"${cardName}"`;
+    void fetchPage(
+      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=prints&order=released`,
+      false
+    );
+  }, [cardName, oracleId, fetchPage]);
+
+  // Cheapest is computed once per result set, not on every render, and only
+  // becomes authoritative once every page has been pulled in.
+  const cheapest = useMemo(() => {
+    const priced = printings.filter(p => priceOf(p) != null);
+    if (!priced.length) return null;
+    return priced.reduce((min, cur) => (priceOf(cur)! < priceOf(min)! ? cur : min));
+  }, [printings]);
+
+  const sorted = useMemo(() => {
+    const list = [...printings];
+    switch (sortKey) {
+      case 'price':
+        return list.sort((a, b) => (priceOf(a) ?? Infinity) - (priceOf(b) ?? Infinity));
+      case 'set':
+        return list.sort((a, b) => (a.set_name ?? '').localeCompare(b.set_name ?? ''));
+      case 'released':
       default:
-        return 'bg-muted text-muted-foreground border-border';
+        return list.sort((a, b) => (b.released_at ?? '').localeCompare(a.released_at ?? ''));
     }
-  };
+  }, [printings, sortKey]);
 
-  const formatPrice = (price?: string) => {
-    if (!price) return 'N/A';
-    return `$${parseFloat(price).toFixed(2)}`;
-  };
-
-  const getCheapestPrinting = () => {
-    if (printings.length === 0) return null;
-    return printings.reduce((min, current) => {
-      const minPrice = parseFloat(min.prices.usd || '999999');
-      const currentPrice = parseFloat(current.prices.usd || '999999');
-      return currentPrice < minPrice ? current : min;
-    });
-  };
-
-  const cheapest = getCheapestPrinting();
+  const allLoaded = !nextPage;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Layers className="h-5 w-5" />
-          Available Printings ({printings.length})
-        </CardTitle>
-        {cheapest && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <TrendingUp className="h-4 w-4" />
-            Cheapest: {cheapest.set_name} at {formatPrice(cheapest.prices.usd)}
-          </div>
+    <div className="rounded-lg border border-border">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <h4 className="text-sm font-medium text-foreground">
+            Printings{' '}
+            <span className="text-muted-foreground">
+              ({printings.length}
+              {!allLoaded && total ? ` of ${total}` : ''})
+            </span>
+          </h4>
+        </div>
+
+        {printings.length > 1 && (
+          <Select value={sortKey} onValueChange={(v: SortKey) => setSortKey(v)}>
+            <SelectTrigger className="h-8 w-[152px]" aria-label="Sort printings">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORTS.map(s => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-      </CardHeader>
-      <CardContent>
+      </div>
+
+      {cheapest && (
+        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          Cheapest {allLoaded ? '' : 'so far '}: {cheapest.set_name} —{' '}
+          <span className="text-foreground">{formatUsd(priceOf(cheapest))}</span>
+        </p>
+      )}
+
+      <div className="p-3">
         {loading ? (
           <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-24 bg-muted rounded" />
-              </div>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-24 animate-pulse rounded-md bg-muted" />
             ))}
           </div>
+        ) : error ? (
+          <p className="py-6 text-center text-sm text-destructive">{error}</p>
         ) : printings.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No printings found</p>
-          </div>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No printings found for this card.
+          </p>
         ) : (
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-3">
-              {printings.map((printing) => (
-                <div
-                  key={printing.id}
-                  className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                    selectedPrinting === printing.id
-                      ? 'bg-primary/5 border-primary'
-                      : 'bg-card hover:bg-accent/50'
-                  } ${printing.id === cheapest?.id ? 'ring-2 ring-emerald-500/30' : ''}`}
-                  onClick={() => setSelectedPrinting(printing.id)}
-                >
-                  <div className="flex gap-4">
-                    {/* Card Image */}
-                    {printing.image_uris?.small && (
-                      <img
-                        src={printing.image_uris.small}
-                        alt={`${cardName} - ${printing.set_name}`}
-                        className="w-20 h-28 object-cover rounded border shadow-sm"
-                      />
+          <ScrollArea className="h-[380px] pr-3">
+            <div className="space-y-2">
+              {sorted.map(printing => {
+                const image = getCardImage(printing, 'small');
+                const isCheapest = cheapest && printing.id === cheapest.id;
+                return (
+                  <div
+                    key={printing.id}
+                    className={cn(
+                      'flex gap-3 rounded-md border p-3 transition-colors',
+                      isCheapest ? 'border-foreground/50 bg-accent' : 'border-border hover:bg-accent'
                     )}
-                    
-                    {/* Printing Details */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="font-mono text-xs">
-                              {printing.set_code.toUpperCase()}
-                            </Badge>
-                            <Badge variant="outline" className={getRarityColor(printing.rarity)}>
-                              {printing.rarity}
-                            </Badge>
-                            {printing.id === cheapest?.id && (
-                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                                <Star className="h-3 w-3 mr-1" />
-                                Cheapest
-                              </Badge>
-                            )}
-                          </div>
-                          <h4 className="font-medium text-sm">{printing.set_name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            #{printing.collector_number} • {new Date(printing.released_at).getFullYear()}
-                          </p>
+                  >
+                    <div className="aspect-[63/88] w-[60px] shrink-0 overflow-hidden rounded border border-border bg-muted">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={`${printing.name} — ${printing.set_name}`}
+                          loading="lazy"
+                          decoding="async"
+                          width={146}
+                          height={204}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
                         </div>
-                      </div>
-                      
-                      {/* Prices */}
-                      <div className="flex items-center gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground text-xs">Normal: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            {formatPrice(printing.prices.usd)}
-                          </span>
-                        </div>
-                        {printing.prices.usd_foil && (
-                          <div>
-                            <span className="text-muted-foreground text-xs">Foil: </span>
-                            <span className="font-semibold text-amber-600 dark:text-amber-400">
-                              {formatPrice(printing.prices.usd_foil)}
-                            </span>
-                          </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-xs uppercase text-muted-foreground">
+                          {printing.set}
+                        </span>
+                        <span
+                          title={printing.rarity}
+                          className={cn(
+                            'inline-flex h-4 w-4 items-center justify-center rounded-sm border border-border font-mono text-[10px]',
+                            rarityClass(printing.rarity)
+                          )}
+                        >
+                          {rarityCode(printing.rarity)}
+                        </span>
+                        {isCheapest && (
+                          <Badge variant="outline" className="border-foreground/40 text-[10px] font-normal">
+                            Cheapest
+                          </Badge>
                         )}
                       </div>
-                      
-                      {/* Actions */}
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                        >
-                          <a
-                            href={`https://scryfall.com/card/${printing.set_code}/${printing.collector_number}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
+
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {printing.set_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        #{printing.collector_number}
+                        {printing.released_at
+                          ? ` · ${new Date(printing.released_at).getFullYear()}`
+                          : ''}
+                      </p>
+
+                      <p className="text-xs tabular-nums text-foreground">
+                        {formatUsd(priceOf(printing))}
+                        {printing.prices?.usd_foil && (
+                          <span className="text-muted-foreground">
+                            {' '}
+                            · ${parseFloat(printing.prices.usd_foil).toFixed(2)} foil
+                          </span>
+                        )}
+                      </p>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                          <a href={scryfallUrl(printing)} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="mr-1 h-3 w-3" />
                             View
                           </a>
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                        >
-                          <a
-                            href={`https://www.tcgplayer.com/search/magic/product?q=${encodeURIComponent(cardName)}+${printing.set_code}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ShoppingCart className="h-3 w-3 mr-1" />
+                        <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                          <a href={tcgplayerUrl(printing)} target="_blank" rel="noopener noreferrer">
+                            <ShoppingCart className="mr-1 h-3 w-3" />
                             Buy
                           </a>
                         </Button>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
+              {nextPage && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={loadingMore}
+                  onClick={() => fetchPage(nextPage, true)}
+                >
+                  {loadingMore
+                    ? 'Loading…'
+                    : `Show all ${total.toLocaleString()} printings`}
+                </Button>
+              )}
             </div>
           </ScrollArea>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

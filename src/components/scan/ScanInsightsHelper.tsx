@@ -22,9 +22,9 @@ export function ScanInsightsHelper({ recentScans = [] }: ScanInsightsHelperProps
   const generateSuggestions = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
-      const scanSummary = recentScans.slice(0, 20).map(s => 
+      const scanSummary = recentScans.slice(0, 20).map(s =>
         `${s.name} (${s.setCode.toUpperCase()}) x${s.quantity}${s.priceUsd ? ` - $${s.priceUsd}` : ''}`
       ).join('\n');
 
@@ -56,7 +56,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
       });
 
       if (fnError) throw fnError;
-      
+
       if (data?.text) {
         setSuggestions(data.text);
       } else {
@@ -71,11 +71,11 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
   };
 
   return (
-    <Card className="border-primary/20">
+    <Card>
       <CardContent className="p-4 md:p-6">
         <div className="flex items-center gap-3 mb-3 md:mb-4">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <Lightbulb className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted md:h-10 md:w-10">
+            <Lightbulb className="h-4 w-4 text-muted-foreground md:h-5 md:w-5" />
           </div>
           <div>
             <h3 className="font-bold text-base md:text-lg">Scan Insights</h3>
@@ -88,7 +88,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
             <p className="text-xs md:text-sm text-muted-foreground">
               Get insights on your recently scanned cards, synergies, and recommendations.
             </p>
-            <Button 
+            <Button
               onClick={generateSuggestions}
               className="w-full"
               disabled={loading || recentScans.length === 0}
@@ -101,7 +101,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
         {loading && (
           <div className="flex items-center justify-center py-6 md:py-8">
-            <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground md:h-8 md:w-8" />
             <span className="ml-3 text-muted-foreground text-sm">Analyzing...</span>
           </div>
         )}
@@ -115,17 +115,17 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
         {suggestions && (
           <div className="space-y-3 md:space-y-4">
-            <div className="border-l-4 border-primary/50 pl-3 md:pl-4 bg-primary/5 rounded-r-lg p-3 md:p-4">
-              <div className="flex items-center gap-2 mb-2 md:mb-3">
-                <Lightbulb className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold text-primary">INSIGHTS</span>
+            <div className="rounded-lg border border-border p-3 md:p-4">
+              <div className="mb-2 flex items-center gap-2 md:mb-3">
+                <Lightbulb className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase text-muted-foreground">Insights</span>
               </div>
               <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
                 <ReactMarkdown>{suggestions}</ReactMarkdown>
               </div>
             </div>
-            
-            <Button 
+
+            <Button
               onClick={generateSuggestions}
               variant="outline"
               size="sm"

@@ -18,7 +18,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ManaSymbols } from '@/components/ui/mana-symbols';
+import { ColorIdentity } from '@/components/ui/mana-cost';
 
 interface FirstDeckOnboardingProps {
   onCreateDeck: (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => void;
@@ -31,9 +31,9 @@ const formatOptions = [
     name: 'Commander',
     description: '100 cards, legendary commander',
     icon: Crown,
-    color: 'from-purple-500/20 to-purple-600/10',
-    borderColor: 'border-purple-500/30',
-    iconColor: 'text-purple-500',
+    color: '',
+    borderColor: 'border-border',
+    iconColor: 'text-foreground',
     popular: true
   },
   {
@@ -41,9 +41,9 @@ const formatOptions = [
     name: 'Standard',
     description: '60 cards, competitive play',
     icon: Sword,
-    color: 'from-blue-500/20 to-blue-600/10',
-    borderColor: 'border-blue-500/30',
-    iconColor: 'text-blue-500',
+    color: '',
+    borderColor: 'border-border',
+    iconColor: 'text-foreground',
     popular: false
   },
   {
@@ -51,9 +51,9 @@ const formatOptions = [
     name: 'Custom',
     description: 'No restrictions, any format',
     icon: Wand2,
-    color: 'from-emerald-500/20 to-emerald-600/10',
-    borderColor: 'border-emerald-500/30',
-    iconColor: 'text-emerald-500',
+    color: '',
+    borderColor: 'border-border',
+    iconColor: 'text-foreground',
     popular: false
   }
 ];
@@ -158,9 +158,8 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
               animate={{ scale: 1 }}
               transition={{ type: "spring", duration: 0.6 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-purple-600/30 rounded-2xl blur-xl" />
-              <div className="relative w-full h-full bg-gradient-to-br from-primary to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Layers className="h-12 w-12 text-white" />
+              <div className="relative w-full h-full rounded-2xl bg-primary flex items-center justify-center">
+                <Layers className="h-12 w-12 text-primary-foreground" />
               </div>
               <motion.div
                 className="absolute -top-2 -right-2"
@@ -168,7 +167,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.3, type: "spring" }}
               >
-                <Sparkles className="h-6 w-6 text-yellow-500" />
+                <Sparkles className="h-6 w-6 text-foreground" />
               </motion.div>
             </motion.div>
 
@@ -203,7 +202,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                     className={cn(
                       "relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 h-[180px]",
                       selectedFormat === format.id 
-                        ? `${format.borderColor} bg-gradient-to-br ${format.color}` 
+                        ? `${format.borderColor} ${format.color}` 
                         : "border-border/50 hover:border-primary/50"
                     )}
                     onClick={() => handleFormatSelect(format.id as any)}
@@ -216,7 +215,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                     <CardContent className="p-6 text-center h-full flex flex-col justify-center">
                       <div className={cn(
                         "w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center",
-                        `bg-gradient-to-br ${format.color}`
+                        ` ${format.color}`
                       )}>
                         <format.icon className={cn("h-7 w-7", format.iconColor)} />
                       </div>
@@ -307,7 +306,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 <Button
                   onClick={handleNameStepNext}
                   disabled={!deckName.trim() || loading}
-                  className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                  className="flex-1 hover: hover:"
                 >
                   {selectedFormat === 'commander' ? (
                     <span className="flex items-center">
@@ -390,7 +389,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 
                 {/* Selected Commander Display */}
                 {commander && (
-                  <div className="flex gap-4 p-4 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/30">
+                  <div className="flex gap-4 p-4 rounded-xl border border-border">
                     <img 
                       src={commander.image_uris?.normal || commander.card_faces?.[0]?.image_uris?.normal || '/placeholder.svg'} 
                       alt={commander.name}
@@ -398,11 +397,11 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                     />
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2 mb-1">
-                        <Crown className="h-4 w-4 text-purple-500" />
+                        <Crown className="h-4 w-4 text-foreground" />
                         <h3 className="font-bold">{commander.name}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">{commander.type_line}</p>
-                      <ManaSymbols colors={commander.color_identity || []} size="sm" />
+                      <ColorIdentity colors={commander.color_identity || []} size="sm" />
                     </div>
                     <Button
                       variant="ghost"
@@ -456,7 +455,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 <Button
                   onClick={handleCreate}
                   disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                  className="flex-1 hover: hover:"
                 >
                   {loading ? (
                     <span className="flex items-center">

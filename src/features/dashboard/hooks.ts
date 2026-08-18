@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 
+// The dashboard is the first screen a signed-in player sees, so everything it
+// renders has to come from a real row. There is deliberately no seeded/demo
+// data in this module: if a query returns nothing, the widget renders an empty
+// state rather than inventing numbers.
+
+export { logActivity } from '@/lib/activityLogger';
+
 export interface DashboardSummary {
+  displayName: string;
   collection: {
     totalValueUSD: number;
     totalCards: number;
@@ -17,31 +25,27 @@ export interface DashboardSummary {
     count: number;
     favoritesCount: number;
   };
-  recent: Array<{
-    id: string;
-    type: string;
-    title: string;
-    subtitle: string;
-    at: string;
-  }>;
-  lastOpened: Array<{
-    deckId: string;
-    name: string;
-    at: string;
-  }>;
-  buildQueue: {
-    lastBuild: {
-      deckName: string;
-      power: number;
-      timestamp: string;
-    } | null;
-    isBuilding: boolean;
-  };
-  status: {
-    scryfallSyncAt: string | null;
-    dbOk: boolean;
-    apiOk: boolean;
-  };
+}
+
+const EMPTY_SUMMARY: DashboardSummary = {
+  displayName: '',
+  collection: { totalValueUSD: 0, totalCards: 0, uniqueCards: 0 },
+  wishlist: { totalItems: 0, totalDesired: 0, valueUSD: 0 },
+  decks: { count: 0, favoritesCount: 0 },
+};
+
+function num(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && isFinite(value) ? value : fallback;
+}
+
+function parseUsdPrice(prices: unknown): number {
+  try {
+    const parsed = typeof prices === 'string' ? JSON.parse(prices) : prices;
+    const usd = parseFloat((parsed as { usd?: string } | null)?.usd ?? '');
+    return isFinite(usd) ? usd : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function useDashboardSummary() {
@@ -50,417 +54,242 @@ export function useDashboardSummary() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSummary = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch collection stats
-      const { data: collectionData } = await supabase
-        .from('user_collections')
-        .select('quantity, foil, price_usd')
-        .eq('user_id', user.id);
-
-      // Calculate collection value and stats with null safety
-      let collectionValue = 0;
-      let totalCards = 0;
-      const uniqueCards = collectionData?.length || 0;
-
-      if (collectionData && Array.isArray(collectionData)) {
-        collectionData.forEach(item => {
-          if (!item) return;
-          
-          const price = typeof item.price_usd === 'number' && isFinite(item.price_usd) ? item.price_usd : 0;
-          const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 0;
-          const foil = typeof item.foil === 'number' && isFinite(item.foil) ? item.foil : 0;
-          
-          collectionValue += quantity * price;
-          totalCards += quantity + foil;
-        });
-      }
-
-      // Fetch wishlist data with card prices
-      const { data: wishlistData } = await supabase
-        .from('wishlist')
-        .select(`
-          quantity,
-          card_id
-        `)
-        .eq('user_id', user.id);
-
-      // Get unique card IDs for price lookup
-      const cardIds = wishlistData?.map(item => item.card_id).filter(Boolean) || [];
-      
-      let wishlistCardPrices: Record<string, number> = {};
-      if (cardIds.length > 0) {
-        const { data: cardData } = await supabase
-          .from('cards')
-          .select('id, prices')
-          .in('id', cardIds);
-        
-        cardData?.forEach(card => {
-          try {
-            const prices = typeof card.prices === 'string' ? JSON.parse(card.prices) : card.prices;
-            if (prices && prices.usd) {
-              wishlistCardPrices[card.id] = parseFloat(prices.usd);
-            }
-          } catch (e) {
-            // Skip if prices can't be parsed
-          }
-        });
-      }
-
-      let wishlistValue = 0;
-      let wishlistDesired = 0;
-      
-      if (wishlistData && Array.isArray(wishlistData)) {
-        wishlistData.forEach(item => {
-          if (!item || !item.card_id) return;
-          
-          const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 1;
-          const price = typeof wishlistCardPrices[item.card_id] === 'number' && isFinite(wishlistCardPrices[item.card_id]) 
-            ? wishlistCardPrices[item.card_id] 
-            : 0;
-          
-          wishlistValue += price * quantity;
-          wishlistDesired += quantity;
-        });
-      }
-
-      // Fetch deck stats
-      const { data: deckData } = await supabase
-        .from('user_decks')
-        .select('id')
-        .eq('user_id', user.id);
-
-      const { data: favoriteData } = await supabase
-        .from('favorite_decks')
-        .select('deck_id')
-        .eq('user_id', user.id);
-
-      // Fetch recent activity
-      const { data: activityData } = await supabase
-        .from('activity_log')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      const recentActivity = activityData?.map(activity => ({
-        id: activity.id,
-        type: activity.type,
-        title: getActivityTitle(activity),
-        subtitle: getActivitySubtitle(activity),
-        at: activity.created_at
-      })) || [];
-
-      // Get last opened decks from localStorage
-      const lastOpened = getLastOpenedDecks();
-
-      // Fetch latest build log
-      const { data: buildLogData } = await supabase
-        .from('build_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      // Check system status
-      const { data: syncStatus } = await supabase
-        .from('sync_status')
-        .select('last_sync')
-        .eq('id', 'scryfall')
-        .single();
-
-      setData({
-        collection: {
-          totalValueUSD: collectionValue,
-          totalCards,
-          uniqueCards
-        },
-        wishlist: {
-          totalItems: wishlistData?.length || 0,
-          totalDesired: wishlistDesired,
-          valueUSD: wishlistValue
-        },
-        decks: {
-          count: deckData?.length || 0,
-          favoritesCount: favoriteData?.length || 0
-        },
-        recent: recentActivity,
-        lastOpened,
-        buildQueue: {
-          lastBuild: buildLogData ? {
-            deckName: getDeckNameFromChanges(buildLogData.changes) || 'Unknown Deck',
-            power: calculatePowerFromChanges(buildLogData.changes),
-            timestamp: buildLogData.created_at
-          } : null,
-          isBuilding: false
-        },
-        status: {
-          scryfallSyncAt: syncStatus?.last_sync || null,
-          dbOk: true,
-          apiOk: true
-        }
-      });
-    } catch (err) {
-      console.error('Error fetching dashboard summary:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    
-    fetchSummary();
-
-    // Auto-refresh every 30 seconds when page is visible
-    const interval = setInterval(() => {
-      if (!document.hidden && mounted) {
-        fetchSummary();
-      }
-    }, 30000);
-
-    // Also refresh when page becomes visible
-    const handleVisibilityChange = () => {
-      if (!document.hidden && mounted) {
-        fetchSummary();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user]);
-
-  return { data, loading, error, refetch: fetchSummary };
-}
-
-export function useFavoriteDecks() {
-  const { user } = useAuth();
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchFavorites = async () => {
+  const fetchSummary = useCallback(async () => {
     if (!user) {
+      setData(null);
       setLoading(false);
       return;
     }
 
     try {
-      const { data } = await supabase
-        .from('favorite_decks')
-        .select(`
-          deck_id,
-          user_decks!favorite_decks_deck_id_fkey (
-            id,
-            name,
-            format,
-            colors,
-            power_level,
-            updated_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .limit(8);
+      setError(null);
 
-      const formattedFavorites = await Promise.all(
-        data?.map(async (fav) => {
-          // Get commander art for the deck
-          const { data: commanderCards } = await supabase
-            .from('deck_cards')
-            .select('card_id')
-            .eq('deck_id', fav.deck_id)
-            .eq('is_commander', true)
-            .limit(1);
+      const [
+        { data: profile },
+        { data: collectionRows },
+        { data: wishlistRows },
+        { count: deckCount },
+        { count: favoriteCount },
+      ] = await Promise.all([
+        supabase.from('profiles').select('username').eq('id', user.id).maybeSingle(),
+        supabase.from('user_collections').select('quantity, foil, price_usd').eq('user_id', user.id),
+        supabase.from('wishlist').select('quantity, card_id').eq('user_id', user.id),
+        supabase.from('user_decks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('favorite_decks').select('deck_id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
 
-          let commanderArt = null;
-          let commanderImage = null;
-          if (commanderCards && commanderCards.length > 0) {
-            const { data: cardData } = await supabase
-              .from('cards')
-              .select('image_uris')
-              .eq('id', commanderCards[0].card_id)
-              .single();
-            
-            try {
-              const imageUris = typeof cardData?.image_uris === 'string'
-                ? JSON.parse(cardData.image_uris)
-                : cardData?.image_uris;
-              commanderImage = imageUris?.normal || imageUris?.large || imageUris?.small || '/placeholder.svg';
-              commanderArt = imageUris?.art_crop || '/placeholder.svg';
-            } catch (e) {
-              commanderArt = '/placeholder.svg';
-              commanderImage = '/placeholder.svg';
-            }
-          }
+      let collectionValue = 0;
+      let totalCards = 0;
+      for (const row of collectionRows ?? []) {
+        if (!row) continue;
+        const quantity = num(row.quantity);
+        const foil = num(row.foil);
+        // price_usd is the non-foil price, so foils are counted in the card
+        // total but not in the valuation — same rule the collection page uses.
+        collectionValue += quantity * num(row.price_usd);
+        totalCards += quantity + foil;
+      }
 
-          return {
-            ...fav.user_decks,
-            commanderArt,
-            commanderImage
-          };
-        }).filter(Boolean) || []
+      // Wishlist rows only store a card id, so prices come from the card table.
+      const wishlistCardIds = Array.from(
+        new Set((wishlistRows ?? []).map(row => row?.card_id).filter(Boolean) as string[])
       );
 
-      setFavorites(formattedFavorites);
-    } catch (error) {
-      console.error('Error fetching favorite decks:', error);
+      const priceByCardId: Record<string, number> = {};
+      if (wishlistCardIds.length > 0) {
+        const { data: cardRows } = await supabase
+          .from('cards')
+          .select('id, prices')
+          .in('id', wishlistCardIds);
+
+        for (const card of cardRows ?? []) {
+          priceByCardId[card.id] = parseUsdPrice(card.prices);
+        }
+      }
+
+      let wishlistValue = 0;
+      let wishlistDesired = 0;
+      for (const row of wishlistRows ?? []) {
+        if (!row?.card_id) continue;
+        const quantity = num(row.quantity, 1);
+        wishlistValue += num(priceByCardId[row.card_id]) * quantity;
+        wishlistDesired += quantity;
+      }
+
+      setData({
+        displayName: profile?.username?.trim() || user.email?.split('@')[0] || '',
+        collection: {
+          totalValueUSD: collectionValue,
+          totalCards,
+          uniqueCards: collectionRows?.length ?? 0,
+        },
+        wishlist: {
+          totalItems: wishlistRows?.length ?? 0,
+          totalDesired: wishlistDesired,
+          valueUSD: wishlistValue,
+        },
+        decks: {
+          count: deckCount ?? 0,
+          favoritesCount: favoriteCount ?? 0,
+        },
+      });
+    } catch (err) {
+      console.error('Error fetching dashboard summary:', err);
+      setError('Could not load your dashboard data.');
+      setData(prev => prev ?? EMPTY_SUMMARY);
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleFavorite = async (deckId: string) => {
-    if (!user) return;
-
-    try {
-      // Check if already favorited
-      const { data: existing } = await supabase
-        .from('favorite_decks')
-        .select('deck_id')
-        .eq('user_id', user.id)
-        .eq('deck_id', deckId)
-        .single();
-
-      if (existing) {
-        // Remove favorite
-        await supabase
-          .from('favorite_decks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('deck_id', deckId);
-      } else {
-        // Add favorite
-        await supabase
-          .from('favorite_decks')
-          .insert({ user_id: user.id, deck_id: deckId });
-
-        // Log activity
-        await logActivity('deck_favorited', 'deck', deckId);
-      }
-
-      // Refresh favorites
-      fetchFavorites();
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchFavorites();
   }, [user]);
 
-  return { favorites, loading, toggleFavorite, refetch: fetchFavorites };
+  useEffect(() => {
+    setLoading(true);
+    fetchSummary();
+  }, [fetchSummary]);
+
+  return { data, loading, error, refetch: fetchSummary };
 }
 
-export async function logActivity(
-  type: string, 
-  entity: string, 
-  entityId: string, 
-  meta: any = {}
-) {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('activity_log')
-      .insert({
-        user_id: user.id,
-        type,
-        entity,
-        entity_id: entityId,
-        meta
-      });
-  } catch (error) {
-    console.error('Error logging activity:', error);
-  }
+export interface DeckSummary {
+  id: string;
+  name: string;
+  format: string;
+  colors: string[];
+  powerLevel: number;
+  updatedAt: string;
+  cardCount: number;
+  commanderName: string | null;
+  isFavorite: boolean;
 }
 
-function getActivityTitle(activity: any): string {
-  switch (activity.type) {
-    case 'deck_created':
-      return `Created "${activity.meta?.name || 'New Deck'}"`;
-    case 'deck_updated':
-      return `Updated "${activity.meta?.name || 'Deck'}"`;
-    case 'deck_favorited':
-      return `Favorited "${activity.meta?.name || 'Deck'}"`;
-    case 'card_added':
-      return `Added ${activity.meta?.count || 1} cards`;
-    case 'collection_import':
-      return `Imported ${activity.meta?.count || 0} cards`;
-    case 'wishlist_added':
-      return `Added to wishlist`;
-    case 'listing_created':
-      return `Listed card for sale`;
-    case 'ai_build_run':
-      return `AI build completed`;
-    default:
-      return 'Activity';
-  }
+interface DeckRow {
+  id: string;
+  name: string;
+  format: string;
+  colors: string[] | null;
+  power_level: number | null;
+  updated_at: string;
 }
 
-function getActivitySubtitle(activity: any): string {
-  switch (activity.type) {
-    case 'deck_created':
-    case 'deck_updated':
-      return `${activity.meta?.format || 'Unknown'} • Power ${activity.meta?.power || 'N/A'}`;
-    case 'card_added':
-      return `To ${activity.meta?.target || 'collection'}`;
-    case 'collection_import':
-      return `From ${activity.meta?.source || 'file'}`;
-    default:
-      return activity.meta?.description || '';
-  }
-}
+/**
+ * Recently touched decks, newest first, enriched with the two facts a deck list
+ * is useless without: how many cards are in it and (for Commander) who is at
+ * the helm. Favourite state is folded in so the star toggle in the widget can
+ * write straight back.
+ */
+export function useRecentDecks(limit = 6) {
+  const { user } = useAuth();
+  const [decks, setDecks] = useState<DeckSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-function getLastOpenedDecks(): Array<{ deckId: string; name: string; at: string }> {
-  try {
-    const stored = localStorage.getItem('lastOpenedDecks');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
+  const fetchDecks = useCallback(async () => {
+    if (!user) {
+      setDecks([]);
+      setLoading(false);
+      return;
+    }
 
-export function trackDeckOpen(deckId: string, name: string) {
-  try {
-    const lastOpened = getLastOpenedDecks();
-    const updated = [
-      { deckId, name, at: new Date().toISOString() },
-      ...lastOpened.filter(item => item.deckId !== deckId)
-    ].slice(0, 5); // Keep only last 5
+    try {
+      setError(null);
 
-    localStorage.setItem('lastOpenedDecks', JSON.stringify(updated));
-  } catch (error) {
-    console.error('Error tracking deck open:', error);
-  }
-}
+      const [{ data: deckRows, error: deckError }, { data: favoriteRows }] = await Promise.all([
+        supabase
+          .from('user_decks')
+          .select('id, name, format, colors, power_level, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(limit),
+        supabase.from('favorite_decks').select('deck_id').eq('user_id', user.id),
+      ]);
 
-function getDeckNameFromChanges(changes: any): string {
-  try {
-    const parsedChanges = typeof changes === 'string' ? JSON.parse(changes) : changes;
-    return parsedChanges?.deckName || parsedChanges?.name || 'AI Generated Deck';
-  } catch {
-    return 'AI Generated Deck';
-  }
-}
+      if (deckError) throw deckError;
 
-function calculatePowerFromChanges(changes: any): number {
-  try {
-    const parsedChanges = typeof changes === 'string' ? JSON.parse(changes) : changes;
-    return parsedChanges?.powerLevel || parsedChanges?.power || 6.5;
-  } catch {
-    return 6.5;
-  }
+      const rows = (deckRows ?? []) as DeckRow[];
+      const favoriteIds = new Set((favoriteRows ?? []).map(row => row.deck_id));
+
+      const cardCounts: Record<string, number> = {};
+      const commanders: Record<string, string> = {};
+
+      if (rows.length > 0) {
+        const { data: cardRows } = await supabase
+          .from('deck_cards')
+          .select('deck_id, quantity, is_commander, is_sideboard, card_name')
+          .in('deck_id', rows.map(row => row.id));
+
+        for (const card of cardRows ?? []) {
+          if (!card.is_sideboard) {
+            cardCounts[card.deck_id] = (cardCounts[card.deck_id] ?? 0) + num(card.quantity, 1);
+          }
+          if (card.is_commander && !commanders[card.deck_id]) {
+            commanders[card.deck_id] = card.card_name;
+          }
+        }
+      }
+
+      setDecks(
+        rows.map(row => ({
+          id: row.id,
+          name: row.name,
+          format: row.format,
+          colors: Array.isArray(row.colors) ? row.colors : [],
+          powerLevel: num(row.power_level),
+          updatedAt: row.updated_at,
+          cardCount: cardCounts[row.id] ?? 0,
+          commanderName: commanders[row.id] ?? null,
+          isFavorite: favoriteIds.has(row.id),
+        }))
+      );
+    } catch (err) {
+      console.error('Error fetching recent decks:', err);
+      setError('Could not load your decks.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, limit]);
+
+  const toggleFavorite = useCallback(
+    async (deckId: string): Promise<boolean> => {
+      if (!user) return false;
+
+      const wasFavorite = decks.find(deck => deck.id === deckId)?.isFavorite ?? false;
+
+      // Optimistic: the star is a direct-manipulation control, so it must not
+      // wait on a round trip. Rolled back below if the write fails.
+      setDecks(prev =>
+        prev.map(deck => (deck.id === deckId ? { ...deck, isFavorite: !wasFavorite } : deck))
+      );
+
+      try {
+        if (wasFavorite) {
+          const { error: deleteError } = await supabase
+            .from('favorite_decks')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('deck_id', deckId);
+          if (deleteError) throw deleteError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('favorite_decks')
+            .insert({ user_id: user.id, deck_id: deckId });
+          if (insertError) throw insertError;
+        }
+        return !wasFavorite;
+      } catch (err) {
+        console.error('Error toggling favorite:', err);
+        setDecks(prev =>
+          prev.map(deck => (deck.id === deckId ? { ...deck, isFavorite: wasFavorite } : deck))
+        );
+        throw err;
+      }
+    },
+    [user, decks]
+  );
+
+  useEffect(() => {
+    setLoading(true);
+    fetchDecks();
+  }, [fetchDecks]);
+
+  return { decks, loading, error, toggleFavorite, refetch: fetchDecks };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ManaCost, ManaPip } from '@/components/ui/mana-cost';
-import { supabase } from '@/integrations/supabase/client';
+import { selectCardsWhere } from '@/lib/supabase/jsonPath';
 import { cn } from '@/lib/utils';
 
 /**
@@ -39,10 +39,10 @@ export function HomeAppVisual() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,mana_cost,cmc,type_line,rarity,color_identity,image_uris,prices')
-        .eq('legalities->>commander' as any, 'legal')
+      const { data } = await selectCardsWhere(
+        'id,name,mana_cost,cmc,type_line,rarity,color_identity,image_uris,prices'
+      )
+        .eq('legalities->>commander', 'legal')
         .in('rarity', ['mythic', 'rare'])
         .not('image_uris', 'is', null)
         .not('mana_cost', 'is', null)

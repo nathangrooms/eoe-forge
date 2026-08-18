@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Heart, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -8,37 +8,41 @@ interface WishlistEmptyStateProps {
   onAddCards: () => void;
 }
 
-export function WishlistEmptyState({ hasFilter, onClearFilter, onAddCards }: WishlistEmptyStateProps) {
+export function WishlistEmptyState({
+  hasFilter,
+  onClearFilter,
+  onAddCards,
+}: WishlistEmptyStateProps) {
   if (hasFilter) {
     return (
-      <Card className="p-12 text-center border-dashed">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-          <Heart className="h-8 w-8 text-muted-foreground/50" />
+      <Card className="border-dashed p-12 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">
+          <Heart className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h3 className="text-lg font-medium mb-2">No cards match your filter</h3>
-        <p className="text-muted-foreground text-sm mb-4">
-          Try adjusting your filters to see more cards
+        <h3 className="mb-2 text-lg font-medium text-foreground">No cards match your filters</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Try widening the search or clearing the priority filter.
         </p>
         <Button variant="outline" onClick={onClearFilter}>
-          Clear Filters
+          Clear filters
         </Button>
       </Card>
     );
   }
 
   return (
-    <Card className="p-12 text-center border-dashed">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-rose-500/20 to-purple-500/20 flex items-center justify-center">
-        <Heart className="h-10 w-10 text-rose-500" />
+    <Card className="border-dashed p-12 text-center">
+      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border bg-muted">
+        <Heart className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
       </div>
-      <h3 className="text-xl font-semibold mb-2">Start Your Wishlist</h3>
-      <p className="text-muted-foreground max-w-md mx-auto mb-6">
-        Track the cards you want, set target prices, and get notified when deals drop. 
-        Find the best prices across TCGPlayer and more.
+      <h3 className="mb-2 text-xl font-semibold text-foreground">Your wishlist is empty</h3>
+      <p className="mx-auto mb-6 max-w-md text-sm text-muted-foreground">
+        Track the cards you want, set a target price, and see which of your decks are still
+        missing them.
       </p>
       <Button onClick={onAddCards} size="lg">
-        <Plus className="h-5 w-5 mr-2" />
-        Add Your First Card
+        <Plus className="mr-2 h-5 w-5" aria-hidden="true" />
+        Add your first card
       </Button>
     </Card>
   );

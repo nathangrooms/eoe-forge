@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,34 +16,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { 
+import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
+import { useSubscriptionLimits } from '@/hooks/useFeatureAccess';
+import { exportDeckToText } from '@/lib/deckExport';
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_RULE_TEXT,
+  validatePasswordPair,
+} from '@/lib/validation/password';
+import {
   User,
   Mail,
   Lock,
-  Bell,
+  ShieldCheck,
   CreditCard,
-  Crown,
-  Shield,
   LogOut,
-  Camera,
   Check,
-  AlertTriangle,
-  ExternalLink,
-  Download
+  Download,
+  FileText,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -61,66 +56,91 @@ interface UserSubscription {
   expires_at: string | null;
 }
 
+/** Suffix shown after a plan limit, keyed by `subscription_limits.limit_type`. */
+const LIMIT_PERIOD: Record<string, string> = {
+  monthly: ' / month',
+  daily: ' / day',
+  total: '',
+};
+
+/** Triggers a client-side file download for text the page just built. */
+function downloadFile(filename: string, contents: string, mime: string) {
+  const blob = new Blob([contents], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  
+
+  const { data: allLimits, isLoading: limitsLoading } = useSubscriptionLimits();
+
   // Edit states
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
-  
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
-  
+
   const [changeEmailOpen, setChangeEmailOpen] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
-  
-  // Notification preferences
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [priceAlerts, setPriceAlerts] = useState(true);
-  
+
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
+
+  const [exporting, setExporting] = useState<'json' | 'text' | null>(null);
+
   useEffect(() => {
     if (user) {
       loadUserData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadUserData = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
-      
-      // Load profile
+
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
-      
+
       if (profileData) {
         setProfile(profileData);
         setNewUsername(profileData.username || '');
       }
-      
-      // Load subscription
+
       const { data: subData } = await supabase
         .from('user_subscriptions')
         .select('tier, is_active, started_at, expires_at')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
-      
-      setSubscription(subData || { tier: 'free', is_active: true, started_at: null, expires_at: null });
+
+      setSubscription(
+        subData || { tier: 'free', is_active: true, started_at: null, expires_at: null }
+      );
     } catch (error) {
       console.error('Error loading user data:', error);
+      showError('Could not load your account', 'Refresh the page to try again.');
     } finally {
       setLoading(false);
     }
@@ -128,18 +148,18 @@ export default function Settings() {
 
   const handleUpdateUsername = async () => {
     if (!user || !newUsername.trim()) return;
-    
+
     try {
       setSavingUsername(true);
-      
+
       const { error } = await supabase
         .from('profiles')
         .update({ username: newUsername.trim() })
         .eq('id', user.id);
-      
+
       if (error) throw error;
-      
-      setProfile(prev => prev ? { ...prev, username: newUsername.trim() } : prev);
+
+      setProfile(prev => (prev ? { ...prev, username: newUsername.trim() } : prev));
       setEditingUsername(false);
       showSuccess('Updated', 'Username updated successfully');
     } catch (error) {
@@ -151,25 +171,38 @@ export default function Settings() {
   };
 
   const handleChangePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      showError('Passwords do not match');
+    if (!user?.email) return;
+
+    if (!currentPassword) {
+      showError('Current password required', 'Enter your current password to confirm the change.');
       return;
     }
-    
-    if (newPassword.length < 6) {
-      showError('Password must be at least 6 characters');
+
+    const check = validatePasswordPair(newPassword, confirmPassword);
+    if (!check.valid) {
+      showError('Check your password', check.message);
       return;
     }
-    
+
     try {
       setSavingPassword(true);
-      
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
+
+      // Re-authenticate before changing the credential. Without this, anyone
+      // with access to an open session could silently take over the account.
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
       });
-      
+
+      if (reauthError) {
+        showError('Current password is incorrect');
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
       if (error) throw error;
-      
+
       setChangePasswordOpen(false);
       setCurrentPassword('');
       setNewPassword('');
@@ -188,16 +221,14 @@ export default function Settings() {
       showError('Please enter a valid email');
       return;
     }
-    
+
     try {
       setSavingEmail(true);
-      
-      const { error } = await supabase.auth.updateUser({
-        email: newEmail.trim()
-      });
-      
+
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+
       if (error) throw error;
-      
+
       setChangeEmailOpen(false);
       setNewEmail('');
       showSuccess('Verification sent', 'Check your new email to confirm the change');
@@ -209,9 +240,99 @@ export default function Settings() {
     }
   };
 
-  const handleExportData = async () => {
-    showSuccess('Export Started', 'Your data export will be ready shortly');
-    // TODO: Implement actual data export
+  /** Reads every row this user owns across the four data tables. */
+  const loadUserExport = async () => {
+    if (!user) throw new Error('Not signed in');
+
+    const [collections, decks, wishlist] = await Promise.all([
+      supabase.from('user_collections').select('*').eq('user_id', user.id),
+      supabase.from('user_decks').select('*').eq('user_id', user.id),
+      supabase.from('wishlist').select('*').eq('user_id', user.id),
+    ]);
+
+    if (collections.error) throw collections.error;
+    if (decks.error) throw decks.error;
+    if (wishlist.error) throw wishlist.error;
+
+    const deckIds = (decks.data || []).map(d => d.id);
+    let deckCards: any[] = [];
+
+    if (deckIds.length > 0) {
+      const { data, error } = await supabase
+        .from('deck_cards')
+        .select('*')
+        .in('deck_id', deckIds);
+      if (error) throw error;
+      deckCards = data || [];
+    }
+
+    return {
+      collections: collections.data || [],
+      decks: decks.data || [],
+      deckCards,
+      wishlist: wishlist.data || [],
+    };
+  };
+
+  const handleExportJson = async () => {
+    try {
+      setExporting('json');
+      const data = await loadUserExport();
+      const stamp = new Date().toISOString().split('T')[0];
+
+      downloadFile(
+        `deckmatrix-export-${stamp}.json`,
+        JSON.stringify(
+          {
+            exported_at: new Date().toISOString(),
+            user_id: user?.id,
+            ...data,
+          },
+          null,
+          2
+        ),
+        'application/json'
+      );
+
+      showSuccess(
+        'Export downloaded',
+        `${data.collections.length} collection rows, ${data.decks.length} decks, ${data.wishlist.length} wishlist rows`
+      );
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      showError('Export failed', error.message || 'Could not read your data');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportDecklists = async () => {
+    try {
+      setExporting('text');
+      const { decks, deckCards } = await loadUserExport();
+
+      if (decks.length === 0) {
+        showError('Nothing to export', 'You do not have any decks yet.');
+        return;
+      }
+
+      const body = decks
+        .map(deck => {
+          const cards = deckCards.filter(c => c.deck_id === deck.id);
+          return `// ${deck.name}${deck.format ? ` (${deck.format})` : ''}\n${exportDeckToText(cards)}`;
+        })
+        .join('\n\n');
+
+      const stamp = new Date().toISOString().split('T')[0];
+      downloadFile(`deckmatrix-decklists-${stamp}.txt`, body, 'text/plain');
+
+      showSuccess('Decklists downloaded', `${decks.length} deck${decks.length === 1 ? '' : 's'} exported`);
+    } catch (error: any) {
+      console.error('Decklist export failed:', error);
+      showError('Export failed', error.message || 'Could not read your decks');
+    } finally {
+      setExporting(null);
+    }
   };
 
   const handleSignOut = async () => {
@@ -219,6 +340,7 @@ export default function Settings() {
       await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
+      showError('Sign out failed', 'Please try again.');
     }
   };
 
@@ -228,31 +350,18 @@ export default function Settings() {
     return 'U';
   };
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'unlimited': return 'bg-purple-500/10 text-purple-500 border-purple-500/30';
-      case 'pro': return 'bg-amber-500/10 text-amber-500 border-amber-500/30';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
-      case 'unlimited': return <Crown className="h-4 w-4" />;
-      case 'pro': return <Shield className="h-4 w-4" />;
-      default: return null;
-    }
-  };
+  const tier = subscription?.tier || 'free';
+  const tierLimits = (allLimits || []).filter(limit => limit.tier === tier);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
+        <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 md:px-6">
           <Skeleton className="h-8 w-48" />
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <Skeleton className="h-20 w-20 rounded-full" />
+                <Skeleton className="h-16 w-16 rounded-full" />
                 <div className="space-y-2">
                   <Skeleton className="h-6 w-32" />
                   <Skeleton className="h-4 w-48" />
@@ -261,7 +370,7 @@ export default function Settings() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="space-y-4 p-6">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
@@ -274,264 +383,330 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 md:px-6">
         {/* Header */}
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-            <User className="h-6 w-6" />
-            Account Settings
+          <h1 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+            Account settings
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your profile, security, and preferences
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your profile, appearance, security and data.
           </p>
         </div>
 
-        {/* Profile Card */}
+        {/* Profile */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Profile</CardTitle>
-            <CardDescription>Your public profile information</CardDescription>
+            <CardTitle className="text-base">Profile</CardTitle>
+            <CardDescription>How you appear across DeckMatrix</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="text-lg bg-primary/10 text-primary">
-                    {getInitials(profile?.username, user?.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full"
-                  onClick={() => showSuccess('Coming soon', 'Avatar upload coming soon')}
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <div className="flex-1">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={profile?.avatar_url || undefined} />
+                <AvatarFallback className="bg-muted text-base text-muted-foreground">
+                  {getInitials(profile?.username, user?.email)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
                 {editingUsername ? (
                   <div className="flex items-center gap-2">
                     <Input
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
                       placeholder="Enter username"
-                      className="max-w-[200px]"
+                      className="max-w-[220px]"
                     />
                     <Button size="sm" onClick={handleUpdateUsername} disabled={savingUsername}>
                       <Check className="h-4 w-4" />
+                      <span className="sr-only">Save username</span>
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingUsername(false)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setNewUsername(profile?.username || '');
+                        setEditingUsername(false);
+                      }}
+                    >
                       Cancel
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold">
-                      {profile?.username || 'Set username'}
-                    </h3>
+                    <h2 className="truncate text-base font-medium text-foreground">
+                      {profile?.username || 'No username set'}
+                    </h2>
                     <Button size="sm" variant="ghost" onClick={() => setEditingUsername(true)}>
                       Edit
                     </Button>
                   </div>
                 )}
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
-                </p>
+                <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+                {profile?.created_at && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Member since {new Date(profile.created_at).toLocaleDateString()}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Subscription Card */}
+        {/* Appearance */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Subscription
-            </CardTitle>
-            <CardDescription>Your current plan and billing</CardDescription>
+            <CardTitle className="text-base">Appearance</CardTitle>
+            <CardDescription>DeckMatrix ships dark by default</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-12 h-12 rounded-lg flex items-center justify-center",
-                  subscription?.tier === 'unlimited' ? 'bg-purple-500/10' :
-                  subscription?.tier === 'pro' ? 'bg-amber-500/10' : 'bg-muted'
-                )}>
-                  {subscription?.tier === 'unlimited' ? (
-                    <Crown className="h-6 w-6 text-purple-500" />
-                  ) : subscription?.tier === 'pro' ? (
-                    <Shield className="h-6 w-6 text-amber-500" />
-                  ) : (
-                    <User className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold capitalize">{subscription?.tier || 'Free'} Plan</span>
-                    <Badge className={getTierColor(subscription?.tier || 'free')}>
-                      {subscription?.tier === 'free' ? 'Current' : 'Active'}
-                    </Badge>
-                  </div>
-                  {subscription?.expires_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Renews {new Date(subscription.expires_at).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Theme</p>
+                <p className="text-sm text-muted-foreground">
+                  Applies immediately and is remembered on this device.
+                </p>
               </div>
-              {subscription?.tier === 'free' ? (
-                <Button onClick={() => window.location.href = '/#pricing'}>
-                  Upgrade
-                  <ExternalLink className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button variant="outline" onClick={() => showSuccess('Coming soon', 'Billing portal coming soon')}>
-                  Manage Billing
-                </Button>
-              )}
+              <div
+                role="radiogroup"
+                aria-label="Theme"
+                className="flex shrink-0 items-center gap-1 rounded-lg border border-border p-1"
+              >
+                {([
+                  { value: 'light', label: 'Light', icon: Sun },
+                  { value: 'dark', label: 'Dark', icon: Moon },
+                ] as const).map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === value}
+                    onClick={() => setTheme(value)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                      theme === value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Security Card */}
+        {/* Subscription */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              Security
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="h-4 w-4" />
+              Plan
             </CardTitle>
-            <CardDescription>Manage your account security</CardDescription>
+            <CardDescription>Your current plan and what it allows</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Email */}
-            <div className="flex items-center justify-between py-3 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  <Mail className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium capitalize text-foreground">{tier}</span>
+                  <Badge variant="secondary">Active</Badge>
                 </div>
-                <div>
-                  <p className="font-medium">Email Address</p>
-                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                {subscription?.expires_at && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Renews {new Date(subscription.expires_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {limitsLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ) : tierLimits.length > 0 ? (
+              <dl className="divide-y divide-border">
+                {tierLimits.map(limit => (
+                  <div key={limit.id} className="flex items-center justify-between gap-4 py-2">
+                    <dt className="text-sm text-foreground">
+                      {limit.description || limit.feature_key.replace(/_/g, ' ')}
+                    </dt>
+                    <dd className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {limit.limit_value < 0 ? 'Unlimited' : limit.limit_value}
+                      {LIMIT_PERIOD[limit.limit_type] ?? ''}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No limits are configured for this plan.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Security */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lock className="h-4 w-4" />
+              Security
+            </CardTitle>
+            <CardDescription>Sign-in credentials and account protection</CardDescription>
+          </CardHeader>
+          <CardContent className="divide-y divide-border">
+            <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Email address</p>
+                  <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setChangeEmailOpen(true)}>
                 Change
               </Button>
             </div>
-            
-            {/* Password */}
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  <Lock className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-medium">Password</p>
-                  <p className="text-sm text-muted-foreground">••••••••</p>
+
+            <div className="flex items-center justify-between gap-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Password</p>
+                  <p className="text-sm text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setChangePasswordOpen(true)}>
                 Change
               </Button>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Notifications Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications
-            </CardTitle>
-            <CardDescription>Manage how you receive updates</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="font-medium">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive updates about your account</p>
+            <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Two-factor authentication</p>
+                  <p className="text-sm text-muted-foreground">
+                    Require a code from an authenticator app at sign-in.
+                  </p>
+                </div>
               </div>
-              <Switch 
-                checked={emailNotifications} 
-                onCheckedChange={setEmailNotifications}
-              />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="font-medium">Price Alerts</p>
-                <p className="text-sm text-muted-foreground">Get notified when wishlist prices drop</p>
-              </div>
-              <Switch 
-                checked={priceAlerts} 
-                onCheckedChange={setPriceAlerts}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Data & Account Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Data & Account</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="font-medium">Export Your Data</p>
-                <p className="text-sm text-muted-foreground">Download your collection and decks</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleExportData}>
-                <Download className="h-4 w-4 mr-2" />
-                Export
+              <Button variant="outline" size="sm" onClick={() => setTwoFactorOpen(true)}>
+                Manage
               </Button>
             </div>
-            <Separator />
-            <div className="flex items-center justify-between py-2">
+          </CardContent>
+        </Card>
+
+        {/* Data & account */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Data &amp; account</CardTitle>
+            <CardDescription>Take your data with you at any time</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="font-medium">Sign Out</p>
-                <p className="text-sm text-muted-foreground">Sign out of your account</p>
+                <p className="text-sm font-medium text-foreground">Full export (JSON)</p>
+                <p className="text-sm text-muted-foreground">
+                  Collection, decks, deck cards and wishlist.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportJson}
+                disabled={exporting !== null}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {exporting === 'json' ? 'Preparing…' : 'Download'}
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Decklists (.txt)</p>
+                <p className="text-sm text-muted-foreground">
+                  Plain decklists that import into Moxfield, Archidekt and Arena.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportDecklists}
+                disabled={exporting !== null}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {exporting === 'text' ? 'Preparing…' : 'Download'}
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Sign out</p>
+                <p className="text-sm text-muted-foreground">End this session on this device.</p>
               </div>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Change Password Dialog */}
+        {/* Change password */}
         <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Change Password</DialogTitle>
+              <DialogTitle>Change password</DialogTitle>
               <DialogDescription>
-                Enter your new password below
+                Confirm your current password, then choose a new one.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>New Password</Label>
+                <Label htmlFor="settings-current-password">Current password</Label>
                 <Input
+                  id="settings-current-password"
                   type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settings-new-password">New password</Label>
+                <Input
+                  id="settings-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={PASSWORD_MIN_LENGTH}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
                 />
+                <p className="text-xs text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
               </div>
               <div className="space-y-2">
-                <Label>Confirm Password</Label>
+                <Label htmlFor="settings-confirm-password">Confirm new password</Label>
                 <Input
+                  id="settings-confirm-password"
                   type="password"
+                  autoComplete="new-password"
+                  minLength={PASSWORD_MIN_LENGTH}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
+                  placeholder="Re-enter new password"
                 />
               </div>
             </div>
@@ -540,33 +715,36 @@ export default function Settings() {
                 Cancel
               </Button>
               <Button onClick={handleChangePassword} disabled={savingPassword}>
-                {savingPassword ? 'Saving...' : 'Update Password'}
+                {savingPassword ? 'Saving…' : 'Update password'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Change Email Dialog */}
+        {/* Change email */}
         <Dialog open={changeEmailOpen} onOpenChange={setChangeEmailOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Change Email Address</DialogTitle>
+              <DialogTitle>Change email address</DialogTitle>
               <DialogDescription>
-                A verification email will be sent to your new address
+                A verification link will be sent to your new address. The change takes effect once
+                you follow it.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Current Email</Label>
-                <Input value={user?.email || ''} disabled />
+                <Label htmlFor="settings-current-email">Current email</Label>
+                <Input id="settings-current-email" value={user?.email || ''} disabled />
               </div>
               <div className="space-y-2">
-                <Label>New Email</Label>
+                <Label htmlFor="settings-new-email">New email</Label>
                 <Input
+                  id="settings-new-email"
                   type="email"
+                  autoComplete="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Enter new email"
+                  placeholder="you@example.com"
                 />
               </div>
             </div>
@@ -575,9 +753,22 @@ export default function Settings() {
                 Cancel
               </Button>
               <Button onClick={handleChangeEmail} disabled={savingEmail}>
-                {savingEmail ? 'Sending...' : 'Send Verification'}
+                {savingEmail ? 'Sending…' : 'Send verification'}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Two-factor */}
+        <Dialog open={twoFactorOpen} onOpenChange={setTwoFactorOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Two-factor authentication</DialogTitle>
+              <DialogDescription>
+                Use an authenticator app such as 1Password, Authy or Google Authenticator.
+              </DialogDescription>
+            </DialogHeader>
+            <TwoFactorSetup />
           </DialogContent>
         </Dialog>
       </div>

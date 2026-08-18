@@ -413,7 +413,7 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
               Clear
             </Button>
             {totalUniqueSelected === totalUniqueCards && (
-              <Badge variant="secondary" className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">
+              <Badge variant="secondary" className="bg-muted text-foreground border-border text-xs">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 All
               </Badge>

@@ -1,405 +1,142 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { Brain, Camera, DollarSign, Heart, Layers, Package, Plus, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
-import { 
-  Sparkles,
-  Package, 
-  Search, 
-  TrendingUp, 
-  Layers,
-  DollarSign,
-  Heart,
-  ArrowRight,
-  Star,
-  Brain,
-  Wand2,
-  Eye,
-  Crown,
-  BarChart3
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/components/AuthProvider';
-import { useDashboardSummary, useFavoriteDecks, trackDeckOpen } from '@/features/dashboard/hooks';
-import { asUSD } from '@/features/dashboard/value';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { calculateBadgeProgress, getEarnedBadges, getInProgressBadges } from '@/lib/badges';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useDashboardSummary, useRecentDecks } from '@/features/dashboard/hooks';
+import { asUSD } from '@/features/dashboard/value';
 
-import { SearchHistory } from '@/components/dashboard/SearchHistory';
+import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { RecentDecks } from '@/components/dashboard/RecentDecks';
+import { StatTile, StatTileSkeleton } from '@/components/dashboard/StatTile';
 
-// Lazy load heavy components for better initial load performance
-
-const RecentActivity = lazy(() => import('@/components/dashboard/RecentActivity').then(m => ({ default: m.RecentActivity })));
-const BadgesSection = lazy(() => import('@/components/dashboard/BadgeDisplay').then(m => ({ default: m.BadgesSection })));
+const QUICK_ACTIONS = [
+  { label: 'Search cards', to: '/cards', icon: Search },
+  { label: 'Scan cards', to: '/scan', icon: Camera },
+  { label: 'Import to collection', to: '/collection?tab=add-cards', icon: Package },
+  { label: 'MTG Brain', to: '/brain', icon: Brain },
+];
 
 const Dashboard = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   useSessionTimeout();
-  const { data: dashboardData, loading: dashboardLoading, error, refetch } = useDashboardSummary();
-  const { favorites, loading: favoritesLoading, toggleFavorite } = useFavoriteDecks();
 
-  // Calculate badge progress with null safety
+  const { data: summary, loading: summaryLoading, error: summaryError } = useDashboardSummary();
+  const { decks, loading: decksLoading, error: decksError, toggleFavorite } = useRecentDecks(6);
+
+  const collection = summary?.collection;
+  const wishlist = summary?.wishlist;
+  const deckStats = summary?.decks;
+
   const badgeProgress = calculateBadgeProgress({
-    decksCount: dashboardData?.decks?.count || 0,
-    uniqueCards: dashboardData?.collection?.uniqueCards || 0,
-    collectionValue: dashboardData?.collection?.totalValueUSD || 0,
-    totalCards: dashboardData?.collection?.totalCards || 0,
+    decksCount: deckStats?.count ?? 0,
+    uniqueCards: collection?.uniqueCards ?? 0,
+    collectionValue: collection?.totalValueUSD ?? 0,
+    totalCards: collection?.totalCards ?? 0,
   });
-  const earnedBadges = getEarnedBadges(badgeProgress);
-  const inProgressBadges = getInProgressBadges(badgeProgress);
 
-  const handleDeckClick = (deckId: string, name: string) => {
-    trackDeckOpen(deckId, name);
-    navigate(`/deck-builder?deck=${deckId}`);
-  };
-
-  const handleFavoriteToggle = async (e: React.MouseEvent, deckId: string, deckName: string) => {
-    e.stopPropagation();
-    try {
-      await toggleFavorite(deckId);
-      showSuccess('Favorite Updated', `${deckName} has been updated`);
-    } catch (error) {
-      showError('Failed to Update', 'Could not update favorite status');
-    }
-  };
-
-  const getColorIndicator = (colors: string[]) => {
-    const colorMap: Record<string, string> = {
-      W: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-400',
-      U: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-400',
-      B: 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300',
-      R: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-400',
-      G: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-400'
-    };
-    
-    return (
-      <div className="flex gap-1">
-        {colors.slice(0, 5).map((color, index) => (
-          <div 
-            key={index}
-            className={`w-3 h-3 rounded-full border ${colorMap[color] || 'bg-gray-200 border-gray-300'}`}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  if (dashboardLoading) {
-    return (
-      <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
-        <div className="w-full space-y-4 sm:space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="space-y-2 w-full sm:w-auto">
-              <Skeleton className="h-8 sm:h-10 w-full sm:w-96" />
-              <Skeleton className="h-5 sm:h-6 w-full sm:w-64" />
-            </div>
-            <Skeleton className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <Card key={i}>
-                <CardHeader className="pb-3">
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-3 w-32 mt-2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const displayName = summary?.displayName;
 
   return (
-    <div className="min-h-screen bg-background px-3 md:px-6 py-2 md:py-6">
-      <div className="w-full space-y-4 sm:space-y-6">
-        {/* Welcome Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">
-              Welcome back, Planeswalker
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Your command center for deck building, collection management, and strategic insights
-            </p>
-          </div>
-        </div>
-
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-station to-station/50" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Collection Value</CardTitle>
-              <div className="p-1.5 sm:p-2 rounded-lg bg-station/10">
-                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-station" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">{asUSD(dashboardData?.collection?.totalValueUSD)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dashboardData?.collection?.uniqueCards || 0} unique cards
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-spacecraft to-spacecraft/50" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Cards</CardTitle>
-              <div className="p-1.5 sm:p-2 rounded-lg bg-spacecraft/10">
-                <Package className="h-3 w-3 sm:h-4 sm:w-4 text-spacecraft" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">{(dashboardData?.collection?.totalCards || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Physical collection
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden hover:shadow-md transition-all group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warp to-warp/50" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium">Active Decks</CardTitle>
-              <div className="p-1.5 sm:p-2 rounded-lg bg-warp/10">
-                <Layers className="h-3 w-3 sm:h-4 sm:w-4 text-warp" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">{dashboardData?.decks?.count || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dashboardData?.decks?.favoritesCount || 0} favorites
-              </p>
-            </CardContent>
-          </Card>
-
-          <Link to="/wishlist">
-            <Card className="relative overflow-hidden hover:shadow-md transition-all group cursor-pointer">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-void to-void/50" />
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">Wishlist</CardTitle>
-                <div className="p-1.5 sm:p-2 rounded-lg bg-void/10">
-                  <Heart className="h-3 w-3 sm:h-4 sm:w-4 text-void" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{asUSD(dashboardData?.wishlist?.valueUSD)}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {dashboardData?.wishlist?.totalItems || 0} items desired
-                </p>
-              </CardContent>
-            </Card>
+    <StandardPageLayout
+      title={displayName ? `Welcome back, ${displayName}` : 'Welcome back'}
+      action={
+        <Button asChild>
+          <Link to="/deck-builder">
+            <Plus className="h-4 w-4" />
+            New deck
           </Link>
+        </Button>
+      }
+    >
+      <div className="space-y-4 md:space-y-6">
+        {summaryError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {summaryError}
+          </p>
+        )}
+
+        {/* Overview — every tile navigates to the page it summarises. */}
+        <section aria-label="Overview" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {summaryLoading ? (
+            <>
+              <StatTileSkeleton />
+              <StatTileSkeleton />
+              <StatTileSkeleton />
+              <StatTileSkeleton />
+            </>
+          ) : (
+            <>
+              <StatTile
+                label="Collection value"
+                value={asUSD(collection?.totalValueUSD)}
+                hint={`${(collection?.uniqueCards ?? 0).toLocaleString()} unique cards`}
+                icon={DollarSign}
+                to="/collection"
+              />
+              <StatTile
+                label="Cards owned"
+                value={(collection?.totalCards ?? 0).toLocaleString()}
+                hint="Including foils"
+                icon={Package}
+                to="/collection"
+              />
+              <StatTile
+                label="Decks"
+                value={(deckStats?.count ?? 0).toLocaleString()}
+                hint={`${(deckStats?.favoritesCount ?? 0).toLocaleString()} starred`}
+                icon={Layers}
+                to="/decks"
+              />
+              <StatTile
+                label="Wishlist"
+                value={asUSD(wishlist?.valueUSD)}
+                hint={`${(wishlist?.totalItems ?? 0).toLocaleString()} cards wanted`}
+                icon={Heart}
+                to="/wishlist"
+              />
+            </>
+          )}
+        </section>
+
+        <nav aria-label="Quick actions" className="flex flex-wrap gap-2">
+          {QUICK_ACTIONS.map(({ label, to, icon: Icon }) => (
+            <Button key={to} variant="outline" size="sm" asChild>
+              <Link to={to}>
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            </Button>
+          ))}
+        </nav>
+
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <RecentDecks
+              decks={decks}
+              loading={decksLoading}
+              error={decksError}
+              onToggleFavorite={toggleFavorite}
+            />
+          </div>
+          <RecentActivity />
         </div>
 
-        {/* Quick Actions Strip */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Jump into your most common workflows</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Link to="/deck-builder" className="group">
-                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warp to-warp/50" />
-                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-lg bg-warp/10 group-hover:bg-warp/20 transition-colors">
-                      <Wand2 className="h-5 w-5 text-warp" />
-                    </div>
-                    <span className="text-sm font-medium">Build Deck</span>
-                  </div>
-                </div>
-              </Link>
-              
-              <Link to="/cards" className="group">
-                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft to-spacecraft/50" />
-                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-lg bg-spacecraft/10 group-hover:bg-spacecraft/20 transition-colors">
-                      <Search className="h-5 w-5 text-spacecraft" />
-                    </div>
-                    <span className="text-sm font-medium">Search Cards</span>
-                  </div>
-                </div>
-              </Link>
-              
-              <Link to="/collection" className="group">
-                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-planet to-planet/50" />
-                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-lg bg-planet/10 group-hover:bg-planet/20 transition-colors">
-                      <Package className="h-5 w-5 text-planet" />
-                    </div>
-                    <span className="text-sm font-medium">Collection</span>
-                  </div>
-                </div>
-              </Link>
-              
-              <Link to="/brain" className="group">
-                <div className="relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-cosmic" />
-                  <div className="p-4 pt-5 flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-lg bg-gradient-cosmic group-hover:shadow-cosmic-glow transition-all">
-                      <Brain className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                    <span className="text-sm font-medium">MTG Brain</span>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Favorite Decks */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500" />
-                  Favorite Decks
-                </CardTitle>
-                <CardDescription>Your most loved deck builds ready for battle</CardDescription>
-              </div>
-              <Link to="/decks">
-                <Button variant="ghost" size="sm">
-                  View All
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {favoritesLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map(i => (
-                  <Card key={i} className="h-24">
-                    <CardContent className="p-4">
-                      <Skeleton className="h-16 w-full" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : favorites.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {favorites.slice(0, 8).map((deck) => (
-                  <Card 
-                    key={deck.id}
-                    className="relative overflow-hidden hover:shadow-md transition-all cursor-pointer group"
-                    onClick={() => handleDeckClick(deck.id, deck.name)}
-                  >
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-spacecraft via-warp to-spacecraft" />
-                    {deck.commanderArt && (
-                      <AspectRatio ratio={63 / 88} className="bg-muted/50 rounded-sm overflow-hidden">
-                        <img
-                          src={deck.commanderImage || deck.commanderArt}
-                          alt={`${deck.name} commander`}
-                          className="w-full h-full object-contain"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.src = '/placeholder.svg';
-                            e.currentTarget.onerror = null;
-                          }}
-                        />
-                      </AspectRatio>
-                    )}
-                    <CardContent className="p-4 pt-5">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate text-sm group-hover:text-spacecraft transition-colors">
-                            {deck.name}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs border-spacecraft/30">
-                              {deck.format}
-                            </Badge>
-                            {deck.format === 'commander' && (
-                              <Crown className="h-3 w-3 text-station" />
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => handleFavoriteToggle(e, deck.id, deck.name)}
-                        >
-                          <Heart className="h-4 w-4 text-void fill-current" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-3">
-                        {deck.colors.length > 0 && getColorIndicator(deck.colors)}
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-warp" />
-                          Power {deck.power_level}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <Star className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="font-medium mb-2">No Favorite Decks</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Star your favorite decks to see them here
-                </p>
-                <Link to="/decks">
-                  <Button>
-                    <Layers className="h-4 w-4 mr-2" />
-                    Browse Decks
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Badge System */}
-        <Suspense fallback={
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-6 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map(i => (
-                  <Skeleton key={i} className="h-24 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        }>
-          <BadgesSection earnedBadges={earnedBadges} inProgressBadges={inProgressBadges} />
-        </Suspense>
-
-
-        {/* Search History */}
-        <SearchHistory />
-
-
+        <BadgesSection
+          earnedBadges={getEarnedBadges(badgeProgress)}
+          inProgressBadges={getInProgressBadges(badgeProgress)}
+        />
       </div>
-    </div>
+    </StandardPageLayout>
   );
 };
 
-// Wrap Dashboard with specialized error boundary
 const DashboardWithErrorBoundary = () => (
   <DashboardErrorBoundary>
     <Dashboard />

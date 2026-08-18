@@ -1,12 +1,5 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  PieChart, 
-  Activity,
-  Sparkles
-} from 'lucide-react';
+import { Activity, PieChart, TrendingUp, Sparkles } from 'lucide-react';
+import { formatPriceCompact } from '@/components/collection/browser/types';
 
 interface AnalyticsHeaderProps {
   totalCards: number;
@@ -21,61 +14,29 @@ export function AnalyticsHeader({
   uniqueCards,
   topRarityCount = 0,
 }: AnalyticsHeaderProps) {
-  return (
-    <div className="space-y-4">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 via-accent/10 to-primary/5 border border-primary/20 p-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-cosmic rounded-full blur-3xl opacity-20 -translate-y-32 translate-x-32" />
-        
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-cosmic shadow-lg">
-              <BarChart3 className="h-8 w-8 text-primary-foreground" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Collection Analytics</h2>
-              <p className="text-muted-foreground">Deep insights into your Magic collection</p>
-            </div>
-          </div>
-          
-        </div>
+  const stats = [
+    { icon: Activity, label: 'Total cards', value: totalCards.toLocaleString() },
+    { icon: PieChart, label: 'Unique', value: uniqueCards.toLocaleString() },
+    { icon: TrendingUp, label: 'Total value', value: formatPriceCompact(totalValue) },
+    { icon: Sparkles, label: 'Mythics', value: topRarityCount.toLocaleString() },
+  ];
 
-        {/* Quick Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div className="p-3 rounded-lg bg-background/50 backdrop-blur-sm border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Activity className="h-4 w-4" />
-              Total Cards
+  return (
+    <div className="space-y-4 border-b border-border pb-4">
+      <h2 className="text-xl font-bold text-foreground">Analytics</h2>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {stats.map(stat => (
+          <div key={stat.label} className="rounded-lg border border-border bg-card p-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <stat.icon className="h-4 w-4" aria-hidden="true" />
+              {stat.label}
             </div>
-            <div className="text-2xl font-bold mt-1">{totalCards.toLocaleString()}</div>
-          </div>
-          
-          <div className="p-3 rounded-lg bg-background/50 backdrop-blur-sm border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <PieChart className="h-4 w-4" />
-              Unique
-            </div>
-            <div className="text-2xl font-bold mt-1">{uniqueCards.toLocaleString()}</div>
-          </div>
-          
-          <div className="p-3 rounded-lg bg-background/50 backdrop-blur-sm border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <TrendingUp className="h-4 w-4" />
-              Total Value
-            </div>
-            <div className="text-2xl font-bold text-green-500 mt-1">
-              ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="mt-1 text-2xl font-bold tabular-nums text-card-foreground">
+              {stat.value}
             </div>
           </div>
-          
-          <div className="p-3 rounded-lg bg-background/50 backdrop-blur-sm border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Sparkles className="h-4 w-4 text-amber-500" />
-              Mythics
-            </div>
-            <div className="text-2xl font-bold mt-1">{topRarityCount}</div>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

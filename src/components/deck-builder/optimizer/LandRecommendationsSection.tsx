@@ -51,9 +51,9 @@ export function LandRecommendationsSection({
   const landsToRemove = recommendations.filter(r => r.type === 'remove');
 
   const statusConfig = isOptimal 
-    ? { color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/30', icon: Check }
+    ? { color: 'text-foreground', bg: 'bg-muted', border: 'border-border', icon: Check }
     : needsMore 
-      ? { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30', icon: Plus }
+      ? { color: 'text-foreground', bg: 'bg-muted', border: 'border-border', icon: Plus }
       : { color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-destructive/30', icon: Minus };
 
   return (
@@ -70,7 +70,7 @@ export function LandRecommendationsSection({
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   Mana Base
                   {!isOptimal && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
+                    <AlertTriangle className="h-3.5 w-3.5 text-foreground" />
                   )}
                 </h3>
                 <p className="text-xs text-muted-foreground">
@@ -96,8 +96,8 @@ export function LandRecommendationsSection({
             {landsToAdd.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-green-400" />
-                  <span className="text-xs font-medium text-green-400">Add Lands</span>
+                  <TrendingUp className="h-3.5 w-3.5 text-foreground" />
+                  <span className="text-xs font-medium text-foreground">Add Lands</span>
                   <Badge variant="secondary" className="text-[10px]">{landsToAdd.length}</Badge>
                 </div>
                 
@@ -108,7 +108,7 @@ export function LandRecommendationsSection({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-green-500/20 bg-green-500/5"
+                      className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted"
                     >
                       {land.image && (
                         <img 
@@ -129,7 +129,7 @@ export function LandRecommendationsSection({
                         size="sm"
                         onClick={() => onAddLand(land.name)}
                         disabled={isApplying}
-                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
+                        className="h-8 px-3 text-xs flex-shrink-0"
                       >
                         {isApplying ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -206,7 +206,7 @@ export function LandRecommendationsSection({
 
       {recommendations.length === 0 && isOptimal && (
         <div className="text-center py-4 text-muted-foreground">
-          <Check className="h-8 w-8 mx-auto mb-2 text-green-400" />
+          <Check className="h-8 w-8 mx-auto mb-2 text-foreground" />
           <p className="text-sm">Your mana base looks good!</p>
         </div>
       )}

@@ -3,13 +3,27 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { 
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Search, Filter, X } from 'lucide-react';
-import { DeckFilters } from '@/hooks/useDeckFilters';
+import { cn } from '@/lib/utils';
+import { ManaPip } from '@/components/ui/mana-cost';
+import { DECK_FORMATS } from '@/lib/deck/formats';
+import {
+  COLOR_MATCH_LABELS,
+  type ColorMatchMode,
+  type DeckFilters,
+} from '@/hooks/useDeckFilters';
 
 interface DeckSearchFiltersProps {
   filters: DeckFilters;
@@ -18,20 +32,17 @@ interface DeckSearchFiltersProps {
   onToggleFormat: (format: string) => void;
   onToggleColor: (color: string) => void;
   hasActiveFilters: boolean;
+  activeFilterCount: number;
 }
 
-const FORMAT_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'commander', label: 'Commander' },
-  { value: 'custom', label: 'Custom' }
-];
-
+/** W/U/B/R/G plus colourless, drawn as real mana pips. */
 const COLOR_OPTIONS = [
-  { value: 'W', label: 'White', color: 'bg-yellow-100 text-yellow-900' },
-  { value: 'U', label: 'Blue', color: 'bg-blue-100 text-blue-900' },
-  { value: 'B', label: 'Black', color: 'bg-gray-800 text-gray-100' },
-  { value: 'R', label: 'Red', color: 'bg-red-100 text-red-900' },
-  { value: 'G', label: 'Green', color: 'bg-green-100 text-green-900' }
+  { value: 'W', label: 'White' },
+  { value: 'U', label: 'Blue' },
+  { value: 'B', label: 'Black' },
+  { value: 'R', label: 'Red' },
+  { value: 'G', label: 'Green' },
+  { value: 'C', label: 'Colourless' },
 ];
 
 export const DeckSearchFilters = ({
@@ -40,32 +51,30 @@ export const DeckSearchFilters = ({
   onResetFilters,
   onToggleFormat,
   onToggleColor,
-  hasActiveFilters
+  hasActiveFilters,
+  activeFilterCount,
 }: DeckSearchFiltersProps) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-      {/* Search Input */}
-      <div className="relative flex-1 w-full">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="relative w-full flex-1">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search decks..."
+          placeholder="Search decks…"
           value={filters.searchQuery}
-          onChange={(e) => onUpdateFilters({ searchQuery: e.target.value })}
+          onChange={e => onUpdateFilters({ searchQuery: e.target.value })}
           className="pl-10"
+          aria-label="Search decks by name"
         />
       </div>
 
-      {/* Filter Popover */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" className="gap-2">
             <Filter className="h-4 w-4" />
             Filters
             {hasActiveFilters && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                {(filters.format.length + filters.colors.length + 
-                  (filters.searchQuery ? 1 : 0) + 
-                  (filters.minPower !== 1 || filters.maxPower !== 10 ? 1 : 0))}
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 tabular-nums">
+                {activeFilterCount}
               </Badge>
             )}
           </Button>
@@ -75,28 +84,31 @@ export const DeckSearchFilters = ({
             <div className="flex items-center justify-between">
               <h4 className="font-semibold">Filters</h4>
               {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onResetFilters}
-                  className="h-8 px-2"
-                >
-                  <X className="h-3 w-3 mr-1" />
+                <Button variant="ghost" size="sm" onClick={onResetFilters} className="h-8 px-2">
+                  <X className="mr-1 h-3 w-3" />
                   Clear
                 </Button>
               )}
             </div>
 
-            {/* Format Filter */}
             <div className="space-y-2">
               <Label>Format</Label>
-              <div className="flex flex-wrap gap-2">
-                {FORMAT_OPTIONS.map(format => (
+              <div className="flex flex-wrap gap-1.5">
+                {DECK_FORMATS.map(format => (
                   <Badge
                     key={format.value}
                     variant={filters.format.includes(format.value) ? 'default' : 'outline'}
                     className="cursor-pointer"
+                    role="checkbox"
+                    aria-checked={filters.format.includes(format.value)}
+                    tabIndex={0}
                     onClick={() => onToggleFormat(format.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onToggleFormat(format.value);
+                      }
+                    }}
                   >
                     {format.label}
                   </Badge>
@@ -104,37 +116,68 @@ export const DeckSearchFilters = ({
               </div>
             </div>
 
-            {/* Color Filter */}
             <div className="space-y-2">
-              <Label>Colors</Label>
+              <div className="flex items-center justify-between">
+                <Label>Colour identity</Label>
+              </div>
+              <Select
+                value={filters.colorMode}
+                onValueChange={value => onUpdateFilters({ colorMode: value as ColorMatchMode })}
+              >
+                <SelectTrigger className="h-8" aria-label="Colour match mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(COLOR_MATCH_LABELS) as ColorMatchMode[]).map(mode => (
+                    <SelectItem key={mode} value={mode}>
+                      {COLOR_MATCH_LABELS[mode]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map(color => (
-                  <Badge
-                    key={color.value}
-                    variant={filters.colors.includes(color.value) ? 'default' : 'outline'}
-                    className={`cursor-pointer ${filters.colors.includes(color.value) ? color.color : ''}`}
-                    onClick={() => onToggleColor(color.value)}
-                  >
-                    {color.label}
-                  </Badge>
-                ))}
+                {COLOR_OPTIONS.map(color => {
+                  const selected = filters.colors.includes(color.value);
+                  return (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => onToggleColor(color.value)}
+                      aria-pressed={selected}
+                      aria-label={color.label}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors',
+                        selected
+                          ? 'border-foreground bg-secondary text-secondary-foreground'
+                          : 'border-border text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      <ManaPip symbol={color.value} size="xs" />
+                      {color.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Power Level Range */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Power Level</Label>
-                <span className="text-sm text-muted-foreground">
-                  {filters.minPower} - {filters.maxPower}
+                <Label>Power level</Label>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {filters.minPower} – {filters.maxPower}
                 </span>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Decks without a computed power score are always shown.
+              </p>
               <div className="space-y-3">
                 <div>
                   <Label className="text-xs">Min: {filters.minPower}</Label>
                   <Slider
                     value={[filters.minPower]}
-                    onValueChange={([value]) => onUpdateFilters({ minPower: value })}
+                    onValueChange={([value]) =>
+                      onUpdateFilters({ minPower: Math.min(value, filters.maxPower) })
+                    }
                     min={1}
                     max={10}
                     step={1}
@@ -145,7 +188,9 @@ export const DeckSearchFilters = ({
                   <Label className="text-xs">Max: {filters.maxPower}</Label>
                   <Slider
                     value={[filters.maxPower]}
-                    onValueChange={([value]) => onUpdateFilters({ maxPower: value })}
+                    onValueChange={([value]) =>
+                      onUpdateFilters({ maxPower: Math.max(value, filters.minPower) })
+                    }
                     min={1}
                     max={10}
                     step={1}

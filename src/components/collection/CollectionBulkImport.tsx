@@ -1,245 +1,319 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { scryfallAPI } from '@/lib/api/scryfall';
 
 interface CollectionBulkImportProps {
   onImportComplete?: () => void;
+  /** Controlled mode, so other surfaces (e.g. the empty state) can open it. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CollectionBulkImport({ onImportComplete }: CollectionBulkImportProps) {
-  const [open, setOpen] = useState(false);
+interface ParsedLine {
+  quantity: number;
+  name: string;
+  set?: string;
+  foil: boolean;
+  raw: string;
+}
+
+/**
+ * Arena / MTGO / plain-text grammar.
+ *
+ * Real Arena exports end with a collector number (`4 Lightning Bolt (2X2) 117`)
+ * and may carry a `*F*` foil marker; the previous anchored regex swallowed both
+ * into the card name so the exact-name lookup always missed.
+ */
+export function parseImportLine(raw: string, format: string): ParsedLine | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith('deck') ||
+    lower.startsWith('sideboard') ||
+    lower.startsWith('commander') ||
+    lower.startsWith('//')
+  ) {
+    return null;
+  }
+
+  if (format === 'csv') {
+    const parts = trimmed.split(',').map(p => p.trim());
+    if (!parts[0]) return null;
+    return {
+      name: parts[0].replace(/^"|"$/g, ''),
+      quantity: parseInt(parts[1], 10) || 1,
+      set: parts[2] ? parts[2].toLowerCase() : undefined,
+      foil: /foil|true|yes/i.test(parts[3] ?? ''),
+      raw: trimmed,
+    };
+  }
+
+  let working = trimmed;
+  const foil = /\*F\*/i.test(working);
+  working = working.replace(/\*F\*/gi, '').trim();
+
+  // Leading quantity: "4 ", "4x ", "4 x "
+  const qtyMatch = working.match(/^(\d+)\s*x?\s+/i);
+  const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+  if (qtyMatch) working = working.slice(qtyMatch[0].length);
+
+  // Trailing "(SET) 117" or "(SET)"
+  let set: string | undefined;
+  const setMatch = working.match(/\(([A-Za-z0-9]{2,6})\)\s*[A-Za-z0-9\-★]*\s*$/);
+  if (setMatch && setMatch.index !== undefined) {
+    set = setMatch[1].toLowerCase();
+    working = working.slice(0, setMatch.index).trim();
+  }
+
+  // Keep only the front face of a double-faced card name.
+  const name = working.split(' // ')[0].trim();
+  if (!name) return null;
+
+  return { quantity, name, set, foil, raw: trimmed };
+}
+
+export function CollectionBulkImport({
+  onImportComplete,
+  open: controlledOpen,
+  onOpenChange,
+}: CollectionBulkImportProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled) onOpenChange?.(value);
+    else setUncontrolledOpen(value);
+  };
+
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [importText, setImportText] = useState('');
   const [importFormat, setImportFormat] = useState<'arena' | 'csv' | 'txt'>('arena');
-
-  const parseImportText = (text: string, format: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    const cards: Array<{ quantity: number; name: string; set?: string }> = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.toLowerCase().startsWith('deck') || trimmed.toLowerCase().startsWith('sideboard')) {
-        continue;
-      }
-
-      let quantity = 1;
-      let cardName = trimmed;
-      let setCode = undefined;
-
-      if (format === 'arena' || format === 'txt') {
-        // Format: "4 Lightning Bolt" or "1x Lightning Bolt"
-        const match = trimmed.match(/^(\d+)x?\s+(.+?)(\s+\(([A-Z0-9]+)\))?$/i);
-        if (match) {
-          quantity = parseInt(match[1]);
-          cardName = match[2].trim();
-          setCode = match[4];
-        }
-      } else if (format === 'csv') {
-        // Format: "Card Name,Quantity,Set"
-        const parts = trimmed.split(',').map(p => p.trim());
-        if (parts.length >= 2) {
-          cardName = parts[0];
-          quantity = parseInt(parts[1]) || 1;
-          setCode = parts[2];
-        }
-      }
-
-      if (cardName) {
-        cards.push({ quantity, name: cardName, set: setCode });
-      }
-    }
-
-    return cards;
-  };
+  const [failures, setFailures] = useState<string[]>([]);
 
   const handleImport = async () => {
     if (!importText.trim()) {
-      showError('Empty Import', 'Please paste some cards to import');
+      showError('Nothing to import', 'Paste a card list first');
       return;
     }
 
     setImporting(true);
+    setFailures([]);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        showError('Authentication Required', 'Please log in to import cards');
+        showError('Sign in required', 'Please sign in to import cards');
         return;
       }
 
-      const parsedCards = parseImportText(importText, importFormat);
-      if (parsedCards.length === 0) {
-        showError('No Cards Found', 'Could not parse any cards from the input');
+      const parsed = importText
+        .split('\n')
+        .map(line => parseImportLine(line, importFormat))
+        .filter((line): line is ParsedLine => line !== null);
+
+      if (parsed.length === 0) {
+        showError('No cards found', 'Could not parse any cards from that input');
         return;
       }
 
-      let addedCount = 0;
-      let failedCount = 0;
+      setProgress({ done: 0, total: parsed.length });
+
+      let added = 0;
       const errors: string[] = [];
 
-      for (const { quantity, name, set } of parsedCards) {
+      for (const line of parsed) {
         try {
-          // Search for card on Scryfall
-          const searchQuery = set ? `!"${name}" set:${set}` : `!"${name}"`;
-          const results = await scryfallAPI.searchCards(searchQuery, 1);
-          
-          if (!results.cards || results.cards.length === 0) {
-            failedCount++;
-            errors.push(`Card not found: ${name}`);
+          const query = line.set ? `!"${line.name}" set:${line.set}` : `!"${line.name}"`;
+          const results = await scryfallAPI.searchCards(query, 1);
+          const card = results.cards?.[0];
+
+          if (!card) {
+            errors.push(`${line.raw} — no match on Scryfall`);
             continue;
           }
 
-          const card = results.cards[0];
-
-          // Check if card already exists in collection
           const { data: existing } = await supabase
             .from('user_collections')
-            .select('id, quantity')
+            .select('id, quantity, foil')
             .eq('user_id', user.id)
             .eq('card_id', card.id)
             .maybeSingle();
 
           if (existing) {
-            // Update quantity
             await supabase
               .from('user_collections')
-              .update({ 
-                quantity: existing.quantity + quantity,
-                updated_at: new Date().toISOString()
+              .update({
+                quantity: existing.quantity + (line.foil ? 0 : line.quantity),
+                foil: (existing.foil ?? 0) + (line.foil ? line.quantity : 0),
+                updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
           } else {
-            // Insert new card
-            await supabase
-              .from('user_collections')
-              .insert({
-                user_id: user.id,
-                card_id: card.id,
-                card_name: card.name,
-                set_code: card.set,
-                quantity: quantity,
-                foil: 0,
-                condition: 'near_mint',
-                price_usd: parseFloat(card.prices?.usd || '0')
-              });
+            await supabase.from('user_collections').insert({
+              user_id: user.id,
+              card_id: card.id,
+              card_name: card.name,
+              set_code: card.set,
+              quantity: line.foil ? 0 : line.quantity,
+              foil: line.foil ? line.quantity : 0,
+              condition: 'near_mint',
+              price_usd: parseFloat(card.prices?.usd || '0'),
+            });
           }
 
-          addedCount++;
-        } catch (error) {
-          console.error(`Error importing card ${name}:`, error);
-          failedCount++;
-          errors.push(`Failed to import: ${name}`);
+          added++;
+        } catch (err) {
+          console.error(`Error importing "${line.raw}":`, err);
+          errors.push(`${line.raw} — import failed`);
+        } finally {
+          setProgress(p => ({ ...p, done: p.done + 1 }));
         }
       }
 
-      // Show results
-      if (addedCount > 0) {
+      setFailures(errors);
+
+      if (added > 0) {
         showSuccess(
-          'Import Complete',
-          `Added ${addedCount} card${addedCount !== 1 ? 's' : ''} to your collection` +
-          (failedCount > 0 ? `. ${failedCount} failed.` : '')
+          'Import complete',
+          `Added ${added} entr${added === 1 ? 'y' : 'ies'}${
+            errors.length ? `, ${errors.length} unresolved` : ''
+          }`
         );
+        onImportComplete?.();
+      } else {
+        showError('Import failed', 'No lines could be matched to a card');
       }
 
-      if (errors.length > 0 && errors.length <= 5) {
-        console.error('Import errors:', errors);
+      if (errors.length === 0) {
+        setImportText('');
+        setOpen(false);
       }
-
-      setImportText('');
-      setOpen(false);
-      onImportComplete?.();
-
-    } catch (error) {
-      console.error('Import error:', error);
-      showError('Import Failed', 'An error occurred while importing cards');
+    } catch (err) {
+      console.error('Import error:', err);
+      showError('Import failed', 'An error occurred while importing cards');
     } finally {
       setImporting(false);
+      setProgress({ done: 0, total: 0 });
     }
   };
 
+  const lineCount = importText.split('\n').filter(l => l.trim()).length;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Upload className="h-4 w-4 mr-2" />
-          Bulk Import
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Import Cards</DialogTitle>
-          <DialogDescription>
-            Paste your card list below. Supports Arena, CSV, and plain text formats.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => setOpen(true)}>
+        <Upload className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden sm:inline">Import</span>
+      </Button>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Format</Label>
-            <Select value={importFormat} onValueChange={(value: any) => setImportFormat(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="arena">Arena/MTGO (4 Lightning Bolt)</SelectItem>
-                <SelectItem value="txt">Plain Text (4x Lightning Bolt)</SelectItem>
-                <SelectItem value="csv">CSV (Card Name, Quantity, Set)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import cards</DialogTitle>
+            <DialogDescription>
+              Paste a list from Arena, MTGO, Moxfield or a CSV. Set codes, collector numbers
+              and <code className="font-mono">*F*</code> foil markers are understood.
+            </DialogDescription>
+          </DialogHeader>
 
-          <div>
-            <Label>Card List</Label>
-            <Textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder={
-                importFormat === 'arena' ? '4 Lightning Bolt\n1 Black Lotus\n2 Counterspell (MH2)' :
-                importFormat === 'csv' ? 'Lightning Bolt, 4, M11\nBlack Lotus, 1\nCounterspell, 2, MH2' :
-                '4x Lightning Bolt\n1x Black Lotus\n2x Counterspell (MH2)'
-              }
-              className="min-h-[300px] font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              {importFormat === 'arena' && 'Format: Quantity CardName or Quantity CardName (SET)'}
-              {importFormat === 'csv' && 'Format: CardName, Quantity, Set (optional)'}
-              {importFormat === 'txt' && 'Format: QuantityX CardName or Quantity CardName (SET)'}
-            </p>
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              <FileText className="h-4 w-4 inline mr-2" />
-              {importText.split('\n').filter(l => l.trim()).length} lines
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-format">Format</Label>
+              <Select
+                value={importFormat}
+                onValueChange={value => setImportFormat(value as typeof importFormat)}
+              >
+                <SelectTrigger id="import-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="arena">Arena / MTGO</SelectItem>
+                  <SelectItem value="txt">Plain text</SelectItem>
+                  <SelectItem value="csv">CSV (name, qty, set, foil)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)} disabled={importing}>
-                Cancel
-              </Button>
-              <Button onClick={handleImport} disabled={importing || !importText.trim()}>
-                {importing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import Cards
-                  </>
-                )}
-              </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="import-text">Card list</Label>
+              <Textarea
+                id="import-text"
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                placeholder={
+                  importFormat === 'csv'
+                    ? 'Lightning Bolt, 4, m11\nBlack Lotus, 1\nCounterspell, 2, mh2, foil'
+                    : '4 Lightning Bolt (2X2) 117\n1 Black Lotus\n2 Counterspell (MH2) 45 *F*'
+                }
+                className="min-h-[260px] font-mono text-sm"
+              />
+            </div>
+
+            {failures.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-destructive">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  {failures.length} line{failures.length === 1 ? '' : 's'} could not be matched
+                </p>
+                <ul className="max-h-40 space-y-1 overflow-y-auto font-mono text-xs text-muted-foreground">
+                  {failures.map((failure, i) => (
+                    <li key={i}>{failure}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <div className="text-sm text-muted-foreground">
+                <FileText className="mr-2 inline h-4 w-4" aria-hidden="true" />
+                {importing && progress.total > 0
+                  ? `${progress.done} / ${progress.total} processed`
+                  : `${lineCount} line${lineCount === 1 ? '' : 's'}`}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setOpen(false)} disabled={importing}>
+                  Cancel
+                </Button>
+                <Button onClick={handleImport} disabled={importing || !importText.trim()}>
+                  {importing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      Importing…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Import cards
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

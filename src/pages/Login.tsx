@@ -3,17 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { useAuth } from '@/components/AuthProvider';
-import { toast } from '@/hooks/use-toast';
+import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -24,26 +22,15 @@ export default function Login() {
 
     try {
       const { error } = await signIn(email, password);
-      
+
       if (error) {
-        toast({
-          title: 'Sign in failed',
-          description: error.message,
-          variant: 'destructive',
-        });
+        showError('Sign in failed', error.message);
       } else {
-        toast({
-          title: 'Welcome back!',
-          description: 'Successfully signed in to DeckMatrix.',
-        });
+        showSuccess('Signed in', 'Welcome back to DeckMatrix.');
         navigate('/dashboard');
       }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred.',
-        variant: 'destructive',
-      });
+    } catch {
+      showError('Sign in failed', 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -51,109 +38,75 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Sign in to DeckMatrix"
-      description="Welcome back, Planeswalker! Access your decks and collection."
+      title="Sign in"
+      description="Pick up where you left off with your collection and decks."
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Email */}
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium">
-            Email
-          </Label>
+          <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20"
-            placeholder="your@email.com"
+            placeholder="you@example.com"
           />
         </div>
 
-        {/* Password */}
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-medium">
-            Password
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link
+              to="/forgot-password"
+              className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <div className="relative">
             <Input
               id="password"
               type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="bg-background/50 border-primary/20 focus:border-primary focus:ring-primary/20 pr-10"
+              className="pr-10"
               placeholder="Enter your password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Remember Me & Forgot Password */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="remember" 
-              checked={rememberMe}
-              onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-            />
-            <Label htmlFor="remember" className="text-sm text-muted-foreground">
-              Remember me
-            </Label>
-          </div>
-          <Link 
-            to="/forgot-password" 
-            className="text-sm text-primary hover:text-primary/80 transition-colors"
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        {/* Submit Button */}
-        <Button 
-          type="submit" 
-          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 transition-all"
-          disabled={loading}
-        >
+        <Button type="submit" className="w-full" disabled={loading}>
           {loading ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Signing in...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Signing in…
             </>
           ) : (
-            'Sign In'
+            'Sign in'
           )}
         </Button>
 
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border/50" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">or</span>
-          </div>
-        </div>
-
-        {/* Sign Up Link */}
-        <div className="text-center">
-          <p className="text-muted-foreground">
-            Don't have an account?{' '}
-            <Link 
-              to="/register" 
-              className="text-primary hover:text-primary/80 transition-colors font-medium"
-            >
-              Register free
-            </Link>
-          </p>
-        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Don't have an account?{' '}
+          <Link
+            to="/register"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            Create one
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

@@ -1,0 +1,264 @@
+/**
+ * DeckMatrix — shared game-state core: the transport seam.
+ *
+ * `rules.ts` is a pure reducer over a serialisable `GameAction`. That is the
+ * whole reason a networked table is cheap: every client starts from the same
+ * `GameState`, receives the same actions in the same order, and lands on
+ * byte-identical state. Nothing has to be diffed and nothing has to be trusted.
+ *
+ * This file is the *only* place that talks about moving those actions between
+ * participants, and it deliberately does not implement a network. It defines:
+ *
+ *   - `GameTransport` — join / leave / broadcast / receive, and nothing else;
+ *   - `createLocalTransport()` — an in-memory hub, used by solo and bot play.
+ *
+ * ---------------------------------------------------------------------------
+ * Dropping in Supabase Realtime
+ * ---------------------------------------------------------------------------
+ * A `createRealtimeTransport()` implementing this same interface is a
+ * self-contained change — no page, hook or component below it needs editing,
+ * because the play surface only ever sees `GameTransport`. The shape it takes:
+ *
+ *   join()       supabase.channel(`table:${tableId}`, { config: { presence: { key: participantId } } })
+ *                  .on('broadcast', { event: 'action' }, ({ payload }) => handlers.onAction(payload))
+ *                  .on('presence',  { event: 'sync'   }, () => handlers.onPresence(...))
+ *                  .subscribe(status => handlers.onStatus(mapStatus(status)))
+ *   broadcast()  channel.send({ type: 'broadcast', event: 'action', payload: envelope })
+ *   leave()      supabase.removeChannel(channel)
+ *
+ * Three things the interface already carries so that swap stays honest:
+ *
+ *   1. `TransportEnvelope.baseVersion` — the `GameState.version` the sender
+ *      applied this action on top of. Two players acting at once produce two
+ *      envelopes with the same `baseVersion`; the receiver can detect that and
+ *      re-order or re-request rather than silently forking.
+ *   2. `TransportEnvelope.seq` — monotonic *per sender*, so a receiver can spot
+ *      a dropped message instead of applying an action out of order.
+ *   3. `echoToSender` — a real channel echoes your own broadcast back to you.
+ *      The local hub does too, by default, so the app has exactly one code path
+ *      for applying an action: receive it. Optimistic local application is an
+ *      optimisation to add later, not a second path to maintain now.
+ *
+ * Deliberately absent: persistence. Storing a game or its action log is a
+ * database concern and no table is created for it here.
+ */
+
+import type { GameAction, PlayerId } from './types';
+
+/* -------------------------------------------------------------------------- */
+/* Wire shapes                                                                */
+/* -------------------------------------------------------------------------- */
+
+/** Identifies a connection, not a seat. One human may reconnect as a new participant. */
+export type ParticipantId = string;
+
+export interface TransportEnvelope {
+  tableId: string;
+  from: ParticipantId;
+  /** Monotonic per sender. A gap means a message was lost. */
+  seq: number;
+  /** `GameState.version` the sender applied this action on top of. */
+  baseVersion: number;
+  /** Epoch ms stamped by the sender. The reducer never reads a clock itself. */
+  at: number;
+  action: GameAction;
+}
+
+export interface TransportPresence {
+  participantId: ParticipantId;
+  name: string;
+  /** The seat this participant controls, once seated. */
+  playerId?: PlayerId;
+  /** True for a seat driven by the bot policy rather than a person. */
+  isBot?: boolean;
+}
+
+export type TransportStatus = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
+
+export interface TransportHandlers {
+  /** Fired for every action on the table, including your own — see `echoToSender`. */
+  onAction: (envelope: TransportEnvelope) => void;
+  onPresence?: (participants: TransportPresence[]) => void;
+  onStatus?: (status: TransportStatus, error?: Error) => void;
+}
+
+export interface GameTransport {
+  /** Which implementation this is. Surfaced in the UI so "local" is never mistaken for "online". */
+  readonly kind: 'local' | 'realtime';
+  readonly tableId: string;
+  readonly participantId: ParticipantId;
+
+  join(handlers: TransportHandlers): Promise<void>;
+  leave(): Promise<void>;
+  /** Ship one action to the table. Resolves once handed to the channel, not once applied. */
+  broadcast(action: GameAction, baseVersion: number, at?: number): Promise<void>;
+
+  status(): TransportStatus;
+  presence(): TransportPresence[];
+}
+
+export interface LocalTransportOptions {
+  tableId: string;
+  participantId: ParticipantId;
+  name: string;
+  playerId?: PlayerId;
+  isBot?: boolean;
+  /**
+   * Deliver a participant's own broadcast back to them. Default true, matching
+   * how a real channel behaves, so the app has one path for applying actions.
+   */
+  echoToSender?: boolean;
+  /**
+   * Artificial delivery delay in ms, for eyeballing how the surface behaves
+   * with latency. 0 delivers synchronously.
+   */
+  latencyMs?: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Local in-memory hub                                                        */
+/* -------------------------------------------------------------------------- */
+
+interface HubMember {
+  transport: LocalTransport;
+  handlers: TransportHandlers;
+  presence: TransportPresence;
+}
+
+interface Hub {
+  tableId: string;
+  members: HubMember[];
+}
+
+/**
+ * Module-level so two transports created with the same `tableId` in the same
+ * tab genuinely talk to each other — which is what makes this a transport and
+ * not a callback. Cleared when the last member leaves.
+ */
+const hubs = new Map<string, Hub>();
+
+function hubFor(tableId: string): Hub {
+  const existing = hubs.get(tableId);
+  if (existing) return existing;
+  const created: Hub = { tableId, members: [] };
+  hubs.set(tableId, created);
+  return created;
+}
+
+function notifyPresence(hub: Hub): void {
+  const list = hub.members.map(member => member.presence);
+  for (const member of hub.members) {
+    member.handlers.onPresence?.(list);
+  }
+}
+
+class LocalTransport implements GameTransport {
+  readonly kind = 'local' as const;
+  readonly tableId: string;
+  readonly participantId: ParticipantId;
+
+  private readonly options: LocalTransportOptions;
+  private state: TransportStatus = 'idle';
+  private seq = 0;
+
+  constructor(options: LocalTransportOptions) {
+    this.options = options;
+    this.tableId = options.tableId;
+    this.participantId = options.participantId;
+  }
+
+  async join(handlers: TransportHandlers): Promise<void> {
+    if (this.state === 'connected') return;
+    this.state = 'connecting';
+    handlers.onStatus?.('connecting');
+
+    const hub = hubFor(this.tableId);
+    hub.members = hub.members.filter(m => m.presence.participantId !== this.participantId);
+    hub.members.push({
+      transport: this,
+      handlers,
+      presence: {
+        participantId: this.participantId,
+        name: this.options.name,
+        playerId: this.options.playerId,
+        isBot: this.options.isBot,
+      },
+    });
+
+    this.state = 'connected';
+    handlers.onStatus?.('connected');
+    notifyPresence(hub);
+  }
+
+  async leave(): Promise<void> {
+    const hub = hubs.get(this.tableId);
+    if (hub) {
+      const departing = hub.members.find(m => m.presence.participantId === this.participantId);
+      hub.members = hub.members.filter(m => m.presence.participantId !== this.participantId);
+      departing?.handlers.onStatus?.('closed');
+      if (hub.members.length === 0) hubs.delete(this.tableId);
+      else notifyPresence(hub);
+    }
+    this.state = 'closed';
+  }
+
+  async broadcast(action: GameAction, baseVersion: number, at?: number): Promise<void> {
+    if (this.state !== 'connected') {
+      throw new Error('LocalTransport: broadcast before join');
+    }
+
+    this.seq += 1;
+    const envelope: TransportEnvelope = {
+      tableId: this.tableId,
+      from: this.participantId,
+      seq: this.seq,
+      baseVersion,
+      at: at ?? Date.now(),
+      action,
+    };
+
+    const hub = hubs.get(this.tableId);
+    if (!hub) return;
+
+    const echo = this.options.echoToSender !== false;
+    const targets = hub.members.filter(
+      member => echo || member.presence.participantId !== this.participantId
+    );
+
+    const deliver = () => {
+      for (const member of targets) member.handlers.onAction(envelope);
+    };
+
+    if (this.options.latencyMs && this.options.latencyMs > 0) {
+      window.setTimeout(deliver, this.options.latencyMs);
+    } else {
+      // Synchronous delivery keeps solo play ordered without a queue. A real
+      // channel is async; the reducer's determinism is what makes both safe.
+      deliver();
+    }
+  }
+
+  status(): TransportStatus {
+    return this.state;
+  }
+
+  presence(): TransportPresence[] {
+    const hub = hubs.get(this.tableId);
+    if (!hub) return [];
+    return hub.members.map(member => member.presence);
+  }
+}
+
+/**
+ * A transport that never leaves the tab. Solo goldfishing and bot pods run on
+ * it, which means those surfaces are already written against the networked
+ * interface — the online version is a different constructor, not a rewrite.
+ */
+export function createLocalTransport(options: LocalTransportOptions): GameTransport {
+  return new LocalTransport(options);
+}
+
+/** Test/HMR escape hatch: forget every in-memory table. */
+export function resetLocalTransports(): void {
+  hubs.clear();
+}

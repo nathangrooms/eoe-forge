@@ -1,13 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { 
-  Eye, 
-  Search, 
-  Brain, 
-  Upload, 
-  Play,
-  BarChart3,
-  Printer
-} from 'lucide-react';
+import { Eye, Search, Brain, Upload, Play, BarChart3, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DeckBuilderTabsProps {
@@ -15,6 +7,10 @@ interface DeckBuilderTabsProps {
   onTabChange: (tab: string) => void;
   totalCards: number;
   format: string;
+  /** Only a commander actually in the command zone counts toward 100. */
+  hasCommander?: boolean;
+  /** Tab ids to hide — e.g. the Optimizer when its feature flag is off. */
+  hiddenTabs?: string[];
 }
 
 const tabs = [
@@ -27,37 +23,43 @@ const tabs = [
   { id: 'test', label: 'Playtest', icon: Play, mobileLabel: 'Test' },
 ];
 
-export function DeckBuilderTabs({ activeTab, onTabChange, totalCards, format }: DeckBuilderTabsProps) {
+export function DeckBuilderTabs({
+  activeTab,
+  onTabChange,
+  totalCards,
+  format,
+  hasCommander = false,
+  hiddenTabs = [],
+}: DeckBuilderTabsProps) {
   const isCommander = format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh';
   const targetCards = isCommander ? 100 : 60;
-  // For commander, add 1 for the commander card itself
-  const displayCards = isCommander ? totalCards + 1 : totalCards;
+  const displayCards = isCommander && hasCommander ? totalCards + 1 : totalCards;
+  const visibleTabs = tabs.filter(t => !hiddenTabs.includes(t.id));
 
   return (
     <div className="border-b border-border bg-muted/30 overflow-x-auto scrollbar-none">
       <div className="px-4 md:px-6">
-        <div className="flex items-center gap-2 md:gap-4 w-max md:w-auto py-1">
-          {tabs.map(({ id, label, icon: Icon, mobileLabel }) => (
+        <div className="flex w-max items-center gap-2 py-1 md:w-auto md:gap-4" role="tablist">
+          {visibleTabs.map(({ id, label, icon: Icon, mobileLabel }) => (
             <button
               key={id}
+              role="tab"
+              aria-selected={activeTab === id}
               onClick={() => onTabChange(id)}
               className={cn(
-                "flex items-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-[1px]",
-                activeTab === id 
-                  ? "text-primary border-primary" 
-                  : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                '-mb-[1px] flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors',
+                activeTab === id
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               )}
             >
               <Icon className="h-4 w-4" />
               <span className="hidden md:inline">{label}</span>
               <span className="md:hidden">{mobileLabel}</span>
               {id === 'cards' && (
-                <Badge 
-                  variant="secondary" 
-                  className={cn(
-                    "text-[10px] px-1.5 py-0",
-                    displayCards >= targetCards ? "bg-green-500/20 text-green-500" : "bg-muted"
-                  )}
+                <Badge
+                  variant={displayCards >= targetCards ? 'default' : 'secondary'}
+                  className="px-1.5 py-0 text-[10px] tabular-nums"
                 >
                   {displayCards}/{targetCards}
                 </Badge>

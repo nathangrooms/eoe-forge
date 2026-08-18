@@ -591,9 +591,9 @@ export function AIOptimizerPanel({
   // Get status-specific styling
   const statusConfig = {
     incomplete: {
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500/10',
-      borderColor: 'border-orange-500/30',
+      color: 'text-foreground',
+      bgColor: 'bg-muted',
+      borderColor: 'border-border',
       icon: Plus,
       label: `${missingCards} cards needed`
     },
@@ -605,9 +605,9 @@ export function AIOptimizerPanel({
       label: `${excessCards} cards over`
     },
     complete: {
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
-      borderColor: 'border-green-500/30',
+      color: 'text-foreground',
+      bgColor: 'bg-muted',
+      borderColor: 'border-border',
       icon: Zap,
       label: 'Deck Complete'
     }
@@ -618,12 +618,12 @@ export function AIOptimizerPanel({
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Header - Mobile optimized */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <Card className="border-primary/20">
         <CardContent className="p-3 sm:p-4">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
                   <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
                 </div>
                 <div className="min-w-0">
@@ -637,7 +637,7 @@ export function AIOptimizerPanel({
                       <span className="hidden xs:inline">{status.label}</span>
                     </Badge>
                     {hasEdhData && (
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 bg-green-500/20 text-green-400 border-green-500/30 hidden xs:flex">
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 bg-muted text-foreground border-border hidden xs:flex">
                         <Zap className="h-2.5 w-2.5 mr-0.5" />
                         EDH
                       </Badge>
@@ -691,19 +691,19 @@ export function AIOptimizerPanel({
 
       {/* Low Playability Preview */}
       {hasEdhData && lowPlayabilityCards.length > 0 && !hasResults && !loading && (
-        <Card className="border-orange-500/30 bg-orange-500/5">
+        <Card className="border-border bg-muted">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingDown className="h-4 w-4 text-orange-400" />
-              <span className="text-sm font-medium text-orange-400">
+              <TrendingDown className="h-4 w-4 text-foreground" />
+              <span className="text-sm font-medium text-foreground">
                 {lowPlayabilityCards.length} Low Playability Cards
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
               {lowPlayabilityCards.slice(0, 6).map((card, i) => (
-                <Badge key={i} variant="outline" className="text-xs bg-orange-500/10 border-orange-500/30">
+                <Badge key={i} variant="outline" className="text-xs bg-muted border-border">
                   {card.name} 
-                  <span className="ml-1 text-orange-400">({card.playability}%)</span>
+                  <span className="ml-1 text-foreground">({card.playability}%)</span>
                 </Badge>
               ))}
               {lowPlayabilityCards.length > 6 && (
@@ -813,7 +813,7 @@ export function AIOptimizerPanel({
                   value="lands" 
                   className={cn(
                     "flex items-center gap-1 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap",
-                    hasLandIssues && "text-orange-400"
+                    hasLandIssues && "text-foreground"
                   )}
                 >
                   <Mountain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -823,7 +823,7 @@ export function AIOptimizerPanel({
                       variant="secondary" 
                       className={cn(
                         "ml-0.5 h-4 px-1 text-[10px]",
-                        hasLandIssues && "bg-orange-500/20 text-orange-400"
+                        hasLandIssues && "bg-muted text-foreground"
                       )}
                     >
                       {landRecommendations.length}

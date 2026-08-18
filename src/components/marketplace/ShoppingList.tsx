@@ -136,18 +136,18 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
   );
 
   return (
-    <Card className="border-primary/20">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ShoppingCart className="h-5 w-5 text-primary" />
+            <ShoppingCart className="h-5 w-5 text-muted-foreground" />
             Shopping List
             {items.length > 0 && (
               <Badge variant="secondary">{unpurchasedItems.length}</Badge>
             )}
           </CardTitle>
           {totalEstimate > 0 && (
-            <Badge variant="outline" className="text-green-600 border-green-500/30">
+            <Badge variant="outline" className="tabular-nums">
               <DollarSign className="h-3 w-3 mr-0.5" />
               ~${totalEstimate.toFixed(2)}
             </Badge>
@@ -298,7 +298,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate line-through">{item.name}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Check className="h-3 w-3 text-green-500" />
+                        <Check className="h-3 w-3" />
                         <span>x{item.quantity}</span>
                       </div>
                     </div>

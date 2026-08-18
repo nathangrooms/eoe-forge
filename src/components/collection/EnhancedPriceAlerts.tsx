@@ -174,13 +174,13 @@ export function EnhancedPriceAlerts() {
                     <SelectContent>
                       <SelectItem value="below">
                         <div className="flex items-center gap-2">
-                          <TrendingDown className="h-4 w-4 text-green-500" />
+                          <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           <span>Alert when price drops below</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="above">
                         <div className="flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4 text-blue-500" />
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           <span>Alert when price rises above</span>
                         </div>
                       </SelectItem>
@@ -236,9 +236,9 @@ export function EnhancedPriceAlerts() {
                     <div className="font-medium truncate">{alert.card_name}</div>
                     <div className="flex items-center gap-2 mt-1">
                       {alert.alert_type === 'below' ? (
-                        <TrendingDown className="h-4 w-4 text-green-500" />
+                        <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       ) : (
-                        <TrendingUp className="h-4 w-4 text-blue-500" />
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       )}
                       <span className="text-sm text-muted-foreground">
                         Alert when {alert.alert_type} ${alert.target_price.toFixed(2)}

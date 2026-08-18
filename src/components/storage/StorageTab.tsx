@@ -9,9 +9,11 @@ export function StorageTab() {
   if (selectedContainer) {
     return (
       <div className="h-full">
-        <StorageContainerView 
+        <StorageContainerView
           container={selectedContainer}
           onBack={() => setSelectedContainer(null)}
+          onContainerDeleted={() => setSelectedContainer(null)}
+          onContainerUpdated={updated => setSelectedContainer(updated)}
         />
       </div>
     );

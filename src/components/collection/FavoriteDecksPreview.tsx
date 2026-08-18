@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckStore } from '@/stores/deckStore';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { ColorIdentity } from '@/components/ui/mana-cost';
 
 interface FavoriteDeck {
   deck_id: string;
@@ -96,26 +97,9 @@ export function FavoriteDecksPreview() {
     }
   };
 
-  const getColorIndicator = (colors: string[]) => {
-    const colorMap: Record<string, string> = {
-      W: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      U: 'bg-blue-100 text-blue-800 border-blue-300', 
-      B: 'bg-gray-100 text-gray-800 border-gray-300',
-      R: 'bg-red-100 text-red-800 border-red-300',
-      G: 'bg-green-100 text-green-800 border-green-300'
-    };
-    
-    return (
-      <div className="flex gap-1">
-        {colors.slice(0, 3).map((color, index) => (
-          <div 
-            key={index}
-            className={`w-3 h-3 rounded-full border ${colorMap[color] || 'bg-gray-200 border-gray-300'}`}
-          />
-        ))}
-      </div>
-    );
-  };
+  const getColorIndicator = (colors: string[]) => (
+    <ColorIdentity colors={colors} size="xs" />
+  );
 
   const handleDeckClick = async (deckSummary: DeckSummary) => {
     try {
@@ -192,11 +176,11 @@ export function FavoriteDecksPreview() {
                         {deck.format}
                       </Badge>
                       {deck.format === 'commander' && (
-                        <Crown className="h-3 w-3 text-yellow-500" />
+                        <Crown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                       )}
                     </div>
                   </div>
-                  <Heart className="h-4 w-4 text-red-500 fill-current" />
+                  <Heart className="h-4 w-4 fill-current text-foreground" aria-hidden="true" />
                 </div>
                 
                 <div className="flex items-center justify-between">

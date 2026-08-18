@@ -1,30 +1,38 @@
 export type Color = "W" | "U" | "B" | "R" | "G";
+/** WUBRG plus the two pseudo-colours Scryfall understands: colourless and multicolour. */
+export type ColorOption = Color | "C" | "M";
 export type Rarity = "c" | "u" | "r" | "m";
-export type Format = "standard" | "modern" | "pioneer" | "legacy" | "vintage" | "commander" | "pauper" | "penny" | "historic" | "explorer";
+export type Format =
+  | "standard" | "pioneer" | "modern" | "legacy" | "vintage"
+  | "commander" | "oathbreaker" | "pauper" | "penny" | "brawl"
+  | "historic" | "timeless" | "alchemy" | "explorer";
+
+export type LegalState = "legal" | "banned" | "restricted";
 
 export interface CardSearchState {
-  text?: string;                 // free text (name or oracle)
+  text?: string;                 // raw Scryfall syntax / free text — passed through verbatim
+  oracle?: string;               // o:"..."
   types?: string[];              // ['creature','artifact', ...]
   supertypes?: string[];         // ['legendary','basic', ...]
   subtypes?: string[];           // ['elf','warrior', ...]
-  colors?: { mode: "any" | "exact" | "atleast"; value: Color[] }; // c, c=, c>=
-  identity?: Color[];            // id:...
+  colors?: { mode: "any" | "exact" | "atleast"; value: ColorOption[] }; // c:, c=, c>=
+  identity?: ColorOption[];      // id:...
   mv?: { min?: number; max?: number };
   pow?: { min?: number; max?: number };
   tou?: { min?: number; max?: number };
   loy?: { min?: number; max?: number };
   rarities?: Rarity[];
   sets?: string[];               // set codes
-  legal?: { format: Format; state: "legal" | "banned" | "restricted" }[];
+  legal?: { format: Format; state: LegalState }[];
   game?: ("paper" | "mtgo" | "arena")[];
   price?: { usdMax?: number; usdMin?: number };
-  extras?: { 
-    foil?: boolean; 
-    nonfoil?: boolean; 
-    showcase?: boolean; 
-    reprint?: boolean; 
-    reserved?: boolean; 
-    promo?: boolean; 
+  extras?: {
+    foil?: boolean;
+    nonfoil?: boolean;
+    showcase?: boolean;
+    reprint?: boolean;
+    reserved?: boolean;
+    promo?: boolean;
   };
   language?: string;             // lang:...
   artist?: string;
@@ -32,41 +40,66 @@ export interface CardSearchState {
   not?: string[];                // raw NOT tokens
   orGroups?: string[][];         // each inner array is OR-joined tokens
   // result options
-  unique?: "prints" | "cards";
-  order?: "name" | "cmc" | "color" | "rarity" | "released" | "usd" | "tix" | "edhrec";
+  unique?: "prints" | "cards" | "art";
+  order?: "name" | "cmc" | "color" | "rarity" | "released" | "usd" | "tix" | "edhrec" | "power" | "toughness" | "set";
   dir?: "asc" | "desc";
 }
 
-const esc = (s: string) => /[\s:"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
+/**
+ * Quote a value the UI itself injects (an artist name, an oracle phrase).
+ * This is deliberately NOT applied to `state.text`: that box is where the user
+ * types Scryfall syntax, and quoting it turns `t:creature` into a literal name
+ * search that matches nothing.
+ */
+const esc = (s: string) => (/[\s:"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s);
 
-const range = (key: string, r?: { min?: number, max?: number }) =>
-  !r ? [] : [
-    typeof r.min === "number" ? `${key}>=${r.min}` : null,
-    typeof r.max === "number" ? `${key}<=${r.max}` : null
-  ].filter(Boolean) as string[];
+const range = (key: string, r?: { min?: number; max?: number }) =>
+  !r
+    ? []
+    : ([
+        typeof r.min === "number" ? `${key}>=${r.min}` : null,
+        typeof r.max === "number" ? `${key}<=${r.max}` : null,
+      ].filter(Boolean) as string[]);
 
-export function buildScryfallQuery(s: CardSearchState): { q: string, params: Record<string, string> } {
+const WUBRG = new Set<string>(["W", "U", "B", "R", "G"]);
+
+function colorTokens(
+  key: "c" | "id",
+  mode: "any" | "exact" | "atleast",
+  value: ColorOption[]
+): string[] {
+  const tokens: string[] = [];
+  const letters = value.filter(v => WUBRG.has(v));
+  const op = mode === "exact" ? "=" : mode === "atleast" ? ">=" : ":";
+
+  if (letters.length) tokens.push(`${key}${op}${letters.join("").toLowerCase()}`);
+  if (value.includes("C")) tokens.push(`${key}:c`);
+  // Multicolour is only meaningful on the card-colour axis, not colour identity.
+  if (key === "c" && value.includes("M")) tokens.push("c:m");
+
+  return tokens;
+}
+
+export function buildScryfallQuery(s: CardSearchState): { q: string; params: Record<string, string> } {
   const tokens: string[] = [];
 
-  // text: remove commas for more flexible searching, then escape if needed
+  // The free-text box IS the Scryfall syntax box. Pass it through untouched so
+  // `t:creature`, `mv<=3` and `o:"draw a card"` reach Scryfall's own parser.
   if (s.text && s.text.trim()) {
-    const normalized = s.text.trim().replace(/,/g, '');
-    tokens.push(esc(normalized));
+    tokens.push(s.text.trim());
   }
+
+  if (s.oracle && s.oracle.trim()) tokens.push(`o:${esc(s.oracle.trim())}`);
 
   s.types?.forEach(t => tokens.push(`t:${esc(t)}`));
   s.supertypes?.forEach(t => tokens.push(`t:${esc(t)}`));
   s.subtypes?.forEach(t => tokens.push(`t:${esc(t)}`));
 
   if (s.colors && s.colors.value.length) {
-    const v = s.colors.value.join('').toLowerCase();
-    tokens.push(
-      s.colors.mode === "exact" ? `c=${v}` :
-      s.colors.mode === "atleast" ? `c>=${v}` : `c:${v}`
-    );
+    tokens.push(...colorTokens("c", s.colors.mode, s.colors.value));
   }
-  if (s.identity?.length) { 
-    tokens.push(`id:${s.identity.join('').toLowerCase()}`); 
+  if (s.identity?.length) {
+    tokens.push(...colorTokens("id", "any", s.identity));
   }
 
   tokens.push(...range("mv", s.mv));
@@ -104,13 +137,8 @@ export function buildScryfallQuery(s: CardSearchState): { q: string, params: Rec
     if (grp.length > 0) tokens.push(`( ${grp.join(" OR ")} )`);
   });
 
-  // cleanup double spaces and ensure we have a valid query
   let q = tokens.join(" ").replace(/\s+/g, " ").trim();
-  
-  // If no query was built, use a default to prevent API errors
-  if (!q) {
-    q = "*"; // Search all cards
-  }
+  if (!q) q = "*";
 
   const params: Record<string, string> = {};
   if (s.unique) params["unique"] = s.unique;
@@ -120,8 +148,15 @@ export function buildScryfallQuery(s: CardSearchState): { q: string, params: Rec
   return { q, params };
 }
 
-// Utility to build URL from search state
-export function buildScryfallURL(state: CardSearchState, baseURL = "https://api.scryfall.com/cards/search"): string {
+/** True when the state expresses any real criteria (i.e. is not the empty `*`). */
+export function hasSearchCriteria(s: CardSearchState): boolean {
+  return buildScryfallQuery(s).q !== "*";
+}
+
+export function buildScryfallURL(
+  state: CardSearchState,
+  baseURL = "https://api.scryfall.com/cards/search"
+): string {
   const { q, params } = buildScryfallQuery(state);
   const url = new URL(baseURL);
   url.searchParams.set("q", q);
@@ -129,75 +164,99 @@ export function buildScryfallURL(state: CardSearchState, baseURL = "https://api.
   return url.toString();
 }
 
-// Preset queries for common searches
-export const PRESET_QUERIES = [
+/** Count of facets the user has set, for the "Filters (3)" badge. */
+export function countActiveFilters(s: CardSearchState): number {
+  return [
+    s.oracle?.trim(),
+    s.types?.length,
+    s.supertypes?.length,
+    s.subtypes?.length,
+    s.colors?.value.length,
+    s.identity?.length,
+    s.rarities?.length,
+    s.legal?.length,
+    s.sets?.length,
+    s.game?.length,
+    s.mv?.min != null || s.mv?.max != null,
+    s.pow?.min != null || s.pow?.max != null,
+    s.tou?.min != null || s.tou?.max != null,
+    s.price?.usdMin != null || s.price?.usdMax != null,
+    s.extras?.foil,
+    s.extras?.nonfoil,
+    s.extras?.showcase,
+    s.extras?.reprint,
+    s.extras?.reserved,
+    s.extras?.promo,
+    s.artist?.trim(),
+    s.language,
+  ].filter(Boolean).length;
+}
+
+/**
+ * Preset queries. Every one of these is raw Scryfall syntax dropped into the
+ * search box, so they only work because `text` is no longer escaped.
+ */
+export const PRESET_QUERIES: { name: string; query: string; description: string }[] = [
   {
-    name: "Cheap Removal",
-    query: "t:instant mv<=2 o:\"destroy target\" f:modern"
+    name: "Cheap removal",
+    query: 't:instant mv<=2 o:"destroy target" f:modern',
+    description: "Instant-speed removal for two mana or less, Modern legal",
   },
   {
-    name: "Blue Cantrips", 
-    query: "c:u t:instant mv<=2 o:\"draw a card\""
+    name: "Blue cantrips",
+    query: 'c:u t:instant mv<=2 o:"draw a card"',
+    description: "One- and two-mana blue instants that replace themselves",
   },
   {
-    name: "Green Ramp",
-    query: "c:g f:commander (o:\"add {g}\" or o:\"search your library for a basic land\")"
+    name: "Green ramp",
+    query: 'c:g f:commander (o:"add {g}" or o:"search your library for a basic land")',
+    description: "Commander-legal green mana acceleration",
   },
   {
-    name: "Vehicles",
-    query: "t:vehicle f:standard"
+    name: "Commander staples",
+    query: "f:commander -t:land",
+    description: "The most-played nonland cards in EDH — sort by EDHREC",
   },
   {
-    name: "Planeswalkers",
-    query: "t:planeswalker"
+    name: "Legendary creatures",
+    query: "t:legendary t:creature f:commander",
+    description: "Every card that can head a Commander deck",
   },
   {
-    name: "Artifacts",
-    query: "t:artifact -t:creature"
+    name: "Mana rocks",
+    query: 't:artifact o:"add" mv<=3 -t:creature',
+    description: "Cheap artifacts that produce mana",
   },
   {
-    name: "Legendary Creatures",
-    query: "t:legendary t:creature"
+    name: "Budget under $1",
+    query: "usd<=1 f:commander -t:basic",
+    description: "Commander-legal cards priced under a dollar",
   },
   {
-    name: "Budget Cards",
-    query: "usd<=1"
-  }
+    name: "Reserved list",
+    query: "is:reserved",
+    description: "Cards Wizards has promised never to reprint",
+  },
 ];
 
-// Helper to get color symbol for UI
-export const COLOR_SYMBOLS: Record<Color, { symbol: string; name: string; className: string }> = {
-  W: { 
-    symbol: "W", 
-    name: "White", 
-    className: "bg-gradient-to-br from-yellow-50 to-orange-50 text-yellow-900 border-yellow-200" 
-  },
-  U: { 
-    symbol: "U", 
-    name: "Blue", 
-    className: "bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-900 border-blue-200" 
-  },
-  B: { 
-    symbol: "B", 
-    name: "Black", 
-    className: "bg-gradient-to-br from-gray-50 to-slate-50 text-gray-900 border-gray-300" 
-  },
-  R: { 
-    symbol: "R", 
-    name: "Red", 
-    className: "bg-gradient-to-br from-red-50 to-pink-50 text-red-900 border-red-200" 
-  },
-  G: { 
-    symbol: "G", 
-    name: "Green", 
-    className: "bg-gradient-to-br from-green-50 to-emerald-50 text-green-900 border-green-200" 
-  }
+/** Colour vocabulary for the filter UI. Pips are rendered by ManaPip. */
+export const COLOR_SYMBOLS: Record<ColorOption, { symbol: string; name: string }> = {
+  W: { symbol: "W", name: "White" },
+  U: { symbol: "U", name: "Blue" },
+  B: { symbol: "B", name: "Black" },
+  R: { symbol: "R", name: "Red" },
+  G: { symbol: "G", name: "Green" },
+  C: { symbol: "C", name: "Colorless" },
+  M: { symbol: "M", name: "Multicolor" },
 };
 
-// Helper to get rarity info for UI
-export const RARITY_INFO: Record<Rarity, { name: string; className: string }> = {
-  c: { name: "Common", className: "text-gray-600" },
-  u: { name: "Uncommon", className: "text-gray-400" },
-  r: { name: "Rare", className: "text-yellow-500" },
-  m: { name: "Mythic", className: "text-orange-500" }
+export const COLOR_ORDER: ColorOption[] = ["W", "U", "B", "R", "G", "C", "M"];
+/** Colour identity has no "multicolour" operator, so M is excluded. */
+export const IDENTITY_ORDER: ColorOption[] = ["W", "U", "B", "R", "G", "C"];
+
+export const RARITY_INFO: Record<Rarity, { name: string; code: string }> = {
+  c: { name: "Common", code: "C" },
+  u: { name: "Uncommon", code: "U" },
+  r: { name: "Rare", code: "R" },
+  m: { name: "Mythic", code: "M" },
 };

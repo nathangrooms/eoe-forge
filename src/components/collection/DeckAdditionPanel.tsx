@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Crown, Package, Plus, Check, Box, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageContainer } from '@/types/storage';
@@ -126,26 +127,11 @@ export function DeckAdditionPanel({
     onSelectionChange?.(newConfig);
   };
 
-  const getColorIndicator = (colors: string[]) => {
-    const colorMap: Record<string, string> = {
-      W: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      U: 'bg-blue-100 text-blue-800 border-blue-300', 
-      B: 'bg-gray-100 text-gray-800 border-gray-300',
-      R: 'bg-red-100 text-red-800 border-red-300',
-      G: 'bg-green-100 text-green-800 border-green-300'
-    };
-    
-    return (
-      <div className="flex gap-1">
-        {colors.map(color => (
-          <div 
-            key={color}
-            className={`w-3 h-3 rounded-full border ${colorMap[color] || 'bg-gray-200 border-gray-300'}`}
-          />
-        ))}
-      </div>
-    );
-  };
+  // Real mana pips from the shared renderer, replacing a light-mode-only
+  // Tailwind ramp that was unreadable on the dark default theme.
+  const getColorIndicator = (colors: string[]) => (
+    <ColorIdentity colors={colors} size="xs" />
+  );
 
   const getActiveSummary = () => {
     const targets = [
@@ -187,7 +173,7 @@ export function DeckAdditionPanel({
           {/* Add to Collection Toggle */}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
-              <Package className="h-5 w-5 text-blue-500" />
+              <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
                 <p className="font-medium">My Collection</p>
                 <p className="text-xs text-muted-foreground">Track owned cards</p>
@@ -206,7 +192,7 @@ export function DeckAdditionPanel({
           {/* Add to Deck Section */}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
-              <Crown className="h-5 w-5 text-purple-500" />
+              <Crown className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
                 <p className="font-medium">Add to Deck</p>
                 <p className="text-xs text-muted-foreground">Build simultaneously</p>
@@ -225,7 +211,7 @@ export function DeckAdditionPanel({
           {/* Add to Box Section */}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
-              <Box className="h-5 w-5 text-orange-500" />
+              <Box className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
                 <p className="font-medium">Add to Box</p>
                 <p className="text-xs text-muted-foreground">Organize storage</p>
@@ -299,10 +285,7 @@ export function DeckAdditionPanel({
                   {storageContainers.map(container => (
                     <SelectItem key={container.id} value={container.id}>
                       <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full border" 
-                          style={{ backgroundColor: container.color || '#64748b' }}
-                        />
+                        <Box className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                         <span className="max-w-32 truncate">{container.name}</span>
                         <Badge variant="outline" className="text-xs capitalize">
                           {container.type}
@@ -320,7 +303,7 @@ export function DeckAdditionPanel({
                     return selectedBox ? (
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <Box className="h-4 w-4 text-orange-500" />
+                          <Box className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           <span className="text-sm truncate">{selectedBox.name}</span>
                         </div>
                         <Badge variant="secondary" className="text-xs capitalize">

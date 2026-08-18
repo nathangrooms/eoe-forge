@@ -8,7 +8,6 @@ import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
-import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
 import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
@@ -26,6 +25,7 @@ import {
   Eye
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { categorizeCard, type CardCategory } from '@/components/deck-builder/deck-categories';
 
 interface AIGeneratedDeckListProps {
   deckName: string;
@@ -79,24 +79,23 @@ export function AIGeneratedDeckList({
     }));
   }, [cards]);
 
-  // Calculate comprehensive stats
+  // Stats use the shared classifier and count copies, not distinct entries.
   const stats = useMemo(() => {
-    const totalCards = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
-    const creatures = cards.filter(card => card.type_line?.toLowerCase().includes('creature')).length;
-    const lands = cards.filter(card => card.type_line?.toLowerCase().includes('land')).length;
-    const instants = cards.filter(card => card.type_line?.toLowerCase().includes('instant')).length;
-    const sorceries = cards.filter(card => card.type_line?.toLowerCase().includes('sorcery')).length;
-    const artifacts = cards.filter(card => 
-      card.type_line?.toLowerCase().includes('artifact') && 
-      !card.type_line?.toLowerCase().includes('creature')
-    ).length;
-    const enchantments = cards.filter(card => card.type_line?.toLowerCase().includes('enchantment')).length;
-    const planeswalkers = cards.filter(card => card.type_line?.toLowerCase().includes('planeswalker')).length;
-    
-    const nonLands = cards.filter(card => !card.type_line?.toLowerCase().includes('land'));
-    const avgCmc = nonLands.length > 0 
-      ? nonLands.reduce((sum, card) => sum + (card.cmc || 0), 0) / nonLands.length 
-      : 0;
+    const typeCounts: Partial<Record<CardCategory, number>> = {};
+    let totalCards = 0;
+    let cmcSum = 0;
+    let nonLandCopies = 0;
+
+    for (const card of cards) {
+      const qty = card.quantity || 1;
+      totalCards += qty;
+      const category = categorizeCard(card);
+      typeCounts[category] = (typeCounts[category] ?? 0) + qty;
+      if (category !== 'lands') {
+        cmcSum += (card.cmc || 0) * qty;
+        nonLandCopies += qty;
+      }
+    }
 
     const value = totalValue || cards.reduce((sum, card) => {
       const price = parseFloat(card.prices?.usd || '0');
@@ -105,14 +104,8 @@ export function AIGeneratedDeckList({
 
     return {
       totalCards,
-      creatures,
-      lands,
-      instants,
-      sorceries,
-      artifacts,
-      enchantments,
-      planeswalkers,
-      avgCmc,
+      typeCounts,
+      avgCmc: nonLandCopies > 0 ? cmcSum / nonLandCopies : 0,
       totalValue: value
     };
   }, [cards, totalValue]);
@@ -168,7 +161,7 @@ export function AIGeneratedDeckList({
   return (
     <div className="space-y-6">
       {/* Action Bar - At Top */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
+      <Card>
         <CardContent className="py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -176,7 +169,7 @@ export function AIGeneratedDeckList({
                 <img 
                   src={commander.image_uris.art_crop}
                   alt={commander.name}
-                  className="w-12 h-12 rounded-lg object-cover border-2 border-primary/20"
+                  className="w-12 h-12 rounded-lg object-cover border border-border"
                 />
               )}
               <div>
@@ -184,19 +177,19 @@ export function AIGeneratedDeckList({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{totalWithCommander} cards</span>
                   {isValidCount ? (
-                    <Badge variant="outline" className="text-green-600 border-green-600">
+                    <Badge variant="outline">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Valid
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                    <Badge variant="outline" className="text-destructive border-destructive/40">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       {totalWithCommander}/100
                     </Badge>
                   )}
                   {commander && (
-                    <Badge variant="outline" className="text-primary">
-                      <Crown className="h-3 w-3 mr-1" />
+                    <Badge variant="outline">
+                      <Crown className="h-3 w-3 mr-1 text-type-commander" />
                       {commander.name.split(',')[0]}
                     </Badge>
                   )}
@@ -205,7 +198,7 @@ export function AIGeneratedDeckList({
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={onSaveDeck} size="sm" className="bg-gradient-to-r from-primary to-accent">
+              <Button onClick={onSaveDeck} size="sm">
                 <Save className="h-4 w-4 mr-2" />
                 Save Deck
               </Button>
@@ -233,24 +226,17 @@ export function AIGeneratedDeckList({
       {/* DeckQuickStats - Matches Deck Builder Page */}
       <DeckQuickStats
         totalCards={stats.totalCards}
-        creatures={stats.creatures}
-        lands={stats.lands}
-        instants={stats.instants}
-        sorceries={stats.sorceries}
-        artifacts={stats.artifacts}
-        enchantments={stats.enchantments}
-        planeswalkers={stats.planeswalkers}
+        typeCounts={stats.typeCounts}
         avgCmc={stats.avgCmc}
         totalValue={stats.totalValue}
-        powerLevel={power || 6}
         edhPowerLevel={edhPowerLevel}
         edhMetrics={analysis?.edhMetrics || null}
         edhPowerUrl={edhUrl}
         format="commander"
         commanderName={commander?.name}
         colors={commanderColors}
-        ownedPct={100}
-        missingCards={0}
+        ownedPct={null}
+        missingCards={null}
       />
 
       {/* Tabs for content */}
@@ -308,19 +294,12 @@ export function AIGeneratedDeckList({
             commander={commander}
           />
 
-          {/* Commander Power Display */}
-          {commander && (
-            <CommanderPowerDisplay
-              powerLevel={edhPowerLevel ?? power ?? 6}
-              metrics={{
-                overall: edhPowerLevel ?? power ?? 6,
-                speed: (edhPowerLevel ?? power ?? 6) * 0.9,
-                interaction: (edhPowerLevel ?? power ?? 6) * 1.1,
-                resilience: (edhPowerLevel ?? power ?? 6) * 0.8,
-                comboPotential: (edhPowerLevel ?? power ?? 6) * 1.2
-              }}
-            />
-          )}
+          {/*
+            CommanderPowerDisplay was fed sub-scores derived as
+            powerLevel * 0.9 / 1.1 / 0.8 / 1.2 — invented numbers labelled
+            speed, interaction, resilience and combo potential. Removed; the
+            real per-axis figures come from EdhAnalysisPanel above.
+          */}
 
           {/* Power Level Consistency */}
           <PowerLevelConsistency 
@@ -352,10 +331,10 @@ export function AIGeneratedDeckList({
 
           {/* Strategy Summary */}
           {analysis?.strategy && (
-            <Card className="border-primary/20 bg-primary/5">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-primary" />
+                  <Crown className="h-5 w-5 text-type-commander" />
                   Deck Strategy
                 </CardTitle>
               </CardHeader>

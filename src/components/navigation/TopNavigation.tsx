@@ -1,143 +1,146 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/components/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, ScanLine, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Upload, Camera } from 'lucide-react';
 import { MobileNavigation } from './MobileNavigation';
+import { AccountMenu } from './AccountMenu';
+import logo from '@/assets/deckmatrix-logo.png';
 
-const FORMATS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'commander', label: 'Commander' },
-  { value: 'modern', label: 'Modern' },
-  { value: 'pioneer', label: 'Pioneer' },
-  { value: 'legacy', label: 'Legacy' },
-  { value: 'vintage', label: 'Vintage' }
-];
-
+/**
+ * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
+ * exactly 4rem (`pt-16`, rail `top-16`, `min-h-[calc(100vh-4rem)]`). It must
+ * therefore be 64px tall at every breakpoint — it used to be `h-16 md:h-20`,
+ * which overlapped the first 16px of every desktop page.
+ */
 export function TopNavigation() {
-  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState('standard');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
+  // Ctrl/Cmd+K focuses the header search. Nothing else in the app binds it
+  // outside a focused input, so there is no collision with the card-search page.
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile) setIsAdmin(profile.is_admin || false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
     };
-    checkAdminStatus();
-  }, [user]);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/cards?q=${encodeURIComponent(searchQuery)}&format=${selectedFormat}`);
-    }
+  // App.tsx owns <main> and gives it no id, so stamp one on for the skip link.
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (main && !main.id) main.id = 'main-content';
+  });
+
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    navigate(`/cards?q=${encodeURIComponent(query)}`);
   };
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
-  };
-
-  const handleNewDeck = () => navigate('/deck-builder');
-  const handleImportCollection = () => navigate('/collection?tab=add-cards');
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="w-full flex h-16 md:h-20 items-center justify-between px-3 md:px-6">
-        {/* Left: Mobile menu + camera, Desktop logo */}
-        <div className="flex items-center gap-3 md:flex-none flex-1 md:flex-initial">
-          <div className="md:hidden flex items-center gap-2">
-            <MobileNavigation />
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate('/scan')}>
-              <Camera className="h-5 w-5" />
-              <span className="sr-only">Fast Scan</span>
-            </Button>
-          </div>
-          <div className="hidden md:flex items-center gap-2 cursor-pointer" onClick={() => navigate('/') }>
-            <img src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" alt="DECKMATRIX" className="h-12 md:h-20 w-auto py-1" />
-          </div>
+    <header className="h-16 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+      >
+        Skip to main content
+      </a>
+
+      <div className="flex h-full w-full items-center gap-3 px-3 md:px-5">
+        {/* Left: mobile menu, brand */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <MobileNavigation />
+          <Link
+            to="/"
+            className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="DeckMatrix home"
+          >
+            <img src={logo} alt="DeckMatrix" className="h-7 w-auto md:h-8" />
+          </Link>
         </div>
 
-        {/* Mobile: Centered logo */}
-        <div className="md:hidden flex justify-center flex-1">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/') }>
-            <img src="/lovable-uploads/099c667b-3e64-4ac4-94a8-18b5bf6a8ecb.png" alt="DECKMATRIX" className="h-12 w-auto py-1" />
+        {/* Centre: card search */}
+        <form
+          onSubmit={handleSearch}
+          role="search"
+          aria-label="Search cards"
+          className="mx-auto hidden w-full max-w-xl items-center md:flex"
+        >
+          <div className="relative w-full">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+              placeholder="Search cards"
+              aria-label="Search cards"
+              className="h-9 pl-9 pr-14"
+            />
+            <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:inline-block">
+              ⌘K
+            </kbd>
           </div>
-        </div>
+          <button type="submit" className="sr-only">
+            Search
+          </button>
+        </form>
 
-        {/* Center: Search (desktop) */}
-        <div className="hidden md:flex flex-1 justify-center">
-          <div className="w-full max-w-2xl">
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search cards (Scryfall syntax)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FORMATS.map((format) => (
-                    <SelectItem key={format.value} value={format.value}>
-                      {format.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </form>
-          </div>
-        </div>
+        {/* Right: primary actions + account */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 md:ml-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0 md:hidden"
+            onClick={() => navigate('/cards')}
+            aria-label="Search cards"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
 
-        {/* Right: Quick actions + auth */}
-        <div className="flex items-center gap-1 md:gap-2 flex-1 md:flex-initial justify-end">
-          {/* Mobile: just search */}
-          <div className="md:hidden flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/cards')}>
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0 md:hidden"
+            onClick={() => navigate('/scan')}
+            aria-label="Scan cards"
+          >
+            <ScanLine className="h-5 w-5" />
+          </Button>
 
-          {/* Desktop buttons */}
-          <div className="hidden md:flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleNewDeck}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Deck
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleImportCollection}>
-              <Upload className="h-4 w-4 mr-2" />
-              Import
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/cards')}>
-              <Search className="h-4 w-4 mr-2" />
-              Card Search
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden h-9 lg:inline-flex"
+            onClick={() => navigate('/collection?tab=add-cards')}
+          >
+            <Upload className="h-4 w-4" />
+            Add cards
+          </Button>
 
-          {/* Auth control - only show sign in on mobile, sign out moved to nav menu */}
-          {!user && (
-            <Button onClick={() => navigate('/auth')} size="sm">Sign In</Button>
-          )}
+          <Button
+            size="sm"
+            className="hidden h-9 md:inline-flex"
+            onClick={() => navigate('/deck-builder')}
+          >
+            <Plus className="h-4 w-4" />
+            New deck
+          </Button>
+
+          <AccountMenu />
         </div>
       </div>
-
     </header>
   );
 }

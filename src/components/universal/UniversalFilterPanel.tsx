@@ -1,365 +1,307 @@
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  X, 
-  Filter,
-  Palette,
-  Type,
-  BarChart3,
-  Trophy
-} from 'lucide-react';
+import { ManaPip } from '@/components/ui/mana-cost';
+import { cn } from '@/lib/utils';
+import { rarityClass, rarityCode } from '@/lib/scryfall/card-utils';
+import { Filter, X } from 'lucide-react';
+
+/**
+ * Client-side filter state for card lists that are already in memory
+ * (a collection, a storage container, a deck list).
+ *
+ * Colours are uppercase WUBRG — the same vocabulary Scryfall and the database
+ * use. They were previously lowercase here and compared with `includes()`
+ * against uppercase card data, so selecting any colour matched nothing at all.
+ */
+export interface LocalCardFilters {
+  colors: string[];
+  types: string[];
+  formats: string[];
+  rarities: string[];
+  cmc: [number, number];
+  power: [number, number];
+  toughness: [number, number];
+  priceMin: number;
+  priceMax: number;
+}
+
+export const EMPTY_LOCAL_FILTERS: LocalCardFilters = {
+  colors: [],
+  types: [],
+  formats: [],
+  rarities: [],
+  cmc: [0, 20],
+  power: [0, 20],
+  toughness: [0, 20],
+  priceMin: 0,
+  priceMax: 0,
+};
 
 interface UniversalFilterPanelProps {
-  filters: {
-    colors: string[];
-    types: string[];
-    formats: string[];
-    rarities: string[];
-    cmc: [number, number];
-    power: [number, number];
-    toughness: [number, number];
-    priceMin: number;
-    priceMax: number;
-  };
-  onFiltersChange: (filters: any) => void;
+  filters: LocalCardFilters;
+  onFiltersChange: (filters: LocalCardFilters) => void;
   onClearFilters: () => void;
   className?: string;
 }
 
-const COLORS = [
-  { 
-    value: 'w', 
-    label: 'White', 
-    symbol: 'W',
-    className: 'bg-gradient-to-br from-yellow-50 to-orange-50 text-yellow-900 border-yellow-200 hover:from-yellow-100 hover:to-orange-100' 
-  },
-  { 
-    value: 'u', 
-    label: 'Blue', 
-    symbol: 'U',
-    className: 'bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-900 border-blue-200 hover:from-blue-100 hover:to-indigo-100' 
-  },
-  { 
-    value: 'b', 
-    label: 'Black', 
-    symbol: 'B',
-    className: 'bg-gradient-to-br from-gray-50 to-slate-50 text-gray-900 border-gray-300 hover:from-gray-100 hover:to-slate-100' 
-  },
-  { 
-    value: 'r', 
-    label: 'Red', 
-    symbol: 'R',
-    className: 'bg-gradient-to-br from-red-50 to-pink-50 text-red-900 border-red-200 hover:from-red-100 hover:to-pink-100' 
-  },
-  { 
-    value: 'g', 
-    label: 'Green', 
-    symbol: 'G',
-    className: 'bg-gradient-to-br from-green-50 to-emerald-50 text-green-900 border-green-200 hover:from-green-100 hover:to-emerald-100' 
-  },
-  { 
-    value: 'c', 
-    label: 'Colorless', 
-    symbol: 'C',
-    className: 'bg-gradient-to-br from-stone-50 to-neutral-50 text-stone-700 border-stone-200 hover:from-stone-100 hover:to-neutral-100' 
-  }
+/** 'C' is the colorless predicate (`colors.length === 0`), not a real colour. */
+const COLORS: { value: string; label: string }[] = [
+  { value: 'W', label: 'White' },
+  { value: 'U', label: 'Blue' },
+  { value: 'B', label: 'Black' },
+  { value: 'R', label: 'Red' },
+  { value: 'G', label: 'Green' },
+  { value: 'C', label: 'Colorless' },
 ];
 
 const TYPES = [
-  'creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land', 'battle'
+  'creature', 'instant', 'sorcery', 'artifact',
+  'enchantment', 'planeswalker', 'land', 'battle',
 ];
 
 const FORMATS = [
-  'standard', 'pioneer', 'modern', 'legacy', 'vintage', 'commander', 'pauper', 'historic'
+  'standard', 'pioneer', 'modern', 'legacy',
+  'vintage', 'commander', 'pauper', 'historic',
 ];
 
 const RARITIES = ['common', 'uncommon', 'rare', 'mythic'];
+
+function Chip({
+  selected,
+  onClick,
+  children,
+  className,
+}: {
+  selected?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected
+          ? 'border-foreground bg-primary text-primary-foreground'
+          : 'border-border bg-background text-foreground hover:bg-accent',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function UniversalFilterPanel({
   filters,
   onFiltersChange,
   onClearFilters,
-  className = ""
+  className = '',
 }: UniversalFilterPanelProps) {
-  const [expandedSections, setExpandedSections] = useState({
-    colors: true,
-    types: false,
-    stats: false,
-    format: false
-  });
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const updateFilter = <K extends keyof typeof filters>(
-    key: K, 
-    value: typeof filters[K]
-  ) => {
+  const update = <K extends keyof LocalCardFilters>(key: K, value: LocalCardFilters[K]) =>
     onFiltersChange({ ...filters, [key]: value });
+
+  const toggle = (key: 'colors' | 'types' | 'formats' | 'rarities', value: string) => {
+    const current = filters[key];
+    update(
+      key,
+      current.includes(value) ? current.filter(v => v !== value) : [...current, value]
+    );
   };
 
-  const toggleArrayFilter = (key: 'colors' | 'types' | 'formats' | 'rarities', value: string) => {
-    const currentArray = filters[key];
-    const newArray = currentArray.includes(value)
-      ? currentArray.filter(item => item !== value)
-      : [...currentArray, value];
-    updateFilter(key, newArray);
-  };
-
-  const hasActiveFilters = 
-    filters.colors.length > 0 || 
-    filters.types.length > 0 || 
-    filters.formats.length > 0 || 
-    filters.rarities.length > 0 ||
-    filters.cmc[0] > 0 || 
-    filters.cmc[1] < 20;
-
-  const getActiveFilterCount = () => {
-    return filters.colors.length + 
-           filters.types.length + 
-           filters.formats.length + 
-           filters.rarities.length +
-           (filters.cmc[0] > 0 || filters.cmc[1] < 20 ? 1 : 0);
-  };
+  const activeCount =
+    filters.colors.length +
+    filters.types.length +
+    filters.formats.length +
+    filters.rarities.length +
+    (filters.cmc[0] > 0 || filters.cmc[1] < 20 ? 1 : 0) +
+    (filters.power[0] > 0 || filters.power[1] < 20 ? 1 : 0) +
+    (filters.toughness[0] > 0 || filters.toughness[1] < 20 ? 1 : 0) +
+    (filters.priceMin > 0 ? 1 : 0) +
+    (filters.priceMax > 0 ? 1 : 0);
 
   return (
-    <Card className={`w-full ${className}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-5 w-5" />
-            Filters
-            {hasActiveFilters && (
-              <Badge variant="secondary" className="ml-2">
-                {getActiveFilterCount()}
-              </Badge>
-            )}
-          </CardTitle>
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={onClearFilters}>
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
+    <Card className={cn('w-full', className)}>
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <span className="text-sm font-medium text-foreground">Filters</span>
+          {activeCount > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {activeCount}
+            </Badge>
           )}
         </div>
+        {activeCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={onClearFilters} className="gap-1">
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </Button>
+        )}
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Colors Section */}
-        <Collapsible open={expandedSections.colors} onOpenChange={() => toggleSection('colors')}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-              <div className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                <span className="font-medium">Colors</span>
-                {filters.colors.length > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {filters.colors.length}
-                  </Badge>
-                )}
-              </div>
-              {expandedSections.colors ? 
-                <ChevronUp className="h-4 w-4" /> : 
-                <ChevronDown className="h-4 w-4" />
-              }
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
-            <div className="grid grid-cols-2 gap-2">
-              {COLORS.map((color) => {
-                const isSelected = filters.colors.includes(color.value);
-                return (
-                  <button
-                    key={color.value}
-                    onClick={() => toggleArrayFilter('colors', color.value)}
-                    className={`
-                      relative px-3 py-2 rounded-lg border-2 transition-all duration-200 
-                      flex items-center gap-2 font-medium text-sm justify-center
-                      ${isSelected 
-                        ? `${color.className} ring-2 ring-primary/20 shadow-md` 
-                        : `${color.className} opacity-60 hover:opacity-100`
-                      }
-                    `}
-                  >
-                    <div className={`
-                      w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold
-                      ${isSelected ? 'bg-white/30' : 'bg-white/20'}
-                    `}>
-                      {color.symbol}
-                    </div>
-                    <span className="text-xs">{color.label}</span>
-                    {isSelected && (
-                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full flex items-center justify-center">
-                        <div className="w-1 h-1 bg-white rounded-full"></div>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
 
-        {/* Types Section */}
-        <Collapsible open={expandedSections.types} onOpenChange={() => toggleSection('types')}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-              <div className="flex items-center gap-2">
-                <Type className="h-4 w-4" />
-                <span className="font-medium">Card Types</span>
-                {filters.types.length > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {filters.types.length}
-                  </Badge>
-                )}
-              </div>
-              {expandedSections.types ? 
-                <ChevronUp className="h-4 w-4" /> : 
-                <ChevronDown className="h-4 w-4" />
-              }
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
-            <div className="flex flex-wrap gap-2">
-              {TYPES.map((type) => {
-                const isSelected = filters.types.includes(type);
-                return (
-                  <button
-                    key={type}
-                    onClick={() => toggleArrayFilter('types', type)}
-                    className={`
-                      px-3 py-1.5 rounded-full border transition-all duration-200 text-sm font-medium capitalize
-                      ${isSelected 
-                        ? 'bg-primary text-primary-foreground border-primary shadow-sm' 
-                        : 'bg-background border-border hover:border-primary/50 hover:bg-accent'
-                      }
-                    `}
-                  >
-                    {type}
-                  </button>
-                );
-              })}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+      <CardContent className="space-y-5">
+        <div>
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+            Colors
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {COLORS.map(color => (
+              <Chip
+                key={color.value}
+                selected={filters.colors.includes(color.value)}
+                onClick={() => toggle('colors', color.value)}
+              >
+                <ManaPip symbol={color.value} size="xs" />
+                {color.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
 
-        {/* Stats Section */}
-        <Collapsible open={expandedSections.stats} onOpenChange={() => toggleSection('stats')}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                <span className="font-medium">Stats</span>
-                {(filters.cmc[0] > 0 || filters.cmc[1] < 20) && (
-                  <Badge variant="secondary" className="text-xs">
-                    CMC
-                  </Badge>
-                )}
-              </div>
-              {expandedSections.stats ? 
-                <ChevronUp className="h-4 w-4" /> : 
-                <ChevronDown className="h-4 w-4" />
-              }
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3 space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Mana Value: {filters.cmc[0]} - {filters.cmc[1]}
-              </label>
-              <Slider
-                value={filters.cmc}
-                onValueChange={(value) => updateFilter('cmc', value as [number, number])}
-                max={20}
-                step={1}
-                className="mt-2"
+        <div>
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+            Card types
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {TYPES.map(type => (
+              <Chip
+                key={type}
+                selected={filters.types.includes(type)}
+                onClick={() => toggle('types', type)}
+                className="capitalize"
+              >
+                {type}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+            Rarity
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {RARITIES.map(rarity => (
+              <Chip
+                key={rarity}
+                selected={filters.rarities.includes(rarity)}
+                onClick={() => toggle('rarities', rarity)}
+                className="capitalize"
+              >
+                <span
+                  className={cn(
+                    'font-mono text-[10px]',
+                    filters.rarities.includes(rarity) ? '' : rarityClass(rarity)
+                  )}
+                >
+                  {rarityCode(rarity)}
+                </span>
+                {rarity}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+            Legal in
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {FORMATS.map(format => (
+              <Chip
+                key={format}
+                selected={filters.formats.includes(format)}
+                onClick={() => toggle('formats', format)}
+                className="capitalize"
+              >
+                {format}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+              Mana value: {filters.cmc[0]}–{filters.cmc[1]}
+            </Label>
+            <Slider
+              value={filters.cmc}
+              onValueChange={v => update('cmc', v as [number, number])}
+              max={20}
+              step={1}
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+              Power: {filters.power[0]}–{filters.power[1]}
+            </Label>
+            <Slider
+              value={filters.power}
+              onValueChange={v => update('power', v as [number, number])}
+              max={20}
+              step={1}
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+              Toughness: {filters.toughness[0]}–{filters.toughness[1]}
+            </Label>
+            <Slider
+              value={filters.toughness}
+              onValueChange={v => update('toughness', v as [number, number])}
+              max={20}
+              step={1}
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+            Price (USD)
+          </Label>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Label htmlFor="local-price-min" className="text-xs text-muted-foreground">
+                Min
+              </Label>
+              <Input
+                id="local-price-min"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="any"
+                value={filters.priceMin || ''}
+                onChange={e => update('priceMin', e.target.value ? parseFloat(e.target.value) : 0)}
+                className="mt-1 h-9"
               />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Formats Section */}
-        <Collapsible open={expandedSections.format} onOpenChange={() => toggleSection('format')}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4" />
-                <span className="font-medium">Formats</span>
-                {filters.formats.length > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {filters.formats.length}
-                  </Badge>
-                )}
-              </div>
-              {expandedSections.format ? 
-                <ChevronUp className="h-4 w-4" /> : 
-                <ChevronDown className="h-4 w-4" />
-              }
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
-            <div className="flex flex-wrap gap-2">
-              {FORMATS.map((format) => {
-                const isSelected = filters.formats.includes(format);
-                return (
-                  <button
-                    key={format}
-                    onClick={() => toggleArrayFilter('formats', format)}
-                    className={`
-                      px-3 py-1.5 rounded-full border transition-all duration-200 text-sm font-medium capitalize
-                      ${isSelected 
-                        ? 'bg-secondary text-secondary-foreground border-secondary shadow-sm' 
-                        : 'bg-background border-border hover:border-secondary/50 hover:bg-accent'
-                      }
-                    `}
-                  >
-                    {format}
-                  </button>
-                );
-              })}
+            <div className="flex-1">
+              <Label htmlFor="local-price-max" className="text-xs text-muted-foreground">
+                Max
+              </Label>
+              <Input
+                id="local-price-max"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="any"
+                value={filters.priceMax || ''}
+                onChange={e => update('priceMax', e.target.value ? parseFloat(e.target.value) : 0)}
+                className="mt-1 h-9"
+              />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Rarities */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">Rarity</label>
-          <div className="flex flex-wrap gap-2">
-            {RARITIES.map((rarity) => {
-              const isSelected = filters.rarities.includes(rarity);
-              const rarityColors = {
-                common: 'text-gray-600',
-                uncommon: 'text-gray-400', 
-                rare: 'text-yellow-500',
-                mythic: 'text-orange-500'
-              };
-              
-              return (
-                <button
-                  key={rarity}
-                  onClick={() => toggleArrayFilter('rarities', rarity)}
-                  className={`
-                    px-3 py-1.5 rounded-full border transition-all duration-200 text-sm font-medium capitalize
-                    ${isSelected 
-                      ? `bg-background border-border ring-2 ring-primary/20 ${rarityColors[rarity as keyof typeof rarityColors]}` 
-                      : 'bg-background border-border hover:border-primary/50 hover:bg-accent'
-                    }
-                  `}
-                >
-                  {rarity}
-                </button>
-              );
-            })}
           </div>
         </div>
       </CardContent>

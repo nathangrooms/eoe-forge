@@ -17,7 +17,7 @@ export const CombatArrows = ({ attackers, blockers }: CombatArrowsProps) => {
 
   useEffect(() => {
     const newArrows: Arrow[] = [];
-    
+
     // Create arrows from attackers to blockers
     blockers.forEach(blocker => {
       newArrows.push({
@@ -64,12 +64,12 @@ export const CombatArrows = ({ attackers, blockers }: CombatArrowsProps) => {
                   orient="auto"
                   markerUnits="strokeWidth"
                 >
-                  <polygon points="0 0, 10 3, 0 6" fill="#ef4444" />
+                  <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--destructive))" />
                 </marker>
               </defs>
               <motion.path
                 d="M 100 100 L 200 200"
-                stroke="#ef4444"
+                stroke="hsl(var(--destructive))"
                 strokeWidth="4"
                 fill="none"
                 markerEnd={`url(#arrowhead-${arrow.id})`}

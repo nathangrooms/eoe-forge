@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -126,9 +127,11 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
   };
 
   const getOwnershipColor = (percent: number) => {
-    if (percent >= 80) return 'text-emerald-500';
-    if (percent >= 60) return 'text-yellow-500';
-    return 'text-orange-500';
+    // Completion is a neutral metric, not a semantic signal — the palette is
+    // reserved for MTG meaning.
+    if (percent >= 80) return 'text-foreground';
+    if (percent >= 60) return 'text-foreground/80';
+    return 'text-muted-foreground';
   };
 
   const getOwnershipLabel = (percent: number) => {
@@ -172,23 +175,7 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       {rec.colors.length > 0 && (
-                        <div className="flex gap-0.5">
-                          {rec.colors.map((color) => (
-                            <div
-                              key={color}
-                              className="w-4 h-4 rounded-full border"
-                              style={{
-                                backgroundColor:
-                                  color === 'W' ? '#f0e68c' :
-                                  color === 'U' ? '#0e68ab' :
-                                  color === 'B' ? '#150b00' :
-                                  color === 'R' ? '#d32029' :
-                                  color === 'G' ? '#00733e' :
-                                  '#ccc'
-                              }}
-                            />
-                          ))}
-                        </div>
+                        <ColorIdentity colors={rec.colors} size="xs" />
                       )}
                       <span>•</span>
                       <span>Power {rec.powerLevel}/10</span>

@@ -1,130 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import { StandardSectionHeader } from '@/components/ui/standardized-components';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { AITemplateRecommendations } from '@/components/templates/AITemplateRecommendations';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { ManaSymbols } from '@/components/ui/mana-symbols';
+import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Search, 
-  Crown, 
-  Zap, 
-  Shield, 
-  Users, 
-  Target,
-  Plus,
-  Star,
-  TrendingUp,
-  Filter
-} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { Loader2, Plus, Search } from 'lucide-react';
+import { BASE_TEMPLATES } from '@/lib/deckbuilder/templates/base-templates';
+import type { ArchetypeTemplate } from '@/lib/deckbuilder/types';
+import { formatLabel } from '@/lib/deck/formats';
 
-const templates = [
-  {
-    id: 1,
-    name: "Azorius Control",
-    description: "Classic control deck with counterspells and board wipes",
-    format: "Standard",
-    colors: ["W", "U"],
-    power: 7.5,
-    popularity: 89,
-    winRate: 62,
-    cardCount: 75,
-    lastUpdated: "2 days ago",
-    tags: ["Control", "Counterspells", "Midrange"],
-    featured: true
-  },
-  {
-    id: 2,
-    name: "Gruul Aggro",
-    description: "Fast red-green deck focusing on early pressure",
-    format: "Standard",
-    colors: ["R", "G"],
-    power: 8.2,
-    popularity: 76,
-    winRate: 58,
-    cardCount: 75,
-    lastUpdated: "1 week ago",
-    tags: ["Aggro", "Creatures", "Burn"],
-    featured: false
-  },
-  {
-    id: 3,
-    name: "Mono-Black Devotion",
-    description: "Powerful black deck with devotion synergies",
-    format: "Pioneer",
-    colors: ["B"],
-    power: 8.7,
-    popularity: 45,
-    winRate: 65,
-    cardCount: 75,
-    lastUpdated: "3 days ago",
-    tags: ["Devotion", "Midrange", "Value"],
-    featured: true
-  },
-  {
-    id: 4,
-    name: "Simic Ramp",
-    description: "Ramp into big threats with blue-green package",
-    format: "Commander",
-    colors: ["U", "G"],
-    power: 6.8,
-    popularity: 92,
-    winRate: 55,
-    cardCount: 100,
-    lastUpdated: "5 days ago",
-    tags: ["Ramp", "Big Mana", "Creatures"],
-    featured: false
-  },
-  {
-    id: 5,
-    name: "Burn",
-    description: "Direct damage deck aiming for quick wins",
-    format: "Modern",
-    colors: ["R"],
-    power: 7.9,
-    popularity: 85,
-    winRate: 59,
-    cardCount: 75,
-    lastUpdated: "1 day ago",
-    tags: ["Aggro", "Burn", "Fast"],
-    featured: true
-  },
-  {
-    id: 6,
-    name: "Esper Midrange",
-    description: "Three-color midrange with premium removal",
-    format: "Standard",
-    colors: ["W", "U", "B"],
-    power: 8.1,
-    popularity: 67,
-    winRate: 61,
-    cardCount: 75,
-    lastUpdated: "4 days ago",
-    tags: ["Midrange", "Removal", "Value"],
-    featured: false
-  }
+/**
+ * Archetype templates.
+ *
+ * This page used to be a hardcoded array of six invented archetypes carrying
+ * fabricated statistics — win rates, popularity percentages and a frozen
+ * "2 days ago" — with every control (search, format chips, filter button, sort
+ * dropdown, Preview, View) wired to nothing. It now renders the real archetype
+ * templates that drive the deck builder, and every control works.
+ *
+ * There is deliberately no win rate or popularity figure: the platform does
+ * not collect that data, so it cannot be shown.
+ */
+
+type SortKey = 'name' | 'format' | 'colors';
+
+const TEMPLATES: ArchetypeTemplate[] = Object.values(BASE_TEMPLATES);
+
+const ALL_FORMATS = Array.from(
+  new Set(TEMPLATES.flatMap(template => template.formats))
+).sort();
+
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'name', label: 'Name' },
+  { value: 'format', label: 'Format' },
+  { value: 'colors', label: 'Colour count' },
 ];
 
+/** Human-readable role names for the quota table. */
+function roleLabel(tag: string): string {
+  return tag
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function templateKeywords(template: ArchetypeTemplate): string[] {
+  return Array.from(
+    new Set([
+      ...Object.keys(template.weights.synergy),
+      ...Object.keys(template.weights.roles),
+    ])
+  );
+}
+
 export default function Templates() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
-  const [userDecks, setUserDecks] = useState<any[]>([]);
-  const { user } = useAuth();
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [userDecks, setUserDecks] = useState<Array<{ name: string; format: string; colors: string[] }>>([]);
+  const [previewTemplate, setPreviewTemplate] = useState<ArchetypeTemplate | null>(null);
+  const [creatingFrom, setCreatingFrom] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      loadUserDecks();
-    }
-  }, [user]);
-
-  const loadUserDecks = async () => {
     if (!user) return;
-    
-    try {
+
+    const loadUserDecks = async () => {
       const { data, error } = await supabase
         .from('user_decks')
         .select('name, format, colors')
@@ -132,194 +95,318 @@ export default function Templates() {
         .limit(10);
 
       if (!error && data) {
-        setUserDecks(data);
+        setUserDecks(
+          data.map(deck => ({
+            name: deck.name,
+            format: deck.format,
+            colors: deck.colors ?? [],
+          }))
+        );
       }
+    };
+
+    loadUserDecks();
+  }, [user]);
+
+  const visibleTemplates = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = TEMPLATES.filter(template => {
+      if (selectedFormat !== 'all' && !template.formats.includes(selectedFormat)) {
+        return false;
+      }
+      if (!query) return true;
+
+      const haystack = [
+        template.name,
+        template.id,
+        ...template.formats,
+        ...templateKeywords(template),
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+
+    return filtered.sort((a, b) => {
+      switch (sortKey) {
+        case 'format':
+          return a.formats[0].localeCompare(b.formats[0]) || a.name.localeCompare(b.name);
+        case 'colors':
+          return (
+            (b.colors?.length ?? 0) - (a.colors?.length ?? 0) || a.name.localeCompare(b.name)
+          );
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+  }, [searchQuery, selectedFormat, sortKey]);
+
+  /** Create a real deck seeded from this archetype and open it in the builder. */
+  const handleUseTemplate = async (template: ArchetypeTemplate) => {
+    if (!user) {
+      showError('Sign in required', 'Log in to create a deck from a template');
+      return;
+    }
+
+    const format =
+      selectedFormat !== 'all' && template.formats.includes(selectedFormat)
+        ? selectedFormat
+        : template.formats[0];
+
+    setCreatingFrom(template.id);
+    try {
+      const { data: newDeck, error } = await supabase
+        .from('user_decks')
+        .insert({
+          user_id: user.id,
+          name: template.name,
+          format,
+          power_level: 5,
+          colors: template.colors ?? [],
+          description: `Built from the ${template.name} archetype template.`,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      showSuccess('Deck created', `"${template.name}" is ready to build`);
+      navigate(`/deck-builder?deck=${newDeck.id}`);
     } catch (error) {
-      console.error('Error loading user decks:', error);
+      console.error('Failed to create deck from template:', error);
+      showError('Error', 'Could not create a deck from this template');
+    } finally {
+      setCreatingFrom(null);
     }
   };
 
-  const handleUseTemplate = (template: any) => {
-    showSuccess("Template Selected", `Building deck from ${template.name} template`);
-    // Implement template usage
-  };
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
-        <StandardSectionHeader
-          title="Deck Templates"
-          description="Start with proven archetypes and customize to your playstyle"
+    <StandardPageLayout
+      title="Deck Templates"
+      description="Archetype blueprints that define the role quotas and curve a deck should hit"
+    >
+      <div className="space-y-6">
+        <AITemplateRecommendations
+          selectedFormat={selectedFormat !== 'all' ? selectedFormat : undefined}
+          userDecks={userDecks}
         />
 
-        {/* AI Template Recommendations */}
-        <div className="mb-6">
-          <AITemplateRecommendations 
-            selectedFormat={selectedFormat !== 'all' ? selectedFormat : undefined}
-            userDecks={userDecks}
-          />
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search archetypes by name, role or synergy…"
+              className="pl-10"
+              aria-label="Search templates"
+            />
+          </div>
+
+          <Select value={sortKey} onValueChange={value => setSortKey(value as SortKey)}>
+            <SelectTrigger className="w-full md:w-48" aria-label="Sort templates">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  Sort: {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Search and Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search templates by name, strategy, or cards..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 pl-10 pr-4 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={selectedFormat === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedFormat('all')}
+            aria-pressed={selectedFormat === 'all'}
+          >
+            All formats
+          </Button>
+          {ALL_FORMATS.map(format => (
+            <Button
+              key={format}
+              variant={selectedFormat === format ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFormat(format)}
+              aria-pressed={selectedFormat === format}
+            >
+              {formatLabel(format)}
             </Button>
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">All Formats</Button>
-            <Button variant="outline" size="sm">Standard</Button>
-            <Button variant="outline" size="sm">Modern</Button>
-            <Button variant="outline" size="sm">Commander</Button>
-            <Button variant="outline" size="sm">Pioneer</Button>
-            <Button variant="outline" size="sm">Legacy</Button>
-          </div>
+          ))}
         </div>
 
-        {/* Featured Templates */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Star className="h-5 w-5 mr-2 text-yellow-500" />
-            Featured Templates
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {templates.filter(t => t.featured).map((template) => (
-              <Card key={template.id} className="hover:shadow-lg transition-all duration-200 border-primary/20">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {template.description}
-                      </p>
-                    </div>
-                    <ManaSymbols colors={template.colors} size="sm" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <div className="text-sm font-medium">{template.power}/10</div>
-                      <div className="text-xs text-muted-foreground">Power</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{template.winRate}%</div>
-                      <div className="text-xs text-muted-foreground">Win Rate</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{template.popularity}%</div>
-                      <div className="text-xs text-muted-foreground">Popularity</div>
-                    </div>
-                  </div>
+        <p className="text-sm text-muted-foreground">
+          {visibleTemplates.length} archetype{visibleTemplates.length === 1 ? '' : 's'}
+        </p>
 
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1">
-                    {template.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
+        {visibleTemplates.length === 0 ? (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <p className="font-medium">No archetypes match</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try a different search term or format.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visibleTemplates.map(template => {
+              const keywords = templateKeywords(template).slice(0, 5);
+              const totalMinimum = Object.values(template.quotas.counts).reduce(
+                (sum, quota) => sum + quota.min,
+                0
+              );
 
-                  {/* Format and Cards */}
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{template.format}</span>
-                    <span>{template.cardCount} cards</span>
-                  </div>
+              return (
+                <Card key={template.id} className="flex flex-col">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-base">{template.name}</CardTitle>
+                      <ColorIdentity colors={template.colors ?? []} size="sm" />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {template.formats.map(format => (
+                        <Badge key={format} variant="secondary" className="text-[10px]">
+                          {formatLabel(format)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardHeader>
 
-                  {/* Actions */}
-                  <div className="flex space-x-2">
-                    <Button className="flex-1" onClick={() => handleUseTemplate(template)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Use Template
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Preview
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <CardContent className="flex flex-1 flex-col gap-3">
+                    <ul className="flex flex-wrap gap-1">
+                      {keywords.map(keyword => (
+                        <li key={keyword}>
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            {roleLabel(keyword)}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="text-xs text-muted-foreground">
+                      {Object.keys(template.quotas.counts).length} role quotas · at least{' '}
+                      {totalMinimum} slots defined
+                    </p>
+
+                    <div className="mt-auto flex gap-2 pt-2">
+                      <Button
+                        className="flex-1"
+                        onClick={() => handleUseTemplate(template)}
+                        disabled={creatingFrom === template.id}
+                      >
+                        {creatingFrom === template.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="mr-2 h-4 w-4" />
+                        )}
+                        Use template
+                      </Button>
+                      <Button variant="outline" onClick={() => setPreviewTemplate(template)}>
+                        Details
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </div>
-
-        {/* All Templates */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">All Templates</h2>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <span>Sort by:</span>
-              <select className="border border-input bg-background rounded px-2 py-1">
-                <option>Popularity</option>
-                <option>Win Rate</option>
-                <option>Power Level</option>
-                <option>Recently Updated</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {templates.map((template) => (
-              <Card key={template.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base truncate">{template.name}</CardTitle>
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {template.format}
-                      </Badge>
-                    </div>
-                    <ManaSymbols colors={template.colors} size="sm" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {template.description}
-                  </p>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-1">
-                      <Crown className="h-3 w-3" />
-                      <span>{template.power}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <TrendingUp className="h-3 w-3" />
-                      <span>{template.winRate}%</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="h-3 w-3" />
-                      <span>{template.popularity}%</span>
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button size="sm" className="flex-1" onClick={() => handleUseTemplate(template)}>
-                      Use
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      View
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
-    </div>
+
+      <Dialog
+        open={Boolean(previewTemplate)}
+        onOpenChange={open => {
+          if (!open) setPreviewTemplate(null);
+        }}
+      >
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-auto">
+          {previewTemplate && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{previewTemplate.name}</DialogTitle>
+                <DialogDescription>
+                  Blueprint used by the deck builder to fill this archetype.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ColorIdentity colors={previewTemplate.colors ?? []} size="md" />
+                  {previewTemplate.formats.map(format => (
+                    <Badge key={format} variant="secondary">
+                      {formatLabel(format)}
+                    </Badge>
+                  ))}
+                </div>
+
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Role quotas</h3>
+                  <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    {Object.entries(previewTemplate.quotas.counts).map(([tag, quota]) => (
+                      <li key={tag} className="flex justify-between border-b border-border py-1">
+                        <span className="text-muted-foreground">{roleLabel(tag)}</span>
+                        <span className="tabular-nums">
+                          {quota.min}–{quota.max}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Creature curve targets</h3>
+                  <ul className="grid grid-cols-4 gap-2 text-sm">
+                    {Object.entries(previewTemplate.quotas.creatures_curve).map(([mv, range]) => (
+                      <li key={mv} className="rounded border border-border p-2 text-center">
+                        <span className="block text-xs text-muted-foreground">MV {mv}</span>
+                        <span className="font-medium tabular-nums">{range}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                {previewTemplate.packages.length > 0 && (
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold">Required packages</h3>
+                    <ul className="space-y-2 text-sm">
+                      {previewTemplate.packages.map(pkg => (
+                        <li key={pkg.name} className="rounded border border-border p-3">
+                          <p className="font-medium">{roleLabel(pkg.name)}</p>
+                          <p className="text-muted-foreground">
+                            {pkg.require
+                              .map(req => `${req.count}× ${roleLabel(req.tag)}`)
+                              .join(', ')}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    const template = previewTemplate;
+                    setPreviewTemplate(null);
+                    handleUseTemplate(template);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Use this template
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </StandardPageLayout>
   );
 }

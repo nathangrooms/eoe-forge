@@ -64,14 +64,14 @@ export function RemovalsSection({
 
   const priorityStyles = {
     high: { bg: 'bg-destructive/10', border: 'border-destructive/30', text: 'text-destructive', label: 'Cut First' },
-    medium: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', label: 'Consider' },
+    medium: { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', label: 'Consider' },
     low: { bg: 'bg-muted/50', border: 'border-border', text: 'text-muted-foreground', label: 'Optional' }
   };
 
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Header - Mobile optimized */}
-      <Card className="border-destructive/20 bg-gradient-to-br from-destructive/5 to-transparent">
+      <Card className="border-destructive/20">
         <CardContent className="p-3 sm:p-4">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-2">
@@ -179,7 +179,7 @@ export function RemovalsSection({
                         {card.playability !== null && card.playability !== undefined && (
                           <Badge 
                             variant="outline" 
-                            className="text-[9px] sm:text-[10px] px-1 text-orange-400 bg-orange-500/10 border-orange-500/30"
+                            className="text-[9px] sm:text-[10px] px-1 text-foreground bg-muted border-border"
                           >
                             <TrendingDown className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
                             {card.playability}%

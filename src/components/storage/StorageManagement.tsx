@@ -1,23 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Plus, 
-  Package, 
-  Archive, 
-  DollarSign, 
-  AlertCircle, 
-  Box, 
-  Eye,
-  Sparkles,
-  Layers
-} from 'lucide-react';
+import { Plus, Package, Archive, DollarSign, AlertCircle, Box, Eye, Layers } from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageOverview as StorageOverviewType, StorageContainer } from '@/types/storage';
 import { CreateContainerDialog } from './CreateContainerDialog';
-import { useToast } from '@/hooks/use-toast';
+import { showError } from '@/components/ui/toast-helpers';
+import { formatPrice } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
 interface StorageManagementProps {
@@ -25,18 +16,21 @@ interface StorageManagementProps {
   selectedContainerId?: string;
 }
 
-export function StorageManagement({ 
-  onContainerSelect, 
-  selectedContainerId 
+/** Quick-create tiles now carry the type they advertise. */
+const QUICK_TYPES = [
+  { id: 'deckbox', label: 'Deck box', icon: Box },
+  { id: 'binder', label: 'Binder', icon: Layers },
+  { id: 'box', label: 'Storage box', icon: Archive },
+] as const;
+
+export function StorageManagement({
+  onContainerSelect,
+  selectedContainerId,
 }: StorageManagementProps) {
   const [overview, setOverview] = useState<StorageOverviewType | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    loadOverview();
-  }, []);
+  const [initialType, setInitialType] = useState<string | undefined>();
 
   const loadOverview = async () => {
     try {
@@ -44,25 +38,24 @@ export function StorageManagement({
       setOverview(data);
     } catch (error) {
       console.error('Failed to load storage overview:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load storage overview",
-        variant: "destructive"
-      });
+      showError('Error', 'Failed to load storage overview');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleContainerCreated = () => {
-    setShowCreateDialog(false);
+  useEffect(() => {
     loadOverview();
+  }, []);
+
+  const openCreate = (type?: string) => {
+    setInitialType(type);
+    setShowCreateDialog(true);
   };
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col bg-background p-6 space-y-6">
-        {/* Header Skeleton */}
+      <div className="flex h-full flex-col space-y-6 bg-background p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -70,9 +63,7 @@ export function StorageManagement({
           </div>
           <Skeleton className="h-10 w-36" />
         </div>
-        
-        {/* Stats Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {[1, 2, 3].map(i => (
             <Card key={i}>
               <CardContent className="p-5">
@@ -87,25 +78,13 @@ export function StorageManagement({
             </Card>
           ))}
         </div>
-        
-        {/* Containers Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map(i => (
             <Card key={i}>
-              <CardContent className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Skeleton className="h-10 w-10 rounded-lg" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-full" />
-                </div>
-                <Skeleton className="h-9 w-full mt-4" />
+              <CardContent className="space-y-3 p-5">
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-9 w-full" />
               </CardContent>
             </Card>
           ))}
@@ -114,95 +93,66 @@ export function StorageManagement({
     );
   }
 
-  const totalCards = overview?.containers.reduce((sum, c) => sum + (c as any).itemCount, 0) || 0;
-  const totalValue = overview?.containers.reduce((sum, c) => sum + (c as any).valueUSD, 0) || 0;
-  const unassignedCount = overview?.unassigned.count || 0;
-  const unassignedValue = overview?.unassigned.valueUSD || 0;
+  const containers = overview?.containers ?? [];
+  const totalCards = containers.reduce((sum, c) => sum + (c.itemCount ?? 0), 0);
+  const totalValue = containers.reduce((sum, c) => sum + (c.valueUSD ?? 0), 0);
+  const unassignedCount = overview?.unassigned.count ?? 0;
+  const unassignedValue = overview?.unassigned.valueUSD ?? 0;
+
+  const stats = [
+    { label: 'Containers', value: containers.length.toLocaleString(), icon: Layers },
+    { label: 'Stored cards', value: totalCards.toLocaleString(), icon: Archive },
+    { label: 'Stored value', value: formatPrice(totalValue), icon: DollarSign },
+  ];
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-y-auto">
-      {/* Enhanced Header Section */}
-      <div className="px-4 md:px-6 py-5 border-b bg-gradient-to-r from-card to-background">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg">
-              <Package className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Storage Manager</h2>
-              <p className="text-muted-foreground">Organize your physical card locations</p>
-            </div>
+    <div className="flex h-full flex-col overflow-y-auto bg-background">
+      {/* Header */}
+      <div className="border-b border-border bg-card px-4 py-5 md:px-6">
+        <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Storage</h2>
+            <p className="text-sm text-muted-foreground">
+              Where each physical card actually lives
+            </p>
           </div>
-          <Button 
-            onClick={() => setShowCreateDialog(true)} 
-            size="lg"
-            className="gap-2 bg-gradient-cosmic hover:opacity-90"
-          >
-            <Plus className="h-5 w-5" />
-            New Container
+          <Button onClick={() => openCreate()} className="gap-2">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New container
           </Button>
         </div>
 
-        {/* Enhanced Overview Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="relative overflow-hidden border-primary/20 group hover:shadow-lg transition-all duration-300">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4 relative">
-                <div className="p-3 bg-primary/10 rounded-xl">
-                  <Layers className="h-6 w-6 text-primary" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {stats.map(stat => (
+            <Card key={stat.label}>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-muted p-3">
+                    <stat.icon className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                    <p className="text-2xl font-bold tabular-nums text-card-foreground">
+                      {stat.value}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Containers</p>
-                  <p className="text-2xl font-bold">{overview?.containers.length || 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border-blue-500/20 group hover:shadow-lg transition-all duration-300">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4 relative">
-                <div className="p-3 bg-blue-500/10 rounded-xl">
-                  <Archive className="h-6 w-6 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Stored Cards</p>
-                  <p className="text-2xl font-bold">{totalCards.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden border-green-500/20 group hover:shadow-lg transition-all duration-300">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full -translate-y-12 translate-x-12 group-hover:scale-110 transition-transform" />
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4 relative">
-                <div className="p-3 bg-green-500/10 rounded-xl">
-                  <DollarSign className="h-6 w-6 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Stored Value</p>
-                  <p className="text-2xl font-bold text-green-500">${totalValue.toFixed(2)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Unassigned Cards Alert */}
         {unassignedCount > 0 && (
-          <Card className="border-orange-500/20 bg-orange-500/5 mt-4">
+          <Card className="mt-4 border-border bg-muted/40">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-500" />
+                <AlertCircle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    {unassignedCount} cards in your collection are not assigned to any container
+                  <p className="text-sm font-medium text-card-foreground">
+                    {unassignedCount.toLocaleString()} cards are not assigned to any container
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Total value: ${unassignedValue.toFixed(2)}
+                    Unassigned value: {formatPrice(unassignedValue)}
                   </p>
                 </div>
               </div>
@@ -211,137 +161,114 @@ export function StorageManagement({
         )}
       </div>
 
-      {/* Containers Section */}
-      <div className="flex-1 px-3 md:px-6 py-4 md:py-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Box className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Your Containers</h3>
-          {overview?.containers && overview.containers.length > 0 && (
+      {/* Containers */}
+      <div className="flex-1 px-3 py-4 md:px-6 md:py-6">
+        <div className="mb-6 flex items-center gap-2">
+          <Box className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <h3 className="text-lg font-semibold text-foreground">Your containers</h3>
+          {containers.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
-              {overview.containers.length} containers
+              {containers.length}
             </Badge>
           )}
         </div>
-        
-        {overview?.containers.length === 0 ? (
-          <Card className="border-dashed border-2 border-muted-foreground/20">
-            <CardContent className="py-16 px-6">
-              <div className="max-w-md mx-auto text-center space-y-6">
-                {/* Icon */}
-                <div className="relative mx-auto w-20 h-20">
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full opacity-20 blur-xl" />
-                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                    <Package className="h-10 w-10 text-white" />
-                  </div>
+
+        {containers.length === 0 ? (
+          <Card className="border-2 border-dashed border-border">
+            <CardContent className="px-6 py-16">
+              <div className="mx-auto max-w-md space-y-6 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">
+                  <Package className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                 </div>
 
-                {/* Text */}
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold">Create Your First Container</h3>
-                  <p className="text-muted-foreground">
-                    Organize your Magic cards by location. Create deck boxes, binders, 
-                    storage boxes, or custom containers to track where each card is stored.
+                  <h3 className="text-xl font-bold text-foreground">
+                    Create your first container
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Deck boxes, binders and storage boxes let you record where each card is.
                   </p>
                 </div>
 
-                {/* Quick Create Options */}
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  <button
-                    onClick={() => setShowCreateDialog(true)}
-                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
-                  >
-                    <Box className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
-                    <span className="text-xs font-medium">Deck Box</span>
-                  </button>
-                  <button
-                    onClick={() => setShowCreateDialog(true)}
-                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
-                  >
-                    <Layers className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
-                    <span className="text-xs font-medium">Binder</span>
-                  </button>
-                  <button
-                    onClick={() => setShowCreateDialog(true)}
-                    className="p-3 rounded-lg border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center group"
-                  >
-                    <Archive className="h-6 w-6 mx-auto mb-1 text-muted-foreground group-hover:text-primary" />
-                    <span className="text-xs font-medium">Storage Box</span>
-                  </button>
+                  {QUICK_TYPES.map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => openCreate(type.id)}
+                      className="group rounded-lg border border-border bg-card p-3 text-center transition-colors hover:border-foreground/40 hover:bg-accent"
+                    >
+                      <type.icon
+                        className="mx-auto mb-1 h-6 w-6 text-muted-foreground group-hover:text-foreground"
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs font-medium">{type.label}</span>
+                    </button>
+                  ))}
                 </div>
-
-                <Button 
-                  onClick={() => setShowCreateDialog(true)} 
-                  size="lg"
-                  className="gap-2 bg-gradient-cosmic hover:opacity-90"
-                >
-                  <Plus className="h-5 w-5" />
-                  Create Container
-                </Button>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {overview?.containers.map((container) => {
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {containers.map(container => {
               const isSelected = selectedContainerId === container.id;
-              const itemCount = (container as any).itemCount || 0;
-              const valueUSD = (container as any).valueUSD || 0;
-              const uniqueCards = (container as any).uniqueCards || 0;
-              
               return (
-                <Card 
+                <Card
                   key={container.id}
                   className={cn(
-                    "group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50",
-                    isSelected && "ring-2 ring-primary shadow-lg border-primary/50"
+                    'cursor-pointer transition-colors hover:border-foreground/40',
+                    isSelected && 'border-foreground'
                   )}
                   onClick={() => onContainerSelect(container)}
                 >
                   <CardContent className="p-5">
-                    {/* Container Header */}
-                    <div className="flex items-start gap-3 mb-4">
-                      <div 
-                        className="w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0"
-                        style={{ backgroundColor: container.color || '#6366F1' }}
-                      >
-                        <Package className="h-5 w-5" />
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
+                        <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-semibold truncate">{container.name}</h4>
-                        <Badge variant="outline" className="text-xs capitalize mt-1">
+                        <h4 className="truncate font-semibold text-card-foreground">
+                          {container.name}
+                        </h4>
+                        <Badge variant="secondary" className="mt-1 text-xs capitalize">
                           {container.type}
                         </Badge>
                       </div>
                     </div>
-                    
-                    {/* Container Stats */}
-                    <div className="space-y-2 mb-4 text-sm">
+
+                    <dl className="mb-4 space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cards</span>
-                        <span className="font-medium">{itemCount.toLocaleString()}</span>
+                        <dt className="text-muted-foreground">Cards</dt>
+                        <dd className="font-medium tabular-nums">
+                          {(container.itemCount ?? 0).toLocaleString()}
+                        </dd>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Unique</span>
-                        <span className="font-medium">{uniqueCards}</span>
+                        <dt className="text-muted-foreground">Unique</dt>
+                        <dd className="font-medium tabular-nums">
+                          {(container.uniqueCards ?? 0).toLocaleString()}
+                        </dd>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Value</span>
-                        <span className="font-semibold text-green-500">${valueUSD.toFixed(2)}</span>
+                        <dt className="text-muted-foreground">Value</dt>
+                        <dd className="font-semibold tabular-nums">
+                          {formatPrice(container.valueUSD ?? 0)}
+                        </dd>
                       </div>
-                    </div>
-                    
-                    {/* View Button */}
+                    </dl>
+
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                      onClick={(e) => {
+                      className="w-full"
+                      onClick={e => {
                         e.stopPropagation();
                         onContainerSelect(container);
                       }}
                     >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Contents
+                      <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+                      View contents
                     </Button>
                   </CardContent>
                 </Card>
@@ -354,7 +281,12 @@ export function StorageManagement({
       <CreateContainerDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onSuccess={handleContainerCreated}
+        initialType={initialType}
+        onSuccess={() => {
+          setShowCreateDialog(false);
+          setInitialType(undefined);
+          loadOverview();
+        }}
       />
     </div>
   );

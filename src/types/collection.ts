@@ -11,6 +11,7 @@ export interface Card {
   colors: string[];
   color_identity: string[];
   cmc: number;
+  mana_cost?: string;
   type_line: string;
   oracle_text?: string;
   keywords: string[];

@@ -1,24 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Heart, 
-  Plus, 
-  ExternalLink, 
-  TrendingUp, 
-  BarChart3,
-  Crown,
-  Zap,
-  Shield,
-  Users,
-  Store
-} from 'lucide-react';
-import { StoreAvailabilityCheck } from '@/components/marketplace/StoreAvailabilityCheck';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CardCost } from '@/components/cards/CardCost';
 import { CardPrintingComparison } from '@/components/cards/CardPrintingComparison';
+import { cn } from '@/lib/utils';
+import {
+  CURATED_FORMATS,
+  LEGALITY_LABEL,
+  canBeCommander,
+  edhrecUrl,
+  gathererUrl,
+  getCardImage,
+  getColorIdentity,
+  getLoyalty,
+  getOracleText,
+  getPowerToughness,
+  getSetCode,
+  getSetName,
+  getTypeLine,
+  hasBackFace,
+  legalityClass,
+  rarityClass,
+  scryfallUrl,
+  tcgplayerUrl,
+} from '@/lib/scryfall/card-utils';
+import { ExternalLink, Heart, ImageOff, Plus, RefreshCw } from 'lucide-react';
 
 interface CardModalProps {
   card: any;
@@ -29,430 +39,339 @@ interface CardModalProps {
   onAddToDeck?: (card: any) => void;
 }
 
-export function UniversalCardModal({ 
-  card, 
-  isOpen, 
-  onClose, 
-  onAddToCollection,
-  onAddToWishlist,
-  onAddToDeck 
-}: CardModalProps) {
-  const [rulings, setRulings] = useState<any[]>([]);
-  const [loadingRulings, setLoadingRulings] = useState(false);
+interface Ruling {
+  source: string;
+  published_at: string;
+  comment: string;
+}
+
+/**
+ * Real Scryfall rulings. This tab previously rendered two invented sentences on
+ * a fake loading delay for every card, which is the single worst thing an MTG
+ * site can do — it is the tab a player opens to settle a rules dispute.
+ */
+function useRulings(card: any, enabled: boolean) {
+  const [rulings, setRulings] = useState<Ruling[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const rulingsUri: string | undefined = card?.rulings_uri;
+  const cardId: string | undefined = card?.id;
 
   useEffect(() => {
-    if (isOpen && card) {
-      loadRulings();
+    if (!enabled || (!rulingsUri && !cardId)) {
+      setRulings(null);
+      return;
     }
-  }, [isOpen, card]);
 
-  const loadRulings = async () => {
-    if (!card?.oracle_id) return;
-    
-    setLoadingRulings(true);
-    try {
-      // Simulate API call to Scryfall rulings
-      setTimeout(() => {
-        setRulings([
-          {
-            published_at: '2023-01-01',
-            comment: 'Sample ruling about this card\'s interaction with other cards.'
-          },
-          {
-            published_at: '2022-06-15', 
-            comment: 'Additional clarification about timing and priority.'
-          }
-        ]);
-        setLoadingRulings(false);
-      }, 500);
-    } catch (error) {
-      console.error('Error loading rulings:', error);
-      setLoadingRulings(false);
-    }
-  };
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
 
-  const getPriceDisplay = () => {
-    if (!card?.prices) return 'N/A';
-    
-    const usd = parseFloat(card.prices.usd || '0');
-    const foil = parseFloat(card.prices.usd_foil || '0');
-    
-    if (usd > 0 && foil > 0) {
-      return `$${usd.toFixed(2)} / $${foil.toFixed(2)} foil`;
-    } else if (usd > 0) {
-      return `$${usd.toFixed(2)}`;
-    } else if (foil > 0) {
-      return `$${foil.toFixed(2)} foil`;
-    }
-    
-    return 'N/A';
-  };
+    fetch(rulingsUri ?? `https://api.scryfall.com/cards/${cardId}/rulings`, {
+      signal: controller.signal,
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error(`Scryfall returned ${res.status}`);
+        const data = await res.json();
+        setRulings(data?.data ?? []);
+      })
+      .catch(err => {
+        if (err?.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Could not load rulings');
+        setRulings(null);
+      })
+      .finally(() => setLoading(false));
 
-  const getColorIcons = (colors: string[]) => {
-    if (!colors || colors.length === 0) return null;
-    
-    return colors.map(color => (
-      <div
-        key={color}
-        className="w-5 h-5 rounded-full border-2 border-white text-xs font-bold flex items-center justify-center shadow-sm"
-        style={{
-          backgroundColor: {
-            W: '#fffbd5',
-            U: '#0e68ab',
-            B: '#150b00',
-            R: '#d3202a', 
-            G: '#00733e'
-          }[color],
-          color: color === 'W' ? '#000' : '#fff'
-        }}
-      >
-        {color}
-      </div>
-    ));
-  };
+    return () => controller.abort();
+  }, [enabled, rulingsUri, cardId]);
 
-  const getCardAnalysis = () => {
-    if (!card) return null;
+  return { rulings, loading, error };
+}
 
-    // Get EDHREC rank from Scryfall data if available
-    const edhrecRank = card.edhrec_rank;
-    const pennyRank = card.penny_rank;
-    
-    // Calculate approximate scores based on available data
-    const getRankScore = (rank: number | undefined, maxRank: number = 30000): number => {
-      if (!rank) return 0;
-      // Lower rank = better card = higher score
-      const score = Math.max(0, 10 - (rank / maxRank) * 10);
-      return Math.round(score * 10) / 10;
-    };
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-1.5">
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right text-sm text-foreground">{children}</span>
+    </div>
+  );
+}
 
-    const edhPopularity = edhrecRank ? getRankScore(edhrecRank) : null;
-    const budgetViability = pennyRank ? getRankScore(pennyRank, 10000) : null;
+export function UniversalCardModal({
+  card,
+  isOpen,
+  onClose,
+  onAddToCollection,
+  onAddToWishlist,
+  onAddToDeck,
+}: CardModalProps) {
+  const [face, setFace] = useState(0);
+  const { rulings, loading: loadingRulings, error: rulingsError } = useRulings(card, isOpen);
 
-    // Estimate other metrics from card characteristics
-    const hasRemoval = card.oracle_text?.toLowerCase().includes('destroy') || 
-                       card.oracle_text?.toLowerCase().includes('exile');
-    const hasDraw = card.oracle_text?.toLowerCase().includes('draw');
-    const hasRamp = card.oracle_text?.toLowerCase().includes('add') && 
-                    card.oracle_text?.toLowerCase().includes('mana');
-    const isLegendary = card.type_line?.includes('Legendary');
-    
-    return (
-      <div className="space-y-4">
-        <h4 className="font-medium flex items-center">
-          <BarChart3 className="h-4 w-4 mr-2" />
-          Card Analysis
-        </h4>
-        
-        {edhrecRank && (
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">EDHREC Rank</span>
-              <span className="text-lg font-bold">#{edhrecRank.toLocaleString()}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {edhrecRank < 1000 ? 'Top-tier staple' :
-               edhrecRank < 5000 ? 'Popular choice' :
-               edhrecRank < 15000 ? 'Commonly played' : 'Niche pick'}
-            </p>
-          </div>
-        )}
+  useEffect(() => {
+    setFace(0);
+  }, [card?.id, isOpen]);
 
-        <div className="space-y-3">
-          {edhPopularity !== null && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span>Commander Popularity</span>
-                <span className="font-medium">{edhPopularity}/10</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${edhPopularity * 10}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hasRemoval ? 'bg-red-500' : 'bg-muted'}`} />
-              <span className={hasRemoval ? 'text-foreground' : 'text-muted-foreground'}>
-                Removal
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hasDraw ? 'bg-blue-500' : 'bg-muted'}`} />
-              <span className={hasDraw ? 'text-foreground' : 'text-muted-foreground'}>
-                Card Draw
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hasRamp ? 'bg-green-500' : 'bg-muted'}`} />
-              <span className={hasRamp ? 'text-foreground' : 'text-muted-foreground'}>
-                Ramp
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isLegendary ? 'bg-amber-500' : 'bg-muted'}`} />
-              <span className={isLegendary ? 'text-foreground' : 'text-muted-foreground'}>
-                Commander
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {!edhrecRank && (
-          <p className="text-sm text-muted-foreground">
-            EDHREC rank not available for this card. View on EDHREC for detailed statistics.
-          </p>
-        )}
-      </div>
-    );
-  };
+  const pt = useMemo(() => getPowerToughness(card), [card]);
+  const loyalty = useMemo(() => getLoyalty(card), [card]);
+  const flippable = hasBackFace(card);
+  const imageSrc = getCardImage(card, 'normal', face);
 
   if (!card) return null;
 
+  const setCode = getSetCode(card).toUpperCase();
+  const setName = getSetName(card);
+  const price = card.prices?.usd ? `$${parseFloat(card.prices.usd).toFixed(2)}` : null;
+  const foilPrice = card.prices?.usd_foil ? `$${parseFloat(card.prices.usd_foil).toFixed(2)}` : null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex flex-wrap items-center gap-2 pr-6 text-left">
             <span>{card.name}</span>
-            {card.type_line?.includes('Legendary') && (
-              <Crown className="h-4 w-4 text-yellow-500" />
+            <CardCost card={card} faceIndex={flippable ? face : undefined} size="sm" />
+            {canBeCommander(card) && (
+              <Badge variant="outline" className="border-border text-xs font-normal text-muted-foreground">
+                Can be your commander
+              </Badge>
             )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column - Card Image & Basic Info */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* ------------------------- Card art ------------------------- */}
           <div className="space-y-4">
-            {/* Card Image */}
-            <div className="flex justify-center">
-              <div className="w-64 h-auto bg-muted rounded-lg overflow-hidden">
-                {card.image_uris?.normal ? (
-                  <img 
-                    src={card.image_uris.normal}
+            <div className="relative mx-auto w-full max-w-[300px]">
+              <div className="aspect-[63/88] w-full overflow-hidden rounded-lg border border-border bg-muted">
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
                     alt={card.name}
-                    className="w-full h-auto"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
-                  <div className="w-full h-80 flex items-center justify-center bg-muted">
-                    <span className="text-muted-foreground">No image available</span>
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <ImageOff className="h-6 w-6" aria-hidden />
+                    <span className="text-sm">No image available</span>
                   </div>
                 )}
               </div>
+
+              {flippable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFace(f => (f === 0 ? 1 : 0))}
+                  className="absolute right-2 top-2 gap-1.5"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Flip
+                </Button>
+              )}
             </div>
 
-            {/* Quick Actions */}
             <div className="flex flex-wrap gap-2">
               {onAddToCollection && (
-                <Button onClick={() => onAddToCollection(card)} className="flex-1">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add to Collection
+                <Button onClick={() => onAddToCollection(card)} className="flex-1 gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add to collection
                 </Button>
               )}
               {onAddToDeck && (
-                <Button onClick={() => onAddToDeck(card)} variant="outline" className="flex-1">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add to Deck
+                <Button onClick={() => onAddToDeck(card)} variant="outline" className="flex-1 gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add to deck
                 </Button>
               )}
               {onAddToWishlist && (
-                <Button onClick={() => onAddToWishlist(card)} variant="outline">
+                <Button
+                  onClick={() => onAddToWishlist(card)}
+                  variant="outline"
+                  size="icon"
+                  aria-label="Add to wishlist"
+                >
                   <Heart className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <a href={scryfallUrl(card)} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  Scryfall
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={edhrecUrl(card)} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  EDHREC
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={tcgplayerUrl(card)} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  TCGplayer
+                </a>
+              </Button>
+              {gathererUrl(card) && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={gathererUrl(card)!} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-1 h-3 w-3" />
+                    Gatherer
+                  </a>
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Right Column - Detailed Information */}
+          {/* ------------------------- Card data ------------------------ */}
           <div className="space-y-4">
-            {/* Basic Details */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-lg">{card.cmc || 0}</span>
-                    <span className="text-muted-foreground">CMC</span>
-                  </div>
-                  <div className="flex space-x-1">
-                    {getColorIcons(card.colors)}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Type</span>
-                    <span className="text-sm font-medium">{card.type_line}</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Set</span>
-                    <Badge variant="outline" className="text-xs">
-                      {card.set_code?.toUpperCase()} #{card.collector_number}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Rarity</span>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs capitalize ${
-                        card.rarity === 'mythic' ? 'border-orange-500 text-orange-500' :
-                        card.rarity === 'rare' ? 'border-yellow-500 text-yellow-500' :
-                        card.rarity === 'uncommon' ? 'border-gray-500 text-gray-500' :
-                        'border-gray-300 text-gray-600'
-                      }`}
-                    >
-                      {card.rarity}
-                    </Badge>
-                  </div>
-
-                  {(card.power !== undefined || card.toughness !== undefined) && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">P/T</span>
-                      <span className="text-sm font-medium">
-                        {card.power || '*'}/{card.toughness || '*'}
-                      </span>
-                    </div>
-                  )}
-
-                  {card.loyalty && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Loyalty</span>
-                      <span className="text-sm font-medium">{card.loyalty}</span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Price</span>
-                    <span className="text-sm font-medium text-green-600">
-                      {getPriceDisplay()}
+            <div className="rounded-lg border border-border p-4">
+              <DetailRow label="Type">{getTypeLine(card, flippable ? face : undefined)}</DetailRow>
+              <Separator />
+              <DetailRow label="Mana value">
+                <span className="tabular-nums">{card.cmc ?? 0}</span>
+              </DetailRow>
+              <DetailRow label="Color identity">
+                <ColorIdentity colors={getColorIdentity(card)} size="xs" className="justify-end" />
+              </DetailRow>
+              <DetailRow label="Set">
+                {setCode ? (
+                  <span>
+                    {setName ? `${setName} ` : ''}
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {setCode}
+                      {card.collector_number ? ` #${card.collector_number}` : ''}
                     </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Unknown</span>
+                )}
+              </DetailRow>
+              <DetailRow label="Rarity">
+                <span className={cn('capitalize', rarityClass(card.rarity))}>
+                  {card.rarity ?? 'unknown'}
+                </span>
+              </DetailRow>
+              {pt && (
+                <DetailRow label="Power / toughness">
+                  <span className="tabular-nums">
+                    {pt.power}/{pt.toughness}
+                  </span>
+                </DetailRow>
+              )}
+              {loyalty && <DetailRow label="Loyalty">{loyalty}</DetailRow>}
+              {card.edhrec_rank != null && (
+                <DetailRow label="EDHREC rank">
+                  <span className="tabular-nums">#{Number(card.edhrec_rank).toLocaleString()}</span>
+                </DetailRow>
+              )}
+              {(price || foilPrice) && (
+                <DetailRow label="Price (USD)">
+                  <span className="tabular-nums">
+                    {price ?? '—'}
+                    {foilPrice && (
+                      <span className="text-muted-foreground"> · {foilPrice} foil</span>
+                    )}
+                  </span>
+                </DetailRow>
+              )}
+              {card.artist && <DetailRow label="Artist">{card.artist}</DetailRow>}
+            </div>
 
-            {/* Oracle Text */}
-            {card.oracle_text && (
-              <Card>
-                <CardContent className="p-4">
-                  <h4 className="font-medium mb-2">Oracle Text</h4>
-                  <p className="text-sm leading-relaxed whitespace-pre-line">
-                    {card.oracle_text}
+            {getOracleText(card, flippable ? face : undefined) && (
+              <div className="rounded-lg border border-border p-4">
+                <h4 className="mb-2 text-sm font-medium text-foreground">Oracle text</h4>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">
+                  {getOracleText(card, flippable ? face : undefined)}
+                </p>
+                {card.flavor_text && (
+                  <p className="mt-3 border-t border-border pt-3 text-sm italic text-muted-foreground">
+                    {card.flavor_text}
                   </p>
-                </CardContent>
-              </Card>
+                )}
+              </div>
             )}
 
-            {/* Tabbed Content */}
+            {Array.isArray(card.keywords) && card.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {card.keywords.map((kw: string) => (
+                  <Badge key={kw} variant="secondary" className="text-xs font-normal">
+                    {kw}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
             <Tabs defaultValue="rulings" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="rulings">Rulings</TabsTrigger>
-                <TabsTrigger value="analysis">Analysis</TabsTrigger>
                 <TabsTrigger value="legality">Legality</TabsTrigger>
-                <TabsTrigger value="stores">Stores</TabsTrigger>
                 <TabsTrigger value="printings">Printings</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="rulings" className="space-y-3">
-                {loadingRulings ? (
-                  <div className="space-y-2">
-                    {[...Array(2)].map((_, i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="h-4 bg-muted rounded w-full mb-1" />
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                      </div>
-                    ))}
-                  </div>
-                ) : rulings.length > 0 ? (
-                  rulings.map((ruling, index) => (
-                    <div key={index} className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-sm">{ruling.comment}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(ruling.published_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No rulings available for this card.</p>
+              <TabsContent value="rulings" className="space-y-3 pt-3">
+                {loadingRulings && (
+                  <p className="text-sm text-muted-foreground">Loading rulings from Scryfall…</p>
                 )}
+                {rulingsError && (
+                  <p className="text-sm text-destructive">
+                    Could not load rulings — {rulingsError}
+                  </p>
+                )}
+                {!loadingRulings && !rulingsError && rulings?.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No rulings have been published for this card.
+                  </p>
+                )}
+                {rulings?.map((ruling, i) => (
+                  <div key={i} className="rounded-md border border-border p-3">
+                    <p className="text-sm text-foreground">{ruling.comment}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {ruling.source === 'wotc' ? 'Wizards of the Coast' : 'Scryfall'} ·{' '}
+                      {new Date(ruling.published_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
               </TabsContent>
 
-              <TabsContent value="analysis">
-                {getCardAnalysis()}
-              </TabsContent>
-
-              <TabsContent value="legality" className="space-y-3">
+              <TabsContent value="legality" className="pt-3">
                 {card.legalities ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(card.legalities).map(([format, legality]) => (
-                      <div key={format} className="flex justify-between items-center">
-                        <span className="text-sm capitalize">{format}</span>
-                        <Badge 
-                          variant={
-                            legality === 'legal' ? 'default' :
-                            legality === 'restricted' ? 'secondary' : 'outline'
-                          }
-                          className={`text-xs ${
-                            legality === 'legal' ? 'bg-green-500/10 text-green-700 border-green-500/30' :
-                            legality === 'restricted' ? 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30' :
-                            'bg-red-500/10 text-red-700 border-red-500/30'
-                          }`}
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {CURATED_FORMATS.filter(f => card.legalities[f.key]).map(format => {
+                      const state = card.legalities[format.key] as string;
+                      return (
+                        <div
+                          key={format.key}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5"
                         >
-                          {legality as string}
-                        </Badge>
-                      </div>
-                    ))}
+                          <span className="text-sm text-foreground">{format.label}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn('text-xs font-normal', legalityClass(state))}
+                          >
+                            {LEGALITY_LABEL[state] ?? state}
+                          </Badge>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Legality information not available.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Legality information is not available for this card.
+                  </p>
                 )}
               </TabsContent>
 
-              <TabsContent value="stores" className="space-y-3">
-                <StoreAvailabilityCheck 
-                  cardName={card.name || ''} 
-                  cardId={card.id || ''} 
-                />
-              </TabsContent>
-
-              <TabsContent value="printings" className="space-y-3">
-                <CardPrintingComparison 
-                  cardName={card.name || ''} 
-                  oracleId={card.oracle_id} 
-                />
+              <TabsContent value="printings" className="pt-3">
+                <CardPrintingComparison cardName={card.name || ''} oracleId={card.oracle_id} />
               </TabsContent>
             </Tabs>
-
-            {/* External Links */}
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" asChild>
-                <a 
-                  href={`https://scryfall.com/card/${card.set_code}/${card.collector_number}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  Scryfall
-                </a>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <a 
-                  href={`https://edhrec.com/cards/${encodeURIComponent(card.name?.replace(/\s+/g, '-').toLowerCase() || '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  EDHREC
-                </a>
-              </Button>
-            </div>
           </div>
         </div>
       </DialogContent>

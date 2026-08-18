@@ -40,28 +40,28 @@ const QUICK_ACTIONS = [
     label: 'Analyze Deck',
     icon: TrendingUp,
     prompt: "Analyze my deck's power level, strategy, and provide optimization suggestions.",
-    className: 'bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-600 dark:text-blue-400'
+    className: 'bg-muted hover:bg-muted border-border text-foreground'
   },
   {
     id: 'upgrades',
     label: 'Suggest Upgrades',
     icon: Zap,
     prompt: 'What are the best upgrade cards for my deck?',
-    className: 'bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/30 text-yellow-600 dark:text-yellow-400'
+    className: 'bg-muted hover:bg-muted border-border text-foreground'
   },
   {
     id: 'combos',
     label: 'Find Combos',
     icon: Target,
     prompt: 'What are the key combos and synergies in my deck?',
-    className: 'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-600 dark:text-red-400'
+    className: 'bg-destructive/10 hover:bg-destructive/20 border-destructive/40 text-destructive'
   },
   {
     id: 'cuts',
     label: 'What to Cut',
     icon: Lightbulb,
     prompt: 'What cards should I consider cutting from my deck?',
-    className: 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-600 dark:text-purple-400'
+    className: 'bg-muted hover:bg-muted border-border text-foreground'
   }
 ];
 
@@ -276,14 +276,14 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-spacecraft/10 to-celestial/10 backdrop-blur-sm">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-bold text-lg bg-gradient-cosmic bg-clip-text text-transparent">DeckMatrix AI</h3>
+              <h3 className="font-semibold text-lg">DeckMatrix AI</h3>
               <p className="text-xs text-spacecraft">Analyzing: {deckName}</p>
             </div>
           </div>
@@ -346,7 +346,7 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
                     <div className="space-y-4">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>

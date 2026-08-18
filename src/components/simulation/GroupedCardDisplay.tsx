@@ -19,14 +19,14 @@ interface CardGroup {
   cards: GameCard[];
 }
 
-export const GroupedCardDisplay = ({ 
-  cards, 
-  compact = false, 
-  faceDown = false, 
-  onRegisterCard, 
-  damages = new Map(), 
-  attackers = [], 
-  blockers = [] 
+export const GroupedCardDisplay = ({
+  cards,
+  compact = false,
+  faceDown = false,
+  onRegisterCard,
+  damages = new Map(),
+  attackers = [],
+  blockers = []
 }: GroupedCardDisplayProps) => {
   // Group cards by name
   const groupedCards = cards.reduce((acc, card) => {
@@ -53,7 +53,7 @@ export const GroupedCardDisplay = ({
         return (
           <div key={group.card.instanceId} className="relative shrink-0">
             <AnimatedCard
-              card={group.card} 
+              card={group.card}
               compact={compact}
               faceDown={faceDown}
               onRegister={onRegisterCard}
@@ -62,7 +62,7 @@ export const GroupedCardDisplay = ({
               isBlocking={isBlocking}
             />
             {group.count > 1 && (
-              <div className="absolute -top-1 -right-1 bg-background border-2 border-primary rounded-full w-6 h-6 flex items-center justify-center font-bold text-[10px] shadow-lg z-20">
+              <div className="absolute -right-1 -top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-background text-[10px] font-bold tabular-nums text-foreground">
                 ×{group.count}
               </div>
             )}

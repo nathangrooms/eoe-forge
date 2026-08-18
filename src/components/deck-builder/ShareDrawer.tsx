@@ -67,10 +67,20 @@ export function ShareDrawer({
   const [showDisableDialog, setShowDisableDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<any>(null);
+  /**
+   * Sharing state is owned here.
+   *
+   * The drawer used to gate the whole link/QR/embed block on the `isPublic`
+   * prop, which the caller never updated — so flipping the switch showed a
+   * "sharing enabled" toast, produced no link, and snapped the switch back
+   * off. The prop now only seeds this state when the drawer opens.
+   */
+  const [enabled, setEnabled] = useState(isPublic);
 
   // Set initial share URL and load analytics when drawer opens
   useEffect(() => {
     if (open) {
+      setEnabled(isPublic);
       if (isPublic && currentSlug) {
         setShareUrl(getShareUrl(currentSlug));
         loadAnalytics();
@@ -95,6 +105,7 @@ export function ShareDrawer({
     try {
       const result = await enableDeckShare(deckId);
       setShareUrl(result.url);
+      setEnabled(true);
       onShareToggle();
       await loadAnalytics();
       toast.success("Deck sharing enabled");
@@ -111,6 +122,8 @@ export function ShareDrawer({
     try {
       await disableDeckShare(deckId);
       setShareUrl("");
+      setEnabled(false);
+      setAnalytics(null);
       onShareToggle();
       setShowDisableDialog(false);
       toast.success("Deck sharing disabled");
@@ -171,7 +184,7 @@ export function ShareDrawer({
           <DrawerHeader>
             <DrawerTitle>Share {deckName}</DrawerTitle>
             <DrawerDescription>
-              {isPublic
+              {enabled
                 ? "Manage your public deck link"
                 : "Enable public sharing to get a link"}
             </DrawerDescription>
@@ -188,7 +201,7 @@ export function ShareDrawer({
               </div>
               <Switch
                 id="public-toggle"
-                checked={isPublic}
+                checked={enabled}
                 onCheckedChange={(checked) => {
                   if (checked) {
                     handleEnableSharing();
@@ -200,7 +213,7 @@ export function ShareDrawer({
               />
             </div>
 
-            {isPublic && shareUrl && (
+            {enabled && shareUrl && (
               <>
                 <Separator />
 

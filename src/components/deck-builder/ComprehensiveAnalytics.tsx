@@ -19,15 +19,15 @@ interface ComprehensiveAnalyticsProps {
 }
 
 const SUBSCORE_CONFIG: Record<string, { icon: any; color: string; desc: string }> = {
-  speed: { icon: Zap, color: 'text-yellow-500', desc: 'Fast mana and early game tempo' },
-  interaction: { icon: Shield, color: 'text-blue-500', desc: 'Removal and counterspells' },
-  tutors: { icon: Target, color: 'text-purple-500', desc: 'Consistency through tutoring' },
-  resilience: { icon: Shield, color: 'text-green-500', desc: 'Protection and recovery' },
-  card_advantage: { icon: Sparkles, color: 'text-cyan-500', desc: 'Card draw engines' },
-  mana: { icon: Mountain, color: 'text-orange-500', desc: 'Mana base quality' },
-  consistency: { icon: TrendingUp, color: 'text-indigo-500', desc: 'Curve and redundancy' },
-  stax_pressure: { icon: AlertTriangle, color: 'text-red-500', desc: 'Resource denial' },
-  synergy: { icon: Brain, color: 'text-pink-500', desc: 'Card interactions' },
+  speed: { icon: Zap, color: 'text-foreground', desc: 'Fast mana and early game tempo' },
+  interaction: { icon: Shield, color: 'text-foreground', desc: 'Removal and counterspells' },
+  tutors: { icon: Target, color: 'text-foreground', desc: 'Consistency through tutoring' },
+  resilience: { icon: Shield, color: 'text-foreground', desc: 'Protection and recovery' },
+  card_advantage: { icon: Sparkles, color: 'text-foreground', desc: 'Card draw engines' },
+  mana: { icon: Mountain, color: 'text-foreground', desc: 'Mana base quality' },
+  consistency: { icon: TrendingUp, color: 'text-foreground', desc: 'Curve and redundancy' },
+  stax_pressure: { icon: AlertTriangle, color: 'text-destructive', desc: 'Resource denial' },
+  synergy: { icon: Brain, color: 'text-foreground', desc: 'Card interactions' },
 };
 
 export function ComprehensiveAnalytics({ deck, format, commander, deckId }: ComprehensiveAnalyticsProps) {
@@ -36,39 +36,40 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
   const powerScore = useMemo<EDHPowerScore | null>(() => {
     if (!deck || deck.length === 0) return null;
 
-    const convertedDeck = deck.map(card => ({
+    // Colour identity is not the same thing as colour, and legendary status is
+    // read off the type line. Aliasing the two (and hardcoding is_legendary to
+    // false) made the engine score every deck against the wrong colours.
+    const convert = (card: DeckCard) => ({
       id: card.id || '',
       oracle_id: card.id || '',
       name: card.name,
       mana_cost: card.mana_cost || '',
       cmc: card.cmc,
       type_line: card.type_line,
-      oracle_text: '',
+      oracle_text: card.oracle_text || '',
       colors: card.colors || [],
-      color_identity: card.colors || [],
+      color_identity: card.color_identity?.length ? card.color_identity : card.colors || [],
       power: card.power,
       toughness: card.toughness,
       keywords: card.mechanics || [],
-      legalities: {},
+      legalities: (card.legalities || {}) as any,
       image_uris: undefined,
-      prices: { usd: '0' },
-      set: '',
-      set_name: '',
-      collector_number: '',
-      rarity: 'common' as any,
-      layout: 'normal',
-      is_legendary: false,
+      prices: { usd: card.prices?.usd || '0' },
+      set: card.set || '',
+      set_name: card.set_name || '',
+      collector_number: card.collector_number || '',
+      rarity: (card.rarity || 'common') as any,
+      layout: card.layout || 'normal',
+      is_legendary: (card.type_line || '').toLowerCase().includes('legendary'),
       tags: new Set<string>(),
       derived: { mv: card.cmc, colorPips: {}, producesMana: false, etbTapped: false }
-    }));
+    });
 
-    const convertedCommander = commander ? {
-      ...convertedDeck[0],
-      name: commander.name,
-      cmc: commander.cmc || 0,
-      type_line: commander.type_line || '',
-      is_legendary: true,
-    } : undefined;
+    const convertedDeck = deck.map(convert);
+
+    // Pass the real commander through rather than spreading whatever card
+    // happened to sit at index 0 of the deck.
+    const convertedCommander = commander ? convert(commander) : undefined;
 
     return EDHPowerCalculator.calculatePower(convertedDeck, format, 42, convertedCommander);
   }, [deck, format, commander]);
@@ -83,10 +84,11 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
     );
   }
 
-  const bandColor = 
-    powerScore.band === 'cedh' ? 'text-red-500' :
-    powerScore.band === 'high' ? 'text-purple-500' :
-    powerScore.band === 'mid' ? 'text-blue-500' : 'text-green-500';
+  // Power bands are an MTG measure, so they keep the --power-* scale.
+  const bandColor =
+    powerScore.band === 'cedh' ? 'text-power-10' :
+    powerScore.band === 'high' ? 'text-power-7' :
+    powerScore.band === 'mid' ? 'text-power-4' : 'text-power-1';
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -213,7 +215,7 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
             <Card className="border-l-4 border-l-green-500">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-green-500" />
+                  <Sparkles className="h-4 w-4 text-foreground" />
                   Strengths
                 </CardTitle>
               </CardHeader>
@@ -221,7 +223,7 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
                 <ul className="space-y-2">
                   {powerScore.drivers.map((driver, i) => (
                     <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="text-foreground mt-0.5">✓</span>
                       <span>{driver}</span>
                     </li>
                   ))}
@@ -234,7 +236,7 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
             <Card className="border-l-4 border-l-orange-500">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  <AlertTriangle className="h-4 w-4 text-foreground" />
                   Weaknesses
                 </CardTitle>
               </CardHeader>
@@ -242,7 +244,7 @@ export function ComprehensiveAnalytics({ deck, format, commander, deckId }: Comp
                 <ul className="space-y-2">
                   {powerScore.drags.map((drag, i) => (
                     <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-orange-500 mt-0.5">!</span>
+                      <span className="text-foreground mt-0.5">!</span>
                       <span>{drag}</span>
                     </li>
                   ))}

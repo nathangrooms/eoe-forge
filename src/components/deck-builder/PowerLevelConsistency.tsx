@@ -113,10 +113,10 @@ export function PowerLevelConsistency({ deckCards, commander, format }: PowerLev
   };
 
   const getPowerColor = (power: number) => {
-    if (power >= 80) return 'text-red-500';
-    if (power >= 60) return 'text-orange-500';
-    if (power >= 40) return 'text-yellow-500';
-    return 'text-green-500';
+    if (power >= 80) return 'text-destructive';
+    if (power >= 60) return 'text-foreground';
+    if (power >= 40) return 'text-foreground';
+    return 'text-foreground';
   };
 
   const getPowerLabel = (power: number) => {
@@ -179,8 +179,8 @@ export function PowerLevelConsistency({ deckCards, commander, format }: PowerLev
       </Card>
 
       {analysis.strengths.length > 0 && (
-        <Alert className="border-emerald-500/20 bg-emerald-500/10">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
+        <Alert className="border-border bg-muted">
+          <CheckCircle className="h-4 w-4 text-foreground" />
           <AlertDescription className="text-sm">
             <div className="font-medium mb-2">Strengths:</div>
             <ul className="list-disc list-inside space-y-1">
@@ -193,8 +193,8 @@ export function PowerLevelConsistency({ deckCards, commander, format }: PowerLev
       )}
 
       {analysis.issues.length > 0 && (
-        <Alert className="border-yellow-500/20 bg-yellow-500/10">
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+        <Alert className="border-border bg-muted">
+          <AlertTriangle className="h-4 w-4 text-foreground" />
           <AlertDescription className="text-sm">
             <div className="font-medium mb-2">Areas to Improve:</div>
             <ul className="list-disc list-inside space-y-1">

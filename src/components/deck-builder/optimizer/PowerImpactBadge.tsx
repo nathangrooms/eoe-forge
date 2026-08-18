@@ -58,23 +58,17 @@ export function PowerImpactBadge({
       className={cn(
         sizeClasses[size],
         "gap-0.5 sm:gap-1 transition-all",
-        isPositive 
-          ? isStrong 
-            ? "text-green-400 bg-green-500/15 border-green-500/40 shadow-green-500/10 shadow-sm"
-            : isMedium
-            ? "text-green-400 bg-green-500/10 border-green-500/30"
-            : "text-green-400/80 bg-green-500/5 border-green-500/20"
-          : isStrong
-            ? "text-amber-400 bg-amber-500/15 border-amber-500/40 shadow-amber-500/10 shadow-sm"
-            : isMedium
-            ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-            : "text-amber-400/80 bg-amber-500/5 border-amber-500/20"
+        // A power delta is an MTG power measurement, so it keeps the
+        // --power-* tokens: gain reads low-power green, loss reads high-power red.
+        "bg-muted border-border",
+        isPositive ? "text-power-1" : "text-power-10",
+        isStrong && "font-semibold"
       )}
     >
       {isPositive ? (
-        <TrendingUp className={cn(iconSize[size], animated && "animate-pulse")} />
+        <TrendingUp className={iconSize[size]} />
       ) : (
-        <TrendingDown className={cn(iconSize[size], animated && "animate-pulse")} />
+        <TrendingDown className={iconSize[size]} />
       )}
       <span className="font-semibold">
         {isPositive ? '+' : ''}{impact.toFixed(1)}
@@ -103,11 +97,11 @@ export function PowerImpactBadge({
                   {currentLevel.toFixed(1)}
                   <ArrowUp className={cn(
                     "h-2.5 w-2.5 sm:h-3 sm:w-3 mx-0.5",
-                    isPositive ? "text-green-400" : "text-amber-400 rotate-180"
+                    isPositive ? "text-power-1" : "text-power-10 rotate-180"
                   )} />
                   <span className={cn(
                     "font-medium",
-                    isPositive ? "text-green-400" : "text-amber-400"
+                    isPositive ? "text-power-1" : "text-power-10"
                   )}>
                     {projectedLevel.toFixed(1)}
                   </span>
@@ -125,11 +119,11 @@ export function PowerImpactBadge({
                 <div className="text-muted-foreground">Current:</div>
                 <div className="font-medium">{currentLevel?.toFixed(1)}</div>
                 <div className="text-muted-foreground">Change:</div>
-                <div className={cn("font-medium", isPositive ? "text-green-400" : "text-amber-400")}>
+                <div className={cn("font-medium", isPositive ? "text-power-1" : "text-power-10")}>
                   {isPositive ? '+' : ''}{impact.toFixed(1)}
                 </div>
                 <div className="text-muted-foreground">Projected:</div>
-                <div className={cn("font-medium", isPositive ? "text-green-400" : "text-amber-400")}>
+                <div className={cn("font-medium", isPositive ? "text-power-1" : "text-power-10")}>
                   {projectedLevel?.toFixed(1)}
                 </div>
               </div>

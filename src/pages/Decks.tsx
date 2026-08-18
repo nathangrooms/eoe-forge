@@ -1,127 +1,91 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/hooks/use-toast';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Copy, 
-  Download, 
-  Upload, 
-  Wand2, 
-  BarChart3, 
-  Crown, 
-  Users, 
-  Sparkles,
-  Eye,
-  Play,
-  Settings,
-  Star,
-  StarOff,
-  TrendingUp,
-  DollarSign,
-  Target,
-  Package
-} from 'lucide-react';
-import { useDeckStore } from '@/stores/deckStore';
-import { useDeckManagementStore } from '@/stores/deckManagementStore';
-import { useCollectionStore } from '@/stores/collectionStore';
-import { ModernDeckTile } from '@/components/deck-builder/ModernDeckTile';
-import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Crown, Plus, Trash2 } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { EnhancedAnalysisPanel } from '@/components/deck-builder/EnhancedAnalysisPanel';
-import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
-import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
-import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
-import { DeckImportExport } from '@/components/deck-builder/DeckImportExport';
+import { showError, showSuccess } from '@/components/ui/toast-helpers';
+import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
+import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
 import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
 import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
 import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
-import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
-
-import { buildDeck, getTemplatesForFormat, getFormatRules } from '@/lib/deckbuilder';
+import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
+import { DeckTile } from '@/components/deck/DeckTile';
+import { DeckExportDialog } from '@/components/deck/DeckExportDialog';
+import {
+  DeckViewControls,
+  useDeckViewPrefs,
+  type DeckSortKey,
+} from '@/components/deck/DeckViewControls';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
-import { useDeckLoader } from '@/hooks/useDeckLoader';
-import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
 
-interface Deck {
-  id: string;
-  name: string;
-  format: 'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom';
-  powerLevel: number;
-  colors: string[];
-  cardCount: number;
-  lastModified: Date;
-  description?: string;
+/** Comparator for the deck sort control. */
+function compareDecks(a: DeckSummary, b: DeckSummary, key: DeckSortKey): number {
+  switch (key) {
+    case 'name':
+      return a.name.localeCompare(b.name);
+    case 'power':
+      return (a.power?.score ?? 0) - (b.power?.score ?? 0);
+    case 'value':
+      return (a.economy?.priceUSD ?? 0) - (b.economy?.priceUSD ?? 0);
+    case 'cards':
+      return (a.counts?.total ?? 0) - (b.counts?.total ?? 0);
+    case 'completion': {
+      const pct = (d: DeckSummary) =>
+        d.counts?.total > 0 ? 1 - (d.economy?.missing ?? 0) / d.counts.total : 0;
+      return pct(a) - pct(b);
+    }
+    case 'updated':
+    default:
+      return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+  }
 }
 
-type DeckFormat = 'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom';
-
 export default function Decks() {
-  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
-  const [newDeckName, setNewDeckName] = useState('');
-  const [newDeckFormat, setNewDeckFormat] = useState<DeckFormat>('commander');
-  const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
-  const [buildingDeck, setBuildingDeck] = useState(false);
-  const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
-  
-  // Analysis modal state
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [selectedDeckSummary, setSelectedDeckSummary] = useState<DeckSummary | null>(null);
-  
-  // Missing cards drawer state
-  const [showMissingDrawer, setShowMissingDrawer] = useState(false);
-  const [missingDeckId, setMissingDeckId] = useState<string>('');
-  const [missingDeckName, setMissingDeckName] = useState<string>('');
-  
-  // Share drawer state
-  const [showShareDrawer, setShowShareDrawer] = useState(false);
-  const [shareDeckId, setShareDeckId] = useState<string>('');
-  const [shareDeckName, setShareDeckName] = useState<string>('');
-  const [shareSlug, setShareSlug] = useState<string | null>(null);
-  const [shareIsPublic, setShareIsPublic] = useState(false);
-  
-  // AI Deck Builder state
-  const [aiFormat, setAiFormat] = useState('standard');
-  const [aiArchetype, setAiArchetype] = useState('');
-  const [aiPowerLevel, setAiPowerLevel] = useState(6);
-  const [aiColors, setAiColors] = useState<string[]>([]);
-  
-  // Available templates for selected format
-  const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
-  
-  // Real decks data from Supabase + Local store
-  const [deckSummaries, setDeckSummaries] = useState<DeckSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Get local decks from store
-  const { decks: localDecks } = useDeckManagementStore();
-
-  const deck = useDeckStore();
-  const collection = useCollectionStore();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { loadDeck: loadDeckFromHook } = useDeckLoader();
-  
-  // Deck filtering
+
+  const [deckSummaries, setDeckSummaries] = useState<DeckSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
+  const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
+
+  const [deckToDelete, setDeckToDelete] = useState<DeckSummary | null>(null);
+  const [selectedDeckSummary, setSelectedDeckSummary] = useState<DeckSummary | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+
+  const [showMissingDrawer, setShowMissingDrawer] = useState(false);
+  const [missingDeck, setMissingDeck] = useState<{ id: string; name: string }>({
+    id: '',
+    name: '',
+  });
+
+  const [showShareDrawer, setShowShareDrawer] = useState(false);
+  const [shareDeck, setShareDeck] = useState<{
+    id: string;
+    name: string;
+    slug: string | null;
+    isPublic: boolean;
+  }>({ id: '', name: '', slug: null, isPublic: false });
+
+  const [exportDeck, setExportDeck] = useState<{ id: string; name: string } | null>(null);
+
+  const { prefs, update: updatePrefs } = useDeckViewPrefs();
+
   const {
     filters,
     filteredDecks,
@@ -129,218 +93,122 @@ export default function Decks() {
     resetFilters,
     toggleFormat,
     toggleColor,
-    hasActiveFilters
+    hasActiveFilters,
+    activeFilterCount,
   } = useDeckFilters(deckSummaries);
-  
-  // Load decks from database only
-  useEffect(() => {
-    loadDeckSummaries();
-  }, [user]);
-  
-  // Load available templates when format changes
-  useEffect(() => {
-    const templates = getTemplatesForFormat(aiFormat);
-    setAvailableTemplates(templates);
-    if (templates.length > 0 && !aiArchetype) {
-      setAiArchetype(templates[0].id);
-    }
-  }, [aiFormat]);
 
-  const loadDeckSummaries = async () => {
+  const loadDeckSummaries = useCallback(async () => {
     setLoading(true);
-    console.log('=== DECK LOADING DEBUG ===');
-    console.log('User object:', user);
-
     try {
-      let allSummaries: DeckSummary[] = [];
-
-      // Only load database decks if user is authenticated
-      if (user) {
-        console.log('Loading database decks for user:', user.id);
-        try {
-          const dbSummaries = await DeckAPI.getDeckSummaries();
-          console.log('Database deck summaries:', dbSummaries);
-          allSummaries = dbSummaries;
-        } catch (error) {
-          console.error('Error loading database decks:', error);
-          showError('Error', 'Failed to load deck summaries');
-        }
-      } else {
-        console.log('No authenticated user, showing empty deck list');
+      if (!user) {
+        setDeckSummaries([]);
+        return;
       }
-
-      console.log('Final summaries:', allSummaries);
-      setDeckSummaries(allSummaries);
+      const summaries = await DeckAPI.getDeckSummaries();
+      setDeckSummaries(summaries);
     } catch (error) {
-      console.error('Error in loadDeckSummaries:', error);
-      showError('Error', 'Failed to load deck summaries');
+      console.error('Error loading decks:', error);
+      showError('Error', 'Failed to load your decks');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  // Get active tab from URL params  
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'my-decks';
+  useEffect(() => {
+    loadDeckSummaries();
+  }, [loadDeckSummaries]);
 
-  const setActiveTab = (tab: string) => {
-    if (tab === 'my-decks') {
-      setSearchParams({});
-    } else {
-      setSearchParams({ tab });
-    }
-  };
+  const sortedDecks = useMemo(() => {
+    const copy = [...filteredDecks];
+    copy.sort((a, b) => {
+      const result = compareDecks(a, b, prefs.sortKey);
+      return prefs.sortDir === 'asc' ? result : -result;
+    });
+    return copy;
+  }, [filteredDecks, prefs.sortKey, prefs.sortDir]);
 
-  const createDeck = async () => {
-    if (!newDeckName.trim() || !user) return;
-    
-    try {
-      const { data: newDeck, error } = await supabase
-        .from('user_decks')
-        .insert({
-          user_id: user.id,
-          name: newDeckName,
-          format: newDeckFormat,
-          power_level: 5,
-          colors: [],
-          description: ''
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating deck:', error);
-        return;
-      }
-
-      // Refresh deck summaries
-      await loadDeckSummaries();
-      setNewDeckName('');
-      setShowCreateDialog(false);
-      showSuccess("Deck Created", `"${newDeckName}" has been created successfully`);
-    } catch (error) {
-      console.error('Error creating deck:', error);
-    }
-  };
-
-  const handleCreateFirstDeck = async (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => {
+  const handleCreateFirstDeck = async (
+    name: string,
+    format: 'commander' | 'standard' | 'custom',
+    commanderId?: string
+  ) => {
     if (!user) return;
-    
+
     setCreatingFirstDeck(true);
     try {
       const { data: newDeck, error } = await supabase
         .from('user_decks')
         .insert({
           user_id: user.id,
-          name: name,
-          format: format,
+          name,
+          format,
           power_level: 5,
           colors: [],
-          description: ''
+          description: '',
         })
         .select()
         .single();
 
       if (error) throw error;
-      
-      // If commander was selected, add it to deck_cards
+
       if (commanderId && newDeck) {
-        // Fetch commander details from Scryfall
         try {
           const response = await fetch(`https://api.scryfall.com/cards/${commanderId}`);
           if (response.ok) {
             const commanderCard = await response.json();
-            
-            // Insert commander into deck_cards
-            await supabase
-              .from('deck_cards')
-              .insert({
-                deck_id: newDeck.id,
-                card_id: commanderId,
-                card_name: commanderCard.name,
-                quantity: 1,
-                is_commander: true,
-                is_sideboard: false
-              });
-            
-            // Update deck colors based on commander color identity
-            if (commanderCard.color_identity && commanderCard.color_identity.length > 0) {
+
+            await supabase.from('deck_cards').insert({
+              deck_id: newDeck.id,
+              card_id: commanderId,
+              card_name: commanderCard.name,
+              quantity: 1,
+              is_commander: true,
+              is_sideboard: false,
+            });
+
+            if (commanderCard.color_identity?.length > 0) {
               await supabase
                 .from('user_decks')
                 .update({ colors: commanderCard.color_identity })
                 .eq('id', newDeck.id);
             }
           }
-        } catch (cmdError) {
-          console.error('Error adding commander:', cmdError);
-          // Continue anyway - deck is created
+        } catch (commanderError) {
+          console.error('Error adding commander:', commanderError);
         }
       }
-      
-      showSuccess("Deck Created", `"${name}" has been created`);
-      
-      // Navigate to deck builder with the new deck
-      if (newDeck) {
-        navigate(`/deck-builder?deck=${newDeck.id}`);
-      }
+
+      showSuccess('Deck created', `"${name}" is ready`);
+      if (newDeck) navigate(`/deck-builder?deck=${newDeck.id}`);
     } catch (error) {
-      console.error('Error creating first deck:', error);
-      showError("Error", "Failed to create deck");
+      console.error('Error creating deck:', error);
+      showError('Error', 'Failed to create deck');
     } finally {
       setCreatingFirstDeck(false);
     }
-  };
-
-  const handleDeleteRequest = (deckSummary: DeckSummary) => {
-    // Convert DeckSummary to Deck for compatibility
-    const deck: Deck = {
-      id: deckSummary.id,
-      name: deckSummary.name,
-      format: deckSummary.format as any,
-      powerLevel: deckSummary.power.score,
-      colors: deckSummary.colors,
-      cardCount: deckSummary.counts.total,
-      lastModified: new Date(deckSummary.updatedAt),
-      description: ''
-    };
-    setDeckToDelete(deck);
-    setShowDeleteDialog(true);
   };
 
   const confirmDeleteDeck = async () => {
     if (!deckToDelete) return;
 
     try {
-      // Handle Supabase deck deletion only
-      const { error } = await supabase
-        .from('user_decks')
-        .delete()
-        .eq('id', deckToDelete.id);
+      const { error } = await supabase.from('user_decks').delete().eq('id', deckToDelete.id);
+      if (error) throw error;
 
-      if (error) {
-        console.error('Error deleting deck:', error);
-        showError("Delete Failed", "Failed to delete deck. Please try again.");
-        return;
-      }
-
-      showSuccess("Deck Deleted", `"${deckToDelete.name}" has been deleted successfully`);
-
-      // Refresh deck summaries
+      showSuccess('Deck deleted', `"${deckToDelete.name}" has been deleted`);
       await loadDeckSummaries();
     } catch (error) {
       console.error('Error deleting deck:', error);
-      showError("Delete Failed", "Failed to delete deck. Please try again.");
+      showError('Delete failed', 'Failed to delete deck. Please try again.');
     } finally {
-      setShowDeleteDialog(false);
       setDeckToDelete(null);
     }
   };
 
   const duplicateDeck = async (deckSummary: DeckSummary) => {
     try {
-      const newDeckId = await DeckAPI.duplicateDeck(deckSummary.id);
-      showSuccess('Deck Duplicated', `Created copy of "${deckSummary.name}"`);
-      // Refresh deck summaries to show the new deck
+      await DeckAPI.duplicateDeck(deckSummary.id);
+      showSuccess('Deck duplicated', `Created a copy of "${deckSummary.name}"`);
       await loadDeckSummaries();
     } catch (error) {
       console.error('Error duplicating deck:', error);
@@ -348,413 +216,180 @@ export default function Decks() {
     }
   };
 
-  const loadDeck = async (deckData: Deck) => {
-    try {
-      // Load from database only
-      deck.setDeckName(deckData.name);
-      deck.setFormat(deckData.format as 'standard' | 'commander' | 'custom');
-      deck.setPowerLevel(deckData.powerLevel);
-      
-      // Load deck cards from database without join
-      const { data: deckCards, error } = await supabase
-        .from('deck_cards')
-        .select('*')
-        .eq('deck_id', deckData.id);
+  /** Re-read share state so the drawer reflects what the database now says. */
+  const refreshShareState = useCallback(async () => {
+    if (!shareDeck.id) return;
+    const { data } = await supabase
+      .from('user_decks')
+      .select('public_enabled, public_slug')
+      .eq('id', shareDeck.id)
+      .maybeSingle();
 
-      if (error) {
-        console.error('Error loading deck cards:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load deck cards",
-          variant: "destructive"
-        });
-        return;
-      }
+    setShareDeck(prev => ({
+      ...prev,
+      slug: data?.public_slug ?? null,
+      isPublic: Boolean(data?.public_enabled),
+    }));
+    await loadDeckSummaries();
+  }, [shareDeck.id, loadDeckSummaries]);
 
-      // Clear current deck and add loaded cards
-      deck.clearDeck();
-      
-      if (deckCards) {
-        for (const dbCard of deckCards) {
-          deck.addCard({
-            id: dbCard.card_id,
-            name: dbCard.card_name,
-            quantity: dbCard.quantity,
-            cmc: 0,
-            type_line: '',
-            colors: [],
-            category: dbCard.is_commander ? 'commanders' : 'creatures',
-            mechanics: []
-          });
-        }
-      }
+  const openShareDrawer = async (deckSummary: DeckSummary) => {
+    const { data } = await supabase
+      .from('user_decks')
+      .select('public_enabled, public_slug')
+      .eq('id', deckSummary.id)
+      .maybeSingle();
 
-      setSelectedDeck(deckData.id);
-      setActiveTab('deck-editor');
-      
-      toast({
-        title: "Deck Loaded",
-        description: `"${deckData.name}" is ready for editing`,
-      });
-    } catch (error) {
-      console.error('Error loading deck:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load deck",
-        variant: "destructive"
-      });
-    }
+    setShareDeck({
+      id: deckSummary.id,
+      name: deckSummary.name,
+      slug: data?.public_slug ?? null,
+      isPublic: Boolean(data?.public_enabled),
+    });
+    setShowShareDrawer(true);
   };
 
-  const generateAIDeck = async () => {
-    if (!aiArchetype || !user) {
-      toast({
-        title: "Error",
-        description: !user ? "Please log in to use AI Builder" : "Please select an archetype",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setBuildingDeck(true);
-    
-    try {
-      // Call the AI deck builder edge function
-      const { data: deckData, error: aiError } = await supabase.functions.invoke('ai-deck-builder-v2', {
-        body: {
-          format: aiFormat,
-          archetype: aiArchetype,
-          targetPower: aiPowerLevel,
-          colorRestriction: aiColors.length > 0 ? aiColors : undefined,
-          ownedOnly: false
-        }
-      });
-
-      if (aiError) {
-        console.error('AI Builder error:', aiError);
-        throw new Error(aiError.message || 'Failed to generate deck');
-      }
-
-      if (!deckData || !deckData.deck || deckData.deck.length === 0) {
-        throw new Error('AI returned an empty deck');
-      }
-
-      // Create the deck in the database
-      const deckName = `AI ${availableTemplates.find(t => t.id === aiArchetype)?.name || 'Generated'} Deck`;
-      
-      const { data: newDeck, error: createError } = await supabase
-        .from('user_decks')
-        .insert({
-          user_id: user.id,
-          name: deckName,
-          format: aiFormat,
-          colors: aiColors,
-          power_level: aiPowerLevel,
-          description: `AI-generated ${aiArchetype} deck`
-        })
-        .select()
-        .single();
-
-      if (createError) throw createError;
-
-      // Add cards to the new deck
-      const deckCards = deckData.deck.map((card: any) => ({
-        deck_id: newDeck.id,
-        card_id: card.id,
-        card_name: card.name,
-        quantity: 1,
-        is_commander: card.isCommander || false,
-        is_sideboard: false
-      }));
-
-      const { error: cardsError } = await supabase
-        .from('deck_cards')
-        .insert(deckCards);
-
-      if (cardsError) throw cardsError;
-
-      toast({
-        title: "Deck Generated!",
-        description: `Created "${deckName}" with ${deckData.deck.length} cards`,
-      });
-      
-      setShowAIDialog(false);
-      
-      // Refresh deck list and navigate to the new deck
-      await loadDeckSummaries();
-      navigate(`/deck-builder?deck=${newDeck.id}`);
-      
-    } catch (error) {
-      console.error('Error generating deck:', error);
-      
-      // Fallback to local generation if AI fails
-      try {
-        const cardPool = collection.cards.map(collectionCard => ({
-        id: collectionCard.id,
-        oracle_id: collectionCard.id,
-        name: collectionCard.name,
-        mana_cost: '',
-        cmc: collectionCard.cmc,
-        type_line: collectionCard.type_line,
-        oracle_text: collectionCard.oracle_text,
-        colors: collectionCard.colors,
-        color_identity: collectionCard.color_identity,
-        power: collectionCard.power,
-        toughness: collectionCard.toughness,
-        keywords: collectionCard.keywords,
-        legalities: { [aiFormat]: 'legal' } as any,
-        image_uris: undefined,
-        prices: { usd: collectionCard.priceUsd?.toString() },
-        set: collectionCard.setCode,
-        set_name: collectionCard.setCode,
-        collector_number: collectionCard.collectorNumber || '1',
-        rarity: collectionCard.rarity as any,
-        layout: 'normal',
-        is_legendary: collectionCard.type_line.includes('Legendary'),
-        tags: new Set<string>(),
-        derived: {
-          mv: collectionCard.cmc,
-          colorPips: {},
-          producesMana: collectionCard.type_line.includes('Land'),
-          etbTapped: false
-        }
-      }));
-
-      const result = buildDeck(cardPool, aiFormat, aiArchetype, aiPowerLevel, aiColors.length > 0 ? aiColors : undefined);
-      
-      // Clear current deck and load the generated one
-      deck.clearDeck();
-      deck.setDeckName(`AI Generated - ${availableTemplates.find(t => t.id === aiArchetype)?.name || 'Deck'}`);
-      deck.setFormat(aiFormat as any);
-      deck.setPowerLevel(aiPowerLevel);
-      
-      // Add cards to deck
-      result.deck.forEach(card => {
-        deck.addCard({
-          id: card.id,
-          name: card.name,
-          cmc: card.cmc,
-          type_line: card.type_line,
-          colors: card.colors,
-          quantity: 1,
-          category: card.type_line.toLowerCase().includes('creature') ? 'creatures' : 
-                   card.type_line.toLowerCase().includes('land') ? 'lands' :
-                   card.type_line.toLowerCase().includes('instant') ? 'instants' :
-                   card.type_line.toLowerCase().includes('sorcery') ? 'sorceries' :
-                   card.type_line.toLowerCase().includes('enchantment') ? 'enchantments' :
-                   card.type_line.toLowerCase().includes('artifact') ? 'artifacts' :
-                   card.type_line.toLowerCase().includes('planeswalker') ? 'planeswalkers' : 'other',
-          mechanics: Array.from(card.tags)
-        });
-      });
-
-        toast({
-          title: "Deck Generated!",
-          description: `Created ${result.deck.length}-card deck (fallback)`,
-        });
-        
-        setShowAIDialog(false);
-        setActiveTab('deck-editor');
-      } catch (fallbackError) {
-        console.error('Fallback generation also failed:', fallbackError);
-        toast({
-          title: "Generation Failed",
-          description: "Could not generate deck. Try adjusting your requirements.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setBuildingDeck(false);
-    }
-  };
-
-  const getFormatBadgeColor = (format: string) => {
-    switch (format) {
-      case 'standard': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'commander': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'custom': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
-  };
-
-  const getColorIcons = (colors: string[]) => {
-    const colorMap: Record<string, { bg: string; text: string }> = {
-      W: { bg: '#FFFBD5', text: '#000' },
-      U: { bg: '#0E68AB', text: '#fff' },
-      B: { bg: '#150B00', text: '#fff' },
-      R: { bg: '#D3202A', text: '#fff' },
-      G: { bg: '#00733E', text: '#fff' }
-    };
-    
-    return colors.map(color => (
-      <div
-        key={color}
-        className="w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center"
-        style={{ backgroundColor: colorMap[color]?.bg, color: colorMap[color]?.text }}
-      >
-        {color}
-      </div>
-    ));
-  };
-
-  // Show onboarding if user has no decks OR if user clicked New Deck
   const showOnboarding = !loading && (deckSummaries.length === 0 || showOnboardingFlow);
-
-  const handleOnboardingCreate = async (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => {
-    await handleCreateFirstDeck(name, format, commanderId);
-    setShowOnboardingFlow(false);
-  };
 
   return (
     <StandardPageLayout
       title="Deck Manager"
-      description="Create, analyze, and optimize your Magic: The Gathering decks"
+      description="Create, analyse and optimise your Magic: The Gathering decks"
       action={
         showOnboarding ? null : (
           <Button onClick={() => setShowOnboardingFlow(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Deck
+            <Plus className="mr-2 h-4 w-4" />
+            New deck
           </Button>
         )
       }
     >
       {showOnboarding ? (
-        <FirstDeckOnboarding 
-          onCreateDeck={handleOnboardingCreate}
+        <FirstDeckOnboarding
+          onCreateDeck={async (name, format, commanderId) => {
+            await handleCreateFirstDeck(name, format, commanderId);
+            setShowOnboardingFlow(false);
+          }}
           loading={creatingFirstDeck}
         />
       ) : (
         <div className="space-y-6">
-          {/* Summary Stats */}
+          {!loading && deckSummaries.length > 0 && <DecksSummaryStats decks={deckSummaries} />}
+
+          <DeckSearchFilters
+            filters={filters}
+            onUpdateFilters={updateFilters}
+            onResetFilters={resetFilters}
+            onToggleFormat={toggleFormat}
+            onToggleColor={toggleColor}
+            hasActiveFilters={hasActiveFilters}
+            activeFilterCount={activeFilterCount}
+          />
+
           {!loading && deckSummaries.length > 0 && (
-            <DecksSummaryStats decks={deckSummaries} />
+            <DeckViewControls
+              prefs={prefs}
+              onChange={updatePrefs}
+              resultCount={sortedDecks.length}
+            />
           )}
 
-        {/* Search and Filter Bar */}
-        <DeckSearchFilters
-          filters={filters}
-          onUpdateFilters={updateFilters}
-          onResetFilters={resetFilters}
-          onToggleFormat={toggleFormat}
-          onToggleColor={toggleColor}
-          hasActiveFilters={hasActiveFilters}
-        />
-
-        {/* Deck Grid */}
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="h-6 bg-muted rounded w-1/3" />
-                      <div className="h-4 bg-muted rounded w-1/2" />
-                    </div>
-                    <div className="h-8 bg-muted rounded w-16" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="h-20 bg-muted rounded" />
-                    <div className="h-20 bg-muted rounded" />
-                    <div className="h-20 bg-muted rounded" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="h-16 bg-muted rounded" />
-                    <div className="h-16 bg-muted rounded" />
-                    <div className="h-16 bg-muted rounded" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredDecks.length === 0 ? (
-          <Card className="p-8 text-center">
-            <CardContent>
-              <div className="flex flex-col items-center space-y-3">
+          {loading ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+              {[0, 1, 2].map(i => (
+                <Card key={i}>
+                  <CardContent className="space-y-3 p-6">
+                    <div className="h-6 w-1/2 animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+                    <div className="h-24 animate-pulse rounded bg-muted" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : sortedDecks.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
                 <div className="rounded-full bg-muted p-3">
                   <Crown className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <div className="space-y-1">
+                <div>
                   <h3 className="font-semibold">No decks found</h3>
                   <p className="text-sm text-muted-foreground">
-                    {hasActiveFilters ? 'Try adjusting your filters' : 'Create your first deck to get started'}
+                    {hasActiveFilters
+                      ? 'No deck matches these filters.'
+                      : 'Create your first deck to get started.'}
                   </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {filteredDecks.map((deckSummary) => (
-              <ModernDeckTile
-                key={deckSummary.id}
-                deckSummary={deckSummary}
-                onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
-                onDuplicate={() => duplicateDeck(deckSummary)}
-                onDelete={() => handleDeleteRequest(deckSummary)}
-                onAnalysis={() => {
-                  setSelectedDeckSummary(deckSummary);
-                  setShowAnalysisModal(true);
-                }}
-                onMissingCards={() => {
-                  setMissingDeckId(deckSummary.id);
-                  setMissingDeckName(deckSummary.name);
-                  setShowMissingDrawer(true);
-                }}
-                onShare={async () => {
-                  const { data } = await supabase
-                    .from('user_decks')
-                    .select('public_enabled, public_slug')
-                    .eq('id', deckSummary.id)
-                    .single();
-                  
-                  setShareDeckId(deckSummary.id);
-                  setShareDeckName(deckSummary.name);
-                  setShareSlug(data?.public_slug || null);
-                  setShareIsPublic(data?.public_enabled || false);
-                  setShowShareDrawer(true);
-                }}
-                onExport={() => {
-                  console.log('Export deck:', deckSummary.id);
-                }}
-                onDeckbox={() => {
-                  console.log('Open deckbox for:', deckSummary.id);
-                }}
-                onFavoriteChange={() => {
-                  loadDeckSummaries();
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={resetFilters}>
+                    Clear filters
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div
+              className={
+                prefs.mode === 'grid'
+                  ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
+                  : 'space-y-2'
+              }
+            >
+              {sortedDecks.map(deckSummary => (
+                <DeckTile
+                  key={deckSummary.id}
+                  deckSummary={deckSummary}
+                  variant={prefs.mode}
+                  onOpen={() => navigate(`/deck/${deckSummary.id}`)}
+                  onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
+                  onDuplicate={() => duplicateDeck(deckSummary)}
+                  onDelete={() => setDeckToDelete(deckSummary)}
+                  onAnalysis={() => {
+                    setSelectedDeckSummary(deckSummary);
+                    setShowAnalysisModal(true);
+                  }}
+                  onMissingCards={() => {
+                    setMissingDeck({ id: deckSummary.id, name: deckSummary.name });
+                    setShowMissingDrawer(true);
+                  }}
+                  onShare={() => openShareDrawer(deckSummary)}
+                  onExport={() =>
+                    setExportDeck({ id: deckSummary.id, name: deckSummary.name })
+                  }
+                  onFavoriteChange={loadDeckSummaries}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog
+        open={Boolean(deckToDelete)}
+        onOpenChange={open => {
+          if (!open) setDeckToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Deck</AlertDialogTitle>
+            <AlertDialogTitle>Delete deck</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deckToDelete?.name}"? This action cannot be undone.
+              Delete “{deckToDelete?.name}”? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               onClick={confirmDeleteDeck}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Deck
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete deck
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Analysis Modal */}
       {selectedDeckSummary && (
         <DeckAnalysisModal
           isOpen={showAnalysisModal}
@@ -770,24 +405,33 @@ export default function Decks() {
         />
       )}
 
-      {/* Missing Cards Drawer */}
       <MissingCardsDrawer
         isOpen={showMissingDrawer}
         onClose={() => setShowMissingDrawer(false)}
-        deckId={missingDeckId}
-        deckName={missingDeckName}
+        deckId={missingDeck.id}
+        deckName={missingDeck.name}
       />
-      
-      {/* Share Drawer */}
+
       <ShareDrawer
         open={showShareDrawer}
         onOpenChange={setShowShareDrawer}
-        deckId={shareDeckId}
-        deckName={shareDeckName}
-        currentSlug={shareSlug}
-        isPublic={shareIsPublic}
-        onShareToggle={loadDeckSummaries}
+        deckId={shareDeck.id}
+        deckName={shareDeck.name}
+        currentSlug={shareDeck.slug}
+        isPublic={shareDeck.isPublic}
+        onShareToggle={refreshShareState}
       />
+
+      {exportDeck && (
+        <DeckExportDialog
+          open={Boolean(exportDeck)}
+          onOpenChange={open => {
+            if (!open) setExportDeck(null);
+          }}
+          deckId={exportDeck.id}
+          deckName={exportDeck.name}
+        />
+      )}
     </StandardPageLayout>
   );
 }

@@ -55,12 +55,14 @@ export class CollectionAPI {
       const totals = {
         unique: items.filter(item => (item.quantity + item.foil) > 0).length,
         count: items.reduce((sum, item) => sum + item.quantity + item.foil, 0),
+        // Foil copies are priced with usd_foil; the previous version applied the
+        // non-foil price to every copy, so this total disagreed with every other
+        // valuation in the app.
         valueUSD: items.reduce((sum, item) => {
-          if (!item.card?.prices) return sum;
-          const prices = item.card.prices as any;
-          if (!prices.usd) return sum;
-          const price = parseFloat(prices.usd);
-          return sum + (item.quantity * price) + (item.foil * price);
+          const prices = (item.card?.prices ?? {}) as Record<string, string | null | undefined>;
+          const usd = parseFloat(prices.usd ?? '') || 0;
+          const usdFoil = parseFloat(prices.usd_foil ?? '') || usd;
+          return sum + item.quantity * usd + item.foil * usdFoil;
         }, 0),
         avgCmc: 0 // Calculate in UI utility
       };
@@ -541,6 +543,7 @@ function transformDbCard(dbCard: DbCard): Card {
     colors: dbCard.colors || [],
     color_identity: dbCard.color_identity || [],
     cmc: Number(dbCard.cmc) || 0,
+    mana_cost: dbCard.mana_cost || undefined,
     type_line: dbCard.type_line || '',
     oracle_text: dbCard.oracle_text || undefined,
     keywords: dbCard.keywords || [],

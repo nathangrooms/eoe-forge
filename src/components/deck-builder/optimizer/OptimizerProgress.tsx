@@ -25,7 +25,7 @@ export function OptimizerProgress({ currentStep, loadingCollection }: OptimizerP
   return (
     <div className="relative">
       {/* Background Glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-purple-600/10 rounded-2xl blur-xl" />
+      <div className="absolute inset-0 rounded-2xl blur-xl" />
       
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -35,19 +35,9 @@ export function OptimizerProgress({ currentStep, loadingCollection }: OptimizerP
         {/* Central Animation */}
         <div className="flex justify-center mb-8">
           <div className="relative">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-full blur-lg opacity-50"
-            />
-            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-              <Brain className="h-10 w-10 text-white" />
+            <div className="relative w-20 h-20 rounded-full border border-border flex items-center justify-center">
+              <Brain className="h-10 w-10 text-muted-foreground" />
             </div>
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="absolute -inset-2 rounded-full border-2 border-primary/30"
-            />
           </div>
         </div>
 
@@ -84,7 +74,7 @@ export function OptimizerProgress({ currentStep, loadingCollection }: OptimizerP
               >
                 <div className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-                  isCompleted ? "bg-green-500/20 text-green-400" :
+                  isCompleted ? "bg-muted text-foreground" :
                   isActive ? "bg-primary text-primary-foreground" :
                   "bg-muted text-muted-foreground"
                 )}>

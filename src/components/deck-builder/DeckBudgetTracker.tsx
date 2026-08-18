@@ -75,18 +75,18 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
   }, [deckCards, budgetLimit]);
 
   const getBudgetColor = (percent: number) => {
-    if (percent > 100) return 'text-red-500';
-    if (percent > 80) return 'text-yellow-500';
-    return 'text-emerald-500';
+    if (percent > 100) return 'text-destructive';
+    if (percent > 80) return 'text-foreground';
+    return 'text-foreground';
   };
 
   const getRarityColor = (rarity: string | undefined) => {
-    if (!rarity) return 'text-gray-600';
+    if (!rarity) return 'text-foreground';
     switch (rarity.toLowerCase()) {
-      case 'mythic': return 'text-orange-500';
-      case 'rare': return 'text-yellow-500';
-      case 'uncommon': return 'text-gray-400';
-      default: return 'text-gray-600';
+      case 'mythic': return 'text-foreground';
+      case 'rare': return 'text-foreground';
+      case 'uncommon': return 'text-foreground';
+      default: return 'text-foreground';
     }
   };
 
@@ -135,7 +135,7 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
               <div className="text-sm text-muted-foreground">
                 {budgetAnalysis.isOverBudget ? 'Over Budget' : 'Remaining'}
               </div>
-              <div className={`text-2xl font-bold ${budgetAnalysis.isOverBudget ? 'text-red-500' : 'text-emerald-500'}`}>
+              <div className={`text-2xl font-bold ${budgetAnalysis.isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
                 {budgetAnalysis.isOverBudget ? (
                   <>-${Math.abs(budgetAnalysis.remaining).toFixed(2)}</>
                 ) : (
@@ -147,7 +147,7 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
 
           <Progress 
             value={Math.min(budgetAnalysis.percentUsed, 100)} 
-            className={`h-3 ${budgetAnalysis.isOverBudget ? '[&>div]:bg-red-500' : ''}`}
+            className={`h-3 ${budgetAnalysis.isOverBudget ? '[&>div]:bg-destructive/10' : ''}`}
           />
           
           <div className="text-sm text-muted-foreground">
@@ -157,8 +157,8 @@ export function DeckBudgetTracker({ deckCards, targetBudget = 100 }: DeckBudgetT
 
         {/* Suggestions */}
         {budgetAnalysis.suggestions.length > 0 && (
-          <Alert className={budgetAnalysis.isOverBudget ? 'border-red-500/20 bg-red-500/10' : 'border-yellow-500/20 bg-yellow-500/10'}>
-            <AlertCircle className={`h-4 w-4 ${budgetAnalysis.isOverBudget ? 'text-red-500' : 'text-yellow-500'}`} />
+          <Alert className={budgetAnalysis.isOverBudget ? 'border-destructive/40 bg-destructive/10' : 'border-border bg-muted'}>
+            <AlertCircle className={`h-4 w-4 ${budgetAnalysis.isOverBudget ? 'text-destructive' : 'text-foreground'}`} />
             <AlertDescription className="text-sm">
               <div className="font-medium mb-2">Budget Insights:</div>
               <ul className="list-disc list-inside space-y-1">

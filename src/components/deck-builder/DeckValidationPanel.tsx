@@ -54,16 +54,16 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
   const getSeverityIcon = (severity: 'error' | 'warning' | 'info') => {
     switch (severity) {
       case 'error': return <AlertCircle className="h-4 w-4 text-destructive" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />;
-      case 'info': return <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-foreground" />;
+      case 'info': return <Info className="h-4 w-4 text-foreground" />;
     }
   };
 
   const getSeverityBadge = (severity: 'error' | 'warning' | 'info') => {
     const colors = {
       error: 'bg-destructive/10 text-destructive border-destructive/20',
-      warning: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
-      info: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+      warning: 'bg-muted text-foreground border-border',
+      info: 'bg-muted text-foreground border-border'
     };
     
     return (
@@ -145,7 +145,7 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
               <Shield className="h-4 w-4" />
               <span className="font-semibold">Format Legality</span>
               {legality.isLegal ? (
-                <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+                <Badge className="bg-muted text-foreground border-border">
                   Legal
                 </Badge>
               ) : (
@@ -159,8 +159,8 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
         </CollapsibleTrigger>
         <CollapsibleContent className="px-4 pb-4 space-y-2">
           {legality.isLegal ? (
-            <Alert className="border-green-500/20">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+            <Alert className="border-border">
+              <CheckCircle className="h-4 w-4 text-foreground" />
               <AlertDescription>
                 This deck is legal in {format} format.
               </AlertDescription>
@@ -186,8 +186,8 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
             <div className="pt-2">
               <p className="text-sm font-medium mb-2">Warnings:</p>
               {legality.warnings.map((warning, idx) => (
-                <Alert key={idx} className="border-yellow-500/20">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <Alert key={idx} className="border-border">
+                  <AlertTriangle className="h-4 w-4 text-foreground" />
                   <AlertDescription>{warning.message}</AlertDescription>
                 </Alert>
               ))}
@@ -209,7 +209,7 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
             Deck Validation
           </CardTitle>
           {totalIssues === 0 ? (
-            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+            <Badge className="bg-muted text-foreground border-border">
               <CheckCircle className="h-3 w-3 mr-1" />
               No Issues
             </Badge>
@@ -232,18 +232,18 @@ export function DeckValidationPanel({ cards, format, commander }: DeckValidation
           'Warnings',
           'warnings',
           warningWarnings,
-          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertTriangle className="h-4 w-4 text-foreground" />
         )}
         {renderWarningSection(
           'Suggestions',
           'info',
           infoWarnings,
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <Info className="h-4 w-4 text-foreground" />
         )}
         
         {totalIssues === 0 && warnings.length === 0 && (
-          <Alert className="border-green-500/20">
-            <CheckCircle className="h-4 w-4 text-green-600" />
+          <Alert className="border-border">
+            <CheckCircle className="h-4 w-4 text-foreground" />
             <AlertDescription>
               Your deck looks great! No validation issues found.
             </AlertDescription>

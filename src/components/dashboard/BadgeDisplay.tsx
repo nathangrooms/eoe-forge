@@ -1,8 +1,17 @@
-import { Badge as BadgeIcon, Trophy } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { DollarSign, Layers, Library, Swords, Trophy, type LucideIcon } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BadgeProgress } from '@/lib/badges';
+import type { Badge as BadgeDef, BadgeProgress } from '@/lib/badges';
+import { cn } from '@/lib/utils';
+
+// Badges are earned against real collection/deck counts, so the tier is
+// expressed typographically rather than with metallic gradients.
+const CATEGORY_ICONS: Record<BadgeDef['category'], LucideIcon> = {
+  deck_master: Layers,
+  collector: Library,
+  investor: DollarSign,
+  strategist: Swords,
+};
 
 interface BadgeDisplayProps {
   badgeProgress: BadgeProgress;
@@ -11,48 +20,52 @@ interface BadgeDisplayProps {
 
 export const BadgeDisplayCard = ({ badgeProgress, showProgress = false }: BadgeDisplayProps) => {
   const { badge, earned, progress, currentValue } = badgeProgress;
-  
-  const tierColors = {
-    bronze: 'from-amber-700 to-amber-900',
-    silver: 'from-gray-400 to-gray-600',
-    gold: 'from-yellow-400 to-yellow-600',
-    platinum: 'from-cyan-300 to-cyan-500',
-  };
-
-  const tierBgColors = {
-    bronze: 'bg-amber-950/20',
-    silver: 'bg-gray-950/20',
-    gold: 'bg-yellow-950/20',
-    platinum: 'bg-cyan-950/20',
-  };
+  const Icon = CATEGORY_ICONS[badge.category] ?? Trophy;
 
   return (
-    <Card className={`relative overflow-hidden ${!earned && 'opacity-60'}`}>
-      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${tierColors[badge.tier]}`} />
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={`p-3 rounded-lg ${tierBgColors[badge.tier]} flex-shrink-0`}>
-            <span className="text-2xl">{badge.icon}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-sm truncate">{badge.name}</h4>
-              {earned && <Trophy className="h-4 w-4 text-station flex-shrink-0" />}
-            </div>
-            <p className="text-xs text-muted-foreground mb-2">{badge.description}</p>
-            
-            {showProgress && !earned && (
-              <div className="space-y-1">
-                <Progress value={progress} className="h-1.5" />
-                <p className="text-xs text-muted-foreground">
-                  {currentValue.toLocaleString()} / {badge.requirement.toLocaleString()}
-                </p>
-              </div>
+    <div
+      className={cn(
+        'flex h-full gap-3 rounded-lg border p-3',
+        earned ? 'border-foreground/25 bg-card' : 'border-border bg-card'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-md border',
+          earned
+            ? 'border-transparent bg-primary text-primary-foreground'
+            : 'border-border bg-muted text-muted-foreground'
+        )}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <h4
+            className={cn(
+              'truncate text-sm font-medium',
+              earned ? 'text-foreground' : 'text-muted-foreground'
             )}
-          </div>
+          >
+            {badge.name}
+          </h4>
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {badge.tier}
+          </span>
         </div>
-      </CardContent>
-    </Card>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{badge.description}</p>
+
+        {showProgress && !earned && (
+          <div className="mt-2 space-y-1">
+            <Progress value={progress} className="h-1" />
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {Math.round(currentValue).toLocaleString()} / {badge.requirement.toLocaleString()}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -62,58 +75,49 @@ interface BadgesSectionProps {
 }
 
 export const BadgesSection = ({ earnedBadges, inProgressBadges }: BadgesSectionProps) => {
+  const hasAny = earnedBadges.length > 0 || inProgressBadges.length > 0;
+
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BadgeIcon className="h-5 w-5 text-station" />
-              Planeswalker Badges
-            </CardTitle>
-            <CardDescription>Track your achievements and unlock rewards</CardDescription>
-          </div>
-          <Badge variant="secondary" className="bg-spacecraft/20 text-spacecraft">
-            {earnedBadges.length} Earned
-          </Badge>
-        </div>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle className="text-base font-semibold">Milestones</CardTitle>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {earnedBadges.length} earned
+        </span>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Earned Badges */}
+
+      <CardContent className="space-y-5 pt-0">
         {earnedBadges.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-station" />
-              Earned Badges
+          <section>
+            <h3 className="mb-2 flex items-center gap-1.5 border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+              Earned
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {earnedBadges.map((bp) => (
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {earnedBadges.map(bp => (
                 <BadgeDisplayCard key={bp.badge.id} badgeProgress={bp} />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* In Progress Badges */}
         {inProgressBadges.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium mb-3">Next Milestones</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {inProgressBadges.map((bp) => (
+          <section>
+            <h3 className="mb-2 border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Next up
+            </h3>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {inProgressBadges.map(bp => (
                 <BadgeDisplayCard key={bp.badge.id} badgeProgress={bp} showProgress />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {earnedBadges.length === 0 && inProgressBadges.length === 0 && (
-          <div className="text-center py-8 border-2 border-dashed rounded-lg">
-            <BadgeIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-medium mb-2">No Badges Yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Start building decks and collecting cards to earn badges!
-            </p>
-          </div>
+        {!hasAny && (
+          <p className="border-t border-border py-8 text-center text-sm text-muted-foreground">
+            Milestones unlock as you add decks and cards.
+          </p>
         )}
       </CardContent>
     </Card>

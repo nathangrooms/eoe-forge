@@ -10,21 +10,19 @@ interface LegalityBadgeProps {
   className?: string;
 }
 
+/**
+ * Legality state. Illegal is the only case that earns colour — it is an error
+ * signal, so it uses the destructive token; legal and unknown stay neutral.
+ */
 export function LegalityBadge({ isLegal, issues, format, className }: LegalityBadgeProps) {
   const hasIssues = issues && issues.length > 0;
-  
+
   if (isLegal && !hasIssues) {
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "bg-green-500/10 text-green-600 border-green-500/30 gap-1",
-                className
-              )}
-            >
+            <Badge variant="outline" className={cn('gap-1', className)}>
               <CheckCircle className="h-3 w-3" />
               Legal
             </Badge>
@@ -41,24 +39,25 @@ export function LegalityBadge({ isLegal, issues, format, className }: LegalityBa
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={cn(
-              hasIssues 
-                ? "bg-red-500/10 text-red-600 border-red-500/30 gap-1" 
-                : "bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-1",
+              'gap-1',
+              hasIssues
+                ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                : 'text-muted-foreground',
               className
             )}
           >
             {hasIssues ? (
               <>
                 <XCircle className="h-3 w-3" />
-                {issues.length} Issue{issues.length !== 1 ? 's' : ''}
+                {issues.length} issue{issues.length !== 1 ? 's' : ''}
               </>
             ) : (
               <>
                 <AlertTriangle className="h-3 w-3" />
-                Check Needed
+                Check needed
               </>
             )}
           </Badge>
@@ -66,14 +65,12 @@ export function LegalityBadge({ isLegal, issues, format, className }: LegalityBa
         <TooltipContent className="max-w-xs">
           {hasIssues ? (
             <div className="space-y-1">
-              <p className="font-medium text-red-400">Legality Issues:</p>
-              <ul className="text-xs space-y-0.5">
+              <p className="font-medium">Legality issues</p>
+              <ul className="space-y-0.5 text-xs">
                 {issues.slice(0, 5).map((issue, i) => (
                   <li key={i}>• {issue}</li>
                 ))}
-                {issues.length > 5 && (
-                  <li className="text-muted-foreground">...and {issues.length - 5} more</li>
-                )}
+                {issues.length > 5 && <li>…and {issues.length - 5} more</li>}
               </ul>
             </div>
           ) : (

@@ -14,6 +14,14 @@ interface SimulationControlsProps {
   onSpeedChange: (speed: number) => void;
 }
 
+const SPEEDS = [0.25, 0.5, 1, 2, 4];
+
+/**
+ * These controls live inside a ~360px sidebar. The previous single unwrapped
+ * flex row of full-width labelled buttons had roughly 700-750px of intrinsic
+ * width, so most of it was clipped. The transport row now wraps and drops to
+ * icon-only buttons; speed sits on its own line.
+ */
 export const SimulationControls = ({
   isPlaying,
   isComplete,
@@ -26,55 +34,73 @@ export const SimulationControls = ({
   onSpeedChange,
 }: SimulationControlsProps) => {
   return (
-    <div className="flex items-center gap-2 p-4 bg-background border-t border-border">
-      {!isPlaying ? (
-        <Button onClick={onPlay} disabled={isComplete} size="lg">
-          <Play className="h-4 w-4 mr-2" />
-          Play
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {!isPlaying ? (
+          <Button onClick={onPlay} disabled={isComplete} size="sm" className="flex-1">
+            <Play className="mr-2 h-4 w-4" />
+            Play
+          </Button>
+        ) : (
+          <Button onClick={onPause} size="sm" variant="secondary" className="flex-1">
+            <Pause className="mr-2 h-4 w-4" />
+            Pause
+          </Button>
+        )}
+
+        <Button
+          onClick={onStep}
+          disabled={isPlaying || isComplete}
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          title="Step one action or phase"
+          aria-label="Step one action or phase"
+        >
+          <SkipForward className="h-4 w-4" />
         </Button>
-      ) : (
-        <Button onClick={onPause} size="lg" variant="secondary">
-          <Pause className="h-4 w-4 mr-2" />
-          Pause
+
+        <Button
+          onClick={onRestart}
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          title="Restart the simulation"
+          aria-label="Restart the simulation"
+        >
+          <RotateCcw className="h-4 w-4" />
         </Button>
-      )}
 
-      <Button onClick={onStep} disabled={isPlaying || isComplete} variant="outline">
-        <SkipForward className="h-4 w-4 mr-2" />
-        Step
-      </Button>
+        <SimulationLegend />
 
-      <Button onClick={onRestart} variant="outline">
-        <RotateCcw className="h-4 w-4 mr-2" />
-        Restart
-      </Button>
-
-      {/* Speed control */}
-      <div className="flex items-center gap-2 ml-4">
-        <span className="text-xs text-muted-foreground whitespace-nowrap">Speed:</span>
-        <div className="flex gap-1">
-          {[0.25, 0.5, 1, 2, 4].map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={speed === s ? "default" : "outline"}
-              onClick={() => onSpeedChange(s)}
-              className="w-10 text-xs px-2"
-            >
-              {s}x
-            </Button>
-          ))}
-        </div>
+        <Button
+          onClick={onExport}
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          disabled={!isComplete}
+          title={isComplete ? 'Export results as JSON' : 'Available when the game finishes'}
+          aria-label="Export results as JSON"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
       </div>
 
-      <div className="flex-1" />
-
-      <SimulationLegend />
-
-      <Button onClick={onExport} variant="outline" disabled={!isComplete}>
-        <Download className="h-4 w-4 mr-2" />
-        Export Results
-      </Button>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground">Speed</span>
+        {SPEEDS.map(s => (
+          <Button
+            key={s}
+            size="sm"
+            variant={speed === s ? 'default' : 'outline'}
+            onClick={() => onSpeedChange(s)}
+            className="h-7 min-w-[2.25rem] px-1.5 text-xs"
+            aria-pressed={speed === s}
+          >
+            {s}x
+          </Button>
+        ))}
+      </div>
     </div>
   );
 };

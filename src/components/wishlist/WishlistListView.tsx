@@ -14,6 +14,7 @@ import {
   ChevronUp,
   ExternalLink
 } from 'lucide-react';
+import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
 interface WishlistItem {
@@ -52,9 +53,9 @@ interface WishlistListViewProps {
 }
 
 const PRIORITY_CONFIG = {
-  high: { label: 'High', color: 'bg-rose-500/10 text-rose-400 border-rose-500/30', dot: 'bg-rose-500' },
-  medium: { label: 'Medium', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30', dot: 'bg-amber-500' },
-  low: { label: 'Low', color: 'bg-slate-500/10 text-slate-400 border-slate-500/30', dot: 'bg-slate-500' },
+  high: { label: 'High', color: 'bg-accent text-accent-foreground border-foreground/40', dot: 'bg-foreground' },
+  medium: { label: 'Medium', color: 'bg-accent text-accent-foreground border-border', dot: 'bg-muted-foreground' },
+  low: { label: 'Low', color: 'bg-muted text-muted-foreground border-border', dot: 'bg-border' },
 };
 
 export function WishlistListView({
@@ -73,7 +74,7 @@ export function WishlistListView({
 
   const isPriceBelowTarget = (item: WishlistItem) => {
     if (!item.target_price_usd || !item.card?.prices?.usd) return false;
-    return parseFloat(item.card.prices.usd) <= item.target_price_usd;
+    return toNumber(item.card.prices.usd) <= item.target_price_usd;
   };
 
   const handleSaveTarget = (item: WishlistItem) => {
@@ -88,7 +89,7 @@ export function WishlistListView({
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const currentPrice = parseFloat(item.card?.prices?.usd || '0');
+        const currentPrice = toNumber(item.card?.prices?.usd);
         const isBelowTarget = isPriceBelowTarget(item);
         const isExpanded = expandedItem === item.id;
         const priorityConfig = PRIORITY_CONFIG[item.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
@@ -98,7 +99,7 @@ export function WishlistListView({
             key={item.id}
             className={cn(
               "overflow-hidden transition-all hover:border-primary/50",
-              isBelowTarget && "ring-1 ring-emerald-500/50"
+              isBelowTarget && "border-foreground"
             )}
           >
             <CardContent className="p-0">
@@ -147,9 +148,9 @@ export function WishlistListView({
                       <span className="text-xs text-muted-foreground">{priorityConfig.label}</span>
                     </div>
                     {item.alert_enabled && item.target_price_usd && (
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Bell className="h-3 w-3" />
-                        <span className="text-xs">${item.target_price_usd.toFixed(2)}</span>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Bell className="h-3 w-3" aria-hidden="true" />
+                        <span className="text-xs tabular-nums">{formatPrice(item.target_price_usd)}</span>
                       </div>
                     )}
                   </div>
@@ -158,24 +159,19 @@ export function WishlistListView({
                 {/* Price & Actions */}
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className={cn(
-                      "font-bold",
-                      isBelowTarget ? "text-emerald-500" : ""
-                    )}>
-                      ${currentPrice.toFixed(2)}
-                    </div>
+                    <div className="font-bold tabular-nums">{formatPrice(currentPrice)}</div>
                     {isBelowTarget && (
-                      <Badge className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-                        <TrendingDown className="h-3 w-3 mr-1" />
-                        Below Target
+                      <Badge variant="secondary" className="text-xs">
+                        <TrendingDown className="mr-1 h-3 w-3" aria-hidden="true" />
+                        Below target
                       </Badge>
                     )}
                   </div>
 
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => onBuy(item)}
-                    className="bg-emerald-600 hover:bg-emerald-700 h-9"
+                    className="h-9"
                   >
                     <ShoppingCart className="h-4 w-4 mr-1.5" />
                     Buy
@@ -260,7 +256,7 @@ export function WishlistListView({
                           }}
                         >
                           <TrendingDown className="h-3 w-3 mr-1" />
-                          {item.target_price_usd ? `$${item.target_price_usd.toFixed(2)}` : 'Set Target'}
+                          {item.target_price_usd ? formatPrice(item.target_price_usd) : 'Set target'}
                         </Button>
                       )}
                     </div>
@@ -269,7 +265,7 @@ export function WishlistListView({
                     <Button
                       size="sm"
                       variant={item.alert_enabled ? 'secondary' : 'outline'}
-                      className={cn("h-7 px-2 text-xs", item.alert_enabled && "text-amber-500")}
+                      className="h-7 px-2 text-xs"
                       onClick={() => onToggleAlert(item.id, !item.alert_enabled)}
                     >
                       {item.alert_enabled ? (

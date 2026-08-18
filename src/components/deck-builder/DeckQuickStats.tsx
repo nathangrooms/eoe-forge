@@ -2,29 +2,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { 
-  Layers, 
-  DollarSign, 
-  TrendingUp, 
-  Target, 
-  Crown,
-  Swords,
-  Shield,
-  Sparkles,
-  Mountain,
-  Users,
-  Scroll,
-  Gem,
-  Zap,
-  Scale,
-  Clock,
-  Crosshair,
-  Gamepad2,
-  ExternalLink,
-  RefreshCw,
-  Loader2
-} from 'lucide-react';
+import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CATEGORY_CONFIG, CATEGORY_ORDER, type CardCategory } from './deck-categories';
 
 interface EdhMetrics {
   tippingPoint: number | null;
@@ -34,18 +15,12 @@ interface EdhMetrics {
   playability: number | null;
 }
 
-interface DeckQuickStatsProps {
+export interface DeckQuickStatsProps {
   totalCards: number;
-  creatures: number;
-  lands: number;
-  instants: number;
-  sorceries: number;
-  artifacts: number;
-  enchantments: number;
-  planeswalkers: number;
+  /** Copies per card category, keyed by the shared CardCategory vocabulary. */
+  typeCounts: Partial<Record<CardCategory, number>>;
   avgCmc: number;
   totalValue: number;
-  powerLevel: number;
   edhPowerLevel?: number | null;
   edhMetrics?: EdhMetrics | null;
   edhPowerUrl?: string | null;
@@ -55,37 +30,48 @@ interface DeckQuickStatsProps {
   format: string;
   commanderName?: string;
   colors: string[];
-  missingCards?: number;
-  ownedPct?: number;
+  /** Null when there is nothing to measure against — never fake a percentage. */
+  ownedPct?: number | null;
+  missingCards?: number | null;
+  ownershipLoading?: boolean;
 }
 
-const colorMap: Record<string, string> = {
-  W: 'bg-amber-100 border-amber-300 dark:bg-amber-200',
-  U: 'bg-blue-500',
-  B: 'bg-gray-800',
-  R: 'bg-red-500',
-  G: 'bg-green-500'
-};
+/** Power bands use the --power-* tokens rather than raw palette colours. */
+function powerBand(level: number | null | undefined) {
+  if (level === null || level === undefined) return { color: 'text-muted-foreground', label: '' };
+  if (level <= 3) return { color: 'text-power-1', label: 'Casual' };
+  if (level <= 6) return { color: 'text-power-4', label: 'Mid' };
+  if (level <= 8) return { color: 'text-power-7', label: 'High' };
+  return { color: 'text-power-10', label: 'cEDH' };
+}
 
-const powerBandConfig: Record<string, { color: string; label: string }> = {
-  casual: { color: 'text-green-500', label: 'Casual' },
-  mid: { color: 'text-blue-500', label: 'Mid' },
-  high: { color: 'text-orange-500', label: 'High' },
-  cEDH: { color: 'text-red-500', label: 'cEDH' }
-};
+function StatTile({
+  label,
+  children,
+  action,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={cn('p-3', className)}>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        {action}
+      </div>
+      {children}
+    </Card>
+  );
+}
 
 export function DeckQuickStats({
   totalCards,
-  creatures,
-  lands,
-  instants,
-  sorceries,
-  artifacts,
-  enchantments,
-  planeswalkers,
+  typeCounts,
   avgCmc,
   totalValue,
-  powerLevel,
   edhPowerLevel,
   edhMetrics,
   edhPowerUrl,
@@ -95,251 +81,170 @@ export function DeckQuickStats({
   format,
   commanderName,
   colors,
-  missingCards = 0,
-  ownedPct = 100
+  ownedPct,
+  missingCards,
+  ownershipLoading,
 }: DeckQuickStatsProps) {
-  const getPowerBand = (level: number | null) => {
-    if (level === null || level === undefined) return 'casual';
-    if (level <= 3) return 'casual';
-    if (level <= 6) return 'mid';
-    if (level <= 8) return 'high';
-    return 'cEDH';
-  };
-
-  // ONLY show EDH power level from edhpowerlevel.com, never internal calculation
-  const displayPower = edhPowerLevel;
-  const powerBand = getPowerBand(displayPower);
-  const powerStyle = powerBandConfig[powerBand];
+  const band = powerBand(edhPowerLevel);
 
   const isCommander = format === 'commander' || format === 'edh';
   const targetCards = isCommander ? 100 : 60;
-  // For commander decks, add 1 to account for the commander card
-  const displayCards = isCommander ? totalCards + 1 : totalCards;
+  const displayCards = isCommander && commanderName ? totalCards + 1 : totalCards;
   const completionPct = Math.min((displayCards / targetCards) * 100, 100);
 
-  return (
-    <div className="space-y-4">
-      {/* Main Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {/* Total Cards */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <Layers className="h-5 w-5 text-primary" />
-            <Badge variant="outline" className="text-[10px]">{format}</Badge>
-          </div>
-          <div className="text-2xl font-bold">{displayCards}</div>
-          <div className="text-xs text-muted-foreground">/ {targetCards} cards</div>
-          <Progress value={completionPct} className="h-1.5 mt-2" />
-        </Card>
+  const presentTypes = CATEGORY_ORDER.filter(c => c !== 'commanders' && (typeCounts[c] ?? 0) > 0);
 
-        {/* Power Level - EDH Live Only */}
-        <Card className={cn(
-          "p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60",
-          edhNeedsRefresh && "ring-2 ring-orange-500/50"
-        )}>
-          <div className="flex items-center justify-between mb-2">
-            <Zap className="h-5 w-5 text-amber-500" />
-            <div className="flex items-center gap-1">
-              {edhNeedsRefresh && (
-                <Badge variant="outline" className="text-[10px] text-orange-500 border-orange-500/50 animate-pulse">
-                  Outdated
-                </Badge>
-              )}
-              {isCommander && onCheckEdhPower && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={onCheckEdhPower}
-                  disabled={loadingEdhPower}
-                >
-                  {loadingEdhPower ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className={cn("h-3 w-3", edhNeedsRefresh && "text-orange-500")} />
-                  )}
-                </Button>
-              )}
-            </div>
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        {/* Cards */}
+        <StatTile label="Cards" action={<Badge variant="outline" className="text-[10px]">{format}</Badge>}>
+          <div className="text-2xl font-semibold tabular-nums">
+            {displayCards}
+            <span className="text-sm font-normal text-muted-foreground"> / {targetCards}</span>
           </div>
-          <div className={cn("text-2xl font-bold", displayPower !== null ? powerStyle.color : "text-muted-foreground")}>
-            {displayPower !== null ? `${displayPower.toFixed(2)}/10` : '--'}
+          <Progress value={completionPct} className="mt-2 h-1" />
+        </StatTile>
+
+        {/* EDH power level */}
+        <StatTile
+          label="Power level"
+          action={
+            isCommander && onCheckEdhPower ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-mr-1 -mt-1 h-6 w-6"
+                onClick={onCheckEdhPower}
+                disabled={loadingEdhPower}
+                title={edhNeedsRefresh ? 'Cards changed — recalculate' : 'Recalculate'}
+              >
+                {loadingEdhPower ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className={cn('text-2xl font-semibold tabular-nums', band.color)}>
+            {edhPowerLevel !== null && edhPowerLevel !== undefined ? edhPowerLevel.toFixed(2) : '—'}
+            {edhPowerLevel !== null && edhPowerLevel !== undefined && (
+              <span className="text-sm font-normal text-muted-foreground">/10</span>
+            )}
           </div>
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
-            Power Level
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            {band.label || 'Not calculated'}
+            {edhNeedsRefresh && edhPowerLevel !== null && edhPowerLevel !== undefined && (
+              <span className="text-destructive">outdated</span>
+            )}
             {edhPowerUrl && (
-              <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a
+                href={edhPowerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground hover:underline"
+                title="Open on edhpowerlevel.com"
+              >
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
           </div>
-          {displayPower !== null && (
-            <Badge variant="outline" className={cn("text-[10px] mt-1", powerStyle.color)}>
-              {powerStyle.label}
-            </Badge>
-          )}
-        </Card>
+        </StatTile>
 
-        {/* Deck Value */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <DollarSign className="h-5 w-5 text-green-500" />
-          </div>
-          <div className="text-2xl font-bold text-green-500">${totalValue.toFixed(0)}</div>
-          <div className="text-xs text-muted-foreground">Est. Value</div>
-        </Card>
+        {/* Value */}
+        <StatTile label="Est. value">
+          <div className="text-2xl font-semibold tabular-nums">${totalValue.toFixed(0)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">market, USD</div>
+        </StatTile>
 
-        {/* Average CMC */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-          </div>
-          <div className="text-2xl font-bold">{avgCmc.toFixed(2)}</div>
-          <div className="text-xs text-muted-foreground">Avg. CMC</div>
-        </Card>
+        {/* Average mana value */}
+        <StatTile label="Avg mana value">
+          <div className="text-2xl font-semibold tabular-nums">{avgCmc.toFixed(2)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">nonland cards</div>
+        </StatTile>
 
-        {/* Collection Ownership */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <Shield className="h-5 w-5 text-primary" />
-            {missingCards > 0 && (
-              <Badge variant="outline" className="text-[10px] text-orange-500">{missingCards} missing</Badge>
-            )}
+        {/* Colour identity */}
+        <StatTile label="Colour identity">
+          <div className="flex h-8 items-center">
+            <ColorIdentity colors={colors} size="lg" />
           </div>
-          <div className="text-2xl font-bold">{ownedPct.toFixed(0)}%</div>
-          <div className="text-xs text-muted-foreground">Owned</div>
-          <Progress value={ownedPct} className="h-1.5 mt-2" />
-        </Card>
-
-        {/* Color Identity */}
-        <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+          <div className="mt-1 text-xs text-muted-foreground">
+            {colors.length === 0 ? 'Colourless' : `${colors.length}-colour`}
           </div>
-          <div className="flex gap-1.5 mb-1">
-            {colors.length > 0 ? colors.map(color => (
-              <div 
-                key={color}
-                className={cn("w-6 h-6 rounded-full border-2 border-white/30 shadow-sm", colorMap[color])}
-              />
-            )) : (
-              <span className="text-muted-foreground text-sm">Colorless</span>
-            )}
-          </div>
-          <div className="text-xs text-muted-foreground">Color Identity</div>
-        </Card>
+        </StatTile>
       </div>
 
-      {/* EDH Metrics Row - Only show for Commander format when metrics are available */}
+      {/* Collection ownership — only rendered when it is real */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            From your collection
+          </span>
+          {ownershipLoading ? (
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> checking collection…
+            </span>
+          ) : ownedPct === null || ownedPct === undefined ? (
+            <span className="text-xs text-muted-foreground">
+              No collection data — add cards to your collection to see what this deck still needs.
+            </span>
+          ) : (
+            <div className="flex flex-1 items-center gap-3">
+              <Progress value={ownedPct} className="h-1 flex-1" />
+              <span className="text-sm font-semibold tabular-nums">{ownedPct.toFixed(0)}%</span>
+              {!!missingCards && missingCards > 0 && (
+                <span className="text-xs text-muted-foreground">{missingCards} missing</span>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* EDH sub-metrics, only when edhpowerlevel.com actually returned them */}
       {isCommander && edhMetrics && (
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-          {/* Tipping Point */}
-          <Card className="p-3 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Scale className="h-4 w-4 text-blue-400" />
-              <span className="text-xs text-muted-foreground">Tipping Point</span>
-            </div>
-            <div className="text-xl font-bold text-blue-400">
-              {edhMetrics.tippingPoint !== null ? edhMetrics.tippingPoint : '--'}
-            </div>
-          </Card>
-
-          {/* Efficiency */}
-          <Card className="p-3 bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-green-400" />
-              <span className="text-xs text-muted-foreground">Efficiency</span>
-            </div>
-            <div className="text-xl font-bold text-green-400">
-              {edhMetrics.efficiency !== null ? `${edhMetrics.efficiency.toFixed(1)}/10` : '--'}
-            </div>
-          </Card>
-
-          {/* Impact */}
-          <Card className="p-3 bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Crosshair className="h-4 w-4 text-orange-400" />
-              <span className="text-xs text-muted-foreground">Impact</span>
-            </div>
-            <div className="text-xl font-bold text-orange-400">
-              {edhMetrics.impact !== null ? edhMetrics.impact.toFixed(0) : '--'}
-            </div>
-          </Card>
-
-          {/* Score */}
-          <Card className="p-3 bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Target className="h-4 w-4 text-purple-400" />
-              <span className="text-xs text-muted-foreground">Score</span>
-            </div>
-            <div className="text-xl font-bold text-purple-400">
-              {edhMetrics.score !== null ? `${edhMetrics.score}/1000` : '--'}
-            </div>
-          </Card>
-
-          {/* Playability */}
-          <Card className="p-3 bg-gradient-to-br from-pink-500/10 to-pink-500/5 border-pink-500/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Gamepad2 className="h-4 w-4 text-pink-400" />
-              <span className="text-xs text-muted-foreground">Playability</span>
-            </div>
-            <div className="text-xl font-bold text-pink-400">
-              {edhMetrics.playability !== null ? `${edhMetrics.playability}%` : '--'}
-            </div>
-          </Card>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {(
+            [
+              ['Tipping point', edhMetrics.tippingPoint, (v: number) => String(v)],
+              ['Efficiency', edhMetrics.efficiency, (v: number) => `${v.toFixed(1)}/10`],
+              ['Impact', edhMetrics.impact, (v: number) => v.toFixed(0)],
+              ['Score', edhMetrics.score, (v: number) => `${v}/1000`],
+              ['Playability', edhMetrics.playability, (v: number) => `${v}%`],
+            ] as Array<[string, number | null, (v: number) => string]>
+          ).map(([label, value, fmt]) => (
+            <Card key={label} className="p-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+              <div className="mt-1 text-lg font-semibold tabular-nums">
+                {value !== null && value !== undefined ? fmt(value) : '—'}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
-      {/* Type Breakdown - Full Width */}
-      <Card className="p-4 bg-gradient-to-br from-muted/50 to-muted/20 border-border/60">
-        <div className="flex items-center gap-2 mb-3">
-          <Layers className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Type Breakdown</span>
+      {/* Type breakdown */}
+      <Card className="p-3">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Type breakdown
         </div>
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Users className="h-4 w-4 mx-auto mb-1 text-green-500" />
-            <div className="text-lg font-bold">{creatures}</div>
-            <div className="text-[10px] text-muted-foreground">Creatures</div>
+        {presentTypes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No cards yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {presentTypes.map(c => {
+              const Icon = CATEGORY_CONFIG[c].icon;
+              return (
+                <div key={c} className="flex items-center gap-2">
+                  <Icon className={cn('h-4 w-4', CATEGORY_CONFIG[c].color)} />
+                  <span className="text-sm font-semibold tabular-nums">{typeCounts[c]}</span>
+                  <span className="text-xs text-muted-foreground">{CATEGORY_CONFIG[c].label}</span>
+                </div>
+              );
+            })}
           </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Mountain className="h-4 w-4 mx-auto mb-1 text-amber-600" />
-            <div className="text-lg font-bold">{lands}</div>
-            <div className="text-[10px] text-muted-foreground">Lands</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Sparkles className="h-4 w-4 mx-auto mb-1 text-blue-400" />
-            <div className="text-lg font-bold">{instants}</div>
-            <div className="text-[10px] text-muted-foreground">Instants</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Scroll className="h-4 w-4 mx-auto mb-1 text-blue-600" />
-            <div className="text-lg font-bold">{sorceries}</div>
-            <div className="text-[10px] text-muted-foreground">Sorceries</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Shield className="h-4 w-4 mx-auto mb-1 text-gray-400" />
-            <div className="text-lg font-bold">{artifacts}</div>
-            <div className="text-[10px] text-muted-foreground">Artifacts</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Gem className="h-4 w-4 mx-auto mb-1 text-purple-500" />
-            <div className="text-lg font-bold">{enchantments}</div>
-            <div className="text-[10px] text-muted-foreground">Enchant.</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <Swords className="h-4 w-4 mx-auto mb-1 text-orange-500" />
-            <div className="text-lg font-bold">{planeswalkers}</div>
-            <div className="text-[10px] text-muted-foreground">PWs</div>
-          </div>
-          {commanderName && (
-            <div className="text-center p-2 rounded-lg bg-primary/10 border border-primary/20">
-              <Crown className="h-4 w-4 mx-auto mb-1 text-amber-400" />
-              <div className="text-xs font-medium truncate">{commanderName.split(',')[0]}</div>
-              <div className="text-[10px] text-muted-foreground">Commander</div>
-            </div>
-          )}
-        </div>
+        )}
       </Card>
     </div>
   );

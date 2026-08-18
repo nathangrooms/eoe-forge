@@ -1,13 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  Package, 
-  Upload, 
-  Search, 
-  Camera,
-  Sparkles,
-  ArrowRight
-} from 'lucide-react';
+import { Package, Upload, Search, Camera } from 'lucide-react';
 
 interface CollectionEmptyStateProps {
   onAddCards?: () => void;
@@ -15,85 +7,70 @@ interface CollectionEmptyStateProps {
   onScan?: () => void;
 }
 
+const OPTIONS = [
+  {
+    id: 'search',
+    icon: Search,
+    title: 'Search & add',
+    description: 'Find cards by name and add them one at a time',
+  },
+  {
+    id: 'import',
+    icon: Upload,
+    title: 'Import a list',
+    description: 'Paste an Arena, MTGO, Moxfield or CSV export',
+  },
+  {
+    id: 'scan',
+    icon: Camera,
+    title: 'Scan cards',
+    description: 'Use your camera to add physical cards',
+  },
+] as const;
+
 export function CollectionEmptyState({
   onAddCards,
   onImport,
   onScan,
 }: CollectionEmptyStateProps) {
+  const handlers: Record<string, (() => void) | undefined> = {
+    search: onAddCards,
+    import: onImport,
+    scan: onScan,
+  };
+
   return (
-    <Card className="border-dashed border-2 border-muted-foreground/20">
-      <CardContent className="py-12 px-6">
-        <div className="max-w-2xl mx-auto text-center space-y-6">
-          {/* Icon */}
-          <div className="relative mx-auto w-20 h-20">
-            <div className="absolute inset-0 bg-gradient-cosmic rounded-full opacity-20 blur-xl" />
-            <div className="relative w-full h-full rounded-full bg-gradient-cosmic flex items-center justify-center">
-              <Package className="h-10 w-10 text-primary-foreground" />
-            </div>
+    <Card className="border-2 border-dashed border-border">
+      <CardContent className="px-6 py-12">
+        <div className="mx-auto max-w-2xl space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">
+            <Package className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
           </div>
 
-          {/* Text */}
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold">Start Your Collection</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Track your Magic: The Gathering cards, monitor their value, and build the perfect deck
+            <h3 className="text-2xl font-bold text-foreground">Your collection is empty</h3>
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
+              Add the cards you own to track quantity, condition, foils and market value.
             </p>
           </div>
 
-          {/* Action Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
-            <button
-              onClick={onAddCards}
-              className="group p-4 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all duration-300 text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <Search className="h-5 w-5" />
+          <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-3">
+            {OPTIONS.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={handlers[option.id]}
+                className="group rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-foreground/40 hover:bg-accent"
+              >
+                <div className="mb-2 flex items-center gap-3">
+                  <div className="rounded-lg bg-muted p-2 text-muted-foreground group-hover:text-foreground">
+                    <option.icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <span className="font-semibold text-card-foreground">{option.title}</span>
                 </div>
-                <span className="font-semibold">Search & Add</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Find cards by name and add them to your collection
-              </p>
-            </button>
-
-            <button
-              onClick={onImport}
-              className="group p-4 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all duration-300 text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                  <Upload className="h-5 w-5" />
-                </div>
-                <span className="font-semibold">Import List</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Bulk import from Arena, MTGO, or text files
-              </p>
-            </button>
-
-            <button
-              onClick={onScan}
-              className="group p-4 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all duration-300 text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                  <Camera className="h-5 w-5" />
-                </div>
-                <span className="font-semibold">Scan Cards</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Use your camera to quickly add physical cards
-              </p>
-            </button>
-          </div>
-
-          {/* AI suggestion */}
-          <div className="pt-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-cosmic text-primary-foreground text-sm">
-              <Sparkles className="h-4 w-4" />
-              <span>Tip: Our AI can help you build optimal decks from your collection</span>
-            </div>
+                <p className="text-sm text-muted-foreground">{option.description}</p>
+              </button>
+            ))}
           </div>
         </div>
       </CardContent>

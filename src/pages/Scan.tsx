@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Camera, Zap, Settings, BarChart3, Plus, Smartphone, Target } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Camera, Zap, Settings, BarChart3, Plus, Target } from 'lucide-react';
 import { CameraScanDrawer } from '@/features/scan/CameraScanDrawer';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
@@ -83,25 +85,37 @@ export default function Scan() {
               <CardTitle className="text-xs md:text-sm font-medium">Auto Features</CardTitle>
               <Zap className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-              <div className="flex gap-2 flex-wrap">
-                <Badge variant={settings.autoCapture ? "default" : "secondary"} className="text-xs">
-                  Auto Capture
-                </Badge>
-                <Badge variant={settings.autoAdd ? "default" : "secondary"} className="text-xs">
-                  Auto Add
-                </Badge>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="scan-auto-capture" className="text-xs font-normal text-muted-foreground">
+                  Auto capture
+                </Label>
+                <Switch
+                  id="scan-auto-capture"
+                  checked={settings.autoCapture}
+                  onCheckedChange={(checked) => updateSettings({ autoCapture: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="scan-auto-add" className="text-xs font-normal text-muted-foreground">
+                  Auto add
+                </Label>
+                <Switch
+                  id="scan-auto-add"
+                  checked={settings.autoAdd}
+                  onCheckedChange={(checked) => updateSettings({ autoAdd: checked })}
+                />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Feature Highlight - compact for mobile */}
-        <Card className="bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20">
+        <Card>
           <CardContent className="p-4 md:p-6">
             <div className="flex items-center gap-3 mb-3 md:mb-4">
-              <div className="p-2 md:p-3 bg-primary/20 rounded-full">
-                <Target className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <div className="p-2 md:p-3 bg-muted rounded-md">
+                <Target className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
               </div>
               <div>
                 <h3 className="text-base md:text-lg font-semibold">Smart Recognition</h3>
@@ -110,19 +124,19 @@ export default function Scan() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 text-xs md:text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
                 <span>Fast Detection</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
                 <span>Any Angle</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
                 <span>All Languages</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
                 <span>Instant Add</span>
               </div>
             </div>
@@ -152,8 +166,8 @@ export default function Scan() {
         </Card>
 
         {/* Main Scan Button - more compact on mobile */}
-        <Card className="text-center p-4 md:p-8 bg-gradient-to-br from-primary/5 to-purple-500/5 border-primary/20">
-          <Camera className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-4 md:mb-6 text-primary" />
+        <Card className="text-center p-4 md:p-8">
+          <Camera className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-4 md:mb-6 text-muted-foreground" />
           <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-4">Ready to Scan?</h2>
           <p className="text-muted-foreground mb-4 md:mb-8 max-w-md mx-auto text-sm md:text-base">
             Point your camera at any Magic: The Gathering card for instant recognition.
@@ -224,8 +238,8 @@ export default function Scan() {
           <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
               <div className="text-center">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Camera className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
+                  <Camera className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
                 </div>
                 <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">1. Point</h3>
                 <p className="text-xs md:text-sm text-muted-foreground">
@@ -234,8 +248,8 @@ export default function Scan() {
               </div>
               
               <div className="text-center">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Target className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
+                  <Target className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
                 </div>
                 <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">2. Detect</h3>
                 <p className="text-xs md:text-sm text-muted-foreground">
@@ -244,8 +258,8 @@ export default function Scan() {
               </div>
               
               <div className="text-center col-span-2 md:col-span-1">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Plus className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
+                  <Plus className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
                 </div>
                 <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">3. Add</h3>
                 <p className="text-xs md:text-sm text-muted-foreground">

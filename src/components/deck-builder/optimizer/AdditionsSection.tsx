@@ -76,8 +76,8 @@ export function AdditionsSection({
   );
 
   const priorityStyles = {
-    high: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', label: 'Must Add', dot: 'bg-green-500' },
-    medium: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', label: 'Recommended', dot: 'bg-blue-500' },
+    high: { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', label: 'Must Add', dot: 'bg-muted' },
+    medium: { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', label: 'Recommended', dot: 'bg-muted' },
     low: { bg: 'bg-muted/50', border: 'border-border', text: 'text-muted-foreground', label: 'Optional', dot: 'bg-muted-foreground' }
   };
 
@@ -99,13 +99,13 @@ export function AdditionsSection({
     <TooltipProvider>
       <div className="space-y-3 sm:space-y-4">
         {/* Header - Mobile optimized */}
-        <Card className="border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
+        <Card className="border-border">
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
-                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" />
+                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
                     <span className="truncate">Complete Your Deck</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground">
@@ -132,7 +132,7 @@ export function AdditionsSection({
                   size="sm" 
                   onClick={addSelected} 
                   disabled={selectedCards.size === 0 || isAdding} 
-                  className="flex-1 h-9 text-xs sm:text-sm bg-green-600 hover:bg-green-700"
+                  className="flex-1 h-9 text-xs sm:text-sm bg-muted hover:bg-muted"
                 >
                   {isAdding ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
                   Add Selected ({selectedCards.size})
@@ -170,7 +170,7 @@ export function AdditionsSection({
                           transition={{ delay: idx * 0.02 }}
                           className={cn(
                             "group relative p-2 sm:p-3 rounded-lg sm:rounded-xl border transition-all duration-200 cursor-pointer",
-                            isSelected ? "border-green-500/50 bg-green-500/10" : "border-border hover:border-primary/30",
+                            isSelected ? "border-border bg-muted" : "border-border hover:border-primary/30",
                             "active:scale-[0.98]"
                           )}
                           onClick={() => toggleCard(card.name)}
@@ -199,7 +199,7 @@ export function AdditionsSection({
                                     onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }} 
                                   />
                                   {card.inCollection && (
-                                    <Badge className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] px-1 bg-blue-500">
+                                    <Badge className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] px-1 bg-muted">
                                       <Package className="h-2 w-2 mr-0.5" />Owned
                                     </Badge>
                                   )}

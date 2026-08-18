@@ -76,7 +76,7 @@ export function SwapsSection({
 
   const priorityStyles = {
     high: { bg: 'bg-destructive/10', border: 'border-destructive/30', text: 'text-destructive', label: 'Critical' },
-    medium: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', label: 'Recommended' },
+    medium: { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', label: 'Recommended' },
     low: { bg: 'bg-muted/50', border: 'border-border', text: 'text-muted-foreground', label: 'Optional' }
   };
 
@@ -91,7 +91,7 @@ export function SwapsSection({
     <TooltipProvider>
       <div className="space-y-3 sm:space-y-4">
         {/* Summary header - Mobile optimized */}
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <Card className="border-primary/20">
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
@@ -110,7 +110,7 @@ export function SwapsSection({
                     <span>{suggestions.length} suggested</span>
                     <span className={cn(
                       "flex items-center",
-                      totalCostDiff > 0 ? "text-amber-400" : totalCostDiff < 0 ? "text-green-400" : ""
+                      totalCostDiff > 0 ? "text-foreground" : totalCostDiff < 0 ? "text-foreground" : ""
                     )}>
                       <DollarSign className="h-3 w-3" />
                       {totalCostDiff >= 0 ? '+' : ''}{totalCostDiff.toFixed(2)}
@@ -118,7 +118,7 @@ export function SwapsSection({
                     {totalEdhImpact !== 0 && (
                       <span className={cn(
                         "flex items-center",
-                        totalEdhImpact > 0 ? "text-green-400" : "text-amber-400"
+                        totalEdhImpact > 0 ? "text-foreground" : "text-foreground"
                       )}>
                         <Zap className="h-3 w-3 mr-0.5" />
                         {totalEdhImpact > 0 ? '+' : ''}{totalEdhImpact.toFixed(1)}
@@ -184,7 +184,7 @@ export function SwapsSection({
                   <div className="mb-2 sm:mb-3 flex items-center gap-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
                     <div className={cn("w-2 h-2 rounded-full", 
                       priority === 'high' ? 'bg-destructive' :
-                      priority === 'medium' ? 'bg-orange-500' : 'bg-muted-foreground'
+                      priority === 'medium' ? 'bg-muted' : 'bg-muted-foreground'
                     )} />
                     <h4 className={cn("text-xs sm:text-sm font-medium", style.text)}>
                       {style.label} Swaps
@@ -219,7 +219,7 @@ export function SwapsSection({
                             <div className={cn(
                               "absolute left-0 top-0 bottom-0 w-1 rounded-l-lg sm:rounded-l-xl",
                               priority === 'high' ? 'bg-destructive' :
-                              priority === 'medium' ? 'bg-orange-500' : 'bg-muted-foreground'
+                              priority === 'medium' ? 'bg-muted' : 'bg-muted-foreground'
                             )} />
 
                             <div className="p-2 sm:p-4 pl-3 sm:pl-5">
@@ -244,8 +244,8 @@ export function SwapsSection({
                                     variant="outline" 
                                     className={cn(
                                       "text-[9px] sm:text-xs px-1 sm:px-1.5",
-                                      priceDiff > 0 ? "text-amber-400 bg-amber-500/10 border-amber-500/30" : 
-                                      priceDiff < 0 ? "text-green-400 bg-green-500/10 border-green-500/30" :
+                                      priceDiff > 0 ? "text-foreground bg-muted border-border" : 
+                                      priceDiff < 0 ? "text-foreground bg-muted border-border" :
                                       "text-muted-foreground"
                                     )}
                                   >
@@ -260,8 +260,8 @@ export function SwapsSection({
                                       className={cn(
                                         "text-[9px] sm:text-xs px-1 sm:px-1.5",
                                         swap.edhImpact > 0 
-                                          ? "text-green-400 bg-green-500/10 border-green-500/30"
-                                          : "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                                          ? "text-foreground bg-muted border-border"
+                                          : "text-foreground bg-muted border-border"
                                       )}
                                     >
                                       {swap.edhImpact > 0 ? (
@@ -294,7 +294,7 @@ export function SwapsSection({
                                       Remove
                                     </Badge>
                                     {swap.currentCard.playability !== null && swap.currentCard.playability !== undefined && (
-                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-orange-500/10 text-orange-400 border-orange-500/30">
+                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
                                         {swap.currentCard.playability}%
                                       </Badge>
                                     )}
@@ -319,7 +319,7 @@ export function SwapsSection({
                                 {/* Arrow - horizontal on mobile, vertical arrow visible */}
                                 <div className="flex sm:flex-col items-center justify-center gap-1 py-1 sm:py-0 flex-shrink-0">
                                   <motion.div
-                                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-destructive/20 to-green-500/20 flex items-center justify-center border border-primary/30"
+                                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border border-primary/30"
                                     animate={{ x: [0, 2, 0] }}
                                     transition={{ duration: 1.5, repeat: Infinity }}
                                   >
@@ -337,11 +337,11 @@ export function SwapsSection({
                                 {/* New card */}
                                 <div className="flex-1">
                                   <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                                    <Badge variant="outline" className="text-[9px] sm:text-xs bg-green-500/10 text-green-400 border-green-500/30">
+                                    <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
                                       Add
                                     </Badge>
                                     {swap.newCard.inCollection && (
-                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
+                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
                                         <Package className="h-2 w-2 sm:h-3 sm:w-3 mr-0.5" />
                                         Owned
                                       </Badge>
@@ -357,7 +357,7 @@ export function SwapsSection({
                                     <div className="flex-1 min-w-0">
                                       <p className="font-medium text-xs sm:text-sm truncate">{swap.newCard.name}</p>
                                       <p className="text-[10px] sm:text-xs text-muted-foreground">${swap.newCard.price.toFixed(2)}</p>
-                                      <p className="text-[10px] sm:text-xs text-green-600 mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
+                                      <p className="text-[10px] sm:text-xs text-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
                                         {swap.newCard.reason}
                                       </p>
                                     </div>

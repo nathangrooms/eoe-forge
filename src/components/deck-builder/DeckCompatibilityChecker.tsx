@@ -137,7 +137,7 @@ export function DeckCompatibilityChecker({
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             {isCompatible ? (
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <CheckCircle className="h-5 w-5 text-foreground" />
             ) : (
               <AlertTriangle className="h-5 w-5 text-destructive" />
             )}
@@ -187,8 +187,8 @@ export function DeckCompatibilityChecker({
         </div>
 
         {isCompatible ? (
-          <Alert className="border-green-500/20">
-            <CheckCircle className="h-4 w-4 text-green-600" />
+          <Alert className="border-border">
+            <CheckCircle className="h-4 w-4 text-foreground" />
             <AlertDescription>
               All cards in your deck match your commander's color identity.
             </AlertDescription>
@@ -244,12 +244,12 @@ export function DeckCompatibilityChecker({
 
 function getColorClass(color: string): string {
   const colorClasses: Record<string, string> = {
-    W: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-100',
-    U: 'bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-100',
-    B: 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
-    R: 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100',
-    G: 'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100',
-    C: 'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+    W: 'bg-muted text-foreground  ',
+    U: 'bg-muted text-foreground  ',
+    B: 'bg-muted text-foreground  ',
+    R: 'bg-destructive/10 text-destructive dark:bg-destructive/10 ',
+    G: 'bg-muted text-foreground  ',
+    C: 'bg-muted text-foreground  '
   };
   
   return colorClasses[color] || colorClasses.C;

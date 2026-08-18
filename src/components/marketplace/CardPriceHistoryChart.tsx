@@ -22,11 +22,11 @@ interface PriceDataPoint {
   displayDate: string;
 }
 
-export function CardPriceHistoryChart({ 
-  cardId, 
-  cardName, 
+export function CardPriceHistoryChart({
+  cardId,
+  cardName,
   oracleId,
-  showFoil = false 
+  showFoil = false
 }: CardPriceHistoryChartProps) {
   const [priceHistory, setPriceHistory] = useState<PriceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ export function CardPriceHistoryChart({
     setLoading(true);
     try {
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from('card_price_history')
         .select('snapshot_date, price_usd, price_usd_foil')
@@ -111,7 +111,7 @@ export function CardPriceHistoryChart({
 
   if (loading) {
     return (
-      <Card className="border-primary/20">
+      <Card>
         <CardHeader className="pb-2">
           <Skeleton className="h-5 w-32" />
         </CardHeader>
@@ -123,26 +123,23 @@ export function CardPriceHistoryChart({
   }
 
   return (
-    <Card className="border-primary/20">
+    <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
             Price History (30 Days)
             {hasRealData && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 text-xs">
+              <Badge variant="outline" className="text-xs">
                 <Database className="h-3 w-3 mr-1" />
-                Live Data
+                Live data
               </Badge>
             )}
           </CardTitle>
           {priceChange && (
-            <Badge 
-              variant="outline" 
-              className={priceChange.direction === 'up' 
-                ? 'bg-green-500/10 text-green-600 border-green-500/30' 
-                : 'bg-red-500/10 text-red-600 border-red-500/30'
-              }
+            <Badge
+              variant="outline"
+              className="tabular-nums"
             >
               {priceChange.direction === 'up' ? (
                 <TrendingUp className="h-3 w-3 mr-1" />
@@ -160,20 +157,20 @@ export function CardPriceHistoryChart({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={priceHistory}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="displayDate" 
+                <XAxis
+                  dataKey="displayDate"
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                   axisLine={false}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `$${value}`}
                   domain={['dataMin - 0.5', 'dataMax + 0.5']}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
                   labelFormatter={(label) => label}
                   contentStyle={{
@@ -183,10 +180,10 @@ export function CardPriceHistoryChart({
                     fontSize: '12px'
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="price" 
-                  stroke="hsl(var(--primary))" 
+                <Line
+                  type="monotone"
+                  dataKey="price"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
@@ -198,7 +195,7 @@ export function CardPriceHistoryChart({
           <div className="h-[150px] flex flex-col items-center justify-center text-center">
             <div className="relative">
               <Clock className="h-8 w-8 text-muted-foreground" />
-              <div className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full animate-pulse" />
+
             </div>
             <p className="text-sm font-medium text-foreground mt-2 mb-1">Collecting Price Data</p>
             <p className="text-xs text-muted-foreground">
@@ -206,15 +203,15 @@ export function CardPriceHistoryChart({
             </p>
           </div>
         )}
-        
+
         {hasRealData && priceHistory.length < 7 && (
           <div className="mt-2 pt-2 border-t border-border flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
               {priceHistory.length} data point{priceHistory.length !== 1 ? 's' : ''} - chart improves with more history
             </p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={captureCurrentPrice}
               disabled={capturing}
               className="h-6 text-xs"

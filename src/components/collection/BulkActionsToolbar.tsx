@@ -5,7 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -18,25 +17,32 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, ChevronDown, Package, Trash2, ShoppingCart, Plus, Minus } from 'lucide-react';
+import { X, ChevronDown, Package, Trash2, Plus, Minus } from 'lucide-react';
 import { StorageContainer } from '@/types/storage';
+import { formatPrice } from '@/components/collection/browser/types';
 
 interface BulkActionsToolbarProps {
   selectedCount: number;
+  /** Market value of the selection, so destructive actions state what is at stake. */
+  selectedValue?: number;
   onClearSelection: () => void;
   onBulkUpdateQuantity: (delta: number) => void;
   onBulkAssignStorage: (containerId: string) => void;
-  onBulkMarkForSale: () => void;
   onBulkDelete: () => void;
   storageContainers?: StorageContainer[];
 }
 
+/**
+ * Every control here performs a real mutation. The previous version also
+ * rendered a "Mark for Sale" button whose only effect was a success toast, and
+ * a stray DropdownMenuSeparator floating in the middle of the flex row.
+ */
 export function BulkActionsToolbar({
   selectedCount,
+  selectedValue,
   onClearSelection,
   onBulkUpdateQuantity,
   onBulkAssignStorage,
-  onBulkMarkForSale,
   onBulkDelete,
   storageContainers = [],
 }: BulkActionsToolbarProps) {
@@ -50,7 +56,7 @@ export function BulkActionsToolbar({
   };
 
   const handleQuantitySubmit = () => {
-    const delta = parseInt(quantityDelta) || 0;
+    const delta = parseInt(quantityDelta, 10) || 0;
     if (delta > 0) {
       onBulkUpdateQuantity(quantityAction === 'add' ? delta : -delta);
     }
@@ -60,60 +66,57 @@ export function BulkActionsToolbar({
 
   return (
     <>
-      <div className="sticky top-0 z-30 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg rounded-lg mx-2 mt-2 animate-in slide-in-from-top-2 duration-300">
+      <div className="sticky top-0 z-30 flex flex-col items-start justify-between gap-3 rounded-lg border border-border bg-secondary px-4 py-3 text-secondary-foreground sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
+          <Badge variant="outline" className="px-2 py-1 text-sm font-semibold">
             {selectedCount} selected
           </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearSelection}
-            className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <X className="h-4 w-4 mr-1" />
+          {typeof selectedValue === 'number' && selectedValue > 0 && (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatPrice(selectedValue)}
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={onClearSelection} className="gap-1">
+            <X className="h-4 w-4" />
             Clear
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Quantity Actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm">
+              <Button variant="outline" size="sm">
                 Quantity
-                <ChevronDown className="h-4 w-4 ml-1" />
+                <ChevronDown className="ml-1 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => handleQuantityAction('add')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Quantity
+                <Plus className="mr-2 h-4 w-4" />
+                Add quantity
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleQuantityAction('subtract')}>
-                <Minus className="h-4 w-4 mr-2" />
-                Subtract Quantity
+                <Minus className="mr-2 h-4 w-4" />
+                Subtract quantity
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Storage Assignment */}
           {storageContainers.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm">
-                  <Package className="h-4 w-4 mr-1" />
-                  Assign Storage
-                  <ChevronDown className="h-4 w-4 ml-1" />
+                <Button variant="outline" size="sm">
+                  <Package className="mr-1 h-4 w-4" />
+                  Assign storage
+                  <ChevronDown className="ml-1 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
-                {storageContainers.map((container) => (
+                {storageContainers.map(container => (
                   <DropdownMenuItem
                     key={container.id}
                     onClick={() => onBulkAssignStorage(container.id)}
                   >
-                    {container.icon && <span className="mr-2">{container.icon}</span>}
                     {container.name}
                   </DropdownMenuItem>
                 ))}
@@ -121,44 +124,33 @@ export function BulkActionsToolbar({
             </DropdownMenu>
           )}
 
-          {/* Mark for Sale */}
-          <Button variant="secondary" size="sm" onClick={onBulkMarkForSale}>
-            <ShoppingCart className="h-4 w-4 mr-1" />
-            Mark for Sale
-          </Button>
-
-          <DropdownMenuSeparator />
-
-          {/* Delete */}
           <Button variant="destructive" size="sm" onClick={onBulkDelete}>
-            <Trash2 className="h-4 w-4 mr-1" />
+            <Trash2 className="mr-1 h-4 w-4" />
             Delete
           </Button>
         </div>
       </div>
 
-      {/* Quantity Dialog */}
       <Dialog open={showQuantityDialog} onOpenChange={setShowQuantityDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {quantityAction === 'add' ? 'Add' : 'Subtract'} Quantity
+              {quantityAction === 'add' ? 'Add' : 'Subtract'} quantity
             </DialogTitle>
             <DialogDescription>
               {quantityAction === 'add'
-                ? `Add quantity to ${selectedCount} selected card(s)`
-                : `Subtract quantity from ${selectedCount} selected card(s)`}
+                ? `Add copies to ${selectedCount} selected entr${selectedCount === 1 ? 'y' : 'ies'}`
+                : `Subtract copies from ${selectedCount} selected entr${selectedCount === 1 ? 'y' : 'ies'}`}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="quantity">Quantity</Label>
+            <Label htmlFor="bulk-quantity">Quantity</Label>
             <Input
-              id="quantity"
+              id="bulk-quantity"
               type="number"
               min="1"
               value={quantityDelta}
-              onChange={(e) => setQuantityDelta(e.target.value)}
-              placeholder="Enter quantity"
+              onChange={e => setQuantityDelta(e.target.value)}
               className="mt-2"
             />
           </div>

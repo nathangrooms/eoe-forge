@@ -1,36 +1,75 @@
-import { useState, useEffect } from 'react';
-import { UniversalLocalSearch } from '@/components/universal/UniversalLocalSearch';
+import { useEffect, useMemo, useState } from 'react';
+import { Layers, ShoppingCart, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { BulkActionsToolbar } from '@/components/collection/BulkActionsToolbar';
+import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
+import type { BrowserAction } from '@/components/collection/browser/actions';
+import {
+  formatPrice,
+  normalizeCondition,
+  toColors,
+  toNumber,
+  valueOf,
+  type BrowserCard,
+} from '@/components/collection/browser/types';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { CollectionAPI } from '@/server/routes/collection';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StorageContainer } from '@/types/storage';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Package, TrendingUp } from 'lucide-react';
-
-interface CollectionItem {
-  id: string;
-  user_id: string;
-  card_id: string;
-  card_name: string;
-  set_code: string;
-  quantity: number;
-  foil: number;
-  condition: string;
-  created_at: string;
-  updated_at: string;
-  price_usd?: number;
-  card?: any;
-}
+import type { CollectionCard } from '@/types/collection';
 
 interface CollectionCardDisplayProps {
-  items: CollectionItem[];
-  onCardClick: (item: CollectionItem) => void;
-  onMarkForSale: (item: CollectionItem) => void;
-  onAddToDeck: (item: CollectionItem) => void;
+  items: CollectionCard[];
+  onCardClick: (item: CollectionCard) => void;
+  onMarkForSale: (item: CollectionCard) => void;
+  onAddToDeck: (item: CollectionCard) => void;
   onBulkUpdate?: () => void;
-  viewMode?: 'grid' | 'list' | 'compact';
+}
+
+/**
+ * Maps a collection row onto the browser's canonical shape.
+ *
+ * `legalities`, `color_identity` and `mana_cost` are carried through here —
+ * they were previously dropped by the transform, which is why the format filter
+ * could never match and no card tile ever showed a mana cost.
+ */
+export function toBrowserCard(item: CollectionCard): BrowserCard {
+  const card = item.card;
+  const prices = (card?.prices ?? {}) as Record<string, string | null | undefined>;
+  const usd = toNumber(prices.usd);
+  const usdFoil = toNumber(prices.usd_foil) || usd;
+
+  return {
+    rowId: item.id,
+    cardId: item.card_id,
+    name: item.card_name || card?.name || 'Unknown card',
+    setCode: (item.set_code || card?.set_code || '').toLowerCase(),
+    collectorNumber: card?.collector_number,
+    manaCost: card?.mana_cost,
+    cmc: toNumber(card?.cmc),
+    typeLine: card?.type_line ?? '',
+    rarity: card?.rarity ?? 'common',
+    colors: toColors(card?.colors),
+    colorIdentity: toColors(card?.color_identity ?? card?.colors),
+    legalities: (card?.legalities ?? {}) as Record<string, string>,
+    imageUrl: card?.image_uris?.normal ?? card?.image_uris?.small,
+    quantity: item.quantity ?? 0,
+    foil: item.foil ?? 0,
+    condition: normalizeCondition(item.condition),
+    unitPrice: usd,
+    foilPrice: usdFoil,
+    addedAt: item.created_at,
+    source: item,
+  };
 }
 
 export function CollectionCardDisplay({
@@ -39,190 +78,192 @@ export function CollectionCardDisplay({
   onMarkForSale,
   onAddToDeck,
   onBulkUpdate,
-  viewMode = 'grid'
 }: CollectionCardDisplayProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Load storage containers for bulk assignment
   useEffect(() => {
-    const loadContainers = async () => {
-      try {
-        const overview = await StorageAPI.getOverview();
-        setStorageContainers(overview.containers || []);
-      } catch (error) {
-        console.error('Failed to load storage containers:', error);
-      }
+    let cancelled = false;
+    StorageAPI.getOverview()
+      .then(overview => {
+        if (!cancelled) setStorageContainers(overview.containers || []);
+      })
+      .catch(error => console.error('Failed to load storage containers:', error));
+    return () => {
+      cancelled = true;
     };
-    loadContainers();
   }, []);
 
-  const handleToggleSelection = (itemId: string) => {
-    setSelectedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      // Auto-disable selection mode if no items selected
-      if (next.size === 0) {
-        setSelectionMode(false);
-      }
-      return next;
-    });
-  };
+  const browserCards = useMemo(() => items.map(toBrowserCard), [items]);
+  const itemsById = useMemo(() => new Map(items.map(item => [item.id, item])), [items]);
 
-  const handleSelectAll = () => {
-    if (selectedItems.size === items.length) {
-      setSelectedItems(new Set());
-      setSelectionMode(false);
-    } else {
-      setSelectedItems(new Set(items.map(item => item.id)));
-      setSelectionMode(true);
-    }
-  };
+  const selectedList = useMemo(
+    () => items.filter(item => selectedItems.has(item.id)),
+    [items, selectedItems]
+  );
+
+  const selectedValue = useMemo(
+    () =>
+      browserCards
+        .filter(card => selectedItems.has(card.rowId))
+        .reduce((sum, card) => sum + valueOf(card), 0),
+    [browserCards, selectedItems]
+  );
 
   const clearSelection = () => {
     setSelectedItems(new Set());
     setSelectionMode(false);
   };
 
+  const toggleSelect = (rowId: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
   const handleBulkUpdateQuantity = async (delta: number) => {
-    const selectedItemsList = items.filter(item => selectedItems.has(item.id));
-    
     try {
-      const itemIds = selectedItemsList.map(item => item.id);
-      const result = await CollectionAPI.bulkUpdateQuantity(itemIds, delta);
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      
-      showSuccess('Updated', `Updated ${selectedItemsList.length} card(s)`);
+      const result = await CollectionAPI.bulkUpdateQuantity(
+        selectedList.map(item => item.id),
+        delta
+      );
+      if (result.error) throw new Error(result.error);
+      showSuccess('Updated', `Updated ${selectedList.length} card(s)`);
       clearSelection();
       onBulkUpdate?.();
-    } catch (error) {
+    } catch {
       showError('Error', 'Failed to update quantities');
     }
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Delete ${selectedItems.size} card(s) from collection?`)) {
-      return;
-    }
-
-    const selectedItemsList = items.filter(item => selectedItems.has(item.id));
-    
     try {
-      const itemIds = selectedItemsList.map(item => item.id);
-      const result = await CollectionAPI.bulkDelete(itemIds);
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      
-      showSuccess('Deleted', `Deleted ${selectedItemsList.length} card(s)`);
+      const result = await CollectionAPI.bulkDelete(selectedList.map(item => item.id));
+      if (result.error) throw new Error(result.error);
+      showSuccess('Deleted', `Deleted ${selectedList.length} entr${selectedList.length === 1 ? 'y' : 'ies'}`);
+      setConfirmDelete(false);
       clearSelection();
       onBulkUpdate?.();
-    } catch (error) {
+    } catch {
       showError('Error', 'Failed to delete cards');
     }
   };
 
   const handleBulkAssignStorage = async (containerId: string) => {
-    const selectedItemsList = items.filter(item => selectedItems.has(item.id));
-    
     try {
-      for (const item of selectedItemsList) {
+      for (const item of selectedList) {
         await StorageAPI.assignCard({
           container_id: containerId,
           card_id: item.card_id,
           qty: item.quantity,
-          foil: item.foil > 0
+          foil: item.foil > 0,
         });
       }
-      showSuccess('Assigned', `Assigned ${selectedItemsList.length} card(s) to storage`);
+      showSuccess('Assigned', `Assigned ${selectedList.length} card(s) to storage`);
       clearSelection();
-    } catch (error) {
+    } catch {
       showError('Error', 'Failed to assign cards to storage');
     }
   };
 
-  const handleBulkMarkForSale = async () => {
-    const selectedItemsList = items.filter(item => selectedItems.has(item.id));
-    showSuccess('Marked', `Marked ${selectedItemsList.length} card(s) for sale`);
-    clearSelection();
-    // Open bulk sale dialog or process individually
+  const adjustQuantity = async (card: BrowserCard, delta: number) => {
+    try {
+      const result = await CollectionAPI.bulkUpdateQuantity([card.rowId], delta);
+      if (result.error) throw new Error(result.error);
+      onBulkUpdate?.();
+    } catch {
+      showError('Error', `Failed to update ${card.name}`);
+    }
   };
 
-  // Transform collection items to universal card format
-  const transformedCards = items.map(item => {
-    // Calculate proper pricing based on foil status
-    const prices = item.card?.prices || {};
-    const displayPrice = item.foil > 0 
-      ? (prices.usd_foil || item.price_usd)
-      : (prices.usd || item.price_usd);
-
-    return {
-      id: item.card_id,
-      name: item.card_name,
-      set_code: item.set_code,
-      quantity: item.quantity,
-      foil: item.foil,
-      condition: item.condition,
-      collectionItemId: item.id,
-      prices: { 
-        usd: displayPrice?.toString(),
-        usd_foil: prices.usd_foil?.toString()
+  const actions: BrowserAction[] = [
+    {
+      id: 'sell',
+      label: 'List for sale',
+      icon: ShoppingCart,
+      onSelect: card => {
+        const item = itemsById.get(card.rowId);
+        if (item) onMarkForSale(item);
       },
-      image_uris: item.card?.image_uris,
-      type_line: item.card?.type_line,
-      rarity: item.card?.rarity,
-      colors: item.card?.colors,
-      cmc: item.card?.cmc,
-    };
-  });
+    },
+    {
+      id: 'deck',
+      label: 'Add to a deck',
+      icon: Layers,
+      onSelect: card => {
+        const item = itemsById.get(card.rowId);
+        if (item) onAddToDeck(item);
+      },
+    },
+  ];
+
+  const selectedCopies = selectedList.reduce((n, i) => n + i.quantity + i.foil, 0);
 
   return (
-    <div className="relative">
-      {selectionMode && (
-        <BulkActionsToolbar
-          selectedCount={selectedItems.size}
-          onClearSelection={clearSelection}
-          onBulkUpdateQuantity={handleBulkUpdateQuantity}
-          onBulkAssignStorage={handleBulkAssignStorage}
-          onBulkMarkForSale={handleBulkMarkForSale}
-          onBulkDelete={handleBulkDelete}
-          storageContainers={storageContainers}
-        />
-      )}
-      <UniversalLocalSearch
-        cards={transformedCards}
-        initialViewMode={viewMode}
-        onCardClick={(card) => {
-          if (selectionMode) {
-            handleToggleSelection(card.collectionItemId);
-          } else {
-            const item = items.find(i => i.id === card.collectionItemId);
-            if (item) onCardClick(item);
-          }
+    <>
+      <CollectionBrowser
+        cards={browserCards}
+        storageKey="deckmatrix.collection.view"
+        onCardClick={card => {
+          const item = itemsById.get(card.rowId);
+          if (item) onCardClick(item);
         }}
-        onCardAdd={(card) => {
-          const item = items.find(i => i.id === card.collectionItemId);
-          if (item) onAddToDeck(item);
-        }}
-        showWishlistButton={false}
+        actions={actions}
+        onQuantityChange={adjustQuantity}
         selectionMode={selectionMode}
-        selectedCards={selectedItems}
-        onToggleSelectionMode={() => setSelectionMode(!selectionMode)}
-        onSelectAll={handleSelectAll}
-        emptyState={{
-          title: 'No cards in collection',
-          description: 'Start adding cards to your collection',
+        onToggleSelectionMode={() => {
+          if (selectionMode) setSelectedItems(new Set());
+          setSelectionMode(mode => !mode);
         }}
+        selectedIds={selectedItems}
+        onToggleSelect={toggleSelect}
+        onSelectVisible={rowIds => setSelectedItems(new Set(rowIds))}
+        onClearSelection={() => setSelectedItems(new Set())}
+        emptyTitle="No cards match these filters"
+        emptyDescription="Adjust the filters, or add more cards to your collection."
+        toolbarSlot={
+          selectionMode && selectedItems.size > 0 ? (
+            <BulkActionsToolbar
+              selectedCount={selectedItems.size}
+              selectedValue={selectedValue}
+              onClearSelection={clearSelection}
+              onBulkUpdateQuantity={handleBulkUpdateQuantity}
+              onBulkAssignStorage={handleBulkAssignStorage}
+              onBulkDelete={() => setConfirmDelete(true)}
+              storageContainers={storageContainers}
+            />
+          ) : null
+        }
       />
-    </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Delete {selectedItems.size} entr{selectedItems.size === 1 ? 'y' : 'ies'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes {selectedCopies} card{selectedCopies === 1 ? '' : 's'} worth{' '}
+              {formatPrice(selectedValue)} from your collection. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

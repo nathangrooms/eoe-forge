@@ -24,31 +24,3 @@ export function formatTimeAgo(dateString: string): string {
   
   return date.toLocaleDateString();
 }
-
-export function calculateWishlistValue(wishlistItems: any[]): { total: number, items: number, desired: number } {
-  if (!wishlistItems || !Array.isArray(wishlistItems) || wishlistItems.length === 0) {
-    return { total: 0, items: 0, desired: 0 };
-  }
-  
-  let total = 0;
-  let items = 0;
-  let desired = 0;
-  
-  wishlistItems.forEach(item => {
-    if (!item) return;
-    
-    let price = 0;
-    if (item.card?.prices?.usd) {
-      const parsedPrice = parseFloat(item.card.prices.usd);
-      price = isFinite(parsedPrice) ? parsedPrice : 0;
-    }
-    
-    const quantity = typeof item.quantity === 'number' && isFinite(item.quantity) ? item.quantity : 1;
-    
-    total += price * quantity;
-    items += 1;
-    desired += quantity;
-  });
-  
-  return { total, items, desired };
-}

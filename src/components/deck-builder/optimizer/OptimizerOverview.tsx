@@ -63,18 +63,18 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
   };
 
   const categoryColors = {
-    synergy: 'text-purple-400',
-    consistency: 'text-blue-400',
-    power: 'text-orange-400',
-    interaction: 'text-green-400',
-    manabase: 'text-cyan-400'
+    synergy: 'text-foreground',
+    consistency: 'text-foreground',
+    power: 'text-foreground',
+    interaction: 'text-foreground',
+    manabase: 'text-foreground'
   };
 
   const getSeverityStyles = (severity: string) => {
     switch (severity) {
       case 'high': return { bg: 'bg-destructive/20', border: 'border-destructive/30', text: 'text-destructive', icon: '🔴' };
-      case 'medium': return { bg: 'bg-orange-500/20', border: 'border-orange-500/30', text: 'text-orange-400', icon: '🟠' };
-      case 'low': return { bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', icon: '🟡' };
+      case 'medium': return { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', icon: '🟠' };
+      case 'low': return { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', icon: '🟡' };
       default: return { bg: 'bg-muted', border: 'border-border', text: 'text-muted-foreground', icon: '⚪' };
     }
   };
@@ -88,7 +88,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
+        <Card className="border-primary/20 overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-start gap-6">
               {/* Score Circle */}
@@ -118,7 +118,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
                   <defs>
                     <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                       <stop offset="0%" stopColor="hsl(var(--primary))" />
-                      <stop offset="100%" stopColor="#a855f7" />
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -138,12 +138,12 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {replacementCount > 0 && (
-                    <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                    <Badge className="bg-muted text-foreground border-border">
                       {replacementCount} suggested swaps
                     </Badge>
                   )}
                   {additionCount > 0 && (
-                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                    <Badge className="bg-muted text-foreground border-border">
                       {additionCount} cards to add
                     </Badge>
                   )}
@@ -207,7 +207,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
           <Card>
             <CardContent className="p-6">
               <h4 className="font-semibold mb-4 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-400" />
+                <AlertTriangle className="h-5 w-5 text-foreground" />
                 Issues Found ({analysis.issues.length})
               </h4>
               <div className="space-y-3">
@@ -253,7 +253,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
           >
             <Card className="h-full">
               <CardContent className="p-6">
-                <h4 className="font-semibold mb-4 flex items-center gap-2 text-green-400">
+                <h4 className="font-semibold mb-4 flex items-center gap-2 text-foreground">
                   <CheckCircle className="h-5 w-5" />
                   Strengths
                 </h4>
@@ -266,7 +266,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
                       transition={{ delay: 0.3 + i * 0.05 }}
                       className="flex items-start gap-3 text-sm"
                     >
-                      <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-foreground mt-0.5 flex-shrink-0" />
                       <span className="text-muted-foreground">{s.text}</span>
                     </motion.li>
                   ))}
@@ -285,7 +285,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
           >
             <Card className="h-full">
               <CardContent className="p-6">
-                <h4 className="font-semibold mb-4 flex items-center gap-2 text-blue-400">
+                <h4 className="font-semibold mb-4 flex items-center gap-2 text-foreground">
                   <Lightbulb className="h-5 w-5" />
                   Strategy Tips
                 </h4>
@@ -298,7 +298,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
                       transition={{ delay: 0.35 + i * 0.05 }}
                       className="flex items-start gap-3 text-sm"
                     >
-                      <Lightbulb className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <Lightbulb className="h-4 w-4 text-foreground mt-0.5 flex-shrink-0" />
                       <span className="text-muted-foreground">{s.text}</span>
                     </motion.li>
                   ))}
@@ -318,7 +318,7 @@ export function OptimizerOverview({ analysis, replacementCount, additionCount }:
         >
           <Card>
             <CardContent className="p-6">
-              <h4 className="font-semibold mb-4 flex items-center gap-2 text-cyan-400">
+              <h4 className="font-semibold mb-4 flex items-center gap-2 text-foreground">
                 <Droplets className="h-5 w-5" />
                 Mana Base Analysis
               </h4>

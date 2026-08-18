@@ -1,247 +1,137 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
+import { LogOut, Menu, Moon, Settings, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { useAuth } from '@/components/AuthProvider';
-import { 
-  Home,
-  Package,
-  Crown,
-  Hammer,
-  Search,
-  Sparkles,
-  Heart,
-  Shield,
-  Settings,
-  Camera,
-  Menu,
-  Plus,
-  ShoppingCart,
-  Brain,
-  Swords,
-  Trophy,
-  Layers,
-  LogOut
-} from 'lucide-react';
-
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
-  section?: string;
-}
-
-// Match LeftNavigation exactly
-const NAV_ITEMS: NavItem[] = [
-  {
-    title: 'Home',
-    href: '/',
-    icon: Home,
-    section: 'main'
-  },
-  {
-    title: 'Collection Manager',
-    href: '/collection',
-    icon: Package,
-    section: 'main'
-  },
-  {
-    title: 'Marketplace',
-    href: '/marketplace',
-    icon: ShoppingCart,
-    section: 'main'
-  },
-  {
-    title: 'Decks',
-    href: '/decks',
-    icon: Crown,
-    section: 'main'
-  },
-  {
-    title: 'Precons',
-    href: '/precons',
-    icon: Layers,
-    section: 'main'
-  },
-  {
-    title: 'Deck Builder',
-    href: '/deck-builder',
-    icon: Hammer,
-    section: 'main'
-  },
-  {
-    title: 'Card Search',
-    href: '/cards',
-    icon: Search,
-    section: 'main'
-  },
-  {
-    title: 'Fast Scan',
-    href: '/scan',
-    icon: Camera,
-    section: 'tools'
-  },
-  {
-    title: 'Deck Builder',
-    href: '/smart-builder',
-    icon: Sparkles,
-    badge: 'New',
-    section: 'tools'
-  },
-  {
-    title: 'MTG Brain',
-    href: '/brain',
-    icon: Brain,
-    section: 'tools'
-  },
-  {
-    title: 'Wishlist',
-    href: '/wishlist',
-    icon: Heart,
-    section: 'tools'
-  },
-  {
-    title: 'Deck Simulation',
-    href: '/simulate',
-    icon: Swords,
-    badge: 'Alpha',
-    section: 'tools'
-  },
-  {
-    title: 'Tournaments',
-    href: '/tournament',
-    icon: Trophy,
-    section: 'tools'
-  },
-  {
-    title: 'Admin Panel',
-    href: '/admin',
-    icon: Shield,
-    section: 'admin'
-  },
-  {
-    title: 'Settings',
-    href: '/settings',
-    icon: Settings,
-    section: 'user'
-  }
-];
-
-const SECTIONS = {
-  main: 'Main',
-  tools: 'Tools',
-  admin: 'Admin',
-  user: 'User'
-};
+import { AccountIdentity } from './AccountMenu';
+import {
+  NAV_HOME,
+  isNavItemActive,
+  pathMatches,
+  visibleGroups,
+  type NavItem,
+} from './nav-items';
 
 export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, user, signOut } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  // Close on navigation — including back/forward, which a per-link onClick misses.
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
+
+  const isDark = mounted ? resolvedTheme === 'dark' : true;
 
   const handleSignOut = async () => {
     setIsOpen(false);
     await signOut();
-    navigate('/auth');
+    navigate('/login');
   };
 
-  const renderNavItem = (item: NavItem) => {
-    const isActive = location.pathname === item.href || 
-                    (item.href !== '/' && location.pathname.startsWith(item.href));
+  const renderItem = (item: NavItem) => {
+    const active = isNavItemActive(location.pathname, item);
 
     return (
-      <Link
-        key={item.href}
-        to={item.href}
-        onClick={() => setIsOpen(false)}
-        className={cn(
-          'flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-all',
-          isActive 
-            ? 'bg-primary text-primary-foreground font-medium' 
-            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-        )}
-      >
-        <item.icon className="h-5 w-5 flex-shrink-0" />
-        <span className="flex-1 truncate">{item.title}</span>
-        {item.badge && (
-          <Badge variant="secondary" className="text-xs flex-shrink-0">
-            {item.badge}
-          </Badge>
-        )}
-      </Link>
+      <li key={item.href}>
+        <Link
+          to={item.href}
+          aria-current={active ? 'page' : undefined}
+          className={cn(
+            'flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+            active
+              ? 'bg-accent font-medium text-accent-foreground'
+              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+          )}
+        >
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="truncate">{item.title}</span>
+        </Link>
+      </li>
     );
-  };
-
-  const renderSection = (sectionKey: string) => {
-    // Hide admin section for non-admin users
-    if (sectionKey === 'admin' && !isAdmin) return null;
-    
-    const sectionItems = NAV_ITEMS.filter(item => item.section === sectionKey);
-    if (sectionItems.length === 0) return null;
-
-    return (
-      <div key={sectionKey} className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4">
-          {SECTIONS[sectionKey as keyof typeof SECTIONS]}
-        </h4>
-        <nav className="space-y-1">
-          {sectionItems.map(renderNavItem)}
-        </nav>
-      </div>
-    );
-  };
-
-  const handleQuickBuild = () => {
-    const newDeck = {
-      id: crypto.randomUUID(),
-      name: 'New Deck',
-      format: 'commander',
-      cards: [],
-      commander: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    localStorage.setItem('pendingDeck', JSON.stringify(newDeck));
-    setIsOpen(false);
-    navigate('/deck-builder');
   };
 
   return (
     <div className="md:hidden">
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Open navigation menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-auto py-4 space-y-6">
-              {Object.keys(SECTIONS).map(renderSection)}
-            </div>
-            
-            <div className="border-t p-4 space-y-3">
-              {user && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="h-4 w-4 mr-3" />
-                  Sign Out
-                </Button>
+
+        <SheetContent side="left" className="flex w-[17rem] flex-col p-0">
+          <SheetTitle className="border-b border-border px-4 py-4 text-sm font-semibold tracking-tight text-foreground">
+            DeckMatrix
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigate between your collection, decks and card search.
+          </SheetDescription>
+
+          <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-3">
+            <ul className="space-y-0.5">{renderItem(NAV_HOME)}</ul>
+
+            {visibleGroups(isAdmin).map(group => (
+              <section key={group.id} className="mt-4 border-t border-border pt-4">
+                <h2 className="px-3 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </h2>
+                <ul className="space-y-0.5">{group.items.map(renderItem)}</ul>
+              </section>
+            ))}
+          </nav>
+
+          <div className="space-y-1 border-t border-border p-3">
+            {user && <AccountIdentity className="px-3 pb-2 pt-1" />}
+
+            <Link
+              to="/settings"
+              className={cn(
+                'flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                pathMatches(location.pathname, '/settings')
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
               )}
-              <div className="text-xs text-muted-foreground">
-                <p>DeckMatrix v1.0</p>
-                <p>Currently in early development</p>
-              </div>
-            </div>
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              Settings
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            >
+              {isDark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+              {isDark ? 'Light theme' : 'Dark theme'}
+            </button>
+
+            {user && (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                Sign out
+              </button>
+            )}
           </div>
         </SheetContent>
       </Sheet>

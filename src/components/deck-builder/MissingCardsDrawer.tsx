@@ -215,10 +215,10 @@ export function MissingCardsDrawer({
 
   const getRarityColor = (rarity?: string) => {
     switch (rarity) {
-      case 'mythic': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      case 'rare': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'uncommon': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-      default: return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'mythic': return 'bg-muted text-foreground border-border';
+      case 'rare': return 'bg-muted text-foreground border-border';
+      case 'uncommon': return 'bg-muted text-foreground border-border';
+      default: return 'bg-muted text-foreground border-border';
     }
   };
 

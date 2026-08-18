@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { ListingFormData } from '@/types/listing';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { formatPrice } from '@/components/collection/browser/types';
 
 interface SellCardModalProps {
   isOpen: boolean;
@@ -176,7 +177,7 @@ export function SellCardModal({
                   <SelectItem value="LP">Lightly Played (LP)</SelectItem>
                   <SelectItem value="MP">Moderately Played (MP)</SelectItem>
                   <SelectItem value="HP">Heavily Played (HP)</SelectItem>
-                  <SelectItem value="D">Damaged (D)</SelectItem>
+                  <SelectItem value="DMG">Damaged (DMG)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -197,7 +198,8 @@ export function SellCardModal({
               />
               {getCardPrice(card, formData.foil) > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Market price: ${getCardPrice(card, formData.foil).toFixed(2)} {formData.foil ? '(foil)' : ''}
+                  Market price: {formatPrice(getCardPrice(card, formData.foil))}{' '}
+                  {formData.foil ? '(foil)' : ''}
                 </p>
               )}
             </div>

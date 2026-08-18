@@ -17,8 +17,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
-import { Loader2, Swords } from 'lucide-react';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import { AlertTriangle, Loader2, Swords, PanelRightOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
 import { SimulationCinematicOverlay } from '@/components/simulation/SimulationCinematicOverlay';
@@ -244,9 +245,9 @@ export default function Simulate() {
 
   const play = () => {
     if (!simulator || !gameState) return;
-    
+
     setIsPlaying(true);
-    
+
     const runStep = () => {
       try {
         if (gameState.gameOver) {
@@ -262,7 +263,7 @@ export default function Simulate() {
         // Step through one action/phase at a time
         const prevPhase = gameState.phase;
         const result = simulator.step();
-        
+
         // Trigger cinematic overlays for key events
         if (result.events.length > 0) {
           let shouldShowCinematic = false;
@@ -342,7 +343,7 @@ export default function Simulate() {
             if (sourceCard) {
               // Check what type of ability it is
               const desc = lastLog.description.toLowerCase();
-              
+
               // Ramp abilities
               if (desc.includes('search') && desc.includes('land')) {
                 const lands = result.state[lastLog.player].battlefield.filter(
@@ -372,15 +373,15 @@ export default function Simulate() {
             setTimeout(() => setCinematicMode(null), 3500);
           }
         }
-        
+
         // Process animation events
         processEvents(result.events);
-        
+
         // Check for turn end and show damage overview
         const turnChanged = result.state.turn > gameState.turn;
         const damageP1 = gameState.player1.life - result.state.player1.life;
         const damageP2 = gameState.player2.life - result.state.player2.life;
-        
+
         // Update state
         setGameState({ ...result.state });
 
@@ -395,15 +396,15 @@ export default function Simulate() {
           setShowTurnOverview(true);
           setTimeout(() => setShowTurnOverview(false), 2500);
         }
-      
+
       if (!result.shouldContinue || result.state.gameOver) {
           pause();
-          
+
           if (result.state.winner) {
-            const winnerName = result.state.winner === 'player1' 
-              ? result.state.player1.name 
+            const winnerName = result.state.winner === 'player1'
+              ? result.state.player1.name
               : result.state.player2.name;
-            
+
             setResult({
               winner: result.state.winner,
               turns: result.state.turn,
@@ -412,7 +413,7 @@ export default function Simulate() {
               events: result.state.log,
               finalState: result.state,
             });
-            
+
             toast.success(`${winnerName} wins in ${result.state.turn} turns!`);
           }
         }
@@ -451,7 +452,7 @@ export default function Simulate() {
 
   const step = () => {
     if (!simulator || !gameState || gameState.gameOver) return;
-    
+
     try {
       const result = simulator.step();
 
@@ -558,15 +559,15 @@ export default function Simulate() {
             setTimeout(() => setCinematicMode(null), 1500);
           }
         }
-        
+
         // Process animation events
         processEvents(result.events);
-        
+
         // Check for turn end and show damage overview
         const turnChanged = result.state.turn > gameState.turn;
         const damageP1 = gameState.player1.life - result.state.player1.life;
         const damageP2 = gameState.player2.life - result.state.player2.life;
-        
+
         // Update state
         setGameState({ ...result.state });
 
@@ -581,13 +582,13 @@ export default function Simulate() {
           setShowTurnOverview(true);
           setTimeout(() => setShowTurnOverview(false), 2500);
         }
-      
+
       if (!result.shouldContinue || result.state.gameOver) {
         if (result.state.winner) {
-          const winnerName = result.state.winner === 'player1' 
-            ? result.state.player1.name 
+          const winnerName = result.state.winner === 'player1'
+            ? result.state.player1.name
             : result.state.player2.name;
-          
+
           setResult({
             winner: result.state.winner,
             turns: result.state.turn,
@@ -596,7 +597,7 @@ export default function Simulate() {
             events: result.state.log,
             finalState: result.state,
           });
-          
+
           toast.success(`${winnerName} wins in ${result.state.turn} turns!`);
         }
       }
@@ -632,20 +633,62 @@ export default function Simulate() {
     a.download = `simulation-results-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     toast.success('Results exported');
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <StandardPageLayout title="Deck Simulation" description="Watch two of your decks play each other">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </StandardPageLayout>
     );
   }
 
+  const sidebar = gameState && (
+    <>
+      <div className="shrink-0 border-b border-border p-3">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-foreground">Game log</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">Turn {gameState.turn}</p>
+        </div>
+
+        <SimulationControls
+          isPlaying={isPlaying}
+          isComplete={gameState.gameOver}
+          speed={speed}
+          onPlay={play}
+          onPause={pause}
+          onStep={step}
+          onRestart={restart}
+          onExport={exportResults}
+          onSpeedChange={handleSpeedChange}
+        />
+
+        <div className="mt-3">
+          <PhaseProgress
+            currentPhase={gameState.phase}
+            activePlayer={
+              gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name
+            }
+          />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <GameLog events={gameState.log} />
+      </div>
+      <div className="shrink-0 border-t border-border p-3 text-center text-xs text-muted-foreground">
+        {gameState.log.length} events logged
+      </div>
+    </>
+  );
+
+  // App.tsx renders routes inside a pt-16 wrapper below a fixed 64px header, so
+  // a full 100vh child overflows the viewport. Subtract the header instead.
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-background">
       <AnimatePresence>
         {showIntro && introDeckNames && (
           <BattleIntro
@@ -725,26 +768,28 @@ export default function Simulate() {
       )}
 
       {!gameState ? (
-        <div className="flex-1 flex items-center justify-center p-8">
-          <Card className="p-8 max-w-2xl w-full space-y-6">
-            <div className="text-center space-y-2">
-              <Swords className="h-16 w-16 mx-auto text-primary" />
-              <h1 className="text-4xl font-bold">Deck Simulation</h1>
-              <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-400 gap-1.5">
+        <StandardPageLayout
+          title="Deck Simulation"
+          description="Watch two of your decks play each other"
+        >
+          <Card className="mx-auto w-full max-w-2xl space-y-6 p-6 md:p-8">
+            <div className="space-y-2 text-center">
+              <Swords className="mx-auto h-12 w-12 text-muted-foreground" />
+              <Badge variant="outline" className="gap-1.5">
                 <AlertTriangle className="h-3 w-3" />
-                ALPHA - Still in very early stages of development
+                Alpha — an early, partial rules engine
               </Badge>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Watch realistic MTG gameplay with full rules engine. Each card's abilities are tracked and displayed in
-                real-time.
+              <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                Two of your decks play each other step by step. Card abilities are resolved by the
+                built-in engine and every action is written to the game log.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Deck 1</label>
+                <label className="mb-2 block text-sm font-medium" htmlFor="sim-deck-1">Deck 1</label>
                 <Select value={deck1Id} onValueChange={setDeck1Id}>
-                  <SelectTrigger>
+                  <SelectTrigger id="sim-deck-1">
                     <SelectValue placeholder="Select first deck" />
                   </SelectTrigger>
                   <SelectContent>
@@ -757,12 +802,14 @@ export default function Simulate() {
                 </Select>
               </div>
 
-              <div className="text-center text-2xl font-bold text-muted-foreground">VS</div>
+              <div className="text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                versus
+              </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Deck 2</label>
+                <label className="mb-2 block text-sm font-medium" htmlFor="sim-deck-2">Deck 2</label>
                 <Select value={deck2Id} onValueChange={setDeck2Id}>
-                  <SelectTrigger>
+                  <SelectTrigger id="sim-deck-2">
                     <SelectValue placeholder="Select second deck" />
                   </SelectTrigger>
                   <SelectContent>
@@ -803,70 +850,57 @@ export default function Simulate() {
             )}
 
             {decks.length >= 2 && (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm space-y-2">
-                <div className="font-semibold text-primary">Simulation Features:</div>
+              <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
+                <div className="font-semibold text-foreground">What the engine covers</div>
                 <ul className="space-y-1 text-muted-foreground">
-                  <li>• Full MTG rules: lands, creatures, spells, combat</li>
-                  <li>• Real-time card tracking with power/toughness updates</li>
-                  <li>• Detailed zones: battlefield, hand, graveyard, exile</li>
-                  <li>• Live game log with every action recorded</li>
-                  <li>• Speed controls: 0.25x to 2x playback</li>
+                  <li>Lands, creatures, spells and a combat step</li>
+                  <li>Power and toughness tracked as the board changes</li>
+                  <li>Battlefield, hand, graveyard, exile and command zones</li>
+                  <li>A game log recording every action</li>
+                  <li>Playback speeds from 0.25x to 4x</li>
                 </ul>
+                <p className="pt-1 text-xs text-muted-foreground">
+                  Rules coverage is partial — this is not a complete implementation of the
+                  comprehensive rules.
+                </p>
               </div>
             )}
           </Card>
-        </div>
+        </StandardPageLayout>
       ) : (
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-[4] flex flex-col overflow-hidden border-r-2 border-primary/20 relative">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0 lg:border-r lg:border-border">
             <GameBoard state={gameState} onRegisterCard={registerCard} damages={damages} />
             {gameState?.combat.isActive && (
               <CombatArrows attackers={gameState.combat.attackers} blockers={gameState.combat.blockers} />
             )}
             <AbilityTriggerPopup triggers={triggers} />
+
+            {/* Below lg the log and transport controls move into a sheet — the
+                fixed 384px panel exceeded a phone viewport entirely. */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="absolute bottom-3 right-3 z-20 shadow-md lg:hidden"
+                >
+                  <PanelRightOpen className="mr-2 h-4 w-4" />
+                  Controls & log
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+                <SheetTitle className="sr-only">Simulation controls and game log</SheetTitle>
+                {sidebar}
+              </SheetContent>
+            </Sheet>
           </div>
-          
-          <div className="w-96 flex flex-col bg-[#0f0f14] border-l border-primary/20">
-            <div className="p-3 border-b border-primary/20 bg-gradient-to-b from-primary/10 to-transparent shrink-0">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Game Log</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Live updates • Turn {gameState.turn}</p>
-                </div>
-              </div>
-              
-              <SimulationControls
-                isPlaying={isPlaying}
-                isComplete={gameState.gameOver}
-                speed={speed}
-                onPlay={play}
-                onPause={pause}
-                onStep={step}
-                onRestart={restart}
-                onExport={exportResults}
-                onSpeedChange={handleSpeedChange}
-              />
-              
-              <div className="mt-3">
-                <PhaseProgress
-                  currentPhase={gameState.phase}
-                  activePlayer={
-                    gameState.activePlayer === 'player1' ? gameState.player1.name : gameState.player2.name
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto min-h-0">
-              <GameLog events={gameState.log} />
-            </div>
-            <div className="border-t border-primary/20 shrink-0 p-3">
-              <div className="text-xs text-muted-foreground text-center">
-                {gameState.log.length} events logged
-              </div>
-             </div>
-           </div>
-         </div>
-       )}
+
+          <div className="hidden w-full flex-col border-l border-border bg-card lg:flex lg:w-96">
+            {sidebar}
+          </div>
+        </div>
+      )}
 
        {/* Turn Overview */}
        <TurnOverview show={showTurnOverview} state={gameState} damageDealt={turnDamage} />

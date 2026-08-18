@@ -1,76 +1,43 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  ShoppingCart,
-  Star,
-  Package
-} from 'lucide-react';
+import { DollarSign, Star, Package, ShoppingCart } from 'lucide-react';
 
 interface QuickPriceStatsProps {
   watchlistCount: number;
   myListingsCount: number;
   totalListingValue: number;
-  savedAmount?: number;
+  shoppingListCount: number;
 }
 
-export function QuickPriceStats({ 
-  watchlistCount, 
-  myListingsCount, 
+/**
+ * Three of these numbers used to be tinted yellow/blue/green/purple and a
+ * fourth tile ("Potential Savings") was hardcoded to 0 and therefore rendered
+ * "--" forever. It is replaced by the shopping-list count, which is real.
+ */
+export function QuickPriceStats({
+  watchlistCount,
+  myListingsCount,
   totalListingValue,
-  savedAmount = 0
+  shoppingListCount,
 }: QuickPriceStatsProps) {
   const stats = [
-    {
-      label: 'Watching',
-      value: watchlistCount,
-      icon: Star,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10',
-      borderColor: 'border-yellow-500/20'
-    },
-    {
-      label: 'My Listings',
-      value: myListingsCount,
-      icon: Package,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      borderColor: 'border-blue-500/20'
-    },
-    {
-      label: 'Listing Value',
-      value: `$${totalListingValue.toFixed(2)}`,
-      icon: DollarSign,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      borderColor: 'border-green-500/20'
-    },
-    {
-      label: 'Potential Savings',
-      value: savedAmount > 0 ? `$${savedAmount.toFixed(2)}` : '--',
-      icon: TrendingDown,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-      borderColor: 'border-purple-500/20'
-    }
+    { label: 'Watching', value: watchlistCount, icon: Star },
+    { label: 'Shopping list', value: shoppingListCount, icon: ShoppingCart },
+    { label: 'My listings', value: myListingsCount, icon: Package },
+    { label: 'Listing value', value: `$${totalListingValue.toFixed(2)}`, icon: DollarSign },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {stats.map((stat) => (
-        <Card 
-          key={stat.label} 
-          className={`${stat.borderColor} hover:shadow-md transition-shadow`}
-        >
+        <Card key={stat.label}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-lg font-bold">{stat.value}</p>
+              <div className="min-w-0">
+                <p className="truncate text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-lg font-semibold tabular-nums text-foreground">{stat.value}</p>
               </div>
             </div>
           </CardContent>

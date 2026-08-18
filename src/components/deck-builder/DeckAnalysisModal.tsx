@@ -1,22 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  BarChart3, 
-  Zap, 
-  Shield, 
-  TrendingUp, 
-  Search, 
-  Target, 
-  Crown, 
-  Repeat,
-  Edit
-} from 'lucide-react';
+import { BarChart3, Edit, Loader2 } from 'lucide-react';
 import { DeckSummary } from '@/lib/api/deckAPI';
+import { fetchDeckCards, toEngineCards, type DeckCardRow } from '@/lib/deck/deckCards';
+import {
+  EDHPowerCalculator,
+  type EDHPowerScore,
+} from '@/lib/deckbuilder/score/edh-power-calculator';
+import { CATEGORY_BG_CLASS, CATEGORY_LABEL, type DeckCategory } from '@/lib/deck/cardCategories';
+import { averageManaValue, normalizeCurve } from '@/lib/deck/curve';
+import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
+import { ManaPip } from '@/components/ui/mana-cost';
 
 interface DeckAnalysisModalProps {
   isOpen: boolean;
@@ -25,86 +30,145 @@ interface DeckAnalysisModalProps {
   onOpenBuilder?: () => void;
 }
 
-export function DeckAnalysisModal({ 
-  isOpen, 
-  onClose, 
+const SUBSCORE_LABELS: Record<keyof EDHPowerScore['subscores'], string> = {
+  speed: 'Speed',
+  interaction: 'Interaction',
+  tutors: 'Tutors',
+  resilience: 'Resilience',
+  card_advantage: 'Card advantage',
+  mana: 'Mana base',
+  consistency: 'Consistency',
+  stax_pressure: 'Stax pressure',
+  synergy: 'Synergy',
+};
+
+const TYPE_ROWS: Array<{ category: DeckCategory; key: keyof DeckSummary['counts'] }> = [
+  { category: 'lands', key: 'lands' },
+  { category: 'creatures', key: 'creatures' },
+  { category: 'instants', key: 'instants' },
+  { category: 'sorceries', key: 'sorceries' },
+  { category: 'artifacts', key: 'artifacts' },
+  { category: 'enchantments', key: 'enchantments' },
+  { category: 'planeswalkers', key: 'planeswalkers' },
+  { category: 'battles', key: 'battles' },
+];
+
+const COLOR_NAMES: Record<string, string> = {
+  W: 'White',
+  U: 'Blue',
+  B: 'Black',
+  R: 'Red',
+  G: 'Green',
+  C: 'Colourless',
+};
+
+/**
+ * Deck analysis.
+ *
+ * The power tab used to render six hardcoded constants ("Speed 7.2,
+ * Interaction 6.8, …") behind a `// Mock power subscores` comment, identical
+ * for every deck. It now loads the decklist and runs the same
+ * `EDHPowerCalculator` the rest of the app uses.
+ */
+export function DeckAnalysisModal({
+  isOpen,
+  onClose,
   deckSummary,
-  onOpenBuilder 
+  onOpenBuilder,
 }: DeckAnalysisModalProps) {
   const [activeTab, setActiveTab] = useState('power');
+  const [rows, setRows] = useState<DeckCardRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const powerBandColor = {
-    casual: 'bg-green-500/20 text-green-400 border-green-500/30',
-    mid: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    cEDH: 'bg-red-500/20 text-red-400 border-red-500/30'
-  };
+  useEffect(() => {
+    if (!isOpen || !deckSummary?.id) return;
+    let cancelled = false;
 
-  const curveData = Object.entries(deckSummary.curve.bins).map(([cmc, count]) => ({
-    cmc,
-    count
-  }));
+    setLoading(true);
+    setLoadError(null);
+    fetchDeckCards(deckSummary.id)
+      .then(result => {
+        if (!cancelled) setRows(result);
+      })
+      .catch(error => {
+        console.error('Deck analysis load failed:', error);
+        if (!cancelled) setLoadError('Could not load this decklist.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  const maxCurveCount = Math.max(...Object.values(deckSummary.curve.bins).map(v => Number(v)));
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, deckSummary?.id]);
 
-  const typeData = [
-    { type: 'Lands', count: deckSummary.counts.lands, color: 'bg-amber-500' },
-    { type: 'Creatures', count: deckSummary.counts.creatures, color: 'bg-green-500' },
-    { type: 'Instants', count: deckSummary.counts.instants, color: 'bg-blue-500' },
-    { type: 'Sorceries', count: deckSummary.counts.sorceries, color: 'bg-red-500' },
-    { type: 'Artifacts', count: deckSummary.counts.artifacts, color: 'bg-gray-500' },
-    { type: 'Enchantments', count: deckSummary.counts.enchantments, color: 'bg-purple-500' },
-    { type: 'Planeswalkers', count: deckSummary.counts.planeswalkers, color: 'bg-pink-500' },
-  ].filter(item => Number(item.count) > 0);
+  const powerScore = useMemo<EDHPowerScore | null>(() => {
+    if (rows.length === 0) return null;
+    // toEngineCards drops the sideboard, so index against the same subset.
+    const mainRows = rows.filter(row => !row.is_sideboard);
+    const engineCards = toEngineCards(rows);
+    if (engineCards.length === 0) return null;
+    const commanderIndex = mainRows.findIndex(row => row.is_commander);
+    const commander = commanderIndex >= 0 ? engineCards[commanderIndex] : undefined;
+    try {
+      return EDHPowerCalculator.calculatePower(
+        engineCards,
+        deckSummary.format,
+        42,
+        commander
+      );
+    } catch (error) {
+      console.error('Power calculation failed:', error);
+      return null;
+    }
+  }, [rows, deckSummary.format]);
 
-  const manaSourceData = Object.entries(deckSummary.mana.sources)
-    .filter(([_, count]) => Number(count) > 0)
+  const curve = normalizeCurve(deckSummary.curve?.bins);
+  const maxCurveCount = Math.max(...curve.map(entry => entry.count), 1);
+  const avgMv = averageManaValue(deckSummary.curve?.bins, deckSummary.counts.lands ?? 0);
+  const total = Math.max(deckSummary.counts.total, 1);
+  const showPower = usesPowerLevel(deckSummary.format);
+
+  const typeRows = TYPE_ROWS.map(row => ({
+    ...row,
+    count: Number(deckSummary.counts[row.key] ?? 0),
+  })).filter(row => row.count > 0);
+
+  const manaSources = Object.entries(deckSummary.mana?.sources ?? {})
+    .filter(([, count]) => Number(count) > 0)
     .map(([color, count]) => ({
       color,
       count: Number(count),
-      percentage: (Number(count) / deckSummary.counts.total * 100).toFixed(1)
+      percentage: (Number(count) / total) * 100,
     }));
-
-  const colorNames = {
-    W: 'White',
-    U: 'Blue', 
-    B: 'Black',
-    R: 'Red',
-    G: 'Green',
-    C: 'Colorless'
-  };
-
-  // Mock power subscores - would be computed by the power engine
-  const powerSubscores = [
-    { name: 'Speed', score: 7.2, icon: Zap, description: 'How quickly the deck wins' },
-    { name: 'Interaction', score: 6.8, icon: Shield, description: 'Ability to disrupt opponents' },
-    { name: 'Card Advantage', score: 8.1, icon: TrendingUp, description: 'Drawing extra cards' },
-    { name: 'Tutors', score: 5.4, icon: Search, description: 'Finding key pieces' },
-    { name: 'Wincons', score: 7.9, icon: Target, description: 'Ways to close out games' },
-    { name: 'Resilience', score: 6.2, icon: Repeat, description: 'Recovering from setbacks' }
-  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+      <DialogContent className="max-h-[85vh] max-w-4xl overflow-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <DialogTitle className="text-2xl">{deckSummary.name} Analysis</DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge className={powerBandColor[deckSummary.power.band]}>
-                  {deckSummary.power.band.toUpperCase()}
-                </Badge>
-                <Badge variant="outline">{deckSummary.format}</Badge>
-                <span className="text-sm text-muted-foreground">
-                  Power Level: {deckSummary.power.score}/10
-                </span>
-              </div>
+              <DialogTitle className="text-2xl">{deckSummary.name}</DialogTitle>
+              <DialogDescription asChild>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{formatLabel(deckSummary.format)}</Badge>
+                  {showPower && (
+                    <Badge variant="outline">
+                      Power {deckSummary.power?.score ?? 0}/10 · {deckSummary.power?.band}
+                    </Badge>
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {deckSummary.counts.total} cards · avg MV {avgMv.toFixed(2)}
+                  </span>
+                </div>
+              </DialogDescription>
             </div>
             {onOpenBuilder && (
               <Button onClick={onOpenBuilder}>
-                <Edit className="h-4 w-4 mr-2" />
-                Open in Builder
+                <Edit className="mr-2 h-4 w-4" />
+                Open in builder
               </Button>
             )}
           </div>
@@ -112,96 +176,126 @@ export function DeckAnalysisModal({
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="power">Power Analysis</TabsTrigger>
-            <TabsTrigger value="curve">Mana Curve</TabsTrigger>
-            <TabsTrigger value="types">Type Distribution</TabsTrigger>
-            <TabsTrigger value="mana">Mana Base</TabsTrigger>
+            <TabsTrigger value="power">Power</TabsTrigger>
+            <TabsTrigger value="curve">Mana curve</TabsTrigger>
+            <TabsTrigger value="types">Types</TabsTrigger>
+            <TabsTrigger value="mana">Mana base</TabsTrigger>
           </TabsList>
 
           <TabsContent value="power" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {powerSubscores.map((subscore) => {
-                const IconComponent = subscore.icon;
-                return (
-                  <Card key={subscore.name}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-2">
-                        <IconComponent className="h-5 w-5 text-primary" />
-                        <CardTitle className="text-lg">{subscore.name}</CardTitle>
-                        <Badge variant="outline" className="ml-auto">
-                          {subscore.score}/10
-                        </Badge>
-                      </div>
+            {loading ? (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Scoring decklist…
+              </div>
+            ) : loadError ? (
+              <p className="py-10 text-center text-sm text-destructive">{loadError}</p>
+            ) : !powerScore ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                This deck has no cards to score yet.
+              </p>
+            ) : (
+              <>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-baseline gap-2 text-lg">
+                      <span className="text-3xl font-bold tabular-nums">
+                        {powerScore.power.toFixed(1)}
+                      </span>
+                      <span className="text-muted-foreground">/10</span>
+                      <Badge variant="secondary" className="ml-2 uppercase">
+                        {powerScore.band}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    Computed from this decklist by the EDH power engine.
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {(
+                    Object.keys(SUBSCORE_LABELS) as Array<keyof EDHPowerScore['subscores']>
+                  ).map(key => {
+                    const raw = powerScore.subscores[key];
+                    const outOfTen = Math.round((raw / 10) * 10) / 10;
+                    return (
+                      <Card key={key}>
+                        <CardContent className="p-4">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="font-medium">{SUBSCORE_LABELS[key]}</span>
+                            <span className="text-sm tabular-nums text-muted-foreground">
+                              {outOfTen.toFixed(1)}/10
+                            </span>
+                          </div>
+                          <Progress value={Math.min(Math.max(raw, 0), 100)} />
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Power drivers</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Progress value={subscore.score * 10} className="mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {subscore.description}
-                      </p>
+                      {powerScore.drivers.length > 0 ? (
+                        <ul className="space-y-1 text-sm">
+                          {powerScore.drivers.map((driver, i) => (
+                            <li key={i}>• {driver}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Nothing in this list stands out as a power driver.
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
-                );
-              })}
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Power Drivers & Drags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-medium text-green-400 mb-2">Power Drivers</h4>
-                    {deckSummary.power.drivers.length > 0 ? (
-                      <ul className="space-y-1">
-                        {deckSummary.power.drivers.map((driver, index) => (
-                          <li key={index} className="text-sm">• {driver}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Analysis will show cards that increase power level
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-red-400 mb-2">Power Drags</h4>
-                    {deckSummary.power.drags.length > 0 ? (
-                      <ul className="space-y-1">
-                        {deckSummary.power.drags.map((drag, index) => (
-                          <li key={index} className="text-sm">• {drag}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Analysis will show cards that decrease power level
-                      </p>
-                    )}
-                  </div>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Power drags</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {powerScore.drags.length > 0 ? (
+                        <ul className="space-y-1 text-sm">
+                          {powerScore.drags.map((drag, i) => (
+                            <li key={i}>• {drag}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No significant weaknesses detected.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="curve" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <BarChart3 className="h-5 w-5" />
-                  Mana Curve
+                  Mana curve
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {curveData.map(({ cmc, count }) => (
-                    <div key={cmc} className="flex items-center gap-3">
-                      <div className="w-12 text-sm font-mono">{cmc}</div>
-                      <div className="flex-1 bg-muted rounded-full h-6 relative">
-                        <div 
-                          className="bg-primary rounded-full h-6 transition-all duration-300 flex items-center justify-end pr-2"
-                          style={{ width: `${(Number(count) / Math.max(maxCurveCount, 1)) * 100}%` }}
+                  {curve.map(({ bin, count }) => (
+                    <div key={bin} className="flex items-center gap-3">
+                      <div className="w-12 font-mono text-sm">{bin}</div>
+                      <div className="relative h-6 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="flex h-6 items-center justify-end rounded-full bg-primary pr-2"
+                          style={{ width: `${(count / maxCurveCount) * 100}%` }}
                         >
-                          {Number(count) > 0 && (
+                          {count > 0 && (
                             <span className="text-xs font-medium text-primary-foreground">
                               {count}
                             </span>
@@ -211,13 +305,10 @@ export function DeckAnalysisModal({
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 text-sm text-muted-foreground">
-                  <p>Total: {deckSummary.counts.total} cards</p>
-                  <p>Average CMC: {(Object.entries(deckSummary.curve.bins).reduce((sum, [cmc, count]) => {
-                    const cmcValue = cmc === '0-1' ? 0.5 : cmc === '6-7' ? 6.5 : cmc === '8-9' ? 8.5 : cmc === '10+' ? 10 : parseInt(cmc);
-                    return sum + (cmcValue * Number(count));
-                  }, 0) / deckSummary.counts.total).toFixed(1)}</p>
-                </div>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {deckSummary.counts.total} cards · average mana value {avgMv.toFixed(2)} (lands
+                  excluded)
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -225,113 +316,74 @@ export function DeckAnalysisModal({
           <TabsContent value="types" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Card Type Distribution</CardTitle>
+                <CardTitle className="text-lg">Card types</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {typeData.map((type) => (
-                    <div key={type.type} className="flex items-center gap-3">
-                      <div className="w-20 text-sm">{type.type}</div>
-                      <div className="flex-1 bg-muted rounded-full h-6 relative">
-                        <div 
-                          className={`${type.color} rounded-full h-6 transition-all duration-300 flex items-center justify-end pr-2`}
-                          style={{ width: `${(type.count / deckSummary.counts.total) * 100}%` }}
-                        >
-                          <span className="text-xs font-medium text-primary-foreground">
-                            {type.count}
-                          </span>
+                {typeRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No card type data yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {typeRows.map(row => (
+                      <div key={row.category} className="flex items-center gap-3">
+                        <div className="w-28 text-sm">{CATEGORY_LABEL[row.category]}</div>
+                        <div className="relative h-6 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={`h-6 rounded-full ${CATEGORY_BG_CLASS[row.category]}`}
+                            style={{ width: `${(row.count / total) * 100}%` }}
+                          />
+                        </div>
+                        <div className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                          {row.count} · {((row.count / total) * 100).toFixed(0)}%
                         </div>
                       </div>
-                      <div className="w-12 text-xs text-muted-foreground">
-                        {((type.count / deckSummary.counts.total) * 100).toFixed(1)}%
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="mana" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Mana Sources</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Mana sources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {manaSources.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No lands or mana sources recorded for this deck.
+                  </p>
+                ) : (
                   <div className="space-y-3">
-                    {manaSourceData.map(({ color, count, percentage }) => (
+                    {manaSources.map(({ color, count, percentage }) => (
                       <div key={color} className="flex items-center gap-3">
-                        <div className="w-16 text-sm">{colorNames[color as keyof typeof colorNames]}</div>
-                        <div className="flex-1 bg-muted rounded-full h-6 relative">
-                          <div 
-                            className="bg-primary rounded-full h-6 transition-all duration-300 flex items-center justify-end pr-2"
+                        <ManaPip symbol={color} size="sm" />
+                        <div className="w-20 text-sm">{COLOR_NAMES[color] ?? color}</div>
+                        <div className="relative h-6 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-6 rounded-full bg-primary"
                             style={{ width: `${percentage}%` }}
-                          >
-                            <span className="text-xs font-medium text-primary-foreground">
-                              {count}
-                            </span>
-                          </div>
+                          />
                         </div>
-                        <div className="w-12 text-xs text-muted-foreground">
-                          {percentage}%
+                        <div className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                          {count} · {percentage.toFixed(0)}%
                         </div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </CardContent>
+            </Card>
 
-              <Card>
+            {(deckSummary.legality?.issues?.length ?? 0) > 0 && (
+              <Card className="border-destructive/40">
                 <CardHeader>
-                  <CardTitle>Mana Consistency</CardTitle>
+                  <CardTitle className="text-base text-destructive">Legality issues</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm">Turn 1 Untapped</span>
-                      <span className="text-sm font-medium">
-                        {deckSummary.mana.untappedPctByTurn.t1}%
-                      </span>
-                    </div>
-                    <Progress value={deckSummary.mana.untappedPctByTurn.t1} />
-                    
-                    <div className="flex justify-between">
-                      <span className="text-sm">Turn 2 Untapped</span>
-                      <span className="text-sm font-medium">
-                        {deckSummary.mana.untappedPctByTurn.t2}%
-                      </span>
-                    </div>
-                    <Progress value={deckSummary.mana.untappedPctByTurn.t2} />
-                    
-                    <div className="flex justify-between">
-                      <span className="text-sm">Turn 3 Untapped</span>
-                      <span className="text-sm font-medium">
-                        {deckSummary.mana.untappedPctByTurn.t3}%
-                      </span>
-                    </div>
-                    <Progress value={deckSummary.mana.untappedPctByTurn.t3} />
-                  </div>
-                  
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      Percentage chance of having untapped mana available on each turn.
-                      Higher percentages indicate better mana consistency.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {deckSummary.legality.issues.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-red-400">Legality Issues</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-1">
+                  <ul className="space-y-1 text-sm text-destructive">
                     {deckSummary.legality.issues.map((issue, index) => (
-                      <li key={index} className="text-sm text-red-400">• {issue}</li>
+                      <li key={index}>• {issue}</li>
                     ))}
                   </ul>
                 </CardContent>

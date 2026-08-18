@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { supabase } from '@/integrations/supabase/client';
+import { countCardsWhere, selectCardsWhere } from '@/lib/supabase/jsonPath';
 import { cn } from '@/lib/utils';
 
 /**
@@ -26,6 +27,7 @@ const FORMATS: { key: string; label: string; blurb: string }[] = [
   { key: 'legacy', label: 'Legacy', blurb: 'Nearly the whole card pool' },
 ];
 
+
 export function HomeFormats() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
 
@@ -33,10 +35,7 @@ export function HomeFormats() {
     (async () => {
       const entries = await Promise.all(
         FORMATS.map(async f => {
-          const { count } = await supabase
-            .from('cards')
-            .select('*', { count: 'exact', head: true })
-            .eq(`legalities->>${f.key}` as any, 'legal');
+          const { count } = await countCardsWhere().eq(`legalities->>${f.key}`, 'legal');
           return [f.key, count ?? 0] as const;
         })
       );
@@ -219,10 +218,8 @@ export function HomeBuilderPreview() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,mana_cost,cmc,type_line,image_uris,prices')
-        .eq('legalities->>commander' as any, 'legal')
+      const { data } = await selectCardsWhere('id,name,mana_cost,cmc,type_line,image_uris,prices')
+        .eq('legalities->>commander', 'legal')
         .in('rarity', ['mythic', 'rare'])
         .not('image_uris', 'is', null)
         .limit(120);

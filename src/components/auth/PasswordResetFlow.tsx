@@ -3,24 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { sanitizeEmail } from '@/lib/security/inputSanitization';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-interface PasswordResetFlowProps {
-  onBack?: () => void;
-}
-
-export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
+/**
+ * Renders the request-a-reset-link form only — the page chrome (heading,
+ * description, artwork) comes from AuthLayout, so this no longer wraps itself
+ * in a Card with a second, competing title.
+ */
+export function PasswordResetFlow() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
   const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const sanitizedEmail = sanitizeEmail(email);
     if (!sanitizedEmail || !sanitizedEmail.includes('@')) {
       showError('Invalid email', 'Please enter a valid email address');
@@ -47,67 +47,68 @@ export function PasswordResetFlow({ onBack }: PasswordResetFlowProps) {
 
   if (sent) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Check Your Email
-          </CardTitle>
-          <CardDescription>
-            We've sent a password reset link to {email}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Click the link in the email to reset your password. The link will expire in 1 hour.
-          </p>
-          <Link to="/login">
-            <Button variant="outline" className="w-full">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Login
-            </Button>
+      <div className="space-y-5">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-4">
+          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Check your email</p>
+            <p className="text-sm text-muted-foreground">
+              We sent a reset link to <span className="text-foreground">{email}</span>. The link
+              expires in one hour.
+            </p>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => setSent(false)}
+        >
+          Use a different email
+        </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          <Link
+            to="/login"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            Back to sign in
           </Link>
-        </CardContent>
-      </Card>
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Reset Password</CardTitle>
-        <CardDescription>
-          Enter your email address and we'll send you a reset link
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleResetRequest} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
+    <form onSubmit={handleResetRequest} className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="reset-email">Email</Label>
+        <Input
+          id="reset-email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          disabled={loading}
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </Button>
-            <Link to="/login" className="block">
-              <Button type="button" variant="ghost" className="w-full">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Login
-              </Button>
-            </Link>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <Button type="submit" disabled={loading} className="w-full">
+        {loading ? 'Sending…' : 'Send reset link'}
+      </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Remembered it?{' '}
+        <Link
+          to="/login"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          Back to sign in
+        </Link>
+      </p>
+    </form>
   );
 }

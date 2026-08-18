@@ -1,26 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Package, 
-  Plus, 
-  Search, 
-  ShoppingCart, 
-  BarChart3, 
-  Download, 
-  Upload,
-  Camera,
+import {
+  Package,
+  Plus,
+  Search,
+  BarChart3,
+  Download,
   Layers,
-  Settings2,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
 import { CollectionBulkImport } from '@/components/collection/CollectionBulkImport';
 import { SellCardModal } from '@/components/collection/SellCardModal';
+import { AddToDeckDialog } from '@/components/collection/AddToDeckDialog';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
@@ -31,18 +27,18 @@ import { StorageTab } from '@/components/storage/StorageTab';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementStore';
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
-import { CollectionStats } from '@/types/collection';
+import type { CollectionStats, CollectionCard } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
 import { supabase } from '@/integrations/supabase/client';
 import { ListingFormData } from '@/types/listing';
-import { StorageContainer } from '@/types/storage';
+import { priceUSD } from '@/features/collection/value';
+import { formatPrice } from '@/components/collection/browser/types';
 
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
 import { CollectionBackupRestore } from '@/components/collection/CollectionBackupRestore';
 import { InsuranceReport } from '@/components/collection/InsuranceReport';
 import { PriceHistoryChart } from '@/components/collection/PriceHistoryChart';
-import { SavedFilterPresets } from '@/components/collection/SavedFilterPresets';
 import { CollectionDeckRecommendations } from '@/components/collection/CollectionDeckRecommendations';
 import { CollectionValueTrends } from '@/components/collection/CollectionValueTrends';
 import { EnhancedPriceAlerts } from '@/components/collection/EnhancedPriceAlerts';
@@ -52,39 +48,54 @@ import { CollectionLoadingSkeleton } from '@/components/collection/CollectionLoa
 import { AnalyticsHeader } from '@/components/collection/AnalyticsHeader';
 import { AddCardsHeader } from '@/components/collection/AddCardsHeader';
 import { useAuth } from '@/components/AuthProvider';
-import { useDeckManagementStore as useDeckStore } from '@/stores/deckManagementStore';
+
+const TABS = ['collection', 'analytics', 'add-cards', 'storage'] as const;
+
+/**
+ * One valuation rule for the whole page: non-foil copies at `usd`, foil copies
+ * at `usd_foil` (falling back to `usd`). The stale denormalised `price_usd`
+ * column is never read for display — four different totals used to disagree
+ * across the Collection tab, the analytics header and the insurance report.
+ */
+function valueOfItem(item: CollectionCard): number {
+  if (!item.card) return 0;
+  const nonFoil = priceUSD(item.card, false);
+  const foil = priceUSD(item.card, true) || nonFoil;
+  return (item.quantity || 0) * nonFoil + (item.foil || 0) * foil;
+}
+
+function deckCategory(typeLine: string): DeckCard['category'] {
+  if (typeLine.includes('Land')) return 'lands';
+  if (typeLine.includes('Creature')) return 'creatures';
+  if (typeLine.includes('Instant')) return 'instants';
+  if (typeLine.includes('Sorcery')) return 'sorceries';
+  if (typeLine.includes('Planeswalker')) return 'planeswalkers';
+  if (typeLine.includes('Artifact')) return 'artifacts';
+  if (typeLine.includes('Enchantment')) return 'enchantments';
+  return 'other';
+}
+
+type TopValueCard = CollectionCard & { calculatedValue: number };
 
 export default function Collection() {
-  const {
-    snapshot,
-    loading,
-    error,
-    viewMode,
-    load,
-    refresh,
-    addCard,
-    getStats,
-    getFilteredCards
-  } = useCollectionStore();
+  const { snapshot, loading, error, load, refresh } = useCollectionStore();
 
-  const { addCardToDeck } = useDeckManagementStore();
+  const { addCardToDeck, decks } = useDeckManagementStore();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Tab management
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentTab, setCurrentTab] = useState(() => searchParams.get('tab') || 'collection');
 
-  // Modals and dialogs
-  const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedCard, setSelectedCard] = useState<CollectionCard['card'] | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
-  const [sellCard, setSellCard] = useState<any>(null);
-  
-  // Collection search state
-  // Collection filters (removed - now in UniversalLocalSearch)
+  const [sellCard, setSellCard] = useState<CollectionCard | null>(null);
+  const [deckTarget, setDeckTarget] = useState<CollectionCard | null>(null);
+  // Hoisted so the empty state's "Import list" card can open the real dialog —
+  // it previously clicked a `[data-import-trigger]` element that never existed.
+  const [showImport, setShowImport] = useState(false);
 
-  // Deck Addition Panel state
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
     selectedDeckId: '',
     selectedBoxId: '',
@@ -93,55 +104,32 @@ export default function Collection() {
     addToBox: false,
   });
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
   useEffect(() => {
-    // Only load collection on initial mount
-    if (isInitialLoad) {
-      load();
-      setIsInitialLoad(false);
-    }
-  }, [isInitialLoad]);
+    load();
+    // Loaded once on mount; `refresh` handles every later update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'collection';
-    if (['collection', 'analytics', 'add-cards', 'storage'].includes(tabFromUrl)) {
+    if ((TABS as readonly string[]).includes(tabFromUrl)) {
       setCurrentTab(tabFromUrl);
     }
   }, [searchParams]);
 
   const setActiveTab = (tab: string) => {
     setCurrentTab(tab);
-    if (tab === 'collection') {
-      setSearchParams({});
-    } else {
-      setSearchParams({ tab });
-    }
+    if (tab === 'collection') setSearchParams({});
+    else setSearchParams({ tab });
   };
 
-  const stats = getStats();
-  const cards = snapshot?.items || [];
+  const cards = useMemo(() => snapshot?.items ?? [], [snapshot]);
 
-  // Removed - filtering now done in UniversalLocalSearch
-
-  // Calculate collection stats
+  // NOTE: every hook must stay above the early `error` return below — the
+  // previous version declared a useMemo after it, so React rendered fewer hooks
+  // on the render where `error` flipped and the friendly retry screen crashed.
   const collectionStats = useMemo(() => {
-    if (!cards || cards.length === 0) {
-      return {
-        totalCards: 0,
-        uniqueCards: 0,
-        totalValue: 0,
-        avgCmc: 0,
-        colorDistribution: {},
-        typeDistribution: {},
-        rarityDistribution: {},
-        setDistribution: {},
-        topValueCards: [],
-        recentlyAdded: []
-      };
-    }
-
-    const stats: CollectionStats = {
+    const stats: Omit<CollectionStats, 'topValueCards'> & { topValueCards: TopValueCard[] } = {
       totalCards: 0,
       uniqueCards: cards.length,
       totalValue: 0,
@@ -151,64 +139,51 @@ export default function Collection() {
       rarityDistribution: {},
       setDistribution: {},
       topValueCards: [],
-      recentlyAdded: []
+      recentlyAdded: [],
     };
 
     let totalCmc = 0;
     let cardsWithCmc = 0;
 
-    cards.forEach(card => {
-      const totalQuantity = card.quantity + card.foil;
-      stats.totalCards += totalQuantity;
-      
-      // Value calculation
-      const normalValue = card.quantity * (parseFloat(card.card?.prices?.usd || '0') || 0);
-      const foilValue = card.foil * (parseFloat(card.card?.prices?.usd_foil || card.card?.prices?.usd || '0') || 0);
-      stats.totalValue += normalValue + foilValue;
+    for (const item of cards) {
+      const copies = (item.quantity || 0) + (item.foil || 0);
+      stats.totalCards += copies;
+      stats.totalValue += valueOfItem(item);
 
-      // CMC calculation
-      if (card.card?.cmc) {
-        totalCmc += card.card.cmc * totalQuantity;
-        cardsWithCmc += totalQuantity;
+      if (item.card?.cmc) {
+        totalCmc += item.card.cmc * copies;
+        cardsWithCmc += copies;
       }
 
-      // Color distribution
-      if (card.card?.colors && card.card.colors.length > 0) {
-        card.card.colors.forEach(color => {
-          stats.colorDistribution[color] = (stats.colorDistribution[color] || 0) + totalQuantity;
-        });
+      const colors = item.card?.colors ?? [];
+      if (colors.length > 0) {
+        for (const color of colors) {
+          stats.colorDistribution[color] = (stats.colorDistribution[color] || 0) + copies;
+        }
       } else {
-        stats.colorDistribution['C'] = (stats.colorDistribution['C'] || 0) + totalQuantity;
+        stats.colorDistribution.C = (stats.colorDistribution.C || 0) + copies;
       }
 
-      // Type distribution (extract main type from type_line)
-      if (card.card?.type_line) {
-        const mainType = card.card.type_line.split(' — ')[0].split(' ')[0].toLowerCase();
-        stats.typeDistribution[mainType] = (stats.typeDistribution[mainType] || 0) + totalQuantity;
+      if (item.card?.type_line) {
+        const mainType = item.card.type_line.split(' — ')[0].split(' ')[0].toLowerCase();
+        stats.typeDistribution[mainType] = (stats.typeDistribution[mainType] || 0) + copies;
       }
 
-      // Rarity distribution
-      if (card.card?.rarity) {
-        stats.rarityDistribution[card.card.rarity] = (stats.rarityDistribution[card.card.rarity] || 0) + totalQuantity;
+      if (item.card?.rarity) {
+        stats.rarityDistribution[item.card.rarity] =
+          (stats.rarityDistribution[item.card.rarity] || 0) + copies;
       }
 
-      // Set distribution
-      stats.setDistribution[card.set_code] = (stats.setDistribution[card.set_code] || 0) + totalQuantity;
-    });
+      stats.setDistribution[item.set_code] = (stats.setDistribution[item.set_code] || 0) + copies;
+    }
 
     stats.avgCmc = cardsWithCmc > 0 ? totalCmc / cardsWithCmc : 0;
 
-    // Top value cards (sorted by total value)
-    stats.topValueCards = [...cards]
-      .map(card => ({
-        ...card,
-        calculatedValue: (card.quantity * (parseFloat(card.card?.prices?.usd || '0') || 0)) +
-                        (card.foil * (parseFloat(card.card?.prices?.usd_foil || card.card?.prices?.usd || '0') || 0))
-      }))
-      .sort((a, b) => (b as any).calculatedValue - (a as any).calculatedValue)
+    stats.topValueCards = cards
+      .map(item => ({ ...item, calculatedValue: valueOfItem(item) }))
+      .sort((a, b) => b.calculatedValue - a.calculatedValue)
       .slice(0, 10);
 
-    // Recently added (last 6 by created_at)
     stats.recentlyAdded = [...cards]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 6);
@@ -216,132 +191,95 @@ export default function Collection() {
     return stats;
   }, [cards]);
 
-  const handleCardClick = (item: any) => {
-    setSelectedCard(item.card);
-    setShowCardModal(true);
-  };
-
-  const handleMarkForSale = (item: any) => {
-    setSellCard(item);
-    setShowSellModal(true);
-  };
+  const recentlyAddedCount = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return cards.filter(item => new Date(item.created_at) > sevenDaysAgo).length;
+  }, [cards]);
 
   const handleSellSubmit = async (data: ListingFormData) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        showError('Authentication Error', 'Please log in to create a listing');
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        showError('Authentication error', 'Please sign in to create a listing');
         return;
       }
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('listings')
-        .insert({
-          ...data,
-          user_id: session.user.id
-        });
+        .insert({ ...data, user_id: sessionData.session.user.id });
 
-      if (error) throw error;
-      
-      showSuccess('Listing Created', `${sellCard?.card_name} listed for sale`);
+      if (insertError) throw insertError;
+
+      showSuccess('Listing created', `${sellCard?.card_name} listed for sale`);
       setShowSellModal(false);
       setSellCard(null);
-    } catch (error) {
-      console.error('Error creating listing:', error);
+    } catch (err) {
+      console.error('Error creating listing:', err);
       showError('Error', 'Failed to create listing');
     }
   };
 
-  const handleAddToDeck = (item: any) => {
-    // Simplified add to deck - user can select deck later
-    showSuccess('Added to Queue', 'Card added to deck builder queue');
-  };
-
-  const handleExportBackup = async () => {
-    try {
-      if (!snapshot) {
-        showError('No Data', 'No collection data to backup');
-        return;
-      }
-
-      const backup = {
-        version: '1.0',
-        exportedAt: new Date().toISOString(),
-        collection: {
-          items: snapshot.items,
-          totals: snapshot.totals
-        },
-        metadata: {
-          totalCards: snapshot.totals.count,
-          uniqueCards: snapshot.totals.unique,
-          totalValue: snapshot.totals.valueUSD
-        }
-      };
-
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `mtg-collection-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      showSuccess('Backup Created', 'Collection backup downloaded successfully');
-    } catch (error) {
-      console.error('Error creating backup:', error);
-      showError('Backup Failed', 'Failed to create collection backup');
+  const handleExportBackup = () => {
+    if (!snapshot) {
+      showError('No data', 'No collection data to back up');
+      return;
     }
+
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      collection: { items: snapshot.items, totals: snapshot.totals },
+      metadata: {
+        totalCards: collectionStats.totalCards,
+        uniqueCards: collectionStats.uniqueCards,
+        totalValue: collectionStats.totalValue,
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mtg-collection-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showSuccess('Backup created', 'Collection backup downloaded');
   };
 
-  const addToCollection = async (card: any) => {
+  const addToCollection = async (card: { name: string; set?: string }) => {
     try {
       const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
-      if (result.error) {
-        throw new Error(result.error);
-      }
+      if (result.error) throw new Error(result.error);
       await refresh();
-      showSuccess('Card Added', `Added ${card.name} to collection`);
-    } catch (error) {
-      console.error('Error adding to collection:', error);
-      showError('Collection Error', 'Failed to add card to collection');
+      showSuccess('Card added', `Added ${card.name} to collection`);
+    } catch (err) {
+      console.error('Error adding to collection:', err);
+      showError('Collection error', 'Failed to add card to collection');
     }
   };
 
-  // Enhanced add card function that handles multiple destinations
   const handleCardAddition = async (card: any) => {
-    const actions = [];
-    
-    // Add to collection if selected
+    const actions: string[] = [];
+
     if (deckAdditionConfig.addToCollection) {
       try {
         const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
         if (result.error) throw new Error(result.error);
         actions.push('Collection');
-      } catch (error) {
-        console.error('Error adding to collection:', error);
-        showError('Collection Error', 'Failed to add card to collection');
+      } catch (err) {
+        console.error('Error adding to collection:', err);
+        showError('Collection error', 'Failed to add card to collection');
         return;
       }
     }
 
-    // Add to deck if selected
     if (deckAdditionConfig.addToDeck && deckAdditionConfig.selectedDeckId) {
       try {
-        // Determine card category
-        const getCardCategory = (typeLine: string): DeckCard['category'] => {
-          if (typeLine.includes('Creature')) return 'creatures';
-          if (typeLine.includes('Land')) return 'lands';
-          if (typeLine.includes('Instant')) return 'instants';
-          if (typeLine.includes('Sorcery')) return 'sorceries';
-          if (typeLine.includes('Artifact')) return 'artifacts';
-          if (typeLine.includes('Enchantment')) return 'enchantments';
-          if (typeLine.includes('Planeswalker')) return 'planeswalkers';
-          return 'other';
-        };
-
-        await addCardToDeck(deckAdditionConfig.selectedDeckId, {
+        addCardToDeck(deckAdditionConfig.selectedDeckId, {
           id: card.id,
           name: card.name,
           mana_cost: card.mana_cost,
@@ -349,299 +287,230 @@ export default function Collection() {
           colors: card.colors || [],
           cmc: card.cmc || 0,
           quantity: 1,
-          category: getCardCategory(card.type_line || ''),
+          category: deckCategory(card.type_line || ''),
           image_uris: card.image_uris,
-          prices: card.prices
+          prices: card.prices,
         });
         actions.push('Deck');
-      } catch (error) {
-        console.error('Error adding to deck:', error);
-        showError('Deck Error', 'Failed to add card to deck');
+      } catch (err) {
+        console.error('Error adding to deck:', err);
+        showError('Deck error', 'Failed to add card to deck');
         return;
       }
     }
 
-    // Add to box if selected
     if (deckAdditionConfig.addToBox && deckAdditionConfig.selectedBoxId) {
       try {
-        console.log('Attempting to add to box:', {
-          container_id: deckAdditionConfig.selectedBoxId,
-          card_id: card.id,
-          card_name: card.name,
-          qty: 1,
-          foil: false
-        });
-        
         await StorageAPI.assignCard({
           container_id: deckAdditionConfig.selectedBoxId,
           card_id: card.id,
           qty: 1,
-          foil: false
+          foil: false,
         });
         actions.push('Box');
-        console.log('Successfully added to box:', deckAdditionConfig.selectedBoxId);
-      } catch (error) {
-        console.error('Failed to add to box:', error);
-        showError('Box Error', 'Failed to add card to box');
+      } catch (err) {
+        console.error('Failed to add to box:', err);
+        showError('Box error', 'Failed to add card to box');
         return;
       }
     }
 
-    // Refresh collection and show success
     if (actions.length > 0) {
       await refresh();
-      showSuccess('Card Added', `Added ${card.name} to ${actions.join(' + ')}`);
+      showSuccess('Card added', `Added ${card.name} to ${actions.join(' + ')}`);
     }
   };
 
+  const selectedDeckName = decks.find(d => d.id === deckAdditionConfig.selectedDeckId)?.name;
+
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="space-y-4 text-center">
           <p className="text-destructive">Error loading collection: {error}</p>
-          <Button onClick={refresh}>Retry</Button>
+          <Button onClick={() => refresh()}>Retry</Button>
         </div>
       </div>
     );
   }
 
-  // Calculate recently added count (last 7 days)
-  const recentlyAddedCount = useMemo(() => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return cards.filter(card => new Date(card.created_at) > sevenDaysAgo).length;
-  }, [cards]);
-
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Enhanced Header */}
-      <div className="border-b bg-gradient-to-r from-card to-background px-3 md:px-6 py-2 md:py-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="flex h-screen flex-col bg-background">
+      {/* Header — carries state, not marketing copy */}
+      <div className="border-b border-border bg-card px-3 py-3 md:px-6 md:py-4">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-cosmic shadow-lg">
-                <Package className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">Collection Manager</h1>
-                <p className="text-sm text-muted-foreground">Track, organize, and optimize your MTG collection</p>
-              </div>
-            </div>
+            <h1 className="text-xl font-bold text-foreground md:text-2xl">Collection</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {collectionStats.totalCards.toLocaleString()} cards ·{' '}
+              {collectionStats.uniqueCards.toLocaleString()} unique ·{' '}
+              {formatPrice(collectionStats.totalValue)}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => refresh()}
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={() => refresh()} className="gap-2">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <CollectionBulkImport onImportComplete={() => {
-              refresh();
-              showSuccess('Collection Updated', 'Import completed successfully');
-            }} />
+            <CollectionBulkImport
+              open={showImport}
+              onOpenChange={setShowImport}
+              onImportComplete={() => {
+                refresh();
+                showSuccess('Collection updated', 'Import completed');
+              }}
+            />
             <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-2">
-              <Download className="h-4 w-4" />
+              <Download className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Backup</span>
             </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={() => setActiveTab('add-cards')}
-              className="gap-2 bg-gradient-cosmic hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Cards</span>
+            <Button size="sm" onClick={() => setActiveTab('add-cards')} className="gap-2">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Add cards</span>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Tabs */}
-      <div className="border-b px-3 sm:px-6 bg-card/50 overflow-x-auto scrollbar-none">
+      {/* Tabs */}
+      <div className="scrollbar-none overflow-x-auto border-b border-border bg-card px-3 sm:px-6">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="inline-flex w-max sm:w-auto bg-transparent p-0 h-12 gap-1">
-            <TabsTrigger 
-              value="collection" 
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
-                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
-                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
-            >
-              <Layers className="h-4 w-4 mr-1.5 sm:mr-2" />
-              <span className="hidden xs:inline">Collection</span>
-              <span className="xs:hidden">Cards</span>
-              {cards.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5 sm:ml-2 text-xs hidden sm:inline-flex">
-                  {stats.uniqueCards}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="analytics"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
-                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
-                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
-            >
-              <BarChart3 className="h-4 w-4 mr-1.5 sm:mr-2" />
-              <span className="hidden xs:inline">Analytics</span>
-              <span className="xs:hidden">Stats</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="add-cards"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
-                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
-                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
-            >
-              <Search className="h-4 w-4 mr-1.5 sm:mr-2" />
-              <span className="hidden xs:inline">Add Cards</span>
-              <span className="xs:hidden">Add</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="storage"
-              className="relative data-[state=active]:bg-transparent data-[state=active]:text-primary rounded-none px-3 sm:px-4 py-2 font-medium transition-all whitespace-nowrap
-                data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 
-                data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-cosmic data-[state=active]:after:rounded-t-full"
-            >
-              <Package className="h-4 w-4 mr-1.5 sm:mr-2" />
-              <span className="hidden xs:inline">Storage</span>
-              <span className="xs:hidden">Box</span>
-            </TabsTrigger>
+          <TabsList className="inline-flex h-12 w-max gap-1 bg-transparent p-0 sm:w-auto">
+            {[
+              { value: 'collection', label: 'Cards', icon: Layers, badge: collectionStats.uniqueCards },
+              { value: 'analytics', label: 'Analytics', icon: BarChart3, badge: 0 },
+              { value: 'add-cards', label: 'Add cards', icon: Search, badge: 0 },
+              { value: 'storage', label: 'Storage', icon: Package, badge: 0 },
+            ].map(tab => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="relative whitespace-nowrap rounded-none px-3 py-2 font-medium data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-4 data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-foreground"
+              >
+                <tab.icon className="mr-1.5 h-4 w-4 sm:mr-2" aria-hidden="true" />
+                {tab.label}
+                {tab.badge ? (
+                  <Badge variant="secondary" className="ml-1.5 hidden text-xs sm:inline-flex">
+                    {tab.badge}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
 
-      {/* Main Content */}
+      {/* Main content */}
       <div className="flex-1 overflow-hidden">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
-          {/* Collection Tab */}
-          <TabsContent value="collection" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+          {/* Collection */}
+          <TabsContent
+            value="collection"
+            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+          >
             {loading ? (
               <CollectionLoadingSkeleton />
             ) : cards.length === 0 ? (
               <CollectionEmptyState
                 onAddCards={() => setActiveTab('add-cards')}
-                onImport={() => {
-                  // Trigger import modal
-                  const importBtn = document.querySelector('[data-import-trigger]') as HTMLButtonElement;
-                  importBtn?.click();
-                }}
+                onImport={() => setShowImport(true)}
                 onScan={() => navigate('/scan')}
               />
             ) : (
               <div className="space-y-6">
-                {/* Quick Stats */}
                 <CollectionQuickStats
-                  totalValue={stats.totalValue}
-                  totalCards={stats.totalCards}
-                  uniqueCards={stats.uniqueCards}
-                  avgCardValue={stats.totalCards > 0 ? stats.totalValue / stats.totalCards : 0}
+                  totalValue={collectionStats.totalValue}
+                  totalCards={collectionStats.totalCards}
+                  uniqueCards={collectionStats.uniqueCards}
+                  avgCardValue={
+                    collectionStats.totalCards > 0
+                      ? collectionStats.totalValue / collectionStats.totalCards
+                      : 0
+                  }
                   recentlyAddedCount={recentlyAddedCount}
                   loading={loading}
                 />
 
-                {/* Favorite Decks Preview */}
                 <FavoriteDecksPreview />
-                
-                {/* Collection Cards with integrated search */}
+
                 <CollectionCardDisplay
-                  items={cards || []}
-                  viewMode="grid"
-                  onCardClick={handleCardClick}
-                  onMarkForSale={handleMarkForSale}
-                  onAddToDeck={handleAddToDeck}
+                  items={cards}
+                  onCardClick={item => {
+                    setSelectedCard(item.card ?? null);
+                    setShowCardModal(true);
+                  }}
+                  onMarkForSale={item => {
+                    setSellCard(item);
+                    setShowSellModal(true);
+                  }}
+                  onAddToDeck={item => setDeckTarget(item)}
                   onBulkUpdate={refresh}
                 />
               </div>
             )}
           </TabsContent>
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+          {/* Analytics */}
+          <TabsContent
+            value="analytics"
+            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+          >
             <div className="space-y-6">
-              {collectionStats && (
-                <>
-                  {/* Analytics Header */}
-                  <AnalyticsHeader
-                    totalCards={collectionStats.totalCards}
-                    totalValue={collectionStats.totalValue}
-                    uniqueCards={collectionStats.uniqueCards}
-                    topRarityCount={collectionStats.rarityDistribution?.mythic || 0}
-                  />
-                  
-                  
-                  {/* Charts Row */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <PriceHistoryChart 
-                      collectionCards={(snapshot?.items || []).map(card => ({
-                        ...card,
-                        quantity: card.quantity || 1,
-                        price_usd: card.price_usd || '0'
-                      }))}
-                    />
-                    <CollectionValueTrends 
-                      collectionCards={snapshot?.items || []}
-                    />
-                  </div>
-                  
-                  {/* Tools Row */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <SavedFilterPresets 
-                      onApplyPreset={(filters) => {
-                        console.log('Apply filters:', filters);
-                      }}
-                      currentFilters={{}}
-                    />
-                    <CollectionDeckRecommendations 
-                      collectionCards={snapshot?.items || []}
-                    />
-                  </div>
-                  
-                  {/* Utilities Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    <TCGPlayerPriceSync />
-                    {user && <CollectionExport userId={user.id} />}
-                    {user && <CollectionBackupRestore userId={user.id} />}
-                  </div>
-                  
-                  {/* Price Alerts */}
-                  <EnhancedPriceAlerts />
-                  
-                  {/* Insurance Report */}
-                  <InsuranceReport 
-                    collectionValue={collectionStats.totalValue || 0}
-                    cardCount={collectionStats.totalCards || 0}
-                    topCards={collectionStats.topValueCards?.map(c => ({
-                      name: c.card_name,
-                      value: parseFloat(String(c.price_usd || 0)) || 0
-                    }))}
-                  />
-                  
-                  {/* Detailed Analytics */}
-                  <CollectionAnalytics 
-                    stats={collectionStats} 
-                    loading={loading}
-                  />
-                </>
-              )}
+              <AnalyticsHeader
+                totalCards={collectionStats.totalCards}
+                totalValue={collectionStats.totalValue}
+                uniqueCards={collectionStats.uniqueCards}
+                topRarityCount={collectionStats.rarityDistribution?.mythic || 0}
+              />
+
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <PriceHistoryChart collectionCards={cards} />
+                <CollectionValueTrends collectionCards={cards} />
+              </div>
+
+              <CollectionDeckRecommendations collectionCards={cards} />
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <TCGPlayerPriceSync />
+                {user && <CollectionExport userId={user.id} />}
+                {user && <CollectionBackupRestore userId={user.id} />}
+              </div>
+
+              <EnhancedPriceAlerts />
+
+              <InsuranceReport
+                collectionValue={collectionStats.totalValue}
+                cardCount={collectionStats.totalCards}
+                topCards={collectionStats.topValueCards.map(item => ({
+                  name: item.card_name,
+                  setCode: item.set_code,
+                  quantity: item.quantity,
+                  foil: item.foil,
+                  condition: item.condition,
+                  // The computed value, not the stale `price_usd` column the
+                  // report used to print beside a value-ordered list.
+                  value: item.calculatedValue,
+                }))}
+              />
+
+              <CollectionAnalytics stats={collectionStats} loading={loading} />
             </div>
           </TabsContent>
 
-          {/* Add Cards Tab */}
-          <TabsContent value="add-cards" className="h-full overflow-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 m-0">
+          {/* Add cards */}
+          <TabsContent
+            value="add-cards"
+            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+          >
             <div className="space-y-6">
-              {/* Add Cards Header */}
               <AddCardsHeader
                 addToCollection={deckAdditionConfig.addToCollection}
                 addToDeck={deckAdditionConfig.addToDeck}
                 addToBox={deckAdditionConfig.addToBox}
-                selectedDeckName={useDeckStore.getState().decks.find(d => d.id === deckAdditionConfig.selectedDeckId)?.name}
-                selectedBoxName={undefined}
+                selectedDeckName={selectedDeckName}
               />
-              
-              {/* Destination Panel */}
-              <DeckAdditionPanel 
+
+              <DeckAdditionPanel
                 selectedDeckId={deckAdditionConfig.selectedDeckId}
                 selectedBoxId={deckAdditionConfig.selectedBoxId}
                 addToCollection={deckAdditionConfig.addToCollection}
@@ -649,11 +518,9 @@ export default function Collection() {
                 addToBox={deckAdditionConfig.addToBox}
                 onSelectionChange={setDeckAdditionConfig}
               />
-              
-              {/* Card Search */}
+
               <EnhancedUniversalCardSearch
                 onCardAdd={handleCardAddition}
-                onCardSelect={(card) => console.log('Selected:', card)}
                 placeholder="Search cards to add to collection, deck, or box"
                 showFilters={true}
                 showAddButton={true}
@@ -663,14 +530,12 @@ export default function Collection() {
             </div>
           </TabsContent>
 
-          {/* Storage Tab */}
-          <TabsContent value="storage" className="h-full m-0">
+          {/* Storage */}
+          <TabsContent value="storage" className="m-0 h-full">
             <StorageTab />
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Full Screen Assignment - Remove this section */}
 
       {/* Modals */}
       <UniversalCardModal
@@ -681,12 +546,10 @@ export default function Collection() {
           setSelectedCard(null);
         }}
         onAddToCollection={() => {
-          if (selectedCard) {
-            addToCollection(selectedCard);
-          }
+          if (selectedCard) addToCollection({ name: selectedCard.name, set: selectedCard.set_code });
         }}
       />
-      
+
       <SellCardModal
         isOpen={showSellModal}
         onClose={() => {
@@ -696,8 +559,16 @@ export default function Collection() {
         card={sellCard}
         ownedQuantity={sellCard?.quantity || 0}
         ownedFoil={sellCard?.foil || 0}
-        defaultPrice={sellCard?.card?.prices?.usd ? parseFloat(sellCard.card.prices.usd) : 0}
+        defaultPrice={sellCard?.card ? priceUSD(sellCard.card, false) : 0}
         onSubmit={handleSellSubmit}
+      />
+
+      <AddToDeckDialog
+        item={deckTarget}
+        open={deckTarget !== null}
+        onOpenChange={open => {
+          if (!open) setDeckTarget(null);
+        }}
       />
     </div>
   );

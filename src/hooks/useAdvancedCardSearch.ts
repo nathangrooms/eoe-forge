@@ -1,115 +1,149 @@
-import { useState, useCallback } from 'react';
-import { CardSearchState, buildScryfallURL } from '@/lib/scryfall/query-builder';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  CardSearchState,
+  buildScryfallURL,
+  hasSearchCriteria,
+} from '@/lib/scryfall/query-builder';
 
 interface UseAdvancedCardSearchResult {
   results: any[];
   loading: boolean;
+  /** Set only while a "load more" page is in flight, so the grid doesn't flash. */
+  loadingMore: boolean;
   error: string | null;
   hasMore: boolean;
   totalResults: number;
-  searchWithState: (state: CardSearchState, page?: number) => Promise<void>;
+  searchWithState: (state: CardSearchState) => void;
   loadMore: () => void;
   clearResults: () => void;
   currentState: CardSearchState | null;
 }
 
+/**
+ * Scryfall card search.
+ *
+ * The cache key is the FULL request URL, not just the `q` token — `order`,
+ * `dir` and `unique` travel as query params, so keying on `q` alone was what
+ * made the sort dropdown and direction toggle inert.
+ */
 export function useAdvancedCardSearch(): UseAdvancedCardSearchResult {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [currentState, setCurrentState] = useState<CardSearchState | null>(null);
 
-  const searchWithState = useCallback(async (state: CardSearchState, page = 1) => {
-    // Don't search if no meaningful search criteria
-    if (!state || (!state.text?.trim() && Object.keys(state).filter(key => 
-      key !== 'unique' && key !== 'order' && key !== 'dir' && state[key as keyof CardSearchState]
-    ).length === 0)) {
-      setResults([]);
-      setHasMore(false);
-      setTotalResults(0);
-      setError(null);
-      return;
-    }
+  // Refs keep `run` stable: depending on `results` would rebuild the callback
+  // on every fetch and retrigger the caller's debounce effect.
+  const resultsRef = useRef<any[]>([]);
+  const nextPageRef = useRef<string | null>(null);
+  const lastUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-    setLoading(true);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const run = useCallback(async (url: string, append: boolean) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setError(null);
 
     try {
-      const url = buildScryfallURL(state);
-      const searchURL = new URL(url);
-      searchURL.searchParams.set('page', page.toString());
-      
-      const response = await fetch(searchURL.toString(), {
-        headers: {
-          'User-Agent': 'MTG-Deck-Builder/1.0'
-        }
-      });
+      const response = await fetch(url, { signal: controller.signal });
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
+        // Scryfall returns 404 with an explanatory `details` field for a query
+        // that parsed fine but matched nothing, and 400 for a syntax error.
         if (response.status === 404) {
-          setResults(page === 1 ? [] : results);
+          if (!append) {
+            resultsRef.current = [];
+            setResults([]);
+            setTotalResults(0);
+          }
           setHasMore(false);
-          setTotalResults(0);
+          nextPageRef.current = null;
           return;
         }
-        throw new Error(`Search failed: ${response.statusText}`);
+        throw new Error(payload?.details || `Search failed (${response.status})`);
       }
 
-      const data = await response.json();
-      
-      if (data.data) {
-        const newResults = page === 1 ? data.data : [...results, ...data.data];
-        setResults(newResults);
-        setHasMore(data.has_more || false);
-        setTotalResults(data.total_cards || data.data.length);
-        setCurrentPage(page);
-        setCurrentState(state);
-      } else {
-        setResults(page === 1 ? [] : results);
-        setHasMore(false);
-        setTotalResults(0);
-      }
-
-    } catch (err) {
-      console.error('Advanced card search error:', err);
+      const data = payload?.data ?? [];
+      const next = append ? [...resultsRef.current, ...data] : data;
+      resultsRef.current = next;
+      setResults(next);
+      setHasMore(Boolean(payload?.has_more));
+      nextPageRef.current = payload?.next_page ?? null;
+      setTotalResults(payload?.total_cards ?? data.length);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Failed to search cards');
-      if (page === 1) {
+      if (!append) {
+        resultsRef.current = [];
         setResults([]);
         setHasMore(false);
         setTotalResults(0);
       }
     } finally {
-      setLoading(false);
+      if (controller === abortRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
-  }, [results]);
-
-  const loadMore = useCallback(() => {
-    if (hasMore && !loading && currentState) {
-      searchWithState(currentState, currentPage + 1);
-    }
-  }, [hasMore, loading, currentState, currentPage, searchWithState]);
+  }, []);
 
   const clearResults = useCallback(() => {
+    abortRef.current?.abort();
+    resultsRef.current = [];
+    nextPageRef.current = null;
+    lastUrlRef.current = null;
     setResults([]);
     setHasMore(false);
     setTotalResults(0);
-    setCurrentPage(1);
     setCurrentState(null);
     setError(null);
+    setLoading(false);
+    setLoadingMore(false);
   }, []);
+
+  const searchWithState = useCallback(
+    (state: CardSearchState) => {
+      if (!state || !hasSearchCriteria(state)) {
+        clearResults();
+        return;
+      }
+
+      const url = buildScryfallURL(state);
+      if (url === lastUrlRef.current) return;
+
+      lastUrlRef.current = url;
+      setCurrentState(state);
+      void run(url, false);
+    },
+    [run, clearResults]
+  );
+
+  const loadMore = useCallback(() => {
+    const next = nextPageRef.current;
+    if (!next || loading || loadingMore) return;
+    void run(next, true);
+  }, [run, loading, loadingMore]);
 
   return {
     results,
     loading,
+    loadingMore,
     error,
     hasMore,
     totalResults,
     searchWithState,
     loadMore,
     clearResults,
-    currentState
+    currentState,
   };
 }

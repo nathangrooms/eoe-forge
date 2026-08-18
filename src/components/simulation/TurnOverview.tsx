@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState } from '@/lib/simulation/types';
+import { Heart, Swords } from 'lucide-react';
 
 interface TurnOverviewProps {
   show: boolean;
@@ -12,134 +13,77 @@ interface TurnOverviewProps {
   };
 }
 
+/**
+ * End-of-turn damage summary.
+ *
+ * Previously a red gradient card with a blur "explosion", fifteen animated
+ * particles, glow drop-shadows and emoji. The information it carries — damage
+ * this turn, life after, and commander damage — is worth keeping; the styling
+ * was not.
+ */
 export const TurnOverview = ({ show, state, damageDealt }: TurnOverviewProps) => {
   if (!show || (damageDealt.toPlayer1 === 0 && damageDealt.toPlayer2 === 0)) return null;
+
+  const sides = [
+    {
+      key: 'player1',
+      name: state.player1.name,
+      damage: damageDealt.toPlayer1,
+      life: state.player1.life,
+      commanderDamage: damageDealt.player1Commander ?? 0,
+    },
+    {
+      key: 'player2',
+      name: state.player2.name,
+      damage: damageDealt.toPlayer2,
+      life: state.player2.life,
+      commanderDamage: damageDealt.player2Commander ?? 0,
+    },
+  ].filter(s => s.damage > 0);
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.4, ease: 'backOut' }}
-          className="fixed inset-0 z-[90] flex items-center justify-center pointer-events-none"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+          className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center p-4"
         >
-          <div className="relative">
-            {/* Explosion effect */}
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0] }}
-              transition={{ duration: 0.8, times: [0, 0.5, 1] }}
-              className="absolute inset-0 rounded-full bg-red-500/30 blur-3xl"
-              style={{ width: '400px', height: '400px', margin: 'auto' }}
-            />
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+            <div className="mb-4 text-center">
+              <div className="text-2xl font-bold text-foreground">Turn {state.turn}</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                Damage this turn
+              </div>
+            </div>
 
-            {/* Main card */}
-            <motion.div
-              initial={{ rotateX: -90, y: -100 }}
-              animate={{ rotateX: 0, y: 0 }}
-              transition={{ duration: 0.5, ease: 'backOut' }}
-              className="relative bg-gradient-to-br from-red-900 via-red-800 to-red-950 border-4 border-red-500 rounded-2xl p-8 shadow-2xl"
-              style={{ perspective: 1000 }}
-            >
-              {/* Title */}
-              <div className="text-center mb-6">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                  className="text-5xl font-black text-red-200 mb-2 drop-shadow-lg"
+            <div className="grid gap-4 sm:grid-cols-2">
+              {sides.map(side => (
+                <div
+                  key={side.key}
+                  className="flex flex-col items-center rounded-lg border border-border p-4"
                 >
-                  ⚔️ TURN {state.turn} ⚔️
-                </motion.div>
-                <div className="text-lg text-red-300 uppercase tracking-wider">
-                  Battle Report
+                  <div className="mb-1 max-w-full truncate text-xs text-muted-foreground">
+                    {side.name}
+                  </div>
+                  <div className="text-4xl font-black tabular-nums text-destructive">
+                    -{side.damage}
+                  </div>
+                  <div className="mt-2 inline-flex items-center gap-1 text-lg font-semibold tabular-nums text-foreground">
+                    <Heart className="h-4 w-4" aria-hidden />
+                    {side.life}
+                  </div>
+                  {side.commanderDamage > 0 && (
+                    <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <Swords className="h-3 w-3" aria-hidden />
+                      {side.commanderDamage} commander damage
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              {/* Damage dealt */}
-              <div className="grid grid-cols-2 gap-8 mb-6">
-                {/* Player 1 damage */}
-                {damageDealt.toPlayer1 > 0 && (
-                  <motion.div
-                    initial={{ x: -100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="flex flex-col items-center"
-                  >
-                    <div className="text-sm text-red-300 mb-2">{state.player1.name}</div>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [0, 1.2, 1] }}
-                      transition={{ delay: 0.4, duration: 0.5 }}
-                      className="text-6xl font-black text-red-400 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]"
-                    >
-                      -{damageDealt.toPlayer1}
-                    </motion.div>
-                    <div className="text-2xl font-bold text-red-200 mt-2">
-                      {state.player1.life} ❤️
-                    </div>
-                    {damageDealt.player1Commander && damageDealt.player1Commander > 0 && (
-                      <div className="text-sm text-amber-400 mt-1">
-                        ⭐ {damageDealt.player1Commander} Commander Damage
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
-                {/* Player 2 damage */}
-                {damageDealt.toPlayer2 > 0 && (
-                  <motion.div
-                    initial={{ x: 100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="flex flex-col items-center"
-                  >
-                    <div className="text-sm text-red-300 mb-2">{state.player2.name}</div>
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [0, 1.2, 1] }}
-                      transition={{ delay: 0.4, duration: 0.5 }}
-                      className="text-6xl font-black text-red-400 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)]"
-                    >
-                      -{damageDealt.toPlayer2}
-                    </motion.div>
-                    <div className="text-2xl font-bold text-red-200 mt-2">
-                      {state.player2.life} ❤️
-                    </div>
-                    {damageDealt.player2Commander && damageDealt.player2Commander > 0 && (
-                      <div className="text-sm text-amber-400 mt-1">
-                        ⭐ {damageDealt.player2Commander} Commander Damage
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Particles */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-                {[...Array(15)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{
-                      x: '50%',
-                      y: '50%',
-                      scale: 0,
-                      opacity: 1,
-                    }}
-                    animate={{
-                      x: `${50 + (Math.random() - 0.5) * 200}%`,
-                      y: `${50 + (Math.random() - 0.5) * 200}%`,
-                      scale: Math.random() * 2 + 0.5,
-                      opacity: 0,
-                    }}
-                    transition={{ duration: 1.5, delay: i * 0.05 }}
-                    className="absolute w-3 h-3 bg-red-400 rounded-full"
-                  />
-                ))}
-              </div>
-            </motion.div>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}

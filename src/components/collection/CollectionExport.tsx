@@ -13,6 +13,7 @@ import {
 import { Download, FileJson, FileText, Table } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
+import { conditionLabel } from '@/components/collection/browser/types';
 
 interface CollectionExportProps {
   userId: string;
@@ -152,10 +153,11 @@ export function CollectionExport({ userId }: CollectionExportProps) {
       const tradelistCount = 0;
       const name = item.card_name;
       const edition = item.set_code?.toUpperCase() || '';
-      const condition = item.condition === 'near_mint' ? 'Near Mint' :
-                       item.condition === 'lightly_played' ? 'Lightly Played' :
-                       item.condition === 'moderately_played' ? 'Moderately Played' :
-                       item.condition === 'heavily_played' ? 'Heavily Played' : 'Near Mint';
+      // The stored vocabulary is mint/near_mint/excellent/good/light_played/
+      // played/poor; the previous map keyed on `lightly_played` and
+      // `moderately_played`, values the domain type can never produce, so every
+      // real row silently fell through to "Near Mint".
+      const condition = conditionLabel(item.condition);
       const language = 'English';
       const foil = item.foil > 0 ? 'foil' : '';
       const tags = '';

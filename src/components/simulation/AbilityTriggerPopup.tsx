@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Zap } from 'lucide-react';
 
 interface Trigger {
   id: string;
@@ -19,15 +20,16 @@ export const AbilityTriggerPopup = ({ triggers }: { triggers: Trigger[] }) => {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.8 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="bg-accent/95 backdrop-blur-sm px-4 py-3 rounded-lg shadow-xl border border-accent-foreground/20"
+            className="rounded-lg border border-border bg-popover px-4 py-3 shadow-md"
           >
-            <div className="text-xs font-bold text-accent-foreground/70 uppercase tracking-wide">
-              ⚡ Triggered
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              <Zap className="h-3 w-3" aria-hidden />
+              Triggered
             </div>
-            <div className="text-sm font-bold text-accent-foreground mt-1">
+            <div className="mt-1 text-sm font-bold text-popover-foreground">
               {trigger.cardName}
             </div>
-            <div className="text-xs text-accent-foreground/80 mt-1 line-clamp-2">
+            <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
               {trigger.ability}
             </div>
           </motion.div>
@@ -43,7 +45,7 @@ export const useAbilityTriggers = () => {
   const showTrigger = (cardName: string, ability: string) => {
     const id = `${cardName}-${Date.now()}`;
     const trigger: Trigger = { id, cardName, ability, timestamp: Date.now() };
-    
+
     setTriggers(prev => [...prev, trigger]);
 
     setTimeout(() => {

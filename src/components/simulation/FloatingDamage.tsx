@@ -20,7 +20,7 @@ export const FloatingDamage = ({ cardId, damages }: { cardId: string; damages: D
             transition={{ duration: 1.2, ease: "easeOut" }}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           >
-            <div className="text-4xl font-black text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+            <div className="rounded-full bg-destructive px-2 text-3xl font-black tabular-nums text-destructive-foreground">
               -{damage.amount}
             </div>
           </motion.div>
@@ -36,7 +36,7 @@ export const useDamageNumbers = () => {
   const showDamage = (cardId: string, amount: number) => {
     const id = `${cardId}-${Date.now()}`;
     const damage: DamageNumber = { id, amount, timestamp: Date.now() };
-    
+
     setDamages(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(cardId) || [];

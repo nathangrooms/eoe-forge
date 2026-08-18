@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Star, 
-  Trash2, 
-  ExternalLink, 
-  Bell, 
+import {
+  Star,
+  Trash2,
+  ExternalLink,
+  Bell,
   BellOff,
   TrendingUp,
   TrendingDown,
@@ -36,11 +36,11 @@ interface PriceWatchlistProps {
   onToggleAlert?: (id: string) => void;
 }
 
-export function PriceWatchlist({ 
-  items: externalItems, 
-  onRemove, 
+export function PriceWatchlist({
+  items: externalItems,
+  onRemove,
   onUpdateTarget,
-  onToggleAlert 
+  onToggleAlert
 }: PriceWatchlistProps) {
   const [items, setItems] = useState<WatchlistItem[]>(externalItems || []);
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
@@ -76,17 +76,17 @@ export function PriceWatchlist({
   const handleSetTarget = (id: string) => {
     const price = parseFloat(targetValue);
     if (isNaN(price) || price <= 0) return;
-    
+
     if (onUpdateTarget) {
       onUpdateTarget(id, price);
     } else {
-      const updated = items.map(item => 
+      const updated = items.map(item =>
         item.id === id ? { ...item, targetPrice: price } : item
       );
       setItems(updated);
       localStorage.setItem('price_watchlist', JSON.stringify(updated));
     }
-    
+
     setEditingTarget(null);
     setTargetValue('');
     showSuccess('Target Set', `Price alert set at $${price.toFixed(2)}`);
@@ -96,7 +96,7 @@ export function PriceWatchlist({
     if (onToggleAlert) {
       onToggleAlert(id);
     } else {
-      const updated = items.map(item => 
+      const updated = items.map(item =>
         item.id === id ? { ...item, alertEnabled: !item.alertEnabled } : item
       );
       setItems(updated);
@@ -104,30 +104,30 @@ export function PriceWatchlist({
     }
   };
 
-  const alertCount = items.filter(item => 
+  const alertCount = items.filter(item =>
     item.targetPrice && item.currentPrice <= item.targetPrice
   ).length;
 
   return (
-    <Card className="border-primary/20">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+            <Star className="h-5 w-5 text-muted-foreground" />
             Price Watchlist
             {items.length > 0 && (
               <Badge variant="secondary">{items.length}</Badge>
             )}
           </CardTitle>
           {alertCount > 0 && (
-            <Badge className="bg-green-600">
+            <Badge variant="default">
               <Target className="h-3 w-3 mr-1" />
-              {alertCount} at target!
+              {alertCount} at target
             </Badge>
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent>
         {items.length === 0 ? (
           <div className="text-center py-8">
@@ -141,19 +141,19 @@ export function PriceWatchlist({
           <div className="space-y-3">
             {items.map((item) => {
               const atTarget = item.targetPrice && item.currentPrice <= item.targetPrice;
-              
+
               return (
-                <div 
+                <div
                   key={item.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    atTarget 
-                      ? 'border-green-500/50 bg-green-500/5' 
+                    atTarget
+                      ? 'border-foreground bg-accent'
                       : 'border-border hover:bg-muted/50'
                   }`}
                 >
                   {item.image_uri ? (
-                    <img 
-                      src={item.image_uri} 
+                    <img
+                      src={item.image_uri}
                       alt={item.name}
                       className="h-14 w-auto rounded shadow-sm"
                       loading="lazy"
@@ -163,26 +163,22 @@ export function PriceWatchlist({
                       <Star className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground mb-1">
                       {item.set_code.toUpperCase()}
                     </p>
-                    
+
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">
                         ${item.currentPrice.toFixed(2)}
                       </span>
-                      
+
                       {item.priceChange !== undefined && (
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            item.priceChange >= 0 
-                              ? 'text-green-600 border-green-500/30' 
-                              : 'text-red-600 border-red-500/30'
-                          }`}
+                        <Badge
+                          variant="outline"
+                          className="text-xs tabular-nums"
                         >
                           {item.priceChange >= 0 ? (
                             <TrendingUp className="h-3 w-3 mr-0.5" />
@@ -192,14 +188,11 @@ export function PriceWatchlist({
                           {Math.abs(item.priceChange).toFixed(1)}%
                         </Badge>
                       )}
-                      
+
                       {item.targetPrice && (
-                        <Badge 
-                          variant="outline" 
-                          className={atTarget 
-                            ? 'bg-green-500/10 text-green-600 border-green-500/30' 
-                            : 'text-muted-foreground'
-                          }
+                        <Badge
+                          variant="outline"
+                          className={atTarget ? 'border-foreground text-foreground' : 'text-muted-foreground'}
                         >
                           <Target className="h-3 w-3 mr-0.5" />
                           ${item.targetPrice.toFixed(2)}
@@ -220,16 +213,16 @@ export function PriceWatchlist({
                         className="w-20 h-8 text-sm"
                         autoFocus
                       />
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="ghost"
                         className="h-8 px-2"
                         onClick={() => handleSetTarget(item.id)}
                       >
                         Set
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="ghost"
                         className="h-8 px-2"
                         onClick={() => setEditingTarget(null)}
@@ -251,7 +244,7 @@ export function PriceWatchlist({
                       >
                         <Target className="h-4 w-4" />
                       </Button>
-                      
+
                       <Button
                         size="icon"
                         variant="ghost"
@@ -265,23 +258,23 @@ export function PriceWatchlist({
                           <BellOff className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
-                      
+
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8"
                         asChild
                       >
-                        <a 
-                          href={item.purchaseUrl} 
-                          target="_blank" 
+                        <a
+                          href={item.purchaseUrl}
+                          target="_blank"
                           rel="noopener noreferrer"
                           title="Buy now"
                         >
                           <ShoppingCart className="h-4 w-4" />
                         </a>
                       </Button>
-                      
+
                       <Button
                         size="icon"
                         variant="ghost"

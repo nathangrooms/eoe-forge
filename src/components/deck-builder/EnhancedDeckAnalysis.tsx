@@ -57,13 +57,10 @@ interface EnhancedDeckAnalysisPanelProps {
   deckName?: string;
 }
 
+// Chart ink comes from the theme, not from Recharts' demo palette.
 const COLORS = {
-  primary: '#8884d8',
-  secondary: '#82ca9d', 
-  accent: '#ffc658',
-  warning: '#ff7c7c',
-  success: '#87d068',
-  muted: '#d084d0'
+  primary: 'hsl(var(--foreground))',
+  secondary: 'hsl(var(--muted-foreground))',
 };
 
 export function EnhancedDeckAnalysisPanel({ deck, format, commander, deckId, deckName }: EnhancedDeckAnalysisPanelProps) {
@@ -180,7 +177,7 @@ const optimizations = useMemo(() => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-blue-500" />
+              <TrendingUp className="h-5 w-5 text-foreground" />
               <div>
                 <div className="text-sm text-muted-foreground">Mana Curve</div>
                 <div className="text-lg font-bold">
@@ -197,7 +194,7 @@ const optimizations = useMemo(() => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <MapPin className="h-5 w-5 text-green-500" />
+              <MapPin className="h-5 w-5 text-foreground" />
               <div>
                 <div className="text-sm text-muted-foreground">Land Base</div>
                 <div className="text-lg font-bold">{analysis.landBase.totalLands}</div>
@@ -212,7 +209,7 @@ const optimizations = useMemo(() => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-5 w-5 text-purple-500" />
+              <Brain className="h-5 w-5 text-foreground" />
               <div>
                 <div className="text-sm text-muted-foreground">Synergy Score</div>
                 <div className="text-lg font-bold">{analysis.synergy.totalSynergyScore}</div>
@@ -227,14 +224,14 @@ const optimizations = useMemo(() => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Target className="h-5 w-5 text-red-500" />
+              <Target className="h-5 w-5 text-destructive" />
               <div>
                 <div className="text-sm text-muted-foreground">Format Legal</div>
                 <div className="text-lg font-bold">
                   {analysis.formatValidation.isValid ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <CheckCircle className="h-5 w-5 text-foreground" />
                   ) : (
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -255,7 +252,7 @@ const optimizations = useMemo(() => {
             <TabsTrigger value="synergy" className="whitespace-nowrap">Synergy</TabsTrigger>
             <TabsTrigger value="validation" className="whitespace-nowrap">Validation</TabsTrigger>
             <TabsTrigger value="suggestions" className="whitespace-nowrap">Suggestions</TabsTrigger>
-            <TabsTrigger value="ai" className="whitespace-nowrap bg-gradient-cosmic text-primary-foreground border-spacecraft data-[state=active]:bg-gradient-cosmic">
+            <TabsTrigger value="ai" className="whitespace-nowrap">
               <span className="flex items-center gap-1">
                 <Brain className="h-4 w-4" />
                 Analysis
@@ -293,7 +290,7 @@ const optimizations = useMemo(() => {
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
@@ -360,13 +357,13 @@ const optimizations = useMemo(() => {
                   {analysis.manaCurve.optimality.issues.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2 flex items-center">
-                        <AlertTriangle className="h-4 w-4 mr-1 text-orange-500" />
+                        <AlertTriangle className="h-4 w-4 mr-1 text-foreground" />
                         Issues
                       </h4>
                       <div className="space-y-1">
                         {analysis.manaCurve.optimality.issues.slice(0, 3).map((issue, index) => (
                           <div key={index} className="text-sm text-muted-foreground flex items-start">
-                            <div className="w-1 h-1 bg-orange-500 rounded-full mt-2 mr-2 flex-shrink-0" />
+                            <div className="w-1 h-1 bg-muted rounded-full mt-2 mr-2 flex-shrink-0" />
                             {issue}
                           </div>
                         ))}
@@ -408,7 +405,7 @@ const optimizations = useMemo(() => {
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
@@ -438,12 +435,10 @@ const optimizations = useMemo(() => {
                           <div 
                             className="w-4 h-4 rounded-full"
                             style={{ 
-                              backgroundColor: 
-                                req.color === 'W' ? '#FFFBD5' :
-                                req.color === 'U' ? '#0E68AB' :
-                                req.color === 'B' ? '#150B00' :
-                                req.color === 'R' ? '#D3202A' :
-                                req.color === 'G' ? '#00733E' : '#d4af37'
+                              backgroundColor: `hsl(var(--mana-${
+                                { W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green' }[req.color] ||
+                                'colorless'
+                              }))`,
                             }}
                           />
                           <span className="font-medium">{req.color}</span>
@@ -526,7 +521,7 @@ const optimizations = useMemo(() => {
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
@@ -649,7 +644,7 @@ const optimizations = useMemo(() => {
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>
@@ -673,9 +668,9 @@ const optimizations = useMemo(() => {
                 <div className="flex items-center space-x-2 p-4 border rounded">
                   {analysis.formatValidation.isValid ? (
                     <>
-                      <CheckCircle className="h-6 w-6 text-green-500" />
+                      <CheckCircle className="h-6 w-6 text-foreground" />
                       <div>
-                        <div className="font-medium text-green-700">Format Legal</div>
+                        <div className="font-medium text-foreground">Format Legal</div>
                         <div className="text-sm text-muted-foreground">
                           Your deck is legal for {format} format
                         </div>
@@ -683,9 +678,9 @@ const optimizations = useMemo(() => {
                     </>
                   ) : (
                     <>
-                      <AlertTriangle className="h-6 w-6 text-red-500" />
+                      <AlertTriangle className="h-6 w-6 text-destructive" />
                       <div>
-                        <div className="font-medium text-red-700">Format Issues Found</div>
+                        <div className="font-medium text-destructive">Format Issues Found</div>
                         <div className="text-sm text-muted-foreground">
                           {analysis.formatValidation.errors.length} errors need to be fixed
                         </div>
@@ -697,14 +692,14 @@ const optimizations = useMemo(() => {
                 {/* Errors */}
                 {analysis.formatValidation.errors.length > 0 && (
                   <div>
-                    <h4 className="font-medium mb-2 flex items-center text-red-700">
+                    <h4 className="font-medium mb-2 flex items-center text-destructive">
                       <AlertTriangle className="h-4 w-4 mr-1" />
                       Errors
                     </h4>
                     <div className="space-y-2">
                       {analysis.formatValidation.errors.map((error, index) => (
-                        <div key={index} className="p-3 bg-red-50 border border-red-200 rounded">
-                          <div className="text-sm text-red-800">{error}</div>
+                        <div key={index} className="p-3 bg-destructive/10 border border-destructive/40 rounded">
+                          <div className="text-sm text-destructive">{error}</div>
                         </div>
                       ))}
                     </div>
@@ -714,14 +709,14 @@ const optimizations = useMemo(() => {
                 {/* Warnings */}
                 {analysis.formatValidation.warnings.length > 0 && (
                   <div>
-                    <h4 className="font-medium mb-2 flex items-center text-orange-700">
+                    <h4 className="font-medium mb-2 flex items-center text-foreground">
                       <Info className="h-4 w-4 mr-1" />
                       Warnings
                     </h4>
                     <div className="space-y-2">
                       {analysis.formatValidation.warnings.map((warning, index) => (
-                        <div key={index} className="p-3 bg-orange-50 border border-orange-200 rounded">
-                          <div className="text-sm text-orange-800">{warning}</div>
+                        <div key={index} className="p-3 bg-muted border border-border rounded">
+                          <div className="text-sm text-foreground">{warning}</div>
                         </div>
                       ))}
                     </div>
@@ -761,7 +756,7 @@ const optimizations = useMemo(() => {
                     <div className="space-y-3">
                       <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
+                          <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-primary-foreground">DM</span>
                           </div>
                           <span className="text-xs font-bold text-spacecraft">DECKMATRIX ANALYSIS</span>

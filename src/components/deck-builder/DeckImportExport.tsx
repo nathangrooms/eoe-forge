@@ -433,38 +433,38 @@ export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExport
           />
           
           {parseResult && (
-            <Alert className={parseResult.success ? 'border-green-500' : 'border-red-500'}>
+            <Alert className={parseResult.success ? 'border-border' : 'border-destructive/40'}>
               {parseResult.success ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className="h-4 w-4 text-foreground" />
               ) : (
-                <AlertCircle className="h-4 w-4 text-red-500" />
+                <AlertCircle className="h-4 w-4 text-destructive" />
               )}
               <AlertDescription>
                 <div className="space-y-2">
                   {parseResult.success && (
-                    <div className="text-green-600">
+                    <div className="text-foreground">
                       Successfully parsed {parseResult.cards.length} unique cards
                     </div>
                   )}
                   {parseResult.errors.length > 0 && (
                     <div>
-                      <div className="font-medium text-red-600 mb-1">Errors:</div>
+                      <div className="font-medium text-destructive mb-1">Errors:</div>
                       <ul className="text-sm space-y-1">
                         {parseResult.errors.slice(0, 5).map((error, index) => (
-                          <li key={index} className="text-red-600">• {error}</li>
+                          <li key={index} className="text-destructive">• {error}</li>
                         ))}
                         {parseResult.errors.length > 5 && (
-                          <li className="text-red-600">• +{parseResult.errors.length - 5} more errors...</li>
+                          <li className="text-destructive">• +{parseResult.errors.length - 5} more errors...</li>
                         )}
                       </ul>
                     </div>
                   )}
                   {parseResult.warnings.length > 0 && (
                     <div>
-                      <div className="font-medium text-yellow-600 mb-1">Warnings:</div>
+                      <div className="font-medium text-foreground mb-1">Warnings:</div>
                       <ul className="text-sm space-y-1">
                         {parseResult.warnings.map((warning, index) => (
-                          <li key={index} className="text-yellow-600">• {warning}</li>
+                          <li key={index} className="text-foreground">• {warning}</li>
                         ))}
                       </ul>
                     </div>

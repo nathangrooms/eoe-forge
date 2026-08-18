@@ -1,62 +1,138 @@
 import { useEffect, useState } from 'react';
-import { RedesignedHero } from '@/components/marketing/RedesignedHero';
-import { TwoColumnFeatures } from '@/components/marketing/TwoColumnFeatures';
-import { InteractiveDemo } from '@/components/marketing/InteractiveDemo';
-import { ComparisonTable } from '@/components/marketing/ComparisonTable';
-import { UseCaseShowcase } from '@/components/marketing/UseCaseShowcase';
-import { EnhancedTestimonials } from '@/components/marketing/EnhancedTestimonials';
-import { FixedLiveStats } from '@/components/marketing/FixedLiveStats';
+import { Link } from 'react-router-dom';
+import { HomeHero } from '@/components/marketing/HomeHero';
+import { HomeCollection, HomeCTA } from '@/components/marketing/HomeSections';
+import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { FAQSection } from '@/components/marketing/FAQSection';
-import { ModernPricing } from '@/components/marketing/ModernPricing';
-import { ModernCTA } from '@/components/marketing/ModernCTA';
-import { ModernFooter } from '@/components/marketing/ModernFooter';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
 import { supabase } from '@/integrations/supabase/client';
 
+/**
+ * Public homepage.
+ *
+ * Removed in this rewrite — all of it unverifiable or fabricated:
+ *   EnhancedTestimonials  six invented people + a fake "4.9/5 from 2,500+ reviews"
+ *   FixedLiveStats        hardcoded constants animated and labelled "Live"
+ *   ComparisonTable       false capability claims about Moxfield/Archidekt/TappedOut
+ *   InteractiveDemo       Math.random() dollar values badged as live TCGPlayer prices
+ *   UseCaseShowcase       invented metrics such as "95% Win Rate Improvement"
+ *   ModernPricing         plan names that did not match the subscription_limits table
+ *   ModernFooter          14 of 16 links, including Privacy and Terms, pointed at /
+ *
+ * The only quantitative claim that survives is the card count, read live from
+ * the table it describes.
+ */
+
+function HomeFooter() {
+  const groups = [
+    {
+      heading: 'Product',
+      links: [
+        { label: 'Deck builder', to: '/deck-builder' },
+        { label: 'Collection', to: '/collection' },
+        { label: 'Card search', to: '/cards' },
+        { label: 'Wishlist', to: '/wishlist' },
+      ],
+    },
+    {
+      heading: 'Account',
+      links: [
+        { label: 'Sign in', to: '/login' },
+        { label: 'Create account', to: '/register' },
+        { label: 'Reset password', to: '/reset-password' },
+      ],
+    },
+  ];
+
+  return (
+    <footer className="border-t bg-background py-12">
+      <div className="container mx-auto px-4">
+        <div className="grid gap-10 sm:grid-cols-3">
+          <div>
+            <p className="font-semibold">DeckMatrix</p>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+              A deck builder and collection manager for Magic: The Gathering.
+            </p>
+          </div>
+
+          {groups.map(g => (
+            <div key={g.heading}>
+              <p className="text-sm font-medium">{g.heading}</p>
+              <ul className="mt-3 space-y-2">
+                {g.links.map(l => (
+                  <li key={l.to}>
+                    <Link
+                      to={l.to}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {l.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 border-t pt-6">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Card data from{' '}
+            <a
+              href="https://scryfall.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Scryfall
+            </a>
+            . DeckMatrix is unofficial Fan Content permitted under the Wizards of the Coast Fan Content
+            Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of
+            Wizards of the Coast. ©Wizards of the Coast LLC.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 export default function Homepage() {
   const [showTestingBanner, setShowTestingBanner] = useState<boolean | null>(null);
+  const [cardCount, setCardCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const checkFeatureFlag = async () => {
+    (async () => {
       const { data } = await supabase
         .from('feature_flags')
         .select('enabled')
         .eq('key', 'show_testing_banner')
         .maybeSingle();
-      
       setShowTestingBanner(data?.enabled ?? false);
-    };
-    
-    checkFeatureFlag();
+    })();
   }, []);
 
-  // Show nothing while loading
-  if (showTestingBanner === null) {
-    return null;
-  }
+  /* Read the real row count so the one number on the page can never go stale. */
+  useEffect(() => {
+    (async () => {
+      const { count } = await supabase
+        .from('cards')
+        .select('*', { count: 'exact', head: true });
+      if (typeof count === 'number') setCardCount(count);
+    })();
+  }, []);
 
-  // Show testing banner if flag is enabled
-  if (showTestingBanner) {
-    return <TestingBanner />;
-  }
+  if (showTestingBanner === null) return null;
+  if (showTestingBanner) return <TestingBanner />;
 
   return (
     <div className="min-h-screen bg-background">
       <PublicNavigation />
-      <RedesignedHero />
-      <div id="features">
-        <TwoColumnFeatures />
-      </div>
-      <InteractiveDemo />
-      <ComparisonTable />
-      <UseCaseShowcase />
-      <EnhancedTestimonials />
-      <FixedLiveStats />
+      <HomeHero cardCount={cardCount} />
+      <HomeShowcase />
+      <HomeCollection />
       <FAQSection />
-      <ModernPricing />
-      <ModernCTA />
-      <ModernFooter />
+      <HomeCTA />
+      <HomeFooter />
     </div>
   );
 }

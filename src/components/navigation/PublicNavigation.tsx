@@ -29,20 +29,14 @@ export function PublicNavigation() {
               Features
             </a>
             <a 
-              href="#pricing" 
+              href="#faq" 
               className="text-foreground/80 hover:text-primary transition-colors duration-200 font-medium"
             >
-              Pricing
+              FAQ
             </a>
-            <Link 
-              to="/docs" 
-              className="text-foreground/80 hover:text-primary transition-colors duration-200 font-medium"
-            >
-              Docs
-            </Link>
             <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
               <Star className="h-3 w-3 text-primary" />
-              <span className="text-xs font-medium text-primary">Free Trial</span>
+              <span className="text-xs font-medium text-primary">Early access — free</span>
             </div>
           </div>
 
@@ -60,7 +54,7 @@ export function PublicNavigation() {
               <Button 
                 className="bg-gradient-primary hover:shadow-glow-elegant hover:scale-105 transition-all duration-300 font-semibold"
               >
-                Start Free Trial
+                Create account
               </Button>
             </Link>
           </div>
@@ -90,19 +84,12 @@ export function PublicNavigation() {
                 Features
               </a>
               <a 
-                href="#pricing" 
+                href="#faq" 
                 className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium py-2"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Pricing
+                FAQ
               </a>
-              <Link 
-                to="/docs" 
-                className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Docs
-              </Link>
               <div className="pt-4 border-t border-primary/20 space-y-3">
                 <Link to="/login" className="block" onClick={() => setIsMenuOpen(false)}>
                   <Button 
@@ -116,7 +103,7 @@ export function PublicNavigation() {
                   <Button 
                     className="w-full bg-gradient-primary hover:shadow-glow-elegant font-semibold"
                   >
-                    Start Free Trial
+                    Create account
                   </Button>
                 </Link>
               </div>

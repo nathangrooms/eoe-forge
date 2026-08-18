@@ -9,51 +9,70 @@ import {
 import { HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+/* Answers must describe what the product actually does. The previous set
+   asserted "bank-level encryption", "95%+ accuracy validated by the community",
+   "analyzes thousands of high-performing decks" and "we're the only platform
+   that…" — none of which was true or checkable. */
 const faqs = [
   {
-    question: 'How does the deck builder work?',
-    answer: 'Our intelligent system analyzes thousands of high-performing decks, card synergies, and meta trends to suggest optimal card choices. It considers your budget, playstyle preferences, and deck strategy to build competitive decks in seconds.'
+    question: 'What is DeckMatrix?',
+    answer:
+      'A deck builder and collection manager for Magic: The Gathering. You catalogue the cards you own — ' +
+      'including where they are physically stored — and build decks against that collection, so you always ' +
+      'know what you already have and what you would still need to buy.',
   },
   {
-    question: 'Is my collection data secure?',
-    answer: 'Absolutely. We use bank-level encryption for all user data. Your collection information is stored securely and never shared with third parties. You maintain complete control over your data privacy settings.'
+    question: 'Where does the card data come from?',
+    answer:
+      'Scryfall. The full paper card pool is synced on a nightly schedule, so new sets become searchable ' +
+      'shortly after Scryfall publishes them. Card images and rules text are Scryfall data.',
   },
   {
-    question: 'Can I import my existing decks?',
-    answer: 'Yes! You can import decks from Archidekt, Moxfield, TappedOut, and other platforms. We also support bulk imports via CSV and text files. Your deck data transfers seamlessly with full formatting preserved.'
+    question: 'What does the storage feature actually do?',
+    answer:
+      'You define your real containers — binders, deck boxes, bulk boxes — and assign cards to them, down to ' +
+      'the slot. When a decklist calls for a card you own, DeckMatrix can tell you which container it is in ' +
+      'rather than leaving you to search through everything.',
   },
   {
-    question: 'How accurate is the power level scoring?',
-    answer: 'Our EDH power level calculator is calibrated against thousands of competitive and casual decks. It analyzes combo potential, interaction, consistency, and over 50 other factors with 95%+ accuracy validated by the community.'
+    question: 'How is collection value calculated?',
+    answer:
+      'Prices are captured on a daily schedule and stored as history, so value is shown as a trend over time ' +
+      'rather than only a current figure. Prices are estimates from published market data and will not exactly ' +
+      'match any particular seller or buylist.',
   },
   {
-    question: 'What formats are supported?',
-    answer: 'We support all major formats including Commander/EDH, Modern, Pioneer, Standard, Legacy, Vintage, Pauper, and more. Each format has specific analysis tools and legality checking.'
+    question: 'Which formats are supported?',
+    answer:
+      'Format legality comes straight from Scryfall, which covers Commander, Modern, Pioneer, Standard, Legacy, ' +
+      'Vintage, Pauper and the rest. Commander gets the most dedicated tooling, since colour identity and ' +
+      'singleton rules are handled explicitly.',
   },
   {
-    question: 'How does pricing and collection tracking work?',
-    answer: 'We integrate with TCGPlayer for real-time pricing data. Your collection value updates automatically, and you can set price alerts for specific cards. Historical price charts help you track investments over time.'
+    question: 'Is it free?',
+    answer:
+      'Yes, while DeckMatrix is in early access. There is no card required and no trial countdown. If paid ' +
+      'plans are introduced later, existing accounts will be told before anything changes.',
   },
   {
-    question: 'Is there a mobile app?',
-    answer: 'Our web platform is fully optimized for mobile browsers with a responsive design. You can build decks, track your collection, and access all features seamlessly on any device.'
+    question: 'Is this an official Wizards of the Coast product?',
+    answer:
+      'No. DeckMatrix is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. ' +
+      'It is not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of ' +
+      'the Coast.',
   },
-  {
-    question: 'What makes DeckMatrix different from competitors?',
-    answer: 'We\'re the only platform that combines smart deck building, power level analysis, collection tracking, and marketplace features in one place. Our unique synergy detection and storage management tools set us apart.'
-  }
 ];
 
 export function FAQSection() {
   return (
-    <section className="py-24 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
+    <section id="faq" className="py-24 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
         <motion.div 
           className="text-center max-w-3xl mx-auto mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
         >
           <Badge variant="outline" className="mb-4">
             <HelpCircle className="h-3 w-3 mr-2" />
@@ -71,7 +90,7 @@ export function FAQSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
           className="max-w-4xl mx-auto"
         >
           <Card className="p-6 md:p-8 bg-card/50 backdrop-blur-sm border-border/50">
@@ -95,7 +114,7 @@ export function FAQSection() {
           className="text-center mt-12"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
         >
           <p className="text-muted-foreground mb-4">
             Still have questions?

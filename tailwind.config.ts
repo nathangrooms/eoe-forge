@@ -10,6 +10,14 @@ export default {
 	],
 	prefix: "",
 	theme: {
+		screens: {
+			xs: '480px',
+			sm: '640px',
+			md: '768px',
+			lg: '1024px',
+			xl: '1280px',
+			'2xl': '1536px'
+		},
 		container: {
 			center: true,
 			padding: '2rem',
@@ -77,12 +85,47 @@ export default {
 				'type-enchantments': 'hsl(var(--type-enchantments))',
 				'type-artifacts': 'hsl(var(--type-artifacts))',
 				'type-planeswalkers': 'hsl(var(--type-planeswalkers))',
-				'type-battles': 'hsl(var(--type-battles))'
+				'type-battles': 'hsl(var(--type-battles))',
+				// MTG mana identity — referenced across the app but previously
+				// unregistered, so every mana-* utility emitted no CSS.
+				mana: {
+					white: 'hsl(var(--mana-white))',
+					blue: 'hsl(var(--mana-blue))',
+					black: 'hsl(var(--mana-black))',
+					red: 'hsl(var(--mana-red))',
+					green: 'hsl(var(--mana-green))',
+					colorless: 'hsl(var(--mana-colorless))',
+					multicolor: 'hsl(var(--mana-multicolor))'
+				},
+				// Power level — the underlying vars were RGB triplets in hsl(),
+				// which rendered every badge near-white. Now real HSL.
+				power: {
+					1: 'hsl(var(--power-1))',
+					4: 'hsl(var(--power-4))',
+					7: 'hsl(var(--power-7))',
+					10: 'hsl(var(--power-10))'
+				}
 			},
 			backgroundImage: {
 				'cosmic': 'var(--gradient-cosmic)',
 				'nebula': 'var(--gradient-nebula)',
-				'starfield': 'var(--gradient-starfield)'
+				'starfield': 'var(--gradient-starfield)',
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-cosmic': 'var(--gradient-cosmic)',
+				'gradient-nebula': 'var(--gradient-nebula)'
+			},
+			// shadow-glow-* appeared ~49 times but there was no boxShadow
+			// extension at all, so every hover glow was a no-op.
+			boxShadow: {
+				'glow-subtle': 'var(--shadow-glow-subtle)',
+				'glow-elegant': 'var(--shadow-glow-elegant)',
+				'cosmic': 'var(--shadow-cosmic)',
+				'glow-primary': 'var(--glow-primary)',
+				'glow-accent': 'var(--glow-accent)'
+			},
+			fontFamily: {
+				sans: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -117,6 +160,12 @@ export default {
 				'float': {
 					'0%, 100%': { transform: 'translateY(0px)' },
 					'50%': { transform: 'translateY(-10px)' }
+				},
+				// The marquee row is rendered twice, so translating by exactly
+				// -50% loops seamlessly.
+				'marquee': {
+					from: { transform: 'translateX(0)' },
+					to: { transform: 'translateX(-50%)' }
 				}
 			},
 			animation: {
@@ -124,7 +173,8 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'starfield': 'starfield 20s linear infinite',
 				'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
-				'float': 'float 3s ease-in-out infinite'
+				'float': 'float 3s ease-in-out infinite',
+				'marquee': 'marquee 60s linear infinite'
 			}
 		}
 	},

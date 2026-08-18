@@ -197,3 +197,56 @@ Component-count hotspots: `deck-builder/` **95**, `ui/` 55, `collection/` 32, `m
 - `git pull` before starting; Lovable may have committed.
 - Update the **Dev Console** as work progresses; update *this file* when durable facts change.
 - Prefer editing existing components over adding parallel ones — duplication is already the core problem.
+
+---
+
+## 12. Design law — non-negotiable
+
+These are standing instructions from the owner. Treat them as constraints, not preferences.
+
+1. **Monochrome charcoal, dark by default.** The base palette is strictly neutral (0–7%
+   saturation). Colour is reserved for MTG semantics ONLY: `text-mana-*`, `text-type-*`,
+   `text-power-*`. Anything else with a hue is a bug. Owner: *"much prefer black and whites"*,
+   *"black/charcoal should be way dark entire app too"*.
+2. **No borders.** Owner: *"I absolutely hate hard border lines."* Depth comes from surface tint
+   (`bg-card`, `bg-muted/30`) and shadow. `--border` is deliberately near-invisible and the Card
+   primitive carries no outline. Never reintroduce hairlines.
+3. **No modal popups — any of them.** Owner: *"I dont want any modal popups at all, I always want
+   it to work fluidly within the screen with clear back/forward buttons."* Destinations become
+   routes with real URLs and a visible back control; side panels become inline layout; AlertDialog
+   confirmations swap in place. The only exception is the command palette.
+4. **Card art wherever a card is referenced.** Owner: *"every part of the app needs to be as
+   visual as possible."* A deck is represented by its commander's art, an activity entry by the
+   card it concerns. Never a coloured dot where art is available.
+5. **Full width, flat, typographic.** No gradients, glows, floating orbs, pulsing badges or
+   animated grids. Animation is welcome for real state change; respect `prefers-reduced-motion`.
+6. **Nothing fabricated.** No invented statistics, testimonials, ratings or competitor claims.
+   If a number cannot be read from the database or computed from real data, it does not ship.
+
+### Card images
+Use `@/components/cards/CardImage` — never a hand-rolled `<img>`. It right-sizes the Scryfall
+asset per rendered size (`normal` at grid sizes, `large` only at xl) and limits the blur-up
+placeholder to large sizes. Asking for `large` everywhere doubled transfer for no visible gain;
+loading a placeholder at every size doubled the request count.
+
+### EDH power score
+The EDH score is **the** primary number for any deck. Five competing fields existed
+(`powerLevel`, `powerScore`, `edhPower`, `power_level`, `power.score`) across two scoring
+libraries and two edge functions — the same deck could show different numbers on different
+screens. Owner: *"we bolted so many systems together they never linked."* There must be exactly
+one canonical implementation, one accessor, and one display component. Present the nine subscores
+so the score is explainable rather than a black box, and keep the bracket/band prominent.
+
+### Naming
+"AI Deck Builder" → **Deck Generator**. "Deck Builder" → **New Deck** (and it must actually start
+a new deck, not land on My Decks). "Preconstructed" → **Precons**.
+
+### Verify visually, always
+The Browser pane frequently will not composite, so screenshots must come from Puppeteer
+(`.shots/`, gitignored). Launch with `--disable-lcd-text`: subpixel antialiasing renders coloured
+fringes on thin type over dark backgrounds and reads as a styling bug that is not there.
+
+### Deleting "orphaned" code
+Verify importers against the CURRENT tree before deleting. An earlier sweep removed ten deck
+components that were genuinely in use, including `CommanderPowerDisplay` and `MatchAnalytics`;
+they had to be restored. `grep` for the import path, do not trust an audit line alone.

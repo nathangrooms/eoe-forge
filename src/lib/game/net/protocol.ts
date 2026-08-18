@@ -35,13 +35,20 @@
  */
 
 import type { GameAction, InstanceId, PlayerId } from '../types.ts';
+import type { ParticipantId } from '../transport.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Identity                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** A connection. One human reconnecting is a new participant on the same seat. */
-export type ParticipantId = string;
+/**
+ * A connection. One human reconnecting is a new participant on the same seat.
+ *
+ * Re-exported from `transport.ts` rather than redeclared: two identical type
+ * aliases for one concept is how a codebase ends up with two subtly different
+ * ones. This also keeps `export *` from both modules unambiguous.
+ */
+export type { ParticipantId };
 
 /** Position in the durable log. Absent until the log store has accepted the entry. */
 export type LogSeq = number;

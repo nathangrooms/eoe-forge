@@ -138,7 +138,7 @@ export function parseKeywordWithParameter(phrase: string): { keyword: string; pa
     if (!p.startsWith(k + ' ')) continue;
     const rest = p.slice(k.length + 1).trim();
     // Only a compact parameter — a mana cost, a number, or "from <quality>".
-    if (/^(\{[^}]+\}|\{[^}]+\}\{[^}]+\}|\d+|from [a-z ]+|-\d+\/-\d+|\+\d+\/\+\d+)$/.test(rest)) {
+    if (/^((?:\{[^}]+\})+|\d+|(?:from|for) [a-z ]+|-\d+\/-\d+|\+\d+\/\+\d+)$/.test(rest)) {
       return { keyword: k, parameter: rest };
     }
     return null;
@@ -366,6 +366,12 @@ export function parseObject(input: string): ObjectRef | null {
   }
 
   // Adjectives. Loop so "another tapped artifact creature" peels fully.
+  //
+  // A trailing space is appended for the duration of the loop so an adjective
+  // can also be the WHOLE phrase: "noncreature" in "whenever you cast a
+  // noncreature spell" is an adjective with its noun supplied by the sentence,
+  // and without this it would fail every `^adjective ` pattern and refuse.
+  s = s + ' ';
   for (;;) {
     const before = s;
     if (/^(another|other) /.test(s)) { s = s.replace(/^(another|other) /, ''); extra.push({ is: 'other' }); }
@@ -407,6 +413,7 @@ export function parseObject(input: string): ObjectRef | null {
     }
     if (s === before) break;
   }
+  s = s.trim();
 
   // "creature card" / "land card" — an object outside the battlefield.
   let isCard = false;

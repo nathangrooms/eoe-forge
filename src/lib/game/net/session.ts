@@ -288,18 +288,21 @@ export class GameSession {
     const actions = envelopeActions(envelope);
     if (actions.length === 0) return;
 
-    // A real transport carries the sender's own order key. `TransportEnvelope`
-    // predates the key, so it is reconstructed here from what it does carry;
-    // `net/realtime.ts` should send the key itself and drop this branch.
+    // The seat comes off the wire, never from local presence: presence is
+    // eventually consistent, so a receiver that has not yet seen the sender
+    // join would compute a different key for the same message and sort the game
+    // differently. Falling back to a lookup keeps an older sender working, and
+    // an unknown seat sorts last — identically on every client.
+    const batchId = `${envelope.from}:${envelope.seq}`;
     const entry: LogEntry = {
       tableId: envelope.tableId,
-      batchId: `${envelope.from}:${envelope.seq}`,
+      batchId,
       from: envelope.from,
       playerId: this.seatOf(envelope.from) ?? envelope.from,
       key: {
         baseVersion: envelope.baseVersion,
-        seat: this.seatIndexOf(envelope.from),
-        batchId: `${envelope.from}:${envelope.seq}`,
+        seat: envelope.seat ?? this.seatIndexOf(envelope.from),
+        batchId,
       },
       at: envelope.at,
       actions,

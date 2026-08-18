@@ -1022,6 +1022,16 @@ function battlefieldIdsOf(state: GameState): Set<InstanceId> {
 }
 
 /**
+ * **Superseded by `triggers.ts`, and no longer wired into the reducer.**
+ *
+ * `applyAction` now routes triggers through `collectTriggers` →
+ * `GameState.pendingTriggers` → `drainTriggers`, which adds the three things
+ * this function never had: CR 603.3b ordering across players, a controller's
+ * own choice of order within their batch, and CR 603.4 intervening "if". This
+ * is kept only because it is a self-contained way to ask "what would this
+ * action set off", and it is deliberately *not* called anywhere in the engine —
+ * calling it alongside the real pipeline would resolve every trigger twice.
+ *
  * Given an action that has already been applied, what else should happen?
  *
  * Called by `applyAction` with the before and after states. Everything it

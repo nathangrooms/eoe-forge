@@ -12,6 +12,8 @@
  *   - `protocol.ts`    the wire vocabulary and the deterministic order key
  *   - `ordering.ts`    a sorted log that reports when it had to rewind
  *   - `session.ts`     apply locally, coalesce, broadcast, refold on a rewind
+ *   - `realtime.ts`    the Supabase Realtime transport, with the channel
+ *                      injected so this folder still imports no Supabase
  *   - `authority.ts`   who may send what, and an honest list of what that
  *                      cannot prevent
  *   - `secrets.ts`     hidden information — the part a replayable seeded log
@@ -36,6 +38,7 @@
 
 export * from './protocol.ts';
 export * from './ordering.ts';
+export * from './realtime.ts';
 export * from './digest.ts';
 export * from './authority.ts';
 export * from './secrets.ts';

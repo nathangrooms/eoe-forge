@@ -73,7 +73,6 @@ import type {
   DetectedTrigger,
   GameAction,
   GameState,
-  InstanceId,
   InterveningCondition,
   PendingTrigger,
   PlayerId,
@@ -220,11 +219,6 @@ export function describeIntervening(condition: InterveningCondition): string {
 /* -------------------------------------------------------------------------- */
 /* Deriving events                                                            */
 /* -------------------------------------------------------------------------- */
-
-/** Every id in a battlefield array, for the zone-change diff. */
-function zoneOf(state: GameState, id: InstanceId): string | undefined {
-  return state.cards[id]?.zone;
-}
 
 /**
  * What happened between these two states, as triggered abilities see it.

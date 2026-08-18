@@ -30,6 +30,7 @@ import {
   targetStackObject,
   willFizzle,
 } from './stack.ts';
+import { entersTapped, entersWithCounters, preventDamage } from './replacement.ts';
 import type { GameAction, GameState, InstanceId, PlayerId, StackEffect, Zone } from './types.ts';
 
 /* ------------------------------------------------------------------ *
@@ -643,6 +644,55 @@ test('stack ids are minted from state, never from a clock or a random', () => {
     stackOf(state).map(object => object.stackId),
     ['s1', 's2']
   );
+});
+
+/* ------------------------------------------------------------------ *
+ * The seam: a resolving spell is still a replaceable event
+ * ------------------------------------------------------------------ */
+
+test('a land cast through the stack still enters tapped', () => {
+  let state = game([{ id: 'falls', name: 'Sulfur Falls', typeLine: 'Land' }]);
+  state = applyAction(state, {
+    type: 'ADD_REPLACEMENT',
+    effect: entersTapped('falls-tapped', 'Sulfur Falls', 'falls'),
+  });
+
+  state = applyAction(state, castSpellAction('p1', 'falls'));
+  assert.equal(state.cards.falls.tapped, false, 'nothing has happened yet — it is on the stack');
+
+  state = applyAction(state, { type: 'RESOLVE_STACK' });
+  assert.equal(zoneOf(state, 'falls'), 'battlefield');
+  assert.equal(state.cards.falls.tapped, true);
+});
+
+test('a creature spell resolving arrives with the counters its replacement gives it', () => {
+  let state = game([{ id: 'hydra', name: 'Hydra', typeLine: 'Creature — Hydra' }]);
+  state = applyAction(state, {
+    type: 'ADD_REPLACEMENT',
+    effect: entersWithCounters('hydra-counters', 'Hydra', 'hydra', '+1/+1', 4),
+  });
+
+  state = applyActions(state, [castSpellAction('p1', 'hydra'), { type: 'RESOLVE_STACK' }]);
+  assert.equal(state.cards.hydra.counters['+1/+1'], 4);
+});
+
+test('damage dealt by a resolving spell goes through the replacement layer', () => {
+  let state = game([{ id: 'bolt', name: 'Lightning Bolt', typeLine: 'Instant' }]);
+  state = applyAction(state, {
+    type: 'ADD_REPLACEMENT',
+    effect: preventDamage('shield', 'Shield', { playerId: 'p2' }, 2),
+  });
+
+  state = applyActions(state, [
+    castSpellAction('p1', 'bolt', {
+      targets: [targetPlayer('p2')],
+      effects: [{ op: 'damage', amount: 3 }],
+    }),
+    { type: 'RESOLVE_STACK' },
+  ]);
+
+  assert.equal(lifeOf(state, 'p2'), 39, '3 damage, 2 prevented');
+  assert.equal(zoneOf(state, 'bolt'), 'graveyard');
 });
 
 test('the stack is not a manual zone and a life counter has no stack at all', () => {

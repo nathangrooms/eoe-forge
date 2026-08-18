@@ -472,6 +472,29 @@ test('removing counters is not a counter-placement event', () => {
   assert.equal(state.cards.bear.counters['+1/+1'], 2, 'not doubled into oblivion');
 });
 
+test('an effect the engine cannot apply here says so instead of doing nothing', () => {
+  // "Enters with counters" has nowhere to go on a token, which the reducer
+  // mints without a counters field. The event still happens; the log says the
+  // card's text was not applied.
+  let state = register(game(), {
+    id: 'token-counters',
+    name: 'Hardened Scales',
+    event: 'enters',
+    match: { typeLine: 'token' },
+    apply: { op: 'enters-with-counters', counter: '+1/+1', count: 1 },
+  });
+
+  state = applyAction(state, {
+    type: 'CREATE_TOKEN',
+    playerId: 'p1',
+    token: { name: 'Soldier', typeLine: 'Token Creature — Soldier' },
+    instanceId: 'sol',
+  });
+
+  assert.equal(state.cards.sol?.zone, 'battlefield', 'the token still arrived');
+  assert.ok(said(state, 'cannot apply it'), messages(state).join(' | '));
+});
+
 /* ------------------------------------------------------------------ *
  * Lifecycle
  * ------------------------------------------------------------------ */

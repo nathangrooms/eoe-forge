@@ -370,9 +370,11 @@ function preventedNote(effect: ReplacementEffect, what: string, at: number): Gam
 
 /**
  * Apply exactly one effect to one action, producing the actions that happen
- * instead. `null` means this effect had nothing to say about this action, which
- * only happens if an effect is registered against an event kind its `apply` op
- * cannot modify.
+ * instead.
+ *
+ * `null` means the effect matched the event but has no way to express itself
+ * against this particular action shape. `replaceAction` turns that into a
+ * spoken note rather than a silent no-op — see the call site.
  */
 function applyOneReplacement(
   effect: ReplacementEffect,
@@ -509,8 +511,23 @@ export function replaceAction(state: GameState, action: GameAction): GameAction[
   if (!chosen) return null;
 
   const at = action.at ?? state.updatedAt;
-  const produced = applyOneReplacement(chosen, action, event, at);
-  if (!produced) return null;
+  const produced =
+    applyOneReplacement(chosen, action, event, at) ??
+    // The effect matched the event but has no way to modify *this* action —
+    // "enters with counters" against a token, say, which the reducer creates
+    // without a counters field. Letting that fall through would be the engine
+    // silently not applying a card's text, which is the one thing it must never
+    // do. So it says so, spends its one opportunity, and the event goes ahead
+    // unmodified.
+    [
+      {
+        type: 'NOTE',
+        message: `${chosen.name} would replace ${describeEvent(event)} here, but the engine cannot apply it — resolve it by hand.`,
+        instanceId: chosen.sourceInstanceId,
+        at,
+      } as GameAction,
+      action,
+    ];
 
   // CR 614.5 — the effect is spent for this event *and for everything the
   // replacement produced*, so the marker rides along on the output. The

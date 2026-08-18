@@ -78,6 +78,17 @@ export interface TransportEnvelope {
    */
   actions?: GameAction[];
   /**
+   * The sender's seat index.
+   *
+   * Part of the deterministic order key in `net/protocol.ts`, and carried on
+   * the wire rather than looked up locally because presence is eventually
+   * consistent: a receiver that has not yet seen the sender join would
+   * otherwise compute a different key for the same message and sort the game
+   * differently. Ordering must never depend on what a receiver happens to know
+   * about who is at the table.
+   */
+  seat?: number;
+  /**
    * Opaque payload for messages that are not actions — reveals, checkpoints,
    * resync. Carried here so one channel serves the whole protocol rather than
    * one channel per concern; channels are a metered resource (100 per
@@ -140,6 +151,8 @@ export interface LocalTransportOptions {
   participantId: ParticipantId;
   name: string;
   playerId?: PlayerId;
+  /** Seat index. Stamped onto every envelope so ordering never depends on presence. */
+  seat?: number;
   isBot?: boolean;
   /**
    * Deliver a participant's own broadcast back to them. Default true, matching
@@ -270,6 +283,7 @@ class LocalTransport implements GameTransport {
       from: this.participantId,
       seq: this.seq,
       baseVersion: part.baseVersion,
+      seat: this.options.seat,
       at: part.at ?? Date.now(),
       action: part.action as GameAction,
       actions: part.actions,

@@ -66,7 +66,7 @@ const LIMIT_PERIOD: Record<string, string> = {
  * instead of stretching to match the taller one.
  */
 const COLUMNS =
-  'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:items-start';
+  'grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] xl:items-start';
 
 /** Triggers a client-side file download for text the page just built. */
 function downloadFile(filename: string, contents: string, mime: string) {
@@ -476,8 +476,11 @@ export default function Settings() {
             <CardDescription>DeckMatrix ships dark by default</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between gap-4">
-              <div>
+            {/* Wraps rather than squeezing: the segmented control is a fixed
+                ~190px, so in the narrow column the copy was being crushed to
+                five one-word lines. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+              <div className="min-w-[14rem] flex-1">
                 <p className="text-sm font-medium text-foreground">Theme</p>
                 <p className="text-sm text-muted-foreground">
                   Applies immediately and is remembered on this device.

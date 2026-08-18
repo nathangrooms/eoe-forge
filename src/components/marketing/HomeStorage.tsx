@@ -247,8 +247,17 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
   const slots = template?.slots ?? [];
 
   /**
-   * A card that would genuinely file under this colour slot, and a different
-   * one per box — the same card appearing in two boxes reads as a bug.
+   * A card that would genuinely file under this colour slot, and a different one
+   * per box.
+   *
+   * This used to read from the same twelve mythic legendary creatures the binder
+   * and the deck box draw from, which broke it twice over: a pool that small has
+   * no guarantee of a mono-BLUE legend in it, so the blue box rendered a
+   * permanent grey skeleton — a blank slot on the page whose argument is that it
+   * draws real cards — and the deck box's commander could turn up a second time
+   * three inches below itself. `HomeStorage` now hands this its own pool, wide
+   * enough to fill six slots and with the cards used elsewhere already removed.
+   *
    * Mono-coloured cards are preferred, since that is what actually ends up in a
    * colour box; a multicolour card falls back to any slot in its identity.
    */
@@ -311,40 +320,64 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
 
 /* ------------------------------------------------------------------ section */
 
+const CARD_COLUMNS =
+  'id,name,type_line,color_identity,image_uris,faces,layout,prices,set_code';
+
+/** Secret Lair drops are real cards, but a crossover is not the face of Magic. */
+const drawable = (c: FiledCard) =>
+  !c.set_code.startsWith('sl') && Boolean(c.image_uris?.normal ?? c.image_uris?.large);
+
+const byPriceDesc = (a: FiledCard, b: FiledCard) =>
+  Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0);
+
 export function HomeStorage() {
   const [cards, setCards] = useState<FiledCard[] | null>(null);
+  const [palette, setPalette] = useState<FiledCard[] | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      /* Mythic legendary creatures: real commanders, modern frames, art worth
-         filing. `.limit(150)` keeps the payload small; the Secret Lair filter
-         is there because sorting by price otherwise surfaces crossover drops
-         (My Little Pony et al) rather than Magic. */
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,type_line,color_identity,image_uris,faces,layout,prices,set_code')
-        .eq('is_legendary', true)
-        .eq('rarity', 'mythic')
-        .ilike('type_line', '%Creature%')
-        .not('image_uris', 'is', null)
-        .limit(150);
+      /* Two pools, because the two exhibits want different cards.
+
+         The binder, the deck box and the long box want commanders: mythic
+         legendary creatures, modern frames, art worth filing. The colour boxes
+         want one card per colour, and a pool of twelve legends has no guarantee
+         of containing a mono-blue one — which is exactly why the blue box used
+         to render an empty grey frame. So the colour boxes get their own,
+         broader pool of mythics and the commander pool is subtracted from it, so
+         no card can appear in two containers at once. */
+      const [{ data: legends }, { data: mythics }] = await Promise.all([
+        supabase
+          .from('cards')
+          .select(CARD_COLUMNS)
+          .eq('is_legendary', true)
+          .eq('rarity', 'mythic')
+          .ilike('type_line', '%Creature%')
+          .not('image_uris', 'is', null)
+          .limit(150),
+        supabase
+          .from('cards')
+          .select(CARD_COLUMNS)
+          .eq('rarity', 'mythic')
+          .not('image_uris', 'is', null)
+          .not('color_identity', 'is', null)
+          .limit(600),
+      ]);
 
       if (!alive) return;
 
-      const list = ((data ?? []) as unknown as FiledCard[])
-        .filter(
-          c =>
-            /* Secret Lair drops (sld, slx, …) are real cards but they are
-               crossovers — Rainbow Dash at the top of a Magic page is exactly
-               the note the audit raised. */
-            !c.set_code.startsWith('sl') &&
-            Boolean(c.image_uris?.normal ?? c.image_uris?.large)
-        )
-        .sort((a, b) => Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0))
+      const filed = ((legends ?? []) as unknown as FiledCard[])
+        .filter(drawable)
+        .sort(byPriceDesc)
         .slice(0, 12);
 
-      setCards(list.length ? list : []);
+      const used = new Set(filed.map(c => c.id));
+      const pool = ((mythics ?? []) as unknown as FiledCard[])
+        .filter(c => drawable(c) && !used.has(c.id))
+        .sort(byPriceDesc);
+
+      setCards(filed);
+      setPalette(pool);
     })();
     return () => {
       alive = false;
@@ -400,7 +433,7 @@ export function HomeStorage() {
       </div>
 
       <div className="mt-16">
-        <ColourBoxes cards={cards} />
+        <ColourBoxes cards={palette} />
       </div>
     </Section>
   );

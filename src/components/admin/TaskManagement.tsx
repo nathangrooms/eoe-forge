@@ -853,12 +853,16 @@ export function TaskManagement() {
   const blockedCount = tasks.filter(t => t.status === 'blocked').length;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    /* No `p-4 md:p-6` here: this renders inside the Admin page, which already
+       supplies the shell's 24px gutter, so the panel was inset a second time
+       and sat 24px right of every other tab's content. The heading was also
+       `text-3xl` — larger than the "Admin" h1 above it. */
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Task Management</h2>
-          <p className="text-muted-foreground mt-2">
+          <h2 className="text-xl font-semibold text-foreground">Task Management</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Organize and track your development tasks
           </p>
         </div>
@@ -1041,10 +1045,21 @@ export function TaskManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
+            {/* Alarm only when there is something to be alarmed about. A red
+                zero told you nothing was blocked in the colour reserved for
+                something being wrong. */}
+            <AlertCircle
+              className={`h-4 w-4 ${blockedCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+            />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{blockedCount}</div>
+            <div
+              className={`text-2xl font-semibold tabular-nums ${
+                blockedCount > 0 ? 'text-destructive' : 'text-foreground'
+              }`}
+            >
+              {blockedCount}
+            </div>
           </CardContent>
         </Card>
         <Card>

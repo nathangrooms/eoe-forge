@@ -30,6 +30,13 @@ export interface PlayCard {
   colorIdentity?: ManaColor[];
   imageUrl?: string;
   keywords?: string[];
+  /**
+   * Raw oracle text, faces joined with newlines. `effects.ts` cannot detect a
+   * trigger without it, so a deck loaded without it produces a table where
+   * every card reads "rules text not loaded" — the honest failure, and far
+   * better than one that silently resolves nothing.
+   */
+  oracleText?: string;
 }
 
 export interface PlayDeck {
@@ -144,6 +151,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           colorIdentity: commander.colorIdentity,
           imageUrl: commander.imageUrl,
           keywords: commander.keywords,
+          oracleText: commander.oracleText,
         },
         'command' as Zone
       );
@@ -166,6 +174,7 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
           colorIdentity: card.colorIdentity,
           imageUrl: card.imageUrl,
           keywords: card.keywords,
+          oracleText: card.oracleText,
         },
         'library' as Zone
       );

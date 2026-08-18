@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText } from "lucide-react";
@@ -50,7 +51,7 @@ export function PromptEditor({ functionName }: { functionName: string }) {
     "mtg-brain": [
       {
         id: "system",
-        title: "System Prompt (LIVE - from edge function)",
+        title: "System Prompt",
         content: `You are MTG Super Brain, an elite Magic: The Gathering strategist with tournament-level expertise across all formats, specializing in Commander optimization.
 
 ## CORE KNOWLEDGE FRAMEWORK
@@ -116,7 +117,7 @@ Always ground responses in provided context and MTG knowledge.`,
     "ai-deck-builder-v2": [
       {
         id: "planning-system",
-        title: "Strategic Framework (LIVE - 215 lines)",
+        title: "Strategic Framework",
         content: `You are a world-class Magic: The Gathering deck architect with deep expertise in Commander format. Your task is to create a mathematically sound, strategically coherent deck building blueprint for tournament-viable play.
 
 ## 6-STEP STRATEGIC FRAMEWORK
@@ -190,7 +191,7 @@ Be HONEST. If bad, say why.`,
     "gemini-deck-coach": [
       {
         id: "system",
-        title: "Elite Strategist Prompt (LIVE)",
+        title: "Elite Strategist Prompt",
         content: `You are DeckMatrix AI, an elite Magic: The Gathering strategist specializing in Commander deck optimization and power level analysis. You provide tournament-caliber insights with practical, actionable recommendations.
 
 **Core Philosophy**: Every piece of advice must be grounded in statistical deck construction principles, proven gameplay patterns, and the specific commander's strategic identity. Be precise, specific, and ruthlessly focused on improving win rates.

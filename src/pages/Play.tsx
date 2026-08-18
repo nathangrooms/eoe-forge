@@ -64,7 +64,7 @@ import { toast } from 'sonner';
 import { useCardSize } from '@/components/cards/CardSizeSlider';
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
-import { PlaySetup, type PlaySetupValue } from '@/components/play/PlaySetup';
+import { PlaySetup, playerCountFor, type PlaySetupValue } from '@/components/play/PlaySetup';
 import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
@@ -80,7 +80,11 @@ import { canReachCombat, controlsFlow, decisionFor } from '@/components/play/tur
 import { defaultSeatingFor } from '@/components/play/seatingDefaults';
 
 import { usePlayGame } from '@/hooks/usePlayGame';
-import { listPlayableDecks, resolveDeck, type DeckSummary } from '@/lib/play/deckSource';
+import {
+  listPlayableDecks,
+  resolveDeckDetailed,
+  type DeckSummary,
+} from '@/lib/play/deckSource';
 import {
   advanceActions,
   applyActions,
@@ -161,12 +165,17 @@ function handMetrics(
   // The strip is a fraction of the card's own height, so the fan laps over the
   // near mat by the same proportion however big the cards are.
   //
-  // On the four-quadrant table it does not lap at all. The row nearest the
-  // bottom edge is the CREATURES row of the two near seats, which is the row a
-  // player looks at most; a hand held over it hid half of every creature. In
-  // hand mode the fan may lap, because the only board underneath it is your own
-  // and the view exists to make the hand as large as it can be.
-  const overhang = focused ? 0.94 : 1;
+  // It used to reserve the full card height on the four-quadrant table, because
+  // the row nearest the bottom edge was the CREATURES row of the two near seats
+  // and a hand held over it hid half of every creature. The mat now puts
+  // creatures on top and LANDS along the bottom edge — owner: *"lands should
+  // always be bottom, creatures top"* — so the strip the fan laps over is the
+  // foot of the mana row, which is mat rather than card, and those pixels can
+  // go back to the board instead. Every one of them is a bigger card on all
+  // four seats. In hand mode the fan laps further still, because the only board
+  // underneath it is your own and the view exists to make the hand as large as
+  // it can be.
+  const overhang = focused ? 0.9 : 1;
   return { cardWidth, inset: Math.round((cardWidth / CARD_RATIO) * overhang) };
 }
 
@@ -204,8 +213,9 @@ export default function Play() {
   const [setupError, setSetupError] = useState<string | null>(null);
 
   const [setup, setSetup] = useState<PlaySetupValue>({
+    mode: 'bots',
     deckId: null,
-    playerCount: 2,
+    opponents: [{ deckId: null }],
     variant: defaultSeatingFor(2),
     aggression: 'normal',
     seed: 7,
@@ -303,17 +313,38 @@ export default function Play() {
     setSetupError(null);
 
     try {
-      const mine = setup.deckId ? decks.find(deck => deck.id === setup.deckId) ?? null : null;
-      const myDeck = await resolveDeck(mine, { seed: setup.seed, name: 'Seeded commander deck' });
+      const summaryFor = (deckId: string | null) =>
+        deckId ? decks.find(deck => deck.id === deckId) ?? null : null;
 
-      const opponentDecks: PlayDeck[] = [];
-      for (let i = 1; i < setup.playerCount; i++) {
+      const playerCount = playerCountFor(setup);
+
+      /* Every seat resolves the same way, and every seat says what it landed
+         on. `resolveDeckDetailed` returns a notice when it could not deal the
+         deck that was asked for — the owner reported the silent version of this
+         as "it just plays a demo deck", and the only trace used to be a
+         console.warn nobody had open. */
+      const mine = await resolveDeckDetailed(summaryFor(setup.deckId), {
+        seed: setup.seed,
+        name: 'Seeded commander deck',
+      });
+
+      const notices: string[] = [];
+      if (mine.notice) notices.push(mine.notice);
+
+      const opponents: PlayDeck[] = [];
+      for (let i = 0; i < playerCount - 1; i++) {
         // Distinct seeds so a three-way pod is not three copies of one deck.
-        opponentDecks.push(await resolveDeck(null, { seed: setup.seed + i * 977 }));
+        const seat = await resolveDeckDetailed(summaryFor(setup.opponents[i]?.deckId ?? null), {
+          seed: setup.seed + (i + 1) * 977,
+        });
+        if (seat.notice) notices.push(`Opponent ${i + 1}: ${seat.notice}`);
+        opponents.push(seat.deck);
       }
 
+      const myDeck = mine.deck;
+
       const built = buildTable({
-        id: `play-${setup.seed}-${setup.playerCount}-${Date.now()}`,
+        id: `play-${setup.seed}-${playerCount}-${Date.now()}`,
         seed: setup.seed,
         now: Date.now(),
         format: myDeck.format,
@@ -323,7 +354,7 @@ export default function Play() {
             playerName: user?.email ? user.email.split('@')[0] : 'You',
             playerId: HUMAN_SEAT,
           },
-          ...opponentDecks.map((deck, index) => ({
+          ...opponents.map((deck, index) => ({
             deck,
             playerName: botNameFor(deck, index),
             playerId: `p${index + 2}` as PlayerId,
@@ -343,12 +374,11 @@ export default function Play() {
       dismissedCombatOnTurn.current = null;
       setTable(built);
 
-      if (myDeck.source !== 'user-deck') {
-        toast.info(
-          myDeck.source === 'seeded'
-            ? 'Playing a seeded commander deck.'
-            : 'Card database unreachable — playing the offline demo deck.'
-        );
+      // A substitution is an error the player has to know about, not an aside.
+      for (const notice of notices) toast.warning(notice, { duration: 9000 });
+
+      if (notices.length === 0 && myDeck.source === 'seeded' && !setup.deckId) {
+        toast.info(`Seeded deck: ${myDeck.name}.`);
       }
     } catch (error) {
       console.error('[play] could not start a game', error);

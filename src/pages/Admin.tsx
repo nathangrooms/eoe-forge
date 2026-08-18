@@ -75,7 +75,11 @@ export default function Admin() {
                 className="flex items-center gap-2 whitespace-nowrap px-3 py-2.5"
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{label}</span>
+                {/* The label was `hidden sm:inline`, so on a phone these eight
+                    tabs were eight unlabelled icons — a clipboard and a rocket
+                    you had to tap to identify. The strip already scrolls
+                    horizontally, so there is room for the words. */}
+                <span>{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>

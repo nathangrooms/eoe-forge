@@ -1,57 +1,86 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Crown, Zap, Sparkles, Users, TrendingUp, Infinity, RefreshCw, Loader2 } from 'lucide-react';
+import { Crown, Zap, Sparkles, TrendingUp, Infinity, RefreshCw, Loader2 } from 'lucide-react';
 import { useSubscriptionLimits, SubscriptionTier } from '@/hooks/useFeatureAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-interface SubscriptionStats {
+interface TierCount {
   tier: SubscriptionTier;
-  count: number;
+  count: number | null;
 }
 
 export function SubscriptionManager() {
   const { data: limits, isLoading: limitsLoading, refetch, error: limitsError } = useSubscriptionLimits();
-  
-  // Get subscription statistics - this may fail for non-admins, handle gracefully
+
+  /**
+   * Head-count per tier.
+   *
+   * Counting `user_subscriptions` rows alone undercounts free: a row is only
+   * written when somebody is *given* a tier, and `Settings` treats an account
+   * with no row as free — so a platform with 13 accounts and 1 paid row
+   * reported "Free 0, Pro 1" and lost twelve people. Free is therefore
+   * everyone who is not currently on a paid tier, which needs the platform head
+   * count from `admin_platform_stats()` (SECURITY DEFINER, admin-gated) rather
+   * than a `profiles` read that RLS would scope to the admin's own row.
+   */
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['subscription-stats'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_subscriptions')
-          .select('tier')
-          .eq('is_active', true);
-        
-        if (error) {
-          console.warn('Could not fetch subscription stats:', error.message);
-          return null;
-        }
-        
-        const counts: Record<SubscriptionTier, number> = { free: 0, pro: 0, unlimited: 0 };
-        data?.forEach(sub => {
-          counts[sub.tier as SubscriptionTier]++;
-        });
-        
-        return [
-          { tier: 'free' as SubscriptionTier, count: counts.free },
-          { tier: 'pro' as SubscriptionTier, count: counts.pro },
-          { tier: 'unlimited' as SubscriptionTier, count: counts.unlimited },
-        ];
-      } catch (e) {
-        console.warn('Subscription stats error:', e);
-        return null;
+    queryKey: ['subscription-tier-counts'],
+    queryFn: async (): Promise<{ counts: TierCount[]; partial: boolean }> => {
+      const [subsResult, platformResult] = await Promise.all([
+        supabase.from('user_subscriptions').select('tier').eq('is_active', true),
+        supabase.rpc('admin_platform_stats'),
+      ]);
+
+      if (subsResult.error) {
+        console.warn('Could not read subscriptions:', subsResult.error.message);
+        return {
+          counts: [
+            { tier: 'free', count: null },
+            { tier: 'pro', count: null },
+            { tier: 'unlimited', count: null },
+          ],
+          partial: true,
+        };
       }
+
+      const paid = { pro: 0, unlimited: 0 };
+      let explicitFree = 0;
+      for (const row of subsResult.data ?? []) {
+        if (row.tier === 'pro') paid.pro += 1;
+        else if (row.tier === 'unlimited') paid.unlimited += 1;
+        else explicitFree += 1;
+      }
+
+      const platform = platformResult.error
+        ? null
+        : (platformResult.data as Record<string, unknown> | null);
+      const totalUsers = platform ? Number(platform.users) : NaN;
+
+      // With no reliable head count, show the rows we can prove rather than a
+      // derived free number that would be wrong.
+      const free = Number.isFinite(totalUsers)
+        ? Math.max(0, totalUsers - paid.pro - paid.unlimited)
+        : null;
+
+      return {
+        counts: [
+          { tier: 'free', count: free ?? explicitFree },
+          { tier: 'pro', count: paid.pro },
+          { tier: 'unlimited', count: paid.unlimited },
+        ],
+        partial: free === null,
+      };
     },
   });
 
-  // Default stats if query fails
-  const displayStats = stats || [
-    { tier: 'free' as SubscriptionTier, count: 0 },
-    { tier: 'pro' as SubscriptionTier, count: 0 },
-    { tier: 'unlimited' as SubscriptionTier, count: 0 },
+  const displayStats: TierCount[] = stats?.counts ?? [
+    { tier: 'free', count: null },
+    { tier: 'pro', count: null },
+    { tier: 'unlimited', count: null },
   ];
 
   // Build tier comparison from limits data
@@ -126,18 +155,29 @@ export function SubscriptionManager() {
   return (
     <div className="space-y-6">
       {/* Subscription Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {displayStats.map(({ tier, count }) => {
           const Icon = getTierIcon(tier);
           return (
             <Card key={tier} className="relative overflow-hidden">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm capitalize text-muted-foreground">{tier} users</p>
-                    <p className="text-3xl font-semibold tabular-nums">{count}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm capitalize text-muted-foreground">{tier} accounts</p>
+                    {statsLoading ? (
+                      <Skeleton className="mt-2 h-8 w-16" />
+                    ) : (
+                      <p className="text-3xl font-semibold tabular-nums">
+                        {count === null ? '—' : count.toLocaleString()}
+                      </p>
+                    )}
+                    {tier === 'free' && !statsLoading && count !== null && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Everyone not on a paid tier
+                      </p>
+                    )}
                   </div>
-                  <div className={`rounded-lg p-3 ${getTierSurface(tier)}`}>
+                  <div className={`shrink-0 rounded-lg p-3 ${getTierSurface(tier)}`}>
                     <Icon className="h-6 w-6" />
                   </div>
                 </div>
@@ -146,6 +186,13 @@ export function SubscriptionManager() {
           );
         })}
       </div>
+
+      {stats?.partial && (
+        <div role="alert" className="rounded-lg bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
+          The platform head count could not be read, so &ldquo;Free&rdquo; counts only accounts
+          with an explicit free subscription row rather than everyone without a paid tier.
+        </div>
+      )}
 
       {/* Tier Comparison Table */}
       <Card>
@@ -217,81 +264,12 @@ export function SubscriptionManager() {
         </CardContent>
       </Card>
 
-      {/* Pricing Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Subscription Tiers
-          </CardTitle>
-          <CardDescription>
-            Estimated pricing for each subscription tier
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Free Tier */}
-            <div className="relative overflow-hidden rounded-lg bg-muted/30 p-6">
-              <div className="relative">
-                <div className="mb-2 flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="font-semibold">Free</h3>
-                </div>
-                <p className="text-3xl font-bold mb-1">$0</p>
-                <p className="text-sm text-muted-foreground mb-4">Forever free</p>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• 5 AI deck builds/month</li>
-                  <li>• 50 card scans/month</li>
-                  <li>• 10 decks maximum</li>
-                  <li>• 1,000 collection cards</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Pro Tier */}
-            <div className="relative overflow-hidden rounded-lg bg-muted/60 p-6">
-              <Badge variant="secondary" className="absolute right-2 top-2">Popular</Badge>
-              <div className="relative">
-                <div className="mb-2 flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-foreground" />
-                  <h3 className="font-semibold">Pro</h3>
-                </div>
-                <p className="text-3xl font-bold mb-1">$9.99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-                <p className="text-sm text-muted-foreground mb-4">For serious players</p>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• 50 AI deck builds/month</li>
-                  <li>• 500 card scans/month</li>
-                  <li>• 100 decks</li>
-                  <li>• 50,000 collection cards</li>
-                  <li>• Advanced analytics</li>
-                  <li>• Deck simulation</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Unlimited Tier */}
-            <div className="relative overflow-hidden rounded-lg bg-accent p-6">
-              <div className="relative">
-                <div className="mb-2 flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-foreground" />
-                  <h3 className="font-semibold">Unlimited</h3>
-                </div>
-                <p className="text-3xl font-bold mb-1">$24.99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-                <p className="text-sm text-muted-foreground mb-4">No limits, ever</p>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• Unlimited AI features</li>
-                  <li>• Unlimited card scans</li>
-                  <li>• Unlimited decks</li>
-                  <li>• Unlimited collection</li>
-                  <li>• API access</li>
-                  <li>• TCGPlayer sync</li>
-                  <li>• Priority support</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* The "Subscription Tiers" pricing panel that used to sit here was three
+          hand-written cards: $0 / $9.99 / $24.99 and a bulleted feature list per
+          tier. No price is stored anywhere in this product, and the bullets were
+          a second, hardcoded copy of the limits table directly above — already
+          drifted from it, and unable to follow an edit to `subscription_limits`.
+          The live table is the only version of that information now. */}
     </div>
   );
 }

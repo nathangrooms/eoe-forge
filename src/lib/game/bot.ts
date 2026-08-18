@@ -21,11 +21,13 @@
 
 import { getPlayer, isAlive, livingPlayers } from './rules.ts';
 import {
+  blockersRequiredFor,
   canBlock,
   eligibleAttackers,
   eligibleBlockers,
   powerOf,
   toughnessOf,
+  validateBlockGroup,
 } from './combat.ts';
 import { hasKeyword } from './keywords.ts';
 import { isCreature, isLand, isPermanent, manaSourcesFor } from './mana.ts';
@@ -371,16 +373,35 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
       return 0; // chump
     };
 
-    const best = candidates.slice().sort((a, b) => {
+    const ranked = candidates.slice().sort((a, b) => {
       const byKind = kind(b) - kind(a);
       if (byKind !== 0) return byKind;
       // Among equals, spend the cheapest creature.
       return (a.cmc ?? 0) - (b.cmc ?? 0);
-    })[0];
+    });
 
+    /*
+     * Menace is a property of the whole block, not of one blocker, so the
+     * group has to be assembled before it can be judged legal.
+     * `blockersRequiredFor` is two for a menacing attacker and one otherwise;
+     * `validateBlockGroup` is the authority and is asked before the block is
+     * proposed. Without this the bot happily put one creature in front of a
+     * menacing attacker and the reducer took it — which is how Syr Vondam,
+     * Sunstar Exemplar (vigilance, menace) got chump-blocked by a single body
+     * in a real test game.
+     */
+    const required = blockersRequiredFor(attacker);
+    if (ranked.length < required) continue;
+
+    const group = ranked.slice(0, required);
+    const legality = validateBlockGroup(attacker, group);
+    if (!legality.ok) continue;
+
+    const best = group[0];
     const quality = kind(best);
     const attackerValue = attacker.cmc ?? 0;
-    const blockerValue = best.cmc ?? 0;
+    // Menace costs a second body, so the block has to be worth both of them.
+    const blockerValue = group.reduce((sum, blocker) => sum + (blocker.cmc ?? 0), 0);
 
     const worthIt =
       quality === 3 ||
@@ -390,8 +411,10 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
 
     if (!worthIt) continue;
 
-    used.add(best.instanceId);
-    blocks.push({ blockerId: best.instanceId, attackerId: attacker.instanceId });
+    for (const blocker of group) {
+      used.add(blocker.instanceId);
+      blocks.push({ blockerId: blocker.instanceId, attackerId: attacker.instanceId });
+    }
   }
 
   if (blocks.length === 0) return null;

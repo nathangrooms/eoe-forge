@@ -106,7 +106,13 @@ const CARD_COLUMNS =
  * Four seats fetching pools at once is where those megabytes turned into the
  * timeouts that dropped a table onto the offline demo deck.
  */
-const SEED_CARD_COLUMNS =
+/*
+ * Typed as `string` rather than left as a literal on purpose: supabase-js parses
+ * a literal select list at the type level, and the `image_uris->>normal`
+ * projection sends that parser past its recursion budget (TS2589). The rows are
+ * cast to `CardRow` on the way out of `selectCardRows` regardless.
+ */
+const SEED_CARD_COLUMNS: string =
   'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
 
 function readImage(value: unknown): string | undefined {
@@ -126,6 +132,33 @@ function imageFor(row: CardRow): string | undefined {
     return readImage(face?.image_uris);
   }
   return undefined;
+}
+
+/**
+ * Oracle text with every face folded in.
+ *
+ * `src/lib/game/effects.ts` cannot detect a single trigger without this, so a
+ * play card built without it produces a table where every permanent reads
+ * "rules text not loaded" rather than silently resolving nothing.
+ *
+ * 802 rows in our own `cards` table carry a null `oracle_text` with the real
+ * text hanging off `faces` — every transform, modal DFC, split and adventure
+ * card. Reading only the top level would report all of them as blank.
+ *
+ * Always returns a string. Empty means "loaded, and this card has no text";
+ * `undefined` would mean "never loaded", and the engine treats those two very
+ * differently on purpose.
+ */
+function oracleFor(row: CardRow): string {
+  const parts: string[] = [];
+  if (row.oracle_text) parts.push(row.oracle_text);
+  if (Array.isArray(row.faces)) {
+    for (const face of row.faces as Array<Record<string, unknown>>) {
+      const text = face?.oracle_text;
+      if (typeof text === 'string' && text && text !== row.oracle_text) parts.push(text);
+    }
+  }
+  return parts.join('\n');
 }
 
 const MANA_COLORS: readonly string[] = ['W', 'U', 'B', 'R', 'G', 'C'];
@@ -237,6 +270,7 @@ export function toPlayCard(row: CardRow, deckColors: readonly ManaColor[] = []):
     colorIdentity: playIdentityOf(row, deckColors),
     imageUrl: imageFor(row),
     keywords: (row.keywords ?? []).map(keyword => keyword.toLowerCase()),
+    oracleText: oracleFor(row),
   };
 }
 
@@ -724,6 +758,12 @@ const FALLBACK_SPELLS: Array<Omit<PlayCard, 'cardId'> & { copies: number }> = [
 /**
  * The last resort. No images, no database — a typographic board that still
  * plays, so a paused Supabase degrades the demo rather than ending it.
+ *
+ * These entries carry no `oracleText`, and deliberately are not given one from
+ * memory: the engine reports "rules text not loaded — resolve by hand" on every
+ * non-land here, which is the truth about an offline deck. Basics get an
+ * explicit empty string because a Forest genuinely has no rules text, and
+ * "empty" and "absent" mean different things to `automationFor`.
  */
 export function fallbackDeck(name = 'Offline Green'): PlayDeck {
   const cards: PlayCard[] = [];
@@ -751,6 +791,7 @@ export function fallbackDeck(name = 'Offline Green'): PlayDeck {
       cmc: 0,
       typeLine: 'Basic Land — Forest',
       colorIdentity: ['G'],
+      oracleText: '',
     });
   }
 

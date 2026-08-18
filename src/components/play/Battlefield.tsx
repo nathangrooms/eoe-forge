@@ -102,6 +102,21 @@ export function PermanentRow({
   const capacity = Math.max(1, Math.floor(available / Math.max(1, cardWidth + gap)));
   const overlap = overlapFor(cards.length, capacity);
 
+  /*
+   * A tapped permanent turns ninety degrees and therefore paints a rectangle
+   * wider than its own layout box — by half the difference between its height
+   * and its width, on each side. The row used to ignore that, so a mana row of
+   * five tapped lands drew five cards on top of each other and you could not
+   * tell one from another. Where there is room, a tapped card is given the
+   * width it actually occupies; where there is not, the existing overlap rule
+   * takes over, because a crowded row has nothing to give.
+   */
+  const lean = Math.round((cardWidth / CARD_RATIO - cardWidth) / 2);
+  const tapped = cards.reduce((total, card) => total + (card.tapped ? 1 : 0), 0);
+  const natural =
+    cards.length * cardWidth + (cards.length - 1) * gap + tapped * lean * 2;
+  const roomToTurn = overlap === 0 && natural <= available;
+
   return (
     <div
       className={cn(
@@ -110,18 +125,33 @@ export function PermanentRow({
         className
       )}
     >
-      {cards.map((card, index) => (
-        <span
-          key={card.instanceId}
-          className="relative block transition-[z-index] hover:z-30"
-          style={{
-            marginLeft: index === 0 ? 0 : overlap > 0 ? -cardWidth * overlap : gap,
-            zIndex: index,
-          }}
-        >
-          {renderCard(card, index, cardWidth)}
-        </span>
-      ))}
+      {cards.map((card, index) => {
+        const turning = roomToTurn
+          ? (card.tapped ? lean : 0) + (cards[index - 1]?.tapped ? lean : 0)
+          : 0;
+
+        return (
+          <span
+            key={card.instanceId}
+            className="relative block transition-[z-index] hover:z-30"
+            style={{
+              marginLeft:
+                index === 0
+                  ? roomToTurn && card.tapped
+                    ? lean
+                    : 0
+                  : overlap > 0
+                    ? -cardWidth * overlap
+                    : gap + turning,
+              marginRight:
+                roomToTurn && card.tapped && index === cards.length - 1 ? lean : 0,
+              zIndex: index,
+            }}
+          >
+            {renderCard(card, index, cardWidth)}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -165,9 +195,12 @@ export function ZoneRow({
       style={{ height }}
       aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
+      {/* Above the cards, not behind them. A full row used to slice its own
+          label in half — "CREATURES" arriving as "CR" reads as a broken render
+          rather than as a zone name printed on the mat. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-2 top-0.5 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/25 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+        className="pointer-events-none absolute left-2 top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
       >
         {label}
       </span>
@@ -185,6 +218,26 @@ export function ZoneRow({
 /* -------------------------------------------------------------------------- */
 /* The support block — artifacts, enchantments, planeswalkers                  */
 /* -------------------------------------------------------------------------- */
+
+/** Horizontal padding inside the block, counted once on each side. */
+const BLOCK_PADDING = 8;
+/** Vertical room the block's label takes before any card is drawn. */
+const BLOCK_LABEL = 14;
+
+const blockGap = (cardWidth: number) => Math.max(2, Math.round(cardWidth * 0.07));
+
+/**
+ * How many cards of `cardWidth` tile across a block of the given outer width.
+ *
+ * Shared by the fit search and the renderer on purpose. They disagreed once —
+ * the search counted the block's full width and the renderer counted it minus
+ * its padding — and the eight pixels between them were enough to turn a tidy
+ * two-column block into a single column of four cards stacked on each other.
+ */
+export function blockColumns(width: number, cardWidth: number): number {
+  const gap = blockGap(cardWidth);
+  return Math.max(1, Math.floor((width - BLOCK_PADDING + gap) / (cardWidth + gap)));
+}
 
 /**
  * The widest card that lets `count` of them tile inside a `width × height` box.
@@ -205,10 +258,8 @@ export function fitBlockCardWidth(
   if (count <= 0 || width <= 0 || height <= 0) return preferred;
 
   for (let w = Math.floor(preferred); w >= minimum; w -= 2) {
-    const gap = Math.max(2, Math.round(w * 0.07));
-    const cols = Math.max(1, Math.floor((width + gap) / (w + gap)));
-    const rows = Math.ceil(count / cols);
-    if (rows * (w / CARD_RATIO + gap) - gap <= height) return w;
+    const rows = Math.ceil(count / blockColumns(width, w));
+    if (rows * (w / CARD_RATIO + blockGap(w)) - blockGap(w) <= height - BLOCK_LABEL) return w;
   }
   return minimum;
 }
@@ -243,9 +294,9 @@ export function ZoneBlock({
   renderCard,
   className,
 }: ZoneBlockProps) {
-  const gap = Math.max(2, Math.round(cardWidth * 0.07));
+  const gap = blockGap(cardWidth);
   const cardHeight = cardWidth / CARD_RATIO;
-  const cols = Math.max(1, Math.floor((width - 8 + gap) / (cardWidth + gap)));
+  const cols = blockColumns(width, cardWidth);
 
   const grid: CardInstance[][] = [];
   for (let i = 0; i < cards.length; i += cols) grid.push(cards.slice(i, i + cols));
@@ -256,7 +307,7 @@ export function ZoneBlock({
     grid.length > 1
       ? Math.max(
           cardHeight * 0.34,
-          Math.min(cardHeight + gap, (height - 14 - cardHeight) / (grid.length - 1))
+          Math.min(cardHeight + gap, (height - BLOCK_LABEL - cardHeight) / (grid.length - 1))
         )
       : 0;
 
@@ -271,7 +322,7 @@ export function ZoneBlock({
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-2 top-0.5 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/25 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+        className="pointer-events-none absolute left-2 top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
       >
         {label}
       </span>

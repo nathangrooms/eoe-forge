@@ -9,11 +9,15 @@ import { cardDetailPath } from './card-link';
 /**
  * Card detail docked beside the list you came from.
  *
- * The replacement for the card modal on any surface where a grid or table is
- * already on screen. It is an ordinary block in the layout: the list stays
- * visible and interactive next to it, nothing dims, nothing traps focus, and
- * Escape simply clears the selection. Where the caller wants a URL instead,
- * the header carries a link to the routed `/cards/:id` view.
+ * **Not for browsing.** Clicking a card anywhere in the product goes to
+ * `/cards/:id` — the owner asked for that three times, and a docked preview is
+ * what he was asking to be rid of. Reach for `useOpenCard()` instead.
+ *
+ * What is left for this is the narrow case where the card is being weighed
+ * *against* something else on screen and leaving the page would lose that
+ * context. It is an ordinary block in the layout: the list stays visible and
+ * interactive next to it, nothing dims, nothing traps focus, Escape clears the
+ * selection, and the header still carries a link to the routed view.
  */
 
 /** Re-exported so existing imports keep working; the helper lives in `card-link`. */

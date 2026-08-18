@@ -172,7 +172,10 @@ export function AdminOverview({ onOpenSync }: { onOpenSync: () => void }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+      {/* Five across only once there is room for five. At 1024, with the rail
+          taking 256px, each tile was ~150px wide and every hint truncated to
+          "Rows in the card…" / "Across every acc…". */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatTile
           label="Cards"
           value={stats ? count(stats.cards) : '—'}

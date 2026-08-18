@@ -12,10 +12,20 @@
  * Layered on top of the reducer, and just as pure:
  *
  *   - `mana.ts`      can this cost be paid, and which permanents does it tap
+ *   - `keywords.ts`  the closed set of keyword abilities, and which we enforce
  *   - `combat.ts`    what a declared attack actually does, expressed as actions
+ *   - `effects.ts`   the triggers we detect, and an honest marker for the rest
+ *   - `manual.ts`    the two-tap controls for everything the engine will not do
  *   - `moves.ts`     composite moves (cast, land drop, advance) shared by UI and bot
  *   - `setup.ts`     decklists in, shuffled and dealt `GameState` out
  *   - `bot.ts`       a plausible opponent that decides only in `GameAction`s
+ *
+ * On card effects, because it is the first thing anyone asks: this is NOT a
+ * rules engine and will not become one. Keyword abilities are implemented
+ * properly because they are a closed set; a short list of mechanically
+ * unambiguous triggers fires automatically; everything else is detected,
+ * marked on the card as "manual", and made resolvable in two taps. The one
+ * invariant is that the engine never silently does nothing.
  *
  * And exactly one file that admits other machines exist:
  *
@@ -43,7 +53,10 @@ export * from './rules.ts';
 export * from './seating.ts';
 
 export * from './mana.ts';
+export * from './keywords.ts';
 export * from './combat.ts';
+export * from './effects.ts';
+export * from './manual.ts';
 export * from './moves.ts';
 export * from './setup.ts';
 export * from './bot.ts';

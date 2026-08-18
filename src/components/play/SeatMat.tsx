@@ -87,12 +87,14 @@ import {
  *
  * Every pixel here is a pixel the two rows do not get, and on a four-quadrant
  * board those rows are already sharing about a third of the screen height. So
- * the strip is exactly as tall as the life badge it holds and no taller, and an
- * opponent's hand is drawn into the same strip rather than being given a row of
- * its own — the spec's hand row is the viewer's, and the viewer's hand is the
- * fan along the bottom of the whole board.
+ * these are exactly `LifeBadge`'s own ring diameters and not one pixel more —
+ * anything larger is padding paid for out of card size, anything smaller and
+ * the badge overflows onto the creature row behind it. An opponent's hand is
+ * drawn into the same strip rather than being given a row of its own: the
+ * spec's hand row is the viewer's, and the viewer's hand is the fan along the
+ * bottom of the whole board.
  */
-const HEADER_HEIGHT: Record<LifeBadgeSize, number> = { sm: 50, md: 66, lg: 84 };
+const HEADER_HEIGHT: Record<LifeBadgeSize, number> = { sm: 52, md: 70, lg: 92 };
 
 /** Gap between the two rows, and between the rows and the support block. */
 const BAND_GAP = 4;
@@ -284,17 +286,21 @@ export function SeatMat({
   );
 
   const bandsHeight = Math.max(72, height - headerHeight - 6);
-  /* Two rows now, not three. Creatures get the slightly taller of the two —
-     they carry the counters, the damage and the power/toughness badge, and
-     they are the row every other seat has to read across the table. */
-  const creatureHeight = Math.floor((bandsHeight - BAND_GAP) * 0.53);
+  /* Two rows now, not three, and split evenly. The card size is capped by the
+     SHORTER of the two, so giving creatures a taller row would only shrink
+     every card on the mat to buy air above the creatures. */
+  const creatureHeight = Math.floor((bandsHeight - BAND_GAP) / 2);
   const landHeight = bandsHeight - BAND_GAP - creatureHeight;
 
   /* The support block holds its place whether or not it holds anything, so the
-     two rows never change width as an enchantment resolves. Roughly a fifth of
-     the mat, and never wider than two cards at the current ceiling. */
+     two rows never change width as an enchantment resolves. Roughly a quarter
+     of the mat — enough that it tiles two columns rather than becoming a single
+     stack of overlapping cards — and never so wide that the rows are starved. */
   const supportWidth = Math.round(
-    Math.max(56, Math.min(width * 0.21, cardWidth * 2 + 12, Math.max(56, width - sideWidth - 200)))
+    Math.max(
+      60,
+      Math.min(width * 0.235, cardWidth * 2 + 16, Math.max(60, width - sideWidth - 220))
+    )
   );
   const supportHeight = bandsHeight;
 
@@ -306,7 +312,7 @@ export function SeatMat({
     Math.round(
       Math.min(
         cardWidth,
-        (Math.min(creatureHeight, landHeight) - 8) * CARD_RATIO,
+        (Math.min(creatureHeight, landHeight) - 6) * CARD_RATIO,
         fitRowCardWidth(rowWidth, busiest, cardWidth)
       )
     )
@@ -475,7 +481,9 @@ export function SeatMat({
       </div>
 
       <ZoneBlock
-        label={SUPPORT_BLOCK.label}
+        /* The full label is two words too long for a quadrant on a laptop, and
+           an ellipsis on a zone name reads as a bug rather than as a label. */
+        label={supportWidth >= 190 ? SUPPORT_BLOCK.label : SUPPORT_BLOCK.shortLabel}
         cards={rows.support}
         cardWidth={supportCardWidth}
         width={supportWidth}

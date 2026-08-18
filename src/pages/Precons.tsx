@@ -324,6 +324,54 @@ export default function Precons() {
 
   const page = useMemo(() => visible.slice(0, limit), [visible, limit]);
 
+  /* -------------------------------------------------- shelves --------- */
+
+  /**
+   * The page, cut into shelves.
+   *
+   * 184 products in one uninterrupted grid is a wall — you scroll it, you do
+   * not browse it, and nothing tells you where in the catalogue you have got
+   * to. Cutting it on the axis it is already sorted by turns the same tiles
+   * into a shop: run of 2024 decks, run of 2023, run of *Bloomburrow*. The
+   * partition is consecutive rather than a regroup, so the sort order is
+   * untouched and the section a precon lands in is always the one its
+   * neighbours are in.
+   */
+  const shelves = useMemo(() => {
+    const shelfOf = (precon: PreconSummary): { key: string; label: string } => {
+      switch (sort) {
+        case 'set':
+          return { key: precon.set, label: precon.set };
+        case 'name': {
+          const first = (precon.name.trim()[0] ?? '#').toUpperCase();
+          const key = first >= 'A' && first <= 'Z' ? first : '#';
+          return { key, label: key };
+        }
+        default: {
+          const year = precon.released ? precon.released.slice(0, 4) : null;
+          return year ? { key: year, label: year } : { key: '—', label: 'Undated' };
+        }
+      }
+    };
+
+    const out: { key: string; label: string; items: PreconSummary[]; offset: number }[] = [];
+    for (const precon of page) {
+      const { key, label } = shelfOf(precon);
+      const last = out[out.length - 1];
+      if (last && last.key === key) last.items.push(precon);
+      else out.push({ key, label, items: [precon], offset: 0 });
+    }
+    // Running index across shelves, so "the first six tiles load eagerly"
+    // still means the first six on the page and not the first six of every
+    // section.
+    let seen = 0;
+    for (const shelf of out) {
+      shelf.offset = seen;
+      seen += shelf.items.length;
+    }
+    return out;
+  }, [page, sort]);
+
   /**
    * Put the reader back where they were when they opened a precon.
    *
@@ -513,18 +561,35 @@ export default function Precons() {
           </div>
         ) : (
           <>
-            <CardGrid width={TILE_WIDTH[density]}>
-              {page.map((precon, index) => (
-                <PreconTile
-                  key={precon.id}
-                  precon={precon}
-                  cards={commanderCards}
-                  onSelect={openPrecon}
-                  compact={density === 'compact'}
-                  eager={index < (density === 'compact' ? 8 : 6)}
-                />
+            <div className="space-y-8">
+              {shelves.map(shelf => (
+                <section key={shelf.key} aria-label={shelf.label}>
+                  {/* Sticky under the 64px fixed top bar, so the shelf you are
+                      looking at names itself the whole way down. */}
+                  <h2 className="sticky top-16 z-20 -mx-1 mb-3 flex items-baseline gap-3 bg-background/90 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+                    <span className="text-xl font-bold tracking-tight tabular-nums">
+                      {shelf.label}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {shelf.items.length} {shelf.items.length === 1 ? 'deck' : 'decks'}
+                    </span>
+                  </h2>
+
+                  <CardGrid width={TILE_WIDTH[density]}>
+                    {shelf.items.map((precon, index) => (
+                      <PreconTile
+                        key={precon.id}
+                        precon={precon}
+                        cards={commanderCards}
+                        onSelect={openPrecon}
+                        compact={density === 'compact'}
+                        eager={shelf.offset + index < (density === 'compact' ? 8 : 6)}
+                      />
+                    ))}
+                  </CardGrid>
+                </section>
               ))}
-            </CardGrid>
+            </div>
 
             {limit < visible.length && (
               // Doubles as the observer target and a real control. The next

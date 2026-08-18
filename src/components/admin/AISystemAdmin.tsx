@@ -178,19 +178,25 @@ export function AISystemAdmin() {
       <TabsContent value="usage" className="space-y-4">
         <Card>
           <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0">
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
                   Recorded AI usage
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="max-w-3xl">
                   Every row in <code className="font-mono">feature_usage</code> for the metered AI
                   features. Counts are calls, not tokens — nothing in the product records token
                   counts, so no cost figure can honestly be shown here.
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={load}
+                disabled={loading}
+                className="w-full shrink-0 sm:w-auto"
+              >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
@@ -213,7 +219,10 @@ export function AISystemAdmin() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Bleed the scroll region out to the card edge. Inset inside
+                    the padding, a clipped fourth column just looked broken;
+                    running to the edge reads as "this scrolls". */}
+                <div className="-mx-6 overflow-x-auto px-6">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -227,8 +236,11 @@ export function AISystemAdmin() {
                       {usage.map(row => (
                         <TableRow key={row.featureKey}>
                           <TableCell className="font-medium">
-                            {describe(row.featureKey)}
-                            <span className="ml-2 font-mono text-xs text-muted-foreground">
+                            <span className="block">{describe(row.featureKey)}</span>
+                            {/* Stacked, not trailing: inline it doubled the
+                                width of the widest column and pushed the two
+                                right-hand numbers off a 375px screen. */}
+                            <span className="block font-mono text-xs font-normal text-muted-foreground">
                               {row.featureKey}
                             </span>
                           </TableCell>
@@ -312,7 +324,8 @@ export function AISystemAdmin() {
               Read from <code className="font-mono">subscription_limits</code>.
             </CardDescription>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent>
+            <div className="-mx-6 overflow-x-auto px-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -341,6 +354,7 @@ export function AISystemAdmin() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </TabsContent>

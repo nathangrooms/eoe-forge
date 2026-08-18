@@ -34,6 +34,8 @@ export interface BoardRowDef {
   id: BoardRowId;
   /** Stays visible at low contrast even when the row is empty. */
   label: string;
+  /** Used where the full label would be truncated to an ellipsis. */
+  shortLabel?: string;
 }
 
 /**
@@ -48,10 +50,11 @@ export const BOARD_ROWS: readonly BoardRowDef[] = [
   { id: 'lands', label: 'Lands' },
 ] as const;
 
-/** The block on the right edge of the mat. Not a row — it stacks and wraps. */
-export const SUPPORT_BLOCK: BoardRowDef = {
+/** The block on the right edge of the mat. Not a row — it tiles and wraps. */
+export const SUPPORT_BLOCK: BoardRowDef & { shortLabel: string } = {
   id: 'support',
   label: 'Artifacts · Enchantments',
+  shortLabel: 'Noncreature',
 } as const;
 
 export function rowForCard(card: CardInstance): BoardRowId {

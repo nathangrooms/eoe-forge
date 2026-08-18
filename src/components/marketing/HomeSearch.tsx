@@ -1,0 +1,257 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
+import { ManaCost } from '@/components/ui/mana-cost';
+import { Section, SectionHeading } from '@/components/marketing/Section';
+import { useNearViewport } from '@/components/marketing/sectionData';
+import { cn } from '@/lib/utils';
+
+/**
+ * Scryfall syntax — demonstrated, not asserted.
+ *
+ * The previous version of this section was four monospace strings in four grey
+ * rows and a button. It made the page's most checkable claim — "every operator
+ * works" — and then showed nothing that could check it: no result, no count, no
+ * card. On a page whose whole argument is "we draw real cards properly", it was
+ * the one section with no cards on it at all.
+ *
+ * So the queries now RUN. Each one is sent to
+ * `https://api.scryfall.com/cards/search`, which is the exact endpoint the card
+ * browser uses (`buildScryfallURL` in `src/lib/scryfall/query-builder.ts`, called
+ * from `useAdvancedCardSearch`), with the query text passed through untouched —
+ * the same pass-through `buildScryfallQuery` does with the free-text box.
+ *
+ * Honesty model:
+ *   - the number beside the query is Scryfall's own `total_cards` for it, not a
+ *     figure anyone typed;
+ *   - the cards below are the first rows of the real response, drawn whole at
+ *     5:7 through `CardImage`;
+ *   - `order=edhrec` is Scryfall's own play-rank, so the first twelve are cards
+ *     a Commander player recognises rather than an alphabetical accident. The
+ *     ordering is named on screen for the same reason the card browser names it;
+ *   - if the request fails the section falls back to the query rows on their own.
+ *     Nothing is substituted for a result that did not arrive.
+ *
+ * Cost: one request, for the query on screen, once the section is near the
+ * viewport. Switching tabs fetches that tab once and caches it for the session.
+ */
+
+const QUERIES: { q: string; note: string }[] = [
+  { q: 'f:commander id<=wubrg o:"draw a card"', note: 'Commander-legal card draw' },
+  { q: 't:instant mv<=2 o:"destroy target"', note: 'Cheap removal' },
+  { q: 'c:rg t:creature pow>=5 mv<=4', note: 'Efficient beaters' },
+  { q: 'is:commander id=bant o:"whenever you"', note: 'Bant triggered commanders' },
+];
+
+/** Two full rows at the widest breakpoint. */
+const SHOWN = 12;
+
+interface ScryfallCard {
+  id: string;
+  name: string;
+  mana_cost?: string;
+  type_line?: string;
+  set?: string;
+  layout?: string;
+  card_faces?: unknown;
+  image_uris?: Record<string, string>;
+  prices?: Record<string, string | null>;
+}
+
+interface SearchResult {
+  /** Scryfall's own count of every card the query matches. */
+  total: number;
+  cards: ScryfallCard[];
+}
+
+/** One in-flight request per query for the lifetime of the page. */
+const cache = new Map<string, Promise<SearchResult | null>>();
+
+function runSearch(q: string): Promise<SearchResult | null> {
+  const hit = cache.get(q);
+  if (hit) return hit;
+
+  const promise = (async (): Promise<SearchResult | null> => {
+    try {
+      const url = new URL('https://api.scryfall.com/cards/search');
+      url.searchParams.set('q', q);
+      url.searchParams.set('unique', 'cards');
+      url.searchParams.set('order', 'edhrec');
+      url.searchParams.set('dir', 'asc');
+
+      const response = await fetch(url.toString());
+      if (!response.ok) return null;
+
+      const json = await response.json();
+      const rows = (json?.data ?? []) as ScryfallCard[];
+      const drawable = rows
+        .filter(card => Boolean(card?.image_uris?.normal || (card as any)?.card_faces?.[0]?.image_uris?.normal))
+        .slice(0, SHOWN);
+
+      if (drawable.length === 0) return null;
+      return {
+        total: Number(json?.total_cards) || drawable.length,
+        cards: drawable,
+      };
+    } catch {
+      /* A search that will not run shows no results rather than fake ones. */
+      return null;
+    }
+  })();
+
+  cache.set(q, promise);
+  return promise;
+}
+
+/* -------------------------------------------------------------------- pieces */
+
+function ResultCard({ card }: { card: ScryfallCard }) {
+  const usd = card.prices?.usd;
+  return (
+    <figure className="group min-w-0">
+      <CardImage
+        card={card}
+        size="md"
+        fill
+        className="transition-transform duration-500 group-hover:-translate-y-1.5"
+      />
+      <figcaption className="mt-3">
+        <p className="truncate text-sm font-medium leading-snug">{card.name}</p>
+        <div className="mt-1.5 flex min-h-[1.125rem] items-center gap-2">
+          <ManaCost cost={card.mana_cost ?? null} size="xs" />
+          {usd && (
+            <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+              ${Number(usd).toFixed(2)}
+            </span>
+          )}
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ section */
+
+export function HomeSearch() {
+  const [ref, near] = useNearViewport<HTMLDivElement>();
+  const [active, setActive] = useState(QUERIES[0].q);
+  const [results, setResults] = useState<Record<string, SearchResult | null>>({});
+  const [pending, setPending] = useState(true);
+
+  useEffect(() => {
+    if (!near) return;
+    let alive = true;
+
+    if (active in results) {
+      setPending(false);
+      return;
+    }
+
+    setPending(true);
+    runSearch(active).then(result => {
+      if (!alive) return;
+      setResults(prev => ({ ...prev, [active]: result }));
+      setPending(false);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [near, active, results]);
+
+  const current = results[active] ?? null;
+  const note = QUERIES.find(entry => entry.q === active)?.note ?? '';
+  const loading = pending && current === null;
+
+  return (
+    <Section>
+      <div ref={ref} aria-hidden className="h-0" />
+
+      <SectionHeading
+        title="Real Scryfall syntax. Not a dropdown."
+        lead="If you already know how to search Scryfall, you already know how to search DeckMatrix. Every operator works — colour identity, mana value, oracle text, format legality, power and toughness. Pick one below and it runs."
+      />
+
+      {/* --------------------------------------------------------- the queries */}
+      <div className="mt-12 flex flex-wrap justify-center gap-2">
+        {QUERIES.map(entry => {
+          const on = entry.q === active;
+          return (
+            <button
+              key={entry.q}
+              type="button"
+              onClick={() => setActive(entry.q)}
+              aria-pressed={on}
+              className={cn(
+                'rounded-full px-4 py-2 text-xs transition-colors sm:text-sm',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                on
+                  ? 'bg-foreground font-medium text-background'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {entry.note}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ------------------------------------------------------- the search bar */}
+      <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-card px-5 py-4 shadow-lg shadow-black/20 sm:px-6">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <code className="min-w-0 flex-1 break-words font-mono text-sm text-foreground sm:text-base">
+          {active}
+        </code>
+        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+          {current ? (
+            <>
+              <span className="font-medium text-foreground">
+                {current.total.toLocaleString()}
+              </span>{' '}
+              matches
+            </>
+          ) : loading ? (
+            'running…'
+          ) : (
+            ''
+          )}
+        </span>
+      </div>
+
+      {/* ------------------------------------------------------------ the cards */}
+      {(loading || current) && (
+        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+          {loading
+            ? Array.from({ length: SHOWN }).map((_, i) => (
+                <div key={i}>
+                  <CardImageSkeleton size="md" fill />
+                </div>
+              ))
+            : current!.cards.map(card => <ResultCard key={card.id} card={card} />)}
+        </div>
+      )}
+
+      {current && (
+        <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground">
+          The first {current.cards.length} of {current.total.toLocaleString()} results for{' '}
+          <span className="font-mono text-foreground/80">{active}</span> — {note.toLowerCase()},
+          ordered by Scryfall&rsquo;s own EDHREC play rank. Run against the same search endpoint the
+          card browser uses, as this page loaded.
+        </p>
+      )}
+
+      <div className="mt-10 text-center">
+        <Button asChild size="lg" variant="outline">
+          <Link to="/cards">
+            Try a search
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
+export default HomeSearch;

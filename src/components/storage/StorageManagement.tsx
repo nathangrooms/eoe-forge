@@ -180,7 +180,11 @@ export function StorageManagement({
         )}
 
         {containers.length === 0 ? (
-          <EmptyShelf onPick={openCreate} />
+          <EmptyShelf
+            onPick={openCreate}
+            unassignedCount={unassignedCount}
+            unassignedValue={unassignedValue}
+          />
         ) : (
           <>
             {/* Cards with nowhere recorded — the reason to keep going. */}
@@ -311,7 +315,15 @@ function ContainerTile({
  * are about to own. Picking one carries the type straight into the create
  * panel, so the first click is the only decision.
  */
-function EmptyShelf({ onPick }: { onPick: (type: string) => void }) {
+function EmptyShelf({
+  onPick,
+  unassignedCount,
+  unassignedValue,
+}: {
+  onPick: (type: string) => void;
+  unassignedCount: number;
+  unassignedValue: number;
+}) {
   const icons: Record<string, typeof Layers> = { binder: Layers, deckbox: Box, box: Archive };
 
   return (
@@ -324,6 +336,19 @@ function EmptyShelf({ onPick }: { onPick: (type: string) => void }) {
           Every other site knows what you own. This one knows where it is — but only once you
           tell it what you keep your cards in. Start with one.
         </p>
+        {/* The user's own number, and the whole argument for the feature: these
+            cards exist, and right now nothing records where they are. It used
+            to live in the header, which meant it vanished in exactly the state
+            that most needed to make the case. */}
+        {unassignedCount > 0 && (
+          <p className="mx-auto mt-3 max-w-lg text-sm text-foreground">
+            <span className="font-semibold tabular-nums">
+              {unassignedCount.toLocaleString()}
+            </span>{' '}
+            {unassignedCount === 1 ? 'card' : 'cards'} in your collection —{' '}
+            {formatPrice(unassignedValue)} — have nowhere recorded.
+          </p>
+        )}
       </div>
 
       <div className="mx-auto mt-8 grid max-w-4xl gap-5 sm:grid-cols-3">

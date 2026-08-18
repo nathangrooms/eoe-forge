@@ -11,19 +11,24 @@ import {
   useCardSize,
 } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { Loader2, Search, SlidersHorizontal, TrendingUp, X } from 'lucide-react';
+import { Loader2, Search, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CommanderFinder } from './CommanderFinder';
 import { countActiveFilters, describeFilters, type CommanderFilters } from './commander-query';
 
 /**
- * Choosing a commander, as a wall of commanders.
+ * Choosing a commander — the finder and the results, side by side, on the page.
  *
- * The old step 1 put twelve cards in a bordered box under a heading and a
- * search field, then buried a second, differently-styled results grid inside
- * the finder card below it. A commander is the single most consequential choice
- * in the whole flow and it is a *picture* — so this stage is one full-bleed
- * grid of full card images at whatever size the player likes, and everything
- * else (search, filters, sort) is chrome above it or in the right-hand panel.
+ * Two versions ago this step put twelve cards in a bordered box under a heading
+ * and buried a second, differently-styled results grid inside a finder card
+ * below it. The fix moved the filters into a right-hand slide-out and gave the
+ * grid the whole screen, which over-corrected: the first step of the flow
+ * became an undifferentiated wall of 175 commanders with its only real control
+ * hidden behind a button. Owner: *"doesn't need to show so many cards, worked
+ * better when commander finder was actually on the screen not a right menu."*
+ *
+ * So: the finder is a rail on the page, the wall starts at one screen's worth
+ * of commanders rather than six, and it grows on request.
  */
 
 export type CommanderSource = 'popular' | 'search' | 'finder';
@@ -40,8 +45,16 @@ export interface CommanderStageProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
   filters: CommanderFilters;
-  onOpenFinder: () => void;
+  onFiltersChange: (filters: CommanderFilters) => void;
+  sortOrder: string;
+  onSortOrderChange: (order: string) => void;
+  /** Runs the finder's query. */
+  onRunFinder: () => void;
   onClearFinder: () => void;
+  /** True while the finder's own search is in flight. */
+  finderSearching?: boolean;
+  /** Matches the finder's last run reported, so the rail can say what it found. */
+  finderResultCount?: number | null;
   onSelect: (card: any) => void;
   error?: string | null;
   /** Set while the commander's archetypes are being read. */
@@ -58,15 +71,14 @@ const SOURCE_LABEL: Record<CommanderSource, string> = {
 /**
  * Cards drawn per window.
  *
- * Scryfall answers with 175 cards a page and every one of them was mounted at
- * once: 11,397px of grid, 175 `<img>` elements and — because the browser
- * pre-loads well ahead of the viewport — several megabytes of art for a screen
- * that shows ten cards. The rows are revealed as the reader reaches them, and
- * only when the window has caught up with everything already fetched does the
- * next Scryfall page get asked for. Two "load more" affordances collapse into
- * one continuous list.
+ * Scryfall answers with 175 cards a page and every one of them used to be
+ * mounted at once: 11,397px of grid, 175 `<img>` elements and — because the
+ * browser pre-loads well ahead of the viewport — several megabytes of art for a
+ * screen that shows ten cards. Windowing fixed the cost; twelve rather than
+ * thirty fixes the *volume*, which is what the owner was actually looking at.
+ * One screen of commanders, then more only if you ask.
  */
-const WINDOW_SIZE = 30;
+const WINDOW_SIZE = 12;
 
 export function CommanderStage({
   cards,
@@ -79,30 +91,33 @@ export function CommanderStage({
   searchValue,
   onSearchChange,
   filters,
-  onOpenFinder,
+  onFiltersChange,
+  sortOrder,
+  onSortOrderChange,
+  onRunFinder,
   onClearFinder,
+  finderSearching = false,
+  finderResultCount = null,
   onSelect,
   error = null,
   analyzing = false,
   analyzingCard,
 }: CommanderStageProps) {
-  const [cardWidth, setCardWidth] = useCardSize('ai-builder-commanders', 190);
+  const [cardWidth, setCardWidth] = useCardSize('ai-builder-commanders', 168);
   const activeFilters = countActiveFilters(filters);
   const filterSummary = describeFilters(filters);
 
   /**
-   * `large` is a 672px scan. At the sizes this grid actually renders — 190px by
-   * default, 218px once `1fr` stretches the track — that is four times the
-   * pixels a 2× display can resolve, paid once per commander across a wall of
-   * them. `normal` (488px) still over-samples every size below `xl`, which is
-   * the only token this drops through to the default ladder for.
+   * `large` is a 672px scan. At the sizes this grid actually renders that is
+   * four times the pixels a 2× display can resolve, paid once per commander
+   * across a wall of them. `normal` (488px) still over-samples every size below
+   * `xl`, which is the only token this drops through to the default ladder for.
    */
   const imageQuality = cardSizeForWidth(cardWidth) === 'xl' ? undefined : ('normal' as const);
 
   /* ------------------------------------------------------------ windowing */
 
   const [windowSize, setWindowSize] = useState(WINDOW_SIZE);
-  const sentinel = useRef<HTMLDivElement | null>(null);
 
   /*
    * A fresh result set starts the window over. Keyed on `loading` rather than
@@ -124,22 +139,6 @@ export function CommanderStage({
     if (moreToReveal) setWindowSize(current => current + WINDOW_SIZE);
     else if (hasMore && !loadingMore) onLoadMore?.();
   };
-
-  useEffect(() => {
-    const node = sentinel.current;
-    if (!node || !canExtend) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries.some(entry => entry.isIntersecting)) extendRef.current();
-      },
-      // 400px, not the 800 the precon grid uses. A commander row is ~265px
-      // tall, so a wider margin trips twice on first paint and the window
-      // settles at 60 cards before the reader has scrolled at all.
-      { rootMargin: '400px' }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canExtend, windowSize, cards.length]);
 
   /**
    * The analysing state is the chosen commander at full size and nothing else.
@@ -169,159 +168,160 @@ export function CommanderStage({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Control strip — search, finder, sizing. Full width, no box. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[16rem] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchValue}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search commanders, partners and backgrounds…"
-            className="h-11 border-0 bg-muted/50 pl-9 pr-9 text-base shadow-none focus-visible:ring-1"
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)] lg:items-start">
+      {/* The finder, on the page. Sticky so it stays reachable as the wall
+          below it grows. */}
+      <CommanderFinder
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        sortOrder={sortOrder}
+        onSortOrderChange={onSortOrderChange}
+        onSearch={onRunFinder}
+        onClear={onClearFinder}
+        searching={finderSearching}
+        resultCount={finderResultCount}
+        className="lg:sticky lg:top-4"
+      />
+
+      <div className="min-w-0 space-y-4">
+        {/* Name search and sizing. Full width of the results column, no box. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[14rem] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchValue}
+              onChange={e => onSearchChange(e.target.value)}
+              placeholder="Search commanders, partners and backgrounds…"
+              className="h-11 border-0 bg-muted/50 pl-9 pr-9 text-base shadow-none focus-visible:ring-1"
+            />
+            {searchValue && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <CardSizeSlider
+            storageKey="ai-builder-commanders"
+            value={cardWidth}
+            onValueChange={setCardWidth}
+            showValue={false}
+            className="hidden xl:flex"
           />
-          {searchValue && (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
-        <Button
-          variant={activeFilters > 0 ? 'default' : 'secondary'}
-          onClick={onOpenFinder}
-          className="h-11"
-        >
-          <SlidersHorizontal className="mr-2 h-4 w-4" />
-          Commander finder
-          {activeFilters > 0 && (
-            <span className="ml-2 rounded bg-background/25 px-1.5 py-0.5 text-xs tabular-nums">
-              {activeFilters}
+        {/* What the grid is showing, and why. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            {source === 'popular' && <TrendingUp className="h-4 w-4 text-muted-foreground" />}
+            {SOURCE_LABEL[source]}
+          </h2>
+          {source === 'popular' && (
+            <span className="text-xs text-muted-foreground">in EDHREC play order</span>
+          )}
+          {source === 'finder' && filterSummary && (
+            <Badge variant="secondary" className="font-normal">
+              {filterSummary}
+            </Badge>
+          )}
+          {total !== null && total > 0 && (
+            // "12 of 3,411" alone reads as "only 12 matched". The grid is
+            // windowed, so it has to say which of the two numbers is which.
+            <span className="text-xs tabular-nums text-muted-foreground">
+              Showing {shown.length} of {total.toLocaleString()}
             </span>
           )}
-        </Button>
-
-        <CardSizeSlider
-          storageKey="ai-builder-commanders"
-          value={cardWidth}
-          onValueChange={setCardWidth}
-          showValue={false}
-          className="hidden lg:flex"
-        />
-      </div>
-
-      {/* What the grid is showing, and why. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          {source === 'popular' && <TrendingUp className="h-4 w-4 text-muted-foreground" />}
-          {SOURCE_LABEL[source]}
-        </h2>
-        {source === 'popular' && (
-          <span className="text-xs text-muted-foreground">in EDHREC play order</span>
-        )}
-        {source === 'finder' && filterSummary && (
-          <Badge variant="secondary" className="font-normal">
-            {filterSummary}
-          </Badge>
-        )}
-        {total !== null && total > 0 && (
-          // "30 of 3,411" alone reads as "only 30 matched". The grid is
-          // windowed now, so it has to say which of the two numbers is which.
-          <span className="text-xs tabular-nums text-muted-foreground">
-            Showing {shown.length} of {total.toLocaleString()}
-          </span>
-        )}
-        {source === 'finder' && (
-          <Button variant="ghost" size="sm" onClick={onClearFinder} className="h-7">
-            Clear filters
-          </Button>
-        )}
-      </div>
-
-      {error && (
-        <p className="rounded-lg bg-muted/50 p-4 text-sm text-destructive">{error}</p>
-      )}
-
-      {loading ? (
-        <CardGridSkeleton width={cardWidth} count={18} />
-      ) : cards.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-20 text-center">
-          <Search className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">
-            {source === 'search'
-              ? `No commanders match “${searchValue}”.`
-              : 'No commanders match those filters. Try removing one.'}
-          </p>
+          {source === 'finder' && activeFilters > 0 && (
+            <Button variant="ghost" size="sm" onClick={onClearFinder} className="h-7">
+              Clear filters
+            </Button>
+          )}
         </div>
-      ) : (
-        <CardGrid width={cardWidth}>
-          {shown.map((card: any, i: number) => (
-            <button
-              key={card.id ?? card.name}
-              type="button"
-              onClick={() => onSelect(card)}
-              className={cn(
-                'group/pick block w-full text-left',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-              )}
-              title={`Build a deck for ${card.name}`}
-            >
-              <CardImage
-                card={card}
-                width={cardWidth}
-                quality={imageQuality}
-                fill
-                interactive
-                eager={i < 12}
-                hideFlip
+
+        {error && <p className="rounded-lg bg-muted/50 p-4 text-sm text-destructive">{error}</p>}
+
+        {loading ? (
+          <CardGridSkeleton width={cardWidth} count={WINDOW_SIZE} />
+        ) : cards.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-20 text-center">
+            <Search className="h-6 w-6 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              {source === 'search'
+                ? `No commanders match “${searchValue}”.`
+                : 'No commanders match those filters. Try removing one.'}
+            </p>
+          </div>
+        ) : (
+          <CardGrid width={cardWidth}>
+            {shown.map((card: any, i: number) => (
+              <button
+                key={card.id ?? card.name}
+                type="button"
+                onClick={() => onSelect(card)}
+                className={cn(
+                  'group/pick block w-full text-left',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+                )}
+                title={`Build a deck for ${card.name}`}
               >
-                {/* Sits on card art, so light-on-dark is correct here. */}
-                <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 to-transparent p-2 pt-8 opacity-0 transition-opacity duration-200 group-hover/pick:opacity-100 group-focus-visible/pick:opacity-100">
-                  <span className="min-w-0">
-                    <span className="block truncate text-[0.7rem] font-semibold text-white">
-                      {card.name}
-                    </span>
-                    {typeof card.edhrec_rank === 'number' && (
-                      <span className="block text-[0.65rem] tabular-nums text-white/70">
-                        EDHREC #{card.edhrec_rank.toLocaleString()}
+                <CardImage
+                  card={card}
+                  width={cardWidth}
+                  quality={imageQuality}
+                  fill
+                  interactive
+                  eager={i < 8}
+                  hideFlip
+                >
+                  {/* Sits on card art, so light-on-dark is correct here. */}
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 to-transparent p-2 pt-8 opacity-0 transition-opacity duration-200 group-hover/pick:opacity-100 group-focus-visible/pick:opacity-100">
+                    <span className="min-w-0">
+                      <span className="block truncate text-[0.7rem] font-semibold text-white">
+                        {card.name}
                       </span>
-                    )}
+                      {typeof card.edhrec_rank === 'number' && (
+                        <span className="block text-[0.65rem] tabular-nums text-white/70">
+                          EDHREC #{card.edhrec_rank.toLocaleString()}
+                        </span>
+                      )}
+                    </span>
+                    <ColorIdentity colors={card.color_identity} size="xs" />
                   </span>
-                  <ColorIdentity colors={card.color_identity} size="xs" />
-                </span>
-              </CardImage>
-            </button>
-          ))}
-        </CardGrid>
-      )}
+                </CardImage>
+              </button>
+            ))}
+          </CardGrid>
+        )}
 
-      {!loading && cards.length > 0 && canExtend && (
-        // Doubles as the observer target and a real control, so the list still
-        // grows where the observer is throttled or never fires.
-        <div ref={sentinel} className="flex justify-center pt-2">
-          <Button
-            variant="secondary"
-            onClick={() => extendRef.current()}
-            disabled={loadingMore}
-          >
-            {loadingMore ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading…
-              </>
-            ) : moreToReveal ? (
-              `Show ${Math.min(WINDOW_SIZE, cards.length - windowSize)} more`
-            ) : (
-              'Load more commanders'
-            )}
-          </Button>
-        </div>
-      )}
+        {!loading && cards.length > 0 && canExtend && (
+          /* An explicit control, not an infinite scroll. The whole point of the
+             change was to stop this screen filling itself with commanders
+             nobody asked to see. */
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => extendRef.current()}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading…
+                </>
+              ) : moreToReveal ? (
+                `Show ${Math.min(WINDOW_SIZE, cards.length - windowSize)} more`
+              ) : (
+                'Load more commanders'
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

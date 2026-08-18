@@ -26,7 +26,11 @@
  *   - the starting player skips their first draw step in a two-player game
  */
 
-import {
+// Types and values are imported separately so this module can be loaded by a
+// type-stripping runtime (`node --test --experimental-strip-types`), which
+// erases `import type` but cannot tell a type from a value in a mixed clause.
+import { PHASE_OF_STEP, TURN_STEPS, ZONES } from './types.ts';
+import type {
   CardInstance,
   CommanderId,
   CommanderRef,
@@ -39,17 +43,16 @@ import {
   InstanceId,
   LossReason,
   ManaColor,
-  PHASE_OF_STEP,
   Phase,
   Player,
   PlayerId,
   RngState,
   Step,
-  TURN_STEPS,
   ValidationResult,
   Zone,
-  ZONES,
 } from './types.ts';
+import { toggleKeyword } from './keywords.ts';
+import { triggeredActionsFor } from './effects.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Rules constants                                                            */
@@ -545,25 +548,42 @@ function moveCard(
   const card = state.cards[instanceId];
   if (!card) return state;
 
+  // CR 111.7 — a token that leaves the battlefield ceases to exist, so it never
+  // reaches a graveyard or a hand. Without this, every dead token silts up the
+  // graveyard forever and the zone browser fills with permanents that are not
+  // real cards.
+  const tokenCeasesToExist = card.isToken && to !== 'battlefield';
+
   const players = state.players.map(player => {
     const stripped = removeFromZones(player, instanceId);
-    if (stripped.id !== card.ownerId) return stripped;
+    if (tokenCeasesToExist || stripped.id !== card.ownerId) return stripped;
     const list = to === 'library' ? insertInto(stripped.zones[to], instanceId, options.position ?? 'top') : [...stripped.zones[to], instanceId];
     return { ...stripped, zones: { ...stripped.zones, [to]: list } };
   });
 
   const enteringBattlefield = to === 'battlefield' && card.zone !== 'battlefield';
+  const leavingBattlefield = card.zone === 'battlefield' && to !== 'battlefield';
   const nextCard: CardInstance = {
     ...card,
     zone: to,
     controllerId: options.controllerId ?? (to === 'battlefield' ? card.controllerId : card.ownerId),
     tapped: to === 'battlefield' ? options.tapped ?? false : false,
-    // Leaving the battlefield resets everything a permanent was carrying.
+    // Leaving the battlefield resets everything a permanent was carrying —
+    // including the player's own overrides and hand-flagged keywords, because
+    // what comes back is a new object (CR 400.7).
     damage: to === 'battlefield' ? card.damage : 0,
     counters: to === 'battlefield' ? card.counters : {},
     attachedTo: to === 'battlefield' ? card.attachedTo : undefined,
     summoningSick: enteringBattlefield ? true : to === 'battlefield' ? card.summoningSick : false,
     faceDown: to === 'battlefield' || to === 'exile' ? card.faceDown : false,
+    powerOverride: leavingBattlefield ? undefined : card.powerOverride,
+    toughnessOverride: leavingBattlefield ? undefined : card.toughnessOverride,
+    grantedKeywords: leavingBattlefield ? undefined : card.grantedKeywords,
+    suppressedKeywords: leavingBattlefield ? undefined : card.suppressedKeywords,
+    // The "resolve this by hand" marker is per-arrival, so a card that comes
+    // back from the graveyard asks again rather than staying quietly dismissed.
+    manualResolved: to === 'battlefield' && !enteringBattlefield ? card.manualResolved : undefined,
+    removedFromGame: tokenCeasesToExist ? true : card.removedFromGame,
   };
 
   return { ...state, players, cards: { ...state.cards, [instanceId]: nextCard } };
@@ -908,6 +928,10 @@ const CARD_ACTIONS = new Set([
   'SHUFFLE',
   'ATTACK',
   'BLOCK',
+  'SET_CARD_STAT',
+  'SET_KEYWORD',
+  'CREATE_TOKEN',
+  'MARK_MANUAL_RESOLVED',
 ]);
 
 /**
@@ -938,7 +962,13 @@ export function validateAction(state: GameState, action: GameAction): Validation
     }
   }
 
-  if ('instanceId' in anyAction && typeof anyAction.instanceId === 'string') {
+  // Two actions carry an `instanceId` that is not a card already in play:
+  // CREATE_TOKEN names the id it is about to mint, and NOTE names the card a
+  // line of prose is about — which may well be a token that has just ceased to
+  // exist. Neither can be held to "this card must exist", and dropping a NOTE
+  // silently would defeat the one rule this engine is built around.
+  const ID_NEED_NOT_EXIST = action.type === 'CREATE_TOKEN' || action.type === 'NOTE';
+  if (!ID_NEED_NOT_EXIST && 'instanceId' in anyAction && typeof anyAction.instanceId === 'string') {
     const card = state.cards[anyAction.instanceId];
     if (!card) return { ok: false, reason: 'Unknown card instance.' };
     if (card.removedFromGame) return { ok: false, reason: 'That card has left the game.' };
@@ -963,6 +993,18 @@ export function validateAction(state: GameState, action: GameAction): Validation
 
   if (action.type === 'MOVE_ZONE' && !ZONES.includes(action.to)) {
     return { ok: false, reason: `Unknown zone "${action.to}".` };
+  }
+
+  if (action.type === 'SET_KEYWORD' && !action.keyword.trim()) {
+    return { ok: false, reason: 'A keyword is required.' };
+  }
+
+  if (action.type === 'CREATE_TOKEN' && !action.token?.name?.trim()) {
+    return { ok: false, reason: 'A token needs a name.' };
+  }
+
+  if (action.type === 'NOTE' && !action.message.trim()) {
+    return { ok: false, reason: 'An empty note says nothing.' };
   }
 
   return { ok: true };
@@ -1038,6 +1080,29 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${playerName(state, action.playerId)} is now ${action.name}.`;
     case 'RESET':
       return 'Game reset.';
+    case 'SET_CARD_STAT': {
+      const name = cardName(state, action.instanceId);
+      if (action.power === null && action.toughness === null) return `${name} back to printed stats.`;
+      const parts: string[] = [];
+      if (action.power !== undefined && action.power !== null) parts.push(`power ${action.power}`);
+      if (action.toughness !== undefined && action.toughness !== null) {
+        parts.push(`toughness ${action.toughness}`);
+      }
+      const verb = action.mode === 'adjust' ? 'adjusted by' : 'set to';
+      return `${name} ${verb} ${parts.join(' and ') || 'nothing'}.`;
+    }
+    case 'SET_KEYWORD':
+      return `${cardName(state, action.instanceId)} ${action.on ? 'flagged' : 'un-flagged'} ${action.keyword}.`;
+    case 'CREATE_TOKEN': {
+      const count = Math.max(1, action.count ?? 1);
+      return `${playerName(state, action.playerId)} created ${count} ${action.token.name} token${count === 1 ? '' : 's'}.`;
+    }
+    case 'MARK_MANUAL_RESOLVED':
+      return action.resolved === false
+        ? `${cardName(state, action.instanceId)} marked as still needing manual resolution.`
+        : `${cardName(state, action.instanceId)} resolved by hand.`;
+    case 'NOTE':
+      return action.message;
     default:
       return 'Action applied.';
   }
@@ -1204,9 +1269,112 @@ function reduce(state: GameState, action: GameAction): GameState {
     case 'RESET':
       return resetGame(state);
 
+    /* --- manual intervention --- */
+
+    case 'SET_CARD_STAT':
+      return patchCard(state, action.instanceId, card => {
+        const adjust = action.mode === 'adjust';
+        const basePower = card.powerOverride ?? printedNumber(card.power);
+        const baseToughness = card.toughnessOverride ?? printedNumber(card.toughness);
+
+        const nextPower =
+          action.power === undefined
+            ? card.powerOverride
+            : action.power === null
+              ? undefined
+              : adjust
+                ? basePower + action.power
+                : action.power;
+
+        const nextToughness =
+          action.toughness === undefined
+            ? card.toughnessOverride
+            : action.toughness === null
+              ? undefined
+              : adjust
+                ? baseToughness + action.toughness
+                : action.toughness;
+
+        if (nextPower === card.powerOverride && nextToughness === card.toughnessOverride) {
+          return card;
+        }
+        return { ...card, powerOverride: nextPower, toughnessOverride: nextToughness };
+      });
+
+    case 'SET_KEYWORD':
+      return patchCard(state, action.instanceId, card => {
+        const next = toggleKeyword(card, action.keyword, action.on);
+        const same =
+          sameList(next.grantedKeywords, card.grantedKeywords) &&
+          sameList(next.suppressedKeywords, card.suppressedKeywords);
+        return same ? card : { ...card, ...next };
+      });
+
+    case 'CREATE_TOKEN': {
+      const owner = getPlayer(state, action.playerId);
+      if (!owner) return state;
+      const count = Math.max(1, action.count ?? 1);
+      let next = state;
+      for (let index = 0; index < count; index++) {
+        // Deterministic id: `version` is monotonic and bumps once per applied
+        // action, so two clients replaying the same log derive the same ids.
+        const instanceId =
+          count === 1 && action.instanceId
+            ? action.instanceId
+            : `${action.playerId}-tk${state.version}-${index}`;
+        if (next.cards[instanceId]) continue;
+        next = addCard(
+          next,
+          {
+            instanceId,
+            cardId: `token:${action.token.name.toLowerCase().replace(/\s+/g, '-')}`,
+            name: action.token.name,
+            ownerId: action.playerId,
+            controllerId: action.playerId,
+            isToken: true,
+            tapped: !!action.tapped,
+            summoningSick: true,
+            typeLine: action.token.typeLine ?? `Token — ${action.token.name}`,
+            power: action.token.power,
+            toughness: action.token.toughness,
+            colorIdentity: action.token.colorIdentity,
+            keywords: action.token.keywords,
+            oracleText: action.token.oracleText ?? '',
+            imageUrl: action.token.imageUrl,
+          },
+          'battlefield'
+        );
+      }
+      return next;
+    }
+
+    case 'MARK_MANUAL_RESOLVED':
+      return patchCard(state, action.instanceId, card => {
+        const resolved = action.resolved !== false;
+        return card.manualResolved === resolved ? card : { ...card, manualResolved: resolved };
+      });
+
+    case 'NOTE':
+      // Changes nothing on purpose. A new object identity is what makes
+      // `applyAction` log it instead of treating it as a rejected no-op — this
+      // is the engine saying out loud that it did not resolve something.
+      return { ...state };
+
     default:
       return state;
   }
+}
+
+function printedNumber(value: string | undefined): number {
+  if (!value) return 0;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sameList(a: string[] | undefined, b: string[] | undefined): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function patchCommander(
@@ -1272,16 +1440,22 @@ export function resetGame(state: GameState): GameState {
 }
 
 /**
- * The reducer. Pure: same inputs, same output, no side effects, input untouched.
- * An invalid action returns the *same reference* back, so callers can cheaply
- * detect a rejected action with `next === prev`.
+ * How deep a chain of triggered actions may run before the engine stops.
+ *
+ * A trigger can create a token, whose arrival can trigger something else. Real
+ * Magic allows that to loop forever and calls it a draw; a playtest tool must
+ * not hang, so the chain is capped and anything past the cap is simply not
+ * applied. Four is deep enough for every trigger this module detects.
  */
-export function applyAction(state: GameState, action: GameAction): GameState {
+const MAX_TRIGGER_DEPTH = 4;
+
+function applyOne(state: GameState, action: GameAction, depth: number): GameState {
   const check = validateAction(state, action);
   if (!check.ok) return state;
 
   const at = action.at ?? state.updatedAt;
-  const message = describeAction(state, action);
+  const prefix = action.cause ? `${action.cause}: ` : '';
+  const message = `${prefix}${describeAction(state, action)}`;
 
   const reduced = reduce(state, action);
   // A reducer that changed nothing is a no-op: no log entry, no version bump.
@@ -1289,7 +1463,30 @@ export function applyAction(state: GameState, action: GameAction): GameState {
 
   let next = logAction(reduced, action, at, message);
   next = { ...next, version: state.version + 1, updatedAt: at };
-  return checkStateBasedActions(next, at);
+  next = checkStateBasedActions(next, at);
+
+  // Triggered abilities. `effects.ts` reads the before and after states and
+  // says what else should happen — including a NOTE when it has decided NOT to
+  // resolve something, because a card that silently does nothing is the bug
+  // this whole path exists to fix. Everything it returns is fed back through
+  // the same reducer, so a trigger is an ordinary logged, undoable action, and
+  // detection is pure so every client derives the identical chain.
+  if (depth < MAX_TRIGGER_DEPTH) {
+    for (const followUp of triggeredActionsFor(state, action, next, at)) {
+      next = applyOne(next, followUp, depth + 1);
+    }
+  }
+
+  return next;
+}
+
+/**
+ * The reducer. Pure: same inputs, same output, no side effects, input untouched.
+ * An invalid action returns the *same reference* back, so callers can cheaply
+ * detect a rejected action with `next === prev`.
+ */
+export function applyAction(state: GameState, action: GameAction): GameState {
+  return applyOne(state, action, 0);
 }
 
 /** Fold an action list. This is how a networked client replays a game log. */

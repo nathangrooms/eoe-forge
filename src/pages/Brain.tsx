@@ -14,6 +14,8 @@ import {
   Loader2,
   Copy,
   Check,
+  Scale,
+  Sparkles,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
@@ -21,9 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ColorIdentity } from '@/components/ui/mana-cost';
-import { PowerScoreBadge } from '@/components/deck/PowerScore';
-import { CommanderHero } from '@/components/deck/CommanderHero';
+import { ManaCost } from '@/components/ui/mana-cost';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
@@ -32,6 +32,12 @@ import { CardImage } from '@/components/cards';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import { AddCardPanel, type AddableCard } from '@/components/brain/AddCardPanel';
+import { CardContextPanel } from '@/components/brain/CardContextPanel';
+import {
+  BRAIN_CARD_COLUMNS,
+  ContextPicker,
+  type BrainCard,
+} from '@/components/brain/ContextPicker';
 import { DeckContextPanel, type BrainDeckCard } from '@/components/brain/DeckContextPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -139,6 +145,62 @@ const GENERAL_QUICK_ACTIONS = [
   },
 ];
 
+// Quick actions for when a single CARD is in focus
+const CARD_QUICK_ACTIONS = [
+  {
+    id: 'card-explain',
+    label: 'Explain this card',
+    description: 'What it does and why it matters',
+    icon: BookOpen,
+    prompt: 'Explain this card in plain terms: what it actually does, and when it is good.',
+  },
+  {
+    id: 'card-rules',
+    label: 'Rules interactions',
+    description: 'Timing, the stack, edge cases',
+    icon: Scale,
+    prompt:
+      'What are the rules interactions and common misplays with this card? Cover timing, the stack and any edge cases.',
+  },
+  {
+    id: 'card-synergies',
+    label: 'Best synergies',
+    description: 'Cards that want to be alongside it',
+    icon: Sparkles,
+    prompt: 'Which cards synergise best with this one, and what combos does it enable?',
+  },
+  {
+    id: 'card-commanders',
+    label: 'Where it belongs',
+    description: 'Commanders and archetypes',
+    icon: Crown,
+    prompt: 'Which commanders and Commander archetypes want this card, and why?',
+  },
+  {
+    id: 'card-alternatives',
+    label: 'Alternatives',
+    description: 'Cheaper and stronger options',
+    icon: Zap,
+    prompt:
+      'What cards do a similar job to this one? Give me both budget alternatives and straight upgrades.',
+  },
+  {
+    id: 'card-verdict',
+    label: 'Is it worth a slot?',
+    description: 'Honest evaluation',
+    icon: Target,
+    prompt:
+      'Is this card worth a slot in a typical Commander deck? Be honest about its weaknesses.',
+  },
+];
+
+const CARD_EXAMPLE_PROMPTS = [
+  'What is the best way to abuse this?',
+  'How do I answer it across the table?',
+  'Is there a strictly better card?',
+  'Which formats is it legal in?',
+];
+
 const GENERAL_EXAMPLE_PROMPTS = [
   "What's the best removal in black?",
   'Explain combat damage steps',
@@ -159,6 +221,11 @@ export default function Brain() {
   const [isLoading, setIsLoading] = useState(false);
   const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
+  /**
+   * The other thing the assistant can be pointed at. A deck and a card are two
+   * different questions, so exactly one of these is ever set.
+   */
+  const [selectedCard, setSelectedCard] = useState<BrainCard | null>(null);
   const [deckCards, setDeckCards] = useState<BrainDeckCard[]>([]);
   const [loadingDeckCards, setLoadingDeckCards] = useState(false);
   const [loadingDecks, setLoadingDecks] = useState(true); // Start true to prevent layout shift
@@ -180,6 +247,10 @@ export default function Brain() {
   };
 
   useEffect(() => {
+    /* Only once there is a thread to follow. The empty state is now tall enough
+       to overflow — a card's full art and oracle text, or a whole decklist — and
+       scrolling it on mount hid the heading that says what is attached. */
+    if (messages.length === 0) return;
     scrollToBottom();
   }, [messages]);
 
@@ -220,9 +291,7 @@ export default function Brain() {
       const { data: cardRows } = ids.length
         ? await supabase
             .from('cards')
-            .select(
-              'id, name, set_code, collector_number, type_line, mana_cost, cmc, colors, color_identity, rarity, layout, image_uris, faces, oracle_text, prices, power, toughness, keywords, legalities'
-            )
+            .select(BRAIN_CARD_COLUMNS)
             .in('id', ids)
         : { data: [] as any[] };
 
@@ -245,19 +314,28 @@ export default function Brain() {
     }
   };
 
-  const handleDeckChange = (deckId: string) => {
-    if (deckId === 'none') {
-      setSelectedDeck(null);
-      setDeckCards([]);
-      setMessages([]);
-      return;
-    }
-    const deck = availableDecks.find(d => d.id === deckId);
-    if (deck) {
-      setSelectedDeck(deck);
-      loadDeckCards(deck.id);
-      setMessages([]);
-    }
+  /* Changing what is attached clears the thread: the answers above it were
+     given about something else, and leaving them under a new context is the
+     one way this page could lie about what it read. */
+  const selectDeck = (deck: DeckSummary) => {
+    setSelectedCard(null);
+    setSelectedDeck(deck);
+    loadDeckCards(deck.id);
+    setMessages([]);
+  };
+
+  const selectCard = (card: BrainCard) => {
+    setSelectedDeck(null);
+    setDeckCards([]);
+    setSelectedCard(card);
+    setMessages([]);
+  };
+
+  const clearContext = () => {
+    setSelectedDeck(null);
+    setSelectedCard(null);
+    setDeckCards([]);
+    setMessages([]);
   };
 
   const handleClearConversation = () => {
@@ -269,6 +347,37 @@ export default function Brain() {
       loadDeckCards(selectedDeck.id);
     }
   }, [selectedDeck]);
+
+  /**
+   * The card in focus, written out as the facts the model should reason from.
+   *
+   * Every line is read off the `cards` row the picker selected — the same
+   * catalogue the rest of the app renders from — so the assistant is arguing
+   * about the printing on screen rather than its own recollection of the oracle
+   * text. It rides on the message because `mtg-brain` takes a deck context and
+   * a message, and nothing else; the user's own bubble stays as they typed it.
+   */
+  const cardBrief = (card: BrainCard): string => {
+    const lines: string[] = [
+      'CARD IN FOCUS — exact catalogue data for the card the user is asking about.',
+      'Treat these fields as authoritative and answer about this card specifically.',
+      `Name: ${card.name}`,
+    ];
+    if (card.mana_cost) lines.push(`Mana cost: ${card.mana_cost}`);
+    if (card.cmc !== null && card.cmc !== undefined) lines.push(`Mana value: ${card.cmc}`);
+    if (card.type_line) lines.push(`Type line: ${card.type_line}`);
+    if (card.power || card.toughness) lines.push(`Power/Toughness: ${card.power}/${card.toughness}`);
+    if (card.oracle_text) lines.push(`Oracle text: ${card.oracle_text}`);
+    if (Array.isArray(card.color_identity) && card.color_identity.length)
+      lines.push(`Colour identity: ${card.color_identity.join('')}`);
+    if (card.set_code)
+      lines.push(
+        `Printing: ${String(card.set_code).toUpperCase()} #${card.collector_number ?? '?'}${
+          card.rarity ? ` (${card.rarity})` : ''
+        }`
+      );
+    return lines.join('\n');
+  };
 
   const generateResponse = async (
     message: string
@@ -294,7 +403,9 @@ export default function Brain() {
 
       const response = await supabase.functions.invoke('mtg-brain', {
         body: {
-          message,
+          message: selectedCard ? `${message}
+
+${cardBrief(selectedCard)}` : message,
           deckContext: enrichedDeckContext,
           conversationHistory: messages.slice(-6),
           responseStyle: detailedResponses ? 'detailed' : 'concise',
@@ -386,7 +497,7 @@ export default function Brain() {
     }
   };
 
-  const handleQuickAction = (action: typeof DECK_QUICK_ACTIONS[0]) => {
+  const handleQuickAction = (action: { prompt: string }) => {
     handleSendMessage(action.prompt);
   };
 
@@ -403,12 +514,6 @@ export default function Brain() {
     }
   };
 
-  const getCommanderInfo = () => {
-    if (!selectedDeck) return null;
-    const commander = deckCards.find(c => c.is_commander);
-    return commander?.card_name;
-  };
-
   /** The commander's real `cards` row, for the strip above the composer. */
   const commanderCard = deckCards.find(c => c.is_commander)?.card ?? null;
 
@@ -416,6 +521,19 @@ export default function Brain() {
   const contextCardCount = deckCards
     .filter(c => !c.is_sideboard)
     .reduce((sum, c) => sum + (c.quantity ?? 1), 0);
+
+  /* One list of starters per kind of context — a card, a deck, or neither. */
+  const quickActions = selectedCard
+    ? CARD_QUICK_ACTIONS
+    : selectedDeck
+      ? DECK_QUICK_ACTIONS
+      : GENERAL_QUICK_ACTIONS;
+
+  const examplePrompts = selectedCard
+    ? CARD_EXAMPLE_PROMPTS
+    : selectedDeck
+      ? DECK_EXAMPLE_PROMPTS
+      : GENERAL_EXAMPLE_PROMPTS;
 
   const openAddDialog = (card: CardData) => {
     setAddCard(card as AddableCard);
@@ -425,123 +543,47 @@ export default function Brain() {
   return (
     <StandardPageLayout
       title="MTG Brain"
-      description="Rules, strategy and deck analysis, with any of your decks as context"
+      description="Rules, strategy and analysis. Attach one of your decks or any card, and every answer is about it."
     >
     {/* 13.5rem is the page chrome above and below this block — top bar, the
         StandardPageLayout header and its padding — so the chat fills the
         viewport exactly and the document itself never scrolls. */}
-    <div className="flex h-[calc(100vh-13.5rem)] min-h-[32rem] flex-col gap-4 overflow-hidden lg:flex-row">
+    <div className="flex h-[calc(100vh-13.5rem)] min-h-[34rem] w-full flex-col gap-3 overflow-hidden">
       {/*
-        Deck context rail.
+        The top line.
 
-        This was a 320px column holding four controls and then ~490px of nothing,
-        on a page about Magic cards that rendered no card images at all. The
-        `Select` is gone: a deck is identified by its commander, so the picker IS
-        the commander art. Every image here is the deck's real commander, read
-        through `compute_deck_summary` and drawn by the shared `CommanderHero`
-        (uncropped, `normal` resolution at this thumbnail size).
+        What used to be here was a 320px column down the left holding a deck
+        picker, two settings and a grid of commander art squeezed to 140px —
+        permanent furniture for a decision you make once, paid for out of the
+        conversation's width every second of the session. Owner: "left hand deck
+        context menu is awful - i told you to add a top line dropdown/search for
+        your deck or a specific card."
+
+        So: one line. One control that searches both your decks and the whole
+        card catalogue, the two settings beside it, and everything below is the
+        answer. `ContextPicker` still leads with card art, because a deck is
+        still identified by its commander — it just does it in a popover instead
+        of a permanent column.
       */}
-      <aside className="flex w-full shrink-0 flex-col overflow-hidden rounded-xl bg-card p-4 shadow-lg shadow-black/20 lg:h-full lg:w-80">
-        {/* Only the deck list scrolls; the two settings stay reachable. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
-        <div className="space-y-3">
-          <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Deck context
-          </h2>
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <ContextPicker
+          decks={availableDecks}
+          decksLoading={loadingDecks}
+          selectedDeck={selectedDeck}
+          selectedCard={selectedCard}
+          onSelectDeck={selectDeck}
+          onSelectCard={selectCard}
+          onClear={clearContext}
+          /* Below `lg` the picker owns the whole first row and the two settings
+             wrap under it. Sharing the row squeezed the trigger to about 200px,
+             which truncated the deck name — the one thing it exists to show. */
+          className="min-w-0 basis-full lg:max-w-[34rem] lg:flex-1 lg:basis-auto"
+        />
 
-          {selectedDeck ? (
-            <div className="space-y-3">
-              <CommanderHero
-                commander={(selectedDeck as any).commander}
-                deckName={selectedDeck.name}
-                format={selectedDeck.format}
-                identity={selectedDeck.identity ?? selectedDeck.colors ?? []}
-                cardCount={selectedDeck.counts?.total ?? 0}
-                size="md"
-              />
-              <div>
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {selectedDeck.name}
-                </p>
-                {getCommanderInfo() && (
-                  <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                    <Crown className="h-3 w-3 shrink-0 text-type-commander" aria-hidden="true" />
-                    {getCommanderInfo()}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                <span className="text-xs text-muted-foreground">
-                  {selectedDeck.counts?.total ?? 0} cards
-                </span>
-                {/* The same score object the tile and the deck page render. */}
-                <PowerScoreBadge power={selectedDeck.power} />
-              </div>
-
-              {selectedDeck.colors && selectedDeck.colors.length > 0 && (
-                <ColorIdentity colors={selectedDeck.colors} size="md" />
-              )}
-
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={() => handleDeckChange('none')}
-              >
-                Ask general questions instead
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {loadingDecks
-                ? 'Loading your decks…'
-                : availableDecks.length === 0
-                  ? 'You have no decks yet — general questions still work.'
-                  : 'Pick a deck and every answer is about that list. Or just ask.'}
-            </p>
-          )}
-        </div>
-
-        {availableDecks.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {selectedDeck ? 'Switch deck' : `Your decks (${availableDecks.length})`}
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {availableDecks
-                .filter(deck => deck.id !== selectedDeck?.id)
-                .map(deck => (
-                  <button
-                    key={deck.id}
-                    type="button"
-                    onClick={() => handleDeckChange(deck.id)}
-                    className="group rounded-lg p-1 text-left transition-colors hover:bg-accent"
-                    title={`Use ${deck.name} as context`}
-                  >
-                    <CommanderHero
-                      commander={(deck as any).commander}
-                      deckName={deck.name}
-                      format={deck.format}
-                      identity={deck.identity ?? deck.colors ?? []}
-                      cardCount={deck.counts?.total ?? 0}
-                      size="sm"
-                    />
-                    <span className="mt-1 block truncate text-[0.7rem] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-                      {deck.name}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-        </div>
-
-        {/* Chat settings — pinned, so they survive a long deck list. */}
-        <div className="shrink-0 space-y-3 pt-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="detailed-toggle" className="text-sm font-normal">
-              Detailed responses
+        <div className="ml-auto flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="detailed-toggle" className="whitespace-nowrap text-sm font-normal text-muted-foreground">
+              Detailed answers
             </Label>
             <Switch
               id="detailed-toggle"
@@ -551,9 +593,9 @@ export default function Brain() {
           </div>
 
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
-            className="w-full"
+            className="text-muted-foreground hover:text-foreground"
             onClick={handleClearConversation}
             disabled={messages.length === 0}
           >
@@ -561,29 +603,40 @@ export default function Brain() {
             Clear conversation
           </Button>
         </div>
-      </aside>
+      </div>
 
-      {/* Main chat area */}
+      {/* The conversation, now the whole width of the page. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card/40 shadow-lg shadow-black/20">
         <ScrollArea className="flex-1 p-4 lg:p-6">
-          {/* The conversation is centred, but the deck receipt below is not: it is
-              a wall of cards and wants the whole column. */}
-          <div className="mx-auto w-full max-w-5xl space-y-6">
+          {/* Prose stays readable rather than running to 1400px, but the deck
+              receipt and the card recommendations under it are walls of card
+              art and take the whole column. */}
+          <div className="mx-auto w-full max-w-6xl space-y-6">
             {messages.length === 0 ? (
               /* Empty state with quick actions */
               <div className="space-y-6 py-4">
                 <div className="space-y-3 text-center">
                   <h2 className="text-2xl font-semibold tracking-tight">
-                    {selectedDeck ? `Analysing ${selectedDeck.name}` : 'Ask anything about Magic'}
+                    {selectedCard
+                      ? `Reading ${selectedCard.name}`
+                      : selectedDeck
+                        ? `Analysing ${selectedDeck.name}`
+                        : 'Ask anything about Magic'}
                   </h2>
-                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                    {selectedDeck
-                      ? "Every question below is answered with this list attached — the cards it holds are shown, not asserted."
-                      : 'Rules, deck building, card recommendations and strategy. Select a deck for analysis of your own list.'}
+                  <p className="mx-auto max-w-xl text-sm text-muted-foreground">
+                    {selectedCard
+                      ? 'Every question below is answered about this exact printing — its oracle text, cost and type line are sent with the question, not recalled.'
+                      : selectedDeck
+                        ? 'Every question below is answered with this list attached — the cards it holds are shown, not asserted.'
+                        : 'Rules, deck building, card recommendations and strategy. Attach a deck or a card above to make every answer about it.'}
                   </p>
                 </div>
 
-                {/* The decklist that travels with the question. */}
+                {/* The context that travels with the question, whichever it is. */}
+                {selectedCard && (
+                  <CardContextPanel card={selectedCard} onCardClick={openCard} />
+                )}
+
                 {selectedDeck && (
                   <DeckContextPanel
                     deckName={selectedDeck.name}
@@ -594,8 +647,8 @@ export default function Brain() {
                 )}
 
                 {/* Quick actions */}
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                  {(selectedDeck ? DECK_QUICK_ACTIONS : GENERAL_QUICK_ACTIONS).map(action => (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                  {quickActions.map(action => (
                     <button
                       key={action.id}
                       onClick={() => handleQuickAction(action)}
@@ -612,7 +665,7 @@ export default function Brain() {
                 <div className="space-y-3">
                   <p className="text-center text-sm text-muted-foreground">Or try asking:</p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {(selectedDeck ? DECK_EXAMPLE_PROMPTS : GENERAL_EXAMPLE_PROMPTS).map(
+                    {examplePrompts.map(
                       (prompt, i) => (
                         <button
                           key={i}
@@ -763,7 +816,7 @@ export default function Brain() {
 
         {/* Input */}
         <div className="bg-muted/20 p-4">
-          <div className="mx-auto w-full max-w-5xl">
+          <div className="mx-auto w-full max-w-6xl">
             {/* Once the conversation has started the full receipt would push the
                 thread off screen, so it shrinks to the commander, the count and a
                 way back to the list. It never disappears: the context is always
@@ -808,13 +861,42 @@ export default function Brain() {
                 </Button>
               </div>
             )}
+
+            {/* Same promise for a card: the printing stays on screen for as long
+                as it is riding along with the questions. */}
+            {selectedCard && messages.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-card/70 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => openCard(selectedCard)}
+                  className="w-9 shrink-0"
+                  title={selectedCard.name}
+                >
+                  <CardImage card={selectedCard} size="xs" fill />
+                </button>
+                <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  Answering about{' '}
+                  <span className="font-medium text-foreground">{selectedCard.name}</span> — its
+                  oracle text and cost go with every question.
+                </p>
+                {selectedCard.mana_cost && (
+                  <ManaCost cost={selectedCard.mana_cost} size="sm" className="shrink-0" />
+                )}
+              </div>
+            )}
             <div className="relative">
               <Textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={selectedDeck ? 'Ask about your deck…' : 'Ask anything about Magic…'}
+                placeholder={
+                  selectedCard
+                    ? `Ask about ${selectedCard.name}…`
+                    : selectedDeck
+                      ? 'Ask about your deck…'
+                      : 'Ask anything about Magic…'
+                }
                 className="max-h-32 min-h-[52px] resize-none pr-12 text-base"
                 disabled={isLoading}
                 rows={1}

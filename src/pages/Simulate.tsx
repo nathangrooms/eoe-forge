@@ -1,11 +1,43 @@
+/**
+ * Playtest.
+ *
+ * Owner: *"Playtest - this seems completely broken from what we had before
+ * which was an auto game player? Playtest is supposed to play live infront of
+ * you verse bots and you should be able to select your opponents decks."*
+ *
+ * So the page is back to being a game you watch, and it is a **real** game:
+ * `src/lib/game`, the same rules engine `/play` runs, with two to four seats
+ * each holding a deck you chose and each played by the bot policy. Not the old
+ * `StepSimulator`, which was a second, private engine hardcoded to
+ * `player1`/`player2` — the thing the previous pass deleted for good reason.
+ * What that pass got wrong was replacing it with goldfishing, which has no
+ * opponent at all.
+ *
+ * Goldfishing survives as the second tab, because "does this list curve out"
+ * and "does this list beat anything" are different questions and the mulligan
+ * study is genuinely good. Live is the default, because that is what was asked
+ * for.
+ *
+ * Every deck is a real list: your saved decks by id, or a commander-legal deck
+ * seeded live from the card database for a seat you leave on random. Nothing is
+ * invented — a deck that fails to load says so rather than quietly becoming a
+ * demo list.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Fish, Loader2, Swords } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { GoldfishSetup, type GoldfishDeckOption } from '@/components/simulation/goldfish/GoldfishSetup';
 import { OpeningHand } from '@/components/simulation/goldfish/OpeningHand';
 import { GoldfishTable } from '@/components/simulation/goldfish/GoldfishTable';
+import { PlaytestSetup, type SeatDeckId } from '@/components/simulation/PlaytestSetup';
+import { PlaytestTable } from '@/components/simulation/PlaytestTable';
+import { useAutoGame } from '@/components/simulation/useAutoGame';
+import { resolveDeckDetailed, toGameFormat, type DeckSummary } from '@/lib/play/deckSource';
+import { buildTable, type BuiltTable, type PlayDeck, type PlayerId } from '@/lib/game';
 import {
   autoPlay,
   buildDeckList,
@@ -23,23 +55,7 @@ import {
   type OpeningStats,
 } from '@/lib/goldfish/engine';
 
-/**
- * Playtest — solo goldfishing.
- *
- * This page used to run `StepSimulator`: two of your decks played each other
- * automatically, hardcoded to `player1`/`player2`, on a board that drew 80px
- * cards. That duplicated the real multiplayer engine in `src/lib/game` that
- * `/play` owns, and it answered a question nobody asks — "which of my two decks
- * would an approximate AI win with".
- *
- * It is now scoped to the thing a playtest tab is for and that nothing else in
- * the product does: **goldfishing one list.** Draw a real opening hand at a size
- * where the mulligan is a decision, keep or throw it back under the London rule,
- * then walk the deck forward turn by turn and watch whether it actually curves
- * out. Every card is the real card from your list; every number is counted.
- */
-
-/** How many opening hands to simulate for the distribution readout. */
+/** How many opening hands to simulate for the goldfish distribution readout. */
 const OPENING_TRIALS = 4000;
 
 /** Which card stands in for a deck with no commander — best legend, then any creature. */
@@ -63,18 +79,54 @@ function usdPrice(prices: unknown): number {
 const CARD_COLUMNS =
   'id, name, set_code, collector_number, type_line, oracle_text, mana_cost, cmc, colors, color_identity, power, toughness, rarity, layout, image_uris, faces, prices, is_legendary';
 
-type Stage = 'setup' | 'mulligan' | 'playing';
+type Tab = 'live' | 'goldfish';
+type GoldfishStage = 'setup' | 'mulligan' | 'playing';
+
+/** A short, table-friendly name for a seat: its commander, not "Player 2". */
+function seatNameFor(deck: PlayDeck, index: number): string {
+  const commander = deck.commanders[0];
+  const source = commander?.name ?? deck.name;
+  const short = source.split(/[,—-]/)[0].trim();
+  if (short.length === 0) return index === 0 ? 'You' : `Bot ${index}`;
+  return short;
+}
 
 export default function Simulate() {
-  const [decks, setDecks] = useState<GoldfishDeckOption[]>([]);
-  const [selectedId, setSelectedId] = useState('');
-  const [loadingDecks, setLoadingDecks] = useState(true);
-  const [starting, setStarting] = useState(false);
+  const [tab, setTab] = useState<Tab>('live');
 
-  const [stage, setStage] = useState<Stage>('setup');
+  const [decks, setDecks] = useState<GoldfishDeckOption[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState(true);
+
+  /* ---------------------------------------------------------------------- */
+  /* Live game                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  const [seats, setSeats] = useState<SeatDeckId[]>([null, null]);
+  const [armedSeat, setArmedSeat] = useState(0);
+  const [aggression, setAggression] = useState<'timid' | 'normal' | 'aggressive'>('normal');
+  const [table, setTable] = useState<BuiltTable | null>(null);
+  const [startingLive, setStartingLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [running, setRunning] = useState(true);
+  const [speedMs, setSpeedMs] = useState(450);
+
+  const { state, feed, halted, stepOnce, restart } = useAutoGame({
+    table,
+    aggression,
+    speedMs,
+    running,
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /* Goldfish                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  const [selectedId, setSelectedId] = useState('');
+  const [startingGoldfish, setStartingGoldfish] = useState(false);
+  const [stage, setStage] = useState<GoldfishStage>('setup');
   const [library, setLibrary] = useState<GoldfishCard[]>([]);
   const [commander, setCommander] = useState<GoldfishCard | null>(null);
-  const [state, setState] = useState<GoldfishState | null>(null);
+  const [goldfish, setGoldfish] = useState<GoldfishState | null>(null);
   const [stats, setStats] = useState<OpeningStats | null>(null);
 
   /* One RNG per mount. A goldfish should be reproducible within a session but
@@ -191,8 +243,12 @@ export default function Simulate() {
 
         if (cancelled) return;
         setDecks(options);
-        // Default to the first deck that actually holds cards.
-        setSelectedId((options.find(o => o.cardCount > 0) ?? options[0])?.id ?? '');
+
+        const firstPlayable = options.find(o => o.cardCount > 0) ?? options[0];
+        setSelectedId(firstPlayable?.id ?? '');
+        // Your seat opens on a deck of yours; the opponent stays on random, so
+        // one click starts a real game.
+        if (firstPlayable) setSeats([firstPlayable.id, null]);
       } catch (error) {
         console.error('Error loading decks:', error);
         if (!cancelled) toast.error('Failed to load decks');
@@ -209,9 +265,91 @@ export default function Simulate() {
 
   const selectedDeck = decks.find(d => d.id === selectedId) ?? null;
 
-  const start = useCallback(async () => {
+  /* ---------------------------------------------------------------------- */
+  /* Dealing the live table                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const summaryFor = useCallback(
+    (deckId: SeatDeckId): DeckSummary | null => {
+      if (!deckId) return null;
+      const deck = decks.find(d => d.id === deckId);
+      if (!deck) return null;
+      return {
+        id: deck.id,
+        name: deck.name,
+        format: toGameFormat(deck.format),
+        colors: deck.colors,
+        cardCount: deck.cardCount,
+      };
+    },
+    [decks]
+  );
+
+  const startLive = useCallback(async () => {
+    setStartingLive(true);
+    setLiveError(null);
+
+    try {
+      const seed = Math.floor(Math.random() * 100000) + 1;
+      const resolved: PlayDeck[] = [];
+      const notices: string[] = [];
+
+      for (let index = 0; index < seats.length; index++) {
+        const outcome = await resolveDeckDetailed(summaryFor(seats[index]), {
+          seed: seed + index * 977,
+        });
+        if (outcome.notice) notices.push(`Seat ${index + 1}: ${outcome.notice}`);
+        resolved.push(outcome.deck);
+      }
+
+      const built = buildTable({
+        id: `playtest-${seed}-${Date.now()}`,
+        seed,
+        now: Date.now(),
+        format: resolved[0].format,
+        seats: resolved.map((deck, index) => ({
+          deck,
+          playerName: seatNameFor(deck, index),
+          playerId: `p${index + 1}` as PlayerId,
+          // Every seat, the first included: this is a game you watch.
+          isBot: true,
+        })),
+      });
+
+      setTable(built);
+      setRunning(true);
+      for (const notice of notices) toast.warning(notice, { duration: 9000 });
+    } catch (error) {
+      console.error('[playtest] could not deal the table', error);
+      setLiveError(
+        error instanceof Error ? error.message : 'Could not deal the table. Try again.'
+      );
+    } finally {
+      setStartingLive(false);
+    }
+  }, [seats, summaryFor]);
+
+  const addSeat = useCallback(() => {
+    setSeats(current => (current.length >= 4 ? current : [...current, null]));
+    setArmedSeat(current => current);
+  }, []);
+
+  const removeSeat = useCallback((index: number) => {
+    setSeats(current => (current.length <= 2 ? current : current.filter((_, i) => i !== index)));
+    setArmedSeat(current => (current >= index && current > 0 ? current - 1 : current));
+  }, []);
+
+  const setSeatDeck = useCallback((index: number, deckId: SeatDeckId) => {
+    setSeats(current => current.map((seat, i) => (i === index ? deckId : seat)));
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Goldfish actions                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  const startGoldfish = useCallback(async () => {
     if (!selectedId) return;
-    setStarting(true);
+    setStartingGoldfish(true);
     try {
       const { data: entries, error } = await supabase
         .from('deck_cards')
@@ -252,33 +390,33 @@ export default function Simulate() {
       setLibrary(builtLibrary);
       setCommander(builtCommander);
       setStats(simulateOpeningHands(builtLibrary, OPENING_TRIALS, rng));
-      setState(drawOpening(newGame(builtLibrary, builtCommander, rng), 0, rng));
+      setGoldfish(drawOpening(newGame(builtLibrary, builtCommander, rng), 0, rng));
       setStage('mulligan');
     } catch (error) {
       console.error('Error starting goldfish:', error);
       toast.error('Failed to load that deck');
     } finally {
-      setStarting(false);
+      setStartingGoldfish(false);
     }
   }, [selectedId, rng]);
 
   const mulligan = useCallback(() => {
-    setState(prev => (prev ? drawOpening(prev, prev.mulligans + 1, rng) : prev));
+    setGoldfish(prev => (prev ? drawOpening(prev, prev.mulligans + 1, rng) : prev));
   }, [rng]);
 
   const keep = useCallback((bottomUids: string[]) => {
-    setState(prev => (prev ? nextTurn(keepHand(prev, bottomUids)) : prev));
+    setGoldfish(prev => (prev ? nextTurn(keepHand(prev, bottomUids)) : prev));
     setStage('playing');
   }, []);
 
-  const restart = useCallback(() => {
-    setState(drawOpening(newGame(library, commander, rng), 0, rng));
+  const restartGoldfish = useCallback(() => {
+    setGoldfish(drawOpening(newGame(library, commander, rng), 0, rng));
     setStage('mulligan');
   }, [library, commander, rng]);
 
-  const backToSetup = useCallback(() => {
+  const backToGoldfishSetup = useCallback(() => {
     setStage('setup');
-    setState(null);
+    setGoldfish(null);
     setStats(null);
     setLibrary([]);
     setCommander(null);
@@ -286,9 +424,38 @@ export default function Simulate() {
 
   const shape = useMemo(() => deckShape(library, commander), [library, commander]);
 
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  // A running game takes the viewport, exactly as /play and /life do. Setup
+  // stays inside the app shell — owner: "should be within our normal frame/nav
+  // etc until you press start".
+  if (tab === 'live' && table && state) {
+    return (
+      <PlaytestTable
+        state={state}
+        viewerPlayerId={state.players[0]?.id ?? 'p1'}
+        botPlayerIds={table.botPlayerIds}
+        feed={feed}
+        halted={halted}
+        running={running}
+        onRunning={setRunning}
+        speedMs={speedMs}
+        onSpeedMs={setSpeedMs}
+        onStep={stepOnce}
+        onRestart={restart}
+        onLeave={() => {
+          setTable(null);
+          setRunning(true);
+        }}
+      />
+    );
+  }
+
   if (loadingDecks) {
     return (
-      <StandardPageLayout title="Playtest" description="Goldfish a deck — real hand, real mulligans">
+      <StandardPageLayout title="Playtest" description="Watch your decks play a real game">
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden="true" />
         </div>
@@ -296,18 +463,74 @@ export default function Simulate() {
     );
   }
 
-  if (stage === 'setup' || !state) {
+  const tabs: Array<{ id: Tab; label: string; icon: typeof Swords }> = [
+    { id: 'live', label: 'Live game', icon: Swords },
+    { id: 'goldfish', label: 'Goldfish', icon: Fish },
+  ];
+
+  const tabStrip = (
+    <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
+      {tabs.map(entry => {
+        const Icon = entry.icon;
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            onClick={() => setTab(entry.id)}
+            aria-pressed={tab === entry.id}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              tab === entry.id
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (tab === 'live') {
+    return (
+      <StandardPageLayout
+        title="Playtest"
+        description="Two to four real decks, played live by the bot on the same rules engine as /play"
+        action={tabStrip}
+      >
+        <PlaytestSetup
+          decks={decks}
+          seats={seats}
+          armedSeat={armedSeat}
+          onArmSeat={setArmedSeat}
+          onSeatDeck={setSeatDeck}
+          onAddSeat={addSeat}
+          onRemoveSeat={removeSeat}
+          aggression={aggression}
+          onAggression={setAggression}
+          onStart={startLive}
+          starting={startingLive}
+          error={liveError}
+        />
+      </StandardPageLayout>
+    );
+  }
+
+  if (stage === 'setup' || !goldfish) {
     return (
       <StandardPageLayout
         title="Playtest"
         description="Goldfish one of your decks solo — draw a real opening hand, mulligan, and see whether it curves out"
+        action={tabStrip}
       >
         <GoldfishSetup
           decks={decks}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          onStart={start}
-          starting={starting}
+          onStart={startGoldfish}
+          starting={startingGoldfish}
         />
       </StandardPageLayout>
     );
@@ -324,7 +547,7 @@ export default function Simulate() {
       action={
         <button
           type="button"
-          onClick={backToSetup}
+          onClick={backToGoldfishSetup}
           className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Choose another deck
@@ -333,25 +556,25 @@ export default function Simulate() {
     >
       {stage === 'mulligan' && stats ? (
         <OpeningHand
-          key={`${state.mulligans}-${state.hand.map(c => c.uid).join('')}`}
-          hand={state.hand}
-          mulligans={state.mulligans}
-          toBottom={state.mulligans}
+          key={`${goldfish.mulligans}-${goldfish.hand.map(c => c.uid).join('')}`}
+          hand={goldfish.hand}
+          mulligans={goldfish.mulligans}
+          toBottom={goldfish.mulligans}
           stats={stats}
-          librarySize={state.library.length}
+          librarySize={goldfish.library.length}
           onMulligan={mulligan}
           onKeep={keep}
         />
       ) : (
         <GoldfishTable
-          state={state}
-          onNextTurn={() => setState(prev => (prev ? nextTurn(prev) : prev))}
-          onAutoPlay={() => setState(prev => (prev ? autoPlay(prev) : prev))}
-          onPlayLand={uid => setState(prev => (prev ? playLand(prev, uid) : prev))}
+          state={goldfish}
+          onNextTurn={() => setGoldfish(prev => (prev ? nextTurn(prev) : prev))}
+          onAutoPlay={() => setGoldfish(prev => (prev ? autoPlay(prev) : prev))}
+          onPlayLand={uid => setGoldfish(prev => (prev ? playLand(prev, uid) : prev))}
           onCast={(uid, fromCommandZone) =>
-            setState(prev => (prev ? castCard(prev, uid, fromCommandZone) : prev))
+            setGoldfish(prev => (prev ? castCard(prev, uid, fromCommandZone) : prev))
           }
-          onRestart={restart}
+          onRestart={restartGoldfish}
         />
       )}
     </StandardPageLayout>

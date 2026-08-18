@@ -12,17 +12,20 @@ import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * The build, as something worth watching.
+ * The build, as something worth watching — without watching ninety-nine cards.
  *
- * What was here before: a centred spinner, a nine-row checklist and a progress
- * bar, all inside a `max-w-2xl` column on a 1440px screen — a loading state that
- * told you nothing about the deck being built. This shows the actual deck
- * arriving: every card the builder picked, at full art, dropping into its
- * category as the remaining checks run.
+ * Two versions ago this was a centred spinner, a nine-row checklist and a
+ * progress bar in a `max-w-2xl` column: a loading state that said nothing about
+ * the deck being built. The fix showed the whole returned list arriving at full
+ * art, which said far too much — four screens of grid, ninety-nine eager
+ * images, and a pane that scrolled itself away from you. Owner: *"doesn't need
+ * to show so many cards."*
  *
- * The cards are the real returned list — nothing is invented to fill the wait.
- * Until the builder responds there is nothing to show but empty slots, and that
- * is exactly what it shows.
+ * So this shows the cards *as they land* — the last dozen, one row, in place —
+ * beside a live count of what has gone into each category. Same real data, same
+ * reveal, a twelfth of the images. Nothing is invented to fill the wait: until
+ * the builder responds there is nothing to show but empty slots, and that is
+ * exactly what it shows.
  */
 
 export interface BuildPhase {
@@ -44,8 +47,10 @@ export interface BuildStageProps {
 }
 
 /** Slots drawn while the builder is still thinking. */
-const PLACEHOLDER_SLOTS = 24;
+const PLACEHOLDER_SLOTS = 6;
 const CARD_WIDTH = 132;
+/** How many of the most recently placed cards stay on screen. */
+const RECENT_WINDOW = 12;
 /** Total reveal budget, spread across however many cards came back. */
 const REVEAL_MS = 3200;
 
@@ -71,7 +76,6 @@ export function BuildStage({
 
   const [revealed, setRevealed] = useState(0);
   const doneRef = useRef(false);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (ordered.length === 0) return;
@@ -95,37 +99,37 @@ export function BuildStage({
     }
   }, [revealed, ordered.length, onRevealComplete]);
 
-  /**
-   * The stage scrolls itself, not the page.
-   *
-   * Ninety-nine cards is four screens of grid. Letting the document grow that
-   * far means the counter, the phase rail and the newest cards are all off
-   * screen within a second of the build starting — you would be watching an
-   * empty header. The grid lives in its own pane that follows the reveal
-   * instead, so the cards land where you are already looking.
-   */
-  useEffect(() => {
-    const node = scrollRef.current;
-    if (!node || revealed === 0) return;
-    node.scrollTo({
-      top: node.scrollHeight,
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        ? 'auto'
-        : 'smooth',
-    });
-  }, [revealed]);
-
   const shown = ordered.slice(0, revealed);
+  /**
+   * The cards on screen: the tail of what has been placed, newest last.
+   *
+   * `windowStart` is kept because the React key has to be the card's position
+   * in the *deck*, not in this window. Keyed on the window index, every card
+   * changed key on every tick as the window slid, so each one remounted, its
+   * `<img>` reloaded, and the fade-in restarted — twelve cards that never
+   * finished appearing.
+   */
+  const windowStart = Math.max(0, shown.length - RECENT_WINDOW);
+  const recent = shown.slice(windowStart);
 
-  const groups = useMemo(() => {
-    const map = new Map<CardCategory, any[]>();
+  /** Copies placed per category, and the total each category will end at. */
+  const tally = useMemo(() => {
+    const placed = new Map<CardCategory, number>();
+    const target = new Map<CardCategory, number>();
+    for (const card of ordered) {
+      const cat = categorizeCard(card);
+      target.set(cat, (target.get(cat) ?? 0) + (card.quantity || 1));
+    }
     for (const card of shown) {
       const cat = categorizeCard(card);
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(card);
+      placed.set(cat, (placed.get(cat) ?? 0) + (card.quantity || 1));
     }
-    return CATEGORY_ORDER.filter(c => map.has(c)).map(c => ({ category: c, cards: map.get(c)! }));
-  }, [shown]);
+    return CATEGORY_ORDER.filter(c => (target.get(c) ?? 0) > 0).map(c => ({
+      category: c,
+      placed: placed.get(c) ?? 0,
+      total: target.get(c) ?? 0,
+    }));
+  }, [ordered, shown]);
 
   const copiesShown = shown.reduce((sum, c) => sum + (c.quantity || 1), 0);
   const copiesTotal = ordered.reduce((sum, c) => sum + (c.quantity || 1), 0);
@@ -136,6 +140,7 @@ export function BuildStage({
 
   const target = copiesTotal || 99;
   const placedPct = Math.min(100, (copiesShown / target) * 100);
+  const newest = recent.length > 0 ? recent[recent.length - 1] : null;
 
   return (
     <div className="space-y-4">
@@ -173,9 +178,7 @@ export function BuildStage({
             <p className="text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
               Value so far
             </p>
-            <p className="text-2xl font-bold tabular-nums">
-              ${valueShown.toFixed(0)}
-            </p>
+            <p className="text-2xl font-bold tabular-nums">${valueShown.toFixed(0)}</p>
           </div>
         </div>
 
@@ -228,65 +231,86 @@ export function BuildStage({
           </ol>
         </aside>
 
-        {/* The deck, appearing. */}
-        <div
-          ref={scrollRef}
-          className="space-y-6 overflow-y-auto pr-1 lg:max-h-[calc(100vh-17rem)]"
-        >
-          {groups.length === 0 ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Reading the card pool for {commander?.name}. Cards appear here as they
-                are chosen.
+        {/* The cards landing, and what has gone in so far. Fixed height: this
+            pane no longer grows to four screens and scrolls away from you. */}
+        <div className="min-w-0 space-y-4">
+          <section className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold">
+                {shown.length === 0 ? 'Reading the card pool' : 'Just placed'}
+              </h3>
+              <p className="min-w-0 truncate text-xs text-muted-foreground">
+                {newest
+                  ? newest.name
+                  : `Cards appear here as they are chosen for ${commander?.name ?? 'this deck'}.`}
               </p>
+            </div>
+
+            {shown.length === 0 ? (
               <CardGrid width={CARD_WIDTH}>
                 {Array.from({ length: PLACEHOLDER_SLOTS }, (_, i) => (
                   <div
                     key={i}
                     className="animate-pulse motion-reduce:animate-none"
-                    style={{ animationDelay: `${(i % 8) * 90}ms` }}
+                    style={{ animationDelay: `${(i % 6) * 90}ms` }}
                   >
                     <CardImageSkeleton width={CARD_WIDTH} fill />
                   </div>
                 ))}
               </CardGrid>
-            </div>
-          ) : (
-            groups.map(group => {
-              const style = CATEGORY_CONFIG[group.category];
-              const Icon = style.icon;
-              const copies = group.cards.reduce((s, c) => s + (c.quantity || 1), 0);
-              return (
-                <section key={group.category}>
-                  <h3 className="mb-2.5 flex items-center gap-2">
-                    <Icon className={cn('h-4 w-4', style.color)} />
-                    <span className="text-sm font-semibold">{style.label}</span>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
-                      {copies}
-                    </span>
-                  </h3>
-                  <CardGrid width={CARD_WIDTH}>
-                    {group.cards.map((card, i) => (
-                      <div
-                        key={`${card.id ?? card.name}-${i}`}
-                        className="relative animate-in fade-in-0 zoom-in-95 duration-300 motion-reduce:animate-none"
-                      >
-                        {/* Eager: these are being watched land, one every few
-                            frames, so a lazy loader would show empty frames. */}
-                        <CardImage card={card} width={CARD_WIDTH} fill hideFlip eager>
-                          {(card.quantity || 1) > 1 && (
-                            /* Sits on card art, so light-on-dark is correct. */
-                            <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums text-white">
-                              ×{card.quantity}
-                            </span>
-                          )}
-                        </CardImage>
+            ) : (
+              <CardGrid width={CARD_WIDTH}>
+                {recent.map((card, i) => (
+                  <div
+                    key={`${windowStart + i}-${card.id ?? card.name}`}
+                    className="relative animate-in fade-in-0 zoom-in-95 duration-300 motion-reduce:animate-none"
+                  >
+                    {/* Eager: these are being watched land, one every few
+                        frames, so a lazy loader would show empty frames. */}
+                    <CardImage card={card} width={CARD_WIDTH} fill hideFlip eager>
+                      {(card.quantity || 1) > 1 && (
+                        /* Sits on card art, so light-on-dark is correct. */
+                        <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[0.7rem] font-semibold tabular-nums text-white">
+                          ×{card.quantity}
+                        </span>
+                      )}
+                    </CardImage>
+                  </div>
+                ))}
+              </CardGrid>
+            )}
+          </section>
+
+          {/* Where the hundred cards are going. The counts are the whole deck;
+              only the last dozen faces are drawn. */}
+          {tally.length > 0 && (
+            <section className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+              <h3 className="mb-3 text-sm font-semibold">Deck so far</h3>
+              <ul className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                {tally.map(({ category, placed, total }) => {
+                  const style = CATEGORY_CONFIG[category];
+                  const Icon = style.icon;
+                  return (
+                    <li key={category} className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Icon className={cn('h-4 w-4 shrink-0', style.color)} />
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                          {style.label}
+                        </span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {placed}
+                          <span className="opacity-60"> / {total}</span>
+                        </span>
                       </div>
-                    ))}
-                  </CardGrid>
-                </section>
-              );
-            })
+                      <Progress
+                        value={total > 0 ? (placed / total) * 100 : 0}
+                        className="mt-1.5 h-1"
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Heart, Layers, Library, Plus, RefreshCw } from 'lucide-react';
+import { ExternalLink, Heart, Layers, Library, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Breadcrumb,
@@ -11,7 +11,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardCost } from '@/components/cards/CardCost';
 import { OracleText } from '@/components/cards/OracleText';
@@ -323,11 +322,6 @@ export default function CardDetailPage() {
 
   /* ---------------------------- Actions ---------------------------- */
 
-  const goBack = useCallback(() => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate('/cards');
-  }, [navigate]);
-
   const addToCollection = useCallback(async () => {
     if (!card) return;
     if (!user) {
@@ -460,18 +454,12 @@ export default function CardDetailPage() {
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-10 pt-2 md:px-6 md:pt-4">
+      {/* Owner: "card detail page has back buttons - but we have these in top
+          nav right side (no pages should include back/forward, always top
+          nav)". So this row is a breadcrumb and nothing else — the trail says
+          where you are, the header says how to leave. */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <HistoryNav />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={goBack}
-          className="gap-1.5 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <Breadcrumb className="ml-1 hidden sm:block">
+        <Breadcrumb className="hidden sm:block">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { StorageContainer, StorageItemWithCard, StoragePreviewCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
+import { ownedValueUSD } from '@/features/collection/value';
 import { ContainerObject, containerCapacity } from './ContainerObject';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
@@ -74,7 +75,10 @@ function previewFrom(items: StorageItemWithCard[], limit: number): StoragePrevie
       image_uris: item.card!.image_uris as StoragePreviewCard['image_uris'],
       qty: item.qty,
       foil: item.foil,
-      usd: toNumber(item.card?.prices?.usd),
+      // Through `ownedValueUSD` so a foil is priced at `usd_foil`, exactly as
+      // the overview ranks it — otherwise the binder on this page could order
+      // its pockets differently from the binder on the shelf.
+      usd: ownedValueUSD(item.card?.prices, item.foil ? 0 : 1, item.foil ? 1 : 0),
     }))
     .sort((a, b) => b.usd - a.usd || b.qty - a.qty || a.name.localeCompare(b.name))
     .slice(0, limit);

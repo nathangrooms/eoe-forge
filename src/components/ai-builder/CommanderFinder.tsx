@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -25,24 +23,29 @@ import {
 } from './commander-query';
 
 /**
- * The commander finder, as a right-hand slide-out.
+ * The commander finder, on the page.
  *
- * It used to be a bordered card wedged under the popular-commanders grid, and
- * it rendered its *own* five-across results grid inside itself — so the widest,
- * most visual thing on the page was trapped in a box about a third of the
- * screen. Design law item 3: a choice made without leaving the current context
- * is a right-hand panel. The filters live here; the commanders they find render
- * full width on the page behind it.
+ * It has lived in three places. First as a bordered card wedged under the
+ * popular-commanders grid, rendering its *own* five-across results grid inside
+ * itself — so the widest, most visual thing on the screen was trapped in a box
+ * a third of the width. Then as a right-hand slide-out, which fixed the width
+ * but hid the filters behind a button and left the first step of the flow
+ * looking like an undifferentiated wall of cards.
  *
- * Every filter from the original is here — six colour identities, twelve
- * playstyles, three mana-value bands, twenty-four creature types, the pairable
- * predicate and four sort orders. The query itself moved to
- * `./commander-query` so the page can run and paginate the search.
+ * The owner's verdict on that second move: *"worked better when commander
+ * finder was actually on the screen not a right menu."* So it is a rail beside
+ * the results now — visible without a click, on the one screen whose entire
+ * job is choosing a commander. Design law 3 reserves the slide-out for actions
+ * taken *without leaving the current context*; picking the commander is not an
+ * aside here, it is the step.
+ *
+ * Every filter is still here — six colour identities, twelve playstyles, three
+ * mana-value bands, twenty-four creature types, the pairable predicate and four
+ * sort orders. The query itself lives in `./commander-query`, so the page runs
+ * and paginates the search and the results render full width beside this.
  */
 
 export interface CommanderFinderProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   filters: CommanderFilters;
   onFiltersChange: (filters: CommanderFilters) => void;
   sortOrder: string;
@@ -53,6 +56,7 @@ export interface CommanderFinderProps {
   searching?: boolean;
   /** Result count from the last run, so the panel can report what it found. */
   resultCount?: number | null;
+  className?: string;
 }
 
 /** One filter block: a label and its controls, separated by space not a rule. */
@@ -111,8 +115,6 @@ function Chip({
 }
 
 export function CommanderFinder({
-  open,
-  onOpenChange,
   filters,
   onFiltersChange,
   sortOrder,
@@ -121,12 +123,12 @@ export function CommanderFinder({
   onClear,
   searching = false,
   resultCount = null,
+  className,
 }: CommanderFinderProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const active = countActiveFilters(filters);
 
-  const patch = (next: Partial<CommanderFilters>) =>
-    onFiltersChange({ ...filters, ...next });
+  const patch = (next: Partial<CommanderFilters>) => onFiltersChange({ ...filters, ...next });
 
   const toggleColor = (color: string) =>
     patch({
@@ -143,154 +145,147 @@ export function CommanderFinder({
     });
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 border-0 bg-card p-0 shadow-2xl shadow-black/50 sm:max-w-md"
+    <aside
+      className={cn(
+        'flex flex-col gap-3 rounded-xl bg-card p-3 shadow-lg shadow-black/20',
+        className
+      )}
+    >
+      <div className="flex items-center gap-2 px-1">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Commander finder
+        </h2>
+        {active > 0 && (
+          <Badge variant="secondary" className="tabular-nums">
+            {active}
+          </Badge>
+        )}
+      </div>
+
+      <Section
+        label="Colour identity"
+        hint="Commanders you could legally build inside these colours."
       >
-        {/* pr-12 clears the Sheet's own absolutely-placed close button. */}
-        <div className="flex items-center gap-2 py-3 pl-4 pr-12">
-          <SheetTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Commander finder
-          </SheetTitle>
-          {active > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              {active}
-            </Badge>
-          )}
+        <div className="flex flex-wrap gap-1.5">
+          {MANA_COLORS.map(({ color, name }) => (
+            <Chip
+              key={color}
+              active={filters.colors.includes(color)}
+              onClick={() => toggleColor(color)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <ManaPip symbol={color} size="xs" />
+              {name}
+            </Chip>
+          ))}
         </div>
+      </Section>
 
-        <ScrollArea className="flex-1">
-          <div className="space-y-3 px-4 pb-6">
-            <Section
-              label="Colour identity"
-              hint="Commanders you could legally build inside these colours."
+      <Section label="Playstyle" hint="Matched against the commander's own rules text.">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
+          {PLAYSTYLES.map(({ value, label, description }) => (
+            <Chip
+              key={value}
+              active={filters.playstyles.includes(value)}
+              onClick={() => togglePlaystyle(value)}
+              title={description}
+              className="text-center"
             >
-              <div className="flex flex-wrap gap-1.5">
-                {MANA_COLORS.map(({ color, name }) => (
-                  <Chip
-                    key={color}
-                    active={filters.colors.includes(color)}
-                    onClick={() => toggleColor(color)}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <ManaPip symbol={color} size="xs" />
-                    {name}
-                  </Chip>
-                ))}
-              </div>
-            </Section>
+              {label}
+            </Chip>
+          ))}
+        </div>
+      </Section>
 
-            <Section label="Playstyle" hint="Matched against the commander's own rules text.">
-              <div className="grid grid-cols-3 gap-1.5">
-                {PLAYSTYLES.map(({ value, label, description }) => (
-                  <Chip
-                    key={value}
-                    active={filters.playstyles.includes(value)}
-                    onClick={() => togglePlaystyle(value)}
-                    title={description}
-                    className="text-center"
-                  >
-                    {label}
-                  </Chip>
-                ))}
-              </div>
-            </Section>
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(v => !v)}
+        className="px-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {showAdvanced ? 'Hide advanced filters' : 'Show advanced filters'}
+      </button>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(v => !v)}
-              className="px-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {showAdvanced ? 'Hide advanced filters' : 'Show advanced filters'}
-            </button>
-
-            {showAdvanced && (
-              <>
-                <Section label="Commander mana value">
-                  <div className="flex flex-wrap gap-1.5">
-                    {CMC_RANGES.map(({ value, label, description }) => (
-                      <Chip
-                        key={value}
-                        active={filters.cmcRange === value}
-                        onClick={() =>
-                          patch({ cmcRange: filters.cmcRange === value ? null : value })
-                        }
-                        title={description}
-                      >
-                        {label}
-                      </Chip>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section label="Creature type">
-                  <div className="flex flex-wrap gap-1.5">
-                    {TRIBAL_TYPES.map(tribe => (
-                      <Chip
-                        key={tribe}
-                        active={filters.tribal === tribe}
-                        onClick={() => patch({ tribal: filters.tribal === tribe ? null : tribe })}
-                      >
-                        {tribe}
-                      </Chip>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section
-                  label="Pairings"
-                  hint="Partner, Friends forever, Doctor's companion and Backgrounds."
+      {showAdvanced && (
+        <>
+          <Section label="Commander mana value">
+            <div className="flex flex-wrap gap-1.5">
+              {CMC_RANGES.map(({ value, label, description }) => (
+                <Chip
+                  key={value}
+                  active={filters.cmcRange === value}
+                  onClick={() => patch({ cmcRange: filters.cmcRange === value ? null : value })}
+                  title={description}
                 >
-                  <Chip
-                    active={filters.pairable}
-                    onClick={() => patch({ pairable: !filters.pairable })}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    Pairable commanders only
-                  </Chip>
-                </Section>
-              </>
-            )}
+                  {label}
+                </Chip>
+              ))}
+            </div>
+          </Section>
 
-            <Section label="Sort">
-              <Select value={sortOrder} onValueChange={onSortOrderChange}>
-                <SelectTrigger id="commander-sort" className="h-9 border-0 bg-background/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Section>
+          <Section label="Creature type">
+            <div className="flex flex-wrap gap-1.5">
+              {TRIBAL_TYPES.map(tribe => (
+                <Chip
+                  key={tribe}
+                  active={filters.tribal === tribe}
+                  onClick={() => patch({ tribal: filters.tribal === tribe ? null : tribe })}
+                >
+                  {tribe}
+                </Chip>
+              ))}
+            </div>
+          </Section>
 
-            {resultCount !== null && (
-              <p className="px-1 text-xs text-muted-foreground">
-                Last search matched {resultCount.toLocaleString()} commander
-                {resultCount === 1 ? '' : 's'}.
-              </p>
-            )}
-          </div>
-        </ScrollArea>
+          <Section
+            label="Pairings"
+            hint="Partner, Friends forever, Doctor's companion and Backgrounds."
+          >
+            <Chip
+              active={filters.pairable}
+              onClick={() => patch({ pairable: !filters.pairable })}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Pairable commanders only
+            </Chip>
+          </Section>
+        </>
+      )}
 
-        <div className="flex items-center gap-2 bg-muted/40 p-3">
-          <Button onClick={onSearch} disabled={searching} className="flex-1">
-            <Search className="mr-2 h-4 w-4" />
-            {searching ? 'Searching…' : 'Find commanders'}
+      <Section label="Sort">
+        <Select value={sortOrder} onValueChange={onSortOrderChange}>
+          <SelectTrigger id="commander-sort" className="h-9 border-0 bg-background/60">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Section>
+
+      {resultCount !== null && (
+        <p className="px-1 text-xs text-muted-foreground">
+          Last search matched {resultCount.toLocaleString()} commander
+          {resultCount === 1 ? '' : 's'}.
+        </p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button onClick={onSearch} disabled={searching} className="flex-1">
+          <Search className="mr-2 h-4 w-4" />
+          {searching ? 'Searching…' : 'Find commanders'}
+        </Button>
+        {active > 0 && (
+          <Button variant="ghost" onClick={onClear}>
+            Clear
           </Button>
-          {active > 0 && (
-            <Button variant="ghost" onClick={onClear}>
-              Clear
-            </Button>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        )}
+      </div>
+    </aside>
   );
 }
 

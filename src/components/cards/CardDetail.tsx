@@ -32,10 +32,10 @@ import { ExternalLink, Heart, Plus, RefreshCw } from 'lucide-react';
  * The card-detail surface, with no container of its own.
  *
  * This used to be the body of a `<Dialog>` — the most-opened overlay in the
- * product. It is now a plain region so the two things a player actually does
- * with a card both work: read it on a page with a URL (`/cards/:id`), or read
- * it beside the list they are working through (`CardDetailPane`). Nothing here
- * dims the page or traps focus, and nothing here owns its own open state.
+ * product. It is now a plain region, and where a player reads a card is one
+ * place: the routed page at `/cards/:id`, which every card click in the app
+ * leads to. Nothing here dims the page or traps focus, and nothing here owns
+ * its own open state.
  */
 
 export interface CardDetailProps {

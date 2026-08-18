@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
+import { CARD_RATIO } from './Battlefield';
 import { powerOf, toughnessOf, statLine, isLand, isCreature } from '@/lib/game';
 import type { CardInstance } from '@/lib/game';
 
@@ -160,9 +161,13 @@ export const GameCardView = memo(function GameCardView({
   const interactive = !!onClick;
 
   /* The tap chip scales with the card so it is the same *proportion* of a
-     permanent at every board size, and never smaller than a thumb target. */
-  const chip = Math.max(20, Math.round(renderedWidth * 0.24));
+     permanent at every board size — never smaller than a thumb target, and
+     never so large on a full-size card that it stops being a control on the
+     art and starts being a badge over it. */
+  const chip = Math.min(34, Math.max(20, Math.round(renderedWidth * 0.24)));
   const TapIcon = card.tapped ? RotateCcw : RotateCw;
+
+  const cardHeight = renderedWidth / CARD_RATIO;
 
   const handleTap = (event: MouseEvent) => {
     event.preventDefault();
@@ -289,12 +294,25 @@ export const GameCardView = memo(function GameCardView({
       {/*
         Tap, on the card.
 
-        Owner: *"tapping should be easy on card."* Top-left because that is the
-        one corner a neighbouring card never covers — permanents in a row slide
-        leftward under the card after them, so the right edge is the edge that
-        disappears. Always drawn rather than revealed on hover: there is no
-        hover on a tablet, and a control you have to discover is a control the
-        owner will report as missing.
+        Owner: *"tapping should be easy on card."*
+
+        Halfway down the left edge, which is the only place on a permanent that
+        survives everything the board does to it:
+
+          - the LEFT edge is never hidden by a neighbour, because permanents in
+            a row slide leftward under the card after them;
+          - the MIDDLE is never hidden by the viewer's own hand, which laps over
+            the foot of the near mats — and the mana row is exactly the row a
+            player taps most;
+          - a card turns about its centre, so this one offset is correct tapped
+            and untapped alike;
+          - and it covers art rather than the name along the top or the power
+            and toughness at the bottom right. The top-left corner was tried
+            first and ate the first two letters of every creature's name.
+
+        Always drawn rather than revealed on hover: there is no hover on a
+        tablet, and a control you have to discover is a control the owner will
+        report as missing.
       */}
       {onTap && (
         <button
@@ -305,13 +323,18 @@ export const GameCardView = memo(function GameCardView({
           aria-label={card.tapped ? `Untap ${card.name}` : `Tap ${card.name}`}
           aria-pressed={card.tapped}
           className={cn(
-            'absolute -left-1 -top-1 z-20 flex items-center justify-center rounded-full shadow-md shadow-black/60 backdrop-blur-sm transition-colors',
+            'absolute z-20 flex items-center justify-center rounded-full shadow-md shadow-black/60 backdrop-blur-sm transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             card.tapped
               ? 'bg-foreground text-background hover:bg-foreground/85'
               : 'bg-background/80 text-foreground hover:bg-foreground hover:text-background'
           )}
-          style={{ width: chip, height: chip }}
+          style={{
+            left: -Math.round(chip * 0.32),
+            top: Math.round((cardHeight - chip) / 2),
+            width: chip,
+            height: chip,
+          }}
         >
           <TapIcon style={{ width: chip * 0.52, height: chip * 0.52 }} strokeWidth={2.5} />
         </button>

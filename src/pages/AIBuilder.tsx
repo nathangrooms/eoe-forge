@@ -8,7 +8,6 @@ import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckLi
 import { CommanderStage, type CommanderSource } from '@/components/ai-builder/CommanderStage';
 import { ConfigureStage, type BuildConfig } from '@/components/ai-builder/ConfigureStage';
 import { BuildStage, type BuildPhase } from '@/components/ai-builder/BuildStage';
-import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
 import {
   EMPTY_COMMANDER_FILTERS,
@@ -94,7 +93,6 @@ export default function AIBuilder() {
 
   const [commander, setCommander] = useState<any>(null);
   const [commanderSearch, setCommanderSearch] = useState('');
-  const [finderOpen, setFinderOpen] = useState(false);
   const [filters, setFilters] = useState<CommanderFilters>(EMPTY_COMMANDER_FILTERS);
   const [sortOrder, setSortOrder] = useState('edhrec');
   const [finderActive, setFinderActive] = useState(false);
@@ -133,7 +131,6 @@ export default function AIBuilder() {
   const runFinderSearch = () => {
     setCommanderSearch('');
     setFinderActive(true);
-    setFinderOpen(false);
     finder.run(commanderSearchUrl(buildCommanderQuery(filters), sortOrder));
   };
 
@@ -869,8 +866,13 @@ export default function AIBuilder() {
               searchValue={commanderSearch}
               onSearchChange={setCommanderSearch}
               filters={filters}
-              onOpenFinder={() => setFinderOpen(true)}
+              onFiltersChange={setFilters}
+              sortOrder={sortOrder}
+              onSortOrderChange={setSortOrder}
+              onRunFinder={runFinderSearch}
               onClearFinder={clearFinder}
+              finderSearching={finder.loading}
+              finderResultCount={finderActive ? finder.total : null}
               onSelect={selectCommander}
               analyzing={analyzingCommander}
               analyzingCard={pendingCommander ?? commander}
@@ -991,19 +993,6 @@ export default function AIBuilder() {
         )}
       </AnimatePresence>
 
-      {/* Filters are a right-hand panel; their results render on the page. */}
-      <CommanderFinder
-        open={finderOpen}
-        onOpenChange={setFinderOpen}
-        filters={filters}
-        onFiltersChange={setFilters}
-        sortOrder={sortOrder}
-        onSortOrderChange={setSortOrder}
-        onSearch={runFinderSearch}
-        onClear={clearFinder}
-        searching={finder.loading}
-        resultCount={finderActive ? finder.total : null}
-      />
     </StandardPageLayout>
   );
 }

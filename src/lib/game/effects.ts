@@ -28,6 +28,19 @@
  * and `triggeredActionsFor` emits a `NOTE` action for anything it declines, so
  * the game feed says it out loud as well.
  *
+ * ## Measured, so the UI can weight the marker properly
+ *
+ * Run over 12,000 real rows from our own `cards` table, `automationFor` returns:
+ * `manual` 11,205, `vanilla` 367, `partial` 196, `keywords` 148, `automated` 84.
+ * 2,094 triggers detected, 297 of them automated.
+ *
+ * That distribution is the point, not a disappointment: most Magic cards do have
+ * an ability this engine will not resolve. It does mean a UI must NOT paint all
+ * of them the same. `level` is there to be weighted — **`partial` is the loud
+ * one**, because a card that half-resolved is the one a player will assume was
+ * handled; `manual` should be a quiet dot; `vanilla` and `keywords` get nothing
+ * at all.
+ *
  * ## Reuse, not a second parser
  *
  * Classification comes from `@/lib/cards/tagger` — the same rules that produce
@@ -53,7 +66,13 @@ import type {
   PlayerId,
   TokenSpec,
 } from './types.ts';
-import { ENGINE_KEYWORDS, effectiveKeywords, keywordSupport, normalizeKeyword } from './keywords.ts';
+import {
+  ENGINE_KEYWORDS,
+  FLAGGABLE_KEYWORDS,
+  effectiveKeywords,
+  keywordSupport,
+  normalizeKeyword,
+} from './keywords.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Shape                                                                      */
@@ -86,6 +105,8 @@ export interface DetectedEffect {
   /** The fragment of oracle text this came from, for the log line. */
   text: string;
   token?: TokenSpec;
+  /** Token creation only: "create a tapped … token". */
+  tapped?: boolean;
 }
 
 export interface DetectedTrigger {
@@ -183,7 +204,7 @@ const NEEDS_A_HUMAN: readonly string[] = [
   'target',
   'choose',
   'chooses',
-  'you may',
+  'may',
   'search',
   'up to',
   'sacrifice',
@@ -199,10 +220,12 @@ const NEEDS_A_HUMAN: readonly string[] = [
   'that many',
   'that much',
   'divided',
-  'if you',
-  'if that',
-  'if an',
-  'if a ',
+  // Bare "if" catches every conditional templating at once — "if you control",
+  // "if it had a counter on it", "if that creature died this turn". Measured
+  // against the catalogue, an earlier list of specific "if you"/"if that"
+  // prefixes let Promising Duskmage's "if it had a +1/+1 counter on it, draw a
+  // card" fire on every death.
+  'if',
   'becomes',
   'transform',
   'shuffle',
@@ -210,19 +233,30 @@ const NEEDS_A_HUMAN: readonly string[] = [
   'reveal',
   'scry',
   'surveil',
-  'mill ',
-  'return ',
-  'untap ',
-  'tap ',
-  'get +',
-  'gets +',
+  'mill',
+  'return',
+  'untap',
+  'tap',
   'where x',
   'the top card',
   'put that card',
 ];
 
+/**
+ * One compiled regex with real word boundaries.
+ *
+ * Substring matching was wrong and quietly so: `'if '` is inside `'cliff '`,
+ * `'tap '` is inside nothing useful but `'mill '` sits inside `'windmill '`.
+ * A false positive here only costs the player two taps, but it costs them on
+ * cards that should have worked, which erodes trust in the ones that do.
+ */
+const NEEDS_A_HUMAN_RE = new RegExp(
+  `\\b(?:${NEEDS_A_HUMAN.join('|')})\\b|gets? \\+`,
+  'i'
+);
+
 function needsAHuman(clause: string): boolean {
-  return NEEDS_A_HUMAN.some(marker => clause.includes(marker));
+  return NEEDS_A_HUMAN_RE.test(clause);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -254,6 +288,26 @@ const COLOR_WORDS: Record<string, ManaColor> = {
   red: 'R',
   green: 'G',
 };
+
+/**
+ * Every keyword a token clause may name, longest first so "first strike" is
+ * never truncated to "first".
+ *
+ * Built on first use rather than at module scope. Reading another module's
+ * export while this one is still evaluating is an initialisation-order
+ * dependency, and Vite's dev graph resolved it as a temporal dead zone —
+ * `FLAGGABLE_KEYWORDS is not defined`, thrown at import time, taking every page
+ * that touches the game core down with it. Neither `tsc` nor the node test
+ * runner reproduced it; the browser did. Laziness removes the ordering question
+ * rather than relying on it.
+ */
+let keywordAlternation: string | null = null;
+function keywordAlternationPattern(): string {
+  if (keywordAlternation === null) {
+    keywordAlternation = [...FLAGGABLE_KEYWORDS].sort((a, b) => b.length - a.length).join('|');
+  }
+  return keywordAlternation;
+}
 
 const TOKEN_NOISE = new Set([
   'creature',
@@ -291,37 +345,40 @@ function titleCase(value: string): string {
  * is named wrong is fixable in two taps, and a token that never appeared is
  * the silent no-op we are trying to eliminate.
  */
-function parseTokenDescriptor(descriptor: string): TokenSpec {
+function parseTokenDescriptor(descriptor: string, keywordTail?: string): TokenSpec {
   const raw = descriptor.trim().replace(/\s+/g, ' ');
 
   const pt = /(\d+)\/(\d+)/.exec(raw);
-  const withClause = / with ([a-z ,]+)$/.exec(raw);
-  const keywords = withClause
-    ? withClause[1]
-        .split(/,| and /)
-        .map(k => normalizeKeyword(k))
-        .filter(Boolean)
-    : [];
+  const keywords = (keywordTail ?? '')
+    .split(/,| and /)
+    .map(keyword => normalizeKeyword(keyword))
+    .filter(Boolean);
 
   const colors: ManaColor[] = [];
   for (const [word, color] of Object.entries(COLOR_WORDS)) {
     if (new RegExp(`\\b${word}\\b`).test(raw) && !colors.includes(color)) colors.push(color);
   }
 
+  // `x/x` is stripped alongside a numeric printing, but leaves no power or
+  // toughness behind: a variable body is exactly what the hand-set stat
+  // controls are for, and guessing a number here would be a fabrication.
   const stripped = raw
-    .replace(/ with [a-z ,]+$/, '')
-    .replace(/\d+\/\d+/g, ' ')
+    .replace(/[\dx]+\/[\dx]+/g, ' ')
     .split(/\s+/)
     .filter(word => word && !TOKEN_NOISE.has(word));
 
   const name = stripped.length > 0 ? titleCase(stripped.join(' ')) : 'Token';
   const isCreatureToken = !!pt || /\bcreature\b/.test(raw);
   const isArtifactToken = /\bartifact\b/.test(raw);
+  const isLandToken = /\bland\b/.test(raw);
 
   const typeParts = ['Token'];
   if (isArtifactToken) typeParts.push('Artifact');
+  if (isLandToken) typeParts.push('Land');
   if (isCreatureToken) typeParts.push('Creature');
-  if (!isArtifactToken && !isCreatureToken) typeParts.push('Artifact');
+  // Treasure, Clue, Food and friends print no type word in the clause; every
+  // one of them is an artifact, so that is the safe default.
+  if (!isArtifactToken && !isLandToken && !isCreatureToken) typeParts.push('Artifact');
 
   return {
     name,
@@ -382,15 +439,26 @@ function readFragments(clause: string): FragmentMatch[] {
     push(match, amount === null ? null : { kind: 'draw', amount, text: match[0] });
   }
 
-  // "create a 1/1 white Soldier creature token"
-  for (const match of matchAll(clause, `create (${QUANTITY}) ([^.;,]*?) tokens?`)) {
+  // "create a 1/1 white Soldier creature token with flying"
+  //
+  // The trailing keyword list is captured with a strict alternation of real
+  // keywords rather than a loose `[a-z ,]+`, so "token with menace, then attach
+  // this Equipment to it" takes only "menace" and leaves the rest as residual —
+  // where a loose match would have swallowed an instruction the engine cannot
+  // carry out and reported the trigger as fully handled.
+  const keywordAlt = keywordAlternationPattern();
+  for (const match of matchAll(
+    clause,
+    `create (${QUANTITY}) ([^.;,]*?) tokens?(?: with (${keywordAlt}(?:(?:, | and )${keywordAlt})*))?`
+  )) {
     const amount = readQuantity(match[1]);
     if (amount === null) continue;
     push(match, {
       kind: 'create-token',
       amount,
       text: match[0],
-      token: parseTokenDescriptor(match[2]),
+      token: parseTokenDescriptor(match[2], match[3]),
+      tapped: /\btapped\b/.test(match[2]),
     });
   }
 
@@ -454,22 +522,40 @@ interface TriggerPattern {
   re: RegExp;
   /** Group index holding the effect clause. */
   clauseGroup: number;
-  /** Set when the same match also registers a second timing ("enters or attacks"). */
+  /**
+   * Group holding an "or attacks" / "or dies" tail, which registers the same
+   * clause under a second timing.
+   */
   alsoGroup?: number;
 }
 
+/**
+ * The trigger openers, deliberately allowing NO free text between the event and
+ * the comma.
+ *
+ * Measured against the real catalogue, an earlier `[^,\n]*` wildcard there made
+ * Eternal of Harsh Truths ("Whenever this creature attacks **and isn't
+ * blocked**, draw a card") fire on every attack, and Noggle Robber's "enters or
+ * dies" fire only on entry. A condition the engine cannot evaluate must stop
+ * the trigger being automated at all, so the opener is exact and anything with
+ * an extra clause simply is not recognised — which lands it in `manualNotes`,
+ * which is the right answer.
+ */
 const TRIGGER_PATTERNS: TriggerPattern[] = [
-  // "When ~ enters, ..." / "When this creature enters the battlefield, ..."
-  // "Whenever ~ enters or attacks, ..." registers as both etb and attack.
+  // "When ~ enters, …" / "When this creature enters the battlefield, …"
+  // "Whenever ~ enters or attacks, …" registers under both timings.
   {
     timing: 'etb',
-    re: new RegExp(`(?:^|\\n)\\s*(?:when|whenever) ${SELF} enters(?: the battlefield)?( or attacks)?[^,\\n]*,\\s*([^\\n]+)`, 'g'),
+    re: new RegExp(
+      `(?:^|\\n)\\s*(?:when|whenever) ${SELF} enters(?: the battlefield)?(?: (or attacks|or dies))?,\\s*([^\\n]+)`,
+      'g'
+    ),
     clauseGroup: 2,
     alsoGroup: 1,
   },
   {
     timing: 'attack',
-    re: new RegExp(`(?:^|\\n)\\s*whenever ${SELF} attacks[^,\\n]*,\\s*([^\\n]+)`, 'g'),
+    re: new RegExp(`(?:^|\\n)\\s*whenever ${SELF} attacks,\\s*([^\\n]+)`, 'g'),
     clauseGroup: 1,
   },
   {
@@ -524,9 +610,9 @@ export function detectTriggers(card: CardInstance | null | undefined): DetectedT
       const clause = match[pattern.clauseGroup];
       if (!clause) continue;
       out.push(buildTrigger(pattern.timing, clause));
-      if (pattern.alsoGroup && match[pattern.alsoGroup]) {
-        out.push(buildTrigger('attack', clause));
-      }
+      const tail = pattern.alsoGroup ? match[pattern.alsoGroup] : undefined;
+      if (tail === 'or attacks') out.push(buildTrigger('attack', clause));
+      if (tail === 'or dies') out.push(buildTrigger('death', clause));
       if (match.index === pattern.re.lastIndex) pattern.re.lastIndex += 1;
     }
   }
@@ -653,24 +739,34 @@ export function automationFor(card: CardInstance | null | undefined): CardAutoma
 
   const needsManual = manualNotes.length > 0 && !card.manualResolved;
 
-  const summary = (() => {
-    switch (level) {
-      case 'vanilla':
-        return 'No rules text.';
-      case 'keywords':
-        return `Keywords only — ${engineKeywords.join(', ')} enforced.`;
-      case 'automated':
-        return `${automatedCount} trigger${automatedCount === 1 ? '' : 's'} resolved automatically.`;
-      case 'partial':
-        return `${automatedCount} trigger${automatedCount === 1 ? '' : 's'} automatic, ${manualNotes.length} to resolve by hand.`;
-      case 'manual':
-        return `${manualNotes.length} abilit${manualNotes.length === 1 ? 'y' : 'ies'} to resolve by hand.`;
-      case 'unknown':
-        return 'Rules text not loaded — resolve by hand.';
-    }
-  })();
+  const summary = summaryFor(level, automatedCount, manualNotes.length, engineKeywords);
 
   return { level, triggers, engineKeywords, advisoryKeywords, manualNotes, needsManual, summary };
+}
+
+/** One line for a badge or tooltip. Never empty, never vague. */
+function summaryFor(
+  level: AutomationLevel,
+  automatedCount: number,
+  manualCount: number,
+  engineKeywords: readonly string[]
+): string {
+  switch (level) {
+    case 'vanilla':
+      return 'No rules text.';
+    case 'keywords':
+      return `Keywords only — ${engineKeywords.join(', ')} enforced.`;
+    case 'automated':
+      return `${automatedCount} trigger${automatedCount === 1 ? '' : 's'} resolved automatically.`;
+    case 'partial':
+      return `${automatedCount} trigger${automatedCount === 1 ? '' : 's'} automatic, ${manualCount} to resolve by hand.`;
+    case 'manual':
+      return `${manualCount} abilit${manualCount === 1 ? 'y' : 'ies'} to resolve by hand.`;
+    case 'unknown':
+      return 'Rules text not loaded — resolve by hand.';
+    default:
+      return 'Resolve by hand.';
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -746,6 +842,7 @@ export function actionsForTrigger(
             playerId: controller,
             token: effect.token,
             count: effect.amount,
+            tapped: effect.tapped,
             at,
             cause,
           });
@@ -777,6 +874,44 @@ export function manualNoteAction(
     message: `${card.name} ${context} — resolve by hand: ${first}${extra}`,
     at,
   };
+}
+
+/**
+ * The note for one trigger that fired in the game but not in the engine.
+ *
+ * Measured over the catalogue, 93% of cards carry *some* text this engine does
+ * not implement, so a log line for every permanent that arrives would bury the
+ * feed and train the player to ignore it. The line is therefore spent only
+ * where it buys something: a trigger that genuinely went off at this moment and
+ * that the engine declined, or half-resolved. The broader "this card has text
+ * we do not run" case is carried by the card's own marker
+ * (`automationFor().needsManual`), where it costs nothing to look at and
+ * nothing to ignore.
+ */
+function noteForDeclinedTrigger(
+  card: CardInstance,
+  trigger: DetectedTrigger,
+  at: number
+): GameAction | null {
+  if (card.manualResolved) return null;
+  const label = TRIGGER_LABELS[trigger.timing].toLowerCase();
+  if (!trigger.automated) {
+    return {
+      type: 'NOTE',
+      instanceId: card.instanceId,
+      message: `${card.name} triggered (${label}) — the engine does not resolve "${trigger.clause}". Do it by hand.`,
+      at,
+    };
+  }
+  if (trigger.residual) {
+    return {
+      type: 'NOTE',
+      instanceId: card.instanceId,
+      message: `${card.name} (${label}) partly resolved — still to do by hand: ${trigger.residual}.`,
+      at,
+    };
+  }
+  return null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -814,15 +949,14 @@ export function triggeredActionsFor(
   if (next.mode !== 'full' || next.status !== 'playing') return [];
   const out: GameAction[] = [];
 
-  const fire = (card: CardInstance | undefined, timings: TriggerTiming[], context: string) => {
+  const fire = (card: CardInstance | undefined, timings: TriggerTiming[]) => {
     if (!card) return;
-    const automation = automationFor(card);
-    for (const trigger of automation.triggers) {
+    for (const trigger of automationFor(card).triggers) {
       if (!timings.includes(trigger.timing)) continue;
       out.push(...actionsForTrigger(next, card, trigger, at));
+      const note = noteForDeclinedTrigger(card, trigger, at);
+      if (note) out.push(note);
     }
-    const note = manualNoteAction(card, at, context);
-    if (note) out.push(note);
   };
 
   switch (action.type) {
@@ -833,12 +967,12 @@ export function triggeredActionsFor(
       const after = battlefieldIdsOf(next);
       for (const id of after) {
         if (before.has(id)) continue;
-        fire(next.cards[id], ['etb'], 'enters');
+        fire(next.cards[id], ['etb']);
       }
       for (const id of before) {
         if (after.has(id)) continue;
         const card = next.cards[id];
-        if (card && card.zone === 'graveyard') fire(card, ['death'], 'dies');
+        if (card && card.zone === 'graveyard') fire(card, ['death']);
       }
       // A spell that resolved to the graveyard did nothing at all unless the
       // player does it. Say so rather than letting it look resolved.
@@ -861,7 +995,7 @@ export function triggeredActionsFor(
 
     case 'ATTACK': {
       for (const declaration of action.attackers) {
-        fire(next.cards[declaration.attackerId], ['attack'], 'attacks');
+        fire(next.cards[declaration.attackerId], ['attack']);
       }
       break;
     }
@@ -878,11 +1012,7 @@ export function triggeredActionsFor(
       for (const id of active.zones.battlefield) {
         const card = next.cards[id];
         if (!card || card.controllerId !== active.id) continue;
-        const automation = automationFor(card);
-        for (const trigger of automation.triggers) {
-          if (trigger.timing !== timing) continue;
-          out.push(...actionsForTrigger(next, card, trigger, at));
-        }
+        fire(card, [timing]);
       }
       break;
     }

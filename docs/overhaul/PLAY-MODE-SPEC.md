@@ -62,11 +62,23 @@ concept; `seating.ts` geometry stays for *placement*, but seats render upright.
 | Mode | Shows |
 |---|---|
 | **Table** | All four quadrants, everything upright |
-| **Hand** | Full-screen version of **your board only** — your mat, your battlefield, your hand at size |
+| **Hand** | **Exactly the table view, zoomed to your seat alone.** Same mat, same battlefield, same hand — the other three quadrants are simply not drawn. Your quadrant expands to fill the viewport. |
 | **View** | Focus a single opponent's board full-screen, read-only |
 
 > "Hand mode is the full screen version just your board."
 > "should be able to view other peoples boards in view mode"
+> "'hand' mode in the top side, is supposed to show exactly the same as table, but it only shows
+> your side so you can view both your cards, and whats on your table"
+
+**Hand mode is not a different screen — it is the same screen with one seat.** It renders the
+identical components the table renders (mat, battlefield, lands row, hand, life badge); it just
+scopes them to the viewer and lets that one quadrant use the whole viewport. Everything is
+therefore much larger, which is the point: you can read your hand AND see your own board at once.
+
+Do NOT build a separate hand-only component. Reuse the seat renderer with a single seat, so the
+two views can never drift apart.
+
+**View mode works the same way** for an opponent: their quadrant, full screen, read-only.
 
 ## Sizing — the hand is the biggest thing on screen
 

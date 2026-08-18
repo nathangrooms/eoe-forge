@@ -15,8 +15,8 @@
  * anyone sending one.
  */
 
-import { addCard, applyAction, createGame, type NewGamePlayerConfig } from './rules';
-import type { Format, GameAction, GameState, ManaColor, PlayerId, Zone } from './types';
+import { addCard, applyAction, createGame, type NewGamePlayerConfig } from './rules.ts';
+import type { Format, GameAction, GameState, ManaColor, PlayerId, Zone } from './types.ts';
 
 /** One card as the play system needs it — a flattened row, not a Scryfall blob. */
 export interface PlayCard {

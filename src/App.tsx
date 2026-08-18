@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
@@ -53,13 +53,20 @@ import LifeCounter from "./pages/LifeCounter";
 
 const queryClient = new QueryClient();
 
-/**
- * Routes that own the whole screen. They render outside the shell — no top bar,
- * no rail, no page padding — because the device is lying flat on a table being
- * read from four sides, and app chrome in that situation is just something to
- * mis-tap.
+/*
+ * There is no longer a list of routes that render outside the shell.
+ *
+ * `/life` used to be one: opening it replaced the whole application with a
+ * black screen, so *setting up* a game — choosing a pod size, typing names —
+ * happened with no top bar, no rail and no way back other than one small
+ * chevron. Owner: "life counter UI is terrible on desktop and goes full screen
+ * and is confusing - should be within our normal frame/nav etc until you press
+ * start."
+ *
+ * Immersion is now the running game's business, not the router's: `/life` is an
+ * ordinary page in the shell, and `LifeCounter` raises its own board over the
+ * chrome once Start is pressed. See `src/pages/LifeCounter.tsx`.
  */
-const IMMERSIVE_ROUTES = ["/life"];
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -81,7 +88,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -109,13 +115,6 @@ function AppContent() {
     );
   }
 
-  if (IMMERSIVE_ROUTES.includes(location.pathname)) {
-    return (
-      <Routes>
-        <Route path="/life" element={<ProtectedRoute><LifeCounter /></ProtectedRoute>} />
-      </Routes>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
@@ -176,6 +175,8 @@ function AppContent() {
             <Route path="/cards/:id" element={<ProtectedRoute><CardDetailPage /></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/play" element={<ProtectedRoute><Play /></ProtectedRoute>} />
+            {/* Setup renders here, in the frame. The running board covers it. */}
+            <Route path="/life" element={<ProtectedRoute><LifeCounter /></ProtectedRoute>} />
             <Route path="/simulate" element={<ProtectedRoute><Simulate /></ProtectedRoute>} />
             <Route path="/tournament" element={<ProtectedRoute><Tournament /></ProtectedRoute>} />
             <Route path="/tournament/new" element={<ProtectedRoute><TournamentNew /></ProtectedRoute>} />

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import { OracleText } from '@/components/cards/OracleText';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
 import { PowerScore } from '@/components/deck/PowerScore';
@@ -20,7 +20,6 @@ import {
   cardImage,
   computeDeckStats,
   fetchDeckCards,
-  toCardObject,
   type DeckCardRow,
 } from '@/lib/deck/deckCards';
 import { categorizeCard } from '@/lib/deck/cardCategories';
@@ -48,8 +47,10 @@ interface DeckRecord {
 export default function DeckInterface() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  /* Clicking a card in the decklist goes to the card page. It used to open a
+     detail pane docked to the right of the list; the owner wants the card. */
+  const openCard = useOpenCard();
 
   const [deck, setDeck] = useState<DeckRecord | null>(null);
   const [cards, setCards] = useState<DeckCardRow[]>([]);
@@ -106,13 +107,6 @@ export default function DeckInterface() {
 
   const stats = useMemo(() => computeDeckStats(cards), [cards]);
   const commander = useMemo(() => cards.find(c => c.is_commander) ?? null, [cards]);
-
-  const selectedCardId = searchParams.get('card');
-  const selectedCard = useMemo(() => {
-    if (!selectedCardId) return null;
-    const row = cards.find(c => c.card_id === selectedCardId);
-    return row ? toCardObject(row) : null;
-  }, [cards, selectedCardId]);
 
   const identity = useMemo(() => {
     if (commander?.card?.color_identity?.length) return commander.card.color_identity;
@@ -187,27 +181,6 @@ export default function DeckInterface() {
       showError('Failed to update favorites');
     }
   };
-
-  /* The open card lives in the URL rather than in component state, so browser
-     Back closes the detail pane and a deck link can carry a card with it. */
-  const openCard = (row: DeckCardRow) => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.set('card', row.card_id);
-      return next;
-    });
-  };
-
-  const closeCard = useCallback(() => {
-    setSearchParams(
-      prev => {
-        const next = new URLSearchParams(prev);
-        next.delete('card');
-        return next;
-      },
-      { replace: true }
-    );
-  }, [setSearchParams]);
 
   if (loading) {
     return (
@@ -380,57 +353,51 @@ export default function DeckInterface() {
         </div>
       )}
 
-      <CardDetailSplit
-        pane={
-          selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
-        }
-      >
-        <Tabs defaultValue="visual" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="visual">
-              <Eye className="mr-2 h-4 w-4" />
-              Visual
-            </TabsTrigger>
-            <TabsTrigger value="list">
-              <FileText className="mr-2 h-4 w-4" />
-              List
-            </TabsTrigger>
-            <TabsTrigger value="analysis">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Analysis
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="visual" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="visual">
+            <Eye className="mr-2 h-4 w-4" />
+            Visual
+          </TabsTrigger>
+          <TabsTrigger value="list">
+            <FileText className="mr-2 h-4 w-4" />
+            List
+          </TabsTrigger>
+          <TabsTrigger value="analysis">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Analysis
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="visual" className="mt-4">
-            <DeckCardGrid rows={cards} onCardClick={openCard} collapsedByDefault={['lands']} />
-          </TabsContent>
+        <TabsContent value="visual" className="mt-4">
+          <DeckCardGrid rows={cards} onCardClick={openCard} collapsedByDefault={['lands']} />
+        </TabsContent>
 
-          <TabsContent value="list" className="mt-4">
+        <TabsContent value="list" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              <DeckCardTable rows={cards} onCardClick={openCard} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analysis" className="mt-4">
+          {analyticsDeck.length > 0 ? (
+            <ComprehensiveAnalytics
+              deck={analyticsDeck}
+              format={deck.format}
+              commander={analyticsCommander}
+              deckId={deck.id}
+            />
+          ) : (
             <Card>
-              <CardContent className="p-0">
-                <DeckCardTable rows={cards} onCardClick={openCard} />
+              <CardContent className="p-10 text-center text-muted-foreground">
+                Add cards to this deck to see its analysis.
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="analysis" className="mt-4">
-            {analyticsDeck.length > 0 ? (
-              <ComprehensiveAnalytics
-                deck={analyticsDeck}
-                format={deck.format}
-                commander={analyticsCommander}
-                deckId={deck.id}
-              />
-            ) : (
-              <Card>
-                <CardContent className="p-10 text-center text-muted-foreground">
-                  Add cards to this deck to see its analysis.
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardDetailSplit>
+          )}
+        </TabsContent>
+      </Tabs>
     </StandardPageLayout>
   );
 }

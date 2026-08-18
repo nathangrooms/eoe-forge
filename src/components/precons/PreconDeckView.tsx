@@ -1,16 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CardGrid, CardImage, CardImageSkeleton, useCardSize, CardSizeSlider } from '@/components/cards';
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import {
   CATEGORY_BG_CLASS,
   CATEGORY_TEXT_CLASS,
   groupByCategory,
 } from '@/lib/deck/cardCategories';
-import { computeDeckStats, toCardObject, type DeckCardRow } from '@/lib/deck/deckCards';
+import { computeDeckStats, type DeckCardRow } from '@/lib/deck/deckCards';
 import {
   commanderArt,
   commanderCard,
@@ -62,7 +62,6 @@ export function PreconDeckView({
   onSave,
 }: PreconDeckViewProps) {
   const [cardWidth, setCardWidth] = useCardSize('precons', 150);
-  const [openCard, setOpenCard] = useState<DeckCardRow | null>(null);
 
   /**
    * The deck payload is authoritative once it lands — a precon that shipped
@@ -327,17 +326,11 @@ export function PreconDeckView({
           />
         </div>
 
-        <CardDetailSplit
-          pane={
-            openCard ? (
-              <CardDetailPane card={toCardObject(openCard)} onClose={() => setOpenCard(null)} />
-            ) : null
-          }
-        >
-          {/* The split puts the list in a plain column, so the rhythm between
-              type sections has to live here rather than on the section. */}
-          <div className="space-y-4">
-            {loading ? (
+        {/* Clicking a card goes to the card. This used to dock a detail pane
+            beside the list — a second card page, reachable only from here and
+            worse than the real one at `/cards/:id`. */}
+        <div className="space-y-4">
+          {loading ? (
               <CardGrid width={cardWidth}>
                 {Array.from({ length: 20 }, (_, i) => (
                   <CardImageSkeleton key={i} width={cardWidth} fill />

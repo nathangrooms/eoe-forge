@@ -38,14 +38,14 @@
  *   const layout = seatingFor(4);
  */
 
-export * from './types';
-export * from './rules';
-export * from './seating';
+export * from './types.ts';
+export * from './rules.ts';
+export * from './seating.ts';
 
-export * from './mana';
-export * from './combat';
-export * from './moves';
-export * from './setup';
-export * from './bot';
+export * from './mana.ts';
+export * from './combat.ts';
+export * from './moves.ts';
+export * from './setup.ts';
+export * from './bot.ts';
 
-export * from './transport';
+export * from './transport.ts';

@@ -15,7 +15,7 @@ import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
 import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
 import { ShoppingList } from '@/components/marketplace/ShoppingList';
-import { CardImage } from '@/components/cards';
+import { CardImage, cardDetailPath } from '@/components/cards';
 import {
   Package,
   Edit,
@@ -54,6 +54,8 @@ interface Listing {
 
 interface ShoppingListItem {
   id: string;
+  /** The card this row is about. Absent on rows saved before card links existed. */
+  cardId?: string;
   name: string;
   set_code?: string;
   image_uri?: string;
@@ -66,6 +68,8 @@ interface ShoppingListItem {
 
 interface WatchlistItem {
   id: string;
+  /** The card this row is about. Absent on rows saved before card links existed. */
+  cardId?: string;
   name: string;
   set_code: string;
   image_uri?: string;
@@ -107,6 +111,7 @@ export default function Marketplace() {
   const handleAddToWatchlist = (card: any) => {
     const newItem: WatchlistItem = {
       id: crypto.randomUUID(),
+      cardId: card.id,
       name: card.name,
       set_code: card.set_code,
       image_uri: card.image_uri,
@@ -144,6 +149,7 @@ export default function Marketplace() {
   const handleAddToShoppingList = (card: any) => {
     const newItem: ShoppingListItem = {
       id: crypto.randomUUID(),
+      cardId: card.id,
       name: card.name,
       set_code: card.set_code,
       image_uri: card.image_uri,
@@ -315,119 +321,136 @@ export default function Marketplace() {
     sum + (listing.price_usd * listing.qty), 0
   );
 
-  const renderListingCard = (listing: Listing) => (
-    <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-      {/* The listing card goes through the shared `CardImage`, which keeps the
-          real 488×680 geometry and picks the Scryfall resolution for the
-          rendered size. This was a hand-rolled <img> in a fixed 256px-tall box. */}
-      <div className="p-3 pb-0">
-        <CardImage
-          card={{
-            name: listing.cards?.name ?? listing.card_id,
-            image_uris: listing.cards?.image_uris,
-          }}
-          fill
-          title={listing.cards?.name ?? listing.card_id}
-        >
-          {listing.foil && (
-            <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-              Foil
-            </span>
-          )}
-          {listing.status === 'draft' && (
-            <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-              Draft
-            </span>
-          )}
-        </CardImage>
-      </div>
+  const renderListingCard = (listing: Listing) => {
+    const cardName = listing.cards?.name ?? listing.card_id;
+    /* Owner: "Marketplace doesnt let you click into a card detail page". The
+       art and the name are one link to `/cards/:id` — the listing's own
+       controls (edit, message, sold, delete) stay where they are. */
+    const cardPath = cardDetailPath({ card_id: listing.card_id, name: listing.cards?.name });
 
-      <CardContent className="p-4">
-        <h3 className="font-medium text-sm mb-1 truncate">
-          {listing.cards?.name || listing.card_id}
-        </h3>
-        <p className="text-xs text-muted-foreground mb-2">
-          {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
-        </p>
-
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">{listing.condition || 'NM'}</span>
-          <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
-        </div>
-
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-lg font-semibold tabular-nums text-foreground">
-            ${listing.price_usd.toFixed(2)}
-          </span>
-          {listing.cards?.prices?.usd && (
-            <span className="text-xs text-muted-foreground">
-              Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-muted-foreground flex items-center">
-            <Calendar className="h-3 w-3 mr-1" />
-            {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}
-          </span>
-        </div>
-
-        <div className="flex gap-2">
-          {listing.status !== 'sold' && (
-            <>
-              <Button size="sm" variant="secondary" className="flex-1" asChild>
-                <Link to={`/marketplace/listing/${listing.id}/edit`}>
-                  <Edit className="h-3 w-3 mr-1" />
-                  Edit
-                </Link>
-              </Button>
-              <Button size="sm" variant="secondary" className="flex-1 relative" asChild>
-                <Link to={`/marketplace/messages/${listing.id}`}>
-                  <MessageCircle className="h-3 w-3 mr-1" />
-                  Msg
-                  <MessageNotificationBadge
-                    listingId={listing.id}
-                    className="absolute -top-1 -right-1"
-                  />
-                </Link>
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="flex-1"
-                onClick={() =>
-                  setSellingListingId(sellingListingId === listing.id ? null : listing.id)
-                }
-                aria-expanded={sellingListingId === listing.id}
-              >
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Sold
-              </Button>
-            </>
-          )}
-          <Button
-            size="sm"
-            variant="destructive"
-            className="aspect-square p-0 h-9 w-9 flex-shrink-0"
-            onClick={() => deleteListing(listing.id)}
+    return (
+      <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+        {/* The listing card goes through the shared `CardImage`, which keeps the
+            real 488×680 geometry and picks the Scryfall resolution for the
+            rendered size. This was a hand-rolled <img> in a fixed 256px-tall box. */}
+        <div className="p-3 pb-0">
+          <Link
+            to={cardPath ?? '#'}
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`Open ${cardName}`}
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <CardImage
+              card={{
+                name: cardName,
+                image_uris: listing.cards?.image_uris,
+              }}
+              fill
+              interactive
+              title={`Open ${cardName}`}
+            >
+              {listing.foil && (
+                <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                  Foil
+                </span>
+              )}
+              {listing.status === 'draft' && (
+                <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                  Draft
+                </span>
+              )}
+            </CardImage>
+          </Link>
         </div>
 
-        {/* Recording the sale happens in the card itself, with the asking price
-            and condition still on screen. */}
-        {sellingListingId === listing.id && (
-          <MarkAsSoldInline
-            listing={listing}
-            onCancel={() => setSellingListingId(null)}
-            onMarkAsSold={handleMarkAsSold}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
+        <CardContent className="p-4">
+          <h3 className="font-medium text-sm mb-1 truncate">
+            <Link to={cardPath ?? '#'} className="hover:underline">
+              {cardName}
+            </Link>
+          </h3>
+          <p className="text-xs text-muted-foreground mb-2">
+            {listing.cards?.set_code?.toUpperCase()} • {listing.cards?.rarity}
+          </p>
+
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">{listing.condition || 'NM'}</span>
+            <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
+          </div>
+
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-lg font-semibold tabular-nums text-foreground">
+              ${listing.price_usd.toFixed(2)}
+            </span>
+            {listing.cards?.prices?.usd && (
+              <span className="text-xs text-muted-foreground">
+                Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-muted-foreground flex items-center">
+              <Calendar className="h-3 w-3 mr-1" />
+              {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : ''}
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            {listing.status !== 'sold' && (
+              <>
+                <Button size="sm" variant="secondary" className="flex-1" asChild>
+                  <Link to={`/marketplace/listing/${listing.id}/edit`}>
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </Link>
+                </Button>
+                <Button size="sm" variant="secondary" className="flex-1 relative" asChild>
+                  <Link to={`/marketplace/messages/${listing.id}`}>
+                    <MessageCircle className="h-3 w-3 mr-1" />
+                    Msg
+                    <MessageNotificationBadge
+                      listingId={listing.id}
+                      className="absolute -top-1 -right-1"
+                    />
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() =>
+                    setSellingListingId(sellingListingId === listing.id ? null : listing.id)
+                  }
+                  aria-expanded={sellingListingId === listing.id}
+                >
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Sold
+                </Button>
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="destructive"
+              className="aspect-square p-0 h-9 w-9 flex-shrink-0"
+              onClick={() => deleteListing(listing.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Recording the sale happens in the card itself, with the asking price
+              and condition still on screen. */}
+          {sellingListingId === listing.id && (
+            <MarkAsSoldInline
+              listing={listing}
+              onCancel={() => setSellingListingId(null)}
+              onMarkAsSold={handleMarkAsSold}
+            />
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   // Loading skeleton
   if (loading) {

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CardDetail, CardDetailHeading } from '@/components/cards/CardDetail';
 import { Maximize2, X } from 'lucide-react';
+import { cardDetailPath } from './card-link';
 
 /**
  * Card detail docked beside the list you came from.
@@ -15,13 +16,8 @@ import { Maximize2, X } from 'lucide-react';
  * the header carries a link to the routed `/cards/:id` view.
  */
 
-/** Deep link for a card object, tolerating rows that only carry a name. */
-export function cardDetailPath(card: any): string | null {
-  if (!card) return null;
-  if (typeof card.id === 'string' && card.id) return `/cards/${encodeURIComponent(card.id)}`;
-  if (typeof card.name === 'string' && card.name) return `/cards/${encodeURIComponent(card.name)}`;
-  return null;
-}
+/** Re-exported so existing imports keep working; the helper lives in `card-link`. */
+export { cardDetailPath };
 
 export interface CardDetailPaneProps {
   card: any;

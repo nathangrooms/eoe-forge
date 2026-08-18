@@ -1,500 +1,373 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Brain, Settings, Zap, BarChart3, Code, Database, AlertCircle, CheckCircle2, FileText, Network } from "lucide-react";
-import { ScryfallSyntaxReference } from "./ScryfallSyntaxReference";
-import { PromptEditor } from "./PromptEditor";
-import { AIFunctionMapper } from "./AIFunctionMapper";
+import { useCallback, useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Activity, FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { ScryfallSyntaxReference } from './ScryfallSyntaxReference';
+import { PromptEditor } from './PromptEditor';
 
-interface AIFunctionConfig {
+/**
+ * The AI tab.
+ *
+ * What used to be here was a costing dashboard built entirely out of constants
+ * typed into this file: `dailyCallEstimates = { "mtg-brain": 50, ... }`, an
+ * `avgInputTokens` per function, a `$0.075 / 1M` rate, and a headline
+ * "Est. Monthly: $x.xx" derived from all three. None of it was measured — the
+ * product records no token counts anywhere — so the figure moved only when
+ * somebody edited this file, while reading exactly like telemetry. Beneath it
+ * the "Config" tab was worse: eight `<Input>`s and a `<Switch>` per function,
+ * every one of them `disabled`, bound to a `useState` whose setter was never
+ * called. A "Cache Hit Rate" tile showed `~40%` in 2xl type with the word
+ * "Estimated" in 10px grey underneath.
+ *
+ * This tab now shows only what is read back from the database on load: which
+ * AI features are switched on, what each tier is allowed, and what usage has
+ * actually been recorded. Where the answer is "nothing has been recorded" it
+ * says so, rather than substituting a plausible number.
+ */
+
+/**
+ * `feature_flags.key` values that gate an AI-backed feature, and the
+ * `subscription_limits.feature_key` / `feature_usage.feature_key` values that
+ * meter them. Both sets are seeded by migration `20251206160025_e396130f…`.
+ * They are listed rather than pattern-matched so a new non-AI key cannot
+ * silently start appearing under an AI heading.
+ */
+const AI_FLAG_KEYS = ['ai_deck_builder', 'ai_deck_coach', 'ai_card_scanner', 'mtg_brain'];
+
+const AI_METER_KEYS = ['ai_deck_builds', 'ai_coach_queries', 'card_scans'];
+
+const TIERS = ['free', 'pro', 'unlimited'] as const;
+type Tier = (typeof TIERS)[number];
+
+interface FlagRow {
+  id: string;
+  key: string;
   name: string;
-  model: string;
-  maxTokens: {
-    detailed: number;
-    concise: number;
-  };
-  temperature: {
-    detailed: number;
-    concise: number;
-  };
-  cacheEnabled: boolean;
-  cacheTTL: number;
-  estimatedTokens: {
-    inputAvg: number;
-    outputAvg: number;
-  };
-  description: string;
+  description: string | null;
+  enabled: boolean;
+  requires_tier: Tier | null;
 }
 
-const AI_FUNCTIONS: AIFunctionConfig[] = [
-  {
-    name: "mtg-brain",
-    model: "google/gemini-2.5-flash",
-    maxTokens: { detailed: 1000, concise: 400 },
-    temperature: { detailed: 0.8, concise: 0.2 },
-    cacheEnabled: true,
-    cacheTTL: 300000,
-    estimatedTokens: { inputAvg: 2100, outputAvg: 600 },
-    description: "General MTG assistant for deck analysis, card recommendations, rules questions"
-  },
-  {
-    name: "ai-deck-builder-v2",
-    model: "google/gemini-2.5-flash",
-    maxTokens: { detailed: 2000, concise: 400 },
-    temperature: { detailed: 0.8, concise: 0.3 },
-    cacheEnabled: false,
-    cacheTTL: 0,
-    estimatedTokens: { inputAvg: 3300, outputAvg: 400 },
-    description: "Build complete Commander decks with AI planning"
-  },
-  {
-    name: "gemini-deck-coach",
-    model: "google/gemini-2.5-flash",
-    maxTokens: { detailed: 800, concise: 400 },
-    temperature: { detailed: 0.8, concise: 0.3 },
-    cacheEnabled: false,
-    cacheTTL: 0,
-    estimatedTokens: { inputAvg: 1500, outputAvg: 800 },
-    description: "AI-powered deck insights and archetype analysis"
-  }
-];
+interface LimitRow {
+  feature_key: string;
+  tier: Tier;
+  limit_value: number;
+  limit_type: string;
+  description: string | null;
+}
+
+interface UsageRow {
+  feature_key: string;
+  user_id: string;
+  usage_count: number | null;
+  period_end: string;
+}
+
+interface UsageTotals {
+  featureKey: string;
+  currentPeriod: number;
+  allTime: number;
+  users: number;
+}
+
+function formatLimit(value: number | undefined): string {
+  if (value === undefined) return '—';
+  return value < 0 ? 'Unlimited' : value.toLocaleString();
+}
 
 export function AISystemAdmin() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [configs, setConfigs] = useState<AIFunctionConfig[]>(AI_FUNCTIONS);
+  const [flags, setFlags] = useState<FlagRow[]>([]);
+  const [limits, setLimits] = useState<LimitRow[]>([]);
+  const [usage, setUsage] = useState<UsageTotals[]>([]);
+  const [usageReadable, setUsageReadable] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Calculate daily estimates
-  const dailyCallEstimates = {
-    "mtg-brain": 50,
-    "ai-deck-builder-v2": 10,
-    "gemini-deck-coach": 20
-  };
+  const load = useCallback(async () => {
+    setLoading(true);
 
-  const calculateDailyTokens = () => {
-    let total = 0;
-    configs.forEach(config => {
-      const calls = dailyCallEstimates[config.name as keyof typeof dailyCallEstimates] || 0;
-      const tokens = (config.estimatedTokens.inputAvg + config.estimatedTokens.outputAvg) * calls;
-      total += tokens;
-    });
-    return total;
-  };
+    const [flagResult, limitResult, usageResult] = await Promise.all([
+      supabase
+        .from('feature_flags')
+        .select('id, key, name, description, enabled, requires_tier')
+        .in('key', AI_FLAG_KEYS)
+        .order('name'),
+      supabase
+        .from('subscription_limits')
+        .select('feature_key, tier, limit_value, limit_type, description')
+        .in('feature_key', AI_METER_KEYS),
+      supabase
+        .from('feature_usage')
+        .select('feature_key, user_id, usage_count, period_end')
+        .in('feature_key', AI_METER_KEYS),
+    ]);
 
-  const estimatedMonthlyCost = (calculateDailyTokens() * 30 / 1000000) * 0.075; // $0.075 per 1M tokens
+    setFlags((flagResult.data ?? []) as FlagRow[]);
+    setLimits((limitResult.data ?? []) as LimitRow[]);
+
+    // `feature_usage` is admin-readable, but if the read fails say so rather
+    // than rendering an empty table, which would read as "zero usage".
+    setUsageReadable(!usageResult.error);
+
+    const rows = (usageResult.data ?? []) as UsageRow[];
+    const now = Date.now();
+    setUsage(
+      AI_METER_KEYS.map(featureKey => {
+        const mine = rows.filter(row => row.feature_key === featureKey);
+        return {
+          featureKey,
+          currentPeriod: mine
+            .filter(row => new Date(row.period_end).getTime() > now)
+            .reduce((sum, row) => sum + (row.usage_count ?? 0), 0),
+          allTime: mine.reduce((sum, row) => sum + (row.usage_count ?? 0), 0),
+          users: new Set(mine.map(row => row.user_id)).size,
+        };
+      })
+    );
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const limitFor = (featureKey: string, tier: Tier) =>
+    limits.find(row => row.feature_key === featureKey && row.tier === tier)?.limit_value;
+
+  const describe = (featureKey: string) =>
+    limits.find(row => row.feature_key === featureKey)?.description ??
+    featureKey.replace(/_/g, ' ');
+
+  const recordedTotal = usage.reduce((sum, row) => sum + row.allTime, 0);
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Brain className="h-8 w-8" />
-            AI System Control Center
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Monitor and optimize AI credit usage across all functions
-          </p>
-        </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          Est. Monthly: ${estimatedMonthlyCost.toFixed(2)}
-        </Badge>
+    <Tabs defaultValue="usage" className="space-y-4">
+      <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
+        <TabsList className="inline-flex h-auto w-max sm:grid sm:w-full sm:grid-cols-4">
+          <TabsTrigger value="usage" className="gap-2 whitespace-nowrap px-3 py-2">
+            <Activity className="h-4 w-4" />
+            Usage
+          </TabsTrigger>
+          <TabsTrigger value="gating" className="gap-2 whitespace-nowrap px-3 py-2">
+            <SlidersHorizontal className="h-4 w-4" />
+            Gating
+          </TabsTrigger>
+          <TabsTrigger value="prompts" className="gap-2 whitespace-nowrap px-3 py-2">
+            <FileText className="h-4 w-4" />
+            Prompts
+          </TabsTrigger>
+          <TabsTrigger value="scryfall" className="gap-2 whitespace-nowrap px-3 py-2">
+            <Search className="h-4 w-4" />
+            Scryfall
+          </TabsTrigger>
+        </TabsList>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="map">Function Map</TabsTrigger>
-          <TabsTrigger value="functions">Config</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="scryfall">Scryfall</TabsTrigger>
-          <TabsTrigger value="optimization">Optimize</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
-        </TabsList>
+      <TabsContent value="usage" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Recorded AI usage
+                </CardTitle>
+                <CardDescription>
+                  Every row in <code className="font-mono">feature_usage</code> for the metered AI
+                  features. Counts are calls, not tokens — nothing in the product records token
+                  counts, so no cost figure can honestly be shown here.
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-2/3" />
+              </div>
+            ) : !usageReadable ? (
+              <div
+                role="alert"
+                className="rounded-lg bg-destructive/15 px-4 py-3 text-sm text-destructive"
+              >
+                Usage rows could not be read. Nothing is shown rather than an empty table, which
+                would read as zero usage.
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Metered feature</TableHead>
+                        <TableHead className="text-right">Current period</TableHead>
+                        <TableHead className="text-right">All time</TableHead>
+                        <TableHead className="text-right">Accounts</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usage.map(row => (
+                        <TableRow key={row.featureKey}>
+                          <TableCell className="font-medium">
+                            {describe(row.featureKey)}
+                            <span className="ml-2 font-mono text-xs text-muted-foreground">
+                              {row.featureKey}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.currentPeriod.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.allTime.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.users.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
-        <TabsContent value="map" className="space-y-4">
-          <Alert>
-            <Network className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Complete AI Architecture</strong>
-              <p className="mt-2 text-sm">
-                This map shows every AI function and where it's used across DeckMatrix. Use this to understand credit consumption, identify optimization opportunities, and ensure all AI touchpoints are monitored.
+                {recordedTotal === 0 && (
+                  <p className="mt-4 rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                    No usage has been recorded yet. These counters are written by the
+                    <code className="mx-1 font-mono">increment_feature_usage</code>
+                    RPC, and nothing in the app calls it today — so these zeroes mean
+                    &ldquo;not instrumented&rdquo;, not &ldquo;unused&rdquo;.
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="gating" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>AI feature flags</CardTitle>
+            <CardDescription>
+              Live state of the flags that gate AI features. They are edited on the Features tab —
+              this view is read-only so exactly one surface writes them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loading ? (
+              <>
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </>
+            ) : flags.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No AI feature flags are configured.
               </p>
-            </AlertDescription>
-          </Alert>
-          
-          <AIFunctionMapper />
-        </TabsContent>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Daily Token Usage</CardTitle>
-                <Zap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{(calculateDailyTokens() / 1000).toFixed(1)}K</div>
-                <p className="text-xs text-muted-foreground">
-                  {((calculateDailyTokens() / 750000) * 100).toFixed(0)}% reduction from baseline
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cache Hit Rate</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">~40%</div>
-                <p className="text-xs text-muted-foreground">
-                  Estimated (5-min TTL)
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Functions</CardTitle>
-                <Settings className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{configs.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  AI-powered features
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimization Status</CardTitle>
-              <CardDescription>Recent improvements to AI credit usage</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-                <div>
-                  <p className="font-medium">System Prompt Condensed (83% reduction)</p>
-                  <p className="text-sm text-muted-foreground">
-                    mtg-brain prompt reduced from 8,000 to 500 tokens
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-                <div>
-                  <p className="font-medium">Response Caching Enabled (5-min TTL)</p>
-                  <p className="text-sm text-muted-foreground">
-                    Duplicate queries now served from cache, ~40% hit rate
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-                <div>
-                  <p className="font-medium">Smart Context Filtering</p>
-                  <p className="text-sm text-muted-foreground">
-                    Full card lists only sent when query requires it
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
-                <div>
-                  <p className="font-medium">Token Limits Optimized</p>
-                  <p className="text-sm text-muted-foreground">
-                    max_tokens reduced: 2000→1000 (detailed), 600→400 (concise)
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="functions" className="space-y-4">
-          {configs.map((config) => (
-            <Card key={config.name}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Code className="h-5 w-5" />
-                      {config.name}
-                    </CardTitle>
-                    <CardDescription>{config.description}</CardDescription>
+            ) : (
+              flags.map(flag => (
+                <div
+                  key={flag.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-muted/30 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{flag.name}</p>
+                    <p className="text-sm text-muted-foreground">{flag.description}</p>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">{flag.key}</p>
                   </div>
-                  <Badge variant={config.cacheEnabled ? "default" : "secondary"}>
-                    {config.cacheEnabled ? "Cache ON" : "Cache OFF"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Model</Label>
-                    <Select value={config.model} disabled>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="google/gemini-2.5-flash">gemini-2.5-flash</SelectItem>
-                        <SelectItem value="google/gemini-2.5-flash-lite">gemini-2.5-flash-lite</SelectItem>
-                        <SelectItem value="google/gemini-2.5-pro">gemini-2.5-pro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Cache TTL (ms)</Label>
-                    <Input 
-                      type="number" 
-                      value={config.cacheTTL}
-                      disabled={!config.cacheEnabled}
-                    />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant="secondary" className="capitalize">
+                      {flag.requires_tier ?? 'free'}
+                    </Badge>
+                    <Badge variant={flag.enabled ? 'default' : 'outline'}>
+                      {flag.enabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
                   </div>
                 </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Max Tokens (Detailed)</Label>
-                    <Input type="number" value={config.maxTokens.detailed} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Max Tokens (Concise)</Label>
-                    <Input type="number" value={config.maxTokens.concise} disabled />
-                  </div>
-                </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>AI allowances by tier</CardTitle>
+            <CardDescription>
+              Read from <code className="font-mono">subscription_limits</code>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Metered feature</TableHead>
+                  {TIERS.map(tier => (
+                    <TableHead key={tier} className="text-right capitalize">
+                      {tier}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-right">Period</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {AI_METER_KEYS.map(featureKey => (
+                  <TableRow key={featureKey}>
+                    <TableCell className="font-medium">{describe(featureKey)}</TableCell>
+                    {TIERS.map(tier => (
+                      <TableCell key={tier} className="text-right tabular-nums">
+                        {formatLimit(limitFor(featureKey, tier))}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-right text-muted-foreground">
+                      {limits.find(row => row.feature_key === featureKey)?.limit_type ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Avg Input Tokens</Label>
-                    <Input type="number" value={config.estimatedTokens.inputAvg} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Avg Output Tokens</Label>
-                    <Input type="number" value={config.estimatedTokens.outputAvg} disabled />
-                  </div>
-                </div>
+      <TabsContent value="prompts" className="space-y-4">
+        <Tabs defaultValue="mtg-brain" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="mtg-brain">MTG Brain</TabsTrigger>
+            <TabsTrigger value="ai-deck-builder-v2">Deck Builder</TabsTrigger>
+            <TabsTrigger value="gemini-deck-coach">Deck Coach</TabsTrigger>
+          </TabsList>
 
-                <div className="flex items-center justify-between pt-2">
-                  <Label>Enable Caching</Label>
-                  <Switch checked={config.cacheEnabled} disabled />
-                </div>
+          <TabsContent value="mtg-brain">
+            <PromptEditor functionName="mtg-brain" />
+          </TabsContent>
+          <TabsContent value="ai-deck-builder-v2">
+            <PromptEditor functionName="ai-deck-builder-v2" />
+          </TabsContent>
+          <TabsContent value="gemini-deck-coach">
+            <PromptEditor functionName="gemini-deck-coach" />
+          </TabsContent>
+        </Tabs>
+      </TabsContent>
 
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Estimated cost: ${(
-                      ((config.estimatedTokens.inputAvg + config.estimatedTokens.outputAvg) * 
-                      (dailyCallEstimates[config.name as keyof typeof dailyCallEstimates] || 0) * 30) / 1000000 * 0.075
-                    ).toFixed(2)}/month
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="prompts" className="space-y-4">
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Prompt Engineering Control Center</strong>
-              <p className="mt-2 text-sm">
-                Customize how each AI function responds. Edit prompts, templates, and response styles to fine-tune AI behavior.
-              </p>
-            </AlertDescription>
-          </Alert>
-
-          <Tabs defaultValue="mtg-brain">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="mtg-brain">MTG Brain</TabsTrigger>
-              <TabsTrigger value="ai-deck-builder-v2">Deck Builder</TabsTrigger>
-              <TabsTrigger value="gemini-deck-coach">Deck Coach</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="mtg-brain">
-              <PromptEditor functionName="mtg-brain" />
-            </TabsContent>
-
-            <TabsContent value="ai-deck-builder-v2">
-              <PromptEditor functionName="ai-deck-builder-v2" />
-            </TabsContent>
-
-            <TabsContent value="gemini-deck-coach">
-              <PromptEditor functionName="gemini-deck-coach" />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="scryfall" className="space-y-4">
-          <ScryfallSyntaxReference />
-        </TabsContent>
-
-        <TabsContent value="optimization" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimization Recommendations</CardTitle>
-              <CardDescription>Further improvements to reduce AI credit usage</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert>
-                <Zap className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Smart Model Routing (Not Implemented)</strong>
-                  <p className="mt-2 text-sm">
-                    Route simple queries ("What is X?") to gemini-2.5-flash-lite (50% cheaper). 
-                    Could save additional 15-20% on credits.
-                  </p>
-                </AlertDescription>
-              </Alert>
-
-              <Alert>
-                <Zap className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Consolidate Deck Build Flow (Not Implemented)</strong>
-                  <p className="mt-2 text-sm">
-                    Merge 3 AI calls in ai-deck-builder-v2 into single endpoint. 
-                    Would reduce from 3 calls to 1 per build (66% reduction).
-                  </p>
-                </AlertDescription>
-              </Alert>
-
-              <Alert>
-                <Zap className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Per-User Rate Limiting (Not Implemented)</strong>
-                  <p className="mt-2 text-sm">
-                    Add 3-second cooldown between AI requests per user to prevent spam.
-                  </p>
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Token Usage Breakdown</CardTitle>
-              <CardDescription>Estimated daily consumption by function</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {configs.map(config => {
-                  const calls = dailyCallEstimates[config.name as keyof typeof dailyCallEstimates] || 0;
-                  const tokens = (config.estimatedTokens.inputAvg + config.estimatedTokens.outputAvg) * calls;
-                  const percentage = (tokens / calculateDailyTokens()) * 100;
-                  
-                  return (
-                    <div key={config.name} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{config.name}</span>
-                        <span className="text-muted-foreground">{(tokens / 1000).toFixed(1)}K tokens/day</span>
-                      </div>
-                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary transition-all"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {calls} calls/day × {config.estimatedTokens.inputAvg + config.estimatedTokens.outputAvg} tokens/call
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="knowledge" className="space-y-4">
-          <Alert>
-            <Database className="h-4 w-4" />
-            <AlertDescription>
-              Knowledge base is stored in edge function code. Changes require deployment.
-            </AlertDescription>
-          </Alert>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>MTG Knowledge Base</CardTitle>
-              <CardDescription>Comprehensive Magic: The Gathering reference data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Game Rules</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Turn structure, zones, card types
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Color Philosophy</h4>
-                  <p className="text-sm text-muted-foreground">
-                    WUBRG strengths, weaknesses, keywords
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Deck Building</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Rule of 9, mana curves, quotas
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Commander Archetypes</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Voltron, Aristocrats, Spellslinger, Tribal, Combo, Tokens
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Synergy Patterns</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Sacrifice, graveyard, tokens
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Format Rules</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Standard, Modern, Commander, Legacy, Vintage
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Staple Cards</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Ramp, removal, card draw by color
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">External APIs</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Scryfall API for card data, images, prices
-                  </p>
-                </div>
-              </div>
-
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Database Integration:</strong> Card pool fetched from Supabase 'cards' table (~100,000 cards). 
-                  Queried by color identity and legality for deck building.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent value="scryfall">
+        <ScryfallSyntaxReference />
+      </TabsContent>
+    </Tabs>
   );
 }

@@ -49,7 +49,7 @@ import {
   ValidationResult,
   Zone,
   ZONES,
-} from './types';
+} from './types.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Rules constants                                                            */

@@ -28,8 +28,8 @@ import type {
   GameState,
   InstanceId,
   PlayerId,
-} from './types';
-import { isCreature } from './mana';
+} from './types.ts';
+import { isCreature } from './mana.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Characteristics                                                            */

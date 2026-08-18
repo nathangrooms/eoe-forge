@@ -31,7 +31,7 @@
  * Pure: no clock, no randomness, no React.
  */
 
-import type { CardInstance, GameState, InstanceId, ManaColor, PlayerId } from './types';
+import type { CardInstance, GameState, InstanceId, ManaColor, PlayerId } from './types.ts';
 
 export const COLORS: readonly ManaColor[] = ['W', 'U', 'B', 'R', 'G'] as const;
 

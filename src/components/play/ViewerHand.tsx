@@ -14,10 +14,13 @@
  * Cast and Play land live. That rule is the whole shape of this screen: a tap
  * is never the action.
  *
- * Castability still shows here — it comes from `planCastFromHand` /
- * `planLandDrop`, the same helpers the bot uses — so a card you cannot pay for
- * is desaturated and says why on hover, and the fan and the rules can never
- * disagree.
+ * Castability shows here, loudly. Owner: *"I liked when cards were greyed out
+ * if you couldnt cast them."* It comes from `planCastFromHand` / `planLandDrop`,
+ * the same helpers the bot uses, so the fan and the rules can never disagree,
+ * and it is said twice: the card loses all of its colour, and it sits back in
+ * the fan while the ones you can actually play stand slightly proud of it. A
+ * player should be able to see what they can cast without reading a single
+ * mana cost.
  *
  * The size the player chose is a CEILING. A fanned hand of n cards occupies
  * `w + (n-1) * w * (1 - overlap)`, so the fan measures itself and solves that
@@ -80,7 +83,16 @@ function overlapFraction(count: number): number {
 }
 
 /** Smallest a hand card may shrink to before it stops being readable at all. */
-const MIN_HAND_CARD = 76;
+const MIN_HAND_CARD = 96;
+
+/**
+ * How far an uncastable card sits back from a castable one, in px.
+ *
+ * The grey-out is the loud signal; this is the quiet one underneath it. A hand
+ * is a physical object and the cards you are considering are the ones you have
+ * pushed forward, so the ones you cannot pay for drop back into the fan.
+ */
+const UNPLAYABLE_STEP_BACK = 12;
 
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 const CARD_RATIO = 0.7176;
@@ -111,9 +123,10 @@ export function ViewerHand({
   onInspect,
   selectedId,
   /* 104px rendered a Magic card at roughly a third of readable size — the owner
-     could not read their own hand. A hand card is the thing you study before
-     committing to a play, so it is the largest element on the table. */
-  cardWidth = 230,
+     could not read their own hand, and said so twice. A hand card is the thing
+     you study before committing to a play, so it is the largest element on the
+     table; the fan comes down from this ceiling when the screen is small. */
+  cardWidth = 300,
   includeCommandZone = true,
   className,
 }: ViewerHandProps) {
@@ -159,7 +172,10 @@ export function ViewerHand({
     <div
       ref={fanRef}
       className={cn('flex items-end justify-center', className)}
-      style={{ paddingBottom: dip }}
+      /* The lean swings the outer cards' bottom corners below the baseline, and
+         an uncastable card sits a further step back — both have to be paid for
+         here or the fan is clipped by the bottom of the viewport. */
+      style={{ paddingBottom: dip + UNPLAYABLE_STEP_BACK }}
     >
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
@@ -177,8 +193,11 @@ export function ViewerHand({
           const offset = index - middle;
           const rotate = offset * step;
           // 0 at the ends, -arc in the middle: the fan curves upward off its
-          // baseline instead of dropping its outer cards off the screen.
-          const drop = middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
+          // baseline instead of dropping its outer cards off the screen. A card
+          // you cannot pay for then sits back from that line, so the playable
+          // ones read as a shorter, brighter row standing proud of the rest.
+          const arcDrop = middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
+          const drop = playable || freeCast ? arcDrop : arcDrop + UNPLAYABLE_STEP_BACK;
 
           const state_ = playable
             ? land

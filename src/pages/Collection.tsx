@@ -17,7 +17,7 @@ import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
 import { AddToDeckPanel } from '@/components/collection/AddToDeckPanel';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
@@ -79,6 +79,10 @@ export default function Collection() {
   const { addCardToDeck, decks } = useDeckManagementStore();
   const { user } = useAuth();
   const navigate = useNavigate();
+  /* Clicking a card goes to the card page. It used to dock a detail pane to the
+     right of the grid; the owner asked for the card itself, not a preview of
+     it. The right-hand column here is now only ever an action panel. */
+  const openCard = useOpenCard();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -94,7 +98,6 @@ export default function Collection() {
       : searchParams.get('tab') || 'collection'
   );
 
-  const [selectedCard, setSelectedCard] = useState<CollectionCard['card'] | null>(null);
   const [deckTarget, setDeckTarget] = useState<CollectionCard | null>(null);
 
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
@@ -253,18 +256,6 @@ export default function Collection() {
     URL.revokeObjectURL(url);
 
     showSuccess('Backup created', 'Collection backup downloaded');
-  };
-
-  const addToCollection = async (card: { name: string; set?: string }) => {
-    try {
-      const result = await CollectionAPI.addCardByName(card.name, card.set, 1);
-      if (result.error) throw new Error(result.error);
-      await refresh();
-      showSuccess('Card added', `Added ${card.name} to collection`);
-    } catch (err) {
-      console.error('Error adding to collection:', err);
-      showError('Collection error', 'Failed to add card to collection');
-    }
   };
 
   const handleCardAddition = async (card: any) => {
@@ -455,30 +446,15 @@ export default function Collection() {
                   />
                 )}
 
-                {/* Grid left, card detail docked right. The grid stays live
-                    while a card is open — that is the whole point of moving it
-                    out of a dialog. */}
-                <CardDetailSplit
-                  pane={
-                    selectedCard ? (
-                      <CardDetailPane
-                        card={selectedCard}
-                        onClose={() => setSelectedCard(null)}
-                        onAddToCollection={card =>
-                          addToCollection({ name: card.name, set: card.set_code ?? card.set })
-                        }
-                      />
-                    ) : null
-                  }
-                >
-                  <CollectionCardDisplay
-                    items={cards}
-                    onCardClick={item => setSelectedCard(item.card ?? null)}
-                    onMarkForSale={item => navigate(`/marketplace/list/${item.id}`)}
-                    onAddToDeck={item => setDeckTarget(item)}
-                    onBulkUpdate={refresh}
-                  />
-                </CardDetailSplit>
+                {/* Full width. Clicking a card leaves for `/cards/:id`, so
+                    nothing has to be reserved beside the grid. */}
+                <CollectionCardDisplay
+                  items={cards}
+                  onCardClick={openCard}
+                  onMarkForSale={item => navigate(`/marketplace/list/${item.id}`)}
+                  onAddToDeck={item => setDeckTarget(item)}
+                  onBulkUpdate={refresh}
+                />
               </div>
             )}
           </TabsContent>

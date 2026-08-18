@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
 } from 'lucide-react';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { WishlistQuickStats } from '@/components/wishlist/WishlistQuickStats';
 import { WishlistCardGrid } from '@/components/wishlist/WishlistCardGrid';
@@ -109,6 +109,7 @@ function printingRank(card: any): number {
 export default function Wishlist() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const openCard = useOpenCard();
 
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [deckGaps, setDeckGaps] = useState<DeckGap[]>([]);
@@ -117,9 +118,6 @@ export default function Wishlist() {
   const [ownedByCard, setOwnedByCard] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [gapsLoading, setGapsLoading] = useState(true);
-  /* Open card lives in the URL so Back closes the detail pane. */
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCardId = searchParams.get('card');
   const [moveTarget, setMoveTarget] = useState<WishlistItem | null>(null);
   const [moving, setMoving] = useState(false);
 
@@ -608,39 +606,14 @@ export default function Wishlist() {
     showSuccess('Exported', 'Wishlist exported as CSV');
   }, [wishlistItems]);
 
+  /* Owner: "Wishlist also doesnt need right side, should open full window".
+     A wishlist row is a card you are shopping for, so the click goes to the
+     card page rather than to a `?card=` pane docked beside the grid. */
   const handleCardClick = useCallback(
-    (item: WishlistItem) => {
-      setSearchParams(prev => {
-        const next = new URLSearchParams(prev);
-        next.set('card', item.card_id);
-        return next;
-      });
+    (item: { card_id?: string; card_name?: string }) => {
+      openCard({ card_id: item.card_id, name: item.card_name });
     },
-    [setSearchParams]
-  );
-
-  const closeCard = useCallback(() => {
-    setSearchParams(
-      prev => {
-        const next = new URLSearchParams(prev);
-        next.delete('card');
-        return next;
-      },
-      { replace: true }
-    );
-  }, [setSearchParams]);
-
-  const selectedItem = useMemo(
-    () => (selectedCardId ? wishlistItems.find(i => i.card_id === selectedCardId) ?? null : null),
-    [wishlistItems, selectedCardId]
-  );
-
-  const selectedCard = useMemo(
-    () =>
-      selectedItem?.card
-        ? { id: selectedItem.card_id, name: selectedItem.card_name, ...selectedItem.card }
-        : null,
-    [selectedItem]
+    [openCard]
   );
 
   const totalValue = useMemo(
@@ -874,76 +847,55 @@ export default function Wishlist() {
                 busy={moving}
               />
             )}
-            <CardDetailSplit
-              pane={
-                selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
-              }
-            >
-              {loading ? (
-                <CardGridSkeleton width={cardWidth} count={12} />
-              ) : filteredItems.length === 0 ? (
-                <WishlistEmptyState
-                  hasFilter={hasActiveFilter}
-                  onClearFilter={clearFilters}
-                  onAddCards={() => setActiveTab('add')}
-                />
-              ) : viewMode === 'list' ? (
-                <WishlistListView
-                  items={filteredItems}
-                  onCardClick={item => {
-                    const full = wishlistItems.find(i => i.id === item.id);
-                    if (full) handleCardClick(full);
-                  }}
-                  onBuy={item => openBuyLink(item as WishlistItem)}
-                  onAddToCollection={item =>
-                    setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
-                  }
-                  onRemove={removeFromWishlist}
-                  onUpdatePriority={updatePriority}
-                  onUpdateTargetPrice={updateTargetPrice}
-                  onToggleAlert={toggleAlert}
-                />
-              ) : (
-                <WishlistCardGrid
-                  items={filteredItems}
-                  width={cardWidth}
-                  onCardClick={item => {
-                    const full = wishlistItems.find(i => i.id === item.id);
-                    if (full) handleCardClick(full);
-                  }}
-                  onBuy={item => openBuyLink(item as WishlistItem)}
-                  onAddToCollection={item =>
-                    setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
-                  }
-                  onRemove={removeFromWishlist}
-                  onUpdatePriority={updatePriority}
-                  onUpdateTargetPrice={updateTargetPrice}
-                  onToggleAlert={toggleAlert}
-                />
-              )}
-            </CardDetailSplit>
+            {loading ? (
+              <CardGridSkeleton width={cardWidth} count={12} />
+            ) : filteredItems.length === 0 ? (
+              <WishlistEmptyState
+                hasFilter={hasActiveFilter}
+                onClearFilter={clearFilters}
+                onAddCards={() => setActiveTab('add')}
+              />
+            ) : viewMode === 'list' ? (
+              <WishlistListView
+                items={filteredItems}
+                onCardClick={handleCardClick}
+                onBuy={item => openBuyLink(item as WishlistItem)}
+                onAddToCollection={item =>
+                  setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
+                }
+                onRemove={removeFromWishlist}
+                onUpdatePriority={updatePriority}
+                onUpdateTargetPrice={updateTargetPrice}
+                onToggleAlert={toggleAlert}
+              />
+            ) : (
+              <WishlistCardGrid
+                items={filteredItems}
+                width={cardWidth}
+                onCardClick={handleCardClick}
+                onBuy={item => openBuyLink(item as WishlistItem)}
+                onAddToCollection={item =>
+                  setMoveTarget(wishlistItems.find(i => i.id === item.id) ?? null)
+                }
+                onRemove={removeFromWishlist}
+                onUpdatePriority={updatePriority}
+                onUpdateTargetPrice={updateTargetPrice}
+                onToggleAlert={toggleAlert}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="by-deck" className="mt-4">
-            <CardDetailSplit
-              pane={
-                selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
-              }
-            >
-              <WishlistByDeck
-                gaps={deckGaps}
-                loading={gapsLoading}
-                hasDecks={userDecks.length > 0}
-                onCreateDeck={() => navigate('/decks')}
-                onCardClick={cardId => {
-                  const match = wishlistItems.find(i => i.card_id === cardId);
-                  if (match) handleCardClick(match);
-                }}
-                onBuyAll={copyBuyList}
-                onAddToWishlist={card => addToWishlist({ id: card.cardId, name: card.name })}
-                onNavigateToDeck={deckId => navigate(`/decks?deck=${deckId}`)}
-              />
-            </CardDetailSplit>
+            <WishlistByDeck
+              gaps={deckGaps}
+              loading={gapsLoading}
+              hasDecks={userDecks.length > 0}
+              onCreateDeck={() => navigate('/decks')}
+              onCardClick={cardId => openCard(cardId)}
+              onBuyAll={copyBuyList}
+              onAddToWishlist={card => addToWishlist({ id: card.cardId, name: card.name })}
+              onNavigateToDeck={deckId => navigate(`/decks?deck=${deckId}`)}
+            />
           </TabsContent>
 
           <TabsContent value="add" className="mt-4">

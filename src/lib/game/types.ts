@@ -225,14 +225,62 @@ export interface CardInstance {
   /**
    * Lower-cased oracle keywords — 'flying', 'vigilance', 'trample', 'haste',
    * 'defender', 'deathtouch', 'reach', 'first strike'. Copied from the card
-   * record at setup. Only `combat.ts` and the bot policy read these; the
-   * reducer does not, so a game built without them still runs correctly.
+   * record at setup. Read it through `effectiveKeywords`/`hasKeyword` in
+   * `keywords.ts`, never directly, so hand-flagged keywords count too.
    */
   keywords?: string[];
+  /**
+   * Raw oracle text, faces joined with newlines. Feeds trigger detection in
+   * `effects.ts` and the inspector's rules box.
+   *
+   * Absent means "we never loaded it", which is NOT the same as "this card has
+   * no abilities" — `automationFor` reports that difference, because a card
+   * that silently does nothing is the bug this field exists to fix.
+   */
+  oracleText?: string;
+
+  /* --- manual intervention: the player's own overrides --- */
+
+  /**
+   * Hand-set base power/toughness. Replaces the printed value; +1/+1 and -1/-1
+   * counters still apply on top, so "set to 4/4" and "add two +1/+1 counters"
+   * compose the way a player expects.
+   */
+  powerOverride?: number;
+  toughnessOverride?: number;
+  /**
+   * Keywords flagged on by hand (or by an effect the engine cannot read), on
+   * top of the printed list. This is how "mark this one as flying" works.
+   */
+  grantedKeywords?: string[];
+  /** Printed keywords the player has switched off. */
+  suppressedKeywords?: string[];
+  /**
+   * Set when the player has confirmed they resolved this card's unimplemented
+   * text by hand, so the "manual" marker can be dismissed. Cleared whenever the
+   * card changes zone, because what arrives is a new object.
+   */
+  manualResolved?: boolean;
 
   isToken: boolean;
   /** Set when its owner leaves the game (CR 800.4a). Kept for replay/history. */
   removedFromGame: boolean;
+}
+
+/**
+ * Everything needed to put a token onto the battlefield. A token has no
+ * Scryfall row, so this is the whole card.
+ */
+export interface TokenSpec {
+  name: string;
+  typeLine?: string;
+  power?: string;
+  toughness?: string;
+  colorIdentity?: ManaColor[];
+  keywords?: string[];
+  oracleText?: string;
+  /** Usually absent — token art is not resolved. The UI draws a placeholder. */
+  imageUrl?: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -397,6 +445,13 @@ export interface ActionMeta {
   actorId?: PlayerId;
   /** Epoch ms supplied by the caller. This core never reads a clock itself. */
   at?: number;
+  /**
+   * Why this action happened, when it was not a button press — "Ajani's
+   * Pridemate enters". Set by `effects.ts` on every triggered action and
+   * prefixed onto the log line, so the feed shows the cause and not just the
+   * consequence.
+   */
+  cause?: string;
 }
 
 export type GameAction = ActionMeta &
@@ -429,6 +484,40 @@ export type GameAction = ActionMeta &
     /* --- counters --- */
     | { type: 'PLAYER_COUNTER'; playerId: PlayerId; counter: string; delta: number }
     | { type: 'CARD_COUNTER'; instanceId: InstanceId; counter: string; delta: number }
+
+    /* --- manual intervention ('full' mode; see manual.ts for builders) --- */
+    /**
+     * Hand-set or nudge a permanent's base power/toughness. `mode: 'adjust'`
+     * adds to the current value; omitting a side leaves it alone; `null`
+     * clears the override and restores the printed value.
+     */
+    | {
+        type: 'SET_CARD_STAT';
+        instanceId: InstanceId;
+        power?: number | null;
+        toughness?: number | null;
+        mode?: 'set' | 'adjust';
+      }
+    /** Flag a keyword on or off by hand. `keywords.ts` says which ones the engine acts on. */
+    | { type: 'SET_KEYWORD'; instanceId: InstanceId; keyword: string; on: boolean }
+    /** Put tokens onto the battlefield. Instance ids are derived deterministically. */
+    | {
+        type: 'CREATE_TOKEN';
+        playerId: PlayerId;
+        token: TokenSpec;
+        count?: number;
+        tapped?: boolean;
+        /** Override the derived id. Only for tests and replays. */
+        instanceId?: InstanceId;
+      }
+    /** Dismiss (or restore) the "resolve this by hand" marker on one permanent. */
+    | { type: 'MARK_MANUAL_RESOLVED'; instanceId: InstanceId; resolved?: boolean }
+    /**
+     * Changes nothing, says something. This is how the engine admits it did not
+     * implement a card's text instead of silently doing nothing, and how a
+     * player leaves a note in the log for the table.
+     */
+    | { type: 'NOTE'; message: string; instanceId?: InstanceId }
 
     /* --- cards and zones ('full' mode only) --- */
     | { type: 'DRAW'; playerId: PlayerId; count?: number }

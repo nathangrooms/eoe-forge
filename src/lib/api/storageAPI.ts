@@ -8,8 +8,24 @@ import {
   StorageAssignRequest, 
   StorageUnassignRequest,
   StorageItemWithCard,
+  StoragePreviewCard,
   StorageType
 } from "@/types/storage";
+
+/**
+ * Cards carried back per container for the physical rendering.
+ *
+ * Nine is a binder page; every other container form draws fewer and slices.
+ * The join costs one column of jsonb per stored row on a query that already
+ * reads every stored row, and it is the difference between a storage page that
+ * shows your cards and one that shows three numbers about them.
+ */
+const PREVIEW_LIMIT = 9;
+
+/** Unit price of one copy in the finish it is stored in. */
+function unitPrice(prices: unknown, foil: boolean): number {
+  return foil ? ownedValueUSD(prices, 0, 1) : ownedValueUSD(prices, 1, 0);
+}
 
 export class StorageAPI {
   static async getOverview(): Promise<StorageOverview> {
@@ -17,7 +33,7 @@ export class StorageAPI {
       .from('storage_containers')
       .select(`
         *,
-        storage_items(qty, card_id, foil)
+        storage_items(qty, card_id, foil, cards(id, name, image_uris, prices))
       `)
       .order('created_at', { ascending: true }) as { data: any[] | null, error: any };
 
@@ -83,6 +99,7 @@ export class StorageAPI {
       let itemCount = 0;
       let valueUSD = 0;
       const uniqueCards = new Set<string>();
+      const candidates: StoragePreviewCard[] = [];
 
       container.storage_items?.forEach((item: any) => {
         itemCount += item.qty;
@@ -96,7 +113,34 @@ export class StorageAPI {
             ? ownedValueUSD(prices, 0, item.qty)
             : ownedValueUSD(prices, item.qty, 0);
         }
+
+        // The card itself, for the pockets. `prices` here is the same `cards`
+        // row the map above points at; the embedded copy also covers a card
+        // that is in a container but has fallen out of `user_collections`,
+        // which the map cannot price at all.
+        const card = item.cards;
+        if (card?.id) {
+          candidates.push({
+            id: card.id,
+            name: card.name ?? 'Unknown card',
+            image_uris: (card.image_uris as StoragePreviewCard['image_uris']) ?? undefined,
+            qty: item.qty,
+            foil: Boolean(item.foil),
+            usd: unitPrice(prices ?? card.prices, item.foil),
+          });
+        }
       });
+
+      /**
+       * Most valuable first. A binder page showing the nine cards that came
+       * back in insertion order tells you nothing; the nine you would actually
+       * put in a binder tells you what this container *is*. Ties fall to the
+       * larger stack, then alphabetically, so the order is stable across loads
+       * rather than reshuffling on every fetch.
+       */
+      candidates.sort(
+        (a, b) => b.usd - a.usd || b.qty - a.qty || a.name.localeCompare(b.name)
+      );
 
       return {
         id: container.id,
@@ -111,7 +155,8 @@ export class StorageAPI {
         updated_at: container.updated_at,
         itemCount,
         valueUSD,
-        uniqueCards: uniqueCards.size
+        uniqueCards: uniqueCards.size,
+        preview: candidates.slice(0, PREVIEW_LIMIT)
       };
     }) || [];
 

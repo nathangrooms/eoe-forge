@@ -3,12 +3,15 @@
  *
  * Three rules, all of them things Magic players do without thinking:
  *
- *   1. **Each kind of permanent has its own band.** Lands at the back, the
- *      non-creature permanents behind the line, creatures nearest the middle.
- *      `boardRows.ts` owns which band a card belongs to; this file draws them.
- *   2. **An empty band keeps its place.** A row that collapses when its last
- *      creature dies makes the whole board jump, and a board that jumps is a
- *      board you have to re-read. The label stays, at low contrast.
+ *   1. **Each kind of permanent has its own place.** Creatures on the top row
+ *      because they attack across the table, lands on the bottom row because
+ *      that is the mana you count, and every other permanent in a block on the
+ *      right — *"2 main rows, enchanements/artifacts etc should have its own
+ *      square right side"*. `boardRows.ts` owns which place a card belongs to;
+ *      this file draws them.
+ *   2. **An empty row or block keeps its place.** A row that collapses when its
+ *      last creature dies makes the whole board jump, and a board that jumps is
+ *      a board you have to re-read. The label stays, at low contrast.
  *   3. **A full row overlaps before it shrinks, and shrinks before it spills.**
  *      Six creatures and twelve creatures are the same size card — the twelve
  *      just sit on each other. Only when even maximum overlap will not fit does
@@ -30,8 +33,15 @@ import type { CardInstance } from '@/lib/game';
 /** Fraction of a card that may be hidden by its neighbour before it stops. */
 const MAX_OVERLAP = 0.62;
 
-/** Below this, a card on the battlefield stops being identifiable at a glance. */
-export const MIN_BOARD_CARD = 44;
+/**
+ * Below this, a card on the battlefield stops being identifiable at a glance.
+ *
+ * Owner, twice: *"cards are tiny on screen overall"*. 44px was a thumbnail —
+ * you could tell a land from a creature by its frame colour and nothing else.
+ * The floor is now a size at which the art reads and the name is a shape you
+ * recognise; shrink-to-fit still exists, it just bottoms out somewhere honest.
+ */
+export const MIN_BOARD_CARD = 62;
 
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 export const CARD_RATIO = 0.7176;
@@ -168,6 +178,121 @@ export function ZoneRow({
         available={available}
         renderCard={renderCard}
       />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* The support block — artifacts, enchantments, planeswalkers                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The widest card that lets `count` of them tile inside a `width × height` box.
+ *
+ * The block is the one part of the mat that grows in two directions, so its
+ * arithmetic is a search rather than a division: try the ceiling, work down
+ * two pixels at a time, and take the first size whose grid fits. It stops at
+ * `minimum` and lets the rows overlap vertically from there, exactly as a row
+ * overlaps horizontally.
+ */
+export function fitBlockCardWidth(
+  width: number,
+  height: number,
+  count: number,
+  preferred: number,
+  minimum = MIN_BOARD_CARD
+): number {
+  if (count <= 0 || width <= 0 || height <= 0) return preferred;
+
+  for (let w = Math.floor(preferred); w >= minimum; w -= 2) {
+    const gap = Math.max(2, Math.round(w * 0.07));
+    const cols = Math.max(1, Math.floor((width + gap) / (w + gap)));
+    const rows = Math.ceil(count / cols);
+    if (rows * (w / CARD_RATIO + gap) - gap <= height) return w;
+  }
+  return minimum;
+}
+
+export interface ZoneBlockProps {
+  /** Stays on the mat at low contrast whether or not the block holds anything. */
+  label: string;
+  cards: CardInstance[];
+  cardWidth: number;
+  /** Fixed box, so permanents entering and leaving never move the two rows. */
+  width: number;
+  height: number;
+  renderCard: (card: CardInstance, index: number, width: number) => ReactNode;
+  className?: string;
+}
+
+/**
+ * The non-creature permanents, as their own square on the right of the mat.
+ *
+ * Owner: *"enchanements/artifacts etc should have its own square right side or
+ * something. Doesn't follow normal playmat setups at all."* So this is not a
+ * third full-width band — it is a block that tiles, wrapping into as many
+ * columns as it has room for and then overlapping its rows downward rather than
+ * shrinking forever. Same surface tint and spacing as a row, no border.
+ */
+export function ZoneBlock({
+  label,
+  cards,
+  cardWidth,
+  width,
+  height,
+  renderCard,
+  className,
+}: ZoneBlockProps) {
+  const gap = Math.max(2, Math.round(cardWidth * 0.07));
+  const cardHeight = cardWidth / CARD_RATIO;
+  const cols = Math.max(1, Math.floor((width - 8 + gap) / (cardWidth + gap)));
+
+  const grid: CardInstance[][] = [];
+  for (let i = 0; i < cards.length; i += cols) grid.push(cards.slice(i, i + cols));
+
+  /* Rows slide under each other once the block is full, in the same way cards
+     in a row slide under each other — never below a third of a card showing. */
+  const step =
+    grid.length > 1
+      ? Math.max(
+          cardHeight * 0.34,
+          Math.min(cardHeight + gap, (height - 14 - cardHeight) / (grid.length - 1))
+        )
+      : 0;
+
+  return (
+    <div
+      className={cn(
+        'relative flex shrink-0 flex-col items-center overflow-visible rounded-lg bg-foreground/[0.045] px-1 pt-3.5',
+        className
+      )}
+      style={{ width, height }}
+      aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2 top-0.5 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/25 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+      >
+        {label}
+      </span>
+
+      {grid.map((row, rowIndex) => (
+        <div
+          key={rowIndex}
+          className="relative flex flex-nowrap items-start justify-center"
+          style={{
+            gap,
+            marginTop: rowIndex === 0 ? 0 : step - cardHeight,
+            zIndex: rowIndex,
+          }}
+        >
+          {row.map((card, columnIndex) => (
+            <span key={card.instanceId} className="relative block transition-[z-index] hover:z-30">
+              {renderCard(card, rowIndex * cols + columnIndex, cardWidth)}
+            </span>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

@@ -15,10 +15,13 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
-import { CardImage } from '@/components/cards';
+import { Link } from 'react-router-dom';
+import { CardImage, cardDetailPath } from '@/components/cards';
 
 interface WatchlistItem {
   id: string;
+  /** The card this row watches. Rows saved before card links existed have none. */
+  cardId?: string;
   name: string;
   set_code: string;
   image_uri?: string;
@@ -150,15 +153,31 @@ export function PriceWatchlist({
                     atTarget ? 'bg-muted' : 'bg-muted/20 hover:bg-muted/50'
                   }`}
                 >
-                  <CardImage
-                    card={{ name: item.name, image_uris: { large: item.image_uri } }}
-                    width={46}
-                    hideFlip
-                    interactive={false}
-                  />
+                  {/* The card is a link to the card page, the same as every
+                      other card in the product. The watch controls beside it
+                      stay controls. */}
+                  <Link
+                    to={cardDetailPath({ id: item.cardId, name: item.name }) ?? '#'}
+                    className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Open ${item.name}`}
+                  >
+                    <CardImage
+                      card={{ name: item.name, image_uris: { large: item.image_uri } }}
+                      width={46}
+                      hideFlip
+                      interactive
+                    />
+                  </Link>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{item.name}</p>
+                    <p className="font-medium text-sm truncate">
+                      <Link
+                        to={cardDetailPath({ id: item.cardId, name: item.name }) ?? '#'}
+                        className="hover:underline"
+                      >
+                        {item.name}
+                      </Link>
+                    </p>
                     <p className="text-xs text-muted-foreground mb-1">
                       {item.set_code.toUpperCase()}
                     </p>

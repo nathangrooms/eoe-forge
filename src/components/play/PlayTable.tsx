@@ -47,6 +47,13 @@ export interface PlayTableProps {
   cardWidth?: number;
   /** A click on any card opens the preview. It is never the action itself. */
   onInspect?: (card: CardInstance) => void;
+  /**
+   * Tap or untap one of the viewer's own permanents, from the card.
+   *
+   * Owner: *"tapping should be easy on card."* Handed only to the viewer's mat
+   * — an opponent's board stays readable and clickable but not operable.
+   */
+  onTapCard?: (card: CardInstance) => void;
   onOpenZone?: (playerId: PlayerId, zone: Zone) => void;
   onFocusSeat?: (playerId: PlayerId) => void;
   attackerIds?: readonly string[];
@@ -81,8 +88,11 @@ export function PlayTable({
   botPlayerIds,
   variant = 'quads',
   focusPlayerId = null,
-  cardWidth = 150,
+  /* A ceiling. Every mat shrinks below it to fit the room it actually has, so
+     the only thing a low default buys is a board of icons on a big screen. */
+  cardWidth = 200,
   onInspect,
+  onTapCard,
   onOpenZone,
   onFocusSeat,
   attackerIds,
@@ -157,6 +167,7 @@ export function PlayTable({
               isBot={botPlayerIds.indexOf(focused.id) !== -1}
               cardWidth={cardWidth}
               onInspect={onInspect}
+              onTapCard={focused.id === viewerPlayerId ? onTapCard : undefined}
               onOpenZone={onOpenZone}
               attackerIds={attackerIds}
               blockerIds={blockerIds}
@@ -190,6 +201,7 @@ export function PlayTable({
                   isBot={botPlayerIds.indexOf(player.id) !== -1}
                   cardWidth={cardWidth}
                   onInspect={onInspect}
+                  onTapCard={isViewer ? onTapCard : undefined}
                   onOpenZone={onOpenZone}
                   onFocusSeat={isViewer ? undefined : onFocusSeat}
                   attackerIds={attackerIds}

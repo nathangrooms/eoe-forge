@@ -10,16 +10,32 @@
  * look if it were the one in front of you, which is what makes an opponent's
  * board readable — and therefore clickable — instead of decorative.
  *
- * The mat has geography, because players read a board by WHERE a thing is
- * before they read what it is:
+ * ---------------------------------------------------------------------------
+ * The geometry is a real playmat, not three stacked bands
+ * ---------------------------------------------------------------------------
+ * Owner, round 2: *"not sure i like the layout of items. - lands should always
+ * be bottom, creatures top - 2 main rows, enchanements/artifacts etc should
+ * have its own square right side or something. Doesn't follow normal playmat
+ * setups at all."*
  *
- *   ┌──────────────────────────────────────┬──────────┐
- *   │  LANDS               (the mana row)  │ LIBRARY  │
- *   ├──────────────────────────────────────┤ GRAVEYARD│
- *   │  ARTIFACTS · ENCHANTMENTS · PWs      │ EXILE    │
- *   ├──────────────────────────────────────┤ COMMAND  │
- *   │  CREATURES     (they attack across)  │          │
- *   └──────────────────────────────────────┴──────────┘
+ *   ┌────────┬────────────────────────────────────┬───────────────┐
+ *   │ LIBRARY│  CREATURES        (top — they hit) │  ARTIFACTS    │
+ *   │ YARD   ├────────────────────────────────────┤  ENCHANTMENTS │
+ *   │ EXILE  │  LANDS            (bottom — mana)  │  WALKERS      │
+ *   │ COMMAND│                                    │               │
+ *   └────────┴────────────────────────────────────┴───────────────┘
+ *
+ * Two full-width rows and a block. The support block sits to the RIGHT of the
+ * two rows on every seat — mirroring it on the far side of the table would put
+ * it somewhere different depending on where you were sitting, and the whole
+ * point of not rotating anything is that every mat reads the same way. Only the
+ * pile column (library, graveyard, exile, command) follows the seat's outer
+ * edge, because those are stacks you reach for rather than a board you read.
+ *
+ * Dropping the third band is also the single biggest size win available: the
+ * two rows that are left are half again as tall, so the cards on them are half
+ * again as big, before any slider is touched. Owner: *"cards are tiny on screen
+ * overall"*.
  *
  * The hand is the one zone that is not on the mat. The viewer's is the fan along
  * the bottom edge of the whole board — it is the biggest thing on screen and no
@@ -27,17 +43,20 @@
  * card backs in their identity strip, because a number where a fistful of cards
  * should be is the single biggest reason a play screen reads as a spreadsheet.
  *
- * Bands are separated by surface tint and spacing, never a border, and each one
- * holds its height whether or not it has anything in it — a board that reflows
- * every time a creature dies is a board you have to re-read.
+ * Regions are separated by surface tint and spacing, never a border, and each
+ * one holds its size whether or not it has anything in it — a board that
+ * reflows every time a creature dies is a board you have to re-read.
  *
  * Sizing is measured, not guessed. The chosen card size is a *ceiling*: the mat
- * measures itself and comes down from that ceiling until three bands of cards
- * fit its height and the widest band fits its width. That is why cards stop
+ * measures itself and comes down from that ceiling until both rows fit its
+ * height and the busier of the two fits its width. That is why cards stop
  * running off the edge of a small screen.
  *
- * Nothing here dispatches a game action. A click anywhere on this mat calls
- * `onInspect` and the preview decides what is legal — click, preview, act.
+ * A click on a card calls `onInspect` and the preview decides what is legal —
+ * click, preview, act. The one exception is the tap chip on a permanent you
+ * control, which is a direct control on the card and opens nothing: owner,
+ * *"I dont like that tap/untap is in left menu - tapping should be easy on
+ * card."*
  */
 
 import { useMemo } from 'react';
@@ -46,8 +65,8 @@ import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Playmat } from './Playmat';
 import { LifeBadge, type CommanderDamagePip, type LifeBadgeSize } from './LifeBadge';
 import { CardBack, LibraryStack } from './CardBack';
-import { CARD_RATIO, ZoneRow, fitRowCardWidth } from './Battlefield';
-import { BOARD_ROWS, splitIntoRows } from './boardRows';
+import { CARD_RATIO, ZoneBlock, ZoneRow, fitBlockCardWidth, fitRowCardWidth } from './Battlefield';
+import { BOARD_ROWS, SUPPORT_BLOCK, splitIntoRows } from './boardRows';
 import { GameCardView, type Lunge } from './GameCardView';
 import { useMeasuredSize } from './useMeasure';
 import type { LifeDelta } from './useTableMotion';
@@ -66,16 +85,16 @@ import {
 /**
  * Vertical room the identity strip needs, per life-badge size.
  *
- * Every pixel here is a pixel the three bands do not get, and on a four-quadrant
- * board the bands are already sharing about a third of the screen height. So the
- * strip is exactly as tall as the life badge it holds and no taller, and an
+ * Every pixel here is a pixel the two rows do not get, and on a four-quadrant
+ * board those rows are already sharing about a third of the screen height. So
+ * the strip is exactly as tall as the life badge it holds and no taller, and an
  * opponent's hand is drawn into the same strip rather than being given a row of
  * its own — the spec's hand row is the viewer's, and the viewer's hand is the
  * fan along the bottom of the whole board.
  */
-const HEADER_HEIGHT: Record<LifeBadgeSize, number> = { sm: 56, md: 74, lg: 96 };
+const HEADER_HEIGHT: Record<LifeBadgeSize, number> = { sm: 50, md: 66, lg: 84 };
 
-/** Gap between the three bands. */
+/** Gap between the two rows, and between the rows and the support block. */
 const BAND_GAP = 4;
 
 export interface SeatMatProps {
@@ -88,6 +107,13 @@ export interface SeatMatProps {
   cardWidth?: number;
   /** Click any card, anywhere, and the preview opens. Never the action itself. */
   onInspect?: (card: CardInstance) => void;
+  /**
+   * Toggle tap on one of this player's permanents, from the card itself.
+   *
+   * Only wired for the seat the device controls; an opponent's board is
+   * readable and clickable but not operable.
+   */
+  onTapCard?: (card: CardInstance) => void;
   onOpenZone?: (playerId: PlayerId, zone: Zone) => void;
   /** Give this seat the whole viewport, read-only. */
   onFocusSeat?: (playerId: PlayerId) => void;
@@ -98,7 +124,7 @@ export interface SeatMatProps {
   /** Per-attacker push toward the seat being attacked. */
   lunges?: Record<string, Lunge>;
   lifeDeltas?: LifeDelta[];
-  /** Which edge of the board this seat's zone column sits against. */
+  /** Which edge of the board this seat's pile column sits against. */
   side?: 'left' | 'right';
   /** Draw this seat's hand as card backs in its identity strip. */
   showHandBacks?: boolean;
@@ -194,8 +220,12 @@ export function SeatMat({
   player,
   isViewer,
   isBot,
-  cardWidth = 150,
+  /* A ceiling, and a deliberately generous one. The owner has now said twice
+     that the board reads as icons rather than cards; the mat comes down from
+     this on a small viewport, so starting low only ever makes it worse. */
+  cardWidth = 200,
   onInspect,
+  onTapCard,
   onOpenZone,
   onFocusSeat,
   attackerIds = [],
@@ -243,10 +273,10 @@ export function SeatMat({
   const lifeSize: LifeBadgeSize = height >= 470 ? 'lg' : height >= 350 ? 'md' : 'sm';
   const headerHeight = HEADER_HEIGHT[lifeSize];
 
-  /* The zone column is exactly as wide as the card it has to hold, and the card
+  /* The pile column is exactly as wide as the card it has to hold, and the card
      it has to hold is limited by a quarter of the mat's height. Sizing it from
      the height rather than the width is what stops it being a wide empty strip
-     stealing room from the bands on a short quadrant. */
+     stealing room from the board on a short quadrant. */
   const tileHeight = Math.max(42, Math.floor((height - 14) / 4) - 3);
   const tileCardWidth = Math.max(20, Math.round((tileHeight - 12) * CARD_RATIO));
   const sideWidth = Math.round(
@@ -254,17 +284,46 @@ export function SeatMat({
   );
 
   const bandsHeight = Math.max(72, height - headerHeight - 6);
-  const bandHeight = Math.floor((bandsHeight - BAND_GAP * 2) / BOARD_ROWS.length);
-  const bandWidth = Math.max(80, width - sideWidth - 14);
+  /* Two rows now, not three. Creatures get the slightly taller of the two —
+     they carry the counters, the damage and the power/toughness badge, and
+     they are the row every other seat has to read across the table. */
+  const creatureHeight = Math.floor((bandsHeight - BAND_GAP) * 0.53);
+  const landHeight = bandsHeight - BAND_GAP - creatureHeight;
 
-  const busiest = Math.max(rows.lands.length, rows.support.length, rows.creatures.length);
+  /* The support block holds its place whether or not it holds anything, so the
+     two rows never change width as an enchantment resolves. Roughly a fifth of
+     the mat, and never wider than two cards at the current ceiling. */
+  const supportWidth = Math.round(
+    Math.max(56, Math.min(width * 0.21, cardWidth * 2 + 12, Math.max(56, width - sideWidth - 200)))
+  );
+  const supportHeight = bandsHeight;
+
+  const rowWidth = Math.max(80, width - sideWidth - supportWidth - BAND_GAP - 14);
+
+  const busiest = Math.max(rows.lands.length, rows.creatures.length);
   const boardCardWidth = Math.max(
     30,
     Math.round(
       Math.min(
         cardWidth,
-        (bandHeight - 10) * CARD_RATIO,
-        fitRowCardWidth(bandWidth, busiest, cardWidth)
+        (Math.min(creatureHeight, landHeight) - 8) * CARD_RATIO,
+        fitRowCardWidth(rowWidth, busiest, cardWidth)
+      )
+    )
+  );
+
+  /* The block tiles in two directions, so it gets its own fit rather than the
+     row's — a wide short block and a narrow tall one want different cards. */
+  const supportCardWidth = Math.max(
+    26,
+    Math.min(
+      boardCardWidth,
+      fitBlockCardWidth(
+        supportWidth,
+        supportHeight,
+        rows.support.length,
+        boardCardWidth,
+        Math.min(boardCardWidth, 48)
       )
     )
   );
@@ -294,6 +353,11 @@ export function SeatMat({
     return null;
   };
 
+  /* Tap is offered only on a permanent this device controls, and only when the
+     card is big enough for the chip not to be most of it. Below that the
+     inspector's Tap button is the way — it is still there. */
+  const tapChipFits = boardCardWidth >= 54;
+
   const renderCard = (card: CardInstance, _index: number, renderWidth: number) => (
     <GameCardView
       card={card}
@@ -303,11 +367,12 @@ export function SeatMat({
       lunge={lunges?.[card.instanceId] ?? null}
       selected={inspectedId === card.instanceId}
       onClick={onInspect ? () => onInspect(card) : undefined}
+      onTap={onTapCard && tapChipFits ? () => onTapCard(card) : undefined}
       title={card.name}
     />
   );
 
-  const zoneColumn = (
+  const pileColumn = (
     <aside
       className="flex h-full shrink-0 flex-col items-center justify-start gap-1 py-1"
       style={{ width: sideWidth }}
@@ -390,6 +455,36 @@ export function SeatMat({
     </aside>
   );
 
+  /* The board itself: two rows on the left, the block on the right. Identical
+     on every seat, because nothing here is rotated or mirrored. */
+  const board = (
+    <div className="flex min-h-0 flex-1 items-stretch" style={{ gap: BAND_GAP }}>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: BAND_GAP }}>
+        {BOARD_ROWS.map(row => (
+          <ZoneRow
+            key={row.id}
+            label={row.label}
+            cards={rows[row.id]}
+            cardWidth={boardCardWidth}
+            height={row.id === 'creatures' ? creatureHeight : landHeight}
+            available={rowWidth}
+            tinted={row.id === 'lands'}
+            renderCard={renderCard}
+          />
+        ))}
+      </div>
+
+      <ZoneBlock
+        label={SUPPORT_BLOCK.label}
+        cards={rows.support}
+        cardWidth={supportCardWidth}
+        width={supportWidth}
+        height={supportHeight}
+        renderCard={renderCard}
+      />
+    </div>
+  );
+
   return (
     <section
       ref={matRef}
@@ -416,12 +511,14 @@ export function SeatMat({
         <div
           className={cn(
             'relative flex h-full w-full gap-1 px-1',
-            // The zone column belongs on the OUTER edge of the seat, which is
-            // whichever side of the board this quadrant sits against.
+            // The pile column belongs on the OUTER edge of the seat, which is
+            // whichever side of the board this quadrant sits against. The board
+            // inside it never mirrors: creatures top, lands bottom, block right,
+            // on every mat at the table.
             side === 'left' ? 'flex-row' : 'flex-row-reverse'
           )}
         >
-          {zoneColumn}
+          {pileColumn}
 
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Who this is, and what they are on. Upright, on every seat. */}
@@ -526,25 +623,7 @@ export function SeatMat({
               )}
             </div>
 
-            {/* The three bands. Lands at the back, creatures nearest the middle. */}
-            <div
-              className="flex min-h-0 flex-1 flex-col justify-start"
-              style={{ gap: BAND_GAP }}
-            >
-              {BOARD_ROWS.map((row, index) => (
-                <ZoneRow
-                  key={row.id}
-                  label={row.label}
-                  cards={rows[row.id]}
-                  cardWidth={boardCardWidth}
-                  height={bandHeight}
-                  available={bandWidth}
-                  tinted={index % 2 === 1}
-                  renderCard={renderCard}
-                />
-              ))}
-            </div>
-
+            {board}
           </div>
         </div>
       </Playmat>

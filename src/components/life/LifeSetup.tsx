@@ -14,16 +14,24 @@
  * **And you must be able to skip all of it.** The table is complete and legal
  * the moment this screen opens — last week's pod size, last week's colours, the
  * right life total for the format — and Start sits in a bar that never scrolls
- * away. One press plays. Everything below the preview is for the week the
+ * away. One press plays. Everything beside the preview is for the week the
  * regular table has a guest.
+ *
+ * **This screen is not the game.** It renders inside the app frame like every
+ * other page: top bar, rail, Back. It used to blank the entire application to
+ * ask how many people were playing, which on a desktop stranded a 32rem column
+ * of controls in the middle of a black screen. The table now takes the width it
+ * deserves and the controls sit beside it, so the whole setup reads at a glance
+ * instead of scrolling past the fold. Immersion starts at Start.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, Play, Undo2 } from 'lucide-react';
+import { Check, Play, Undo2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import {
   seatBoxStyle,
   seatContentStyle,
@@ -78,7 +86,9 @@ function TablePreview({ seats, startingLife, art, activeIndex, onSelect }: Table
   );
 
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-background shadow-[0_2px_14px_hsl(0_0%_0%/0.5)]">
+    // Capped: on a 27" monitor an uncapped 4:3 board is taller than the viewport
+    // and the controls beside it fall off the bottom.
+    <div className="relative mx-auto aspect-[4/3] w-full max-w-[52rem] overflow-hidden rounded-2xl bg-background shadow-[0_2px_14px_hsl(0_0%_0%/0.5)]">
       {layout.seats.map(seat => {
         const config = seats[seat.index];
         if (!config) return null;
@@ -263,41 +273,39 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
   };
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-background"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingLeft: 'env(safe-area-inset-left)',
-        paddingRight: 'env(safe-area-inset-right)',
-      }}
-    >
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {/*
-          One column on a phone, which is where this screen is usually held.
-          On a desktop the 32rem column was stranded in the middle of the
-          viewport with black either side, and the one thing worth looking at —
-          the table — was rendered at thumbnail size. From `lg` up the table
-          takes the wider column and the settings stack beside it, so the
-          picture is large and every control is still above the fold.
-        */}
-        <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 pb-6 lg:max-w-[1180px]">
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <Button
-              variant="ghost"
-              className="h-10 -ml-2 px-2 text-muted-foreground"
-              onClick={onCancel ?? onExit}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              {onCancel ? 'Back to the game' : 'DeckMatrix'}
+    <StandardPageLayout
+      title="Life counter"
+      description={
+        onCancel
+          ? 'A game is already running. Change the table below, or resume where you left off.'
+          : 'Set the table, then start. The game itself takes over the whole screen.'
+      }
+      action={
+        <div className="flex items-center gap-2">
+          {onCancel && (
+            <Button variant="secondary" className="h-11 px-5" onClick={onCancel}>
+              Resume game
             </Button>
-            <h1 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Life counter
-            </h1>
-          </div>
-
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] lg:items-start lg:gap-6">
-          {/* The board itself. Everything below is an edit to this picture. */}
-          <section className="flex flex-col gap-2 lg:sticky lg:top-4">
+          )}
+          <Button className="h-11 gap-2 px-5" onClick={start}>
+            <Play className="h-4 w-4" />
+            Start {playerCount}-player game
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex w-full flex-col gap-4 pb-2">
+        {/*
+          One column on a phone, which is where this screen is usually held. From
+          `lg` the table takes the left of the full page width and the settings
+          that change it sit beside it — the picture is large, and the black
+          margins that used to flank a 32rem column are gone. The seats get their
+          own full-width row below, one card per seat, so no column ends up twice
+          the height of the other.
+        */}
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-5 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+          {/* The board itself. Everything beside it is an edit to this picture. */}
+          <section className="flex flex-col gap-2">
             <TablePreview
               seats={seats}
               startingLife={startingLife}
@@ -320,10 +328,31 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                 )}
               </p>
             )}
+
+            {/*
+              Under the picture, not at the end of the scroll. The promise of
+              this screen is that the defaults are already right, and on a phone
+              this is the first thing under the thumb after the table itself.
+            */}
+            <div className="mt-1 flex items-center gap-2">
+              {onCancel ? (
+                <Button variant="secondary" className="h-14 px-5" onClick={onCancel}>
+                  Resume
+                </Button>
+              ) : (
+                <Button variant="ghost" className="h-14 px-5" onClick={onExit}>
+                  Leave
+                </Button>
+              )}
+              <Button className="h-14 flex-1 text-base" onClick={start}>
+                <Play className="h-5 w-5" />
+                Start {playerCount}-player game
+              </Button>
+            </div>
           </section>
 
-          {/* Every control, in one column beside the table on a wide screen. */}
-          <div className="flex flex-col gap-4">
+          {/* The settings that redraw the picture, beside it rather than under. */}
+          <div className="grid content-start gap-3 2xl:grid-cols-2">
           {/* Pod size */}
           <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
             <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -394,63 +423,6 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                 </button>
               ))}
             </div>
-          </section>
-
-          {/* Seats: a name and a mat each */}
-          <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
-            <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Seats &amp; colours
-            </h2>
-
-            {seats.map((seat, index) => (
-              <div
-                key={index}
-                ref={element => {
-                  seatRefs.current[index] = element;
-                }}
-                className={cn(
-                  'flex flex-col gap-2.5 rounded-xl p-2 transition-colors motion-reduce:transition-none',
-                  index === activeIndex ? 'bg-muted/70' : 'bg-muted/30',
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 shrink-0 text-center text-xs font-semibold tabular-nums text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <Input
-                    value={seat.name}
-                    maxLength={24}
-                    aria-label={`Player ${index + 1} name`}
-                    placeholder={`Player ${index + 1}`}
-                    onFocus={() => setActiveIndex(index)}
-                    onChange={event => {
-                      const { value } = event.target;
-                      setSeats(current =>
-                        current.map((s, i) => (i === index ? { ...s, name: value } : s)),
-                      );
-                    }}
-                    className="h-11 border-0 bg-background/60 font-medium"
-                  />
-                </div>
-
-                <div className="flex items-stretch gap-1.5">
-                  {MAT_COLORS.map(color => (
-                    <MatSwatch
-                      key={color}
-                      color={color}
-                      art={art[color]?.art}
-                      selected={seat.mat === color}
-                      taken={seats.some((other, i) => i !== index && other.mat === color)}
-                      label={`${matDefinition(color).label} mat for ${seatName(seat, index)}`}
-                      onSelect={() => {
-                        setActiveIndex(index);
-                        setMat(index, color);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
           </section>
 
           {/* Format */}
@@ -552,31 +524,76 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
             </div>
           </section>
           </div>
-          </div>
         </div>
-      </div>
 
-      {/*
-        The quick start. Pinned rather than sitting at the end of the scroll,
-        because the promise of this screen is that the defaults are already
-        right and nobody should have to scroll to act on that.
-      */}
-      <div
-        className="shrink-0 bg-popover px-4 pt-3 shadow-[0_-2px_14px_hsl(0_0%_0%/0.45)]"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
-        <div className="mx-auto flex w-full max-w-lg items-center gap-2 lg:max-w-[1180px]">
-          {onCancel && (
-            <Button variant="secondary" className="h-14 px-5" onClick={onCancel}>
-              Resume
-            </Button>
-          )}
-          <Button className="h-14 flex-1 text-base" onClick={start}>
-            <Play className="h-5 w-5" />
-            Start {playerCount}-player game
-          </Button>
-        </div>
+        {/*
+          Seats get the whole page width, one card per seat, laid out in the same
+          order the board numbers them. Stacked in a side column this was twice
+          the height of everything next to it and pushed the settings off screen;
+          across the page it reads as the table it describes.
+        */}
+        <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
+          <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Seats &amp; colours
+          </h2>
+
+          <div
+            className="grid gap-2 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--seat-cols),minmax(0,1fr))]"
+            style={{ ['--seat-cols' as string]: String(playerCount) }}
+          >
+          {seats.map((seat, index) => (
+            <div
+              key={index}
+              ref={element => {
+                seatRefs.current[index] = element;
+              }}
+              className={cn(
+                'flex flex-col gap-2.5 rounded-xl p-2 transition-colors motion-reduce:transition-none',
+                index === activeIndex ? 'bg-muted/70' : 'bg-muted/30',
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-6 shrink-0 text-center text-xs font-semibold tabular-nums text-muted-foreground">
+                  {index + 1}
+                </span>
+                <Input
+                  value={seat.name}
+                  maxLength={24}
+                  aria-label={`Player ${index + 1} name`}
+                  placeholder={`Player ${index + 1}`}
+                  onFocus={() => setActiveIndex(index)}
+                  onChange={event => {
+                    const { value } = event.target;
+                    setSeats(current =>
+                      current.map((s, i) => (i === index ? { ...s, name: value } : s)),
+                    );
+                  }}
+                  className="h-11 border-0 bg-background/60 font-medium"
+                />
+              </div>
+
+              <div className="flex items-stretch gap-1.5">
+                {MAT_COLORS.map(color => (
+                  <MatSwatch
+                    key={color}
+                    color={color}
+                    art={art[color]?.art}
+                    selected={seat.mat === color}
+                    taken={seats.some((other, i) => i !== index && other.mat === color)}
+                    label={`${matDefinition(color).label} mat for ${seatName(seat, index)}`}
+                    onSelect={() => {
+                      setActiveIndex(index);
+                      setMat(index, color);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          </div>
+        </section>
+
       </div>
-    </div>
+    </StandardPageLayout>
   );
 }

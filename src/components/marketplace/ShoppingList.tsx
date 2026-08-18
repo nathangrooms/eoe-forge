@@ -13,11 +13,14 @@ import {
   Check
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
-import { CardImage } from '@/components/cards';
+import { Link } from 'react-router-dom';
+import { CardImage, cardDetailPath } from '@/components/cards';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 
 interface ShoppingListItem {
   id: string;
+  /** The card this row is for. Rows saved before card links existed have none. */
+  cardId?: string;
   name: string;
   set_code?: string;
   image_uri?: string;
@@ -79,6 +82,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
         const card = await response.json();
         newItem = {
           id: crypto.randomUUID(),
+          cardId: card.id,
           name: card.name,
           set_code: card.set,
           // `large`, not `small`: 146px art was being drawn into a row that
@@ -203,15 +207,30 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                       onCheckedChange={() => handleTogglePurchased(item.id)}
                     />
                     
-                    <CardImage
-                      card={{ name: item.name, image_uris: { large: item.image_uri } }}
-                      width={34}
-                      hideFlip
-                      interactive={false}
-                    />
-                    
+                    {/* The card goes to the card page; the tick, the quantity
+                        and the buy link stay controls. */}
+                    <Link
+                      to={cardDetailPath({ id: item.cardId, name: item.name }) ?? '#'}
+                      className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`Open ${item.name}`}
+                    >
+                      <CardImage
+                        card={{ name: item.name, image_uris: { large: item.image_uri } }}
+                        width={34}
+                        hideFlip
+                        interactive
+                      />
+                    </Link>
+
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{item.name}</p>
+                      <p className="font-medium text-sm truncate">
+                        <Link
+                          to={cardDetailPath({ id: item.cardId, name: item.name }) ?? '#'}
+                          className="hover:underline"
+                        >
+                          {item.name}
+                        </Link>
+                      </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {item.set_code && (
                           <span>{item.set_code.toUpperCase()}</span>

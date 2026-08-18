@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -16,10 +17,11 @@ import {
   LayoutGrid,
   List,
   SlidersHorizontal,
+  Tag,
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
-import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
+import { cardDetailPath, CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
 import { ActiveFilterChips, CardFilterPanel, useCardFilterState } from '@/components/filters';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
@@ -202,6 +204,7 @@ function toCardPriceData(card: any, showFoil: boolean): CardPriceData {
  * stay beside it because they are properties of the *listing*, not the card.
  */
 export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: PriceSearchPanelProps) {
+  const navigate = useNavigate();
   const storedPrefs = getStoredPreferences();
 
   const filters = useCardFilterState();
@@ -322,8 +325,21 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     onAddToShoppingList?.(card);
   };
 
-  const handleCardClick = (card: CardPriceData) => {
-    setSelectedCard(card);
+  /**
+   * Owner: *"Marketplace doesnt let you click into a card detail page"*.
+   *
+   * So the card itself — art or row — goes to `/cards/:id`, the same as every
+   * other grid in the product. The cross-platform price breakdown is still
+   * here; it is now reached by its own "Prices" control, because it is a
+   * comparison of the *listings* for a card rather than a view of the card.
+   */
+  const openCardPage = (card: CardPriceData) => {
+    const path = cardDetailPath(card);
+    if (path) navigate(path);
+  };
+
+  const handleShowPrices = (card: CardPriceData) => {
+    setSelectedCard(prev => (prev?.id === card.id ? null : card));
   };
 
   /**
@@ -590,8 +606,8 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                   card={card.scryfallData ?? { name: card.name, image_uris: { large: card.image_uri } }}
                   width={cardWidth}
                   fill
-                  onClick={() => handleCardClick(card)}
-                  title={`${card.name} — ${card.set_name}`}
+                  onClick={() => openCardPage(card)}
+                  title={`Open ${card.name}`}
                 >
                   {card.isArtVariant && (
                     <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
@@ -621,6 +637,16 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                   </p>
 
                   <div className="mt-1 flex gap-1.5">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 flex-1 px-2 text-xs"
+                      onClick={() => handleShowPrices(card)}
+                      aria-pressed={selectedCard?.id === card.id}
+                    >
+                      <Tag className="mr-1 h-3 w-3" aria-hidden="true" />
+                      Prices
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -668,7 +694,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                 <tr
                   key={card.id}
                   className="cursor-pointer transition-colors odd:bg-muted/20 hover:bg-muted/50"
-                  onClick={() => handleCardClick(card)}
+                  onClick={() => openCardPage(card)}
                 >
                   <td className="py-1.5 pl-3 pr-0">
                     <CardImage
@@ -704,6 +730,18 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                     {priceLabel(card) ?? <span className="text-muted-foreground">—</span>}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleShowPrices(card);
+                      }}
+                      aria-label={`Price breakdown for ${card.name}`}
+                    >
+                      <Tag className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

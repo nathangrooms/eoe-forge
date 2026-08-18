@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { ScanInsightsHelper } from '@/components/scan/ScanInsightsHelper';
-import { CardGrid, CardImage } from '@/components/cards';
+import { CardGrid, CardImage, cardDetailPath } from '@/components/cards';
 import { formatPrice } from '@/components/collection/browser/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -19,9 +19,65 @@ const CARD_WIDTH = 168;
 
 interface RecentCollectionCard {
   id: string;
+  /** The card's own id, not the collection row's — this is what `/cards/:id` takes. */
+  cardId: string | null;
   name: string;
   quantity: number;
   card: any;
+}
+
+/**
+ * A card tile that goes to the card page.
+ *
+ * Owner: *"Scanned cards, should be able to click the last added to your
+ * collection"*. Both grids on this page are cards you have just handled, and a
+ * card you have just handled is exactly the one you want to read — so the whole
+ * tile, art and caption, is a single link to `/cards/:id`.
+ */
+function ScanCardTile({
+  card,
+  href,
+  name,
+  caption,
+  overlay,
+}: {
+  card: any;
+  href: string | null;
+  name: string;
+  caption: ReactNode;
+  overlay?: ReactNode;
+}) {
+  const body = (
+    <>
+      <CardImage
+        card={card}
+        width={CARD_WIDTH}
+        fill
+        hideFlip
+        interactive={!!href}
+        title={href ? `Open ${name}` : name}
+      >
+        {overlay}
+      </CardImage>
+      <div className="flex flex-col gap-0.5 px-0.5">
+        <p className="truncate text-xs font-medium text-foreground" title={name}>
+          {name}
+        </p>
+        {caption}
+      </div>
+    </>
+  );
+
+  if (!href) return <div className="flex flex-col gap-1.5">{body}</div>;
+
+  return (
+    <Link
+      to={href}
+      className="flex flex-col gap-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {body}
+    </Link>
+  );
 }
 
 /**
@@ -87,6 +143,7 @@ export default function Scan() {
     setRecentCollection(
       (data ?? []).map((row: any) => ({
         id: row.id,
+        cardId: row.cards?.id ?? null,
         name: row.card_name ?? row.cards?.name ?? 'Unknown card',
         quantity: (row.quantity ?? 0) + (row.foil ?? 0),
         card: row.cards ?? { name: row.card_name },
@@ -215,25 +272,19 @@ export default function Scan() {
 
             <CardGrid width={CARD_WIDTH}>
               {recentScans.map(scan => (
-                <div key={scan.id} className="flex flex-col gap-1.5">
-                  <CardImage
-                    card={cardShapeOf(scan)}
-                    width={CARD_WIDTH}
-                    fill
-                    hideFlip
-                    interactive={false}
-                    title={scan.name}
-                  >
-                    {scan.quantity > 1 && (
+                <ScanCardTile
+                  key={scan.id}
+                  card={cardShapeOf(scan)}
+                  href={cardDetailPath({ id: scan.cardId, name: scan.name })}
+                  name={scan.name}
+                  overlay={
+                    scan.quantity > 1 ? (
                       <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
                         ×{scan.quantity}
                       </span>
-                    )}
-                  </CardImage>
-                  <div className="flex flex-col gap-0.5 px-0.5">
-                    <p className="truncate text-xs font-medium text-foreground" title={scan.name}>
-                      {scan.name}
-                    </p>
+                    ) : null
+                  }
+                  caption={
                     <div className="flex items-center justify-between gap-1 text-[11px]">
                       <span className="truncate font-mono uppercase text-muted-foreground">
                         {scan.setCode || '—'}
@@ -244,8 +295,8 @@ export default function Scan() {
                         </span>
                       ) : null}
                     </div>
-                  </div>
-                </div>
+                  }
+                />
               ))}
             </CardGrid>
           </section>
@@ -271,30 +322,24 @@ export default function Scan() {
 
             <CardGrid width={CARD_WIDTH}>
               {recentCollection.map(entry => (
-                <div key={entry.id} className="flex flex-col gap-1.5">
-                  <CardImage
-                    card={entry.card}
-                    width={CARD_WIDTH}
-                    fill
-                    hideFlip
-                    interactive={false}
-                    title={entry.name}
-                  >
-                    {entry.quantity > 1 && (
+                <ScanCardTile
+                  key={entry.id}
+                  card={entry.card}
+                  href={cardDetailPath({ id: entry.cardId, name: entry.name })}
+                  name={entry.name}
+                  overlay={
+                    entry.quantity > 1 ? (
                       <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
                         ×{entry.quantity}
                       </span>
-                    )}
-                  </CardImage>
-                  <div className="flex flex-col gap-0.5 px-0.5">
-                    <p className="truncate text-xs font-medium text-foreground" title={entry.name}>
-                      {entry.name}
-                    </p>
+                    ) : null
+                  }
+                  caption={
                     <span className="truncate font-mono text-[11px] uppercase text-muted-foreground">
                       {entry.card?.set_code || '—'}
                     </span>
-                  </div>
-                </div>
+                  }
+                />
               ))}
             </CardGrid>
           </section>

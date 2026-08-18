@@ -70,6 +70,7 @@ interface CardRow {
   mana_cost?: string | null;
   cmc?: number | null;
   type_line?: string | null;
+  oracle_text?: string | null;
   power?: string | null;
   toughness?: string | null;
   color_identity?: string[] | null;
@@ -80,7 +81,7 @@ interface CardRow {
 }
 
 const CARD_COLUMNS =
-  'id, name, mana_cost, cmc, type_line, power, toughness, color_identity, keywords, image_uris, faces, is_legendary';
+  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, image_uris, faces, is_legendary';
 
 /**
  * The seeded pools' column list.
@@ -92,7 +93,7 @@ const CARD_COLUMNS =
  * straight cut to the bytes on the wire for no loss of card art.
  */
 const SEED_CARD_COLUMNS =
-  'id, name, mana_cost, cmc, type_line, power, toughness, color_identity, keywords, image_uris, is_legendary';
+  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, image_uris, is_legendary';
 
 function readImage(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -112,12 +113,103 @@ function imageFor(row: CardRow): string | undefined {
 }
 
 const MANA_COLORS: readonly string[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+const EVERY_COLOR: readonly ManaColor[] = ['W', 'U', 'B', 'R', 'G'];
 
 function identityOf(row: CardRow): ManaColor[] {
   return (row.color_identity ?? []).filter((c): c is ManaColor => MANA_COLORS.includes(c));
 }
 
-export function toPlayCard(row: CardRow): PlayCard {
+/* -------------------------------------------------------------------------- */
+/* What a land actually taps for                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `src/lib/game/mana.ts` reads a permanent's `colorIdentity` as the colours it
+ * produces. For a basic and for most duals that is exactly right, and for a
+ * huge slice of a real Commander mana base it is exactly wrong.
+ *
+ * Measured on two of this account's real 100-card decks: **14 of 28 lands in
+ * each** carry an empty `color_identity` and therefore produced no coloured
+ * mana at all. Command Tower — the single most played card in the format —
+ * Cavern of Souls, Reflecting Pool, Exotic Orchard, Mana Confluence, Gemstone
+ * Mine, Shimmering Grotto and every fetchland all have colourless identity,
+ * because a card's colour identity is about deck legality, not about the mana
+ * it makes. Playing a real game with that mapping, the human seat drew four
+ * colourless lands, could not cast a single spell with a coloured pip in
+ * eighteen turns, and lost from 40 to 0 without ever having a board.
+ *
+ * So a land's produced colours are read from its oracle text instead, which is
+ * the card actually saying what it does:
+ *
+ *   "{T}: Add {G} or {W}."                          -> G, W
+ *   "{T}: Add {C}."                                 -> nothing coloured
+ *   "{T}: Add one mana of any color."               -> WUBRG
+ *   "…any color in your commander's color identity" -> the deck's identity
+ *
+ * Honest about the approximation: a conditional source (Exotic Orchard,
+ * Reflecting Pool, Cavern of Souls' creature-only mana) is counted as though
+ * the condition is met, and a fetchland still produces nothing, because it
+ * genuinely taps for nothing. Erring towards castable is the right side to err
+ * on for a playtest — the alternative is the mode we measured, where half the
+ * mana base is scenery.
+ */
+function producedFromOracle(
+  oracle: string | null | undefined,
+  deckColors: readonly ManaColor[]
+): ManaColor[] | null {
+  if (!oracle) return null;
+
+  const produced = new Set<ManaColor>();
+  let sawMana = false;
+
+  // Each "Add …" clause, stopping at the sentence or clause that ends it, so
+  // "Add a lore counter" and "Add {G}" cannot bleed into one another.
+  for (const match of oracle.matchAll(/\badds?\b([^.;\n]*)/gi)) {
+    const clause = match[1] ?? '';
+
+    if (/any\s+(?:one\s+)?colou?r|any\s+type|any\s+combination\s+of\s+colou?rs/i.test(clause)) {
+      sawMana = true;
+      const scoped = /commander(?:'|’)s\s+colou?r\s+identity/i.test(clause);
+      for (const color of scoped && deckColors.length > 0 ? deckColors : EVERY_COLOR) {
+        produced.add(color);
+      }
+      continue;
+    }
+
+    for (const symbol of clause.matchAll(/\{([WUBRGC])\}/g)) {
+      sawMana = true;
+      const code = symbol[1] as ManaColor;
+      // {C} is mana, but it is not a colour — it must not make the land count
+      // as a coloured source.
+      if (code !== 'C') produced.add(code);
+    }
+  }
+
+  if (!sawMana) return null;
+  return EVERY_COLOR.filter(color => produced.has(color));
+}
+
+/**
+ * Colour identity as the play engine should read it for this card.
+ *
+ * Only lands and artifacts are re-read from oracle text. A creature keeps its
+ * printed identity: a mana dork's identity is normally the colour it taps for
+ * anyway, and a commander's identity is load-bearing everywhere else in the
+ * app — this function must never widen Atraxa to five colours because her text
+ * happens to contain the word "add".
+ */
+function playIdentityOf(row: CardRow, deckColors: readonly ManaColor[]): ManaColor[] {
+  const printed = identityOf(row);
+  const line = (row.type_line ?? '').toLowerCase();
+  if (!line.includes('land') && !line.includes('artifact')) return printed;
+  if (line.includes('creature')) return printed;
+
+  const produced = producedFromOracle(row.oracle_text, deckColors);
+  if (produced === null) return printed;
+  return produced;
+}
+
+export function toPlayCard(row: CardRow, deckColors: readonly ManaColor[] = []): PlayCard {
   return {
     cardId: row.id,
     name: row.name,
@@ -126,7 +218,7 @@ export function toPlayCard(row: CardRow): PlayCard {
     typeLine: row.type_line ?? undefined,
     power: row.power ?? undefined,
     toughness: row.toughness ?? undefined,
-    colorIdentity: identityOf(row),
+    colorIdentity: playIdentityOf(row, deckColors),
     imageUrl: imageFor(row),
     keywords: (row.keywords ?? []).map(keyword => keyword.toLowerCase()),
   };
@@ -293,6 +385,17 @@ export interface DeckSummary {
   cardCount?: number;
 }
 
+/**
+ * Every deck this user could sit down with, newest first, **with its real card
+ * count**.
+ *
+ * The count is not decoration. This account has nine saved decks holding zero
+ * cards; without a count the lobby offered them as equals, the player picked
+ * one, `loadUserDeck` threw, and the seat quietly received a seeded deck
+ * instead. A lobby that lets you choose something that cannot be chosen is the
+ * bug. One extra query for the whole list, counted client-side, because
+ * PostgREST cannot group.
+ */
 export async function listPlayableDecks(userId: string): Promise<DeckSummary[]> {
   const { data, error } = await supabase
     .from('user_decks')
@@ -302,11 +405,30 @@ export async function listPlayableDecks(userId: string): Promise<DeckSummary[]> 
 
   if (error) throw error;
 
-  return (data ?? []).map(deck => ({
+  const decks = data ?? [];
+  const counts = new Map<string, number>();
+
+  if (decks.length > 0) {
+    const { data: entries, error: countError } = await supabase
+      .from('deck_cards')
+      .select('deck_id, quantity, is_sideboard')
+      .in('deck_id', decks.map(deck => deck.id));
+
+    // A failed count must not cost the player their deck list — it only costs
+    // the badge, so it is logged and the list still comes back.
+    if (countError) console.warn('[play] could not count deck cards:', countError);
+    for (const entry of entries ?? []) {
+      if (entry.is_sideboard) continue;
+      counts.set(entry.deck_id, (counts.get(entry.deck_id) ?? 0) + (entry.quantity ?? 1));
+    }
+  }
+
+  return decks.map(deck => ({
     id: deck.id,
     name: deck.name,
     format: toGameFormat(deck.format),
     colors: deck.colors ?? [],
+    cardCount: counts.get(deck.id) ?? 0,
   }));
 }
 
@@ -335,8 +457,28 @@ export async function loadUserDeck(summary: DeckSummary): Promise<PlayDeck> {
 
   if (cardsError) throw cardsError;
 
+  const rowsById = new Map<string, CardRow>();
+  for (const row of (cardRows ?? []) as CardRow[]) rowsById.set(row.id, row);
+
+  /* The deck's own colours, needed before any card is mapped: a Command Tower
+     taps for "any colour in your commander's colour identity", so it cannot be
+     read in isolation. The commander's printed identity is the answer when
+     there is one; otherwise take the union of the list, which is what a
+     non-commander deck's Command Tower would see anyway. */
+  const commanderRows = entries
+    .filter(entry => entry.is_commander)
+    .map(entry => rowsById.get(entry.card_id))
+    .filter((row): row is CardRow => !!row);
+
+  const deckColorSet = new Set<ManaColor>();
+  const identitySource = commanderRows.length > 0 ? commanderRows : Array.from(rowsById.values());
+  for (const row of identitySource) {
+    for (const color of identityOf(row)) if (color !== 'C') deckColorSet.add(color);
+  }
+  const deckColors = Array.from(deckColorSet);
+
   const byId = new Map<string, PlayCard>();
-  for (const row of (cardRows ?? []) as CardRow[]) byId.set(row.id, toPlayCard(row));
+  for (const [id, row] of rowsById) byId.set(id, toPlayCard(row, deckColors));
 
   const cards: PlayCard[] = [];
   const commanders: PlayCard[] = [];
@@ -382,7 +524,13 @@ const BASIC_FOR_COLOR: Record<string, string> = {
 export interface SeedDeckOptions {
   /** Same seed, same deck. Defaults to 1. */
   seed?: number;
-  /** Total cards including lands. 60 keeps a demo game quick. */
+  /**
+   * Total cards including lands, commander excluded.
+   *
+   * 99 by default, because the mode this feeds is Commander and a seeded
+   * opponent that runs out of library in a long game is not an opponent. The
+   * pools are capped well above this, so the size is free.
+   */
   size?: number;
   /** Proportion of the deck that should be land. */
   landRatio?: number;
@@ -469,8 +617,8 @@ function basicPool(): Promise<CardRow[]> {
  */
 export async function buildSeedDeck(options: SeedDeckOptions = {}): Promise<PlayDeck> {
   const seed = options.seed ?? 1;
-  const size = options.size ?? 60;
-  const landCount = Math.round(size * (options.landRatio ?? 0.4));
+  const size = options.size ?? 99;
+  const landCount = Math.round(size * (options.landRatio ?? 0.38));
   const spellCount = size - landCount;
 
   const legendRows = await legendPool();
@@ -480,7 +628,7 @@ export async function buildSeedDeck(options: SeedDeckOptions = {}): Promise<Play
 
   const commanderRow = pick(legendRows, 1, seed)[0];
   const commander = toPlayCard(commanderRow);
-  const identity = commander.colorIdentity ?? [];
+  const identity = (commander.colorIdentity ?? []).filter(color => color !== 'C');
 
   // The basics are wanted whatever the pool says, so both go out together.
   const [pool, basics] = await Promise.all([spellPool(identity), basicPool()]);
@@ -512,7 +660,7 @@ export async function buildSeedDeck(options: SeedDeckOptions = {}): Promise<Play
   const basicByName = new Map<string, PlayCard>();
   for (const row of basics) {
     if (!basicNames.has(row.name)) continue;
-    if (!basicByName.has(row.name)) basicByName.set(row.name, toPlayCard(row));
+    if (!basicByName.has(row.name)) basicByName.set(row.name, toPlayCard(row, identity));
   }
   const basicList = Array.from(basicByName.values());
 
@@ -521,9 +669,12 @@ export async function buildSeedDeck(options: SeedDeckOptions = {}): Promise<Play
     for (let i = 0; i < landCount; i++) lands.push(basicList[i % basicList.length]);
   }
 
+  /* Arrow functions, not a bare `.map(toPlayCard)`: `Array.map` hands the
+     callback (element, index, array), so a point-free reference would pass the
+     row's index in as `deckColors`. */
   const cards = [
-    ...chosenCreatures.map(toPlayCard),
-    ...chosenOthers.map(toPlayCard),
+    ...chosenCreatures.map(row => toPlayCard(row, identity)),
+    ...chosenOthers.map(row => toPlayCard(row, identity)),
     ...lands,
   ];
 
@@ -609,25 +760,72 @@ export function fallbackDeck(name = 'Offline Green'): PlayDeck {
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/* Resolving a seat's deck, out loud                                          */
+/* -------------------------------------------------------------------------- */
+
+export interface ResolvedDeck {
+  deck: PlayDeck;
+  /**
+   * What went wrong on the way here, in a sentence a player can act on.
+   *
+   * Undefined when the deck that was asked for is the deck that was dealt.
+   */
+  notice?: string;
+  /** The underlying failure, for the console. */
+  error?: unknown;
+}
+
 /**
  * Get a deck for a seat, degrading rather than failing: the requested deck, a
- * seeded one, then the offline list.
+ * seeded one, then the offline list — and **saying which one it landed on**.
+ *
+ * The silent version of this function is the bug the owner reported as "it just
+ * plays a demo deck". A seat whose real deck failed to load looks exactly like
+ * a seat that asked for a seeded one, and the only trace was a `console.warn`
+ * nobody has open. The notice travels back with the deck so the surface can put
+ * it in front of the player.
  */
+export async function resolveDeckDetailed(
+  summary: DeckSummary | null,
+  seedOptions: SeedDeckOptions = {}
+): Promise<ResolvedDeck> {
+  let requestedFailure: unknown = null;
+
+  if (summary) {
+    try {
+      return { deck: await loadUserDeck(summary) };
+    } catch (error) {
+      requestedFailure = error;
+      console.warn('[play] falling back from user deck:', error);
+    }
+  }
+
+  try {
+    const deck = await buildSeedDeck(seedOptions);
+    return {
+      deck,
+      error: requestedFailure ?? undefined,
+      notice: requestedFailure
+        ? `"${summary?.name}" could not be loaded (${describe(requestedFailure)}) — playing ${deck.name} instead.`
+        : undefined,
+    };
+  } catch (error) {
+    console.warn('[play] falling back to the offline deck:', error);
+    return {
+      deck: fallbackDeck(seedOptions.name),
+      error,
+      notice: summary
+        ? `"${summary.name}" could not be loaded and the card database is unreachable (${describe(error)}) — playing the offline demo deck.`
+        : `The card database is unreachable (${describe(error)}) — playing the offline demo deck.`,
+    };
+  }
+}
+
+/** Back-compatible shape: the deck alone, notice discarded. */
 export async function resolveDeck(
   summary: DeckSummary | null,
   seedOptions: SeedDeckOptions = {}
 ): Promise<PlayDeck> {
-  if (summary) {
-    try {
-      return await loadUserDeck(summary);
-    } catch (error) {
-      console.warn('[play] falling back from user deck:', error);
-    }
-  }
-  try {
-    return await buildSeedDeck(seedOptions);
-  } catch (error) {
-    console.warn('[play] falling back to the offline deck:', error);
-    return fallbackDeck(seedOptions.name);
-  }
+  return (await resolveDeckDetailed(summary, seedOptions)).deck;
 }

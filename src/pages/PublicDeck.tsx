@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
@@ -14,11 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Copy, Download, ExternalLink, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import {
   computeDeckStats,
   fetchCardsByIds,
-  toCardObject,
   type DeckCardDetail,
   type DeckCardRow,
 } from '@/lib/deck/deckCards';
@@ -85,30 +84,10 @@ export default function PublicDeck() {
   const [loading, setLoading] = useState(true);
   const [tracked, setTracked] = useState(false);
 
-  /* The open card lives in the URL. This is the page people send each other,
-     so a visitor who opens a card and copies the address bar shares the card
-     they were looking at — and Back closes the pane instead of leaving. */
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCardId = searchParams.get('card');
-
-  const openCard = (row: DeckCardRow) => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.set('card', row.card_id);
-      return next;
-    });
-  };
-
-  const closeCard = () => {
-    setSearchParams(
-      prev => {
-        const next = new URLSearchParams(prev);
-        next.delete('card');
-        return next;
-      },
-      { replace: true }
-    );
-  };
+  /* Clicking a card goes to `/cards/:id`, the same as everywhere else in the
+     product. The card page is public, so a visitor following a shared decklist
+     lands on a real card page rather than a pane docked beside the list. */
+  const openCard = useOpenCard();
 
   useEffect(() => {
     if (!slug) return;
@@ -160,12 +139,6 @@ export default function PublicDeck() {
   }, [slug]);
 
   const stats = useMemo(() => computeDeckStats(rows), [rows]);
-
-  const selectedCard = useMemo(() => {
-    if (!selectedCardId) return null;
-    const row = rows.find(r => r.card_id === selectedCardId);
-    return row ? toCardObject(row) : null;
-  }, [rows, selectedCardId]);
 
   const analyticsDeck = useMemo<StoreCard[]>(
     () =>
@@ -385,32 +358,22 @@ export default function PublicDeck() {
                 />
               </aside>
 
-              <CardDetailSplit
-                pane={
-                  selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
-                }
-              >
-                <Tabs defaultValue="visual">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="visual">Visual</TabsTrigger>
-                    <TabsTrigger value="list">List</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="visual" className="mt-4">
-                    <DeckCardGrid
-                      rows={rows}
-                      collapsedByDefault={['lands']}
-                      onCardClick={openCard}
-                    />
-                  </TabsContent>
-                  <TabsContent value="list" className="mt-4">
-                    <Card>
-                      <CardContent className="p-0">
-                        <DeckCardTable rows={rows} onCardClick={openCard} />
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </CardDetailSplit>
+              <Tabs defaultValue="visual">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="visual">Visual</TabsTrigger>
+                  <TabsTrigger value="list">List</TabsTrigger>
+                </TabsList>
+                <TabsContent value="visual" className="mt-4">
+                  <DeckCardGrid rows={rows} collapsedByDefault={['lands']} onCardClick={openCard} />
+                </TabsContent>
+                <TabsContent value="list" className="mt-4">
+                  <Card>
+                    <CardContent className="p-0">
+                      <DeckCardTable rows={rows} onCardClick={openCard} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>

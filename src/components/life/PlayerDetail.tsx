@@ -126,7 +126,8 @@ export function PlayerDetail({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background"
+      /* Above the running board (z-60), which is itself above the shell. */
+      className="fixed inset-0 z-[70] bg-background"
       style={{ containerType: 'size' }}
       role="dialog"
       aria-modal="true"

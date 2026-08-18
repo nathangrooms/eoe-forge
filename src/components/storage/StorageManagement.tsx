@@ -1,27 +1,64 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Archive, Layers, Box, Boxes, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Package, Archive, DollarSign, AlertCircle, Box, Eye, Layers } from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { StorageOverview as StorageOverviewType, StorageContainer } from '@/types/storage';
+import type {
+  StorageOverview as StorageOverviewType,
+  StorageContainerSummary,
+} from '@/types/storage';
 import { CreateContainerPanel } from './CreateContainerPanel';
+import { ContainerObject, containerCapacity } from './ContainerObject';
 import { showError } from '@/components/ui/toast-helpers';
 import { formatPrice } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
+/**
+ * The shelf.
+ *
+ * This page used to be a stat row and a grid of parcel glyphs with three
+ * numbers under each — which is a report *about* storage, not a picture of it.
+ * Knowing where a physical card is is the one thing this product does that the
+ * deckbuilding sites do not, and the way to make that land is to draw the
+ * shelf: binders with your cards in the pockets, deck boxes with a deck
+ * standing in them, bulk boxes with a row of cards on edge. See
+ * `ContainerObject` for how each form is built.
+ *
+ * Every card in every object is a real `storage_items` row and every number is
+ * summed from the same fetch that drew them.
+ */
+
 interface StorageManagementProps {
-  onContainerSelect: (container: StorageContainer) => void;
+  onContainerSelect: (container: StorageContainerSummary) => void;
   selectedContainerId?: string;
 }
 
-/** Quick-create tiles now carry the type they advertise. */
+/**
+ * The empty state's three offers, drawn as the objects they create.
+ *
+ * "Create your first container" over three 24px glyphs asks someone to pick a
+ * data model. Three empty objects — nine bare pockets, an open deck box, an
+ * empty bulk box — ask them to pick a thing off a shelf, which is the question
+ * they can actually answer.
+ */
 const QUICK_TYPES = [
-  { id: 'deckbox', label: 'Deck box', icon: Box },
-  { id: 'binder', label: 'Binder', icon: Layers },
-  { id: 'box', label: 'Storage box', icon: Archive },
+  { id: 'binder', label: 'Binder', hint: 'Pages of pockets, for the good ones' },
+  { id: 'deckbox', label: 'Deck box', hint: 'One deck, ready to play' },
+  { id: 'box', label: 'Bulk box', hint: 'Everything else, on edge' },
 ] as const;
+
+/** Container type as it should read under a name. */
+const TYPE_LABEL: Record<string, string> = {
+  binder: 'Binder',
+  deckbox: 'Deck box',
+  box: 'Bulk box',
+  shelf: 'Shelf',
+  other: 'Container',
+  'deck-linked': 'Deck box',
+};
+
+/** One shelf, as an `auto-fill` track so the objects use the full width. */
+const SHELF_GRID = '[grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))]';
 
 export function StorageManagement({
   onContainerSelect,
@@ -58,130 +95,78 @@ export function StorageManagement({
     setInitialType(undefined);
   };
 
+  const containers = useMemo(() => overview?.containers ?? [], [overview]);
+  const totalCards = containers.reduce((sum, c) => sum + (c.itemCount ?? 0), 0);
+  const totalValue = containers.reduce((sum, c) => sum + (c.valueUSD ?? 0), 0);
+  const unassignedCount = overview?.unassigned.count ?? 0;
+  const unassignedValue = overview?.unassigned.valueUSD ?? 0;
+
   if (loading) {
     return (
-      <div className="flex h-full flex-col space-y-6 bg-background p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-72" />
-          </div>
-          <Skeleton className="h-10 w-36" />
+      <div className="flex h-full flex-col bg-background">
+        <div className="bg-card px-4 py-5 shadow-lg shadow-black/20 md:px-6">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-2 h-4 w-72" />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardContent className="p-5">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-12 rounded-lg" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-7 w-16" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i}>
-              <CardContent className="space-y-3 p-5">
-                <Skeleton className="h-10 w-10 rounded-lg" />
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-9 w-full" />
-              </CardContent>
-            </Card>
+        <div className={cn('grid gap-5 px-4 py-6 md:px-6', SHELF_GRID)}>
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="rounded-2xl bg-card p-4 shadow-lg shadow-black/25">
+              <Skeleton className="aspect-[1/1.3] w-full rounded-lg" />
+              <Skeleton className="mt-4 h-5 w-2/3" />
+              <Skeleton className="mt-2 h-4 w-1/3" />
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
-  const containers = overview?.containers ?? [];
-  const totalCards = containers.reduce((sum, c) => sum + (c.itemCount ?? 0), 0);
-  const totalValue = containers.reduce((sum, c) => sum + (c.valueUSD ?? 0), 0);
-  const unassignedCount = overview?.unassigned.count ?? 0;
-  const unassignedValue = overview?.unassigned.valueUSD ?? 0;
-
-  const stats = [
-    { label: 'Containers', value: containers.length.toLocaleString(), icon: Layers },
-    { label: 'Stored cards', value: totalCards.toLocaleString(), icon: Archive },
-    { label: 'Stored value', value: formatPrice(totalValue), icon: DollarSign },
-  ];
-
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background">
-      {/* Header */}
+      {/* Header — the real totals on one line, so the shelf gets the room. */}
       <div className="bg-card px-4 py-5 shadow-lg shadow-black/20 md:px-6">
-        <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Storage</h2>
-            <p className="text-sm text-muted-foreground">
-              Where each physical card actually lives
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">Storage</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Where each physical card actually lives.
             </p>
+            {containers.length > 0 && (
+              <p className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {containers.length}
+                  </span>{' '}
+                  {containers.length === 1 ? 'container' : 'containers'}
+                </span>
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {totalCards.toLocaleString()}
+                  </span>{' '}
+                  {totalCards === 1 ? 'card stored' : 'cards stored'}
+                </span>
+                <span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {formatPrice(totalValue)}
+                  </span>{' '}
+                  on the shelf
+                </span>
+              </p>
+            )}
           </div>
+
           <Button
             onClick={() => (creating ? closeCreate() : openCreate())}
             aria-expanded={creating}
-            className="gap-2"
+            className="shrink-0 gap-2"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             New container
           </Button>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {stats.map(stat => (
-            <Card key={stat.label}>
-              <CardContent className="p-5">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-muted p-3">
-                    <stat.icon className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                    <p className="text-2xl font-bold tabular-nums text-card-foreground">
-                      {stat.value}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {unassignedCount > 0 && (
-          <Card className="mt-4 border-0 bg-muted/40 shadow-none">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-card-foreground">
-                    {unassignedCount.toLocaleString()} cards are not assigned to any container
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Unassigned value: {formatPrice(unassignedValue)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      {/* Containers */}
-      <div className="flex-1 px-3 py-4 md:px-6 md:py-6">
-        <div className="mb-6 flex items-center gap-2">
-          <Box className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-lg font-semibold text-foreground">Your containers</h3>
-          {containers.length > 0 && (
-            <Badge variant="secondary" className="ml-auto">
-              {containers.length}
-            </Badge>
-          )}
-        </div>
-
+      <div className="flex-1 px-4 py-6 md:px-6">
         {creating && (
           <CreateContainerPanel
             key={initialType ?? 'default'}
@@ -195,109 +180,184 @@ export function StorageManagement({
         )}
 
         {containers.length === 0 ? (
-          <Card className="border-0 bg-card">
-            <CardContent className="px-6 py-16">
-              <div className="mx-auto max-w-md space-y-6 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                  <Package className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-foreground">
-                    Create your first container
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Deck boxes, binders and storage boxes let you record where each card is.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  {QUICK_TYPES.map(type => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => openCreate(type.id)}
-                      className="group rounded-lg bg-muted/40 p-3 text-center transition-colors hover:bg-accent"
-                    >
-                      <type.icon
-                        className="mx-auto mb-1 h-6 w-6 text-muted-foreground group-hover:text-foreground"
-                        aria-hidden="true"
-                      />
-                      <span className="text-xs font-medium">{type.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyShelf onPick={openCreate} />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {containers.map(container => {
-              const isSelected = selectedContainerId === container.id;
-              return (
-                <Card
+          <>
+            {/* Cards with nowhere recorded — the reason to keep going. */}
+            {unassignedCount > 0 && (
+              <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card px-4 py-3 shadow-lg shadow-black/20">
+                <Boxes className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sm text-foreground">
+                  <span className="font-semibold tabular-nums">
+                    {unassignedCount.toLocaleString()}
+                  </span>{' '}
+                  {unassignedCount === 1 ? 'card is' : 'cards are'} in your collection with no
+                  container recorded
+                  <span className="text-muted-foreground"> · {formatPrice(unassignedValue)}</span>
+                </p>
+              </div>
+            )}
+
+            <div className={cn('grid gap-5', SHELF_GRID)}>
+              {containers.map((container, index) => (
+                <ContainerTile
                   key={container.id}
-                  className={cn(
-                    'cursor-pointer border-0 shadow-md shadow-black/20 transition-colors hover:bg-accent/40',
-                    isSelected && 'bg-accent'
-                  )}
-                  onClick={() => onContainerSelect(container)}
-                >
-                  <CardContent className="p-5">
-                    <div className="mb-4 flex items-start gap-3">
-                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
-                        <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="truncate font-semibold text-card-foreground">
-                          {container.name}
-                        </h4>
-                        <Badge variant="secondary" className="mt-1 text-xs capitalize">
-                          {container.type}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <dl className="mb-4 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Cards</dt>
-                        <dd className="font-medium tabular-nums">
-                          {(container.itemCount ?? 0).toLocaleString()}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Unique</dt>
-                        <dd className="font-medium tabular-nums">
-                          {(container.uniqueCards ?? 0).toLocaleString()}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Value</dt>
-                        <dd className="font-semibold tabular-nums">
-                          {formatPrice(container.valueUSD ?? 0)}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="w-full"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onContainerSelect(container);
-                      }}
-                    >
-                      <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
-                      View contents
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  container={container}
+                  selected={selectedContainerId === container.id}
+                  eager={index < 3}
+                  onSelect={onContainerSelect}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------- tile */
+
+function ContainerTile({
+  container,
+  selected,
+  eager,
+  onSelect,
+}: {
+  container: StorageContainerSummary;
+  selected: boolean;
+  eager: boolean;
+  onSelect: (container: StorageContainerSummary) => void;
+}) {
+  const shown = container.preview?.length ?? 0;
+  const capacity = containerCapacity(container.type);
+  /**
+   * How many distinct cards the object could not show. Real subtraction, and
+   * the only honest way to say "there are 1,240 more in here" under a picture
+   * of five.
+   */
+  const hidden = Math.max(0, (container.uniqueCards ?? 0) - shown);
+  const empty = (container.itemCount ?? 0) === 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(container)}
+      aria-label={`${container.name}, ${TYPE_LABEL[container.type] ?? container.type}, ${
+        container.itemCount ?? 0
+      } cards`}
+      className={cn(
+        'group flex h-full flex-col rounded-2xl bg-card p-4 text-left',
+        'shadow-lg shadow-black/25 transition-all duration-200 ease-out',
+        'hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+        selected && 'bg-accent'
+      )}
+    >
+      {/* The object, standing on the floor of the tile. */}
+      <div className="flex flex-1 items-end justify-center pb-1">
+        <ContainerObject
+          type={container.type}
+          cards={container.preview}
+          eager={eager}
+          className="transition-transform duration-300 ease-out group-hover:scale-[1.02] motion-reduce:transform-none"
+        />
+      </div>
+
+      <div className="mt-4 space-y-1">
+        <h3 className="truncate text-base font-bold leading-tight tracking-tight text-card-foreground">
+          {container.name}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {TYPE_LABEL[container.type] ?? container.type}
+          {container.deck_id ? ' · linked to a deck' : ''}
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-baseline justify-between gap-3 text-sm">
+        {empty ? (
+          <span className="text-muted-foreground">
+            Empty · {capacity === 9 ? 'nine pockets' : 'room for a deck'} waiting
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            <span className="font-semibold tabular-nums text-foreground">
+              {(container.itemCount ?? 0).toLocaleString()}
+            </span>{' '}
+            {container.itemCount === 1 ? 'card' : 'cards'}
+            {hidden > 0 && (
+              <span className="tabular-nums"> · {hidden.toLocaleString()} more inside</span>
+            )}
+          </span>
+        )}
+        {(container.valueUSD ?? 0) > 0 && (
+          <span className="shrink-0 font-semibold tabular-nums text-foreground">
+            {formatPrice(container.valueUSD)}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------- empty state */
+
+/**
+ * No containers yet.
+ *
+ * Drawn as three empty objects rather than described in a paragraph — the same
+ * renderer the real shelf uses, with no cards in it, which is exactly what you
+ * are about to own. Picking one carries the type straight into the create
+ * panel, so the first click is the only decision.
+ */
+function EmptyShelf({ onPick }: { onPick: (type: string) => void }) {
+  const icons: Record<string, typeof Layers> = { binder: Layers, deckbox: Box, box: Archive };
+
+  return (
+    <section className="rounded-2xl bg-card px-4 py-8 shadow-lg shadow-black/20 md:px-8 md:py-10">
+      <div className="mx-auto max-w-2xl text-center">
+        <h3 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+          Your shelf is empty
+        </h3>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+          Every other site knows what you own. This one knows where it is — but only once you
+          tell it what you keep your cards in. Start with one.
+        </p>
+      </div>
+
+      <div className="mx-auto mt-8 grid max-w-4xl gap-5 sm:grid-cols-3">
+        {QUICK_TYPES.map(type => {
+          const Icon = icons[type.id];
+          return (
+            <button
+              key={type.id}
+              type="button"
+              onClick={() => onPick(type.id)}
+              className={cn(
+                'group flex flex-col rounded-xl bg-muted/30 p-4 text-left',
+                'transition-all duration-200 ease-out hover:-translate-y-1 hover:bg-accent',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'motion-reduce:transition-none motion-reduce:hover:translate-y-0'
+              )}
+            >
+              <div className="flex flex-1 items-end justify-center pb-3">
+                {/* No cards: the object is drawn hollow, which is the truth. */}
+                <ContainerObject type={type.id} cards={[]} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="font-semibold text-card-foreground">{type.label}</span>
+                <ArrowRight
+                  className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{type.hint}</p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

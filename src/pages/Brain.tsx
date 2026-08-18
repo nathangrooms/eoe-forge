@@ -27,7 +27,7 @@ import { CommanderHero } from '@/components/deck/CommanderHero';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { CardDetailPane } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import { CardImage } from '@/components/cards';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
@@ -166,9 +166,10 @@ export default function Brain() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  /* The selected card is the whole state - a card is either docked in the
-     detail column or it is not. There is nothing to "open". */
-  const [modalCard, setModalCard] = useState<any>(null);
+  /* Clicking a recommended card goes to the card page. The third column that
+     used to dock a `CardDetailPane` beside the thread is gone: outside play
+     mode, a click on a card is a trip to `/cards/:id`, everywhere. */
+  const openCard = useOpenCard();
   const [addCard, setAddCard] = useState<AddableCard | null>(null);
   /** Mid-conversation: whether the full decklist receipt is expanded. */
   const [contextOpen, setContextOpen] = useState(false);
@@ -588,7 +589,7 @@ export default function Brain() {
                     deckName={selectedDeck.name}
                     cards={deckCards}
                     loading={loadingDeckCards}
-                    onCardClick={setModalCard}
+                    onCardClick={openCard}
                   />
                 )}
 
@@ -664,15 +665,7 @@ export default function Brain() {
                           {message.cards && message.cards.length > 0 && (
                             <CardRecommendationDisplay
                               cards={message.cards}
-                              onCardClick={card => {
-                                const normalized = {
-                                  ...card,
-                                  image_uris:
-                                    (card as any).image_uris ||
-                                    (card.image_uri ? { normal: card.image_uri } : undefined),
-                                };
-                                setModalCard(normalized);
-                              }}
+                              onCardClick={openCard}
                               onAddCard={openAddDialog}
                               compact={false}
                             />
@@ -781,7 +774,7 @@ export default function Brain() {
                   deckName={selectedDeck.name}
                   cards={deckCards}
                   loading={loadingDeckCards}
-                  onCardClick={setModalCard}
+                  onCardClick={openCard}
                 />
               </div>
             )}
@@ -790,7 +783,7 @@ export default function Brain() {
                 {commanderCard ? (
                   <button
                     type="button"
-                    onClick={() => setModalCard(commanderCard)}
+                    onClick={() => openCard(commanderCard)}
                     className="w-9 shrink-0"
                     title={commanderCard.name}
                   >
@@ -846,14 +839,6 @@ export default function Brain() {
           </div>
         </div>
       </div>
-
-      {/* Card detail — a third column beside the conversation, so the answer
-          that recommended the card stays readable while the card is open. */}
-      {modalCard && (
-        <aside className="w-full shrink-0 overflow-y-auto rounded-xl bg-card p-4 shadow-lg shadow-black/20 lg:h-full lg:w-[24rem]">
-          <CardDetailPane card={modalCard} onClose={() => setModalCard(null)} />
-        </aside>
-      )}
 
     </div>
     </StandardPageLayout>

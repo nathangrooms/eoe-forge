@@ -43,7 +43,7 @@
  * database concern and no table is created for it here.
  */
 
-import type { GameAction, PlayerId } from './types';
+import type { GameAction, PlayerId } from './types.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Wire shapes                                                                */

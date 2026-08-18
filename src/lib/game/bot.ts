@@ -19,7 +19,7 @@
  * instead of anecdotal.
  */
 
-import { getPlayer, isAlive, livingPlayers } from './rules';
+import { getPlayer, isAlive, livingPlayers } from './rules.ts';
 import {
   canBlock,
   eligibleAttackers,
@@ -27,10 +27,10 @@ import {
   hasKeyword,
   powerOf,
   toughnessOf,
-} from './combat';
-import { isCreature, isLand, isPermanent, manaSourcesFor } from './mana';
-import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves';
-import type { CardInstance, GameAction, GameState, PlayerId } from './types';
+} from './combat.ts';
+import { isCreature, isLand, isPermanent, manaSourcesFor } from './mana.ts';
+import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
+import type { CardInstance, GameAction, GameState, PlayerId } from './types.ts';
 
 /** One visible decision. The surface applies the whole batch, then re-renders. */
 export interface BotMove {
@@ -238,11 +238,29 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
       return advance('Begins combat.');
 
     case 'declare_attackers': {
+      /*
+       * An attack that has already been declared is never declared again.
+       *
+       * `eligibleAttackers` answers "could this creature be declared", and a
+       * creature with vigilance does not tap when it attacks — so it is still
+       * an eligible attacker the instant after it was declared as one. Without
+       * this guard the bot re-declared the same creature forever: each pass
+       * replaced `combat.attackers` with an identical list, nothing about the
+       * state changed, and any table where a bot controlled a vigilance
+       * creature locked the tab in a hot loop. Found by playing a real game —
+       * Syr Vondam, Sunstar Exemplar has vigilance and it hung on turn 6.
+       */
+      if (state.combat.attackers.length > 0) return advance('Attackers are declared.');
+
       const targets = attackTargets(state, playerId);
       if (targets.length === 0) return advance('Nobody left to attack.');
 
       const target = targets[0];
-      const available = eligibleAttackers(state, playerId);
+      /* Declared attackers are filtered out for the same reason. */
+      const declared = new Set(state.combat.attackers.map(d => d.attackerId));
+      const available = eligibleAttackers(state, playerId).filter(
+        card => !declared.has(card.instanceId)
+      );
       if (available.length === 0) return advance('No attackers.');
 
       const defenders = eligibleBlockers(state, target.id);

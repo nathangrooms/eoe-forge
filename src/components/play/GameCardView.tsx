@@ -17,8 +17,9 @@
  * database has gaps and a playtest full of holes is unusable.
  */
 
-import { memo, type CSSProperties } from 'react';
+import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { RotateCcw, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
@@ -30,11 +31,11 @@ export type GameCardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 /** Rendered width in px per size token. Drives the Scryfall resolution too. */
 export const GAME_CARD_WIDTH: Record<GameCardSize, number> = {
-  xs: 46,
-  sm: 68,
-  md: 104,
-  lg: 148,
-  xl: 208,
+  xs: 58,
+  sm: 86,
+  md: 130,
+  lg: 186,
+  xl: 262,
 };
 
 const NAME_TEXT: Record<GameCardSize, string> = {
@@ -62,12 +63,33 @@ export interface GameCardViewProps {
   /**
    * A card you cannot play right now.
    *
-   * Deliberately gentle. This used to be `opacity-40 saturate-0`, which made
-   * the hand — the thing the owner most wanted to be able to READ — unreadable
-   * for the whole of turn one. A card you cannot cast yet is still a card you
-   * are planning around, so it steps back rather than disappearing.
+   * Owner: *"I liked when cards were greyed out if you couldnt cast them."*
+   * This had been softened to a barely-visible step-back and the owner asked
+   * for it back, so it is a real grey-out again: all colour gone and the card
+   * pushed down in brightness, which on a Magic card is the loudest signal
+   * there is — the frame, the mana pips and the art all lose their hue at once.
+   *
+   * Brightness rather than opacity, deliberately. Opacity lets the playmat art
+   * bleed through the card and made the rules text unreadable; a dimmed card is
+   * still a card you are planning your next turn around, so it stays legible
+   * and merely stops competing with the ones you can actually cast.
    */
   dimmed?: boolean;
+  /**
+   * Tap or untap this permanent, straight from the card.
+   *
+   * Owner: *"I dont like that tap/untap is in left menu — tapping should be
+   * easy on card."* A player tapping five lands must not open five panels, so
+   * the permanent carries its own control: a chip in its corner that toggles
+   * the tap and opens nothing. The inspector still offers Tap as well, for the
+   * card you are already reading — this is the one for the card you are not.
+   *
+   * Deliberately a button rather than a double-click on the card. A double
+   * click also fires two single clicks, so the "quick" gesture would have
+   * opened the preview every time — which is the exact round-trip being
+   * complained about.
+   */
+  onTap?: () => void;
   /** Combat standing. Shown with elevation and a label, never an outline. */
   role?: 'attacker' | 'blocker' | 'target' | null;
   /** Push toward the defending seat while attacking. */
@@ -121,6 +143,7 @@ export const GameCardView = memo(function GameCardView({
   hidden,
   selected,
   dimmed,
+  onTap,
   role,
   lunge,
   onClick,
@@ -135,6 +158,17 @@ export const GameCardView = memo(function GameCardView({
   const renderedWidth = width ?? GAME_CARD_WIDTH[size];
   const tapped = !ignoreTapped && card.tapped;
   const interactive = !!onClick;
+
+  /* The tap chip scales with the card so it is the same *proportion* of a
+     permanent at every board size, and never smaller than a thumb target. */
+  const chip = Math.max(20, Math.round(renderedWidth * 0.24));
+  const TapIcon = card.tapped ? RotateCcw : RotateCw;
+
+  const handleTap = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onTap?.();
+  };
 
   const counters = Object.entries(card.counters).filter(([, value]) => value !== 0);
   const damage = card.damage;
@@ -162,7 +196,11 @@ export const GameCardView = memo(function GameCardView({
       };
 
   return (
-    <div className={cn('relative shrink-0', className)} style={{ width: renderedWidth, ...style }}>
+    <div
+      className={cn('relative shrink-0', className)}
+      style={{ width: renderedWidth, ...style }}
+      onDoubleClick={onDoubleClick}
+    >
       {/* The rotation lives on an inner element: a CSS rotate does not change
           the layout box, so tapping a card must not reflow the row around it. */}
       <motion.div
@@ -177,7 +215,8 @@ export const GameCardView = memo(function GameCardView({
         }
         className={cn(
           'relative w-full origin-center',
-          dimmed && 'opacity-[0.62] saturate-[0.35]',
+          // Greyed out, properly, the way the owner asked for it back.
+          dimmed && 'saturate-0 brightness-[0.52] contrast-[0.92]',
           role === 'attacker' && 'drop-shadow-[0_10px_18px_rgba(0,0,0,0.65)]',
           selected && 'drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]'
         )}
@@ -243,12 +282,40 @@ export const GameCardView = memo(function GameCardView({
           />
         )}
 
-        {onDoubleClick && (
-          <span className="absolute inset-0" onDoubleClick={onDoubleClick} aria-hidden="true" />
-        )}
       </motion.div>
 
       {/* Overlays sit outside the rotated element so they stay upright. */}
+
+      {/*
+        Tap, on the card.
+
+        Owner: *"tapping should be easy on card."* Top-left because that is the
+        one corner a neighbouring card never covers — permanents in a row slide
+        leftward under the card after them, so the right edge is the edge that
+        disappears. Always drawn rather than revealed on hover: there is no
+        hover on a tablet, and a control you have to discover is a control the
+        owner will report as missing.
+      */}
+      {onTap && (
+        <button
+          type="button"
+          onClick={handleTap}
+          onDoubleClick={event => event.stopPropagation()}
+          title={card.tapped ? `Untap ${card.name}` : `Tap ${card.name}`}
+          aria-label={card.tapped ? `Untap ${card.name}` : `Tap ${card.name}`}
+          aria-pressed={card.tapped}
+          className={cn(
+            'absolute -left-1 -top-1 z-20 flex items-center justify-center rounded-full shadow-md shadow-black/60 backdrop-blur-sm transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            card.tapped
+              ? 'bg-foreground text-background hover:bg-foreground/85'
+              : 'bg-background/80 text-foreground hover:bg-foreground hover:text-background'
+          )}
+          style={{ width: chip, height: chip }}
+        >
+          <TapIcon style={{ width: chip * 0.52, height: chip * 0.52 }} strokeWidth={2.5} />
+        </button>
+      )}
       {(counters.length > 0 || damage > 0 || card.summoningSick) && (
         <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 z-10 flex flex-wrap justify-center gap-0.5">
           {counters.map(([key, value]) => (

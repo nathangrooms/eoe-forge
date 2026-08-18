@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 import { useSubscriptionLimits } from '@/hooks/useFeatureAccess';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { exportDeckToText } from '@/lib/deckExport';
 import {
   PASSWORD_MIN_LENGTH,
@@ -20,7 +21,6 @@ import {
   validatePasswordPair,
 } from '@/lib/validation/password';
 import {
-  User,
   Mail,
   Lock,
   ShieldCheck,
@@ -54,6 +54,19 @@ const LIMIT_PERIOD: Record<string, string> = {
   daily: ' / day',
   total: '',
 };
+
+/**
+ * Settings is a two-column board, not a centred ribbon.
+ *
+ * It used to render inside `mx-auto max-w-3xl`, which on a 1440px screen left
+ * roughly 570px of empty background either side of a 768px column — the page
+ * was 47% dead space. The left column carries the read-mostly cards (identity,
+ * theme, plan); the right carries the two that expand into forms, so it gets
+ * the extra width. `items-start` keeps each column packing to its own height
+ * instead of stretching to match the taller one.
+ */
+const COLUMNS =
+  'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:items-start';
 
 /** Triggers a client-side file download for text the page just built. */
 function downloadFile(filename: string, contents: string, mime: string) {
@@ -347,45 +360,55 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 md:px-6">
-          <Skeleton className="h-8 w-48" />
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <Skeleton className="h-16 w-16 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-48" />
+      <StandardPageLayout
+        title="Account settings"
+        description="Manage your profile, appearance, security and data."
+      >
+        <div className={COLUMNS}>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-48" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-4 p-6">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="space-y-4 p-6">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="space-y-4 p-6">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-2/3" />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </StandardPageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 md:px-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-            Account settings
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage your profile, appearance, security and data.
-          </p>
-        </div>
-
+    <StandardPageLayout
+      title="Account settings"
+      description="Manage your profile, appearance, security and data."
+    >
+      {/* Two real columns rather than one 768px ribbon stranded in the middle of
+          a 1440px screen. Identity and security — the tall, form-bearing cards —
+          run down the wide column; the reference cards sit beside them. Below
+          `lg` this collapses to a single stack in the same reading order. */}
+      <div className={COLUMNS}>
+        <div className="space-y-4">
         {/* Profile */}
         <Card>
           <CardHeader>
@@ -542,6 +565,9 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </div>
+
+        <div className="space-y-4">
         {/* Security */}
         <Card>
           <CardHeader>
@@ -773,8 +799,8 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-
+        </div>
       </div>
-    </div>
+    </StandardPageLayout>
   );
 }

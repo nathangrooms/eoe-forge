@@ -122,9 +122,16 @@ const FEED_INSET = 74;
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 const CARD_RATIO = 0.7176;
 
-/** Starting ceilings, in px, until the player moves the sliders. */
-const BOARD_CARD_DEFAULT = 150;
-const HAND_CARD_DEFAULT = 230;
+/**
+ * Starting ceilings, in px, until the player moves the sliders.
+ *
+ * Owner, twice: *"Cards need to be much bigger in general"*, then *"cards are
+ * tiny on screen overall"*. Both surfaces shrink below their ceiling to fit the
+ * room they measure, so a low default buys nothing on a large screen and costs
+ * everything on it. Start big and let the fit take it down.
+ */
+const BOARD_CARD_DEFAULT = 200;
+const HAND_CARD_DEFAULT = 300;
 
 /**
  * How the hand is sized against the screen it is being held over.
@@ -734,6 +741,10 @@ export default function Play() {
                   bottomInset={showHand ? hand.inset : FEED_INSET}
                   topInset={HUD_INSET}
                   onInspect={card => setInspectId(card.instanceId)}
+                  /* Tap, straight from the permanent. Owner: *"tapping should
+                     be easy on card."* It opens nothing, so tapping five lands
+                     is five taps rather than five trips through the rail. */
+                  onTapCard={handleTapToggle}
                   onOpenZone={(playerId, zone) => {
                     setInspectId(null);
                     setMenuOpen(false);

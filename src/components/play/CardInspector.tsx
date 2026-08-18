@@ -22,6 +22,12 @@
  * Legality is asked of the engine — `planCastFromHand`, `planLandDrop`,
  * `eligibleAttackers` — never re-derived here, so a button can never offer a
  * play the rules would refuse, and a disabled button always says why.
+ *
+ * Tap is still offered here, but it is no longer the only way to tap. Owner:
+ * *"I dont like that tap/untap is in left menu - tapping should be easy on
+ * card."* Every permanent you control now carries its own tap chip, so tapping
+ * five lands is five taps on five cards and no panels at all; the button below
+ * is for the card you already have open, not the way you are meant to get here.
  */
 
 import { X } from 'lucide-react';
@@ -205,11 +211,14 @@ export function CardInspector({
 
   const stats = statLine(card);
 
-  /* The card is the point of this panel, so it takes as much of the rail as it
-     can without pushing its own buttons off the bottom. */
+  /* The card is the point of this panel — *"the card large enough to read its
+     rules text in full"* — so it takes as much of the rail as it can without
+     pushing its own buttons off the bottom. The panel scrolls, so overshooting
+     costs a scroll rather than a lost button; undershooting costs the one thing
+     the preview exists for. */
   const cardWidth = Math.max(
-    120,
-    Math.round(Math.min(body.width || 300, ((body.height || 600) * 0.56) * CARD_RATIO))
+    140,
+    Math.round(Math.min(body.width || 300, ((body.height || 600) * 0.64) * CARD_RATIO))
   );
 
   const notes: string[] = [];

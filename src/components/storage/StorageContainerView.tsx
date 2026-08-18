@@ -28,9 +28,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { StorageContainer, StorageItemWithCard } from '@/types/storage';
+import { StorageContainer, StorageItemWithCard, StoragePreviewCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { ContainerObject, containerCapacity } from './ContainerObject';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
 import {
@@ -46,6 +46,38 @@ interface StorageContainerViewProps {
   onBack: () => void;
   onContainerDeleted?: () => void;
   onContainerUpdated?: (container: StorageContainer) => void;
+}
+
+/** Container type as it should read under a name. */
+const TYPE_LABEL: Record<string, string> = {
+  binder: 'Binder',
+  deckbox: 'Deck box',
+  box: 'Bulk box',
+  shelf: 'Shelf',
+  other: 'Container',
+  'deck-linked': 'Deck box',
+};
+
+/**
+ * The cards to put in the drawing of the container, most valuable first.
+ *
+ * Same ranking the overview uses, computed here from the rows this view has
+ * already loaded rather than refetched — so the binder on the detail page holds
+ * exactly the cards the binder on the shelf held.
+ */
+function previewFrom(items: StorageItemWithCard[], limit: number): StoragePreviewCard[] {
+  return items
+    .filter(item => item.card?.id)
+    .map(item => ({
+      id: item.card!.id,
+      name: item.card!.name,
+      image_uris: item.card!.image_uris as StoragePreviewCard['image_uris'],
+      qty: item.qty,
+      foil: item.foil,
+      usd: toNumber(item.card?.prices?.usd),
+    }))
+    .sort((a, b) => b.usd - a.usd || b.qty - a.qty || a.name.localeCompare(b.name))
+    .slice(0, limit);
 }
 
 /** Storage rows carry no condition or legality data — those facets stay hidden. */
@@ -84,7 +116,6 @@ export function StorageContainerView({
   const [container, setContainer] = useState(initialContainer);
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCard, setSelectedCard] = useState<BrowserCard | null>(null);
   /** In-place rename — the header title becomes the field, no overlay. */
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(initialContainer.name);
@@ -117,6 +148,11 @@ export function StorageContainerView({
 
   const browserCards = useMemo(() => items.map(toBrowserCard), [items]);
   const itemsById = useMemo(() => new Map(items.map(item => [item.id, item])), [items]);
+  /** Cards for the drawing of the container in the header. */
+  const heroCards = useMemo(
+    () => previewFrom(items, containerCapacity(container.type)),
+    [items, container.type]
+  );
 
   /** Wired at last — `handleUnassign` existed but was referenced nowhere in the JSX. */
   const handleUnassign = async (item: StorageItemWithCard, qty = 1) => {
@@ -254,16 +290,25 @@ export function StorageContainerView({
     <div className="flex h-full flex-col overflow-y-auto bg-background">
       {/* Header */}
       <div className="bg-card px-3 py-4 shadow-lg shadow-black/20 md:px-6 md:py-5">
-        <div className="mb-4 flex flex-col justify-between gap-3 md:gap-4 lg:flex-row lg:items-center">
-          <div className="flex items-center gap-3 md:gap-4">
-            <Button variant="secondary" onClick={onBack} size="sm" className="shrink-0 gap-2">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-            <div className="flex min-w-0 items-center gap-2 md:gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted md:h-12 md:w-12">
-                <Package className="h-5 w-5 text-muted-foreground md:h-6 md:w-6" aria-hidden="true" />
-              </div>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 md:gap-4">
+          <div className="flex min-w-0 flex-1 items-end gap-4 md:gap-6">
+            {/* The container itself, drawn. Same object as on the shelf, at
+                the size a page about a single container earns — a 48px parcel
+                glyph told you nothing about what you were looking into. */}
+            <div className="hidden w-28 shrink-0 sm:block md:w-36 lg:w-44">
+              <ContainerObject type={container.type} cards={heroCards} eager />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col pb-1">
+              <Button
+                variant="secondary"
+                onClick={onBack}
+                size="sm"
+                className="mb-2 w-fit shrink-0 gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Back to storage</span>
+                <span className="sm:hidden">Back</span>
+              </Button>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   {renaming ? (
@@ -314,8 +359,8 @@ export function StorageContainerView({
                   )}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs capitalize">
-                    {container.type}
+                  <Badge variant="secondary" className="text-xs">
+                    {TYPE_LABEL[container.type] ?? container.type}
                   </Badge>
                   {container.deck_id && (
                     <Badge variant="secondary" className="text-xs">
@@ -462,28 +507,20 @@ export function StorageContainerView({
             </div>
           </div>
         ) : (
-          <CardDetailSplit
-            pane={
-              selectedCard ? (
-                <CardDetailPane
-                  card={{ ...selectedCard, id: selectedCard.cardId, set_code: selectedCard.setCode }}
-                  onClose={() => setSelectedCard(null)}
-                />
-              ) : null
-            }
-          >
-            <CollectionBrowser
-              cards={browserCards}
-              storageKey="deckmatrix.storage.view"
-              showOwnershipFilters={false}
-              onCardClick={card => setSelectedCard(card)}
-              actions={actions}
-              onQuantityChange={handleQuantityChange}
-              emptyTitle="This container is empty"
-              emptyDescription="Add cards from your collection, or scan them in."
-              emptyAction={{ label: 'Add cards', onClick: () => navigate(quickAddPath) }}
-            />
-          </CardDetailSplit>
+          <CollectionBrowser
+            cards={browserCards}
+            storageKey="deckmatrix.storage.view"
+            showOwnershipFilters={false}
+            // A card in a container is still a card: clicking it goes to the
+            // card's own page. This used to dock a detail pane beside the list,
+            // which is a second, worse card page that only exists here.
+            onCardClick={card => navigate(`/cards/${encodeURIComponent(card.cardId)}`)}
+            actions={actions}
+            onQuantityChange={handleQuantityChange}
+            emptyTitle="This container is empty"
+            emptyDescription="Add cards from your collection, or scan them in."
+            emptyAction={{ label: 'Add cards', onClick: () => navigate(quickAddPath) }}
+          />
         )}
       </div>
     </div>

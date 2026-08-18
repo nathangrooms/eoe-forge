@@ -32,12 +32,47 @@ export interface StorageItem {
   updated_at: string;
 }
 
+/**
+ * A real card from a container, shaped for `CardImage`.
+ *
+ * Storage is the one thing this product knows that Moxfield and Archidekt do
+ * not — *where a card physically is* — and it was being drawn as three numbers
+ * in a definition list. A binder is a thing you look at cards through, so the
+ * overview now carries the actual cards to put in the pockets. `id` and
+ * `image_uris` keep the Scryfall shape so `CardImage` and `/cards/:id` each
+ * take one of these unmodified.
+ */
+export interface StoragePreviewCard {
+  id: string;
+  name: string;
+  image_uris?: {
+    small?: string;
+    normal?: string;
+    large?: string;
+    png?: string;
+    border_crop?: string;
+    art_crop?: string;
+  };
+  /** Copies of this exact printing and finish in the container. */
+  qty: number;
+  foil: boolean;
+  /** Unit price in USD, foil-aware. 0 when the printing carries no price. */
+  usd: number;
+}
+
+export interface StorageContainerSummary extends StorageContainer {
+  itemCount: number;
+  valueUSD: number;
+  uniqueCards: number;
+  /**
+   * The most valuable cards actually in this container, most valuable first.
+   * Capped — a bulk box holds thousands and a binder page shows nine.
+   */
+  preview: StoragePreviewCard[];
+}
+
 export interface StorageOverview {
-  containers: (StorageContainer & {
-    itemCount: number;
-    valueUSD: number;
-    uniqueCards: number;
-  })[];
+  containers: StorageContainerSummary[];
   unassigned: {
     count: number;
     valueUSD: number;

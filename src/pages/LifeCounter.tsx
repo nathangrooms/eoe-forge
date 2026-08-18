@@ -1,10 +1,21 @@
 /**
- * DeckMatrix — the full-screen life counter.
+ * DeckMatrix — the life counter.
  *
  * Built for a phone or tablet lying flat in the middle of a Commander table,
- * and usable on a desktop without changing anything. `/life` renders outside the
- * app shell (see `App.tsx`): no top bar, no rail, no page padding — the board is
- * the whole screen.
+ * and usable on a desktop without changing anything.
+ *
+ * **Two screens, two different jobs, and only one of them is immersive.**
+ * Setting a game up is ordinary app work — pick a pod size, type four names,
+ * choose a format — so it happens on an ordinary page: top bar, rail,
+ * breadcrumb and Back all present. Owner: *"life counter UI is terrible on
+ * desktop and goes full screen and is confusing - should be within our normal
+ * frame/nav etc until you press start."* Pressing Start is the moment the
+ * device stops being a browser and becomes a table object; only then does the
+ * board rise over the chrome, ask for full screen and hold a wake lock.
+ *
+ * The board sits above the top bar's `z-50` rather than beside it: once four
+ * people are reading their own rotated corner, a nav rail is only something to
+ * mis-tap. Exiting the game drops straight back into the frame.
  *
  * The rules live in `src/lib/game`, the seat geometry in `src/lib/game/seating`,
  * the session and undo in `useLifeGame`. This file is the assembly: which panel
@@ -54,18 +65,20 @@ export default function LifeCounter() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailPlayerId, setDetailPlayerId] = useState<PlayerId | null>(null);
 
+  const { session, state, layout, view, undo, flush, dispatch, nudge } = game;
+  const showSetup = !session || setupOpen;
+
   const reducedMotion = usePrefersReducedMotion();
   const fullscreen = useFullscreen();
   const wakeLock = useWakeLock(!!game.session);
-  useScrollLock(true);
+  /* Only the board locks the document. Setup is a page inside the shell now and
+     has to scroll like one — locking here left the rail and the header stuck. */
+  useScrollLock(!showSetup);
 
   /* One lookup for the whole feature, shared with setup through a module-level
      cache. Every mat still renders without it — the artwork is the second half
      of a mat, never the whole of one. */
   const matArt = useMatArt();
-
-  const { session, state, layout, view, undo, flush, dispatch, nudge } = game;
-  const showSetup = !session || setupOpen;
 
   // Leaving the counter should not leave the browser stuck in full screen.
   const exitFullscreen = fullscreen.exit;
@@ -141,9 +154,12 @@ export default function LifeCounter() {
         `touch-action: none` lives on the board, not on the body: the property is
         evaluated up the ancestor chain, and putting it higher would also stop the
         detail sheet from scrolling.
+
+        z-[60] clears the shell: the top bar is z-50 and the rail z-40. Setup
+        renders in the frame; the running game covers it.
       */}
       <div
-        className="fixed inset-0 z-40 select-none bg-background"
+        className="fixed inset-0 z-[60] select-none bg-background"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           paddingBottom: 'env(safe-area-inset-bottom)',

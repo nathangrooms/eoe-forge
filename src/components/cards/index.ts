@@ -41,16 +41,26 @@ export {
 export { CardGrid, CardGridSkeleton, type CardGridProps } from './CardGrid';
 
 /**
- * Card detail. `CardDetail` is the body with no container; `CardDetailPane`
- * docks it beside a list; `CardDetailSplit` is the list-plus-pane layout. The
- * routed view lives at `/cards/:id`. None of these is an overlay.
+ * Opening a card.
+ *
+ * Outside play mode there is exactly one answer: `/cards/:id`. Reach for
+ * `useOpenCard()` in a click handler, or `cardDetailPath()` when an href for a
+ * real `<Link>` is wanted. Browsing surfaces must not dock a detail pane beside
+ * the grid — the owner has rejected that three times.
+ */
+export { cardDetailPath, useOpenCard } from './card-link';
+
+/**
+ * Card detail bodies. `CardDetail` is the body with no container;
+ * `CardDetailPane` wraps it for the deck-building surfaces that inspect a card
+ * against the list being edited. Everywhere someone is *browsing*, a click on a
+ * card goes to `/cards/:id` instead.
  */
 export { CardDetail, CardDetailHeading, type CardDetailProps } from './CardDetail';
 
 export {
   CardDetailPane,
   CardDetailSplit,
-  cardDetailPath,
   type CardDetailPaneProps,
   type CardDetailSplitProps,
 } from './CardDetailPane';

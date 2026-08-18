@@ -12,16 +12,16 @@
  * the batch to `applyActions`, and a networked table broadcasts the same batch.
  */
 
-import { commanderTax, getCard, getPlayer } from './rules';
+import { commanderTax, getCard, getPlayer } from './rules.ts';
 import {
   isLand,
   manaSourcesFor,
   planPayment,
   resolvesToGraveyard,
   type PaymentPlan,
-} from './mana';
-import { eligibleAttackers, resolveCombat, tapsToAttack, type CombatOutcome } from './combat';
-import type { CardInstance, GameAction, GameState, InstanceId, PlayerId, Zone } from './types';
+} from './mana.ts';
+import { eligibleAttackers, resolveCombat, tapsToAttack, type CombatOutcome } from './combat.ts';
+import type { CardInstance, GameAction, GameState, InstanceId, PlayerId, Zone } from './types.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Casting                                                                    */

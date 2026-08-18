@@ -143,6 +143,23 @@ export function parseTriggerEvent(phrase: string, ctx: BuildCtx): TriggerEvent[]
     return whose ? [{ on: 'draws-card', whose }] : null;
   }
 
+  /* --- "~ or another creature you control ..." ---
+     The source is itself a member of the group it names, so "~ or another
+     creature you control enters" is exactly "a creature you control enters".
+     Rewriting it that way is a rules identity, not an approximation. */
+  const orAnother = p.match(/^~ or another (.+?) (enters|dies|attacks|enters or attacks)$/);
+  if (orAnother) {
+    const ref = parseObject(orAnother[1]);
+    if (!ref || ref.targeted) return null;
+    const who = objectSelector(ref);
+    switch (orAnother[2]) {
+      case 'enters': return [{ on: 'enters', who }];
+      case 'attacks': return [{ on: 'attacks', who }];
+      case 'enters or attacks': return [{ on: 'enters', who }, { on: 'attacks', who }];
+      default: return [{ on: 'dies', who }];
+    }
+  }
+
   /* --- other permanents --- */
   const others = p.match(/^(?:a|an|another|one or more) (.+?) (enters|dies|attacks|is put into a graveyard from the battlefield)(?: under your control)?$/);
   if (others) {
@@ -474,8 +491,13 @@ export function parseKeywordLine(paragraph: string): KeywordHit[] | null {
   // ability with a filter as its parameter, and 936 rows carry it.
   const enchant = p.match(/^enchant (.+)$/);
   if (enchant) {
-    const ref = parseObject(enchant[1]);
-    return ref ? [{ keyword: 'enchant', parameter: enchant[1] }] : null;
+    const what = enchant[1];
+    // Auras enchant objects ("creature you control") or players ("player",
+    // "opponent"). Both are legal parameters; anything else we cannot read is
+    // refused so the runtime never attaches an Aura to the wrong thing.
+    const isPlayer = /^(player|opponent|player or planeswalker)$/.test(what);
+    if (!isPlayer && !parseObject(what)) return null;
+    return [{ keyword: 'enchant', parameter: what }];
   }
 
   const parts = p.split(',').map((x) => x.trim()).filter(Boolean);

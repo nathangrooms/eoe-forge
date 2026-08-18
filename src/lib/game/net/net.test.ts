@@ -31,6 +31,7 @@ import { compareOrderKeys, type CardIdentity, type LogEntry } from './protocol.t
 import { dealTable } from './secrets.ts';
 import { GameSession } from './session.ts';
 import { MemoryActionLogStore } from './persistence.ts';
+import { createRealtimeTransport, type RealtimeChannelLike } from './realtime.ts';
 
 /* ------------------------------------------------------------------ *
  * Fixtures
@@ -461,4 +462,156 @@ test('fanout is counted, because that is how it is billed', () => {
   const one = project(1, COMMANDER_POD, 'team');
   // 4 players: one message sent becomes five billed.
   assert.equal(Math.round(one.billableMessagesPerSecond / one.sendsPerSecond), 5);
+});
+
+/* ------------------------------------------------------------------ *
+ * 7. The Realtime transport, against a fake channel
+ * ------------------------------------------------------------------ */
+
+/**
+ * Everything a Supabase Realtime channel does that this transport uses, with
+ * the network taken out. Because `createRealtimeTransport` takes the channel as
+ * an argument, the production transport can be tested for real without a
+ * project, a key or a socket.
+ */
+function fakeChannel() {
+  const listeners: Array<(m: { payload: unknown }) => void> = [];
+  const sent: unknown[] = [];
+  const channel: RealtimeChannelLike & { sent: unknown[]; deliver: (p: unknown) => void } = {
+    sent,
+    on(_type, _filter, callback) {
+      listeners.push(callback);
+      return channel;
+    },
+    send(message) {
+      sent.push(message);
+      // self: true — a real channel echoes your own broadcast back.
+      for (const listener of listeners) listener({ payload: message.payload });
+      return Promise.resolve('ok');
+    },
+    subscribe(callback) {
+      callback?.('SUBSCRIBED');
+      return channel;
+    },
+    deliver(payload) {
+      for (const listener of listeners) listener({ payload });
+    },
+  };
+  return channel;
+}
+
+test('the realtime transport puts a well-formed envelope on the channel', async () => {
+  const channel = fakeChannel();
+  const transport = createRealtimeTransport({
+    tableId: 'table-1',
+    participantId: 'conn-a',
+    name: 'Nathan',
+    playerId: 'p1',
+    seat: 0,
+    open: () => channel,
+  });
+
+  const heard: TransportEnvelopeShape[] = [];
+  await transport.join({ onAction: envelope => heard.push(envelope as TransportEnvelopeShape) });
+  assert.equal(transport.status(), 'connected');
+
+  await transport.broadcastBatch?.(
+    [
+      { type: 'ADVANCE_STEP', at: 1 },
+      { type: 'ADVANCE_STEP', at: 1 },
+    ],
+    7,
+    1
+  );
+
+  assert.equal(channel.sent.length, 1, 'two actions left as one message');
+  assert.equal(heard.length, 1, 'and echoed back once');
+  assert.equal(heard[0].seat, 0, 'the seat is on the wire, not looked up locally');
+  assert.equal(heard[0].baseVersion, 7);
+  assert.equal(heard[0].actions?.length, 2);
+  assert.equal(heard[0].action.type, 'ADVANCE_STEP', 'a pre-batch reader still sees a valid envelope');
+});
+
+test('a payload for another table is dropped rather than fed to the reducer', async () => {
+  const channel = fakeChannel();
+  const transport = createRealtimeTransport({
+    tableId: 'table-1',
+    participantId: 'conn-a',
+    name: 'Nathan',
+    open: () => channel,
+  });
+
+  const heard: unknown[] = [];
+  await transport.join({ onAction: envelope => heard.push(envelope) });
+
+  channel.deliver({ tableId: 'someone-elses-table', action: { type: 'CONCEDE', playerId: 'p1' } });
+  channel.deliver(null);
+  channel.deliver('nonsense');
+
+  assert.equal(heard.length, 0, 'a channel is reachable by anyone RLS admits');
+});
+
+type TransportEnvelopeShape = {
+  seat?: number;
+  baseVersion: number;
+  action: { type: string };
+  actions?: unknown[];
+};
+
+/* ------------------------------------------------------------------ *
+ * 8. End to end: two live sessions over one hub
+ * ------------------------------------------------------------------ */
+
+test('two live sessions converge, and neither can see the opposing hand', async () => {
+  resetLocalTransports();
+  const { state, dealer } = twoSeatTable(4242);
+
+  const make = (participantId: string, playerId: 'p1' | 'p2', seat: number, withDealer: boolean) => {
+    const transport = createLocalTransport({
+      tableId: 'e2e',
+      participantId,
+      name: participantId,
+      playerId,
+      seat,
+    });
+    return new GameSession({
+      transport,
+      participantId,
+      playerId,
+      seat,
+      base: state,
+      batchWindowMs: 0,
+      now: () => 1,
+      // Only one machine holds the secrets. The other learns by being told.
+      dealer: withDealer ? dealer : undefined,
+      onReveal: reveal => {
+        if (reveal.public || reveal.to === 'conn-b') sessions[1]?.ingestReveal(reveal);
+      },
+    });
+  };
+
+  const sessions: GameSession[] = [];
+  sessions.push(make('conn-a', 'p1', 0, true));
+  sessions.push(make('conn-b', 'p2', 1, false));
+  for (const session of sessions) await session.connect();
+
+  sessions[0].dispatch({ type: 'DRAW', playerId: 'p1', count: 7 });
+  sessions[0].dispatch({ type: 'PASS_TURN' });
+  sessions[1].dispatch({ type: 'DRAW', playerId: 'p2', count: 7 });
+  sessions[1].dispatch({ type: 'LIFE_CHANGE', playerId: 'p1', delta: -4 });
+
+  const [a, b] = sessions;
+  assert.equal(firstDivergence(a.state(), b.state()), null, 'both clients hold the same state');
+  assert.equal(digestState(a.state()), digestState(b.state()));
+  assert.equal(a.state().players[0].life, 36);
+
+  // A holds seven private identities; B holds none of them.
+  const aHand = a.state().players[0].zones.hand;
+  assert.equal(aHand.length, 7);
+  const aKnows = aHand.filter(id => a.known()[id]).length;
+  const bKnows = aHand.filter(id => b.known()[id]).length;
+  assert.equal(aKnows, 7, "the drawer knows its own hand");
+  assert.equal(bKnows, 0, "the opponent knows none of it");
+
+  for (const session of sessions) await session.disconnect();
 });

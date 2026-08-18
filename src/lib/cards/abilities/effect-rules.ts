@@ -386,8 +386,8 @@ export const EFFECT_RULES: EffectRule[] = [
     id: 'search-library',
     re: new RegExp(
       '^search your library for (.+?),' +
-      '(?: reveal (?:it|them),)?' +
-      '(?: and)?(?: then)? put (?:it|them) (onto the battlefield|into your hand|into your graveyard)( tapped)?,' +
+      '(?: reveal (?:it|them|that card|those cards),)?' +
+      '(?: and)?(?: then)? put (?:it|them|that card|those cards) (onto the battlefield|into your hand|into your graveyard)( tapped)?,' +
       '(?: then| and) shuffle$',
     ),
     note: 'A dropped "reveal" is information-only, so the rule accepts it and marks the ability approximate.',
@@ -510,9 +510,36 @@ export const EFFECT_RULES: EffectRule[] = [
   {
     id: 'add-mana',
     re: /^add ((?:\{[wubrgcs0-9x]\})+)$/,
-    note: '"add one mana of any color" and "add {b} or {g}" are player CHOICES; the DSL has no choice-shaped mana yet, so they stay manual.',
     build(m) {
-      return [{ do: 'add-mana', who: { who: 'you' }, mana: m[1] }];
+      return [{ do: 'add-mana', who: { who: 'you' }, mana: m[1].toUpperCase() }];
+    },
+  },
+  {
+    id: 'add-mana-choice',
+    re: /^add (\{[wubrgc]\})(?:, (\{[wubrgc]\}))?,? or (\{[wubrgc]\})$/,
+    note: 'A dual land\'s "add {R} or {G}" is a player CHOICE, and {do:"choose-mode"} is exactly the DSL member for one — no new vocabulary needed, and the decision lands in the action log as an ANSWER_CHOICE like every other decision.',
+    build(m) {
+      const symbols = [m[1], m[2], m[3]].filter(Boolean).map((s) => s.toUpperCase());
+      return [{
+        do: 'choose-mode', min: 1, max: 1,
+        modes: symbols.map((s) => ({ text: `Add ${s}`, effects: [{ do: 'add-mana', who: { who: 'you' }, mana: s } as Effect] })),
+      }];
+    },
+  },
+  {
+    id: 'add-mana-any-color',
+    re: /^add (one|two|three) mana of any (?:one )?color$/,
+    note: 'Every signet, every Sol-Ring-alike, every "any color" land. Five enumerated modes, which is what "any color" means.',
+    build(m) {
+      const n = m[1] === 'one' ? 1 : m[1] === 'two' ? 2 : 3;
+      const colors = ['{W}', '{U}', '{B}', '{R}', '{G}'];
+      return [{
+        do: 'choose-mode', min: 1, max: 1,
+        modes: colors.map((c) => {
+          const mana = c.repeat(n);
+          return { text: `Add ${mana}`, effects: [{ do: 'add-mana', who: { who: 'you' }, mana } as Effect] };
+        }),
+      }];
     },
   },
 
@@ -550,8 +577,7 @@ export const NAMED_MANUAL_EFFECTS: Array<{ id: string; re: RegExp; hint: string 
   { id: 'explore', re: /^it explores$|^~ explores$/, hint: 'explore: compound reveal + branch, not modelled' },
   { id: 'investigate', re: /^investigate$/, hint: 'investigate: Clue token plus its own ability' },
   { id: 'proliferate', re: /^proliferate$/, hint: 'proliferate: needs a player-directed multi-permanent choice' },
-  { id: 'mana-any-color', re: /^add (one|two|three) mana of any (one )?colors?$/, hint: 'add mana of any color: mana choice is not expressible as a cost string' },
-  { id: 'mana-choice', re: /^add (\{[wubrgc]\}) or (\{[wubrgc]\})$/, hint: 'hybrid mana choice: needs a ChoiceRequest-shaped add-mana' },
+  { id: 'mana-combination', re: /^add (two|three|four|five) mana in any combination of colors$/, hint: 'mana in any combination: N independent colour choices, not one' },
   { id: 'regenerate', re: /^regenerate (.+)$/, hint: 'regenerate: a replacement shield the DSL has no result for' },
   { id: 'reveal', re: /^reveal (.+)$/, hint: 'reveal: no reveal effect in the vocabulary' },
   { id: 'look-at-top', re: /^look at the top (.+)$/, hint: 'library peeking: no look/reorder effect in the vocabulary' },

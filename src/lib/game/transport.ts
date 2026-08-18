@@ -13,34 +13,38 @@
  *   - `createLocalTransport()` — an in-memory hub, used by solo and bot play.
  *
  * ---------------------------------------------------------------------------
- * Dropping in Supabase Realtime
+ * Where the rest of it lives
  * ---------------------------------------------------------------------------
- * A `createRealtimeTransport()` implementing this same interface is a
- * self-contained change — no page, hook or component below it needs editing,
- * because the play surface only ever sees `GameTransport`. The shape it takes:
+ * This file stayed small. Everything a *networked* table needs beyond
+ * join/leave/broadcast/receive is in `net/`, which imports this and not the
+ * other way round:
  *
- *   join()       supabase.channel(`table:${tableId}`, { config: { presence: { key: participantId } } })
- *                  .on('broadcast', { event: 'action' }, ({ payload }) => handlers.onAction(payload))
- *                  .on('presence',  { event: 'sync'   }, () => handlers.onPresence(...))
- *                  .subscribe(status => handlers.onStatus(mapStatus(status)))
- *   broadcast()  channel.send({ type: 'broadcast', event: 'action', payload: envelope })
- *   leave()      supabase.removeChannel(channel)
+ *   - `net/realtime.ts`  the Supabase Realtime implementation of this
+ *     interface. The channel is injected, so this folder still imports no
+ *     Supabase and the transport can be tested without a socket.
+ *   - `net/session.ts`   optimistic local application, coalescing, and the
+ *     rewind that keeps clients converged when messages arrive out of order.
+ *   - `net/secrets.ts`   hidden information. Worth reading before assuming a
+ *     seeded reducer gives it to you for free: it does the opposite, because a
+ *     replayable seed reproduces every library on every client.
+ *   - `net/persistence.ts` the append-only action log and its RLS.
  *
- * Three things the interface already carries so that swap stays honest:
+ * Three things this interface carries so that layering stays honest:
  *
  *   1. `TransportEnvelope.baseVersion` — the `GameState.version` the sender
- *      applied this action on top of. Two players acting at once produce two
- *      envelopes with the same `baseVersion`; the receiver can detect that and
- *      re-order or re-request rather than silently forking.
- *   2. `TransportEnvelope.seq` — monotonic *per sender*, so a receiver can spot
- *      a dropped message instead of applying an action out of order.
- *   3. `echoToSender` — a real channel echoes your own broadcast back to you.
- *      The local hub does too, by default, so the app has exactly one code path
- *      for applying an action: receive it. Optimistic local application is an
- *      optimisation to add later, not a second path to maintain now.
+ *      applied on top of. It is a logical clock, and the first component of
+ *      the deterministic order key in `net/protocol.ts`.
+ *   2. `TransportEnvelope.seat` — the second component. On the wire rather
+ *      than looked up locally, because presence is eventually consistent and
+ *      ordering must not depend on what a receiver happens to know yet.
+ *   3. `echoToSender` — a real channel echoes your own broadcast back, and the
+ *      local hub does too, so there is one code path for applying an action.
+ *      `net/session.ts` applies optimistically and drops the echo as a
+ *      duplicate by `batchId`.
  *
- * Deliberately absent: persistence. Storing a game or its action log is a
- * database concern and no table is created for it here.
+ * Still deliberately absent from *this file*: persistence. No table is created
+ * anywhere in this work; `net/persistence.ts` sketches the schema and the RLS
+ * for review without applying a migration.
  */
 
 import type { GameAction, PlayerId } from './types.ts';

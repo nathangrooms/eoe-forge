@@ -150,6 +150,20 @@ export function PreconDeckView({
 
       {/* Hero */}
       <section className="overflow-hidden rounded-2xl bg-card shadow-lg shadow-black/20">
+        {/* The art band is TEXTURE, not the picture.
+
+            It used to be a sharp `object-cover` of the art_crop, which meant a
+            626x457 illustration hacked into a 224px strip and presented as if
+            it were the artwork — the same "don't just cut it off" complaint
+            raised about the tiles, one page deeper. The geometry cannot be
+            argued with: carrying that crop whole across ~1100px needs an 800px
+            band, which is not a hero, it is a wall.
+
+            So the art stops pretending. Blurred and scaled past the edges it
+            reads as atmosphere in the deck's own colours, cropping becomes
+            meaningless because there is no detail left to crop, and the sharp,
+            WHOLE commander card overlapping it below is the only thing asking
+            to be looked at. */}
         <div className="relative h-32 w-full overflow-hidden bg-muted sm:h-44 md:h-56">
           {art && (
             <img
@@ -159,9 +173,16 @@ export function PreconDeckView({
               loading="eager"
               decoding="async"
               draggable={false}
-              className="h-full w-full object-cover object-[50%_30%]"
+              /* scale-125 so the blur radius never pulls transparent edges in */
+              className="h-full w-full scale-125 object-cover object-[50%_35%] blur-2xl"
             />
           )}
+          {/* Sits the card on a ground dark enough to read against, and fades
+              the band into the panel below rather than ending on a hard line. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/45 to-card"
+          />
         </div>
 
         <div className="flex flex-col gap-4 p-4 md:flex-row md:gap-6 md:p-6">

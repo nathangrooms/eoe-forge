@@ -56,7 +56,7 @@ const GAP_SIGNALS: Array<[RegExp, GapReason]> = [
   [/\bcascade\b|\bsuspend\b|\bforetell\b|\bflashback\b|you may cast (?:it|~|this) from your graveyard|without paying its mana cost|as an additional cost to cast|you may pay|alternative cost|\bconvoke\b|\bdelve\b|\bemerge\b|\bescape\b|\bevoke\b|\bmadness\b|\bmiracle\b|\bovorload\b|\bprowl\b|\bspree\b|\bplot\b|\bdisturb\b|\bembalm\b|\beternalize\b|\bunearth\b|\bblitz\b/, 'alt-cast'],
   [/(?:have|has|gains?) "|gains? the ability|with "/, 'granted-ability'],
   [/until end of combat|until your next end step|for as long as|until ~ leaves|this turn, if|until the beginning of/, 'duration'],
-  [/name a card|separate .* into (?:two|three) piles|\bvotes?\b|secretly|choose a card in|without looking|face down/, 'hidden-choice'],
+  [/name a card|separate .* into (?:two|three) piles|\bvotes?\b|secretly|choose a card in|without looking|face down|^as ~ enters, choose|is turned face up/, 'hidden-choice'],
   [/this turn\b.*(?:if|whenever)|\bstorm\b|\bmagecraft\b|the second (?:spell|creature)|died this turn|was cast this turn|cast this turn|earlier this turn|entered (?:the battlefield )?this turn/, 'needs-history'],
   [/outside the game|\bsideboard\b|\bcompanion\b|\bdungeon\b|\bventure\b|the ring tempts|\bdaybound\b|\bnightbound\b|\battraction\b|\bsticker\b|\bcontraption\b|\bspeed\b/, 'outside-game'],
   [/damage cant be prevented|cant be countered|counters cant be|cant gain life|cant be sacrificed|if a .* would .* instead/, 'meta-replacement'],
@@ -96,6 +96,23 @@ function newBuild(typeLine: string): AbilityBuild {
 /** An effect list is worth publishing only if at least one clause is real. */
 function anyAutomated(effects: readonly Effect[]): boolean {
   return effects.some((e) => e.do !== 'manual');
+}
+
+/**
+ * Does this ability produce mana and nothing else? A mana ability does not use
+ * the stack and cannot be responded to (CR 605), so getting this wrong makes
+ * every dual land respondable.
+ *
+ * A colour choice counts: "Add {R} or {G}" compiles to a `choose-mode` whose
+ * every mode is an `add-mana`, and that is still a mana ability.
+ */
+function isManaOnly(effects: readonly Effect[]): boolean {
+  if (!effects.length) return false;
+  return effects.every((e) => {
+    if (e.do === 'add-mana') return true;
+    if (e.do === 'choose-mode') return e.modes.every((m) => isManaOnly(m.effects));
+    return false;
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -238,7 +255,7 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
       const build = newBuild(typeLine);
       const effects = compileEffectBody(activated[2], build.ctx);
       if (anyAutomated(effects)) {
-        const isMana = effects.every((e) => e.do === 'add-mana') && build.targets.length === 0;
+        const isMana = isManaOnly(effects) && build.targets.length === 0;
         const a: Ability = {
           kind: 'activated', id: id(0), text: raw,
           confidence: build.ctx.approximate ? 'approximate' : 'exact',

@@ -99,6 +99,13 @@ export const KEYWORDS: readonly string[] = [
   'mentor', 'mutate', 'offspring', 'plot', 'prototype', 'reconfigure',
   'renown', 'riot', 'saddle', 'spectacle', 'spree', 'squad', 'surge',
   'training', 'undaunted', 'venture', 'visit', 'warp', 'more than meets the eye',
+  // Keyword ABILITIES only. Ability words ("Landfall", "Threshold", "Valiant")
+  // are flavour, stripped by the normaliser, and must never appear here — a
+  // keyword list that swallows an ability word would turn a real trigger into a
+  // no-op badge.
+  'fuse', 'station', 'start your engines!', 'devour', 'backup', 'bargain',
+  'craft', 'discover', 'for mirrodin!', 'job select', 'read ahead', 'ravenous',
+  'harmonize', 'impending', 'gift', 'affinity', 'aftermath', 'double agenda',
 ] as const;
 
 const KEYWORD_SET = new Set<string>(KEYWORDS);

@@ -55,10 +55,15 @@ export function UserManagement() {
 
   const toggleAdmin = async (userId: string, currentStatus: boolean | null) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_admin: !currentStatus })
-        .eq('id', userId);
+      // Direct `profiles.is_admin` writes are blocked at the database. The old
+      // policy let ANY logged-in user grant themselves admin, and it silently
+      // no-opped for every user other than yourself while still reporting
+      // success. set_user_admin() is a SECURITY DEFINER RPC gated on
+      // is_dev_admin().
+      const { error } = await supabase.rpc('set_user_admin', {
+        target_user: userId,
+        make_admin: !currentStatus,
+      });
 
       if (error) throw error;
 

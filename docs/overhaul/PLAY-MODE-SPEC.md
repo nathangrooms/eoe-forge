@@ -189,6 +189,30 @@ it enlarged. Two changes:
   immediately rather than queueing, so the spotlight always shows the most recent thing.
 - Respect `prefers-reduced-motion`: no fade, just swap.
 
+## Life counter: rotation is a MODE, not a mistake
+
+The owner: *"Life counter is generally one shared for the table, but could have solo and group mode."*
+
+So the audit finding that seats 2 and 3 render upside down is **correct behaviour for the default
+case**, not a bug. A phone lying flat in the middle of a table SHOULD rotate each seat to face the
+player sitting on that side — that is what every physical-table life app does, and un-rotating it
+would leave three of four players reading upside down.
+
+It is now an explicit choice in setup:
+
+| Mode | Behaviour |
+|---|---|
+| **On the table** (default) | Seats rotate outward; each player reads their own side |
+| **Just me** | Every seat upright, positions unchanged — one reader, one orientation |
+
+`LifeOrientation` lives on `LifeOptions` and on `LifeGameConfig`, so setup picks it and
+`newSession` seeds from one place. Orientation is a property of the DEVICE rather than the pod, so
+it persists between games on the same phone. `seatContentStyleUpright` in seating.ts drops the
+rotation while keeping the seat's rect, so the layout is identical either way.
+
+Note this does NOT relax the rule for /play, where each player has their own screen and nothing
+should ever be rotated.
+
 ## Life counter shares the layout
 
 The life counter defaults 4 players to the same 2x2 grid (`defaultVariantFor` in

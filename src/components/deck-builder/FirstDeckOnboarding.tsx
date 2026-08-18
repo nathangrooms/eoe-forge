@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards/CardImage';
 
 interface FirstDeckOnboardingProps {
   onCreateDeck: (name: string, format: 'commander' | 'standard' | 'custom', commanderId?: string) => void;
@@ -389,12 +390,12 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                 
                 {/* Selected Commander Display */}
                 {commander && (
-                  <div className="flex gap-4 p-4 rounded-xl border border-border">
-                    <img 
-                      src={commander.image_uris?.normal || commander.card_faces?.[0]?.image_uris?.normal || '/placeholder.svg'} 
-                      alt={commander.name}
-                      className="w-20 h-auto rounded-lg shadow-lg"
-                    />
+                  <div className="flex gap-4 rounded-xl bg-muted/40 p-4">
+                    {/* The chosen commander is the subject here, so it gets a
+                        real card at a size worth looking at — `CardImage` also
+                        gives a transform commander its back face, which the old
+                        hardcoded `card_faces[0].image_uris.normal` could not. */}
+                    <CardImage card={commander} size="md" eager />
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2 mb-1">
                         <Crown className="h-4 w-4 text-foreground" />
@@ -423,17 +424,14 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                       </div>
                     ) : commanderSearchResults.length > 0 ? (
                       commanderSearchResults.slice(0, 12).map((card: any) => (
-                        <div
+                        <CardImage
                           key={card.id}
-                          className="cursor-pointer group relative aspect-[488/680] rounded-lg overflow-hidden  hover:border-primary transition-all hover:scale-105"
+                          card={card}
+                          size="md"
+                          fill
                           onClick={() => handleCommanderSelect(card)}
-                        >
-                          <img
-                            src={card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || '/placeholder.svg'}
-                            alt={card.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                          title={`Choose ${card.name} as your commander`}
+                        />
                       ))
                     ) : (
                       <div className="col-span-full text-center py-8 text-muted-foreground">

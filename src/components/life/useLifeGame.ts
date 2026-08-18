@@ -384,6 +384,12 @@ export function useLifeGame(): LifeGame {
             (sameSize ? existing?.options.variant : undefined)
             ?? defaultVariantFor(config.seats.length),
           partners: {},
+          /* Orientation is a property of the DEVICE, not the pod, so it carries
+             over between games on the same phone. */
+          /* Setup's choice wins; otherwise keep whatever this device used last. */
+          orientation: config.orientation
+            ?? existing?.options.orientation
+            ?? (config.seats.length === 1 ? 'solo' : 'shared'),
         }),
       );
     },

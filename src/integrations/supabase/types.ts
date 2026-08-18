@@ -191,6 +191,36 @@ export type Database = {
         }
         Relationships: []
       }
+      card_retag_progress: {
+        Row: {
+          changed: number
+          done: boolean
+          id: boolean
+          last_id: string
+          scanned: number
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          changed?: number
+          done?: boolean
+          id?: boolean
+          last_id?: string
+          scanned?: number
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          changed?: number
+          done?: boolean
+          id?: boolean
+          last_id?: string
+          scanned?: number
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           cmc: number | null
@@ -558,6 +588,193 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dev_findings: {
+        Row: {
+          area: string
+          category: string | null
+          created_at: string
+          detail: string | null
+          file: string | null
+          id: string
+          recommendation: string | null
+          severity: string | null
+          status: Database["public"]["Enums"]["dev_status"]
+          task_id: string | null
+          title: string
+        }
+        Insert: {
+          area: string
+          category?: string | null
+          created_at?: string
+          detail?: string | null
+          file?: string | null
+          id?: string
+          recommendation?: string | null
+          severity?: string | null
+          status?: Database["public"]["Enums"]["dev_status"]
+          task_id?: string | null
+          title: string
+        }
+        Update: {
+          area?: string
+          category?: string | null
+          created_at?: string
+          detail?: string | null
+          file?: string | null
+          id?: string
+          recommendation?: string | null
+          severity?: string | null
+          status?: Database["public"]["Enums"]["dev_status"]
+          task_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_findings_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "dev_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_logs: {
+        Row: {
+          created_at: string
+          detail: string | null
+          event: string
+          id: string
+          level: string
+          meta: Json | null
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: string
+          level?: string
+          meta?: Json | null
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: string
+          level?: string
+          meta?: Json | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "dev_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_tasks: {
+        Row: {
+          area: string | null
+          completed_at: string | null
+          created_at: string
+          detail: string | null
+          files: string[]
+          id: string
+          priority: Database["public"]["Enums"]["dev_priority"]
+          sort_order: number
+          status: Database["public"]["Enums"]["dev_status"]
+          title: string
+          updated_at: string
+          workstream_id: string | null
+        }
+        Insert: {
+          area?: string | null
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          files?: string[]
+          id?: string
+          priority?: Database["public"]["Enums"]["dev_priority"]
+          sort_order?: number
+          status?: Database["public"]["Enums"]["dev_status"]
+          title: string
+          updated_at?: string
+          workstream_id?: string | null
+        }
+        Update: {
+          area?: string | null
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          files?: string[]
+          id?: string
+          priority?: Database["public"]["Enums"]["dev_priority"]
+          sort_order?: number
+          status?: Database["public"]["Enums"]["dev_status"]
+          title?: string
+          updated_at?: string
+          workstream_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_tasks_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "dev_workstream_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "dev_workstreams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_workstreams: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          priority: Database["public"]["Enums"]["dev_priority"]
+          progress: number
+          sort_order: number
+          status: Database["public"]["Enums"]["dev_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          priority?: Database["public"]["Enums"]["dev_priority"]
+          progress?: number
+          sort_order?: number
+          status?: Database["public"]["Enums"]["dev_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          priority?: Database["public"]["Enums"]["dev_priority"]
+          progress?: number
+          sort_order?: number
+          status?: Database["public"]["Enums"]["dev_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       favorite_decks: {
         Row: {
@@ -1418,7 +1635,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      dev_workstream_progress: {
+        Row: {
+          active_tasks: number | null
+          blocked_tasks: number | null
+          done_tasks: number | null
+          id: string | null
+          key: string | null
+          pct: number | null
+          priority: Database["public"]["Enums"]["dev_priority"] | null
+          sort_order: number | null
+          status: Database["public"]["Enums"]["dev_status"] | null
+          title: string | null
+          total_tasks: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_platform_stats: { Args: never; Returns: Json }
@@ -1427,6 +1659,18 @@ export type Database = {
         Returns: Json
       }
       compute_deck_summary: { Args: { deck_id: string }; Returns: Json }
+      derive_card_tags: {
+        Args: {
+          p_cmc: number
+          p_faces: Json
+          p_keywords: string[]
+          p_mana_cost: string
+          p_name: string
+          p_oracle_text: string
+          p_type_line: string
+        }
+        Returns: string[]
+      }
       get_deck_wishlist_count: {
         Args: { deck_id_param: string }
         Returns: number
@@ -1446,9 +1690,58 @@ export type Database = {
         Returns: boolean
       }
       increment_share_views: { Args: { deck_slug: string }; Returns: undefined }
+      is_dev_admin: { Args: never; Returns: boolean }
+      resume_scryfall_sync_if_stalled: { Args: never; Returns: string }
+      retag_all_cards: {
+        Args: {
+          p_budget_seconds?: number
+          p_page?: number
+          p_restart?: boolean
+        }
+        Returns: {
+          changed: number
+          done: boolean
+          id: boolean
+          last_id: string
+          scanned: number
+          started_at: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "card_retag_progress"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      retag_cards: { Args: { p_ids: string[] }; Returns: number }
+      retag_cards_batch: {
+        Args: { p_after?: string; p_limit?: number }
+        Returns: {
+          changed: number
+          last_id: string
+          remaining: boolean
+          scanned: number
+        }[]
+      }
+      set_user_admin: {
+        Args: { make_admin: boolean; target_user: string }
+        Returns: undefined
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       toggle_deck_favorite: { Args: { deck_id: string }; Returns: Json }
+      trigger_scryfall_sync: { Args: { p_action?: string }; Returns: number }
     }
     Enums: {
+      dev_priority: "p0" | "p1" | "p2" | "p3"
+      dev_status:
+        | "planned"
+        | "in_progress"
+        | "blocked"
+        | "review"
+        | "done"
+        | "cancelled"
       subscription_tier: "free" | "pro" | "unlimited"
       task_category: "feature" | "bug" | "improvement" | "core_functionality"
       task_priority: "high" | "medium" | "low"
@@ -1580,6 +1873,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      dev_priority: ["p0", "p1", "p2", "p3"],
+      dev_status: [
+        "planned",
+        "in_progress",
+        "blocked",
+        "review",
+        "done",
+        "cancelled",
+      ],
       subscription_tier: ["free", "pro", "unlimited"],
       task_category: ["feature", "bug", "improvement", "core_functionality"],
       task_priority: ["high", "medium", "low"],

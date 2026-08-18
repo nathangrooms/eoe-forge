@@ -173,6 +173,7 @@ export default function LifeCounter() {
                 mat={mat}
                 matArt={matArt[mat]?.art}
                 interactive={!complete}
+                orientation={session?.options.orientation ?? 'shared'}
                 reducedMotion={reducedMotion}
                 onNudgeLife={delta => nudge({ kind: 'life', playerId: player.id }, delta)}
                 onOpenDetail={() => setDetailPlayerId(player.id)}

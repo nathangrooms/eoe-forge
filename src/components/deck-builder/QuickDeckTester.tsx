@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Shuffle, Play, RotateCcw, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { CardImage } from '@/components/cards/CardImage';
+import { getBestCardImage } from '@/lib/scryfall/card-utils';
 
 interface DeckCard {
   id: string;
@@ -196,36 +197,34 @@ export function QuickDeckTester({ deck }: QuickDeckTesterProps) {
             <div className="space-y-2">
               <p className="text-sm font-medium">Cards in Hand ({hand.length})</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                {hand.map((card, index) => (
-                  <div 
-                    key={`${card.id}-${index}`}
-                    className="relative group"
-                  >
-                    {card.image_uris?.normal || card.image_uris?.small ? (
-                      <img 
-                        src={card.image_uris?.normal || card.image_uris?.small}
-                        alt={card.name}
-                        className="w-full h-auto rounded-lg border border-border/50 shadow-md hover:scale-105 transition-transform"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <div className={cn(
-                      "aspect-[2.5/3.5] bg-muted rounded-lg border border-border/50 flex flex-col items-center justify-center p-2 text-center",
-                      (card.image_uris?.normal || card.image_uris?.small) ? "hidden" : ""
-                    )}>
-                      <span className="text-xs font-medium line-clamp-3">{card.name}</span>
-                      <Badge variant="outline" className="text-[10px] mt-1">
-                        {card.cmc}
-                      </Badge>
-                      {isLand(card) && (
-                        <Badge variant="secondary" className="text-[10px] mt-1">Land</Badge>
+                {hand.map((card, index) => {
+                  /* `CardImage` renders the missing-image case itself (card-shaped,
+                     card name centred), so the only thing the old hand-rolled
+                     fallback block still owns is the mana value and the land
+                     marker — kept, but only when there is no art to read them off. */
+                  const hasArt = Boolean(getBestCardImage(card));
+                  return (
+                    <CardImage
+                      key={`${card.id}-${index}`}
+                      card={card}
+                      size="md"
+                      fill
+                      interactive
+                      title={card.name}
+                    >
+                      {!hasArt && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-wrap items-center justify-center gap-1">
+                          <Badge variant="outline" className="text-[10px]">
+                            {card.cmc}
+                          </Badge>
+                          {isLand(card) && (
+                            <Badge variant="secondary" className="text-[10px]">Land</Badge>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  </div>
-                ))}
+                    </CardImage>
+                  );
+                })}
               </div>
             </div>
 

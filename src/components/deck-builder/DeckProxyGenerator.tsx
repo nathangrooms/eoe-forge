@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Printer, Download, FileText, Loader2, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
+import { CardImage } from '@/components/cards/CardImage';
 
 interface DeckProxyGeneratorProps {
   deckCards: any[];
@@ -83,13 +84,25 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
 
   const getCardId = (card: any) => card.id || card.name;
 
-  // Get card image for thumbnail preview
-  const getCardImage = (card: any) => {
-    if (card.image_uris?.small) return card.image_uris.small;
-    if (card.image_uris?.normal) return card.image_uris.normal;
-    if (card.image) return card.image;
-    return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`;
-  };
+  /**
+   * Thumbnails in the selection list are drawn by the shared `CardImage`, which
+   * reads `image_uris` / `card_faces` / the `faces` column itself. All this has
+   * to do is preserve the last-resort fallbacks the old hand-rolled <img> had:
+   * a bare `image` string on decks stored before `image_uris` existed, and the
+   * Scryfall named-card endpoint for a card carrying no image data at all.
+   * `getBestCardImage` only reaches `image_url` after exhausting every real
+   * printing image, so this never overrides a proper asset.
+   *
+   * Note the generated PDF does not use these: `drawTextCard` renders every
+   * proxy as vector text, so there is no print-resolution <img> in this file.
+   */
+  const withThumbnailFallback = (card: any) => ({
+    ...card,
+    image_url:
+      card.image_url ??
+      card.image ??
+      `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`,
+  });
 
   // Parse mana cost string to individual symbols
   const parseManaSymbols = (manaCost: string): string[] => {
@@ -465,11 +478,15 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
                       onClick={(e) => e.stopPropagation()}
                       className="h-4 w-4"
                     />
-                    <img 
-                      src={getCardImage(card)}
-                      alt={card.name}
-                      className="w-8 h-11 rounded object-cover flex-shrink-0"
-                      onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+                    {/* `w-8 h-11` was a 0.727 box holding a 0.718 card, so every
+                        thumbnail was very slightly cropped. `CardImage` owns the
+                        ratio; `hideFlip` because a flip button is larger than
+                        this thumbnail. */}
+                    <CardImage
+                      card={withThumbnailFallback(card)}
+                      width={40}
+                      hideFlip
+                      title={card.name}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate flex items-center gap-1">

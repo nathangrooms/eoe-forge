@@ -47,6 +47,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MiniManaCurve } from './MiniManaCurve';
 import { LegalityBadge } from './LegalityBadge';
 import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { CardImage } from '@/components/cards/CardImage';
 import { useNavigate } from 'react-router-dom';
 
 interface ModernDeckTileProps {
@@ -206,11 +207,15 @@ export function ModernDeckTile({
   // Format styling
   const formatStyle = formatConfig[deckSummary.format] || formatConfig.custom;
 
-  // Commander image
-  const commanderImage = deckSummary.commander
-    ? ((deckSummary.commander as any)?.image_uris?.normal || 
-       (deckSummary.commander as any)?.image_uris?.large || 
-       deckSummary.commander.image)
+  /**
+   * `DeckSummary.commander` is typed as `{ name, image }` but the RPC returns
+   * the whole card, so the row may also carry `image_uris` / `faces`. Handing
+   * the raw object to `CardImage` lets it use those (and flip a transform
+   * commander); `image_url` is the flat-string fallback, which `getBestCardImage`
+   * only reaches after every real printing image has failed.
+   */
+  const commanderCard = deckSummary.commander
+    ? { ...(deckSummary.commander as any), image_url: (deckSummary.commander as any).image_url ?? deckSummary.commander.image }
     : null;
 
   // Calculate average CMC
@@ -242,38 +247,34 @@ export function ModernDeckTile({
           {/* Left: Commander/Deck Visual - Fixed to match card ratio */}
           <div className="lg:w-56 xl:w-64 flex-shrink-0 relative bg-gradient-to-br from-muted/40 to-muted/20 p-3 flex flex-col">
 
-            {deckSummary.commander ? (
+            {commanderCard ? (
               <div className="flex-1 flex flex-col">
-                {/* Commander Image - Uses full available height */}
-                <div className="relative flex-1 rounded-lg overflow-hidden bg-muted/50 shadow-md" style={{ minHeight: '200px' }}>
-                  <img 
-                    src={commanderImage || '/placeholder.svg'} 
-                    alt={deckSummary.commander.name}
-                    className="absolute inset-0 w-full h-full object-cover object-top"
-                    onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                  />
-                  
-                  {/* Gradient overlay for text readability */}
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-                  
-                  {/* Commander Name on image */}
-                  <div className="absolute bottom-0 inset-x-0 p-3">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <Crown className="h-3 w-3 text-amber-400" />
-                      <span className="text-[10px] text-amber-400/80 uppercase tracking-wider font-medium">Commander</span>
-                    </div>
-                    <h4 className="text-white font-semibold text-sm leading-tight line-clamp-2 drop-shadow-lg">
-                      {deckSummary.commander.name}
-                    </h4>
-                  </div>
-
-                  {/* Favorite button */}
+                {/* The commander is the one card representing this deck, so it is
+                    drawn whole. The <img> this replaced used
+                    `object-cover object-top` inside a flexible-height box, which
+                    sheared the bottom off every commander — name, type line, P/T
+                    and all. `CardImage` owns the 488x680 ratio and picks the
+                    Scryfall resolution from the rendered width instead of always
+                    asking for `normal`. Capped on narrow screens, where this
+                    column goes full-bleed and an uncapped card would be enormous. */}
+                <CardImage
+                  card={commanderCard}
+                  size="lg"
+                  fill
+                  className="mx-auto w-full max-w-[220px] lg:max-w-none"
+                  title={commanderCard.name}
+                >
+                  {/* Favorite button. The gradient scrim and duplicated name
+                      that used to sit here are gone: they existed to label an
+                      art crop, and the card now shows its own printed name,
+                      type line and P/T. The label moved below the card so
+                      nothing covers it. */}
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleFavoriteToggle}
                     disabled={favoriteLoading}
-                    className="absolute top-2 left-2 h-8 w-8 bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                    className="absolute top-2 left-2 z-10 h-8 w-8 bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
                   >
                     {favoriteLoading ? (
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -283,6 +284,13 @@ export function ModernDeckTile({
                       <StarOff className="h-4 w-4" />
                     )}
                   </Button>
+                </CardImage>
+
+                <div className="mt-2 flex items-center justify-center gap-1">
+                  <Crown className="h-3 w-3 text-amber-400" />
+                  <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                    Commander
+                  </span>
                 </div>
 
                 {/* Color Identity Bar */}

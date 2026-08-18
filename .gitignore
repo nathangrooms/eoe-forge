@@ -33,3 +33,10 @@ navcheck.html
 src/__shot.tsx
 src/__navcheck.tsx
 src/pages/__*.tsx
+
+# Environment files (the VITE_ publishable key is client-visible by design,
+# but the file should not be tracked going forward — see CLAUDE.md)
+.env
+.env.local
+.env.*.local
+!.env.example

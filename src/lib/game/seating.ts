@@ -355,6 +355,24 @@ export function seatContentStyle(seat: Seat): SeatContentStyle {
   };
 }
 
+/**
+ * Seat content that keeps its position but not its rotation.
+ *
+ * For a device one person is reading — solo life counting, or a future
+ * one-screen-per-player mode — where rotating a seat only makes it unreadable.
+ * The seat still occupies its own rect, so the layout is unchanged.
+ */
+export function seatContentStyleUpright(seat: Seat): SeatContentStyle {
+  return {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: '100cqw',
+    height: '100cqh',
+    transform: 'translate(-50%, -50%)',
+  };
+}
+
 /** Just the rotation, for cases that only need to spin a badge or a number. */
 export function seatRotationTransform(seat: Seat): string {
   return `rotate(${seat.rotation}deg)`;

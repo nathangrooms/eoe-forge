@@ -117,9 +117,36 @@ in `sync_status.error_message` shows it paginates and stalls.
 
 ## 7. Database
 
-34 public tables. Largest: `cards` (31,880), `card_price_history` (31,221), `deck_cards` (395),
-`tasks` (166), `activity_log` (130), `wishlist` (94), `user_collections` (51), `user_decks` (14),
-`profiles` (13).
+39 public tables (re-counted 2026-08-18). Largest: `cards` (34,088), `card_price_history` (31,626),
+`deck_cards` (459), `tasks` (166), `activity_log` (130), `wishlist` (94), `user_collections` (51),
+`user_decks` (15), `profiles` (13).
+
+### Price-history coverage — diagnosed 2026-08-18
+
+The old note said `daily-price-capture` "only widens coverage for cards someone already owns or
+watches". **That is not what it does.** It pages the whole `cards` table — but it fetches Scryfall one
+card at a time with a 125 ms delay, always starting at `offset=0` (cron passes no offset), so it dies
+on the edge wall clock after ~400 cards and re-captures the *same* ~342 cards every run. Its
+`BATCH_SIZE = 75` constant (Scryfall's `/cards/collection` bulk limit) is declared and never used.
+
+Real coverage: 701 of 34,088 cards, and only **14 of the 572 cards users actually own, wishlist,
+deck or list**. Capture also stopped entirely between 2026-02-20 and 2026-08-18.
+
+`scryfall-sync` already refreshes `cards.prices` nightly (33,903 of 34,088 rows touched within 2
+days), so the snapshot needs **no Scryfall traffic at all**. `public.capture_daily_prices(scope,
+min_usd, date)` does it as an `INSERT … SELECT`: measured 2,884 rows in 2.5 s for scope `'relevant'`
+(all 572 user-relevant cards + everything ≥ $5) and all 34,088 rows in 1.6 s for scope `'all'`.
+Storage measured at **410 bytes/row** including the three indexes:
+
+| scope | rows/day | rows/year | storage/year |
+|---|---|---|---|
+| user-relevant only (572) | 572 | 209 k | ~86 MB |
+| relevant + ≥ $20 (1,138) | 1,138 | 415 k | ~170 MB |
+| **relevant + ≥ $5 (2,884) — recommended** | 2,884 | 1.05 M | **~430 MB** |
+| entire catalogue (34,088) | 34,088 | 12.4 M | ~5.1 GB |
+
+The cron job was **not** repointed — that is a storage-cost decision. To switch it on:
+`select cron.alter_job(1, command => $$select public.capture_daily_prices('relevant', 5)$$);`
 
 Existing enums: `task_status` (pending, in_progress, blocked, done), `task_category` (feature, bug,
 improvement, core_functionality), `task_priority` (high, medium, low), `subscription_tier` (free, pro, unlimited).
@@ -139,12 +166,46 @@ AI builders (`ai-deck-builder`, `ai-deck-builder-v2`) suggest consolidation is n
 
 ## 8. ⚠️ Security note
 
-`.env` is **committed to the repo** and `.gitignore` has no `env` entry. `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_PROJECT_ID` and the publishable (anon) key are in public GitHub history. The same values
-are also hardcoded in `src/integrations/supabase/client.ts`, which is what actually gets used.
+### `.env` — handled 2026-08-18
 
-The anon key is designed to be client-visible, so this is not an emergency — **but it only protects you
-if RLS is correctly enforced on every table.** A full RLS audit is outstanding.
+`.env` **was** committed and `.gitignore` had no env entry. Now: `.gitignore` covers `.env`,
+`.env.local`, `.env.*.local`; `.env` has been `git rm --cached`'d (staged, **not yet committed** —
+commit it to complete the change); `.env.example` added with the key redacted.
+
+The values remain in git history and were never secret: the publishable (anon) key is designed to be
+client-visible, and the same values are hardcoded in `src/integrations/supabase/client.ts`, which is
+what actually gets used. **No rotation is needed.** History was deliberately left un-rewritten — a
+force-push to scrub a non-secret is not worth breaking every clone.
+
+### RLS audit — completed 2026-08-18
+
+All 39 public tables have RLS enabled. Empirically tested against PostgREST with the anon key:
+collections, decks, wishlist, listings, messages, sales, tasks, storage and photos all correctly
+return zero rows to an unauthenticated caller. Four real holes were found and fixed by migration
+(`harden_rls_privilege_escalation_and_service_role_scoping`):
+
+1. **Privilege escalation (critical).** `profiles`' UPDATE policy had `USING (auth.uid() = id)` and
+   **no `WITH CHECK`**, so Postgres reused USING as the check and any logged-in user could run
+   `update profiles set is_admin = true where id = auth.uid()`. That unlocked every
+   `profiles.is_admin` admin policy plus all four `dev_*` tables via `is_dev_admin()`. Fixed with
+   column-level grants + a guard trigger; admin promotion now goes through the gated
+   `set_user_admin()` RPC (`UserManagement.tsx` was updated to call it — the old direct write also
+   silently no-opped for every user other than yourself while still showing a success toast).
+2. **Three "Service role can manage …" policies were created `TO public`, not `TO service_role`** —
+   on `card_price_history`, `collection_value_history` and `sync_status`. `FOR ALL … USING (true)`
+   meant anyone holding the anon key could read, insert, update and delete. Verified: anon could
+   read every user's `collection_value_history` and delete all 31,626 price rows. Now `TO service_role`.
+3. **`trigger_scryfall_sync()` / `resume_scryfall_sync_if_stalled()`** were SECURITY DEFINER with
+   EXECUTE granted to `anon` and no auth gate — a free full-sync/DoS trigger. Revoked; pg_cron runs
+   as `postgres` and is unaffected.
+4. **`anon`/`authenticated` held TRUNCATE on every table**, which bypasses RLS entirely. Not
+   reachable through PostgREST, but revoked anyway.
+
+Left deliberately unchanged: `profiles` is world-readable by design (but two usernames are raw email
+addresses — worth scrubbing); `deck_share_events` accepts anonymous inserts because logged-out
+share-page views are tracked client-side; `listings`/`wishlist_shares` are owner-only, so the
+marketplace and shared wishlists cannot actually be read by other users — that is a **feature gap,
+and closing it means loosening RLS deliberately, not a bug fix**.
 
 ---
 

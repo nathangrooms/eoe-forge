@@ -336,8 +336,18 @@ export function matSurfaceStyle(color: MatColor, tone: MatTone = 'seat'): CSSPro
     `radial-gradient(128% 104% at ${light}, ${wash(def, 1, g)} 0%, ${wash(def, 0.44, g, def.accent)} 42%, ${wash(def, 0.1, g, def.accent)} 82%)`,
   ].filter(Boolean) as string[];
 
+  /*
+   * No `backgroundColor` here, deliberately.
+   *
+   * This element is the colour layer and it sits *over* the card art. An opaque
+   * black behind its gradients hid the art completely — every mat rendered as a
+   * flat gradient while the setup screen went on claiming "art from Cyclonic
+   * Rift" underneath it, and Chrome skipped fetching the art at all because
+   * nothing it was painted into was ever visible. The black floor the gradients
+   * need is painted by `MatSurface`'s own container, one level up, which is the
+   * only place this style is used.
+   */
   return {
-    backgroundColor: 'hsl(0 0% 0%)',
     backgroundImage: layers.join(', '),
   };
 }

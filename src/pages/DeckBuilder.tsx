@@ -1173,17 +1173,12 @@ const DeckBuilder = () => {
               </div>
             )}
 
-            {/* Playtest */}
+            {/* Playtest. `deck.cards` goes through whole rather than being
+                remapped to five scalar fields — the old mapping dropped
+                `image_uris`, so every card in the test hand rendered as a grey
+                name box and the tester never received any art to show. */}
             {activeTab === 'test' && deck.cards.length > 0 && (
-              <QuickDeckTester 
-                deck={deck.cards.map(card => ({
-                  id: card.id,
-                  name: card.name,
-                  cmc: card.cmc,
-                  type_line: card.type_line,
-                  mana_cost: card.mana_cost
-                }))}
-              />
+              <QuickDeckTester deck={deck.cards} />
             )}
 
             {activeTab === 'test' && deck.cards.length === 0 && (

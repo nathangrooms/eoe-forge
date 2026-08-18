@@ -221,6 +221,11 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
   const [activeIndex, setActiveIndex] = useState(0);
 
   const playerCount = seats.length;
+  /* A life counter is normally one device in the middle of the table, so seats
+     rotate to face their player. Solo keeps everything upright. */
+  const [orientation, setOrientation] = useState<'shared' | 'solo'>(
+    initialConfig.orientation ?? 'shared',
+  );
   const seatRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   useEffect(() => {
@@ -250,6 +255,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
 
   const start = () => {
     onStart({
+      orientation,
       format,
       startingLife: Math.min(MAX_STARTING_LIFE, Math.max(MIN_STARTING_LIFE, startingLife)),
       seats,
@@ -266,7 +272,15 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
       }}
     >
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 pb-6">
+        {/*
+          One column on a phone, which is where this screen is usually held.
+          On a desktop the 32rem column was stranded in the middle of the
+          viewport with black either side, and the one thing worth looking at —
+          the table — was rendered at thumbnail size. From `lg` up the table
+          takes the wider column and the settings stack beside it, so the
+          picture is large and every control is still above the fold.
+        */}
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 pb-6 lg:max-w-[1180px]">
           <div className="flex items-center justify-between gap-2 pt-1">
             <Button
               variant="ghost"
@@ -281,8 +295,9 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
             </h1>
           </div>
 
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] lg:items-start lg:gap-6">
           {/* The board itself. Everything below is an edit to this picture. */}
-          <section className="flex flex-col gap-2">
+          <section className="flex flex-col gap-2 lg:sticky lg:top-4">
             <TablePreview
               seats={seats}
               startingLife={startingLife}
@@ -307,6 +322,8 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
             )}
           </section>
 
+          {/* Every control, in one column beside the table on a wide screen. */}
+          <div className="flex flex-col gap-4">
           {/* Pod size */}
           <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
             <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -328,6 +345,52 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                   )}
                 >
                   {count}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* How the device is being used. Decides whether seats rotate. */}
+          <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
+            <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              This device
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                {
+                  value: 'shared' as const,
+                  title: 'On the table',
+                  hint: 'Seats face outward, so each player reads their own side',
+                },
+                {
+                  value: 'solo' as const,
+                  title: 'Just me',
+                  hint: 'Everything stays upright for one reader',
+                },
+              ]).map(mode => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setOrientation(mode.value)}
+                  aria-pressed={orientation === mode.value}
+                  className={cn(
+                    'rounded-xl px-3 py-2.5 text-left transition-colors motion-reduce:transition-none',
+                    orientation === mode.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  <span className="block text-sm font-medium">{mode.title}</span>
+                  <span
+                    className={cn(
+                      'mt-0.5 block text-[11px] leading-snug',
+                      orientation === mode.value
+                        ? 'text-primary-foreground/75'
+                        : 'text-muted-foreground/80',
+                    )}
+                  >
+                    {mode.hint}
+                  </span>
                 </button>
               ))}
             </div>
@@ -488,6 +551,8 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
               ))}
             </div>
           </section>
+          </div>
+          </div>
         </div>
       </div>
 
@@ -500,7 +565,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
         className="shrink-0 bg-popover px-4 pt-3 shadow-[0_-2px_14px_hsl(0_0%_0%/0.45)]"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="mx-auto flex w-full max-w-lg items-center gap-2">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-2 lg:max-w-[1180px]">
           {onCancel && (
             <Button variant="secondary" className="h-14 px-5" onClick={onCancel}>
               Resume

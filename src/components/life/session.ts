@@ -47,13 +47,30 @@ export interface LifeGameConfig {
   /** Resolved at setup. May differ from the format default (e.g. 30-life pods). */
   startingLife: number;
   seats: LifeSeatConfig[];
+  /**
+   * Carried on the config so setup can choose it and `newSession` can seed the
+   * options from one place, rather than the mode being set in two steps.
+   */
+  orientation?: LifeOrientation;
 }
+
+/**
+ * Who is looking at this screen.
+ *
+ * `shared` is the normal case — one phone or tablet flat in the middle of the
+ * table — so each seat is rotated to face the player sitting on that side.
+ * `solo` is one person on their own device, where rotating anything would just
+ * make it unreadable.
+ */
+export type LifeOrientation = 'shared' | 'solo';
 
 export interface LifeOptions {
   /** Alternative seat arrangement for the same player count. */
   variant: SeatingVariant;
   /** Players running a partner / background — they get a second damage bucket. */
   partners: Record<PlayerId, boolean>;
+  /** Whether seats face outward around a shared device, or all face the viewer. */
+  orientation: LifeOrientation;
 }
 
 export interface LifeSession {
@@ -108,7 +125,12 @@ export function defaultVariantFor(playerCount: number): SeatingVariant {
 }
 
 export function defaultOptions(playerCount = 4): LifeOptions {
-  return { variant: defaultVariantFor(playerCount), partners: {} };
+  return {
+    variant: defaultVariantFor(playerCount),
+    partners: {},
+    /* A life counter is normally one device in the middle of the table. */
+    orientation: playerCount === 1 ? 'solo' : 'shared',
+  };
 }
 
 /**
@@ -342,6 +364,7 @@ export function loadSession(): LifeSession | null {
       options: {
         variant: options.variant ?? defaultVariantFor(parsed.state.players.length),
         partners: options.partners ?? {},
+        orientation: options.orientation === 'solo' ? 'solo' : 'shared',
       },
     };
   } catch {

@@ -28,6 +28,7 @@ import {
   lossReasonLabel,
   seatBoxStyle,
   seatContentStyle,
+  seatContentStyleUpright,
   type FormatRules,
   type Player,
   type Seat,
@@ -62,7 +63,7 @@ type Corner = 0 | 1 | 2 | 3;
  * `r` degrees clockwise moves corner `i` to visual corner `i + r/90`, so the
  * placement can just be solved rather than special-cased per layout.
  */
-function outerCorner(seat: Seat): Corner {
+function outerCorner(seat: Seat, rotated: boolean): Corner {
   const { x, y, w, h } = seat.rect;
   const visual = [
     { x, y },
@@ -81,7 +82,7 @@ function outerCorner(seat: Seat): Corner {
     }
   });
 
-  const turns = seat.rotation / 90;
+  const turns = rotated ? seat.rotation / 90 : 0;
   return ((((best - turns) % 4) + 4) % 4) as Corner;
 }
 
@@ -113,6 +114,12 @@ export interface PlayerPanelProps {
   matArt?: string | null;
   /** False once the game is complete — the reducer rejects further changes. */
   interactive: boolean;
+  /**
+   * `shared` rotates the seat to face the player sitting on that side of a
+   * device lying flat on the table — the normal case. `solo` leaves every seat
+   * upright for one person reading their own screen.
+   */
+  orientation?: 'shared' | 'solo';
   onNudgeLife: (delta: number) => void;
   onOpenDetail: () => void;
   reducedMotion: boolean;
@@ -248,6 +255,7 @@ export function PlayerPanel({
   mat,
   matArt,
   interactive,
+  orientation = 'shared',
   onNudgeLife,
   onOpenDetail,
   reducedMotion,
@@ -277,12 +285,14 @@ export function PlayerPanel({
   const energy = view.counters[COUNTER_ENERGY] ?? 0;
   const experience = view.counters[COUNTER_EXPERIENCE] ?? 0;
 
-  const nameCorner = outerCorner(seat);
+  const nameCorner = outerCorner(seat, orientation !== 'solo');
   const chipCorner = ALONG_EDGE[nameCorner];
 
   return (
     <div style={seatBoxStyle(seat)}>
-      <div style={seatContentStyle(seat)}>
+      {/* In solo mode the seat keeps its PLACE but loses its rotation, so one
+          reader is never looking at upside-down life totals. */}
+      <div style={orientation === 'solo' ? seatContentStyleUpright(seat) : seatContentStyle(seat)}>
         <div
           role="group"
           aria-label={`${player.name}: ${player.life} life`}

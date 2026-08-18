@@ -173,7 +173,10 @@ export function PlayerRoster({
                           <span className="truncate">· {registered.commanderName}</span>
                         )}
                         {mismatch && (
-                          <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wider text-muted-foreground">
+                          <span
+                            title={`Registered deck is ${formatLabel(registered.format)}; this event is ${tournament.gameFormat}.`}
+                            className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wider text-muted-foreground"
+                          >
                             <AlertTriangle className="h-2.5 w-2.5" />
                             {formatLabel(registered.format)} deck
                           </span>

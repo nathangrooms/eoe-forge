@@ -189,16 +189,17 @@ function Device({
 function LifeBoards() {
   const art = useMatArt();
 
+  /* One aspect across the three so their captions sit on a single baseline. */
   const pods = [
-    { layout: seatingFor(2, 'table'), aspect: '9 / 15', label: 'Two players' },
-    { layout: seatingFor(3, 'table'), aspect: '4 / 3', label: 'Three players' },
-    { layout: seatingFor(4, 'quads'), aspect: '9 / 15', label: 'Four, two by two' },
+    { layout: seatingFor(2, 'table'), label: 'Two players' },
+    { layout: seatingFor(3, 'table'), label: 'Three players' },
+    { layout: seatingFor(4, 'quads'), label: 'Four, two by two' },
   ];
 
   return (
     <div>
       {/* The table the device is lying on. */}
-      <div className="rounded-[2rem] bg-muted/25 p-5 shadow-inner sm:p-8">
+      <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-10">
         <Device layout={seatingFor(4, 'table')} aspect="4 / 3" art={art} />
       </div>
 
@@ -209,7 +210,7 @@ function LifeBoards() {
       <div className="mt-8 grid grid-cols-3 gap-4 sm:gap-6">
         {pods.map(pod => (
           <div key={pod.label}>
-            <Device layout={pod.layout} aspect={pod.aspect} art={art} compact />
+            <Device layout={pod.layout} aspect="9 / 15" art={art} compact />
             <p className="mt-3 text-center text-[11px] leading-tight text-muted-foreground">
               {pod.label}
             </p>
@@ -260,7 +261,7 @@ export function HomeLifeCounter() {
         {near ? (
           <LifeBoards />
         ) : (
-          <div className="rounded-[2rem] bg-muted/25 p-5 sm:p-8">
+          <div className="rounded-[2.25rem] bg-muted/40 p-6 sm:p-10">
             <div className="w-full rounded-[1.25rem] bg-background" style={{ aspectRatio: '4 / 3' }} />
           </div>
         )}

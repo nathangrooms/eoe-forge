@@ -131,19 +131,26 @@ function ManaCurve({ cards }: { cards: ShowcaseCard[] }) {
 function CatalogueRow({ card }: { card: ShowcaseCard }) {
   const usd = card.prices?.usd;
   return (
-    <div className="flex items-center gap-4 rounded-xl px-3 py-2 odd:bg-foreground/[0.04]">
+    /* Two lines rather than four columns. Laid out as columns, the name gets
+       squeezed between the mana pips and the price and truncates to "Rang…" on a
+       phone; stacking the cost and type under the name gives it the whole row. */
+    <div className="flex items-center gap-3 rounded-xl px-2.5 py-2 odd:bg-foreground/[0.04] sm:gap-4 sm:px-3">
       {/* A whole card, never a crop — 48px is small, but it is still a card. */}
       <div className="w-12 shrink-0">
         <CardImage card={card} size="xs" fill hideFlip />
       </div>
-      <span className="min-w-0 flex-[1.2] truncate text-sm font-medium">{card.name}</span>
-      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground sm:block">
-        {card.type_line}
-      </span>
-      <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground md:block">
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{card.name}</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <ManaCost cost={card.mana_cost} size="xs" className="shrink-0" />
+          <span className="min-w-0 truncate text-xs text-muted-foreground">{card.type_line}</span>
+        </div>
+      </div>
+
+      <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:block">
         {card.set_code}
       </span>
-      <ManaCost cost={card.mana_cost} size="sm" className="shrink-0" />
       <span className="w-16 shrink-0 text-right text-sm tabular-nums">
         {usd ? `$${Number(usd).toFixed(2)}` : '—'}
       </span>

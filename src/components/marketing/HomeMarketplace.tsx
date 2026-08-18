@@ -62,12 +62,15 @@ function PriceLine({
   const height = 100;
   const low = Math.min(...series);
   const high = Math.max(...series);
-  const span = high - low || 1;
+  /* 12% of the range as headroom above and below, so a series that ends at its
+     own high does not draw a line welded to the top edge of the box. */
+  const pad = (high - low || 1) * 0.12;
+  const floor = low - pad;
+  const span = high + pad - floor;
 
   const point = (value: number, index: number) => {
     const x = (index / Math.max(1, series.length - 1)) * width;
-    /* 4px of headroom top and bottom so the peak is not clipped by the stroke. */
-    const y = height - 4 - ((value - low) / span) * (height - 8);
+    const y = height - ((value - floor) / span) * height;
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   };
 
@@ -83,7 +86,7 @@ function PriceLine({
       {area && (
         <polygon
           points={`0,${height} ${line} ${width},${height}`}
-          className="fill-current opacity-[0.09]"
+          className="fill-current opacity-[0.055]"
         />
       )}
       <polyline
@@ -178,7 +181,7 @@ export function HomeMarketplace() {
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ---------------------------------------------------- the tracked card */}
-        <div className="rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
+        <div className="flex flex-col rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
           {hero === null ? (
             <div className="grid gap-8 sm:grid-cols-[200px_minmax(0,1fr)]">
               <Skeleton className="aspect-[5/7] w-[200px] rounded-xl" />
@@ -246,7 +249,7 @@ export function HomeMarketplace() {
             </div>
           )}
 
-          <div className="mt-8 flex flex-wrap items-center gap-2">
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-8">
             <span className="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">
               Buy links open at
             </span>
@@ -277,31 +280,33 @@ export function HomeMarketplace() {
               : rest.map(entry => <WatchRow key={entry.card.id} entry={entry} />)}
           </ul>
 
-          <div className="mt-6 rounded-xl bg-muted/30 p-4">
-            <p className="text-sm font-medium">Sell what you are not playing</p>
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              List straight out of your collection with condition, foiling and quantity, take
-              messages from buyers, then record the sale and the copy leaves your collection.
-            </p>
-          </div>
-
           <div className="mt-auto pt-6">
-            <Button asChild size="lg" variant="outline" className="w-full">
-              <Link to="/marketplace">
-                Open the marketplace
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            <div className="rounded-xl bg-muted/30 p-4">
+              <p className="text-sm font-medium">Sell what you are not playing</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                List straight out of your collection with condition, foiling and quantity, take
+                messages from buyers, then record the sale and the copy leaves your collection.
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {data && (
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          {data.snapshots} daily price snapshots between {shortDate(data.from)} and{' '}
-          {shortDate(data.to)}, read live from DeckMatrix's own price history.
+          Daily price snapshots between {shortDate(data.from)} and {shortDate(data.to)}, read live
+          from DeckMatrix's own price history.
         </p>
       )}
+
+      <div className="mt-10 text-center">
+        <Button asChild size="lg" variant="outline">
+          <Link to="/marketplace">
+            Open the marketplace
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
     </Section>
   );
 }

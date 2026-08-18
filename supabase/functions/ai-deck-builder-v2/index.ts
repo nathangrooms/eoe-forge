@@ -240,7 +240,25 @@ serve(async (req) => {
 
     const isLandEntry = (c: any) => (c.type_line || '').toLowerCase().includes('land');
 
-    // ----- Step 1: Staples -----
+    /*
+     * The slot plan, decided BEFORE any card is picked.
+     *
+     * The old builder ran quota after quota with no budget and then computed
+     * `basicsNeeded = 99 - deck.length`. When the quotas overfilled, that number
+     * went negative, no basics were added, and nothing trimmed the deck back —
+     * so the function returned whatever it happened to have. Here every phase is
+     * handed a hard cap and can only ever spend room that exists.
+     */
+    const targetLands = Math.max(
+      config.minLandCount ?? 35,
+      Math.min(config.maxLandCount ?? 38, 36)
+    );
+    const nonLandTarget = DECK_SLOTS - targetLands;
+
+    const nonLandCopiesNow = () => countCopies(deck.filter(c => !isLandEntry(c)));
+    const nonLandRoom = () => Math.max(0, nonLandTarget - nonLandCopiesNow());
+
+    // ----- Step 1: Staples (three cards, always affordable at this point) -----
     for (const name of ['Sol Ring', 'Arcane Signet', 'Command Tower']) {
       const card = colorFilteredCards.find(c => c.name === name);
       if (card) addCard(card, { protect: true });
@@ -250,8 +268,10 @@ serve(async (req) => {
     // ----- Step 2: AI key cards -----
     if (deckPlan?.keyCards?.length) {
       let keyAdded = 0;
-      for (const keyName of deckPlan.keyCards.slice(0, 25)) {
+      for (const keyName of deckPlan.keyCards.slice(0, 20)) {
+        if (nonLandRoom() <= 0) break;
         const keyLower = String(keyName).toLowerCase().trim();
+        if (!keyLower) continue;
         let match = colorFilteredCards.find(c =>
           c.name.toLowerCase() === keyLower && !usedCardNames.has(c.name)
         );
@@ -265,64 +285,71 @@ serve(async (req) => {
       console.log(`  Key cards: ${keyAdded}`);
     }
 
-    // ----- Step 3: Cards by role -----
+    // ----- Step 3: Cards by role (each capped by the spell budget) -----
     for (const { role, count, label } of [
-      { role: 'ramp', count: config.minRampCount, label: 'Ramp' },
-      { role: 'draw', count: config.minDrawCount, label: 'Draw' },
-      { role: 'removal', count: config.minRemovalCount, label: 'Removal' },
+      { role: 'ramp', count: config.minRampCount ?? 10, label: 'Ramp' },
+      { role: 'draw', count: config.minDrawCount ?? 10, label: 'Draw' },
+      { role: 'removal', count: config.minRemovalCount ?? 8, label: 'Removal' },
       ...(commanderColors.has('U') ? [{ role: 'counter', count: 4, label: 'Counters' }] : [])
     ]) {
+      const room = nonLandRoom();
+      if (room <= 0) { console.log(`  ${label}: 0/${count} (no room)`); continue; }
       const roleCards = colorFilteredCards
-        .filter(c => hasRole(c, role) && !usedCardNames.has(c.name))
+        .filter(c => hasRole(c, role) && !isLandEntry(c) && !usedCardNames.has(c.name))
         .sort((a, b) => scoreCard(b) - scoreCard(a))
-        .slice(0, count);
+        .slice(0, Math.min(count, room));
       roleCards.forEach(c => addCard(c, { protect: true }));
       console.log(`  ${label}: ${roleCards.length}/${count}`);
     }
 
-    // ----- Step 4: Creatures across the curve -----
+    // ----- Step 4: Creatures across the curve, inside whatever room is left -----
     let creaturesAdded = 0;
-    for (const { cmc, count } of [{ cmc: 1, count: 4 }, { cmc: 2, count: 8 }, { cmc: 3, count: 8 }, { cmc: 4, count: 5 }, { cmc: 5, count: 4 }, { cmc: 6, count: 2 }]) {
+    const creatureShape = [
+      { cmc: 1, weight: 4 }, { cmc: 2, weight: 8 }, { cmc: 3, weight: 8 },
+      { cmc: 4, weight: 5 }, { cmc: 5, weight: 4 }, { cmc: 6, weight: 2 }
+    ];
+    const creatureBudget = Math.max(0, Math.min(nonLandRoom(), 31));
+    const shapeTotal = creatureShape.reduce((s, b) => s + b.weight, 0);
+    for (const { cmc, weight } of creatureShape) {
+      const room = Math.min(nonLandRoom(), Math.round((weight / shapeTotal) * creatureBudget));
+      if (room <= 0) continue;
       const creatures = colorFilteredCards
         .filter(c => hasRole(c, 'creature') && !usedCardNames.has(c.name) && Math.floor(c.cmc || 0) === cmc)
         .sort((a, b) => scoreCard(b) - scoreCard(a))
-        .slice(0, count);
-      creatures.forEach(c => addCard(c));
-      creaturesAdded += creatures.length;
+        .slice(0, room);
+      creatures.forEach(c => { if (addCard(c)) creaturesAdded++; });
     }
     console.log(`  Creatures: ${creaturesAdded}`);
 
-    // ----- Step 5: Utility lands -----
-    const targetLands = Math.min(
-      config.maxLandCount ?? 38,
-      Math.max(config.minLandCount ?? 35, 36)
-    );
-    const utilityLandTarget = availableBasics.length ? 15 : targetLands;
-    const utilityLands = colorFilteredCards
-      .filter(c => hasRole(c, 'land') && !usedCardNames.has(c.name))
-      .sort((a, b) => scoreCard(b) - scoreCard(a))
-      .slice(0, utilityLandTarget);
-    utilityLands.forEach(c => addCard(c, { protect: true }));
-    const utilityLandCount = countCopies(deck.filter(isLandEntry));
-    console.log(`  Utility lands: ${utilityLandCount}`);
-
-    // How many basic-land slots the manabase wants.
-    const reservedBasics = availableBasics.length
-      ? Math.max(0, targetLands - utilityLandCount)
-      : 0;
-    const coreTarget = DECK_SLOTS - reservedBasics;
-
-    // ----- Step 6: Fill the spell slots -----
-    let coreCopies = countCopies(deck);
-    if (coreCopies < coreTarget) {
+    // ----- Step 5: Fill any remaining spell slots -----
+    const fillRoom = nonLandRoom();
+    if (fillRoom > 0) {
       const fillers = colorFilteredCards
-        .filter(c => !hasRole(c, 'land') && !usedCardNames.has(c.name))
+        .filter(c => !isLandEntry(c) && !usedCardNames.has(c.name))
         .sort((a, b) => scoreCard(b) - scoreCard(a))
-        .slice(0, coreTarget - coreCopies);
+        .slice(0, fillRoom);
       fillers.forEach(c => addCard(c));
-      coreCopies = countCopies(deck);
       console.log(`  Fillers: ${fillers.length}`);
     }
+
+    // ----- Step 6: Utility lands -----
+    const landCopiesNow = () => countCopies(deck.filter(isLandEntry));
+    const utilityLandTarget = availableBasics.length
+      ? Math.min(15, targetLands)
+      : targetLands;
+    const utilityRoom = Math.max(0, utilityLandTarget - landCopiesNow());
+    if (utilityRoom > 0) {
+      const utilityLands = colorFilteredCards
+        .filter(c => isLandEntry(c) && !usedCardNames.has(c.name))
+        .sort((a, b) => scoreCard(b) - scoreCard(a))
+        .slice(0, utilityRoom);
+      utilityLands.forEach(c => addCard(c, { protect: true }));
+    }
+    console.log(`  Lands before basics: ${landCopiesNow()}`);
+
+    const coreTarget = DECK_SLOTS - (
+      availableBasics.length ? Math.max(0, targetLands - landCopiesNow()) : 0
+    );
 
     /**
      * Remove copies until the deck is at most `target` physical cards.
@@ -406,18 +433,20 @@ serve(async (req) => {
           else deck.push({ ...basicLandMap[name], quantity: 1, isBasicLand: true });
         }
         added += need;
-        total = countCopies(deck);
+        total += need;
       }
 
       if (total < target) {
-        // No basics available (e.g. a colourless commander with no Wastes synced).
-        // Fall back to on-colour staples so the deck is still exactly 99.
+        // No basics available (e.g. a colourless commander with no Wastes
+        // synced). Fall back to the best remaining on-colour cards so the deck
+        // still comes out at exactly 99 rather than short.
         const spares = colorFilteredCards
           .filter(c => !usedCardNames.has(c.name))
-          .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, target - total);
-        spares.forEach(c => { if (addCard(c)) added++; });
-        total = countCopies(deck);
+          .sort((a, b) => scoreCard(b) - scoreCard(a));
+        for (const c of spares) {
+          if (total >= target) break;
+          if (addCard(c)) { added++; total++; }
+        }
       }
 
       return added;

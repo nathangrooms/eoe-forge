@@ -129,6 +129,7 @@ const DONE = baseEvent({
   rounds: [ROUND_1, { ...ROUND_2, matches: ROUND_2.matches.map(m => ({ ...m, player1Score: 2, player2Score: 1, result: 'p1' as const, winner: m.player1, status: 'completed' as const })), status: 'completed' }],
   currentRound: 2,
   swissRounds: 2,
+  players: PLAYERS.slice(0, 7),
 });
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

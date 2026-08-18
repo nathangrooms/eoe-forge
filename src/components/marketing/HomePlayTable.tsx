@@ -236,6 +236,7 @@ export function HomePlayTable() {
   const lookup = useDeferred(near, loadTable);
 
   const commander = lookup?.get(COMMANDER.toLowerCase());
+  const botCommander = lookup?.get(BOT_COMMANDER.toLowerCase());
 
   return (
     <Section tint>
@@ -295,30 +296,45 @@ export function HomePlayTable() {
           <div className="rounded-2xl bg-muted/20 p-4 sm:p-5">
             <SeatLine
               name="Bot"
-              note="Even — trades up and blocks sensibly"
+              note="Lazav, Dimir Mastermind · even — trades up and blocks sensibly"
               life={34}
               hand={4}
               library={71}
               align="right"
             />
-            <div className="mt-4 space-y-3">
-              <div>
-                <ZoneLabel>Lands</ZoneLabel>
-                <PermanentRow
-                  cards={BOT_LANDS}
-                  lookup={lookup}
-                  width={62}
-                  className="justify-end"
-                />
+            {/* Mirrored: the seat across the table has its command zone on the
+                far side and its rows running back towards the middle. */}
+            <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="space-y-3">
+                <div>
+                  <ZoneLabel className="text-right">Lands</ZoneLabel>
+                  <PermanentRow
+                    cards={BOT_LANDS}
+                    lookup={lookup}
+                    width={62}
+                    className="justify-end"
+                  />
+                </div>
+                <div>
+                  <ZoneLabel className="text-right">Battlefield</ZoneLabel>
+                  <PermanentRow
+                    cards={BOT_CREATURES}
+                    lookup={lookup}
+                    width={80}
+                    className="justify-end"
+                  />
+                </div>
               </div>
+
               <div>
-                <ZoneLabel>Battlefield</ZoneLabel>
-                <PermanentRow
-                  cards={BOT_CREATURES}
-                  lookup={lookup}
-                  width={76}
-                  className="justify-end"
-                />
+                <ZoneLabel className="text-right">Command zone</ZoneLabel>
+                <div className="flex justify-end">
+                  {botCommander ? (
+                    <CardImage card={botCommander} size="sm" width={80} />
+                  ) : (
+                    <CardImageSkeleton size="sm" width={80} />
+                  )}
+                </div>
               </div>
             </div>
           </div>

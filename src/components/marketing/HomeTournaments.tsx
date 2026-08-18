@@ -161,7 +161,7 @@ function Side({ entrant, points }: { entrant: Entrant; points: number }) {
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
       {/* A deck is its commander, whole. */}
-      <CardImage card={entrant.card} size="sm" width={104} title={entrant.card.name} />
+      <CardImage card={entrant.card} size="md" width={124} title={entrant.card.name} />
       <p className="mt-3 w-full truncate text-sm font-medium leading-tight">{entrant.name}</p>
       <p className="mt-1 w-full truncate text-[11px] text-muted-foreground">{entrant.card.name}</p>
       <div className="mt-2 flex items-center gap-2">
@@ -198,7 +198,7 @@ function PairingPanel({
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
         <Side entrant={left} points={leftPoints} />
-        <span className="mt-12 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="mt-16 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           vs
         </span>
         <Side entrant={right} points={rightPoints} />
@@ -265,6 +265,32 @@ export function HomeTournaments() {
               4 decks · Commander
             </span>
           </div>
+
+          {/* The input to the maths, shown next to its output — a reader can
+              check the standings table against these four results by hand. */}
+          {model && (
+            <div className="mb-4 rounded-2xl bg-card p-4 shadow-lg shadow-black/20 sm:p-5">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Results so far
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {PLAYED.map((r, i) => (
+                  <li key={i} className="flex items-center gap-3 text-xs">
+                    <span className="w-6 shrink-0 tabular-nums text-muted-foreground">
+                      R{r.round}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{model.entrants[r.a].name}</span>
+                    <span className="shrink-0 rounded-full bg-muted/40 px-2 py-0.5 font-medium tabular-nums">
+                      {r.ga}–{r.gb}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">
+                      {model.entrants[r.b].name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-4">
             {model === null

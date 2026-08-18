@@ -54,19 +54,19 @@ export function StandingsTable({ standings, views, finished = false }: Standings
               <th scope="col" className="py-2.5 pr-3 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                 Player
               </th>
-              <th scope="col" className="w-24 py-2.5 pr-3 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th scope="col" className="w-28 py-2.5 pr-4 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                 W–L–D
               </th>
-              <th scope="col" className="w-16 py-2.5 pr-3 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              <th scope="col" className="w-20 py-2.5 pr-6 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                 Pts
               </th>
-              <th scope="col" className="w-20 py-2.5 pr-3 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <th scope="col" className="w-24 py-2.5 pr-4 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 OMW%
               </th>
-              <th scope="col" className="w-20 py-2.5 pr-3 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <th scope="col" className="w-24 py-2.5 pr-4 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 GW%
               </th>
-              <th scope="col" className="w-20 py-2.5 pr-4 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <th scope="col" className="w-24 py-2.5 pr-4 text-right text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 OGW%
               </th>
             </tr>
@@ -131,20 +131,20 @@ export function StandingsTable({ standings, views, finished = false }: Standings
                     </div>
                   </td>
 
-                  <td className="py-2 pr-3 text-center text-sm tabular-nums text-foreground">
+                  <td className="py-2 pr-4 text-center text-sm tabular-nums text-foreground">
                     {standing.wins}–{standing.losses}–{standing.draws}
                   </td>
 
-                  <td className="py-2 pr-3 text-center">
+                  <td className="py-2 pr-6 text-center">
                     <span className="text-base font-semibold tabular-nums text-foreground">
                       {standing.points}
                     </span>
                   </td>
 
-                  <td className="py-2 pr-3 text-right text-xs tabular-nums text-muted-foreground">
+                  <td className="py-2 pr-4 text-right text-xs tabular-nums text-muted-foreground">
                     {standing.opponentMatchWinPct.toFixed(1)}
                   </td>
-                  <td className="py-2 pr-3 text-right text-xs tabular-nums text-muted-foreground">
+                  <td className="py-2 pr-4 text-right text-xs tabular-nums text-muted-foreground">
                     {standing.gameWinPct.toFixed(1)}
                   </td>
                   <td className="py-2 pr-4 text-right text-xs tabular-nums text-muted-foreground">

@@ -73,62 +73,103 @@ export function getAdminConfig(): AdminConfig {
 
 // AI Prompts - detailed prompts for deck building stages
 export const AI_PROMPTS = {
-  deckPlanning: (commander: any, archetype: string, powerLevel: number, budget: number) => `
-You are an expert Magic: The Gathering Commander deck architect with deep knowledge of EDH meta, synergies, and card interactions.
+  /**
+   * The planner's job is JUDGEMENT — which cards, and why. It is explicitly NOT
+   * asked to count to 99, hit quotas, or balance a manabase, because it kept
+   * getting that arithmetic wrong and the builder shipped whatever it said.
+   * index.ts owns every count; this prompt says so out loud so the model does
+   * not pad its answer to make numbers work.
+   */
+  plannerSystem:
+    'You are an expert Magic: The Gathering Commander (EDH) deck architect. ' +
+    'You return a card-selection blueprint as raw JSON and nothing else — no prose, ' +
+    'no markdown fences, no commentary before or after the object. ' +
+    'You are NOT responsible for the final card count, the mana base, or hitting exact quotas: ' +
+    'a deterministic builder enforces all of that after you. ' +
+    'Give it the best possible cards to choose from, named exactly as they are printed.',
 
-## COMMANDER ANALYSIS
+  deckPlanning: (
+    commander: any,
+    archetype: string,
+    powerLevel: number,
+    budget: number,
+    customPrompt: string = ''
+  ) => {
+  const identity = commander.color_identity?.length
+    ? commander.color_identity.join('')
+    : 'C (colourless)';
+  const identityList = commander.color_identity?.length
+    ? commander.color_identity.join(', ')
+    : 'none — colourless only';
+
+  return `
+## COMMANDER
 **Name:** ${commander.name}
 **Type:** ${commander.type_line}
-**Color Identity:** ${commander.color_identity?.join(', ') || 'Colorless'}
-**Abilities:** ${commander.oracle_text || 'None'}
+**Colour identity:** ${identity}
+**Oracle text:** ${commander.oracle_text || 'None'}
 
 ## BUILD PARAMETERS
 **Archetype:** ${archetype}
-**Target Power Level:** ${powerLevel}/10
-- Power 1-3: CASUAL - Fun, janky, creative builds. Win on turn 12+. Minimal tutors/combos.
-- Power 4-6: FOCUSED - Clear gameplan, good synergy. Win on turn 8-11. Some tutors.
-- Power 7-8: OPTIMIZED - Efficient, consistent. Win on turn 6-8. Multiple tutors, strong combos.
-- Power 9-10: cEDH - Maximum efficiency. Win on turn 3-5. Fast mana, free counters, combo kills.
-**Budget:** $${budget}
+**Target power:** ${powerLevel}/10
+- 1-3 CASUAL: fun, janky, creative. Wins turn 12+. No tutor chains, no two-card combos.
+- 4-6 FOCUSED: one clear gameplan, strong synergy. Wins turn 8-11. A few tutors.
+- 7-8 OPTIMIZED: efficient and consistent. Wins turn 6-8. Multiple tutors, real combos.
+- 9-10 cEDH: maximum efficiency. Wins turn 3-5. Fast mana, free interaction, combo kills.
+**Budget:** $${budget} for the whole deck. Do not name cards that would eat most of it on their own
+unless the budget genuinely supports them.
+${customPrompt ? `**Player's extra instructions (honour these):** ${customPrompt}` : ''}
 
-## CRITICAL RULES - COMMANDER FORMAT
-1. **SINGLETON**: Every card except basic lands must be UNIQUE. NO DUPLICATES.
-2. **COLOR IDENTITY**: Every card's color identity must be within [${commander.color_identity?.join(', ') || 'Colorless'}]. Cards with mana symbols or color indicators outside this identity are ILLEGAL.
-3. **EXACTLY 99 CARDS**: The deck must have exactly 99 cards (commander is separate, making 100 total).
+## HARD RULE — COLOUR IDENTITY
+Every card you name must have a colour identity that is a SUBSET of [${identityList}].
+A card's colour identity includes mana symbols in its cost, in its rules text, and any colour
+indicator — not just what colour it looks like. Hybrid and phyrexian symbols count too.
+${commander.color_identity?.length
+  ? `So: no card may require or reference any of ${['W','U','B','R','G'].filter(c => !commander.color_identity.includes(c)).join(', ') || '(nothing)'}.`
+  : 'This commander is COLOURLESS: only cards with a completely empty colour identity are legal. No coloured mana symbols anywhere.'}
+Any card outside this identity is silently discarded by the builder, so naming one just wastes a slot.
 
-## CARD QUOTAS (adjust for archetype)
-- **Lands:** 35-38 (more for landfall/lands-matter, less for fast mana builds)
-- **Ramp:** 10-14 cards (Sol Ring, signets, land ramp, mana dorks)
-- **Card Draw:** 10-15 cards (card advantage is king in EDH)
-- **Spot Removal:** 8-12 cards (Beast Within, Swords to Plowshares, etc.)
-- **Board Wipes:** 3-5 cards (Wrath of God, Damnation, Cyclonic Rift)
-- **Protection:** 3-6 cards (Lightning Greaves, counterspells for combo protection)
-- **Win Conditions:** 3-5 cards (how does this deck win?)
+## HARD RULE — SINGLETON
+Name each card at most once. Basic lands are the only cards that may repeat, and the builder
+supplies those itself — do not list basic lands.
+
+## WHAT THE BUILDER DOES AFTER YOU (do not duplicate this work)
+The builder deterministically assembles exactly 99 cards plus the commander, to this shape:
+- Lands: 35-38 total (roughly 15 nonbasic/utility, the rest basics it adds itself)
+- Ramp: 10  |  Card draw: 10  |  Spot removal + wipes: 8  |  Counterspells: 4 if blue
+- Creatures and flex slots: everything remaining, curved 1-6 mana
+It fills any shortfall from the legal pool and trims any overflow. It will never ship a deck
+that is not exactly 100 cards. Your list does not need to add up to anything.
 
 ## YOUR TASK
-Create a comprehensive deck building blueprint. Return ONLY valid JSON (no markdown):
+Name the cards that make THIS commander's ${archetype} plan work at power ${powerLevel}.
+Prioritise, in order: (1) cards that directly enable or are enabled by the commander's text,
+(2) the archetype's core engine pieces, (3) format-defining efficiency at this power level.
+Prefer specific, real, currently-printed card names spelled exactly as on the card
+(including commas and apostrophes). Never invent a card. Never name the commander itself.
+
+Return ONLY this JSON object:
 
 {
-  "strategy": "2-3 sentence summary of how this deck wins and its core gameplan",
-  "winConditions": ["Primary win con", "Backup win con 1", "Backup win con 2"],
-  "keyCards": ["Card Name 1", "Card Name 2", ...15-20 essential cards for this strategy],
-  "mustAvoidCards": ["Cards that don't fit despite seeming synergistic"],
-  "cardQuotas": {
-    "ramp": {"min": 10, "max": 14},
-    "card_draw": {"min": 10, "max": 15},
-    "spot_removal": {"min": 8, "max": 12},
-    "board_wipes": {"min": 3, "max": 5},
-    "counterspells": {"min": 0, "max": 6},
-    "protection": {"min": 3, "max": 6},
-    "wincons": {"min": 3, "max": 5}
-  },
-  "synergies": ["key synergy 1", "key synergy 2", "key synergy 3"],
-  "colorWeights": {"W": 0.3, "U": 0.2, ...percentage of deck in each color},
-  "cmc_distribution": "Describe ideal mana curve for this archetype",
-  "warnings": ["Weakness 1", "Weakness 2"],
-  "recommendations": ["Specific strategic advice 1", "Advice 2"]
+  "strategy": "2-3 sentences: how this deck actually wins and what its engine is",
+  "winConditions": ["primary win condition", "backup 1", "backup 2"],
+  "keyCards": [
+    "20 card names, most important first.",
+    "These are the cards the builder will lock in before anything else,",
+    "so put the true engine pieces at the top and do not pad the list with generic staples",
+    "— the builder already adds Sol Ring, Arcane Signet and Command Tower itself."
+  ],
+  "mustAvoidCards": ["cards that look synergistic here but are traps, with none named in keyCards"],
+  "rampPicks": ["6-10 ramp spells that fit this colour identity and budget"],
+  "drawPicks": ["6-10 card-advantage pieces that fit this commander's plan"],
+  "removalPicks": ["6-10 spot removal and board wipes legal in this identity"],
+  "synergies": ["the 3 interactions that matter most, one line each"],
+  "curveNote": "one line on the ideal curve for this archetype",
+  "warnings": ["the 2 realistic weaknesses of this build"],
+  "recommendations": ["2 pieces of concrete play or upgrade advice"]
 }
-`,
+`;
+  },
 
   cardSelection: (commander: any, archetype: string, powerLevel: number, role: string, count: number) => `
 You are selecting ${count} ${role} cards for a ${archetype} Commander deck.

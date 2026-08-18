@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Check, ChevronRight, Crown, Heart, Plus } from 'lucide-react';
+import { Calendar, Check, ChevronRight, Crown, Heart, Layers, Package, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
@@ -43,6 +43,16 @@ const MAX_FAVORITES = 3;
 
 function currency(value: number | null | undefined): string {
   return `$${Math.round(Number(value ?? 0)).toLocaleString()}`;
+}
+
+function updatedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  });
 }
 
 /** One figure on its own muted panel. Surface tint for depth, never a border. */
@@ -316,7 +326,7 @@ export function FavoriteDecksPreview() {
                         />
                       </div>
 
-                      <div className="mt-auto">
+                      <div>
                         <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
                           <span className="text-muted-foreground">From your collection</span>
                           <span className="font-semibold tabular-nums">
@@ -334,6 +344,23 @@ export function FavoriteDecksPreview() {
                       </div>
                     </>
                   )}
+
+                  {/* Sits on the bottom edge, level with the foot of the card,
+                      so the column ends where the art ends. */}
+                  <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[0.7rem] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="h-3 w-3" aria-hidden="true" />
+                      {updatedLabel(deck.updatedAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Layers className="h-3 w-3" aria-hidden="true" />
+                      {counts.lands} lands
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Package className="h-3 w-3" aria-hidden="true" />
+                      {counts.unique} unique
+                    </span>
+                  </div>
                 </div>
               </div>
             </Card>

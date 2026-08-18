@@ -73,7 +73,7 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
             title={p.name}
             className={cn(
               'block rounded-r-md shadow-md shadow-black/40',
-              i === 2 ? 'h-5 w-9 bg-foreground/70' : 'h-4 w-6 bg-muted'
+              i === 2 ? 'h-5 w-9 bg-foreground/70' : 'h-4 w-6 bg-foreground/15'
             )}
           />
         ))}
@@ -242,26 +242,54 @@ const SLOT_PIP: Record<string, string> = {
   Colorless: 'C',
 };
 
-function ColourBoxes() {
+function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
   const template = getTemplateById('color-boxes-wubrg');
   const slots = template?.slots ?? [];
 
+  /** The first fetched card that would genuinely file under this colour slot. */
+  const cardFor = (slotName: string): FiledCard | null => {
+    if (!cards) return null;
+    const pip = SLOT_PIP[slotName] ?? 'C';
+    const match =
+      pip === 'C'
+        ? cards.find(c => (c.color_identity ?? []).length === 0)
+        : cards.find(c => (c.color_identity ?? []).includes(pip));
+    return match ?? null;
+  };
+
   return (
     <figure>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6 sm:gap-4">
-        {slots.map(slot => (
-          <div key={slot.name} className="rounded-xl bg-card p-3 shadow-xl shadow-black/40">
-            <ManaPip symbol={SLOT_PIP[slot.name] ?? 'C'} size="lg" />
-            <div className="mt-3 space-y-[3px] rounded-md bg-background/80 p-2 shadow-[inset_0_2px_8px_rgba(0,0,0,0.55)]">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CardEdge key={i} className="h-1" />
-              ))}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {slots.map(slot => {
+          const card = cardFor(slot.name);
+          return (
+            <div
+              key={slot.name}
+              className="flex items-end gap-3 rounded-xl bg-card p-3 shadow-xl shadow-black/40"
+            >
+              {/* A card standing in the box — whole, not cropped. */}
+              <div className="w-[4.5rem] shrink-0 drop-shadow-xl lg:w-20">
+                {card ? (
+                  <CardImage card={card} fill size="sm" hideFlip />
+                ) : (
+                  <CardImageSkeleton fill size="sm" />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <ManaPip symbol={SLOT_PIP[slot.name] ?? 'C'} size="lg" />
+                <div className="mt-2.5 space-y-[3px] rounded-md bg-background/80 p-1.5 shadow-[inset_0_2px_8px_rgba(0,0,0,0.55)]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <CardEdge key={i} className="h-1" />
+                  ))}
+                </div>
+                <p className="mt-2 truncate text-[11px] text-muted-foreground">{slot.name}</p>
+              </div>
             </div>
-            <p className="mt-2.5 text-[11px] text-muted-foreground">{slot.name}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <figcaption className="mt-4 pl-1 text-sm text-muted-foreground">
+      <figcaption className="mt-5 pl-1 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{template?.name}</span> — six slots, one per
         colour, the way most players actually break down a bulk collection.
       </figcaption>
@@ -343,7 +371,7 @@ export function HomeStorage() {
       </div>
 
       <div className="mt-16">
-        <ColourBoxes />
+        <ColourBoxes cards={cards} />
       </div>
 
       <p className="mt-12 max-w-4xl text-sm leading-relaxed text-muted-foreground">

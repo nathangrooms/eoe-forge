@@ -247,7 +247,10 @@ export function newSession(config: LifeGameConfig, now: number, options?: LifeOp
     config,
     state: buildGame(config, now),
     past: [],
-    options: options ?? defaultOptions(),
+    // The seating default depends on how many people are sitting down, so the
+    // fallback has to be told — `defaultOptions()` bare would hand a two-player
+    // game the four-player arrangement.
+    options: options ?? defaultOptions(config.seats.length),
   };
 }
 

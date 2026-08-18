@@ -17,7 +17,7 @@ export function PublicNavigation() {
   return (
     <nav
       aria-label="Marketing"
-      className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur"
+      className="sticky top-0 z-50 bg-background/95 shadow-lg shadow-black/20 backdrop-blur"
     >
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
@@ -64,7 +64,7 @@ export function PublicNavigation() {
 
         <div
           id="public-nav-menu"
-          className={cn('border-t border-border py-4 md:hidden', !isMenuOpen && 'hidden')}
+          className={cn('py-4 md:hidden', !isMenuOpen && 'hidden')}
         >
           <div className="flex flex-col gap-1">
             {LINKS.map(link => (
@@ -78,7 +78,7 @@ export function PublicNavigation() {
               </a>
             ))}
           </div>
-          <div className="mt-4 space-y-2 border-t border-border pt-4">
+          <div className="mt-4 space-y-2 pt-4">
             <Button variant="outline" className="w-full" asChild>
               <Link to="/login" onClick={() => setIsMenuOpen(false)}>
                 Log in

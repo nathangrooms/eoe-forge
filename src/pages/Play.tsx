@@ -7,6 +7,12 @@
  * the core, which is why a networked table later needs a new transport rather
  * than a new page.
  *
+ * Once a table exists the page stops being a document and becomes a board. The
+ * lobby keeps the standard page furniture — title, description, breadcrumb —
+ * because that is a page you read. A game in progress does not get a heading
+ * over it: the pod fills the viewport, every seat sits on its own playmat, and
+ * your hand is fanned along the bottom edge where a hand belongs.
+ *
  * The three views are the feature, not the chrome:
  *
  *   Table   the pod as it physically sits, driven by `seating.ts` geometry
@@ -30,22 +36,20 @@ import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
 import { PlaySetup, type PlaySetupValue } from '@/components/play/PlaySetup';
 import { TableView } from '@/components/play/TableView';
 import { HandView } from '@/components/play/HandView';
+import { ViewerHand } from '@/components/play/ViewerHand';
+import { CastSpotlight } from '@/components/play/CastSpotlight';
 import { CombatView, combatIsLive } from '@/components/play/CombatView';
 import { GameFeed } from '@/components/play/GameFeed';
 import { ZoneBrowser } from '@/components/play/ZoneBrowser';
+import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
 
 import { usePlayGame } from '@/hooks/usePlayGame';
-import {
-  listPlayableDecks,
-  resolveDeck,
-  type DeckSummary,
-} from '@/lib/play/deckSource';
+import { listPlayableDecks, resolveDeck, type DeckSummary } from '@/lib/play/deckSource';
 import {
   advanceActions,
   buildTable,
   declareAttack,
   isUnderAttack,
-  isLand,
   mulliganActions,
   planCastFromHand,
   planLandDrop,
@@ -58,6 +62,13 @@ import {
 } from '@/lib/game';
 
 const HUMAN_SEAT: PlayerId = 'p1';
+
+/**
+ * How much of the board's bottom edge is reserved for the fanned hand. The
+ * cards themselves are taller than this and deliberately overlap the viewer's
+ * own mat, exactly as a hand held over the near edge of a table would.
+ */
+const HAND_INSET = 96;
 
 /** A short, table-friendly name for a bot: its commander, not "Player 2". */
 function botNameFor(deck: PlayDeck, index: number): string {
@@ -104,6 +115,11 @@ export default function Play() {
       aggression: setup.aggression,
       botsPaused,
     });
+
+  // Presentation-only memory of the previous board: what life changed, and what
+  // just left somebody's hand. Neither belongs in game state.
+  const lifeDeltas = useLifeDeltas(state);
+  const spotlight = useCastSpotlight(state);
 
   /* ---------------------------------------------------------------------- */
   /* Deck list                                                              */
@@ -357,6 +373,11 @@ export default function Play() {
           onChange={setSetup}
           onStart={startGame}
         />
+        {starting && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </StandardPageLayout>
     );
   }
@@ -373,74 +394,83 @@ export default function Play() {
         exit: { opacity: 0, y: -8 },
       };
 
+  const attackerIds = state.combat.attackers.map(d => d.attackerId);
+  const blockerIds = state.combat.attackers.flatMap(d => d.blockedBy);
+
   return (
-    <StandardPageLayout
-      title="Play"
-      description="Goldfish a deck or play a pod against bots, on the rules engine that will run online tables."
-      action={
-        <Button variant="secondary" size="sm" onClick={handleNewGame}>
-          Leave table
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <PlayHUD
-          state={state}
-          view={view}
-          onViewChange={changeView}
-          viewerPlayerId={HUMAN_SEAT}
-          combatLive={combatLive}
-          botThinking={botThinking}
-          botsPaused={botsPaused}
-          onToggleBots={() => setBotsPaused(paused => !paused)}
-          freeCast={freeCast}
-          onToggleFreeCast={() => setFreeCast(value => !value)}
-          onAdvance={handleAdvance}
-          onPassTurn={handlePassTurn}
-          onUndo={undo}
-          canUndo={canUndo}
-          onNewGame={handleNewGame}
-          transportLabel={transportLabel}
-        />
+    <div className="flex h-[calc(100vh-5.5rem)] min-h-[36rem] w-full flex-col gap-2 px-2 pb-2 md:px-4">
+      <PlayHUD
+        state={state}
+        view={view}
+        onViewChange={changeView}
+        viewerPlayerId={HUMAN_SEAT}
+        combatLive={combatLive}
+        botThinking={botThinking}
+        botsPaused={botsPaused}
+        onToggleBots={() => setBotsPaused(paused => !paused)}
+        freeCast={freeCast}
+        onToggleFreeCast={() => setFreeCast(value => !value)}
+        onAdvance={handleAdvance}
+        onPassTurn={handlePassTurn}
+        onUndo={undo}
+        canUndo={canUndo}
+        onNewGame={handleNewGame}
+        transportLabel={transportLabel}
+      />
 
-        {state.status === 'complete' && (
-          <div className="rounded-xl bg-card p-4 shadow-sm">
-            <p className="text-sm font-semibold text-foreground">
-              {state.winnerIds.length > 0
-                ? `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`
-                : 'The game is a draw.'}
-            </p>
-            <Button size="sm" className="mt-3 h-8 text-xs" onClick={handleNewGame}>
-              Set up another game
-            </Button>
-          </div>
-        )}
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="min-w-0">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={view}
-                initial={viewMotion.initial}
-                animate={viewMotion.animate}
-                exit={viewMotion.exit}
-                transition={transition}
-              >
-                {view === 'table' && (
+      <div className="grid min-h-0 flex-1 gap-2 xl:grid-cols-[minmax(0,1fr)_15rem]">
+        <div className="relative min-h-0">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view}
+              initial={viewMotion.initial}
+              animate={viewMotion.animate}
+              exit={viewMotion.exit}
+              transition={transition}
+              className="absolute inset-0"
+            >
+              {view === 'table' && (
+                <div className="relative h-full w-full">
                   <TableView
+                    className="h-full w-full"
                     state={state}
                     viewerPlayerId={HUMAN_SEAT}
                     botPlayerIds={botPlayerIds}
                     variant={variant}
+                    bottomInset={HAND_INSET}
                     onCardClick={handleCardClick}
                     onOpenZone={(playerId, zone) => setZoneTarget({ playerId, zone })}
-                    attackerIds={state.combat.attackers.map(d => d.attackerId)}
-                    blockerIds={state.combat.attackers.flatMap(d => d.blockedBy)}
+                    attackerIds={attackerIds}
+                    blockerIds={blockerIds}
                     selectedIds={selectedIds}
+                    lifeDeltas={lifeDeltas}
                   />
-                )}
 
-                {view === 'hand' && (
+                  <CastSpotlight state={state} entry={spotlight} />
+
+                  {/* Your hand, held over the near edge of the table. */}
+                  <ViewerHand
+                    className="absolute inset-x-0 bottom-1 z-30"
+                    state={state}
+                    viewerPlayerId={HUMAN_SEAT}
+                    freeCast={freeCast}
+                    onCast={handleCast}
+                    onPlayLand={handlePlayLand}
+                  />
+
+                  {/* Below xl there is no room for a rail, so the log becomes a
+                      translucent HUD panel rather than disappearing. */}
+                  <GameFeed
+                    state={state}
+                    feed={feed}
+                    limit={20}
+                    className="absolute right-2 top-2 z-30 hidden max-h-[40%] w-56 bg-background/70 backdrop-blur-md sm:flex xl:hidden"
+                  />
+                </div>
+              )}
+
+              {view === 'hand' && (
+                <div className="h-full overflow-y-auto pr-1">
                   <HandView
                     state={state}
                     viewerPlayerId={HUMAN_SEAT}
@@ -453,9 +483,11 @@ export default function Play() {
                     onOpenZone={(playerId, zone) => setZoneTarget({ playerId, zone })}
                     onCardClick={handleCardClick}
                   />
-                )}
+                </div>
+              )}
 
-                {view === 'combat' && (
+              {view === 'combat' && (
+                <div className="h-full overflow-y-auto pr-1">
                   <CombatView
                     state={state}
                     viewerPlayerId={HUMAN_SEAT}
@@ -464,54 +496,28 @@ export default function Play() {
                     onDeclareBlocks={handleDeclareBlocks}
                     onAdvance={handleAdvance}
                   />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
 
-          <GameFeed state={state} feed={feed} className="max-h-[38rem] xl:sticky xl:top-20" />
+          {state.status === 'complete' && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+              <div className="pointer-events-auto rounded-2xl bg-background/85 px-6 py-5 text-center shadow-2xl shadow-black/70 backdrop-blur-md">
+                <p className="text-lg font-semibold text-foreground">
+                  {state.winnerIds.length > 0
+                    ? `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`
+                    : 'The game is a draw.'}
+                </p>
+                <Button size="sm" className="mt-3 h-8 text-xs" onClick={handleNewGame}>
+                  Set up another game
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* A quick hand rail so the board view is still playable without switching. */}
-        {view === 'table' && (
-          <div className="rounded-xl bg-card p-3 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Your hand
-              </h3>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-[11px]"
-                onClick={() => changeView('hand')}
-              >
-                Open hand view
-              </Button>
-            </div>
-            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
-              {state.players[0]?.zones.hand.length === 0 && (
-                <p className="px-2 py-4 text-xs text-muted-foreground">Your hand is empty.</p>
-              )}
-              {(state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand ?? [])
-                .map(id => state.cards[id])
-                .filter(Boolean)
-                .map(card => (
-                  <button
-                    key={card.instanceId}
-                    type="button"
-                    className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => (isLand(card) ? handlePlayLand(card) : handleCast(card))}
-                    title={isLand(card) ? `Play ${card.name}` : `Cast ${card.name}`}
-                  >
-                    <span className="sr-only">
-                      {isLand(card) ? `Play ${card.name}` : `Cast ${card.name}`}
-                    </span>
-                    <HandRailCard card={card} />
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
+        <GameFeed state={state} feed={feed} className="hidden min-h-0 xl:flex" />
       </div>
 
       <ZoneBrowser
@@ -526,36 +532,6 @@ export default function Play() {
         onMove={handleMoveCard}
         onZoneChange={zone => setZoneTarget(target => (target ? { ...target, zone } : null))}
       />
-
-      {starting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
-    </StandardPageLayout>
-  );
-}
-
-/** Small hand-rail thumbnail. Extracted so the rail stays readable. */
-function HandRailCard({ card }: { card: CardInstance }) {
-  return (
-    <div className="w-[3.25rem] overflow-hidden rounded-[4%] bg-card shadow-sm transition-transform duration-200 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-      <div className="aspect-[63/88] w-full">
-        {card.imageUrl ? (
-          <img
-            src={card.imageUrl}
-            alt={card.name}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-muted p-1">
-            <span className="line-clamp-3 text-center text-[7px] leading-tight text-foreground">
-              {card.name}
-            </span>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

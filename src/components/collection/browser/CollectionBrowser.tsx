@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -14,39 +12,62 @@ import {
   ArrowDown,
   ArrowUp,
   CheckSquare,
-  Filter,
   LayoutGrid,
   Rows3,
   Search,
+  SlidersHorizontal,
+  Sparkles,
   Square,
   Table2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CollectionFilterPanel, ActiveFilterChips } from './CollectionFilterPanel';
+import { CardGrid, CardSizeSlider, useCardSize } from '@/components/cards';
+import {
+  ActiveFilterChips,
+  CardFilterSheet,
+  useCardFilterState,
+} from '@/components/filters';
+import { matchesCardFilter } from '@/lib/cards/local-filter';
 import { CollectionCardTile } from './CollectionCardTile';
 import { CollectionCardRow } from './CollectionCardRow';
 import { CollectionTable } from './CollectionTable';
 import type { BrowserAction } from './actions';
 import {
-  DEFAULT_DENSITY,
-  DENSITY_STEPS,
-  EMPTY_FILTERS,
-  activeFilterCount,
+  CONDITIONS,
+  EMPTY_OWNERSHIP,
   formatPrice,
-  matchesFilter,
+  localCardOf,
+  matchesOwnership,
+  ownershipFilterCount,
   sortCards,
   valueOf,
   type BrowserCard,
   type BrowserViewMode,
-  type CollectionFilterState,
+  type ConditionGrade,
+  type OwnershipFilterState,
   type SortDirection,
   type SortKey,
   SORT_OPTIONS,
 } from './types';
 
+/**
+ * The browser every list of owned cards renders through.
+ *
+ * Two things changed here and they are the whole point:
+ *
+ * 1. **One filter.** The bespoke `CollectionFilterState` is gone. This drives
+ *    the shared `CardFilterPanel` — the same control, with the same facets, as
+ *    the card-search pages — and evaluates its `CardSearchState` locally via
+ *    `matchesCardFilter`. Ownership questions the panel cannot ask (condition,
+ *    foil, copies owned) sit beside it, because no Scryfall query can express
+ *    "cards I own two of in Lightly Played".
+ * 2. **One card renderer.** `CardImage` inside `CardGrid`, sized by a
+ *    continuous `CardSizeSlider` rather than a five-step density enum.
+ */
+
 interface PersistedView {
   view: BrowserViewMode;
-  density: number;
   sortKey: SortKey;
   sortDir: SortDirection;
 }
@@ -59,7 +80,6 @@ function loadView(key: string | undefined, fallback: PersistedView): PersistedVi
     const parsed = JSON.parse(raw) as Partial<PersistedView>;
     return {
       view: parsed.view ?? fallback.view,
-      density: typeof parsed.density === 'number' ? parsed.density : fallback.density,
       sortKey: parsed.sortKey ?? fallback.sortKey,
       sortDir: parsed.sortDir ?? fallback.sortDir,
     };
@@ -71,7 +91,7 @@ function loadView(key: string | undefined, fallback: PersistedView): PersistedVi
 export interface CollectionBrowserProps {
   cards: BrowserCard[];
   loading?: boolean;
-  /** localStorage key so view mode, density and sort survive navigation. */
+  /** localStorage key so view mode, card size and sort survive navigation. */
   storageKey?: string;
   onCardClick?: (card: BrowserCard) => void;
   actions?: BrowserAction[];
@@ -79,6 +99,11 @@ export interface CollectionBrowserProps {
   onQuantityChange?: (card: BrowserCard, delta: number) => void;
   /** Condition + foil-only controls; off for storage containers which lack them. */
   showOwnershipFilters?: boolean;
+  /**
+   * Mirror the card filter into the page URL so a filtered view is shareable.
+   * Off inside dialogs, where the URL already means something else.
+   */
+  urlSync?: boolean;
 
   selectionMode?: boolean;
   onToggleSelectionMode?: () => void;
@@ -103,6 +128,7 @@ export function CollectionBrowser({
   actions = [],
   onQuantityChange,
   showOwnershipFilters = true,
+  urlSync = true,
   selectionMode = false,
   onToggleSelectionMode,
   selectedIds,
@@ -115,43 +141,41 @@ export function CollectionBrowser({
   emptyAction,
 }: CollectionBrowserProps) {
   const initial = useMemo(
-    () =>
-      loadView(storageKey, {
-        view: 'grid',
-        density: DEFAULT_DENSITY,
-        sortKey: 'name',
-        sortDir: 'asc',
-      }),
+    () => loadView(storageKey, { view: 'grid', sortKey: 'name', sortDir: 'asc' }),
     [storageKey]
   );
 
-  const [filters, setFilters] = useState<CollectionFilterState>(EMPTY_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const filters = useCardFilterState({ urlSync });
+  const [ownership, setOwnership] = useState<OwnershipFilterState>(EMPTY_OWNERSHIP);
   const [view, setView] = useState<BrowserViewMode>(initial.view);
-  const [density, setDensity] = useState(initial.density);
   const [sortKey, setSortKey] = useState<SortKey>(initial.sortKey);
   const [sortDir, setSortDir] = useState<SortDirection>(initial.sortDir);
+  const [cardWidth, setCardWidth] = useCardSize(storageKey ?? 'collection', 176);
 
   useEffect(() => {
     if (!storageKey || typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({ view, density, sortKey, sortDir })
-    );
-  }, [storageKey, view, density, sortKey, sortDir]);
+    window.localStorage.setItem(storageKey, JSON.stringify({ view, sortKey, sortDir }));
+  }, [storageKey, view, sortKey, sortDir]);
 
-  const availableSets = useMemo(
-    () =>
-      Array.from(new Set(cards.map(c => c.setCode).filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b)
-      ),
+  /**
+   * Projection is memoised on `cards`, not recomputed per keystroke — a
+   * 4,000-row collection would otherwise re-derive every oracle string on every
+   * character typed into the search box.
+   */
+  const projected = useMemo(
+    () => cards.map(card => ({ card, local: localCardOf(card) })),
     [cards]
   );
 
   const visible = useMemo(() => {
-    const filtered = cards.filter(c => matchesFilter(c, filters));
-    return sortCards(filtered, sortKey, sortDir);
-  }, [cards, filters, sortKey, sortDir]);
+    const kept = projected
+      .filter(
+        ({ card, local }) =>
+          matchesCardFilter(local, filters.state) && matchesOwnership(card, ownership)
+      )
+      .map(({ card }) => card);
+    return sortCards(kept, sortKey, sortDir);
+  }, [projected, filters.state, ownership, sortKey, sortDir]);
 
   const visibleTotals = useMemo(() => {
     let copies = 0;
@@ -163,11 +187,21 @@ export function CollectionBrowser({
     return { copies, value };
   }, [visible]);
 
-  const filterCount = activeFilterCount(filters);
-  const hasQuery = filters.query.trim().length > 0;
+  const ownedCount = ownershipFilterCount(ownership);
+  const filterCount = filters.activeCount + ownedCount;
   const selected = selectedIds ?? new Set<string>();
   const allVisibleSelected =
     visible.length > 0 && visible.every(c => selected.has(c.rowId));
+
+  const clearEverything = useCallback(() => {
+    filters.reset();
+    setOwnership(EMPTY_OWNERSHIP);
+  }, [filters]);
+
+  const commitText = useCallback(
+    (next: string | undefined) => filters.patch({ text: next }),
+    [filters.patch] // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const handleSortColumn = (key: SortKey) => {
     if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -177,51 +211,47 @@ export function CollectionBrowser({
     }
   };
 
-  const gridStyle = {
-    gridTemplateColumns: `repeat(auto-fill, minmax(${DENSITY_STEPS[density]}px, 1fr))`,
-  };
+  const toggleCondition = (grade: ConditionGrade) =>
+    setOwnership(o => ({
+      ...o,
+      conditions: o.conditions.includes(grade)
+        ? o.conditions.filter(c => c !== grade)
+        : [...o.conditions, grade],
+    }));
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="space-y-3 rounded-lg border border-border bg-card p-3">
+      {/* Toolbar — a raised surface, not a boxed one. */}
+      <div className="space-y-3 rounded-lg bg-card p-3 shadow-lg shadow-black/20">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              value={filters.query}
-              onChange={e => setFilters({ ...filters, query: e.target.value })}
-              placeholder="Search name, type, set or collector number"
-              aria-label="Search cards"
-              className="pl-8"
-            />
-          </div>
+          <SearchBox value={filters.state.text ?? ''} onCommit={commitText} />
 
           <div className="flex items-center gap-2">
-            <Button
-              variant={showFilters ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={() => setShowFilters(s => !s)}
-              aria-expanded={showFilters}
-              className="gap-1.5"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {filterCount > 0 && (
-                <Badge variant="secondary" className="ml-0.5 h-5 px-1.5">
-                  {filterCount}
-                </Badge>
-              )}
-            </Button>
+            <CardFilterSheet
+              controller={filters}
+              showSort={false}
+              showChips={false}
+              trigger={
+                <Button variant="secondary" size="sm" className="gap-1.5">
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                  Filters
+                  {filterCount > 0 && (
+                    <span className="ml-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
+                      {filterCount}
+                    </span>
+                  )}
+                </Button>
+              }
+            />
 
             <Select value={sortKey} onValueChange={v => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-9 w-[150px]" aria-label="Sort by">
+              <SelectTrigger
+                className="h-9 w-[150px] border-0 bg-muted/50"
+                aria-label="Sort by"
+              >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="border-0">
                 {SORT_OPTIONS.map(o => (
                   <SelectItem key={o.value} value={o.value}>
                     {o.label}
@@ -231,7 +261,7 @@ export function CollectionBrowser({
             </Select>
 
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon"
               className="h-9 w-9 shrink-0"
               onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
@@ -247,12 +277,48 @@ export function CollectionBrowser({
           </div>
         </div>
 
+        {/* Ownership facets — the questions a Scryfall query cannot ask. */}
+        {showOwnershipFilters && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
+              Owned
+            </span>
+            {CONDITIONS.map(c => (
+              <FacetChip
+                key={c.value}
+                selected={ownership.conditions.includes(c.value)}
+                onClick={() => toggleCondition(c.value)}
+                title={c.label}
+              >
+                {c.value}
+              </FacetChip>
+            ))}
+            <FacetChip
+              selected={ownership.foilOnly}
+              onClick={() => setOwnership(o => ({ ...o, foilOnly: !o.foilOnly }))}
+              title="Only entries with foil copies"
+            >
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              Foil
+            </FacetChip>
+            <FacetChip
+              selected={ownership.minCopies >= 2}
+              onClick={() =>
+                setOwnership(o => ({ ...o, minCopies: o.minCopies >= 2 ? 0 : 2 }))
+              }
+              title="Entries with two or more copies"
+            >
+              2+ copies
+            </FacetChip>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {onToggleSelectionMode && (
               <>
                 <Button
-                  variant={selectionMode ? 'secondary' : 'outline'}
+                  variant={selectionMode ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={onToggleSelectionMode}
                   className="gap-1.5"
@@ -267,7 +333,7 @@ export function CollectionBrowser({
                 </Button>
                 {selectionMode && onSelectVisible && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() =>
                       allVisibleSelected
@@ -282,30 +348,20 @@ export function CollectionBrowser({
                 )}
               </>
             )}
-            {(filterCount > 0 || hasQuery) && (
-              <Button variant="ghost" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
-                Clear
-              </Button>
-            )}
           </div>
 
           <div className="flex items-center gap-3">
             {view === 'grid' && (
-              <div className="hidden items-center gap-2 sm:flex">
-                <span className="text-xs text-muted-foreground">Size</span>
-                <Slider
-                  value={[density]}
-                  min={0}
-                  max={DENSITY_STEPS.length - 1}
-                  step={1}
-                  onValueChange={v => setDensity(v[0])}
-                  className="w-24"
-                  aria-label="Card size"
-                />
-              </div>
+              <CardSizeSlider
+                storageKey={storageKey ?? 'collection'}
+                value={cardWidth}
+                onValueChange={setCardWidth}
+                showValue={false}
+                className="hidden sm:flex"
+              />
             )}
 
-            <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            <div className="flex items-center gap-1 rounded-md bg-muted/40 p-0.5">
               {(
                 [
                   { mode: 'grid' as const, icon: LayoutGrid, label: 'Image grid' },
@@ -330,25 +386,36 @@ export function CollectionBrowser({
           </div>
         </div>
 
-        <ActiveFilterChips filters={filters} onChange={setFilters} />
+        {filterCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <ActiveFilterChips controller={filters} />
+            {ownership.conditions.map(grade => (
+              <RemovableChip key={grade} onRemove={() => toggleCondition(grade)}>
+                Condition: {grade}
+              </RemovableChip>
+            ))}
+            {ownership.foilOnly && (
+              <RemovableChip onRemove={() => setOwnership(o => ({ ...o, foilOnly: false }))}>
+                Foil copies
+              </RemovableChip>
+            )}
+            {ownership.minCopies > 0 && (
+              <RemovableChip onRemove={() => setOwnership(o => ({ ...o, minCopies: 0 }))}>
+                {ownership.minCopies}+ copies
+              </RemovableChip>
+            )}
+          </div>
+        )}
       </div>
-
-      {showFilters && (
-        <CollectionFilterPanel
-          filters={filters}
-          onChange={setFilters}
-          onClear={() => setFilters(EMPTY_FILTERS)}
-          availableSets={availableSets}
-          showOwnershipFilters={showOwnershipFilters}
-        />
-      )}
 
       {toolbarSlot}
 
       {/* Result summary */}
       {!loading && cards.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{visible.length.toLocaleString()}</span>
+          <span className="font-medium text-foreground">
+            {visible.length.toLocaleString()}
+          </span>
           {' of '}
           {cards.length.toLocaleString()} entries
           {' · '}
@@ -365,27 +432,22 @@ export function CollectionBrowser({
 
       {/* Results */}
       {loading ? (
-        <div className="grid gap-3" style={gridStyle}>
+        <CardGrid width={cardWidth}>
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <div className="aspect-[5/7] animate-pulse rounded-lg bg-muted" />
-              <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
-            </div>
+            <div
+              key={i}
+              className="aspect-[488/680] w-full animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
+            />
           ))}
-        </div>
+        </CardGrid>
       ) : visible.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
+        <div className="rounded-lg bg-muted/30 p-12 text-center">
           <h3 className="text-base font-semibold text-foreground">{emptyTitle}</h3>
           {emptyDescription && (
             <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
           )}
-          {(filterCount > 0 || hasQuery) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => setFilters(EMPTY_FILTERS)}
-            >
+          {filterCount > 0 && (
+            <Button variant="secondary" size="sm" className="mt-4" onClick={clearEverything}>
               Clear filters
             </Button>
           )}
@@ -425,11 +487,12 @@ export function CollectionBrowser({
           ))}
         </div>
       ) : (
-        <div className={cn('grid gap-3')} style={gridStyle}>
+        <CardGrid width={cardWidth}>
           {visible.map(card => (
             <CollectionCardTile
               key={card.rowId}
               card={card}
+              width={cardWidth}
               onClick={onCardClick}
               actions={actions}
               selectionMode={selectionMode}
@@ -439,8 +502,112 @@ export function CollectionBrowser({
               showCondition={showOwnershipFilters}
             />
           ))}
-        </div>
+        </CardGrid>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Toolbar pieces
+ * ------------------------------------------------------------------ */
+
+/**
+ * Debounced so a 4,000-card collection is not re-filtered on every keystroke,
+ * and reset from the outside when the filter is cleared elsewhere.
+ */
+function SearchBox({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (next: string | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [committed, setCommitted] = useState(value);
+
+  useEffect(() => {
+    if (value !== committed) {
+      setCommitted(value);
+      setDraft(value);
+    }
+    // Adopts external changes only; typing is handled by the timer below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (draft === committed) return;
+    const id = window.setTimeout(() => {
+      setCommitted(draft);
+      onCommit(draft.trim() ? draft : undefined);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [draft, committed, onCommit]);
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <Search
+        className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        placeholder="Name, type, or Scryfall syntax — t:creature mv<=3"
+        aria-label="Search cards"
+        spellCheck={false}
+        className="border-0 bg-muted/50 pl-8 focus-visible:ring-1 focus-visible:ring-offset-0"
+      />
+    </div>
+  );
+}
+
+function FacetChip({
+  selected,
+  onClick,
+  title,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function RemovableChip({
+  onRemove,
+  children,
+}: {
+  onRemove: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      title="Remove filter"
+      className="group inline-flex items-center gap-1.5 rounded-full bg-muted/60 py-1 pl-2.5 pr-1.5 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="truncate">{children}</span>
+      <X className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+    </button>
   );
 }

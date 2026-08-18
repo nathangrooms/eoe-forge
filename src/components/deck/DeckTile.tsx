@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
@@ -12,15 +11,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
+  AlertTriangle,
   BarChart3,
   Calendar,
-  CheckCircle2,
+  Check,
   Copy,
   Crown,
   Download,
@@ -29,8 +23,8 @@ import {
   MoreVertical,
   Package,
   Play,
-  Plus,
   Share2,
+  ShieldCheck,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -39,18 +33,28 @@ import { ColorIdentity } from '@/components/ui/mana-cost';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
-import { LegalityBadge } from '@/components/deck-builder/LegalityBadge';
-import { CATEGORY_BG_CLASS, CATEGORY_LABEL, type DeckCategory } from '@/lib/deck/cardCategories';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
-import { averageManaValue } from '@/lib/deck/curve';
+import { CommanderHero } from './CommanderHero';
+import { DeckPowerInline, DeckPowerMeter } from './DeckPowerMeter';
 
 /**
  * The single deck tile.
  *
- * Five competing tile components existed — four of them dead — each with its
- * own format-colour map, so the same deck was styled differently depending on
- * which file happened to render it. This is the only one, and it takes a
- * `variant` instead of being forked.
+ * Rebuilt around one idea the owner was explicit about: **the commander card is
+ * the tile**. It is the largest element by a wide margin, drawn at `large`
+ * resolution through the shared `CardImage`, and everything else is set beside
+ * it as flat type.
+ *
+ * Deliberately *not* here any more:
+ *
+ * - the mana curve and the composition bar — both removed at the owner's
+ *   request, along with the "Avg MV" readout the curve fed;
+ * - hairline borders. Depth is surface tint (`bg-muted/40`) plus shadow, and
+ *   the four-up stat strip that used `divide-x` is now spaced panels.
+ *
+ * What is promoted instead: card count, deck value, missing count, collection
+ * progress and — the one the owner called out as important — power level and
+ * Commander bracket, which get a block of their own.
  */
 
 export type DeckTileVariant = 'grid' | 'list';
@@ -58,6 +62,8 @@ export type DeckTileVariant = 'grid' | 'list';
 interface DeckTileProps {
   deckSummary: DeckSummary;
   variant?: DeckTileVariant;
+  /** Load the commander art eagerly — for the first row of tiles only. */
+  priority?: boolean;
   onOpen?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -70,20 +76,76 @@ interface DeckTileProps {
   className?: string;
 }
 
-const COMPOSITION_KEYS: Array<{ category: DeckCategory; countKey: keyof DeckSummary['counts'] }> = [
-  { category: 'creatures', countKey: 'creatures' },
-  { category: 'instants', countKey: 'instants' },
-  { category: 'sorceries', countKey: 'sorceries' },
-  { category: 'artifacts', countKey: 'artifacts' },
-  { category: 'enchantments', countKey: 'enchantments' },
-  { category: 'planeswalkers', countKey: 'planeswalkers' },
-  { category: 'battles', countKey: 'battles' },
-  { category: 'lands', countKey: 'lands' },
-];
+function currency(value: number | null | undefined): string {
+  return `$${Math.round(Number(value ?? 0)).toLocaleString()}`;
+}
+
+function updatedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  });
+}
+
+/** One big number on its own muted panel. No dividers, so no border lines. */
+function Stat({
+  value,
+  label,
+  hint,
+  onClick,
+}: {
+  value: React.ReactNode;
+  label: string;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const body = (
+    <>
+      <span className="flex items-center justify-center gap-1 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">
+        {value}
+      </span>
+      <span className="mt-1.5 block text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </span>
+    </>
+  );
+
+  const shell =
+    'rounded-lg bg-muted/40 px-2 py-2.5 text-center transition-colors duration-200 motion-reduce:transition-none';
+
+  if (!onClick) {
+    return (
+      <div className={shell} title={hint}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={e => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={hint}
+      className={cn(
+        shell,
+        'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+      )}
+    >
+      {body}
+    </button>
+  );
+}
 
 export function DeckTile({
   deckSummary,
   variant = 'grid',
+  priority = false,
   onOpen,
   onEdit,
   onDelete,
@@ -105,19 +167,10 @@ export function DeckTile({
   const isComplete = missingCount === 0;
   const ownedCount = Math.max(counts.total - missingCount, 0);
   const ownershipPct = counts.total > 0 ? Math.round((ownedCount / counts.total) * 100) : 0;
-  const avgMv = averageManaValue(deckSummary.curve?.bins, counts.lands ?? 0);
   const showPower = usesPowerLevel(deckSummary.format);
-  const commanderImage = deckSummary.commander
-    ? (deckSummary.commander as any)?.image_uris?.normal ||
-      (deckSummary.commander as any)?.image_uris?.large ||
-      deckSummary.commander.image
-    : null;
-
-  const composition = COMPOSITION_KEYS.map(({ category, countKey }) => ({
-    category,
-    label: CATEGORY_LABEL[category],
-    count: Number(counts[countKey] ?? 0),
-  })).filter(entry => entry.count > 0);
+  const identity = deckSummary.identity?.length ? deckSummary.identity : deckSummary.colors;
+  const issues = deckSummary.legality?.issues ?? [];
+  const legalityOk = (deckSummary.legality?.ok ?? true) && issues.length === 0;
 
   const handleFavoriteToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -208,348 +261,352 @@ export function DeckTile({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 flex-shrink-0"
-          aria-label={`Actions for ${deckSummary.name}`}
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label={`More actions for ${deckSummary.name}`}
           onClick={e => e.stopPropagation()}
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-48 border-0 shadow-xl shadow-black/40">
         <DropdownMenuItem onClick={onOpen}>
-          <Layers className="h-4 w-4 mr-2" /> View Deck
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onEdit}>
-          <Edit className="h-4 w-4 mr-2" /> Edit Deck
+          <Layers className="mr-2 h-4 w-4" /> View deck
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handlePlaytest}>
-          <Play className="h-4 w-4 mr-2" /> Playtest
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onAnalysis}>
-          <BarChart3 className="h-4 w-4 mr-2" /> Full Analysis
+          <Play className="mr-2 h-4 w-4" /> Playtest
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onMissingCards}>
-          <Package className="h-4 w-4 mr-2" /> Missing Cards
+          <Package className="mr-2 h-4 w-4" /> Missing cards
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onShare}>
-          <Share2 className="h-4 w-4 mr-2" /> Share Deck
+          <Share2 className="mr-2 h-4 w-4" /> Share deck
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onDuplicate}>
-          <Copy className="h-4 w-4 mr-2" /> Duplicate
+          <Copy className="mr-2 h-4 w-4" /> Duplicate
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onExport}>
-          <Download className="h-4 w-4 mr-2" /> Export
+          <Download className="mr-2 h-4 w-4" /> Export
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-          <Trash2 className="h-4 w-4 mr-2" /> Delete
+          <Trash2 className="mr-2 h-4 w-4" /> Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 
-  const badges = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Badge variant="secondary" className="text-[10px] uppercase tracking-wide font-semibold">
-        {formatLabel(deckSummary.format)}
-      </Badge>
-      {showPower && (
-        <Badge variant="outline" className="text-[10px] font-semibold">
-          Power {deckSummary.power?.score ?? 0}/10
-        </Badge>
-      )}
-      <LegalityBadge
-        isLegal={deckSummary.legality?.ok ?? true}
-        issues={deckSummary.legality?.issues || []}
-        format={formatLabel(deckSummary.format)}
-      />
-    </div>
+  /**
+   * Legality reads as a chip rather than a bordered badge. An illegal deck is
+   * flagged by inverting the chip — high contrast rather than colour, since the
+   * palette reserves colour for MTG semantics.
+   */
+  const legalityChip = legalityOk ? (
+    <span
+      title={`Legal in ${formatLabel(deckSummary.format)}`}
+      className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+    >
+      <ShieldCheck className="h-3 w-3" />
+      Legal
+    </span>
+  ) : (
+    <span
+      title={issues.length ? issues.slice(0, 5).join('\n') : 'Unable to verify legality'}
+      className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-primary-foreground"
+    >
+      <AlertTriangle className="h-3 w-3" />
+      {issues.length ? `${issues.length} issue${issues.length === 1 ? '' : 's'}` : 'Check needed'}
+    </span>
   );
 
-  const favoriteButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={handleFavoriteToggle}
-      disabled={favoriteLoading}
-      aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      aria-pressed={isFavorite}
-      className="h-8 w-8 flex-shrink-0"
+  const favouriteBadge = isFavorite ? (
+    <span
+      title="Favourite deck"
+      className="absolute left-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full bg-background/85 text-foreground shadow-lg shadow-black/40 backdrop-blur"
     >
-      {favoriteLoading ? (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : (
-        <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
-      )}
-    </Button>
-  );
+      <Star className="h-3.5 w-3.5 fill-current" />
+      <span className="sr-only">Favourite</span>
+    </span>
+  ) : null;
 
   /* ---------------------------------------------------------------- list */
   if (variant === 'list') {
     return (
-      <Card className={cn('overflow-hidden transition-colors hover:border-foreground/25', className)}>
-        <CardContent className="flex items-center gap-3 p-3">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="h-14 w-10 flex-shrink-0 overflow-hidden rounded bg-muted"
-            aria-label={`Open ${deckSummary.name}`}
-          >
-            {commanderImage ? (
-              <img
-                src={commanderImage}
-                alt=""
-                className="h-full w-full object-cover object-top"
-                loading="lazy"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center">
-                <Crown className="h-4 w-4 text-muted-foreground" />
-              </span>
-            )}
-          </button>
+      <Card
+        className={cn(
+          'overflow-hidden transition-shadow duration-200 hover:shadow-xl hover:shadow-black/30 motion-reduce:transition-none',
+          className
+        )}
+      >
+        <div className="flex items-center gap-3 p-3 sm:gap-4">
+          <div className="w-[72px] shrink-0 sm:w-[88px]">
+            <CommanderHero
+              commander={deckSummary.commander}
+              deckName={deckSummary.name}
+              format={deckSummary.format}
+              identity={identity}
+              cardCount={counts.total}
+              size="sm"
+              onClick={onOpen}
+            >
+              {favouriteBadge}
+            </CommanderHero>
+          </div>
 
           <div className="min-w-0 flex-1">
             <button
               type="button"
               onClick={onOpen}
-              className="block max-w-full truncate text-left font-semibold hover:underline"
+              className="block max-w-full truncate text-left text-base font-bold underline-offset-4 hover:underline"
             >
               {deckSummary.name}
             </button>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+            {deckSummary.commander?.name && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Crown className="h-3 w-3 shrink-0" />
+                <span className="truncate">{deckSummary.commander.name}</span>
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 {formatLabel(deckSummary.format)}
               </span>
-              <ColorIdentity colors={deckSummary.identity?.length ? deckSummary.identity : deckSummary.colors} size="xs" />
+              <ColorIdentity colors={identity} size="xs" className="gap-1" />
             </div>
           </div>
+
+          {showPower && (
+            <DeckPowerInline
+              score={deckSummary.power?.score}
+              band={deckSummary.power?.band}
+              className="hidden w-28 shrink-0 lg:block"
+            />
+          )}
 
           <dl className="hidden items-center gap-6 text-sm md:flex">
             <div className="text-right">
-              <dt className="text-[10px] uppercase text-muted-foreground">Cards</dt>
-              <dd className="font-semibold tabular-nums">{counts.total}</dd>
+              <dt className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                Cards
+              </dt>
+              <dd className="font-bold tabular-nums">{counts.total}</dd>
             </div>
             <div className="text-right">
-              <dt className="text-[10px] uppercase text-muted-foreground">Avg MV</dt>
-              <dd className="font-semibold tabular-nums">{avgMv.toFixed(2)}</dd>
+              <dt className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                Value
+              </dt>
+              <dd className="font-bold tabular-nums">{currency(deckSummary.economy?.priceUSD)}</dd>
             </div>
             <div className="text-right">
-              <dt className="text-[10px] uppercase text-muted-foreground">Value</dt>
-              <dd className="font-semibold tabular-nums">
-                ${Math.round(deckSummary.economy?.priceUSD || 0).toLocaleString()}
-              </dd>
+              <dt className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                Missing
+              </dt>
+              <dd className="font-bold tabular-nums">{missingCount}</dd>
             </div>
             <div className="text-right">
-              <dt className="text-[10px] uppercase text-muted-foreground">Owned</dt>
-              <dd className="font-semibold tabular-nums">{ownershipPct}%</dd>
+              <dt className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                Owned
+              </dt>
+              <dd className="font-bold tabular-nums">{ownershipPct}%</dd>
             </div>
           </dl>
 
-          <div className="flex items-center gap-1">
-            {favoriteButton}
-            <Button size="sm" variant="outline" onClick={onEdit}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFavoriteToggle}
+              disabled={favoriteLoading}
+              aria-label={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+              aria-pressed={isFavorite}
+              className="h-8 w-8"
+            >
+              {favoriteLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+              ) : (
+                <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onAnalysis}
+              aria-label={`Stats for ${deckSummary.name}`}
+              className="hidden h-8 w-8 sm:inline-flex"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
+            <Button size="sm" onClick={onEdit}>
+              <Edit className="h-4 w-4" />
+              <span className="hidden sm:inline">Edit</span>
             </Button>
             {actionsMenu}
           </div>
-        </CardContent>
+        </div>
       </Card>
     );
   }
 
   /* ---------------------------------------------------------------- grid */
   return (
-    <Card className={cn('flex flex-col overflow-hidden transition-colors hover:border-foreground/25', className)}>
-      <CardContent className="flex flex-1 flex-col p-0">
-        <div className="relative flex gap-4 p-4">
-          {/* The commander's own art, bled behind the header, so a tile reads as
-              that specific deck before a word is read. */}
-          {commanderImage && (
-            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-              <img src={commanderImage} alt="" className="h-full w-full scale-110 object-cover blur-2xl saturate-150 opacity-25" />
-              <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-card/60" />
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onOpen}
-            aria-label={`Open ${deckSummary.name}`}
-            className="group/cmd relative aspect-[5/7] w-[150px] flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-xl shadow-black/40 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transition-none sm:w-[190px]"
+    <Card
+      className={cn(
+        'group/tile overflow-hidden transition-shadow duration-300 hover:shadow-2xl hover:shadow-black/40 motion-reduce:transition-none',
+        className
+      )}
+    >
+      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
+        {/* The hero. Everything else on the tile is sized against this. */}
+        <div className="mx-auto w-[64%] min-w-0 max-w-[260px] shrink-0 sm:mx-0 sm:w-[40%] sm:max-w-[230px] lg:w-[42%] lg:max-w-[260px]">
+          <CommanderHero
+            commander={deckSummary.commander}
+            deckName={deckSummary.name}
+            format={deckSummary.format}
+            identity={identity}
+            cardCount={counts.total}
+            size="xl"
+            eager={priority}
+            onClick={deckSummary.commander ? onOpen : onEdit ?? onOpen}
           >
-            {commanderImage ? (
-              <img
-                src={commanderImage}
-                alt={deckSummary.commander?.name ?? ''}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
-                <Crown className="h-5 w-5" />
-                <span className="text-[9px] uppercase tracking-wide">No commander</span>
-              </span>
-            )}
-          </button>
+            {favouriteBadge}
+          </CommanderHero>
+        </div>
 
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-start gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
               <button
                 type="button"
                 onClick={onOpen}
-                className="min-w-0 flex-1 truncate text-left text-base font-bold hover:underline"
+                className="block w-full text-left underline-offset-4 hover:underline"
               >
-                {deckSummary.name}
+                <h3 className="line-clamp-2 text-lg font-bold leading-tight tracking-tight sm:text-xl">
+                  {deckSummary.name}
+                </h3>
               </button>
-              {favoriteButton}
-              {actionsMenu}
+              {deckSummary.commander?.name && (
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Crown className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{deckSummary.commander.name}</span>
+                </p>
+              )}
             </div>
-
-            {deckSummary.commander?.name && (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {deckSummary.commander.name}
-              </p>
-            )}
-
-            <div className="mt-2">{badges}</div>
-
-            <div className="mt-2">
-              <ColorIdentity
-                colors={deckSummary.identity?.length ? deckSummary.identity : deckSummary.colors}
-                size="sm"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Key numbers */}
-        <div className="grid grid-cols-4 divide-x divide-border border-b border-border">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onAnalysis}
-                  className="p-2 text-center transition-colors hover:bg-muted"
-                >
-                  <span className="block text-base font-bold tabular-nums">{counts.total}</span>
-                  <span className="block text-[10px] text-muted-foreground">Cards</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{counts.unique} unique cards</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="p-2 text-center">
-                  <span className="block text-base font-bold tabular-nums">
-                    ${Math.round(deckSummary.economy?.priceUSD || 0).toLocaleString()}
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground">Value</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Sum of USD market prices for every card</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="p-2 text-center">
-                  <span className="block text-base font-bold tabular-nums">{avgMv.toFixed(2)}</span>
-                  <span className="block text-[10px] text-muted-foreground">Avg MV</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Average mana value, lands excluded</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onMissingCards}
-                  className="p-2 text-center transition-colors hover:bg-muted"
-                >
-                  <span
-                    className={cn(
-                      'flex items-center justify-center text-base font-bold tabular-nums',
-                      !isComplete && 'text-destructive'
-                    )}
-                  >
-                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : missingCount}
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {isComplete ? 'Complete' : 'Missing'}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isComplete ? 'You own every card in this deck' : `${missingCount} cards needed`}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        <div className="space-y-3 p-3">
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Collection progress</span>
-              <span className="font-medium tabular-nums">{ownershipPct}%</span>
-            </div>
-            <Progress value={ownershipPct} className="h-1.5" />
+            {actionsMenu}
           </div>
 
-        </div>
-
-        <div className="mt-auto flex items-center justify-between gap-2 p-3">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {new Date(deckSummary.updatedAt).toLocaleDateString()}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-muted px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              {formatLabel(deckSummary.format)}
             </span>
-            <span className="flex items-center gap-1">
+            {legalityChip}
+            <ColorIdentity colors={identity} size="sm" className="ml-auto gap-1" />
+          </div>
+
+          {showPower && (
+            <DeckPowerMeter score={deckSummary.power?.score} band={deckSummary.power?.band} />
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <Stat
+              value={counts.total}
+              label="Cards"
+              hint={`${counts.unique} unique cards — open the full analysis`}
+              onClick={onAnalysis}
+            />
+            <Stat
+              value={currency(deckSummary.economy?.priceUSD)}
+              label="Value"
+              hint="Sum of USD market prices for every card in the deck"
+            />
+            <Stat
+              value={isComplete ? <Check className="h-5 w-5" /> : missingCount}
+              label={isComplete ? 'Complete' : 'Missing'}
+              hint={
+                isComplete
+                  ? 'You own every card in this deck'
+                  : `${missingCount} cards you do not own yet`
+              }
+              onClick={onMissingCards}
+            />
+          </div>
+
+          <div>
+            <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
+              <span className="text-muted-foreground">Collection progress</span>
+              <span className="font-semibold tabular-nums">
+                {ownershipPct}%
+                <span className="ml-1.5 font-normal text-muted-foreground">
+                  {ownedCount}/{counts.total}
+                </span>
+              </span>
+            </div>
+            <Progress
+              value={ownershipPct}
+              className="h-2 bg-muted"
+              aria-label={`${ownershipPct}% of this deck is in your collection`}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button size="sm" onClick={onEdit} className="min-w-0">
+              <Edit className="h-4 w-4" />
+              <span className="truncate">Edit</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onAnalysis} className="min-w-0">
+              <BarChart3 className="h-4 w-4" />
+              <span className="truncate">Stats</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleAddMissingToWishlist}
+              disabled={addingToWishlist || isComplete}
+              title={
+                isComplete
+                  ? 'You already own every card in this deck'
+                  : `Add ${missingCount} missing cards to your wishlist`
+              }
+              className="min-w-0"
+            >
+              {addingToWishlist ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              <span className="truncate">Wishlist</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleFavoriteToggle}
+              disabled={favoriteLoading}
+              aria-pressed={isFavorite}
+              className="min-w-0"
+            >
+              {favoriteLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+              ) : (
+                <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
+              )}
+              <span className="truncate">{isFavorite ? 'Favourited' : 'Favourite'}</span>
+            </Button>
+          </div>
+
+          <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[0.7rem] text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {updatedLabel(deckSummary.updatedAt)}
+            </span>
+            <span className="inline-flex items-center gap-1">
               <Layers className="h-3 w-3" />
               {counts.lands} lands
             </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {missingCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddMissingToWishlist}
-                disabled={addingToWishlist}
-                className="h-7 px-2 text-xs"
-              >
-                {addingToWishlist ? (
-                  <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-                ) : (
-                  <>
-                    <Plus className="mr-1 h-3 w-3" />
-                    Wishlist
-                  </>
-                )}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={onAnalysis} className="h-7 px-2 text-xs">
-              <BarChart3 className="mr-1 h-3 w-3" />
-              Stats
-            </Button>
-            <Button size="sm" onClick={onEdit} className="h-7 px-3 text-xs">
-              <Edit className="mr-1 h-3 w-3" />
-              Edit
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Package className="h-3 w-3" />
+              {counts.unique} unique
+            </span>
           </div>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

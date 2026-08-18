@@ -3,19 +3,35 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { CardCost } from '@/components/cards/CardCost';
+import { CardGrid, CardImage, CARD_WIDTH_DEFAULT } from '@/components/cards';
 import { cn } from '@/lib/utils';
 import {
   formatUsd,
-  getCardImage,
   getPowerToughness,
   getSetCode,
   getTypeLine,
   getUsdPrice,
-  hasBackFace,
   rarityClass,
   rarityCode,
 } from '@/lib/scryfall/card-utils';
-import { ArrowDown, ArrowUp, Eye, Heart, ImageOff, Plus, RefreshCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, Heart, Plus } from 'lucide-react';
+
+/**
+ * How a set of card results is drawn.
+ *
+ * Three rules here, all of them things this file used to get wrong:
+ *
+ * 1. **No borders.** Not on the tiles, not on the table, not on the rows. Depth
+ *    comes from surface tint (`bg-muted/20`, `bg-card`) and shadow, which is
+ *    how the rest of the product builds hierarchy.
+ * 2. **The art is the tile.** A card grid is a wall of Magic art, not a wall of
+ *    bordered boxes with a stamp-sized picture inside one corner. Metadata
+ *    rides on top of the art and only on hover.
+ * 3. **Resolution follows rendered size.** Every image goes through `CardImage`,
+ *    which asks Scryfall for `large` at any meaningful size. This grid used to
+ *    request `small` (146 px wide) and draw it at 240 px, which is precisely why
+ *    cards looked soft everywhere.
+ */
 
 export type CardViewMode = 'grid' | 'list' | 'compact';
 
@@ -45,71 +61,29 @@ interface UniversalCardDisplayProps {
   showWishlistButton?: boolean;
   selectionMode?: boolean;
   selectedCards?: Set<string>;
-  /** 0 = largest tiles, 4 = smallest. Only affects the image grid. */
-  density?: number;
+  /**
+   * Minimum tile width in px, straight from `useCardSize` / `CardSizeSlider`.
+   * Drives both the grid track size and the Scryfall resolution requested,
+   * replacing the old five-step `density` index.
+   */
+  cardWidth?: number;
   /** When provided, the table headers become click-to-sort controls. */
   sort?: CardSort;
   onSortChange?: (key: CardSortKey) => void;
 }
 
-/** Minimum tile width per density step, in px. Drives grid-template-columns. */
-const DENSITY_WIDTHS = [240, 196, 160, 132, 108];
+/** Below this the art is too small to read a name off, so the tile gets a caption. */
+const CAPTION_BELOW = 132;
+/** Below this the set/price pill is clutter rather than information. */
+const PILL_BELOW = 118;
 
 const cardKey = (card: any, index: number) =>
   card?.collectionItemId ?? card?.storageItemId ?? card?.id ?? `card-${index}`;
 
 /* ------------------------------------------------------------------ *
- * Card art with lazy loading, reserved space and a real failure state.
+ * Full-size art on hover — the way Scryfall, Moxfield and EDHREC behave.
  * ------------------------------------------------------------------ */
 
-function CardArt({
-  card,
-  size,
-  face,
-  className,
-}: {
-  card: any;
-  size: 'small' | 'normal' | 'large';
-  face: number;
-  className?: string;
-}) {
-  const src = getCardImage(card, size, face);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [src]);
-
-  if (!src || failed) {
-    return (
-      <div
-        className={cn(
-          'flex h-full w-full flex-col items-center justify-center gap-1 bg-muted p-2 text-center',
-          className
-        )}
-      >
-        <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
-        <p className="line-clamp-2 text-[11px] font-medium leading-tight text-foreground">
-          {card?.name}
-        </p>
-        <p className="line-clamp-1 text-[10px] text-muted-foreground">{getTypeLine(card)}</p>
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt={card?.name ?? 'Magic card'}
-      loading="lazy"
-      decoding="async"
-      width={size === 'small' ? 146 : 488}
-      height={size === 'small' ? 204 : 680}
-      onError={() => setFailed(true)}
-      className={cn('h-full w-full object-contain', className)}
-    />
-  );
-}
-
-/** Full-size art on hover — the way Scryfall, Moxfield and EDHREC all behave. */
 function CardHoverPreview({ card, children }: { card: any; children: React.ReactNode }) {
   return (
     <HoverCard openDelay={220} closeDelay={80}>
@@ -117,23 +91,23 @@ function CardHoverPreview({ card, children }: { card: any; children: React.React
       <HoverCardContent
         side="right"
         align="start"
-        className="w-[248px] overflow-hidden rounded-lg border-border p-0"
+        // No popover chrome at all: the card itself is the popover.
+        className="w-[264px] border-0 bg-transparent p-0 shadow-none"
       >
-        <div className="aspect-[63/88] w-full bg-muted">
-          <CardArt card={card} size="normal" face={0} />
-        </div>
+        <CardImage card={card} size="lg" fill hideFlip />
       </HoverCardContent>
     </HoverCard>
   );
 }
 
+/** Rarity as a flat tinted chip. The old version wore a hairline border. */
 function RarityMark({ rarity }: { rarity?: string }) {
   if (!rarity) return null;
   return (
     <span
       title={rarity}
       className={cn(
-        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-border font-mono text-[10px] leading-none',
+        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted font-mono text-[10px] leading-none',
         rarityClass(rarity)
       )}
     >
@@ -142,23 +116,37 @@ function RarityMark({ rarity }: { rarity?: string }) {
   );
 }
 
+/** A piece of art beside every card name — a card is never referenced as text alone. */
+function RowThumb({ card, width = 34 }: { card: any; width?: number }) {
+  return <CardImage card={card} width={width} hideFlip className="hidden sm:block" />;
+}
+
 function RowActions({
   card,
   onCardClick,
   onCardAdd,
   onCardWishlist,
   showWishlistButton,
+  tone = 'row',
 }: {
   card: any;
   onCardClick?: (card: any) => void;
   onCardAdd?: (card: any) => void;
   onCardWishlist?: (card: any) => void;
   showWishlistButton?: boolean;
+  /** `overlay` sits directly on card art and needs its own opaque surface. */
+  tone?: 'row' | 'overlay';
 }) {
   const stop = (fn?: (card: any) => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     fn?.(card);
   };
+
+  const buttonClass =
+    tone === 'overlay'
+      ? 'h-7 w-7 rounded-full bg-background/85 p-0 text-foreground shadow-md shadow-black/40 backdrop-blur hover:bg-background'
+      : 'h-7 w-7 p-0';
 
   return (
     <div className="flex items-center gap-1">
@@ -166,7 +154,7 @@ function RowActions({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 w-7 p-0"
+          className={buttonClass}
           aria-label={`View ${card.name}`}
           onClick={stop(onCardClick)}
         >
@@ -177,7 +165,7 @@ function RowActions({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 w-7 p-0"
+          className={buttonClass}
           aria-label={`Add ${card.name}`}
           onClick={stop(onCardAdd)}
         >
@@ -188,7 +176,7 @@ function RowActions({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 w-7 p-0"
+          className={buttonClass}
           aria-label={`Wishlist ${card.name}`}
           onClick={stop(onCardWishlist)}
         >
@@ -261,13 +249,12 @@ export function UniversalCardDisplay({
   showWishlistButton = false,
   selectionMode = false,
   selectedCards = new Set(),
-  density = 2,
+  cardWidth = CARD_WIDTH_DEFAULT,
   sort,
   onSortChange,
 }: UniversalCardDisplayProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridWrapRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef(1);
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
 
   const { index: focusIndex, setIndex, itemRefs, onKeyDown } = useRovingFocus(
     cards.length,
@@ -276,9 +263,15 @@ export function UniversalCardDisplay({
   // Roving tabindex: one tab stop for the whole result set, arrows move within it.
   const tabStop = focusIndex < 0 ? 0 : focusIndex;
 
-  // Track the live column count so ArrowUp/ArrowDown move by a row.
+  // Track the live column count so ArrowUp/ArrowDown move by a row. `CardGrid`
+  // owns the grid element now, so the count is read off this wrapper's only
+  // child rather than off a grid laid out here.
   useEffect(() => {
-    const el = gridRef.current;
+    if (viewMode !== 'grid') {
+      columnsRef.current = 1;
+      return;
+    }
+    const el = gridWrapRef.current?.firstElementChild as HTMLElement | null;
     if (!el) {
       columnsRef.current = 1;
       return;
@@ -291,7 +284,7 @@ export function UniversalCardDisplay({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [viewMode, density, cards.length]);
+  }, [viewMode, cardWidth, cards.length]);
 
   const activate = useCallback(
     (i: number) => {
@@ -300,9 +293,6 @@ export function UniversalCardDisplay({
     },
     [cards, onCardClick]
   );
-
-  const toggleFlip = (key: string) =>
-    setFlipped(prev => ({ ...prev, [key]: !prev[key] }));
 
   if (!cards.length) return null;
 
@@ -319,10 +309,10 @@ export function UniversalCardDisplay({
     ];
 
     return (
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-xl bg-card shadow-lg shadow-black/20">
+        <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40">
+            <tr className="bg-muted/40">
               {selectionMode && <th className="w-10 px-3 py-2" />}
               {columns.map(col => {
                 const sortable = Boolean(col.key && onSortChange);
@@ -381,14 +371,15 @@ export function UniversalCardDisplay({
                   onKeyDown={e => onKeyDown(e, activate)}
                   onClick={() => onCardClick?.(card)}
                   className={cn(
-                    'group cursor-pointer border-b border-border last:border-0 transition-colors',
+                    // Rows separate by an alternating surface tint, never a rule.
+                    'group cursor-pointer transition-colors even:bg-muted/20',
                     'hover:bg-accent focus:bg-accent focus:outline-none',
                     'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                     isSelected && 'bg-accent'
                   )}
                 >
                   {selectionMode && (
-                    <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                    <td className="px-3 py-1.5" onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onCardClick?.(card)}
@@ -396,32 +387,35 @@ export function UniversalCardDisplay({
                       />
                     </td>
                   )}
-                  <td className="max-w-[280px] px-3 py-2">
+                  <td className="max-w-[320px] px-3 py-1.5">
                     <CardHoverPreview card={card}>
-                      <span className="block truncate font-medium text-foreground">
-                        {card.name}
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <RowThumb card={card} />
+                        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                          {card.name}
+                        </span>
                       </span>
                     </CardHoverPreview>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <CardCost card={card} size="xs" />
                   </td>
-                  <td className="hidden max-w-[240px] truncate px-3 py-2 text-muted-foreground md:table-cell">
+                  <td className="hidden max-w-[240px] truncate px-3 py-1.5 text-muted-foreground md:table-cell">
                     {getTypeLine(card)}
                   </td>
-                  <td className="hidden px-3 py-2 font-mono text-xs uppercase text-muted-foreground sm:table-cell">
+                  <td className="hidden px-3 py-1.5 font-mono text-xs uppercase text-muted-foreground sm:table-cell">
                     {getSetCode(card)}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <RarityMark rarity={card.rarity} />
                   </td>
-                  <td className="hidden px-3 py-2 tabular-nums text-muted-foreground sm:table-cell">
+                  <td className="hidden px-3 py-1.5 tabular-nums text-muted-foreground sm:table-cell">
                     {pt ? `${pt.power}/${pt.toughness}` : ''}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                  <td className="px-3 py-1.5 text-right tabular-nums text-foreground">
                     {formatUsd(getUsdPrice(card))}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                       <RowActions
                         card={card}
@@ -444,11 +438,7 @@ export function UniversalCardDisplay({
   /* --------------------------- Compact view --------------------------- */
   if (viewMode === 'compact') {
     return (
-      <div
-        ref={gridRef}
-        role="list"
-        className="divide-y divide-border rounded-lg border border-border"
-      >
+      <div role="list" className="overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20">
         {cards.map((card, i) => {
           const key = cardKey(card, i);
           const isSelected = selectedCards.has(card.collectionItemId || card.id);
@@ -462,7 +452,7 @@ export function UniversalCardDisplay({
               onKeyDown={e => onKeyDown(e, activate)}
               onClick={() => onCardClick?.(card)}
               className={cn(
-                'group flex cursor-pointer items-center gap-3 px-3 py-1.5 transition-colors',
+                'group flex cursor-pointer items-center gap-3 px-3 py-1 transition-colors odd:bg-muted/20',
                 'hover:bg-accent focus:bg-accent focus:outline-none',
                 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                 isSelected && 'bg-accent'
@@ -478,8 +468,11 @@ export function UniversalCardDisplay({
                 </div>
               )}
               <CardHoverPreview card={card}>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                  {card.name}
+                <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <RowThumb card={card} width={26} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                    {card.name}
+                  </span>
                 </span>
               </CardHoverPreview>
               <CardCost card={card} size="xs" />
@@ -507,110 +500,101 @@ export function UniversalCardDisplay({
   }
 
   /* ---------------------------- Image grid ---------------------------- */
-  const minWidth = DENSITY_WIDTHS[Math.min(DENSITY_WIDTHS.length - 1, Math.max(0, density))];
+  const showCaption = cardWidth < CAPTION_BELOW;
+  const showPill = cardWidth >= PILL_BELOW;
 
   return (
-    <div
-      ref={gridRef}
-      role="list"
-      className="grid gap-3"
-      style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${minWidth}px, 1fr))` }}
-    >
-      {cards.map((card, i) => {
-        const key = cardKey(card, i);
-        const isSelected = selectedCards.has(card.collectionItemId || card.id);
-        const flippable = hasBackFace(card);
-        const face = flipped[key] ? 1 : 0;
+    <div ref={gridWrapRef} role="group" aria-label="Card results">
+      <CardGrid width={cardWidth}>
+        {cards.map((card, i) => {
+          const key = cardKey(card, i);
+          const isSelected = selectedCards.has(card.collectionItemId || card.id);
+          const price = formatUsd(getUsdPrice(card));
 
-        return (
-          <div
-            key={key}
-            role="listitem"
-            tabIndex={i === tabStop ? 0 : -1}
-            ref={el => { itemRefs.current[i] = el; }}
-            onFocus={() => setIndex(i)}
-            onKeyDown={e => onKeyDown(e, activate)}
-            onClick={() => onCardClick?.(card)}
-            aria-label={card.name}
-            className={cn(
-              'group relative cursor-pointer rounded-lg border border-border bg-card transition-colors',
-              'hover:border-foreground/30 focus:outline-none',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              isSelected && 'border-foreground ring-1 ring-foreground'
-            )}
-          >
-            {selectionMode && (
-              <div className="absolute left-2 top-2 z-10" onClick={e => e.stopPropagation()}>
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => onCardClick?.(card)}
-                  className="border-2 bg-background"
-                  aria-label={`Select ${card.name}`}
-                />
-              </div>
-            )}
-
-            <div className="aspect-[63/88] w-full overflow-hidden rounded-t-lg bg-muted">
-              <CardArt card={card} size="small" face={face} />
-            </div>
-
-            {flippable && (
-              <button
-                type="button"
-                onClick={e => {
-                  e.stopPropagation();
-                  toggleFlip(key);
-                }}
-                title="Flip card"
-                aria-label={`Flip ${card.name}`}
-                className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/90 text-foreground transition-colors hover:bg-accent"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            <div className="space-y-1.5 p-2">
-              <div className="flex items-start justify-between gap-1">
-                <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-                  {card.name}
-                </h3>
-                <CardCost card={card} size="xs" />
-              </div>
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <RarityMark rarity={card.rarity} />
-                  <span className="truncate font-mono text-[10px] uppercase text-muted-foreground">
-                    {getSetCode(card)}
-                  </span>
-                </div>
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                  {formatUsd(getUsdPrice(card))}
-                </span>
-              </div>
-            </div>
-
-            {/* Action bar pinned to the bottom edge — the art stays visible. */}
-            {!selectionMode && (onCardAdd || onCardWishlist) && (
-              <div
-                className={cn(
-                  'pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 rounded-b-lg',
-                  'border-t border-border bg-background/95 px-2 py-1 opacity-0 transition-opacity',
-                  'group-hover:pointer-events-auto group-hover:opacity-100',
-                  'group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+          return (
+            <div
+              key={key}
+              role="button"
+              tabIndex={i === tabStop ? 0 : -1}
+              ref={el => { itemRefs.current[i] = el; }}
+              onFocus={() => setIndex(i)}
+              onKeyDown={e => onKeyDown(e, activate)}
+              onClick={() => onCardClick?.(card)}
+              aria-label={card.name}
+              className={cn(
+                // `group` here (not only inside CardImage) so the overlays react
+                // to keyboard focus on the tile, not just to a hovering pointer.
+                'group cursor-pointer rounded-lg focus:outline-none',
+                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+              )}
+            >
+              <CardImage
+                card={card}
+                width={cardWidth}
+                fill
+                interactive
+                eager={i < 8}
+                imageClassName={cn(
+                  isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
                 )}
               >
-                <RowActions
-                  card={card}
-                  onCardClick={onCardClick}
-                  onCardAdd={onCardAdd}
-                  onCardWishlist={onCardWishlist}
-                  showWishlistButton={showWishlistButton}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+                {selectionMode && (
+                  <div className="absolute left-2 top-2 z-20" onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => onCardClick?.(card)}
+                      className="border-0 bg-background/90 shadow-md shadow-black/40"
+                      aria-label={`Select ${card.name}`}
+                    />
+                  </div>
+                )}
+
+                {/* Actions ride the top-right; the flip control owns bottom-right. */}
+                {!selectionMode && (onCardClick || onCardAdd || onCardWishlist) && (
+                  <div
+                    className={cn(
+                      'absolute right-1.5 top-1.5 z-20 opacity-0 transition-opacity duration-150',
+                      'motion-reduce:transition-none',
+                      'group-hover:opacity-100 group-focus-within:opacity-100'
+                    )}
+                  >
+                    <RowActions
+                      card={card}
+                      onCardClick={onCardClick}
+                      onCardAdd={onCardAdd}
+                      onCardWishlist={onCardWishlist}
+                      showWishlistButton={showWishlistButton}
+                      tone="overlay"
+                    />
+                  </div>
+                )}
+
+                {showPill && (
+                  <span
+                    className={cn(
+                      'pointer-events-none absolute bottom-1.5 left-1.5 z-10 inline-flex items-center gap-1.5',
+                      'rounded-full bg-background/85 px-2 py-0.5 text-[0.65rem] leading-none text-foreground backdrop-blur',
+                      'opacity-0 transition-opacity duration-150 motion-reduce:transition-none',
+                      'group-hover:opacity-100 group-focus-within:opacity-100'
+                    )}
+                  >
+                    <span className="font-mono uppercase text-muted-foreground">
+                      {getSetCode(card)}
+                    </span>
+                    <span className="tabular-nums">{price}</span>
+                  </span>
+                )}
+              </CardImage>
+
+              {showCaption && (
+                <p className="mt-1 truncate text-center text-[0.65rem] leading-tight text-muted-foreground">
+                  {card.name}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardGrid>
     </div>
   );
 }

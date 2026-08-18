@@ -61,10 +61,12 @@ export default function LifeCounter() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        undo();
-      }
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+      // Renaming a player is a text field; ctrl+Z there means undo the typing.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      event.preventDefault();
+      undo();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -134,62 +136,61 @@ export default function LifeCounter() {
         onContextMenu={event => event.preventDefault()}
       >
         <div className="relative h-full w-full">
-        {state.players.map(player => {
-          const seat = seatAt(layout, player.seat);
-          if (!seat) return null;
-          return (
-            <PlayerPanel
-              key={player.id}
-              player={player}
-              seat={seat}
-              view={view[player.id]}
-              rules={state.rules}
-              interactive={!complete}
-              reducedMotion={reducedMotion}
-              onNudgeLife={delta => nudge({ kind: 'life', playerId: player.id }, delta)}
-              onOpenDetail={() => setDetailPlayerId(player.id)}
-            />
-          );
-        })}
+          {state.players.map(player => {
+            const seat = seatAt(layout, player.seat);
+            if (!seat) return null;
+            return (
+              <PlayerPanel
+                key={player.id}
+                player={player}
+                seat={seat}
+                view={view[player.id]}
+                rules={state.rules}
+                interactive={!complete}
+                reducedMotion={reducedMotion}
+                onNudgeLife={delta => nudge({ kind: 'life', playerId: player.id }, delta)}
+                onOpenDetail={() => setDetailPlayerId(player.id)}
+              />
+            );
+          })}
 
-        {/* The one control cluster every seat can reach. */}
-        <div className="absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-popover p-1.5 shadow-[0_2px_10px_hsl(0_0%_0%/0.45)]">
-          {complete && (
-            <div className="flex items-center gap-2 pl-3 pr-1">
-              <Trophy aria-hidden className="h-4 w-4 shrink-0 text-type-commander" />
-              <p className="whitespace-nowrap text-sm font-semibold">
-                {winners.length === 1
-                  ? `${winners[0]} wins`
-                  : winners.length > 1
-                    ? `${winners.join(' & ')} win`
-                    : 'Draw'}
-              </p>
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 rounded-full"
-            disabled={!game.canUndo}
-            onClick={undo}
-            aria-label={game.hasPending ? 'Cancel the change in progress' : 'Undo the last change'}
-          >
-            <Undo2 className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-12 w-12 rounded-full"
-            onClick={() => {
-              flush();
-              setMenuOpen(true);
-            }}
-            aria-label="Game menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </div>
-
+          {/* The one control cluster every seat can reach. */}
+          <div className="absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-popover p-1.5 shadow-[0_2px_10px_hsl(0_0%_0%/0.45)]">
+            {complete && (
+              <div className="flex items-center gap-2 pl-3 pr-1">
+                <Trophy aria-hidden className="h-4 w-4 shrink-0 text-type-commander" />
+                <p className="whitespace-nowrap text-sm font-semibold">
+                  {winners.length === 1
+                    ? `${winners[0]} wins`
+                    : winners.length > 1
+                      ? `${winners.join(' & ')} win`
+                      : 'Draw'}
+                </p>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              disabled={!game.canUndo}
+              onClick={undo}
+              aria-label={game.hasPending ? 'Cancel the change in progress' : 'Undo the last change'}
+            >
+              <Undo2 className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={() => {
+                flush();
+                setMenuOpen(true);
+              }}
+              aria-label="Game menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import {
   ScanLine,
   Heart,
   Layers,
-  Hammer,
+  Plus,
   Sparkles,
   Boxes,
   Swords,
@@ -27,11 +27,26 @@ import {
  * both listed two different items literally titled "Deck Builder").
  */
 
+/**
+ * Some nav entries are not destinations. "New Deck" cannot be a plain link:
+ * `/deck-builder` redirects to `/decks` whenever there is no `?deck=` parameter,
+ * so the old "Deck Builder" link put the user on the deck *list* every time.
+ * A deck has to be created before the builder has anything to open, so the item
+ * runs a flow and the flow decides where to go.
+ */
+export type NavAction = 'new-deck';
+
 export interface NavItem {
   /** Label shown in the rail, the sheet and the breadcrumb. */
   title: string;
+  /**
+   * Where the item goes. For an `action` item this is not followed on click —
+   * it is the route the flow lands on, and so still drives the active state.
+   */
   href: string;
   icon: ComponentType<{ className?: string }>;
+  /** Runs a flow instead of navigating. See `NavAction`. */
+  action?: NavAction;
   /**
    * Extra path prefixes that should light this item up. `/deck/:id` is a child
    * of Decks, and `/dashboard` is an alias of `/`, but neither shares a prefix
@@ -96,19 +111,20 @@ export const NAV_GROUPS: NavGroup[] = [
         description: 'Every deck you have built',
       },
       {
-        title: 'Deck Builder',
+        title: 'New Deck',
         href: '/deck-builder',
-        icon: Hammer,
-        description: 'Build a deck card by card',
+        icon: Plus,
+        action: 'new-deck',
+        description: 'Start a fresh deck and open it in the builder',
       },
       {
-        title: 'AI Deck Builder',
+        title: 'Deck Generator',
         href: '/smart-builder',
         icon: Sparkles,
         description: 'Generate a starting list from a prompt',
       },
       {
-        title: 'Preconstructed',
+        title: 'Precons',
         href: '/precons',
         icon: Boxes,
         description: 'Browse official precon decklists',

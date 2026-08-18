@@ -1,75 +1,19 @@
 /**
  * Canonical shapes for the collection / storage card browser.
  *
- * Everything here speaks Scryfall's own vocabulary — uppercase WUBRG, lowercase
- * rarity words, lowercase format codes — because the previous filter layer
- * emitted lowercase colours and compared them against uppercase `card.colors`,
- * which meant the colour filter could never match a single card.
+ * Filtering itself no longer lives here. The browser now drives the shared
+ * `CardFilterPanel`, so a `BrowserCard` is projected onto a `LocalCard` and
+ * evaluated by `matchesCardFilter` — the same `CardSearchState` the card-search
+ * pages send to Scryfall, read locally instead. What remains in this file is
+ * the ownership vocabulary (copies, foil, condition) that only owned cards have
+ * and that no Scryfall query can express.
  */
+
+import { toLocalCard, type LocalCard } from '@/lib/cards/local-filter';
 
 export type ManaColor = 'W' | 'U' | 'B' | 'R' | 'G';
 
 export const WUBRG: ManaColor[] = ['W', 'U', 'B', 'R', 'G'];
-
-export const COLOR_LABEL: Record<ManaColor, string> = {
-  W: 'White',
-  U: 'Blue',
-  B: 'Black',
-  R: 'Red',
-  G: 'Green',
-};
-
-/**
- * How a colour selection is interpreted. These are the modes MTG players
- * actually use; "any" was previously the only (broken) behaviour.
- */
-export type ColorMatchMode = 'any' | 'all' | 'exactly' | 'identity';
-
-export const COLOR_MODE_LABEL: Record<ColorMatchMode, string> = {
-  any: 'Includes any',
-  all: 'Includes all',
-  exactly: 'Exactly these',
-  identity: 'Within colour identity',
-};
-
-/** Rarities as Scryfall spells them. */
-export const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const;
-
-/** Primary card types, matched against `type_line`. */
-export const CARD_TYPES = [
-  'Creature',
-  'Instant',
-  'Sorcery',
-  'Artifact',
-  'Enchantment',
-  'Planeswalker',
-  'Battle',
-  'Land',
-] as const;
-
-/** Tailwind token per primary type — registered in tailwind.config.ts. */
-export const TYPE_TOKEN: Record<string, string> = {
-  Creature: 'text-type-creatures',
-  Instant: 'text-type-instants',
-  Sorcery: 'text-type-sorceries',
-  Artifact: 'text-type-artifacts',
-  Enchantment: 'text-type-enchantments',
-  Planeswalker: 'text-type-planeswalkers',
-  Battle: 'text-type-battles',
-  Land: 'text-type-lands',
-};
-
-/** Formats the collection can be filtered by, keyed as Scryfall legalities are. */
-export const FORMATS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'pioneer', label: 'Pioneer' },
-  { value: 'modern', label: 'Modern' },
-  { value: 'legacy', label: 'Legacy' },
-  { value: 'vintage', label: 'Vintage' },
-  { value: 'commander', label: 'Commander' },
-  { value: 'pauper', label: 'Pauper' },
-  { value: 'brawl', label: 'Brawl' },
-] as const;
 
 /**
  * Market condition grades (TCGplayer / CardMarket). The database still stores
@@ -148,8 +92,86 @@ export interface BrowserCard {
   /** Market price of one foil copy, USD (falls back to non-foil). */
   foilPrice: number;
   addedAt?: string;
+  /**
+   * The full card record behind the row — Scryfall object or `cards` row.
+   *
+   * This is what lets a tile draw from `image_uris.large` and flip a
+   * double-faced card, instead of the single pre-picked `imageUrl` the browser
+   * used to carry (which is why owned cards rendered from the 488px `normal`
+   * image at 240px on a 2x display).
+   */
+  raw?: any;
   /** Escape hatch back to the caller's own object. */
   source?: unknown;
+}
+
+/**
+ * Ownership facets. These are the questions only an owned card can answer, so
+ * they sit beside the shared `CardSearchState` rather than inside it.
+ */
+export interface OwnershipFilterState {
+  conditions: ConditionGrade[];
+  foilOnly: boolean;
+  /** Rows with at least this many copies. */
+  minCopies: number;
+}
+
+export const EMPTY_OWNERSHIP: OwnershipFilterState = {
+  conditions: [],
+  foilOnly: false,
+  minCopies: 0,
+};
+
+export function ownershipFilterCount(f: OwnershipFilterState): number {
+  return (
+    (f.conditions.length ? 1 : 0) + (f.foilOnly ? 1 : 0) + (f.minCopies > 0 ? 1 : 0)
+  );
+}
+
+export function matchesOwnership(card: BrowserCard, f: OwnershipFilterState): boolean {
+  if (f.conditions.length > 0 && !f.conditions.includes(card.condition)) return false;
+  if (f.foilOnly && card.foil <= 0) return false;
+  if (f.minCopies > 0 && copiesOf(card) < f.minCopies) return false;
+  return true;
+}
+
+/**
+ * Project a browser row onto the shape the shared filter evaluates.
+ *
+ * `raw` is preferred when the caller supplied it — it carries oracle text,
+ * artist and printing flags that the flattened row never had, so the advanced
+ * facets work on the Collection exactly as they do on the search page. Without
+ * it the projection still covers colours, types, rarity, set, mana value,
+ * legality and price.
+ */
+export function localCardOf(card: BrowserCard): LocalCard {
+  return toLocalCard(card.raw, {
+    name: card.name,
+    typeLine: card.typeLine,
+    cmc: card.cmc,
+    colors: card.colors,
+    colorIdentity: card.colorIdentity,
+    rarity: (card.rarity ?? '').toLowerCase(),
+    setCode: (card.setCode ?? '').toLowerCase(),
+    collectorNumber: card.collectorNumber ?? '',
+    legalities: card.legalities ?? {},
+    usd: card.unitPrice > 0 ? card.unitPrice : null,
+  });
+}
+
+/**
+ * The object to hand `CardImage`. Falls back to a synthetic card so rows from
+ * a caller that has not yet passed `raw` still render, just without a flip
+ * affordance or a higher-resolution print.
+ */
+export function imageCardOf(card: BrowserCard): any {
+  if (card.raw) return card.raw;
+  return {
+    name: card.name,
+    image_uris: card.imageUrl
+      ? { large: card.imageUrl, normal: card.imageUrl, small: card.imageUrl }
+      : undefined,
+  };
 }
 
 export function copiesOf(card: BrowserCard): number {
@@ -159,137 +181,6 @@ export function copiesOf(card: BrowserCard): number {
 /** The one valuation rule: non-foils at usd, foils at usd_foil. */
 export function valueOf(card: BrowserCard): number {
   return (card.quantity || 0) * card.unitPrice + (card.foil || 0) * card.foilPrice;
-}
-
-export interface CollectionFilterState {
-  query: string;
-  colors: ManaColor[];
-  /** Colourless is a predicate (`colors.length === 0`), not a pseudo-colour. */
-  colorless: boolean;
-  colorMode: ColorMatchMode;
-  types: string[];
-  rarities: string[];
-  formats: string[];
-  cmc: [number, number];
-  priceMin: number | null;
-  priceMax: number | null;
-  sets: string[];
-  conditions: string[];
-  foilOnly: boolean;
-}
-
-export const CMC_MAX = 16;
-
-export const EMPTY_FILTERS: CollectionFilterState = {
-  query: '',
-  colors: [],
-  colorless: false,
-  colorMode: 'any',
-  types: [],
-  rarities: [],
-  formats: [],
-  cmc: [0, CMC_MAX],
-  priceMin: null,
-  priceMax: null,
-  sets: [],
-  conditions: [],
-  foilOnly: false,
-};
-
-export function activeFilterCount(f: CollectionFilterState): number {
-  let n = 0;
-  if (f.colors.length || f.colorless) n++;
-  if (f.types.length) n++;
-  if (f.rarities.length) n++;
-  if (f.formats.length) n++;
-  if (f.cmc[0] > 0 || f.cmc[1] < CMC_MAX) n++;
-  if (f.priceMin != null || f.priceMax != null) n++;
-  if (f.sets.length) n++;
-  if (f.conditions.length) n++;
-  if (f.foilOnly) n++;
-  return n;
-}
-
-function sameSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const set = new Set(b);
-  return a.every(x => set.has(x));
-}
-
-/** The single client-side predicate. Colours are compared uppercase-to-uppercase. */
-export function matchesFilter(card: BrowserCard, f: CollectionFilterState): boolean {
-  const q = f.query.trim().toLowerCase().replace(/,/g, '');
-  if (q) {
-    const haystack = [card.name, card.typeLine, card.setCode, card.collectorNumber ?? '']
-      .join(' ')
-      .toLowerCase()
-      .replace(/,/g, '');
-    if (!haystack.includes(q)) return false;
-  }
-
-  if (f.colors.length > 0 || f.colorless) {
-    const cardColors = f.colorMode === 'identity' ? card.colorIdentity : card.colors;
-    const isColorless = cardColors.length === 0;
-
-    let ok = false;
-    if (f.colorless && isColorless) {
-      ok = true;
-    } else if (f.colors.length > 0 && !isColorless) {
-      switch (f.colorMode) {
-        case 'all':
-          ok = f.colors.every(c => cardColors.includes(c));
-          break;
-        case 'exactly':
-          ok = sameSet(cardColors, f.colors);
-          break;
-        case 'identity':
-          // Everything the card needs must be inside the chosen identity.
-          ok = cardColors.every(c => f.colors.includes(c));
-          break;
-        case 'any':
-        default:
-          ok = f.colors.some(c => cardColors.includes(c));
-          break;
-      }
-    } else if (f.colors.length > 0 && isColorless && f.colorMode === 'identity') {
-      // A colourless card fits inside every identity.
-      ok = true;
-    }
-    if (!ok) return false;
-  }
-
-  if (f.types.length > 0) {
-    const tl = card.typeLine.toLowerCase();
-    if (!f.types.some(t => tl.includes(t.toLowerCase()))) return false;
-  }
-
-  if (f.rarities.length > 0 && !f.rarities.includes(card.rarity)) return false;
-
-  if (f.formats.length > 0) {
-    // Legalities are now mapped onto every row; previously this object was
-    // always `{}` so selecting any format emptied the grid.
-    const legal = f.formats.some(fmt => {
-      const status = card.legalities?.[fmt];
-      return status === 'legal' || status === 'restricted';
-    });
-    if (!legal) return false;
-  }
-
-  if (card.cmc < f.cmc[0] || card.cmc > f.cmc[1]) return false;
-
-  if (f.priceMin != null || f.priceMax != null) {
-    const price = card.foil > 0 && card.quantity === 0 ? card.foilPrice : card.unitPrice;
-    if (f.priceMin != null && price < f.priceMin) return false;
-    if (f.priceMax != null && price > f.priceMax) return false;
-  }
-
-  if (f.sets.length > 0 && !f.sets.includes(card.setCode)) return false;
-
-  if (f.conditions.length > 0 && !f.conditions.includes(card.condition)) return false;
-
-  if (f.foilOnly && card.foil <= 0) return false;
-
-  return true;
 }
 
 export type SortKey =
@@ -367,12 +258,10 @@ export function sortCards(
 export type BrowserViewMode = 'grid' | 'list' | 'table';
 
 /**
- * Card-size density. Drives `grid-template-columns: repeat(auto-fill,
- * minmax(<px>, 1fr))`, so the grid genuinely changes density instead of the old
- * grid/compact modes that differed by one column at two breakpoints.
+ * Card size is no longer a five-step density enum. It is a continuous width in
+ * px, owned by `useCardSize` / `CardSizeSlider` and handed straight to
+ * `CardGrid`, so the same control behaves identically on every surface.
  */
-export const DENSITY_STEPS = [96, 128, 160, 200, 240] as const;
-export const DEFAULT_DENSITY = 2;
 
 /** One currency formatter for the whole area. */
 export function formatPrice(value: number | null | undefined, currency = 'USD'): string {

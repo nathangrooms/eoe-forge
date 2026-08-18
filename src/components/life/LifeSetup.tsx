@@ -78,7 +78,15 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
   };
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-background">
+    <div
+      className="fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-background"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
       <div className="mx-auto flex min-h-full w-full max-w-lg flex-col gap-4 p-4 pb-10">
         <div className="flex items-center justify-between gap-2 pt-2">
           <Button
@@ -106,6 +114,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                 type="button"
                 onClick={() => setCount(count)}
                 aria-pressed={playerCount === count}
+                aria-label={`${count} players`}
                 className={cn(
                   'h-16 rounded-xl text-2xl font-semibold transition-colors motion-reduce:transition-none',
                   playerCount === count
@@ -131,6 +140,7 @@ export function LifeSetup({ initialConfig, onCancel, onStart, onExit }: LifeSetu
                 type="button"
                 onClick={() => setFormat(option.format)}
                 aria-pressed={format === option.format}
+                aria-label={`${option.label} — ${option.note}`}
                 className={cn(
                   'rounded-xl px-3 py-2.5 text-left transition-colors motion-reduce:transition-none',
                   format === option.format

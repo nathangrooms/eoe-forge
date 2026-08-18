@@ -159,6 +159,12 @@ export interface DeckSummary {
   updatedAt: string;
   cardCount: number;
   commanderName: string | null;
+  /**
+   * The exact printing chosen for the commander. Carried alongside the name so
+   * the dashboard can show *that* printing's art rather than whichever reprint a
+   * name lookup happens to land on.
+   */
+  commanderCardId: string | null;
   isFavorite: boolean;
 }
 
@@ -209,12 +215,12 @@ export function useRecentDecks(limit = 6) {
       const favoriteIds = new Set((favoriteRows ?? []).map(row => row.deck_id));
 
       const cardCounts: Record<string, number> = {};
-      const commanders: Record<string, string> = {};
+      const commanders: Record<string, { id: string | null; name: string }> = {};
 
       if (rows.length > 0) {
         const { data: cardRows } = await supabase
           .from('deck_cards')
-          .select('deck_id, quantity, is_commander, is_sideboard, card_name')
+          .select('deck_id, quantity, is_commander, is_sideboard, card_name, card_id')
           .in('deck_id', rows.map(row => row.id));
 
         for (const card of cardRows ?? []) {
@@ -222,7 +228,7 @@ export function useRecentDecks(limit = 6) {
             cardCounts[card.deck_id] = (cardCounts[card.deck_id] ?? 0) + num(card.quantity, 1);
           }
           if (card.is_commander && !commanders[card.deck_id]) {
-            commanders[card.deck_id] = card.card_name;
+            commanders[card.deck_id] = { id: card.card_id ?? null, name: card.card_name };
           }
         }
       }
@@ -236,7 +242,8 @@ export function useRecentDecks(limit = 6) {
           powerLevel: num(row.power_level),
           updatedAt: row.updated_at,
           cardCount: cardCounts[row.id] ?? 0,
-          commanderName: commanders[row.id] ?? null,
+          commanderName: commanders[row.id]?.name ?? null,
+          commanderCardId: commanders[row.id]?.id ?? null,
           isFavorite: favoriteIds.has(row.id),
         }))
       );

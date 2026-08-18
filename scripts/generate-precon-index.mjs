@@ -1,0 +1,215 @@
+/**
+ * Regenerates `src/data/precon-index.ts`.
+ *
+ * The `fetch-precons` edge function's `?action=list` response carries only a
+ * name, a set and a filename — nothing to draw. The commander lives inside each
+ * deck's JSON, and those average ~460 kB, so resolving 184 commanders at
+ * runtime would mean an 85 MB download to paint one grid.
+ *
+ * Instead the commander, colour identity and card count for every precon are
+ * extracted once, here, into a ~40 kB static index the page imports. Precon
+ * decklists never change after release, so the only maintenance this needs is a
+ * re-run when new precons ship:
+ *
+ *   node scripts/generate-precon-index.mjs
+ *
+ * Anything the index does not know about still renders — the page falls back to
+ * a typographic tile — so a stale index degrades rather than breaks.
+ */
+
+import { writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const GITHUB_API = 'https://api.github.com/repos/Westly/CommanderPrecons/contents/precon_json';
+const HEADERS = { 'User-Agent': 'DeckMatrix-App' };
+const CONCURRENCY = 8;
+const WUBRG = ['W', 'U', 'B', 'R', 'G'];
+
+const OUT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'src',
+  'data',
+  'precon-index.ts'
+);
+
+/** Same parse the edge function uses, so ids line up exactly. */
+function parseFilename(filename) {
+  const match = filename.match(
+    /^(.+?)\s*\((.+?)\s*(?:Commander\s*)?(?:Precon\s*)?(?:Decklist)?\)\.json$/i
+  );
+  if (match) return { name: match[1].trim(), set: match[2].trim() };
+  return { name: filename.replace('.json', ''), set: 'Unknown' };
+}
+
+async function getJson(url) {
+  const res = await fetch(url, { headers: HEADERS });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+  return res.json();
+}
+
+function entriesOf(board) {
+  return board && typeof board === 'object' ? Object.values(board) : [];
+}
+
+async function extract(file) {
+  const deck = await getJson(file.download_url);
+  const id = file.name.replace(/\.json$/, '');
+  const { name, set } = parseFilename(file.name);
+
+  const commanders = entriesOf(deck.commanders)
+    .map(entry => entry?.card)
+    .filter(Boolean)
+    .map(card => ({
+      name: card.name ?? '',
+      scryfallId: card.scryfall_id ?? '',
+      cost: card.mana_cost ?? '',
+      type: card.type_line ?? '',
+      ci: Array.isArray(card.color_identity) ? card.color_identity : [],
+      released: card.released_at ?? null,
+    }));
+
+  const quantity = board =>
+    entriesOf(board).reduce((sum, entry) => sum + (entry?.quantity ?? 1), 0);
+  const total = quantity(deck.mainboard) + quantity(deck.commanders);
+
+  const ciSet = new Set(commanders.flatMap(c => c.ci));
+  const released = commanders
+    .map(c => c.released)
+    .filter(Boolean)
+    .sort()[0] ?? null;
+
+  return {
+    id,
+    name,
+    set,
+    total,
+    ci: WUBRG.filter(c => ciSet.has(c)),
+    released,
+    commanders: commanders.map(({ name, scryfallId, cost, type }) => ({
+      name,
+      scryfallId,
+      cost,
+      type,
+    })),
+  };
+}
+
+async function main() {
+  const files = (await getJson(GITHUB_API)).filter(f => f.name.endsWith('.json'));
+  console.log(`[precon-index] ${files.length} decks`);
+
+  const results = new Array(files.length);
+  let cursor = 0;
+  let done = 0;
+
+  await Promise.all(
+    Array.from({ length: CONCURRENCY }, async () => {
+      while (cursor < files.length) {
+        const i = cursor++;
+        try {
+          results[i] = await extract(files[i]);
+        } catch (error) {
+          console.warn(`[precon-index] skipped ${files[i].name}: ${error.message}`);
+          results[i] = null;
+        }
+        done += 1;
+        if (done % 20 === 0) console.log(`[precon-index] ${done}/${files.length}`);
+      }
+    })
+  );
+
+  const entries = results.filter(Boolean).sort((a, b) => a.id.localeCompare(b.id));
+  const withCommander = entries.filter(e => e.commanders.length > 0).length;
+  console.log(`[precon-index] ${entries.length} entries, ${withCommander} with a commander`);
+
+  const body = entries
+    .map(e => {
+      const commanders = e.commanders
+        .map(
+          c =>
+            `      { name: ${JSON.stringify(c.name)}, scryfallId: ${JSON.stringify(
+              c.scryfallId
+            )}, cost: ${JSON.stringify(c.cost)}, type: ${JSON.stringify(c.type)} },`
+        )
+        .join('\n');
+      return [
+        '  {',
+        `    id: ${JSON.stringify(e.id)},`,
+        `    name: ${JSON.stringify(e.name)},`,
+        `    set: ${JSON.stringify(e.set)},`,
+        `    total: ${e.total},`,
+        `    ci: ${JSON.stringify(e.ci)},`,
+        `    released: ${JSON.stringify(e.released)},`,
+        commanders ? `    commanders: [\n${commanders}\n    ],` : '    commanders: [],',
+        '  },',
+      ].join('\n');
+    })
+    .join('\n');
+
+  const file = `/**
+ * Commander, colour identity and card count for every Commander precon.
+ *
+ * Generated by \`scripts/generate-precon-index.mjs\` — do not hand-edit; re-run
+ * the script when new precons ship.
+ *
+ * This exists because the \`fetch-precons\` edge function's list response is
+ * name + set + filename only, and the commander lives inside each deck's JSON.
+ * Those average ~460 kB, so resolving 184 commanders at runtime would cost an
+ * 85 MB download before a single tile could be drawn. Precon lists are frozen
+ * once printed, so the lookup is baked instead.
+ *
+ * Keys are the edge function's \`id\` (the filename without \`.json\`), so an
+ * entry missing here simply renders without art rather than breaking the page.
+ *
+ * Generated ${new Date().toISOString().slice(0, 10)} from ${entries.length} decks.
+ */
+
+export interface PreconCommanderRef {
+  name: string;
+  /** Scryfall printing id — resolves to a \`cards\` row, and to card art without one. */
+  scryfallId: string;
+  /** Scryfall mana cost string. Render through \`ManaCost\`, never raw. */
+  cost: string;
+  type: string;
+}
+
+export interface PreconIndexEntry {
+  /** Matches the \`id\` from \`fetch-precons?action=list\`. */
+  id: string;
+  name: string;
+  set: string;
+  /** Total cards including the commander(s). */
+  total: number;
+  /** Union colour identity of the commander(s), in WUBRG order. */
+  ci: string[];
+  /** Release date of the commander's printing — a reliable proxy for the precon's. */
+  released: string | null;
+  commanders: PreconCommanderRef[];
+}
+
+export const PRECON_INDEX: PreconIndexEntry[] = [
+${body}
+];
+
+const BY_ID = new Map(PRECON_INDEX.map(entry => [entry.id, entry]));
+
+export function preconIndexEntry(id: string): PreconIndexEntry | undefined {
+  return BY_ID.get(id);
+}
+
+/** Every commander printing id in the catalogue, for a single batched card lookup. */
+export const PRECON_COMMANDER_IDS: string[] = Array.from(
+  new Set(PRECON_INDEX.flatMap(e => e.commanders.map(c => c.scryfallId)).filter(Boolean))
+);
+`;
+
+  await writeFile(OUT, file, 'utf8');
+  console.log(`[precon-index] wrote ${OUT}`);
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exit(1);
+});

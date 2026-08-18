@@ -76,7 +76,7 @@ export function PermanentRow({
             zIndex: index,
           }}
         >
-          {renderCard(card, index)}
+          {renderCard(card, index, cardWidth)}
         </span>
       ))}
     </div>
@@ -88,7 +88,7 @@ export interface BattlefieldProps {
   cardWidth: number;
   /** Cards that fit side by side in one row before overlapping starts. */
   capacity: number;
-  renderCard: (card: CardInstance, index: number) => ReactNode;
+  renderCard: (card: CardInstance, index: number, width: number) => ReactNode;
   /** Shown when the seat controls nothing. Plain text on the mat, never a box. */
   emptyLabel?: string;
   className?: string;
@@ -126,11 +126,12 @@ export function Battlefield({
         renderCard={renderCard}
         align={align}
       />
-      {/* Lands sit lower and a touch smaller in presence, never in a box. */}
+      {/* Lands keep the same footprint — they are the same object in paper. The
+          separation is the row, not a size change. */}
       <PermanentRow
         cards={lands}
-        cardWidth={Math.round(cardWidth * 0.88)}
-        capacity={Math.max(3, Math.round(capacity * 1.12))}
+        cardWidth={cardWidth}
+        capacity={capacity}
         renderCard={renderCard}
         align={align}
       />

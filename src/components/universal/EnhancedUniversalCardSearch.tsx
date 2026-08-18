@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -17,32 +15,51 @@ import {
   type CardViewMode,
 } from './UniversalCardDisplay';
 import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
-import { AdvancedFilterPanel } from '@/components/filters/AdvancedFilterPanel';
-import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
-import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
 import {
-  CardSearchState,
+  ActiveFilterChips,
+  CardFilterSheet,
+  useCardFilterState,
+} from '@/components/filters/CardFilterPanel';
+import { CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import { useAdvancedCardSearch } from '@/hooks/useAdvancedCardSearch';
+import { cn } from '@/lib/utils';
+import {
   PRESET_QUERIES,
-  countActiveFilters,
-  hasSearchCriteria,
+  SORT_OPTIONS,
+  type CardSearchState,
+  type SortField,
 } from '@/lib/scryfall/query-builder';
 import {
   ArrowDown,
   ArrowUp,
-  Filter,
   Grid3x3,
   HelpCircle,
   List,
   Rows3,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   Zap,
 } from 'lucide-react';
+
+/**
+ * The card search surface.
+ *
+ * Two structural changes from the version this replaces:
+ *
+ * - **One filter.** The bespoke `AdvancedFilterPanel` is gone; filter state is
+ *   owned by `useCardFilterState` and edited through the shared
+ *   `CardFilterPanel`, so the same facets, the same URL encoding and the same
+ *   query builder now serve every card surface in the product.
+ * - **No borders.** The segmented controls, the autocomplete dropdown, the
+ *   result containers and every input in here were hairline-bordered boxes.
+ *   They are surfaces and shadows now.
+ */
 
 interface EnhancedUniversalCardSearchProps {
   onCardAdd?: (card: any) => void;
   onCardSelect?: (card: any) => void;
-  /** Called when the query text settles, so a page can mirror it into the URL. */
+  /** Called when the query text settles, so a page can mirror it elsewhere. */
   onQueryChange?: (query: string) => void;
   placeholder?: string;
   showFilters?: boolean;
@@ -52,10 +69,29 @@ interface EnhancedUniversalCardSearchProps {
   showViewModes?: boolean;
   initialQuery?: string;
   showPresets?: boolean;
+  /**
+   * Mirror the filter into the page URL, making a search linkable.
+   *
+   * Off by default because most mounts of this component are embedded in a tab
+   * or a dialog (deck builder, storage, wishlist) where the URL belongs to the
+   * host page. The dedicated `/cards` page turns it on.
+   */
+  urlSync?: boolean;
+  /** localStorage bucket for the card-size preference. */
+  sizeKey?: string;
 }
 
 const VIEW_STORAGE_KEY = 'dm.cardSearch.view';
-const DENSITY_STORAGE_KEY = 'dm.cardSearch.density';
+
+/** Cards default to LARGE — `lg` in `CARD_IMAGE_SIZES`, drawn from Scryfall `large`. */
+const DEFAULT_CARD_WIDTH = 250;
+
+/** Borderless field skin. `Input`/`SelectTrigger` ship with `border border-input`. */
+const FIELD = 'border-0 bg-muted/50 focus:ring-1 focus:ring-ring focus:ring-offset-0 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0';
+/** Flat popover surface — depth from shadow, never from a hairline. */
+const SURFACE = 'border-0 bg-popover shadow-xl shadow-black/40';
+/** Segmented-control shell: a recessed tint instead of a box. */
+const SEGMENTED = 'flex items-center gap-0.5 rounded-lg bg-muted/40 p-0.5';
 
 const VIEW_MODES: { mode: CardViewMode; label: string; icon: typeof Grid3x3 }[] = [
   { mode: 'grid', label: 'Card grid', icon: Grid3x3 },
@@ -63,22 +99,10 @@ const VIEW_MODES: { mode: CardViewMode; label: string; icon: typeof Grid3x3 }[] 
   { mode: 'compact', label: 'Text list', icon: Rows3 },
 ];
 
-const SORT_OPTIONS: { value: CardSortKey; label: string }[] = [
-  { value: 'name', label: 'Name' },
-  { value: 'cmc', label: 'Mana value' },
-  { value: 'usd', label: 'Price' },
-  { value: 'rarity', label: 'Rarity' },
-  { value: 'set', label: 'Set' },
-  { value: 'released', label: 'Release date' },
-  { value: 'edhrec', label: 'EDHREC rank' },
-  { value: 'power', label: 'Power' },
-];
-
-const DENSITY_STEPS: { value: number; label: string }[] = [
-  { value: 0, label: 'L' },
-  { value: 2, label: 'M' },
-  { value: 4, label: 'S' },
-];
+/** Sort axes the results table can also drive from its own column headers. */
+const TABLE_SORT_KEYS = new Set<string>([
+  'name', 'cmc', 'set', 'rarity', 'power', 'toughness', 'usd', 'released', 'edhrec',
+]);
 
 const SYNTAX_EXAMPLES: { token: string; meaning: string }[] = [
   { token: 't:creature', meaning: 'Card type' },
@@ -133,6 +157,15 @@ function useCardNameSuggestions(text: string) {
   return suggestions;
 }
 
+/** Monospace key hint. Flat tint, because a `kbd` used to be a bordered box. */
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem] text-foreground">
+      {children}
+    </kbd>
+  );
+}
+
 export function EnhancedUniversalCardSearch({
   onCardAdd,
   onCardSelect,
@@ -145,35 +178,30 @@ export function EnhancedUniversalCardSearch({
   showViewModes = true,
   initialQuery = '',
   showPresets = true,
+  urlSync = false,
+  sizeKey = 'search',
 }: EnhancedUniversalCardSearchProps) {
-  const [searchState, setSearchState] = useState<CardSearchState>(() => ({
-    text: initialQuery,
-    unique: 'cards',
-    order: 'name',
-    dir: 'asc',
-  }));
+  // One filter state, shared with every other card surface. `initialState` is
+  // seeded once and only into an untouched URL, so "clear all" really clears.
+  const filters = useCardFilterState({
+    urlSync,
+    initialState: initialQuery ? { text: initialQuery } : undefined,
+  });
+  const { state: searchState, patch, reset: resetFilters } = filters;
 
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const [cardWidth, setCardWidth] = useCardSize(sizeKey, DEFAULT_CARD_WIDTH);
 
   const [viewMode, setViewMode] = useState<CardViewMode>(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
     return stored === 'list' || stored === 'compact' || stored === 'grid' ? stored : 'grid';
   });
-  const [density, setDensity] = useState<number>(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(DENSITY_STORAGE_KEY) : null;
-    const parsed = stored ? parseInt(stored, 10) : NaN;
-    return isNaN(parsed) ? 2 : parsed;
-  });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  // Held in a ref so a caller passing an inline arrow does not retrigger the
-  // debounce effect on every render.
-  const onQueryChangeRef = useRef(onQueryChange);
-  onQueryChangeRef.current = onQueryChange;
 
   const {
     results,
@@ -187,19 +215,61 @@ export function EnhancedUniversalCardSearch({
     clearResults,
   } = useAdvancedCardSearch();
 
-  const suggestions = useCardNameSuggestions(searchState.text ?? '');
+  /* ------------------------- Search box drafting ------------------------ */
+  // The box holds its own draft and commits on a debounce. Writing straight
+  // into the controller would push a URL replace on every keystroke.
+  const committedText = searchState.text ?? '';
+  const [draft, setDraft] = useState(committedText);
+  const lastCommitted = useRef(committedText);
 
+  // Adopt external changes — a removed chip, "clear all", a shared link —
+  // without stomping on what is being typed.
+  useEffect(() => {
+    if (committedText !== lastCommitted.current) {
+      lastCommitted.current = committedText;
+      setDraft(committedText);
+    }
+  }, [committedText]);
+
+  useEffect(() => {
+    if (draft === lastCommitted.current) return;
+    const timer = window.setTimeout(() => {
+      lastCommitted.current = draft;
+      patch({ text: draft.trim() ? draft : undefined });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [draft, patch]);
+
+  const commitNow = useCallback(
+    (text: string) => {
+      lastCommitted.current = text;
+      setDraft(text);
+      patch({ text: text.trim() ? text : undefined });
+    },
+    [patch]
+  );
+
+  const suggestions = useCardNameSuggestions(draft);
+
+  /* ------------------------------ Effects ------------------------------- */
   useEffect(() => {
     localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
   }, [viewMode]);
-  useEffect(() => {
-    localStorage.setItem(DENSITY_STORAGE_KEY, String(density));
-  }, [density]);
 
-  // Keep the box in sync when the page arrives with ?q=…
+  // A caller-owned mirror of the query text (Cards.tsx used to keep `?q=`).
+  const onQueryChangeRef = useRef(onQueryChange);
+  onQueryChangeRef.current = onQueryChange;
   useEffect(() => {
-    setSearchState(prev => (prev.text === initialQuery ? prev : { ...prev, text: initialQuery }));
-  }, [initialQuery]);
+    onQueryChangeRef.current?.(committedText);
+  }, [committedText]);
+
+  // Seed the box when an embedded caller changes `initialQuery` after mount.
+  const seenInitial = useRef(initialQuery);
+  useEffect(() => {
+    if (initialQuery === seenInitial.current) return;
+    seenInitial.current = initialQuery;
+    commitNow(initialQuery);
+  }, [initialQuery, commitNow]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -209,7 +279,7 @@ export function EnhancedUniversalCardSearch({
         searchInputRef.current?.focus();
       }
       if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
-        setSearchState(prev => ({ ...prev, text: '' }));
+        setDraft('');
         setShowSuggestions(false);
         searchInputRef.current?.blur();
       }
@@ -218,17 +288,12 @@ export function EnhancedUniversalCardSearch({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Debounced search. Every field of searchState — including order, dir and the
-  // numeric ranges — participates, because the hook keys its cache on the full
-  // request URL rather than on the query token alone.
+  // The whole filter state participates: the hook keys its cache on the full
+  // request URL, not on the query token alone, so sort and uniqueness count.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (hasSearchCriteria(searchState)) searchWithState(searchState);
-      else clearResults();
-      onQueryChangeRef.current?.(searchState.text ?? '');
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchState, searchWithState, clearResults]);
+    if (filters.query !== '*') searchWithState(searchState);
+    else clearResults();
+  }, [searchState, filters.query, searchWithState, clearResults]);
 
   // Infinite scroll.
   useEffect(() => {
@@ -244,17 +309,17 @@ export function EnhancedUniversalCardSearch({
     return () => observer.disconnect();
   }, [hasMore, loadMore, results.length]);
 
-  const handleStateChange = useCallback((updates: Partial<CardSearchState>) => {
-    setSearchState(prev => ({ ...prev, ...updates }));
-  }, []);
-
-  const handleSortKey = useCallback((key: CardSortKey) => {
-    setSearchState(prev =>
-      prev.order === key
-        ? { ...prev, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { ...prev, order: key, dir: 'asc' }
-    );
-  }, []);
+  /* ------------------------------ Handlers ------------------------------ */
+  const handleSortKey = useCallback(
+    (key: CardSortKey) => {
+      patch(
+        searchState.order === key
+          ? { dir: searchState.dir === 'asc' ? 'desc' : 'asc' }
+          : { order: key as CardSearchState['order'], dir: 'asc' }
+      );
+    },
+    [patch, searchState.order, searchState.dir]
+  );
 
   const handleCardClick = (card: any) => {
     setSelectedCard(card);
@@ -262,18 +327,24 @@ export function EnhancedUniversalCardSearch({
     onCardSelect?.(card);
   };
 
-  const handleReset = () => {
-    setSearchState({ text: '', unique: 'cards', order: 'name', dir: 'asc' });
+  const handleReset = useCallback(() => {
+    lastCommitted.current = '';
+    setDraft('');
     setShowSuggestions(false);
+    resetFilters();
     clearResults();
-  };
+  }, [resetFilters, clearResults]);
 
-  const activeFilterCount = useMemo(() => countActiveFilters(searchState), [searchState]);
-  const hasCriteria = useMemo(() => hasSearchCriteria(searchState), [searchState]);
-  const sort = useMemo(
-    () => ({ key: (searchState.order ?? 'name') as CardSortKey, dir: searchState.dir ?? 'asc' }),
-    [searchState.order, searchState.dir]
-  );
+  const hasCriteria = filters.query !== '*';
+
+  const tableSort = useMemo(() => {
+    const key = searchState.order ?? 'name';
+    return TABLE_SORT_KEYS.has(key)
+      ? { key: key as CardSortKey, dir: searchState.dir ?? 'asc' }
+      : undefined;
+  }, [searchState.order, searchState.dir]);
+
+  const presetButtons = useMemo(() => PRESET_QUERIES.slice(0, 4), []);
 
   return (
     <div className="space-y-4">
@@ -287,9 +358,9 @@ export function EnhancedUniversalCardSearch({
             />
             <Input
               ref={searchInputRef}
-              value={searchState.text || ''}
+              value={draft}
               onChange={e => {
-                handleStateChange({ text: e.target.value });
+                setDraft(e.target.value);
                 setShowSuggestions(true);
               }}
               onFocus={() => setShowSuggestions(true)}
@@ -298,12 +369,12 @@ export function EnhancedUniversalCardSearch({
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   setShowSuggestions(false);
-                  searchWithState(searchState);
+                  commitNow(draft);
                 }
               }}
               placeholder={placeholder}
               aria-label="Search cards"
-              className="w-full pl-10 text-base"
+              className={cn(FIELD, 'h-11 w-full pl-10 text-base')}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -311,14 +382,19 @@ export function EnhancedUniversalCardSearch({
             />
 
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+              <div
+                className={cn(
+                  'absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-lg py-1',
+                  SURFACE
+                )}
+              >
                 {suggestions.map(name => (
                   <button
                     key={name}
                     type="button"
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => {
-                      handleStateChange({ text: name });
+                      commitNow(name);
                       setShowSuggestions(false);
                     }}
                     className="block w-full px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-accent"
@@ -332,37 +408,38 @@ export function EnhancedUniversalCardSearch({
 
           <div className="flex gap-2">
             {showFilters && (
-              <Button
-                variant={showAdvancedFilters ? 'default' : 'outline'}
-                onClick={() => setShowAdvancedFilters(v => !v)}
-                aria-expanded={showAdvancedFilters}
-                className="gap-2"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">Filters</span>
-                {activeFilterCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center px-1 text-xs">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
+              <CardFilterSheet
+                controller={filters}
+                showChips={false}
+                trigger={
+                  <Button variant="secondary" className="h-11 gap-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span className="hidden sm:inline">Filters</span>
+                    {filters.activeCount > 0 && (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[0.7rem] font-bold leading-none text-primary-foreground">
+                        {filters.activeCount}
+                      </span>
+                    )}
+                  </Button>
+                }
+              />
             )}
 
             {showPresets && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="secondary" className="h-11 gap-2">
                     <Zap className="h-4 w-4" />
                     <span className="hidden sm:inline">Presets</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 p-1">
+                <PopoverContent align="end" className={cn(SURFACE, 'w-80 p-1')}>
                   {PRESET_QUERIES.map(preset => (
                     <button
                       key={preset.name}
                       type="button"
-                      onClick={() => handleStateChange({ text: preset.query })}
-                      className="block w-full rounded-sm px-3 py-2 text-left transition-colors hover:bg-accent"
+                      onClick={() => commitNow(preset.query)}
+                      className="block w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-accent"
                     >
                       <span className="block text-sm font-medium text-popover-foreground">
                         {preset.name}
@@ -378,11 +455,16 @@ export function EnhancedUniversalCardSearch({
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Search syntax help">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-11 w-11"
+                  aria-label="Search syntax help"
+                >
                   <HelpCircle className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
+              <PopoverContent align="end" className={cn(SURFACE, 'w-80')}>
                 <p className="mb-3 text-sm font-medium text-popover-foreground">Search syntax</p>
                 <dl className="space-y-1.5">
                   {SYNTAX_EXAMPLES.map(ex => (
@@ -396,26 +478,28 @@ export function EnhancedUniversalCardSearch({
                     </div>
                   ))}
                 </dl>
-                <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-                  Press <kbd className="rounded border border-border px-1">/</kbd> to focus search,{' '}
-                  <kbd className="rounded border border-border px-1">Esc</kbd> to clear. Use the
-                  arrow keys to move through results and{' '}
-                  <kbd className="rounded border border-border px-1">Enter</kbd> to open a card.
+                <p className="mt-3 rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-muted-foreground">
+                  Press <Key>/</Key> to focus search, <Key>Esc</Key> to clear. Arrow keys move
+                  through results and <Key>Enter</Key> opens a card.
                 </p>
               </PopoverContent>
             </Popover>
 
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
+              className="h-11 w-11"
               onClick={handleReset}
-              disabled={!searchState.text && activeFilterCount === 0}
+              disabled={filters.activeCount === 0 && !draft}
               aria-label="Reset search"
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* Removable chips for whatever the filter sheet set. */}
+        <ActiveFilterChips controller={filters} />
 
         {/* ------------------------ Results toolbar ------------------------ */}
         {(results.length > 0 || loading) && (
@@ -427,15 +511,24 @@ export function EnhancedUniversalCardSearch({
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
+              {viewMode === 'grid' && (
+                <CardSizeSlider
+                  storageKey={sizeKey}
+                  value={cardWidth}
+                  onValueChange={setCardWidth}
+                  className="hidden sm:flex"
+                />
+              )}
+
               {showViewModes && (
-                <div className="flex items-center rounded-md border border-border">
+                <div className={SEGMENTED} role="group" aria-label="Result layout">
                   {VIEW_MODES.map(({ mode, label, icon: Icon }) => (
                     <Button
                       key={mode}
                       variant={viewMode === mode ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewMode(mode)}
-                      className="h-8 rounded-sm px-2"
+                      className="h-8 rounded-md px-2"
                       aria-pressed={viewMode === mode}
                       title={label}
                     >
@@ -445,32 +538,17 @@ export function EnhancedUniversalCardSearch({
                 </div>
               )}
 
-              {viewMode === 'grid' && (
-                <div className="flex items-center rounded-md border border-border" role="group" aria-label="Card size">
-                  {DENSITY_STEPS.map(step => (
-                    <Button
-                      key={step.label}
-                      variant={density === step.value ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setDensity(step.value)}
-                      className="h-8 w-8 rounded-sm p-0 text-xs font-medium"
-                      aria-pressed={density === step.value}
-                      title={`${step.label} cards`}
-                    >
-                      {step.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
               <Select
                 value={searchState.unique ?? 'cards'}
-                onValueChange={(unique: 'cards' | 'prints' | 'art') => handleStateChange({ unique })}
+                onValueChange={(unique: 'cards' | 'prints' | 'art') => patch({ unique })}
               >
-                <SelectTrigger className="h-8 w-[104px]" aria-label="Result uniqueness">
+                <SelectTrigger
+                  className={cn(FIELD, 'h-8 w-[104px]')}
+                  aria-label="Result uniqueness"
+                >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={SURFACE}>
                   <SelectItem value="cards">Unique cards</SelectItem>
                   <SelectItem value="prints">All printings</SelectItem>
                   <SelectItem value="art">Unique art</SelectItem>
@@ -479,12 +557,12 @@ export function EnhancedUniversalCardSearch({
 
               <Select
                 value={searchState.order ?? 'name'}
-                onValueChange={(order: CardSortKey) => handleStateChange({ order })}
+                onValueChange={(order: SortField) => patch({ order })}
               >
-                <SelectTrigger className="h-8 w-[132px]" aria-label="Sort results by">
+                <SelectTrigger className={cn(FIELD, 'h-8 w-[140px]')} aria-label="Sort results by">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={SURFACE}>
                   {SORT_OPTIONS.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -494,17 +572,17 @@ export function EnhancedUniversalCardSearch({
               </Select>
 
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => handleStateChange({ dir: searchState.dir === 'asc' ? 'desc' : 'asc' })}
-                className="h-8 px-2"
-                title={searchState.dir === 'asc' ? 'Sort descending' : 'Sort ascending'}
-                aria-label={searchState.dir === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                onClick={() => patch({ dir: searchState.dir === 'asc' ? 'desc' : 'asc' })}
+                className="h-8 bg-muted/40 px-2"
+                title={searchState.dir === 'desc' ? 'Sort ascending' : 'Sort descending'}
+                aria-label={searchState.dir === 'desc' ? 'Sort ascending' : 'Sort descending'}
               >
-                {searchState.dir === 'asc' ? (
-                  <ArrowUp className="h-4 w-4" />
-                ) : (
+                {searchState.dir === 'desc' ? (
                   <ArrowDown className="h-4 w-4" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
                 )}
               </Button>
             </div>
@@ -512,22 +590,20 @@ export function EnhancedUniversalCardSearch({
         )}
       </div>
 
-      {showFilters && showAdvancedFilters && (
-        <AdvancedFilterPanel searchState={searchState} onStateChange={setSearchState} />
-      )}
-
       {/* ------------------------------ Results ----------------------------- */}
       <div className="space-y-4">
-        {loading && results.length === 0 && <CardGridSkeleton />}
+        {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={18} />}
 
         {error && (
-          <Card className="border-destructive/40 p-6">
-            <p className="mb-1 text-sm font-medium text-destructive">Scryfall could not run that search</p>
+          <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
+            <p className="mb-1 text-sm font-medium text-destructive">
+              Scryfall could not run that search
+            </p>
             <p className="text-sm text-muted-foreground">{error}</p>
-            <Button variant="outline" size="sm" onClick={handleReset} className="mt-3">
+            <Button variant="secondary" size="sm" onClick={handleReset} className="mt-3">
               Clear search
             </Button>
-          </Card>
+          </div>
         )}
 
         {results.length > 0 && (
@@ -535,8 +611,8 @@ export function EnhancedUniversalCardSearch({
             <UniversalCardDisplay
               cards={results}
               viewMode={viewMode}
-              density={density}
-              sort={sort}
+              cardWidth={cardWidth}
+              sort={tableSort}
               onSortChange={handleSortKey}
               onCardClick={handleCardClick}
               onCardAdd={showAddButton ? onCardAdd : undefined}
@@ -548,7 +624,7 @@ export function EnhancedUniversalCardSearch({
 
             {hasMore && (
               <div className="flex justify-center">
-                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
                   {loadingMore ? 'Loading…' : 'Load more cards'}
                 </Button>
               </div>
@@ -563,41 +639,40 @@ export function EnhancedUniversalCardSearch({
         )}
 
         {!loading && !error && results.length === 0 && hasCriteria && (
-          <Card className="p-8 text-center">
+          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
             <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
             <h3 className="mb-1 text-base font-medium text-foreground">No cards matched</h3>
             <p className="mx-auto mb-4 max-w-md text-sm text-muted-foreground">
               Scryfall parsed the query but nothing matched. Loosen a filter, or check the syntax
               reference in the help menu.
             </p>
-            <Button variant="outline" onClick={handleReset}>
+            <Button variant="secondary" onClick={handleReset}>
               Clear search
             </Button>
-          </Card>
+          </div>
         )}
 
         {!loading && !error && results.length === 0 && !hasCriteria && (
-          <Card className="p-8 text-center">
+          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
             <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
             <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>
             <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground">
-              Type a card name, or use Scryfall syntax. Press{' '}
-              <kbd className="rounded border border-border px-1 text-xs">/</kbd> from anywhere to
-              jump to the search box.
+              Type a card name, or use Scryfall syntax. Press <Key>/</Key> from anywhere to jump to
+              the search box.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              {PRESET_QUERIES.slice(0, 4).map(preset => (
+              {presetButtons.map(preset => (
                 <Button
                   key={preset.name}
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
-                  onClick={() => handleStateChange({ text: preset.query })}
+                  onClick={() => commitNow(preset.query)}
                 >
                   {preset.name}
                 </Button>
               ))}
             </div>
-          </Card>
+          </div>
         )}
       </div>
 

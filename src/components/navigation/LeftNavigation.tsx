@@ -4,6 +4,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { NewDeckDialog } from './NewDeckDialog';
 import {
   NAV_HOME,
   isNavItemActive,
@@ -36,6 +37,7 @@ export function LeftNavigation() {
   const location = useLocation();
   const { isAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+  const [newDeckOpen, setNewDeckOpen] = useState(false);
 
   // Layout effect: the content offset is driven off this attribute, so setting
   // it after paint would flash a 256px gutter on a page loaded while collapsed.
@@ -59,18 +61,16 @@ export function LeftNavigation() {
     (item: NavItem) => {
       const active = isNavItemActive(location.pathname, item);
 
-      const link = (
-        <Link
-          to={item.href}
-          aria-current={active ? 'page' : undefined}
-          className={cn(
-            'relative flex h-9 items-center gap-3 rounded-md text-sm transition-colors',
-            collapsed ? 'w-9 justify-center px-0' : 'px-2.5',
-            active
-              ? 'bg-accent font-medium text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-          )}
-        >
+      const className = cn(
+        'relative flex h-9 w-full items-center gap-3 rounded-md text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        collapsed ? 'w-9 justify-center px-0' : 'px-2.5',
+        active
+          ? 'bg-accent font-medium text-accent-foreground'
+          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+      );
+
+      const body = (
+        <>
           {active && (
             <span
               aria-hidden="true"
@@ -83,8 +83,21 @@ export function LeftNavigation() {
           ) : (
             <span className="truncate">{item.title}</span>
           )}
-        </Link>
+        </>
       );
+
+      // An action item opens a flow; following its `href` would land the user
+      // somewhere its label does not describe.
+      const link =
+        item.action === 'new-deck' ? (
+          <button type="button" onClick={() => setNewDeckOpen(true)} className={className}>
+            {body}
+          </button>
+        ) : (
+          <Link to={item.href} aria-current={active ? 'page' : undefined} className={className}>
+            {body}
+          </Link>
+        );
 
       if (!collapsed) return link;
 
@@ -107,7 +120,9 @@ export function LeftNavigation() {
     <>
       <div
         className={cn(
-          'flex h-full flex-col border-r border-border bg-background transition-[width] duration-150',
+          // Surface tint + shadow rather than a hairline rule: the rail reads as
+          // a raised panel against the page instead of being fenced off by it.
+          'flex h-full flex-col bg-muted/30 shadow-lg shadow-black/20 transition-[width] duration-150 motion-reduce:transition-none',
           collapsed ? 'w-16' : 'w-64',
         )}
       >
@@ -123,10 +138,7 @@ export function LeftNavigation() {
           </ul>
 
           {groups.map(group => (
-            <section
-              key={group.id}
-              className={cn('mt-4 border-t border-border pt-4', collapsed && 'mt-3 pt-3')}
-            >
+            <section key={group.id} className={cn('mt-5', collapsed && 'mt-4')}>
               <h2
                 className={cn(
                   'px-2.5 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground',
@@ -144,7 +156,7 @@ export function LeftNavigation() {
           ))}
         </nav>
 
-        <div className={cn('border-t border-border py-2', collapsed ? 'px-3.5' : 'px-3')}>
+        <div className={cn('py-2', collapsed ? 'px-3.5' : 'px-3')}>
           <button
             type="button"
             onClick={() => setCollapsed(value => !value)}
@@ -164,6 +176,8 @@ export function LeftNavigation() {
           </button>
         </div>
       </div>
+
+      <NewDeckDialog open={newDeckOpen} onOpenChange={setNewDeckOpen} />
     </>
   );
 }

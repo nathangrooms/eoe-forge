@@ -337,7 +337,12 @@ export function PlayerPanel({
             {colors.length > 0 && <ColorIdentity colors={colors} size="xs" />}
           </button>
 
-          {/* Counters that are actually in play. Absent counters show nothing. */}
+          {/*
+            Counters that are actually in play — a counter at zero shows nothing.
+            Deliberately inert: a chip is a small target sitting inside a tap
+            half, so letting it swallow presses would turn "I meant +1" into
+            "why did a sheet open".
+          */}
           <div
             className={cn(
               'pointer-events-none absolute flex max-w-[45%] flex-wrap items-center gap-1 p-1',

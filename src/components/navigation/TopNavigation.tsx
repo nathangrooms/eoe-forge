@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
+import { NewDeckDialog } from './NewDeckDialog';
 import logo from '@/assets/deckmatrix-logo.png';
 
 /**
@@ -16,6 +17,7 @@ import logo from '@/assets/deckmatrix-logo.png';
 export function TopNavigation() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [newDeckOpen, setNewDeckOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Ctrl/Cmd+K focuses the header search. Nothing else in the app binds it
@@ -46,7 +48,7 @@ export function TopNavigation() {
   };
 
   return (
-    <header className="h-16 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="h-16 w-full bg-card/95 shadow-lg shadow-black/20 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -88,7 +90,7 @@ export function TopNavigation() {
               aria-label="Search cards"
               className="h-9 pl-9 pr-14"
             />
-            <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:inline-block">
+            <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:inline-block">
               ⌘K
             </kbd>
           </div>
@@ -129,10 +131,12 @@ export function TopNavigation() {
             Add cards
           </Button>
 
+          {/* `/deck-builder` with no `?deck=` redirects to the deck list, so this
+              button used to promise a new deck and deliver the list instead. */}
           <Button
             size="sm"
             className="hidden h-9 md:inline-flex"
-            onClick={() => navigate('/deck-builder')}
+            onClick={() => setNewDeckOpen(true)}
           >
             <Plus className="h-4 w-4" />
             New deck
@@ -141,6 +145,8 @@ export function TopNavigation() {
           <AccountMenu />
         </div>
       </div>
+
+      <NewDeckDialog open={newDeckOpen} onOpenChange={setNewDeckOpen} />
     </header>
   );
 }

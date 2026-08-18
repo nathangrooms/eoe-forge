@@ -370,7 +370,14 @@ export function useLifeGame(): LifeGame {
       for (const key of Object.keys(timers.current)) clearTimer(key);
       commitPending({});
       const existing = sessionRef.current;
-      commitSession(newSession(config, Date.now(), existing?.options));
+      // Seating preference carries over; partner flags do not — they belong to
+      // the pod that just got up from the table.
+      commitSession(
+        newSession(config, Date.now(), {
+          variant: existing?.options.variant ?? 'table',
+          partners: {},
+        }),
+      );
     },
     [clearTimer, commitPending, commitSession],
   );

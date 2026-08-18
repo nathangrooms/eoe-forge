@@ -71,3 +71,23 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Licences and attribution
+
+DeckMatrix's rules core in `src/lib/game/` is architecturally derived from
+[XMage](https://github.com/magefree/mage), which is MIT-licensed. XMage's model of a game of
+Magic — turn/phase/step structure, state-based actions, combat, the continuous-effects layer
+system, the stack, replacement effects and triggered abilities — is the design DeckMatrix ports
+into pure, seeded, JSON-serialisable TypeScript. No XMage source is copied or vendored, and none
+of its ~25,000 scripted card classes are ported; card behaviour is compiled from Scryfall oracle
+text instead.
+
+DeckMatrix deliberately derives **nothing** from [Card-Forge/forge](https://github.com/Card-Forge/forge),
+which is GPL-3.0.
+
+Full notices, the XMage MIT text, the file-by-file derivation table and the record of the
+Forge-contamination check are in **[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)**.
+
+Card data comes from [Scryfall](https://scryfall.com/docs/api). Magic: The Gathering is a
+trademark of Wizards of the Coast LLC; DeckMatrix is unofficial Fan Content and is not approved
+or endorsed by Wizards.

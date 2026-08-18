@@ -229,7 +229,10 @@ export function AISystemAdmin() {
                         <TableHead>Metered feature</TableHead>
                         <TableHead className="text-right">Current period</TableHead>
                         <TableHead className="text-right">All time</TableHead>
-                        <TableHead className="text-right">Accounts</TableHead>
+                        {/* Four numeric columns do not fit a 375px screen. The
+                            account count moves under the feature name there
+                            rather than being scrolled out of sight. */}
+                        <TableHead className="hidden text-right sm:table-cell">Accounts</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -243,6 +246,10 @@ export function AISystemAdmin() {
                             <span className="block font-mono text-xs font-normal text-muted-foreground">
                               {row.featureKey}
                             </span>
+                            <span className="block text-xs font-normal text-muted-foreground sm:hidden">
+                              {row.users.toLocaleString()} account
+                              {row.users === 1 ? '' : 's'}
+                            </span>
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {row.currentPeriod.toLocaleString()}
@@ -250,7 +257,7 @@ export function AISystemAdmin() {
                           <TableCell className="text-right tabular-nums">
                             {row.allTime.toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="hidden text-right tabular-nums sm:table-cell">
                             {row.users.toLocaleString()}
                           </TableCell>
                         </TableRow>

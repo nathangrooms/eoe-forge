@@ -229,6 +229,8 @@ export const ZONE_LABELS: Record<Zone, string> = {
   graveyard: 'Graveyard',
   exile: 'Exile',
   command: 'Command zone',
+  /* Present for exhaustiveness; the stack is never a manual move target. */
+  stack: 'Stack',
 };
 
 /**

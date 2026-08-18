@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
+import { PublicNavigation } from "@/components/navigation/PublicNavigation";
 import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import Collection from "./pages/Collection";
@@ -79,11 +80,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
+}
+
+
+/**
+ * Header for public content pages.
+ *
+ * A visitor following a shared deck or card link is signed out, so the app
+ * shell never renders. Without this they get the page and nothing else: no
+ * wordmark, no way back, and no prompt to sign up.
+ */
+function PublicContentShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <PublicNavigation />
+      <main id="main-content">{children}</main>
+    </div>
+  );
 }
 
 function AppContent() {
@@ -106,10 +125,14 @@ function AppContent() {
         <Route path="/auth" element={<Navigate to="/login" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
-        <Route path="/p/:slug" element={<PublicDeck />} />
-        {/* Card detail is public Scryfall data, so a card link shared out of a
-            public deck resolves instead of bouncing a visitor to the homepage. */}
-        <Route path="/cards/:id" element={<CardDetailPage />} />
+        {/* Shared content a signed-out visitor can land on directly. These get
+            the public header: without it there is no wordmark, no back control
+            and no route to signing up — a dead end at the end of a shared link. */}
+        <Route path="/p/:slug" element={<PublicContentShell><PublicDeck /></PublicContentShell>} />
+        <Route
+          path="/cards/:id"
+          element={<PublicContentShell><CardDetailPage /></PublicContentShell>}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

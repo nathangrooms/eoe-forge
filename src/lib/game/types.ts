@@ -39,13 +39,20 @@ export type ManaColor = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 /* Zones                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * CR 400.1 — the seven zones we model. `stack` is a *shared* zone in the rules;
+ * we still file a card on the stack under its owner's `Player.zones.stack` so
+ * that the "a card is in exactly one zone array" invariant holds, and let
+ * `GameState.stack` be authoritative for order.
+ */
 export type Zone =
   | 'library'
   | 'hand'
   | 'battlefield'
   | 'graveyard'
   | 'exile'
-  | 'command';
+  | 'command'
+  | 'stack';
 
 export const ZONES: readonly Zone[] = [
   'library',
@@ -54,6 +61,7 @@ export const ZONES: readonly Zone[] = [
   'graveyard',
   'exile',
   'command',
+  'stack',
 ] as const;
 
 /** Zones whose contents are hidden from opponents. Used by networked play to redact state. */
@@ -202,6 +210,13 @@ export interface CardInstance {
   summoningSick: boolean;
   /** Damage marked this turn. Cleared at cleanup. */
   damage: number;
+  /**
+   * CR 704.5h — set when a source with deathtouch has dealt this permanent any
+   * damage. Deathtouch makes *any* nonzero amount lethal, so the amount alone
+   * cannot say whether the permanent should be destroyed; this flag carries the
+   * other half. Cleared with `damage` at cleanup and on every zone change.
+   */
+  damagedByDeathtouch?: boolean;
   /** '+1/+1', 'loyalty', 'charge', … Absent key means zero. */
   counters: Record<string, number>;
   /** Equipment / Auras: the instance this is attached to. */
@@ -364,6 +379,173 @@ export interface CombatState {
 }
 
 /* -------------------------------------------------------------------------- */
+/* The stack (CR 405, 601, 608)                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Ported from XMage's `mage.game.stack` / `mage.abilities` *model*, not its
+ * mechanism. XMage puts live Java objects on a `SpellStack` and calls
+ * `resolve(game)` on them; that is an object graph with behaviour attached, and
+ * it is neither serialisable nor replayable. Here a stack object is a plain
+ * record and its behaviour is a list of declarative `StackEffect` values that
+ * `stack.ts` compiles into ordinary `GameAction`s at resolution time. Same
+ * model, and the game stays "a seed plus an action log".
+ *
+ * XMage is MIT licensed (https://github.com/magefree/mage). The MIT notice is
+ * retained for the ported portions and XMage is credited in the project's
+ * licences.
+ */
+export type StackObjectId = string;
+
+/**
+ * One thing a spell or ability points at. Chosen on announcement (CR 601.2c)
+ * and checked again on resolution (CR 608.2b) — which is why `zone` is part of
+ * the reference: a card that has changed zones is a new object (CR 400.7) and
+ * therefore no longer the thing that was targeted.
+ */
+export interface StackTarget {
+  kind: 'player' | 'card' | 'stack';
+  playerId?: PlayerId;
+  instanceId?: InstanceId;
+  stackId?: StackObjectId;
+  /** Zone the card was in when it was targeted. */
+  zone?: Zone;
+}
+
+/**
+ * Where an effect gets its recipients. `target` indexes into the stack
+ * object's own `targets`, so a fizzled target silently drops that effect
+ * rather than hitting the wrong permanent.
+ */
+export type StackTargetSelector =
+  | { from: 'target'; index: number }
+  | { from: 'controller' }
+  | { from: 'source' }
+  | { from: 'each-opponent' }
+  | { from: 'each-player' }
+  | { from: 'ref'; ref: StackTarget };
+
+/**
+ * What a stack object does when it resolves, as data. This is the ability DSL
+ * the oracle-text compiler emits into; nothing here is a function, so a stack
+ * object survives `JSON.stringify` and a client can replay it exactly.
+ */
+export type StackEffect =
+  | { op: 'damage'; amount: number; to?: StackTargetSelector; infect?: boolean }
+  | { op: 'life'; amount: number; to?: StackTargetSelector }
+  | { op: 'poison'; amount: number; to?: StackTargetSelector }
+  | { op: 'draw'; count: number; to?: StackTargetSelector }
+  | { op: 'counters'; counter: string; delta: number; to?: StackTargetSelector }
+  | { op: 'tap'; to?: StackTargetSelector }
+  | { op: 'untap'; to?: StackTargetSelector }
+  | { op: 'move'; zone: Zone; to?: StackTargetSelector }
+  | { op: 'counter-spell'; to?: StackTargetSelector }
+  | { op: 'token'; token: TokenSpec; count?: number; tapped?: boolean; to?: StackTargetSelector }
+  /** The honest escape hatch: say it out loud instead of silently doing nothing. */
+  | { op: 'note'; message: string };
+
+export type StackObjectKind = 'spell' | 'triggered' | 'activated';
+
+export interface StackObject {
+  stackId: StackObjectId;
+  kind: StackObjectKind;
+  name: string;
+  controllerId: PlayerId;
+  /** The card that *is* this spell. Absent for abilities — an ability is not a card. */
+  cardInstanceId?: InstanceId;
+  /** The permanent whose ability this is. */
+  sourceInstanceId?: InstanceId;
+  /** Chosen on announcement. Empty means "no targets", and an object with no targets never fizzles. */
+  targets: StackTarget[];
+  effects: StackEffect[];
+  /** Where the card goes once it resolves: battlefield for permanents, graveyard for instants and sorceries. */
+  resolvesTo?: Zone;
+  /** CR 702.61 — nothing but mana abilities may be played while this is on the stack. */
+  splitSecond?: boolean;
+  /** CR 701.5b. Does NOT stop it fizzling: CR 608.2b is not countering. */
+  cantBeCountered?: boolean;
+  /** Turn it was announced on. Log/replay only. */
+  turn: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Replacement effects (CR 614)                                               */
+/* -------------------------------------------------------------------------- */
+
+export type ReplacementId = string;
+
+/** The event kinds this engine lets a replacement effect intercept. */
+export type ReplaceableEventKind =
+  | 'draw'
+  | 'damage'
+  | 'enters'
+  | 'counters'
+  | 'life-gain'
+  | 'life-loss';
+
+/** Narrowing conditions. Every field is AND-ed; an absent field matches everything. */
+export interface ReplacementMatch {
+  /** The affected player — the one drawing, taking the damage, gaining the life. */
+  playerId?: PlayerId;
+  /** The affected permanent. `'self'` means "the effect's own source", for self-replacement. */
+  instanceId?: InstanceId | 'self';
+  /** Controller of the affected permanent. */
+  controllerId?: PlayerId;
+  /** Lower-cased substring of the affected permanent's type line, e.g. `'land'`. */
+  typeLine?: string;
+  /** Only damage from this source. */
+  sourceInstanceId?: InstanceId;
+  /** `true` = combat damage only, `false` = non-combat only. */
+  combat?: boolean;
+  /** Only events of at least this size. */
+  minAmount?: number;
+  /** Counter kind, for `counters` and `enters` events. */
+  counter?: string;
+}
+
+/** How the event is modified. Data, so it round-trips through the action log. */
+export type ReplacementApply =
+  | { op: 'enters-tapped' }
+  | { op: 'enters-with-counters'; counter: string; count: number }
+  | { op: 'scale-counters'; multiply?: number; plus?: number }
+  | { op: 'prevent-damage'; amount?: number }
+  | { op: 'scale-damage'; multiply?: number; plus?: number; min?: number }
+  | { op: 'redirect-damage'; toPlayerId: PlayerId }
+  | { op: 'damage-as-poison' }
+  | { op: 'scale-draw'; multiply?: number; plus?: number }
+  | { op: 'scale-life'; multiply?: number; plus?: number }
+  /** The event simply does not happen. */
+  | { op: 'skip' }
+  /** "...instead, <these actions>". */
+  | { op: 'instead'; actions: GameAction[] };
+
+export interface ReplacementEffect {
+  /** Stable and caller-supplied. Doubles as the once-only key (CR 614.5). */
+  id: ReplacementId;
+  /** Prose for the log: "Blood Moon", "Doubling Season". */
+  name: string;
+  event: ReplaceableEventKind;
+  match?: ReplacementMatch;
+  apply: ReplacementApply;
+  /** The permanent generating it. Absent for emblems and player-level effects. */
+  sourceInstanceId?: InstanceId;
+  /** Who controls it. Used only for prose today. */
+  controllerId?: PlayerId;
+  /**
+   * CR 614.13 — a self-replacement effect (one the object itself generates
+   * about its own arrival, "this enters tapped") applies before any other
+   * effect that would modify the same event.
+   */
+  selfReplacement?: boolean;
+  /**
+   * Defaults to `true` when `sourceInstanceId` is set and the effect is not a
+   * self-replacement: the effect stops applying the moment its source leaves
+   * the battlefield, without anyone having to remember to deregister it.
+   */
+  requiresBattlefield?: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Game state                                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -416,6 +598,25 @@ export interface GameState {
   step: Step;
 
   combat: CombatState;
+
+  /**
+   * CR 405.2 — the stack, bottom first. The **last** element is the top and is
+   * the next thing to resolve. Optional so a state persisted before the stack
+   * existed still loads; read it through `stackOf()` in `stack.ts`, never
+   * directly.
+   */
+  stack?: StackObject[];
+  /**
+   * CR 117.4 — players who have passed priority in succession since the stack
+   * last changed. When every living player is in here, the top of the stack
+   * resolves (or, on an empty stack, the step ends).
+   */
+  passedPriority?: PlayerId[];
+  /** Source of deterministic stack object ids. Never a random or a clock. */
+  nextStackId?: number;
+  /** CR 614 — registered replacement effects. See `replacement.ts`. */
+  replacements?: ReplacementEffect[];
+
   monarchId?: PlayerId | null;
   initiativeId?: PlayerId | null;
 
@@ -452,6 +653,23 @@ export interface ActionMeta {
    * consequence.
    */
   cause?: string;
+  /**
+   * CR 614.5 — replacement effect ids that have already applied to this event.
+   * An effect gets exactly one opportunity to modify an event *and any events
+   * resulting from it*, so this list is inherited by whatever the replacement
+   * produces. Keeping it on the action (rather than in a mutable per-event set,
+   * the way XMage does it) is what makes the once-only rule replay-safe: the
+   * log carries the whole history of the event.
+   */
+  replacedBy?: ReplacementId[];
+  /**
+   * CR 616.1 — when several replacement effects would apply at once, the
+   * affected player chooses which applies next. That choice is a player
+   * decision, so it travels in the action rather than being guessed at.
+   * Anything not named here falls back to a deterministic order, so a client
+   * that never asks still never diverges.
+   */
+  replacementOrder?: ReplacementId[];
 }
 
 export type GameAction = ActionMeta &
@@ -528,6 +746,12 @@ export type GameAction = ActionMeta &
         to?: Zone;
         tapped?: boolean;
         controllerId?: PlayerId;
+        /**
+         * CR 614.1c — counters the permanent *enters with*. Set by replacement
+         * effects, so the permanent never exists on the battlefield without
+         * them and an ETB trigger sees the right number.
+         */
+        counters?: Record<string, number>;
       }
     | {
         type: 'MOVE_ZONE';
@@ -536,6 +760,10 @@ export type GameAction = ActionMeta &
         /** Library insertion point. Number is a 0-based index from the top. */
         position?: 'top' | 'bottom' | number;
         controllerId?: PlayerId;
+        /** As `PLAY.counters`. Only meaningful when `to` is 'battlefield'. */
+        counters?: Record<string, number>;
+        /** CR 614.1c — enters tapped. Only meaningful when `to` is 'battlefield'. */
+        tapped?: boolean;
       }
     | { type: 'TAP'; instanceId: InstanceId }
     | { type: 'UNTAP'; instanceId: InstanceId }
@@ -556,6 +784,47 @@ export type GameAction = ActionMeta &
       }
     | { type: 'BLOCK'; blocks: Array<{ blockerId: InstanceId; attackerId: InstanceId }> }
     | { type: 'END_COMBAT' }
+
+    /* --- the stack and priority (see stack.ts) --- */
+    /**
+     * CR 601 — announce a spell: it leaves hand or the command zone, goes on
+     * the stack, targets are locked in, and its controller keeps priority.
+     * Paying for it is `moves.ts`'s job; this is the announcement.
+     */
+    | {
+        type: 'CAST_SPELL';
+        instanceId: InstanceId;
+        controllerId?: PlayerId;
+        targets?: StackTarget[];
+        effects?: StackEffect[];
+        /** Defaults to graveyard for instants and sorceries, battlefield otherwise. */
+        resolvesTo?: Zone;
+        splitSecond?: boolean;
+        cantBeCountered?: boolean;
+        /** Override the derived id. Only for tests and replays. */
+        stackId?: StackObjectId;
+      }
+    /** CR 603 / 602 — put a triggered or activated ability on the stack. */
+    | {
+        type: 'PUT_ABILITY_ON_STACK';
+        controllerId: PlayerId;
+        name: string;
+        kind?: 'triggered' | 'activated';
+        sourceInstanceId?: InstanceId;
+        targets?: StackTarget[];
+        effects?: StackEffect[];
+        stackId?: StackObjectId;
+      }
+    /** CR 117.3d. Defaults to whoever currently holds priority. */
+    | { type: 'PASS_PRIORITY'; playerId?: PlayerId }
+    /** CR 608 — resolve the top object. Normally derived from a full round of passes. */
+    | { type: 'RESOLVE_STACK' }
+    /** CR 701.5 — remove an object from the stack without resolving it. */
+    | { type: 'COUNTER_SPELL'; stackId: StackObjectId; reason?: string }
+
+    /* --- replacement effects (see replacement.ts) --- */
+    | { type: 'ADD_REPLACEMENT'; effect: ReplacementEffect }
+    | { type: 'REMOVE_REPLACEMENT'; replacementId: ReplacementId }
 
     /* --- turn structure --- */
     | { type: 'PHASE_CHANGE'; step: Step }

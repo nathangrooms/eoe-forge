@@ -302,11 +302,14 @@ export function ZoneBlock({
   for (let i = 0; i < cards.length; i += cols) grid.push(cards.slice(i, i + cols));
 
   /* Rows slide under each other once the block is full, in the same way cards
-     in a row slide under each other — never below a third of a card showing. */
+     in a row slide under each other. The step is whatever fits the box, capped
+     at "not overlapping at all" and floored only so two rows can never land on
+     exactly the same pixel — the block must stay inside its own height, because
+     the mat below it belongs to the seat in the next quadrant. */
   const step =
     grid.length > 1
       ? Math.max(
-          cardHeight * 0.34,
+          8,
           Math.min(cardHeight + gap, (height - BLOCK_LABEL - cardHeight) / (grid.length - 1))
         )
       : 0;

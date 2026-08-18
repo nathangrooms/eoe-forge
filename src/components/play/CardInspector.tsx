@@ -60,6 +60,8 @@ const ZONE_LABEL: Record<Zone, string> = {
   graveyard: 'Graveyard',
   exile: 'Exile',
   command: 'Command zone',
+  /* The stack is a zone in the type union but never browsed as a pile. */
+  stack: 'Stack',
 };
 
 export interface CardInspectorProps {

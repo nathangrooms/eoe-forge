@@ -323,6 +323,14 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
 const CARD_COLUMNS =
   'id,name,type_line,color_identity,image_uris,faces,layout,prices,set_code';
 
+/**
+ * The colour boxes draw one small card per slot and never flip or price it, so
+ * this pool leaves out `faces`, `layout` and `prices` — three jsonb/`text`
+ * columns whose weight is what makes a wide read over this table slow enough to
+ * hit the statement timeout. Same rows, a fraction of the bytes.
+ */
+const PALETTE_COLUMNS = 'id,name,type_line,color_identity,image_uris,set_code';
+
 /** Secret Lair drops are real cards, but a crossover is not the face of Magic. */
 const drawable = (c: FiledCard) =>
   !c.set_code.startsWith('sl') && Boolean(c.image_uris?.normal ?? c.image_uris?.large);
@@ -357,11 +365,11 @@ export function HomeStorage() {
           .limit(150),
         supabase
           .from('cards')
-          .select(CARD_COLUMNS)
+          .select(PALETTE_COLUMNS)
           .eq('rarity', 'mythic')
           .not('image_uris', 'is', null)
           .not('color_identity', 'is', null)
-          .limit(600),
+          .limit(250),
       ]);
 
       if (!alive) return;
@@ -372,9 +380,12 @@ export function HomeStorage() {
         .slice(0, 12);
 
       const used = new Set(filed.map(c => c.id));
-      const pool = ((mythics ?? []) as unknown as FiledCard[])
-        .filter(c => drawable(c) && !used.has(c.id))
-        .sort(byPriceDesc);
+      /* No price sort here: the slot is chosen on colour identity, every mythic
+         has art worth showing, and asking for `prices` is the expensive half of
+         the query this pool was trimmed to avoid. */
+      const pool = ((mythics ?? []) as unknown as FiledCard[]).filter(
+        c => drawable(c) && !used.has(c.id)
+      );
 
       setCards(filed);
       setPalette(pool);

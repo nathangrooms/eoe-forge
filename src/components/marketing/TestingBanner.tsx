@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Logo } from '@/components/Logo';
+import { Wordmark } from '@/components/Wordmark';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -61,14 +61,14 @@ export function TestingBanner() {
       />
 
       <div className="relative z-10 text-center px-6 max-w-3xl mx-auto pt-16">
-        {/* Official Logo */}
+        {/* Wordmark */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
           className="flex justify-center mb-8"
         >
-          <Logo size="md" />
+          <Wordmark size="md" />
         </motion.div>
 
         {/* Badge */}

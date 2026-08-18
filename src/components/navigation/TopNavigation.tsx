@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Logo } from '@/components/Logo';
+import { Wordmark } from '@/components/Wordmark';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, ScanLine, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,7 @@ export function TopNavigation() {
             className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="DeckMatrix home"
           >
-            <Logo size="md" />
+            <Wordmark size="md" />
           </Link>
         </div>
 

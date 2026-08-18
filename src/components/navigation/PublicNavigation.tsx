@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Logo } from '@/components/Logo';
+import { Wordmark } from '@/components/Wordmark';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ export function PublicNavigation() {
             className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="DeckMatrix home"
           >
-            <Logo size="md" />
+            <Wordmark size="md" />
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">

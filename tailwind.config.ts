@@ -114,7 +114,7 @@ export default {
 				'glow-accent': 'var(--glow-accent)'
 			},
 			fontFamily: {
-				display: ['Space Grotesk', 'Inter var', 'Inter', 'system-ui', 'sans-serif'],
+				display: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
 				sans: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
 				mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
 			},

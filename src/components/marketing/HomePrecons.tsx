@@ -103,7 +103,7 @@ export function HomePrecons() {
     : undefined;
 
   return (
-    <Section tint bleed className="relative isolate overflow-hidden">
+    <Section bleed className="relative isolate overflow-hidden">
       {backdrop && (
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
           <img

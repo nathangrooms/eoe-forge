@@ -88,9 +88,16 @@ const FEED: Array<{ turn?: number; text: string; emphasis?: boolean; intent?: bo
   { text: 'Bot: holds Lazav back this turn', intent: true },
 ];
 
-/** The zones the table view lets you browse, beside the battlefield. */
+/**
+ * The zones the table view lets you browse, beside the battlefield.
+ *
+ * These add up, deliberately. A hundred-card deck is the commander plus 99, and
+ * 79 + 5 + 4 + 1 is 89 with the ten permanents on the board making 99 — an EDH
+ * player counts that without meaning to, and a board that does not balance is
+ * the same class of mistake as a decklist whose commander cannot cast it.
+ */
 const ZONES = [
-  { label: 'Library', count: 63 },
+  { label: 'Library', count: 79 },
   { label: 'Graveyard', count: 4 },
   { label: 'Exile', count: 1 },
   { label: 'Hand', count: 5 },
@@ -308,7 +315,7 @@ export function HomePlayTable() {
   const botCommander = lookup?.get(BOT_COMMANDER.toLowerCase());
 
   return (
-    <Section tint>
+    <Section>
       <div ref={ref} aria-hidden className="h-0" />
 
       <SectionHeading
@@ -368,7 +375,7 @@ export function HomePlayTable() {
               note="Lazav, Dimir Mastermind · even — trades up and blocks sensibly"
               life={34}
               hand={4}
-              library={71}
+              library={84}
               align="right"
             />
             {/* Mirrored against your own seat: rows centred, command zone on the

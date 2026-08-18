@@ -17,6 +17,11 @@
  *   step you are in — but a player never clicks through it. `turnFlow.ts`
  *   decides which steps hold a decision and the page walks the rest.
  *
+ *   **The table settings moved into the board's right-hand rail.** Card size
+ *   for the board and the hand, auto-advance, paused bots and free cast all
+ *   live in the game menu now, because a slider belongs where there is room for
+ *   it rather than squeezed into a 32px HUD button.
+ *
  *   **END TURN is the loudest thing on screen.** It is red, it is on the right,
  *   it is one press, and when it is not your turn it stops being a button and
  *   becomes the label that tells you whose turn it is. Red on a game control is
@@ -25,22 +30,20 @@
 
 import {
   ChevronRight,
+  Eye,
   Hand as HandIcon,
   LayoutGrid,
   Loader2,
   LogOut,
-  Pause,
-  Play as PlayIcon,
-  Sparkles,
+  SlidersHorizontal,
   Swords,
   Undo2,
-  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PHASE_OF_STEP, STEP_LABELS, type GameState, type Phase, type PlayerId } from '@/lib/game';
 import { DECISION_LABEL, type PlayDecision } from './turnFlow';
 
-export type PlayViewId = 'table' | 'hand' | 'combat';
+export type PlayViewId = 'table' | 'hand' | 'view' | 'combat';
 
 export interface PlayHUDProps {
   state: GameState;
@@ -50,13 +53,12 @@ export interface PlayHUDProps {
   /** True when combat exists — puts a marker on the combat tab. */
   combatLive: boolean;
   botThinking: boolean;
-  botsPaused: boolean;
-  onToggleBots: () => void;
-  freeCast: boolean;
-  onToggleFreeCast: () => void;
-  /** Auto-advance through steps that hold no decision. */
-  autoAdvance: boolean;
-  onToggleAuto: () => void;
+  /** Opens the right-hand rail: card size sliders and the table settings. */
+  onOpenMenu: () => void;
+  menuOpen: boolean;
+  /** Which opponent "View" is focused on, and the seats it can choose from. */
+  viewSeatId: PlayerId | null;
+  onViewSeat: (playerId: PlayerId) => void;
   /** The decision this seat owes the table, or null while the game is flowing. */
   decision: PlayDecision | null;
   /** Manual escape hatch — one step, for when auto-advance is off. */
@@ -76,8 +78,9 @@ export interface PlayHUDProps {
 }
 
 const VIEWS: Array<{ id: PlayViewId; label: string; icon: typeof LayoutGrid; hint: string }> = [
-  { id: 'table', label: 'Table', icon: LayoutGrid, hint: 'Every seat, where they sit' },
-  { id: 'hand', label: 'Hand', icon: HandIcon, hint: 'Your cards, big enough to read' },
+  { id: 'table', label: 'Table', icon: LayoutGrid, hint: 'All four quadrants, everything upright' },
+  { id: 'hand', label: 'Hand', icon: HandIcon, hint: 'The same table view, your seat alone' },
+  { id: 'view', label: 'View', icon: Eye, hint: "An opponent's board, full screen" },
   { id: 'combat', label: 'Combat', icon: Swords, hint: 'Attackers, blockers and the defender' },
 ];
 
@@ -102,7 +105,7 @@ function HudToggle({
   onClick,
 }: {
   label: string;
-  icon: typeof Zap;
+  icon: typeof Undo2;
   active?: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -136,12 +139,10 @@ export function PlayHUD({
   viewerPlayerId,
   combatLive,
   botThinking,
-  botsPaused,
-  onToggleBots,
-  freeCast,
-  onToggleFreeCast,
-  autoAdvance,
-  onToggleAuto,
+  onOpenMenu,
+  menuOpen,
+  viewSeatId,
+  onViewSeat,
   decision,
   onAdvance,
   onEndTurn,
@@ -224,6 +225,32 @@ export function PlayHUD({
             );
           })}
         </div>
+
+        {/* View mode needs a seat. The pod is small, so the seats are chips
+            rather than a select — one press to look at somebody's board. */}
+        {view === 'view' && (
+          <div className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
+            {state.players
+              .filter(player => player.id !== viewerPlayerId)
+              .map(player => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => onViewSeat(player.id)}
+                  aria-pressed={viewSeatId === player.id}
+                  title={`Look at ${player.name}'s board`}
+                  className={cn(
+                    'h-8 max-w-[8rem] truncate rounded-md px-2 text-xs font-medium transition-colors',
+                    viewSeatId === player.id
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {player.name}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* When am I. Turn count, then the real turn structure as an indicator. */}
@@ -288,30 +315,18 @@ export function PlayHUD({
 
         {/* Table utilities. Small, quiet, never in the way of the two big presses. */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-muted/40 p-0.5">
-          <HudToggle
-            label={autoAdvance ? 'Auto-advance on' : 'Auto-advance off'}
-            icon={Zap}
-            active={autoAdvance}
-            onClick={onToggleAuto}
-          />
-          <HudToggle
-            label={botsPaused ? 'Resume the opponents' : 'Pause the opponents'}
-            icon={botsPaused ? PlayIcon : Pause}
-            active={botsPaused}
-            onClick={onToggleBots}
-          />
-          <HudToggle
-            label="Free cast — ignore mana"
-            icon={Sparkles}
-            active={freeCast}
-            onClick={onToggleFreeCast}
-          />
           <HudToggle label="Undo the last action" icon={Undo2} disabled={!canUndo} onClick={onUndo} />
           <HudToggle
             label="Advance one step"
             icon={ChevronRight}
             disabled={over || ending}
             onClick={onAdvance}
+          />
+          <HudToggle
+            label="Game menu — card size, table settings"
+            icon={SlidersHorizontal}
+            active={menuOpen}
+            onClick={onOpenMenu}
           />
         </div>
 

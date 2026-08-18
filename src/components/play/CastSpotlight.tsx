@@ -1,11 +1,19 @@
 /**
- * The card being cast, held in the middle of the table for a beat.
+ * The card being cast, held at the right edge of the table for a beat.
  *
- * Arena does this and it is not decoration: in a pod with three opponents, a
- * spell that resolves inside somebody else's quadrant is a spell you did not
- * see. Lifting it to the centre at a readable size — with who cast it and where
- * it went — is the difference between watching a game and watching numbers
- * change.
+ * Owner: *"When new creatures come on the map, perhaps show them on the right
+ * hand side for a second, really large so people can read it, it should fade
+ * away or get replaced if another is cast though."*
+ *
+ * Three things follow from that, and all three are the point:
+ *
+ *   **Right edge, not the centre.** A card in the middle of the board covers
+ *   the exact thing everyone is looking at. At the edge, play continues
+ *   underneath it.
+ *   **Large enough to READ.** Somebody across the table should be able to see
+ *   what resolved without asking. A thumbnail of a spell is not information.
+ *   **Replaced, never queued.** A new cast takes the slot immediately, so the
+ *   spotlight always shows the most recent thing rather than a backlog.
  *
  * It is `pointer-events-none` throughout. Nothing that appears on its own may
  * ever swallow a click.
@@ -27,17 +35,19 @@ const DESTINATION: Record<string, string> = {
 export interface CastSpotlightProps {
   state: GameState;
   entry: CastSpotlightEntry | null;
+  /** Rendered card width. Sized by the page against the viewport. */
+  width?: number;
   className?: string;
 }
 
-export function CastSpotlight({ state, entry, className }: CastSpotlightProps) {
+export function CastSpotlight({ state, entry, width = 260, className }: CastSpotlightProps) {
   const reduceMotion = useReducedMotion();
   const caster = entry ? state.players.find(p => p.id === entry.controllerId) : null;
 
   return (
     <div
       className={cn(
-        'pointer-events-none absolute inset-0 z-40 flex items-center justify-center',
+        'pointer-events-none absolute inset-y-0 right-0 z-40 flex items-center justify-end pr-3',
         className
       )}
       aria-live="polite"
@@ -46,45 +56,44 @@ export function CastSpotlight({ state, entry, className }: CastSpotlightProps) {
         {entry && (
           <motion.div
             key={entry.key}
-            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.72, y: 26 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.06, y: -18 }}
+            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, x: 40, scale: 0.9 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24, scale: 0.96 }}
             transition={
               reduceMotion
                 ? { duration: 0 }
-                : { type: 'spring', stiffness: 240, damping: 24, mass: 0.8 }
+                : { type: 'spring', stiffness: 260, damping: 26, mass: 0.7 }
             }
             className="flex flex-col items-center gap-2"
+            style={{ width }}
           >
-            {/* A pool of shadow under the card, so it lifts off whatever mat it
+            {/* A pool of shadow behind the card, so it lifts off whatever mat it
                 happens to be floating over. */}
             <div className="relative">
               <span
                 aria-hidden="true"
-                className="absolute -inset-12 -z-10"
+                className="absolute -inset-10 -z-10"
                 style={{
                   background:
-                    'radial-gradient(closest-side, hsl(0 0% 2% / 0.72), transparent 100%)',
+                    'radial-gradient(closest-side, hsl(0 0% 2% / 0.78), transparent 100%)',
                 }}
               />
               <GameCardView
                 card={entry.card}
-                size="xl"
+                width={width}
                 ignoreTapped
                 className="drop-shadow-[0_18px_40px_rgba(0,0,0,0.85)]"
               />
             </div>
 
-            <div className="flex flex-col items-center gap-1 rounded-full bg-background/80 px-3 py-1 shadow-lg shadow-black/60 backdrop-blur-md">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-foreground">
-                  {caster?.name ?? 'Someone'}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {DESTINATION[entry.to] ?? 'plays a card'}
-                </span>
-                <ManaCost cost={entry.card.manaCost} size="xs" />
-              </div>
+            <div className="flex w-full items-center justify-center gap-2 truncate rounded-full bg-background/80 px-3 py-1 shadow-lg shadow-black/60 backdrop-blur-md">
+              <span className="truncate text-xs font-semibold text-foreground">
+                {caster?.name ?? 'Someone'}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {DESTINATION[entry.to] ?? 'plays a card'}
+              </span>
+              <ManaCost cost={entry.card.manaCost} size="xs" className="shrink-0" />
             </div>
           </motion.div>
         )}

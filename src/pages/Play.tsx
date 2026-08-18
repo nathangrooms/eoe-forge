@@ -3,48 +3,55 @@
  *
  * Everything on this page is a thin shell over `src/lib/game`. The page owns
  * four things and nothing else: which view is on screen, which deck sat down,
- * when to press "next" on the player's behalf, and the dialogs. Rules, mana,
- * combat, the bot and the transport all live in the core, which is why a
- * networked table later needs a new transport rather than a new page.
+ * when to press "next" on the player's behalf, and what the board's right-hand
+ * rail is showing. Rules, mana, combat, the bot and the transport all live in
+ * the core, which is why a networked table later needs a new transport rather
+ * than a new page.
+ *
+ * ---------------------------------------------------------------------------
+ * Click → preview → act or close
+ * ---------------------------------------------------------------------------
+ * Owner: *"Most important thing on play mode though, just so you dont forget,
+ * is being able to click and preview your card, then select a button action or
+ * close."*
+ *
+ * A tap is never the action. Clicking a card anywhere — hand, battlefield, a
+ * graveyard, an opponent's board — sets `inspectId` and nothing else happens.
+ * `CardInspector` then draws that card at readable size with explicit buttons
+ * for whatever the engine says is legal, and only a button dispatches.
+ *
+ * The preview is not a dialog. Owner: *"Make sure no modals in play, it should
+ * be beautiful within the playmat system."* It renders into `BoardRail`, a real
+ * column of the layout on the right edge, made of the same mat material as the
+ * table. When it opens the board narrows and re-fits its cards; nothing is ever
+ * covered, so a player reading a card is still watching the game. The zone
+ * browser and the game menu share that rail for exactly the same reason.
+ *
+ * ---------------------------------------------------------------------------
+ * One renderer, three views
+ * ---------------------------------------------------------------------------
+ * `PlayTable` draws the pod as four upright quadrants. Hand mode and view mode
+ * are the *same component* with `focusPlayerId` set, so they cannot drift from
+ * the table view — hand mode is the table zoomed to your seat, view mode is the
+ * table zoomed to somebody else's. Combat is the one genuinely different
+ * surface, because declaring blocks is a different job from reading a board.
  *
  * ---------------------------------------------------------------------------
  * A lobby is a page. A game is not.
  * ---------------------------------------------------------------------------
- * The lobby keeps the standard page furniture — title, description, the app's
- * rail and top bar — because that is a page you read. The moment a table
- * exists the surface takes the whole viewport: the board goes full bleed behind
- * a fixed overlay, the app chrome goes away exactly as it does on `/life`, and
- * the only furniture left is a HUD floating over the table. A game deserves the
- * screen, and a left rail beside a battlefield is just a smaller battlefield.
+ * The lobby keeps the standard page furniture. The moment a table exists the
+ * surface takes the whole viewport: the app chrome goes away exactly as it does
+ * on `/life`, and the only furniture left is a HUD floating over the table.
  *
  * ---------------------------------------------------------------------------
  * The player does not click through twelve steps
  * ---------------------------------------------------------------------------
- * The engine keeps the full turn structure, because priority, triggers and a
- * networked table all need it. The *player* sees three or four decisions a turn
- * and the page walks everything in between:
- *
- *   `turnFlow.decisionFor()` asks the same helpers the bot asks — can anything
- *   attack, can anything block, is anything castable — and returns either the
- *   decision this seat owes the table or null. On null, and only when no other
- *   seat still has a move pending, the page dispatches `advanceActions` itself.
- *
- * So untap, upkeep, draw, begin combat, an empty blocker step, combat damage,
- * end of combat, the end step and cleanup all happen on their own. What is left
- * is: play your main phase, optionally swing, optionally block, END TURN. That
- * last one is a single press that sweeps the rest of the turn — one step at a
- * time, through the same reducer, pausing wherever a bot still has to answer,
- * so combat resolves properly instead of being skipped.
- *
- * The three views are the feature, not the chrome:
- *
- *   Table   the pod as it physically sits, driven by `seating.ts` geometry
- *   Hand    your cards big enough to read, each saying if and why it is castable
- *   Combat  attackers, blockers, and the defender's board and hand together
- *
- * Combat opens itself when a combat decision is actually yours, and hands the
- * view back when the swing is over — with the switcher always visible so that
- * is a convenience, never a trap.
+ * `turnFlow.decisionFor()` asks the same helpers the bot asks — can anything
+ * attack, can anything block, is anything castable — and returns either the
+ * decision this seat owes the table or null. On null, and only when no other
+ * seat still has a move pending, the page dispatches `advanceActions` itself.
+ * What is left is: play your main phase, optionally swing, optionally block,
+ * END TURN.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,17 +61,20 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useCardSize } from '@/components/cards/CardSizeSlider';
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
 import { PlaySetup, type PlaySetupValue } from '@/components/play/PlaySetup';
-import { TableView } from '@/components/play/TableView';
-import { HandView } from '@/components/play/HandView';
+import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
 import { CombatView, combatIsLive } from '@/components/play/CombatView';
 import { GameFeed } from '@/components/play/GameFeed';
 import { TurnBanner } from '@/components/play/TurnBanner';
-import { ZoneBrowser } from '@/components/play/ZoneBrowser';
+import { ZonePanel } from '@/components/play/ZonePanel';
+import { BoardRail, railWidthFor } from '@/components/play/BoardRail';
+import { CardInspector } from '@/components/play/CardInspector';
+import { GameMenu } from '@/components/play/GameMenu';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
 import { canReachCombat, controlsFlow, decisionFor } from '@/components/play/turnFlow';
 import { defaultSeatingFor } from '@/components/play/seatingDefaults';
@@ -80,6 +90,7 @@ import {
   mulliganActions,
   planCastFromHand,
   planLandDrop,
+  seatingVariants,
   type BotOptions,
   type BuiltTable,
   type CardInstance,
@@ -98,40 +109,59 @@ const HUD_INSET = 56;
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 const CARD_RATIO = 0.7176;
 
+/** Starting ceilings, in px, until the player moves the sliders. */
+const BOARD_CARD_DEFAULT = 150;
+const HAND_CARD_DEFAULT = 230;
+
 /**
  * How the hand is sized against the screen it is being held over.
  *
  * `ViewerHand` treats its `cardWidth` as a ceiling and shrinks to fit the width
  * available, which is the right rule for a wide screen and the wrong one for a
  * short one: a laptop at 800px tall would otherwise hand you cards taller than
- * a third of the table. So the page caps the ceiling by *height* and reserves a
- * matching strip along the bottom edge.
+ * the table. So the page caps the player's chosen ceiling by *height* and
+ * reserves a matching strip along the bottom edge.
  *
  * The reserved strip is deliberately smaller than a card. The fan overlaps the
  * viewer's own mat, exactly as a hand held over the near edge of a table would;
  * what the strip buys is that the seats above it are not crushed to make room.
+ *
+ * Hand mode gets far more of both, because there is only one seat to fit above
+ * it and reading your hand is the entire job of that view.
  */
-function handMetrics(viewportHeight: number): { cardWidth: number; inset: number } {
+function handMetrics(
+  viewportHeight: number,
+  ceiling: number,
+  focused: boolean
+): { cardWidth: number; inset: number } {
   const height = Math.max(480, viewportHeight);
-  return {
-    // A hand about a quarter of the screen tall is the Arena proportion: big
-    // enough to read the rules text on the card you are about to commit to,
-    // small enough that the table is still the thing you are looking at.
-    cardWidth: Math.round(Math.min(260, Math.max(118, height * 0.26 * CARD_RATIO))),
-    inset: Math.round(Math.min(200, Math.max(96, height * 0.15))),
-  };
+  const share = focused ? 0.42 : 0.25;
+  const cardWidth = Math.round(Math.min(ceiling, Math.max(96, height * share * CARD_RATIO)));
+
+  // The strip is a fraction of the card's own height, so the fan laps over the
+  // near mat by the same proportion however big the cards are.
+  //
+  // On the four-quadrant table it does not lap at all. The row nearest the
+  // bottom edge is the CREATURES row of the two near seats, which is the row a
+  // player looks at most; a hand held over it hid half of every creature. In
+  // hand mode the fan may lap, because the only board underneath it is your own
+  // and the view exists to make the hand as large as it can be.
+  const overhang = focused ? 0.94 : 1;
+  return { cardWidth, inset: Math.round((cardWidth / CARD_RATIO) * overhang) };
 }
 
 /**
  * Pace of the automatic walk between decisions.
  *
  * Not zero. A step that resolves instantly is a step the player never saw
- * happen, and "my creature untapped and I drew a card" is information. Fast
- * enough that nine skipped steps take about a second; slow enough to read.
+ * happen, and "my creature untapped and I drew a card" is information.
  */
 const AUTO_STEP_MS = 130;
 /** END TURN is a deliberate press, so its sweep is quicker than idle flow. */
 const END_TURN_STEP_MS = 75;
+
+/** Roughly a second, then it fades. A new cast replaces it immediately. */
+const SPOTLIGHT_MS = 1100;
 
 /** Runaway guard for the local simulations below. A turn has twelve steps. */
 const MAX_SIMULATED_STEPS = 16;
@@ -169,20 +199,32 @@ export default function Play() {
   const [autoAdvance, setAutoAdvance] = useState(true);
   /** The turn number END TURN was pressed on. Null when nobody is ending one. */
   const [endingTurn, setEndingTurn] = useState<number | null>(null);
-  const [zoneTarget, setZoneTarget] = useState<{ playerId: PlayerId; zone: Zone } | null>(null);
 
-  /** Viewport height, because the hand is sized against the screen it is on. */
-  const [viewportHeight, setViewportHeight] = useState(() =>
-    typeof window === 'undefined' ? 900 : window.innerHeight
-  );
+  /* The right-hand rail. At most one of these is showing, in this order:
+     the card preview, a zone's contents, the game menu. */
+  const [inspectId, setInspectId] = useState<string | null>(null);
+  const [zoneTarget, setZoneTarget] = useState<{ playerId: PlayerId; zone: Zone } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  /** Whose board "View" is looking at. */
+  const [viewSeatId, setViewSeatId] = useState<PlayerId | null>(null);
+
+  /* Card size is a preference, so it is remembered per surface — and it is a
+     ceiling, not a fixed width: both the board and the hand shrink below it
+     rather than letting a card run off the edge of the screen. */
+  const [boardCardWidth, setBoardCardWidth] = useCardSize('play-board', BOARD_CARD_DEFAULT);
+  const [handCardWidth, setHandCardWidth] = useCardSize('play-hand', HAND_CARD_DEFAULT);
+
+  /** Viewport, because the hand and the rail are both sized against the screen. */
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window === 'undefined' ? 1440 : window.innerWidth,
+    height: typeof window === 'undefined' ? 900 : window.innerHeight,
+  }));
 
   useEffect(() => {
-    const onResize = () => setViewportHeight(window.innerHeight);
+    const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  const hand = useMemo(() => handMetrics(viewportHeight), [viewportHeight]);
 
   /** The view combat interrupted, so it can be handed back afterwards. */
   const autoOpenedFrom = useRef<PlayViewId | null>(null);
@@ -200,7 +242,7 @@ export default function Play() {
   // Presentation-only memory of the previous board: what life changed, and what
   // just left somebody's hand. Neither belongs in game state.
   const lifeDeltas = useLifeDeltas(state);
-  const spotlight = useCastSpotlight(state);
+  const spotlight = useCastSpotlight(state, SPOTLIGHT_MS);
 
   /* ---------------------------------------------------------------------- */
   /* Deck list                                                              */
@@ -273,6 +315,10 @@ export default function Play() {
       setVariant(setup.variant);
       setView('table');
       setEndingTurn(null);
+      setInspectId(null);
+      setZoneTarget(null);
+      setMenuOpen(false);
+      setViewSeatId(null);
       autoOpenedFrom.current = null;
       dismissedCombatOnTurn.current = null;
       setTable(built);
@@ -323,7 +369,7 @@ export default function Play() {
   const canAttack = state ? canReachCombat(state, HUMAN_SEAT) : false;
 
   /* ---------------------------------------------------------------------- */
-  /* Moves                                                                  */
+  /* Moves — every one of them goes through the engine                      */
   /* ---------------------------------------------------------------------- */
 
   const handleCast = useCallback(
@@ -335,6 +381,7 @@ export default function Play() {
         return;
       }
       dispatch(plan.actions);
+      setInspectId(null);
     },
     [state, dispatch, freeCast]
   );
@@ -348,15 +395,9 @@ export default function Play() {
         return;
       }
       dispatch(plan.actions);
+      setInspectId(null);
     },
     [state, dispatch]
-  );
-
-  const handleDiscard = useCallback(
-    (card: CardInstance) => {
-      dispatch({ type: 'MOVE_ZONE', instanceId: card.instanceId, to: 'graveyard' });
-    },
-    [dispatch]
   );
 
   const handleMulligan = useCallback(() => {
@@ -364,10 +405,11 @@ export default function Play() {
     const actions = mulliganActions(state, HUMAN_SEAT, Date.now());
     if (actions.length === 0) return;
     dispatch(actions);
+    setInspectId(null);
   }, [state, dispatch]);
 
-  /** Clicking a permanent you control taps or untaps it, as it would on a table. */
-  const handleCardClick = useCallback(
+  /** Tapping is an action the preview offers, never something a click does. */
+  const handleTapToggle = useCallback(
     (card: CardInstance) => {
       if (!state) return;
       if (card.zone !== 'battlefield') return;
@@ -427,6 +469,34 @@ export default function Play() {
     [state, dispatch]
   );
 
+  /**
+   * Declare one creature from the preview.
+   *
+   * `ATTACK` replaces the whole declaration rather than appending to it, so the
+   * existing attackers are re-sent alongside the new one. Re-tapping something
+   * already tapped is a no-op in the reducer, so this is safe to repeat.
+   */
+  const handleAttackOne = useCallback(
+    (card: CardInstance, defenderPlayerId: PlayerId) => {
+      if (!state) return;
+      const existing = state.combat.attackers
+        .filter(d => d.attackerId !== card.instanceId && d.defenderPlayerId)
+        .map(d => ({
+          attackerId: d.attackerId,
+          defenderPlayerId: d.defenderPlayerId as PlayerId,
+        }));
+      dispatch(
+        declareAttack(
+          state,
+          [...existing, { attackerId: card.instanceId, defenderPlayerId }],
+          Date.now()
+        )
+      );
+      setInspectId(null);
+    },
+    [state, dispatch]
+  );
+
   const handleDeclareBlocks = useCallback(
     (blocks: Array<{ blockerId: string; attackerId: string }>) => {
       dispatch({ type: 'BLOCK', blocks });
@@ -434,9 +504,15 @@ export default function Play() {
     [dispatch]
   );
 
-  const handleMoveCard = useCallback(
-    (instanceId: string, to: Zone, position?: 'top' | 'bottom') => {
-      dispatch({ type: 'MOVE_ZONE', instanceId, to, position });
+  const handleMoveZone = useCallback(
+    (card: CardInstance, to: Zone) => {
+      dispatch({
+        type: 'MOVE_ZONE',
+        instanceId: card.instanceId,
+        to,
+        position: to === 'library' ? 'top' : undefined,
+      });
+      setInspectId(null);
     },
     [dispatch]
   );
@@ -445,8 +521,22 @@ export default function Play() {
     setTable(null);
     setView('table');
     setEndingTurn(null);
+    setInspectId(null);
+    setZoneTarget(null);
+    setMenuOpen(false);
+    setViewSeatId(null);
     autoOpenedFrom.current = null;
     dismissedCombatOnTurn.current = null;
+  }, []);
+
+  /** Look at somebody's board, full screen. Read-only for an opponent. */
+  const handleFocusSeat = useCallback((playerId: PlayerId) => {
+    setViewSeatId(playerId);
+    setInspectId(null);
+    setMenuOpen(false);
+    setZoneTarget(null);
+    autoOpenedFrom.current = null;
+    setView('view');
   }, []);
 
   /* ---------------------------------------------------------------------- */
@@ -530,16 +620,18 @@ export default function Play() {
         dismissedCombatOnTurn.current = state.turn;
       }
       autoOpenedFrom.current = null;
+      if (next === 'view' && state && !viewSeatId) {
+        const firstOpponent = state.players.find(p => p.id !== HUMAN_SEAT);
+        if (firstOpponent) setViewSeatId(firstOpponent.id);
+      }
       setView(next);
     },
-    [view, state]
+    [view, state, viewSeatId]
   );
 
   /* ---------------------------------------------------------------------- */
   /* Render                                                                 */
   /* ---------------------------------------------------------------------- */
-
-  const selectedIds = useMemo<string[]>(() => [], []);
 
   if (!table || !state) {
     return (
@@ -580,13 +672,31 @@ export default function Play() {
   const attackerIds = state.combat.attackers.map(d => d.attackerId);
   const blockerIds = state.combat.attackers.flatMap(d => d.blockedBy);
 
+  /* The card in the preview is looked up fresh on every render, so tapping it
+     or moving it between zones updates the panel rather than freezing it. */
+  const inspected = inspectId ? state.cards[inspectId] ?? null : null;
+  const railContent =
+    inspected !== null ? 'inspect' : zoneTarget !== null ? 'zone' : menuOpen ? 'menu' : null;
+  const railWidth = railWidthFor(viewport.width);
+
+  const focusedSeat = view === 'hand' ? HUMAN_SEAT : view === 'view' ? viewSeatId : null;
+
+  const hand = handMetrics(viewport.height, handCardWidth, view === 'hand');
+  const spotlightWidth = Math.round(
+    Math.min(300, Math.max(180, (viewport.width - (railContent ? railWidth : 0)) * 0.19))
+  );
+
+  const showHand = view === 'table' || view === 'hand';
+  const seatVariants = seatingVariants(state.players.length).map(layout => layout.variant);
+
   return (
     // Fixed, not laid out: the table takes the viewport and the app's rail and
     // top bar go away for the duration, the same trade `/life` makes. The z
     // index clears the shell (rail 40, top bar 50) while staying under the
-    // portals that dialogs and toasts render into.
-    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background">
-      <div className="relative min-h-0 flex-1">
+    // portals that toasts render into.
+    <div className="fixed inset-0 z-50 flex overflow-hidden bg-background">
+      {/* The board. It narrows when the rail opens rather than being covered. */}
+      <div className="relative min-h-0 min-w-0 flex-1">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={view}
@@ -596,58 +706,52 @@ export default function Play() {
             transition={transition}
             className="absolute inset-0 z-0"
           >
-            {view === 'table' && (
+            {view !== 'combat' ? (
               <div className="relative h-full w-full">
-                <TableView
+                <PlayTable
                   className="h-full w-full"
                   state={state}
                   viewerPlayerId={HUMAN_SEAT}
                   botPlayerIds={botPlayerIds}
                   variant={variant}
-                  bottomInset={hand.inset}
+                  focusPlayerId={focusedSeat}
+                  cardWidth={boardCardWidth}
+                  bottomInset={showHand ? hand.inset : 0}
                   topInset={HUD_INSET}
-                  onCardClick={handleCardClick}
-                  onOpenZone={(playerId, zone) => setZoneTarget({ playerId, zone })}
+                  onInspect={card => setInspectId(card.instanceId)}
+                  onOpenZone={(playerId, zone) => {
+                    setInspectId(null);
+                    setMenuOpen(false);
+                    setZoneTarget({ playerId, zone });
+                  }}
+                  onFocusSeat={handleFocusSeat}
                   attackerIds={attackerIds}
                   blockerIds={blockerIds}
-                  selectedIds={selectedIds}
+                  inspectedId={inspectId}
                   lifeDeltas={lifeDeltas}
                 />
 
-                <CastSpotlight state={state} entry={spotlight} />
+                <CastSpotlight state={state} entry={spotlight} width={spotlightWidth} />
 
-                {/* Your hand, held over the near edge of the table. */}
-                <ViewerHand
-                  className="absolute inset-x-0 bottom-1 z-30"
-                  state={state}
-                  viewerPlayerId={HUMAN_SEAT}
-                  freeCast={freeCast}
-                  cardWidth={hand.cardWidth}
-                  onCast={handleCast}
-                  onPlayLand={handlePlayLand}
-                />
+                {/* Your hand, held over the near edge of the table. Clicking a
+                    card opens the preview; it never plays it. */}
+                {showHand && (
+                  <ViewerHand
+                    className="absolute inset-x-0 bottom-2 z-30"
+                    state={state}
+                    viewerPlayerId={HUMAN_SEAT}
+                    freeCast={freeCast}
+                    cardWidth={hand.cardWidth}
+                    selectedId={inspectId}
+                    onInspect={card => setInspectId(card.instanceId)}
+                  />
+                )}
               </div>
-            )}
-
-            {view === 'hand' && (
-              <div className="h-full overflow-y-auto px-2 pb-2 md:px-4" style={{ paddingTop: HUD_INSET + 8 }}>
-                <HandView
-                  state={state}
-                  viewerPlayerId={HUMAN_SEAT}
-                  botPlayerIds={botPlayerIds}
-                  freeCast={freeCast}
-                  onCast={handleCast}
-                  onPlayLand={handlePlayLand}
-                  onDiscard={handleDiscard}
-                  onMulligan={handleMulligan}
-                  onOpenZone={(playerId, zone) => setZoneTarget({ playerId, zone })}
-                  onCardClick={handleCardClick}
-                />
-              </div>
-            )}
-
-            {view === 'combat' && (
-              <div className="h-full overflow-y-auto px-2 pb-2 md:px-4" style={{ paddingTop: HUD_INSET + 8 }}>
+            ) : (
+              <div
+                className="h-full overflow-y-auto px-2 pb-2 md:px-4"
+                style={{ paddingTop: HUD_INSET + 8 }}
+              >
                 <CombatView
                   state={state}
                   viewerPlayerId={HUMAN_SEAT}
@@ -661,47 +765,24 @@ export default function Play() {
           </motion.div>
         </AnimatePresence>
 
-        {/* The log, as a feed over the board rather than a column beside it. */}
-        <GameFeed
-          state={state}
-          feed={feed}
-          variant="feed"
-          className="absolute bottom-2 left-2 z-30 w-64 max-w-[40vw]"
-        />
+        {/* The log, as a feed over the board rather than a column beside it.
+            It sits in the strip the hand is held over, not on a mat: every
+            square inch of the four quadrants belongs to somebody's board, and
+            the row along the bottom edge of the near seats is their creature
+            row — the one row nobody can afford to have a log sitting on. */}
+        <div className="pointer-events-none absolute bottom-2 left-2 z-40 w-56 max-w-[36vw]">
+          <GameFeed state={state} feed={feed} variant="feed" />
+        </div>
 
         {/* Whose turn it is, said out loud for a beat. */}
         <TurnBanner state={state} viewerPlayerId={HUMAN_SEAT} />
 
-        {/* The HUD floats over the table; the board is inset to make room. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-50">
-          <PlayHUD
-            state={state}
-            view={view}
-            onViewChange={changeView}
-            viewerPlayerId={HUMAN_SEAT}
-            combatLive={combatLive}
-            botThinking={botThinking}
-            botsPaused={botsPaused}
-            onToggleBots={() => setBotsPaused(paused => !paused)}
-            freeCast={freeCast}
-            onToggleFreeCast={() => setFreeCast(value => !value)}
-            autoAdvance={autoAdvance}
-            onToggleAuto={() => setAutoAdvance(value => !value)}
-            decision={decision}
-            onAdvance={handleAdvance}
-            onEndTurn={handleEndTurn}
-            ending={endingTurn !== null}
-            onAttack={handleAttack}
-            canAttack={canAttack}
-            onUndo={undo}
-            canUndo={canUndo}
-            onLeave={handleLeave}
-          />
-        </div>
-
         {state.status === 'complete' && (
-          <div className="pointer-events-none absolute inset-0 z-[60] flex items-center justify-center">
-            <div className="pointer-events-auto rounded-2xl bg-background/85 px-6 py-5 text-center shadow-2xl shadow-black/70 backdrop-blur-md">
+          <div
+            className="pointer-events-none absolute inset-x-0 z-[60] flex justify-center"
+            style={{ top: HUD_INSET + 16 }}
+          >
+            <div className="pointer-events-auto rounded-2xl bg-background/85 px-6 py-4 text-center shadow-2xl shadow-black/70 backdrop-blur-md">
               <p className="text-lg font-semibold text-foreground">
                 {state.winnerIds.length > 0
                   ? `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`
@@ -715,18 +796,88 @@ export default function Play() {
         )}
       </div>
 
-      <ZoneBrowser
-        state={state}
-        open={zoneTarget !== null}
-        onOpenChange={open => {
-          if (!open) setZoneTarget(null);
-        }}
-        playerId={zoneTarget?.playerId ?? null}
-        zone={zoneTarget?.zone ?? null}
-        viewerPlayerId={HUMAN_SEAT}
-        onMove={handleMoveCard}
-        onZoneChange={zone => setZoneTarget(target => (target ? { ...target, zone } : null))}
-      />
+      {/* The rail: preview, zone, menu. Part of the board, never on top of it. */}
+      {railContent && (
+        <BoardRail width={railWidth} topInset={HUD_INSET}>
+          {railContent === 'inspect' && inspected && (
+            <CardInspector
+              state={state}
+              viewerPlayerId={HUMAN_SEAT}
+              card={inspected}
+              freeCast={freeCast}
+              onCast={handleCast}
+              onPlayLand={handlePlayLand}
+              onTapToggle={handleTapToggle}
+              onAttack={handleAttackOne}
+              onMoveZone={handleMoveZone}
+              onFocusSeat={handleFocusSeat}
+              onClose={() => setInspectId(null)}
+            />
+          )}
+
+          {railContent === 'zone' && zoneTarget && (
+            <ZonePanel
+              state={state}
+              playerId={zoneTarget.playerId}
+              zone={zoneTarget.zone}
+              viewerPlayerId={HUMAN_SEAT}
+              onInspect={card => setInspectId(card.instanceId)}
+              onZoneChange={zone => setZoneTarget(target => (target ? { ...target, zone } : null))}
+              onClose={() => setZoneTarget(null)}
+            />
+          )}
+
+          {railContent === 'menu' && (
+            <GameMenu
+              boardCardWidth={boardCardWidth}
+              onBoardCardWidth={setBoardCardWidth}
+              handCardWidth={handCardWidth}
+              onHandCardWidth={setHandCardWidth}
+              autoAdvance={autoAdvance}
+              onToggleAuto={() => setAutoAdvance(value => !value)}
+              botsPaused={botsPaused}
+              onToggleBots={() => setBotsPaused(paused => !paused)}
+              freeCast={freeCast}
+              onToggleFreeCast={() => setFreeCast(value => !value)}
+              variant={variant}
+              variants={seatVariants}
+              onVariant={setVariant}
+              onMulligan={handleMulligan}
+              onLeave={handleLeave}
+              onClose={() => setMenuOpen(false)}
+            />
+          )}
+        </BoardRail>
+      )}
+
+      {/* The HUD floats over the table; the board is inset to make room. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-50">
+        <PlayHUD
+          state={state}
+          view={view}
+          onViewChange={changeView}
+          viewerPlayerId={HUMAN_SEAT}
+          combatLive={combatLive}
+          botThinking={botThinking}
+          onOpenMenu={() => {
+            setMenuOpen(open => !open);
+            setInspectId(null);
+            setZoneTarget(null);
+          }}
+          menuOpen={menuOpen}
+          viewSeatId={viewSeatId}
+          onViewSeat={handleFocusSeat}
+          decision={decision}
+          onAdvance={handleAdvance}
+          onEndTurn={handleEndTurn}
+          ending={endingTurn !== null}
+          onAttack={handleAttack}
+          canAttack={canAttack}
+          onUndo={undo}
+          canUndo={canUndo}
+          onLeave={handleLeave}
+        />
+      </div>
     </div>
   );
 }

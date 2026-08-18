@@ -59,7 +59,14 @@ export interface GameCardViewProps {
   /** Render the back instead of the face. */
   hidden?: boolean;
   selected?: boolean;
-  /** Dimmed and inert — e.g. a spell you cannot pay for. */
+  /**
+   * A card you cannot play right now.
+   *
+   * Deliberately gentle. This used to be `opacity-40 saturate-0`, which made
+   * the hand — the thing the owner most wanted to be able to READ — unreadable
+   * for the whole of turn one. A card you cannot cast yet is still a card you
+   * are planning around, so it steps back rather than disappearing.
+   */
   dimmed?: boolean;
   /** Combat standing. Shown with elevation and a label, never an outline. */
   role?: 'attacker' | 'blocker' | 'target' | null;
@@ -134,9 +141,20 @@ export const GameCardView = memo(function GameCardView({
 
   const lift = role === 'attacker' ? -10 : role === 'blocker' ? -5 : selected ? -6 : 0;
 
+  /*
+   * `opacity: 1` is not decoration — it is required.
+   *
+   * The entrance below starts the card at `opacity: 0`. Framer only animates
+   * the keys named in `animate`, so a card that mounted with an entrance and no
+   * opacity target stayed invisible forever: its counters and its power/toughness
+   * badge (which live outside this element) rendered onto an empty mat. That is
+   * exactly what happened every time a seat was re-mounted — switching to view
+   * mode drew an opponent's board as a set of floating 1/1 pips.
+   */
   const animate = reduceMotion
-    ? { rotate: tapped ? 90 : 0, x: 0, y: 0, scale: 1 }
+    ? { opacity: 1, rotate: tapped ? 90 : 0, x: 0, y: 0, scale: 1 }
     : {
+        opacity: 1,
         rotate: tapped ? 90 : 0,
         x: lunge?.x ?? 0,
         y: (lunge?.y ?? 0) + lift,
@@ -159,7 +177,7 @@ export const GameCardView = memo(function GameCardView({
         }
         className={cn(
           'relative w-full origin-center',
-          dimmed && 'opacity-40 saturate-0',
+          dimmed && 'opacity-[0.62] saturate-[0.35]',
           role === 'attacker' && 'drop-shadow-[0_10px_18px_rgba(0,0,0,0.65)]',
           selected && 'drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]'
         )}

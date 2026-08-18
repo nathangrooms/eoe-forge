@@ -1,14 +1,12 @@
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Section } from '@/components/marketing/Section';
+import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /* Answers must describe what the product actually does. The previous set
    asserted "bank-level encryption", "95%+ accuracy validated by the community",
@@ -67,23 +65,23 @@ const faqs = [
 export function FAQSection() {
   return (
     <Section id="faq">
-      {/* Header */}
+      {/* Header.
+
+          This was the one headline on the page that did not come from
+          SectionHeading: `text-4xl md:text-6xl font-bold` against the shared
+          `text-3xl sm:text-4xl lg:text-5xl font-semibold`, so the FAQ shouted a
+          size and a weight louder than "Know which box it is in" — the page's
+          actual argument. The outline Badge above it and the generic
+          "Everything you need to know about DeckMatrix" line went with it: a
+          bordered chip breaks design law 2, and the line said nothing the
+          heading had not already said. */}
       <motion.div
-        className="text-center max-w-3xl mx-auto mb-16"
+        className="mb-16"
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
       >
-        <Badge variant="outline" className="mb-4">
-          <HelpCircle className="h-3 w-3 mr-2" />
-          Got Questions?
-        </Badge>
-        <h2 className="text-4xl md:text-6xl font-bold mb-6">
-          Frequently Asked Questions
-        </h2>
-        <p className="text-xl text-muted-foreground">
-          Everything you need to know about DeckMatrix
-        </p>
+        <SectionHeading title="Frequently asked questions" />
       </motion.div>
 
       {/* FAQ Accordion */}
@@ -92,10 +90,10 @@ export function FAQSection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
       >
-        <Card className="p-6 md:p-8 bg-card/50 backdrop-blur-sm border-border/50">
+        <Card className="border-0 bg-card/50 p-6 backdrop-blur-sm md:p-8">
           <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="border-border/50">
+              <AccordionItem key={index} value={`item-${index}`} className="border-b-0">
                 <AccordionTrigger className="text-left hover:text-primary transition-colors">
                   <span className="font-semibold">{faq.question}</span>
                 </AccordionTrigger>

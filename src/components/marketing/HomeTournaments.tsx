@@ -246,7 +246,7 @@ export function HomeTournaments() {
   }, [cards]);
 
   return (
-    <Section>
+    <Section tint>
       <div ref={ref} aria-hidden className="h-0" />
 
       <SectionHeading
@@ -326,7 +326,7 @@ export function HomeTournaments() {
                       <th
                         key={c.key}
                         title={c.hint}
-                        className="px-2 pb-1 text-right font-medium tabular-nums"
+                        className="whitespace-nowrap px-2 pb-1 text-right font-medium tabular-nums"
                       >
                         {c.label}
                       </th>
@@ -356,10 +356,10 @@ export function HomeTournaments() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-2 py-2.5 text-right font-medium tabular-nums">
+                        <td className="whitespace-nowrap px-2 py-2.5 text-right font-medium tabular-nums">
                           {row.points}
                         </td>
-                        <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-muted-foreground">
                           {row.wins}–{row.losses}–{row.draws}
                         </td>
                         <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground">

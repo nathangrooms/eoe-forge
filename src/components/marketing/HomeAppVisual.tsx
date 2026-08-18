@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ManaCost, ManaPip } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards/CardImage';
 import { selectCardsWhere } from '@/lib/supabase/jsonPath';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
@@ -60,15 +61,27 @@ export function HomeAppVisual() {
     const b = buckets.find(x => x.test(c) && !(x.one && x.cards.length >= 1));
     if (b) b.cards.push(c);
   }
-  const placed = buckets.reduce((n, b) => n + b.cards.length, 0);
-  const value = list.reduce((s, c) => s + Number(c.prices?.usd ?? 0), 0);
+  const placedCards = buckets.flatMap(b => b.cards);
+  const placed = placedCards.length;
+  /* Priced over the cards that are actually in the list, not over the 60 rows
+     that were fetched — the header used to read "51 cards" beside the total of
+     all 60, so the two numbers described different sets of cards. */
+  const value = placedCards.reduce((s, c) => s + Number(c.prices?.usd ?? 0), 0);
 
+  /* The deck's name is the commander sitting in the commander slot. It used to
+     be the string "Atraxa Superfriends" over a list that contained no Atraxa
+     and no superfriends — a fabricated label on real rows, which is the exact
+     thing the rest of this page was rewritten to remove. */
+  const commander = buckets.find(b => b.one)?.cards[0] ?? null;
+
+  /* Curve, grid and the price list all read the SAME set of cards the header
+     counts, so every figure in the panel describes one deck. */
   const curve = [0, 1, 2, 3, 4, 5, 6].map(
-    b => list.filter(c => (b === 6 ? Number(c.cmc) >= 6 : Math.floor(Number(c.cmc)) === b)).length
+    b => placedCards.filter(c => (b === 6 ? Number(c.cmc) >= 6 : Math.floor(Number(c.cmc)) === b)).length
   );
   const curveMax = Math.max(1, ...curve);
 
-  const grid = list.slice(0, 18);
+  const grid = placedCards.slice(0, 18);
 
   return (
     <Section tint>
@@ -86,8 +99,10 @@ export function HomeAppVisual() {
             <span className="h-2.5 w-2.5 rounded-full bg-foreground/20" />
             <span className="h-2.5 w-2.5 rounded-full bg-foreground/20" />
           </div>
-          <span className="ml-2 text-sm font-medium">Atraxa Superfriends</span>
-          <span className="rounded bg-foreground/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="ml-2 min-w-0 truncate text-sm font-medium">
+            {commander ? commander.name : 'New deck'}
+          </span>
+          <span className="shrink-0 rounded bg-foreground/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Commander
           </span>
           <div className="ml-auto flex items-center gap-4 text-sm tabular-nums text-muted-foreground">
@@ -135,18 +150,12 @@ export function HomeAppVisual() {
                     <Skeleton key={i} className="aspect-[5/7] rounded-lg" />
                   ))
                 : grid.map(c => (
-                    <figure
-                      key={c.id}
-                      className="group relative aspect-[5/7] overflow-hidden rounded-lg shadow-lg shadow-black/30 transition-transform duration-300 hover:-translate-y-1"
-                    >
-                      <img
-                        src={c.image_uris!.normal}
-                        alt={c.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover"
-                      />
-                    </figure>
+                    /* CardImage, not a hand-rolled <img>. The old markup was
+                       `object-cover` inside `aspect-[5/7]`, which is a crop of a
+                       card — small (a Magic card is 488x680, i.e. 5:6.97) but
+                       still a crop, and it also bypassed the resolution table
+                       and the double-faced flip. */
+                    <CardImage key={c.id} card={c} fill title={c.name} />
                   ))}
             </div>
           </div>
@@ -186,7 +195,7 @@ export function HomeAppVisual() {
             <ul className="space-y-2.5">
               {cards === null
                 ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-4" />)
-                : [...list]
+                : [...placedCards]
                     .sort((a, b) => Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0))
                     .slice(0, 5)
                     .map(c => (

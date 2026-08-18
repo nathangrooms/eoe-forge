@@ -1,25 +1,34 @@
 /**
- * Your hand, fanned along the bottom edge.
+ * Your hand, fanned along the bottom edge — the biggest thing on the table.
  *
- * This is the Arena half of the brief. A hand is not a list — it is a fan of
- * cards held at an angle, closest to you, that you lift one of to look at it.
- * So: an arc, a rotation per card, an overlap that grows as the hand grows, and
- * a lift on hover that straightens the card and brings it forward.
+ * Owner: *"For the player, the hand needs to be massive."*, *"my hand should be
+ * massive - I can barely even see it - cards are tiny."*
  *
- * Castability is decided by `planCastFromHand` / `planLandDrop` — the same
- * helpers the bot uses — so the fan and the rules can never disagree about what
- * you are allowed to play. A card you cannot pay for is desaturated and says
- * why on hover rather than vanishing.
+ * A hand is not a list. It is a fan of cards held at an angle, closest to you,
+ * that you lift one of to look at it: an arc, a rotation per card, an overlap
+ * that grows as the hand grows, and a lift on hover that straightens the card
+ * and brings it forward. It is where a player STUDIES a card before committing
+ * to a play, which is why it gets the most pixels of anything on screen.
  *
- * Cards fly in when drawn and fly *out toward the board* when played, which is
- * the whole reason the fan and the battlefield share a screen instead of living
- * in two tabs. All of it collapses to nothing under `prefers-reduced-motion`.
+ * **Clicking a card does not play it.** It opens the preview, which is where
+ * Cast and Play land live. That rule is the whole shape of this screen: a tap
+ * is never the action.
+ *
+ * Castability still shows here — it comes from `planCastFromHand` /
+ * `planLandDrop`, the same helpers the bot uses — so a card you cannot pay for
+ * is desaturated and says why on hover, and the fan and the rules can never
+ * disagree.
+ *
+ * The size the player chose is a CEILING. A fanned hand of n cards occupies
+ * `w + (n-1) * w * (1 - overlap)`, so the fan measures itself and solves that
+ * for the widest card that fits. Without it, ten cards at the preferred size
+ * need about 970px and simply ran off the side of a narrow screen.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GameCardView } from './GameCardView';
+import { useMeasuredWidth } from './useMeasure';
 import {
   isLand,
   planCastFromHand,
@@ -34,9 +43,11 @@ export interface ViewerHandProps {
   viewerPlayerId: PlayerId;
   /** Playtest escape hatch: ignore mana entirely. */
   freeCast?: boolean;
-  onCast: (card: CardInstance) => void;
-  onPlayLand: (card: CardInstance) => void;
-  /** Rendered width of a card in the fan. */
+  /** Click a card and the preview opens. Nothing is played by a click. */
+  onInspect: (card: CardInstance) => void;
+  /** The card currently in the preview, lifted out of the fan. */
+  selectedId?: string | null;
+  /** Rendered width of a card in the fan. A ceiling, not a fixed value. */
   cardWidth?: number;
   /** Include the command zone at the right-hand end of the fan. */
   includeCommandZone?: boolean;
@@ -71,81 +82,72 @@ function overlapFraction(count: number): number {
 /** Smallest a hand card may shrink to before it stops being readable at all. */
 const MIN_HAND_CARD = 76;
 
+/** A real card is 63 × 88 mm: height = width ÷ this. */
+const CARD_RATIO = 0.7176;
+
 /**
  * Widest card that still lets `count` cards fit inside `available` pixels.
  *
- * A fanned hand of n cards occupies `w + (n-1) * w * (1 - overlap)`, so solving
- * for w gives the largest card that fits. Without this the hand used a fixed
- * width and simply ran off the side of a narrow screen — ten cards at the
- * preferred size need roughly 970px.
+ * The fan is rotated, and a rotated card is wider than an upright one. The
+ * outermost card leans by half the sweep about its bottom edge, which throws
+ * its top corner sideways by `(height / 2) * sin(θ)` at each end — about 35px
+ * on a big hand, which is exactly how far the end cards used to hang off the
+ * screen. Solving `w * (spans + sin(θ) / ratio) = available` puts the whole
+ * rotated fan inside the measured box instead of just the upright boxes.
  */
-function fitCardWidth(available: number, count: number, preferred: number): number {
+export function fitCardWidth(available: number, count: number, preferred: number): number {
   if (count <= 0 || available <= 0) return preferred;
   const overlap = overlapFraction(count);
   const spans = 1 + (count - 1) * (1 - overlap);
-  const fits = Math.floor(available / spans);
+  const lean = Math.sin((fanGeometry(count).step * (count - 1) * Math.PI) / 360) / CARD_RATIO;
+  const fits = Math.floor(available / (spans + lean));
   return Math.max(MIN_HAND_CARD, Math.min(preferred, fits));
-}
-
-/** Width of an element, kept current across resizes and orientation changes. */
-function useMeasuredWidth<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [width, setWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new ResizeObserver(entries => {
-      const next = entries[0]?.contentRect.width ?? 0;
-      setWidth(prev => (Math.abs(prev - next) > 1 ? next : prev));
-    });
-    observer.observe(el);
-    setWidth(el.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, width] as const;
 }
 
 export function ViewerHand({
   state,
   viewerPlayerId,
   freeCast,
-  onCast,
-  onPlayLand,
+  onInspect,
+  selectedId,
   /* 104px rendered a Magic card at roughly a third of readable size — the owner
      could not read their own hand. A hand card is the thing you study before
      committing to a play, so it is the largest element on the table. */
-  cardWidth = 210,
+  cardWidth = 230,
   includeCommandZone = true,
   className,
 }: ViewerHandProps) {
   const reduceMotion = useReducedMotion();
-  const me = state.players.find(p => p.id === viewerPlayerId);
-  if (!me) return null;
+  const [fanRef, fanWidth] = useMeasuredWidth<HTMLDivElement>();
 
-  const hand = me.zones.hand.map(id => state.cards[id]).filter(Boolean);
-  const command = includeCommandZone
-    ? me.zones.command.map(id => state.cards[id]).filter(Boolean)
-    : [];
+  const me = state.players.find(p => p.id === viewerPlayerId);
+
+  const hand = me ? me.zones.hand.map(id => state.cards[id]).filter(Boolean) : [];
+  const command =
+    me && includeCommandZone
+      ? me.zones.command.map(id => state.cards[id]).filter(Boolean)
+      : [];
   const cards = [...hand, ...command];
 
-  const [fanRef, fanWidth] = useMeasuredWidth<HTMLDivElement>();
   /* Shrink to fit rather than running off the edge. `cardWidth` is the ceiling
      (the size the player asked for), not a fixed value. */
-  const renderedWidth = fitCardWidth(
-    fanWidth ? fanWidth - 16 : 0,
-    cards.length,
-    cardWidth
-  );
+  const renderedWidth = fitCardWidth(fanWidth ? fanWidth - 16 : 0, cards.length, cardWidth);
 
   const { step, arc } = fanGeometry(cards.length);
   const middle = (cards.length - 1) / 2;
   const overlap = overlapFraction(cards.length);
+  /* The outer cards pivot about their bottom edge, so their bottom corner
+     swings below the baseline. Without this the fan is clipped by the bottom of
+     the viewport. */
+  const dip = Math.round(
+    (renderedWidth / 2) * Math.sin((step * (cards.length - 1) * Math.PI) / 360)
+  );
+
+  if (!me) return null;
 
   if (cards.length === 0) {
     return (
-      <div className={cn('flex items-end justify-center pb-2', className)}>
+      <div ref={fanRef} className={cn('flex items-end justify-center pb-2', className)}>
         <p className="rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground shadow-md shadow-black/40 backdrop-blur-sm">
           Your hand is empty
         </p>
@@ -154,7 +156,11 @@ export function ViewerHand({
   }
 
   return (
-    <div ref={fanRef} className={cn('flex items-end justify-center', className)}>
+    <div
+      ref={fanRef}
+      className={cn('flex items-end justify-center', className)}
+      style={{ paddingBottom: dip }}
+    >
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
           const fromCommand = index >= hand.length;
@@ -166,28 +172,35 @@ export function ViewerHand({
 
           const playable = land ? !!landPlan?.ok : !!castPlan?.ok;
           const reason = (land ? landPlan?.reason : castPlan?.reason) ?? '';
+          const selected = selectedId === card.instanceId;
+
           const offset = index - middle;
           const rotate = offset * step;
           // 0 at the ends, -arc in the middle: the fan curves upward off its
           // baseline instead of dropping its outer cards off the screen.
-          const drop =
-            middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
+          const drop = middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
 
-          const action = land ? 'Play' : fromCommand ? 'Cast from the command zone' : 'Cast';
-          const label = playable
-            ? `${action} ${card.name}`
-            : `${card.name} — ${reason || 'not playable right now'}`;
+          const state_ = playable
+            ? land
+              ? 'playable as a land drop'
+              : 'castable'
+            : reason || 'not playable right now';
+          const label = `${card.name} — ${state_}. Click to preview.`;
 
           return (
             <motion.div
               key={card.instanceId}
               layout={!reduceMotion}
               initial={
-                reduceMotion
-                  ? false
-                  : { opacity: 0, x: 180, y: -70, rotate: -24, scale: 0.7 }
+                reduceMotion ? false : { opacity: 0, x: 180, y: -70, rotate: -24, scale: 0.7 }
               }
-              animate={{ opacity: 1, x: 0, y: drop, rotate, scale: 1 }}
+              animate={{
+                opacity: 1,
+                x: 0,
+                y: selected ? drop - 46 : drop,
+                rotate: selected ? 0 : rotate,
+                scale: selected ? 1.08 : 1,
+              }}
               exit={
                 reduceMotion
                   ? { opacity: 0 }
@@ -204,13 +217,13 @@ export function ViewerHand({
               style={{
                 transformOrigin: 'bottom center',
                 marginLeft: index === 0 ? 0 : -renderedWidth * overlap,
-                zIndex: index,
+                zIndex: selected ? 70 : index,
               }}
               className="relative"
             >
               <button
                 type="button"
-                onClick={() => (land ? onPlayLand(card) : onCast(card))}
+                onClick={() => onInspect(card)}
                 title={label}
                 aria-label={label}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -220,6 +233,7 @@ export function ViewerHand({
                   width={renderedWidth}
                   ignoreTapped
                   dimmed={!playable && !freeCast}
+                  selected={selected}
                   title={label}
                 />
                 {fromCommand && (

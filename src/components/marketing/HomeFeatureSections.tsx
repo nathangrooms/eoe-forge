@@ -70,7 +70,7 @@ const OUT = ['MTG Arena', 'MTGO', 'Moxfield CSV', 'Plain text', 'CSV', 'JSON'];
 
 export function HomePortability() {
   return (
-    <Section>
+    <Section tint>
       <SectionHeading
         title="Your data goes in — and comes back out"
         lead="Paste a list from anywhere, and export it anywhere. No lock-in, because a collection you cannot get out of a tool is not really yours."
@@ -114,7 +114,7 @@ const SUBSCORES = [
 
 export function HomePower() {
   return (
-    <Section tint>
+    <Section>
       <SectionHeading
         title="A power level you can argue with"
         lead="Not a black box. Nine weighted subscores, published below, plus a seeded 10,000-hand simulation for keepable openers and turn-one colour access. Same deck, same score, every time."

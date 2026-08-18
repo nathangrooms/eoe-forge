@@ -213,7 +213,7 @@ export function HomeFormatPicker() {
   }, [active, slots]);
 
   return (
-    <Section>
+    <Section tint>
       <SectionHeading
         eyebrow="Pick your format"
         title={`What can you build in ${format.label}?`}

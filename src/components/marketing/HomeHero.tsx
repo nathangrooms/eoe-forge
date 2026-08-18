@@ -99,9 +99,20 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
         </div>
       </div>
 
-      {/* ---------- card fan ---------- */}
-      <div className="relative -mt-2 h-[13rem] sm:h-[17rem] lg:h-[19rem]">
-        <div className="absolute inset-x-0 bottom-[-4rem] flex justify-center sm:bottom-[-5rem]">
+      {/* ---------- card fan ----------
+          WHOLE cards. This was a fixed-height box with the fan pushed below its
+          own floor (`bottom-[-4rem]`) inside the section's overflow-hidden, so
+          all seven cards were sliced on one hard horizontal line at ~72% height
+          — seven cropped cards as the first thing a visitor sees, on a page
+          whose entire argument is that it draws real ones properly.
+
+          The fan is in flow now. Transforms do not contribute to layout, so the
+          padding is sized to the overhang the rotation creates: rotating about
+          `bottom center` lifts the far top corner ~17px above the card's own box
+          and drops the near bottom corner ~27px below it, and the outermost card
+          is additionally translated 42px down. pt-6 / pb-16 clears both, and the
+          section's overflow-hidden now only ever clips empty space. */}
+      <div className="relative mt-4 flex items-end justify-center pb-16 pt-6 sm:pb-20">
           {cards.map((c, i) => {
             const mid = (cards.length - 1) / 2;
             const offset = i - mid;
@@ -125,9 +136,6 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
               </figure>
             );
           })}
-        </div>
-        {/* the fan bleeds into the next section rather than stopping on a line */}
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
       </div>
     </section>
   );

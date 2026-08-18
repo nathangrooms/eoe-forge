@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeHero } from '@/components/marketing/HomeHero';
-import { HomeCollection, HomeCTA } from '@/components/marketing/HomeSections';
+import { HomeCTA } from '@/components/marketing/HomeSections';
 import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { HomeNewSets } from '@/components/marketing/HomeNewSets';
-import { HomeColors, HomeCatalogue } from '@/components/marketing/HomeStats';
+import { HomeCatalogue } from '@/components/marketing/HomeStats';
 import { HomeFormatPicker } from '@/components/marketing/HomeFormatPicker';
 import { HomeStorage } from '@/components/marketing/HomeStorage';
 import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
@@ -74,7 +74,10 @@ function HomeFooter() {
   ];
 
   return (
-    <footer className="border-t bg-background py-12">
+    // Borderless (design law 2). The tinted closing section above is the step
+    // that separates the footer; a hairline here would be the third one on the
+    // page and the owner has asked for none.
+    <footer className="bg-background py-14">
       <SectionInner>
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -103,7 +106,7 @@ function HomeFooter() {
           ))}
         </div>
 
-        <div className="mt-10 border-t pt-6">
+        <div className="mt-12">
           <p className="text-xs leading-relaxed text-muted-foreground">
             Card data from{' '}
             <a
@@ -155,28 +158,76 @@ export default function Homepage() {
   return (
     <div className="min-h-screen bg-background">
       <PublicNavigation />
+
+      {/* ---------------------------------------------------------------- hook
+          One promise, the real card count, and seven cards a Commander player
+          recognises on sight. */}
       <HomeHero cardCount={cardCount} />
+
+      {/* ------------------------------------------- proof the product is real
+          Cards → scale → find one → build with it. Four beats, in the order a
+          sceptical visitor asks the questions: does it have real cards, how
+          many, can I search them the way I already know how, and what do I get
+          when I do. Every figure in this run is a live count. */}
       <HomeShowcase />
       <HomeCatalogue />
-      <HomeAppVisual />
-      <HomeStorage />
-      <HomeMarketplace />
       <HomeSearch />
-      <HomeNewSets />
-      <HomePower />
+      <HomeAppVisual />
+
+      {/* ------------------------------------------------- the differentiator
+          Everything above this line, Moxfield and Archidekt also do. This is
+          the part they do not, so it lands early — roughly a quarter of the way
+          down — rather than being buried in a feature list. Scanner follows it
+          because "know which box it is in" is worthless until getting cards in
+          is cheap, and the camera is the answer to that. */}
+      <HomeStorage />
       <HomeScanner />
+
+      {/* ------------------------------------------------------- the breadth
+          Four products a deck site is not expected to have at all: a playable
+          game, a life counter for the table, price history, and a tournament
+          organiser. Ordered table-first, because playing a game in the browser
+          is the least expected of the four. */}
       <HomePlayTable />
       <HomeLifeCounter />
+      <HomeMarketplace />
       <HomeTournaments />
-      <HomeBrain />
-      <HomeFormatPicker />
+
+      {/* --------------------------------------------------------- the depth
+          Having shown the range, show that it is not a mile wide and an inch
+          deep: 184 real precon products, an assistant that reads your actual
+          decklist, a published power score, and per-format legality read from
+          the card rather than a hand-kept list. */}
       <HomePrecons />
+      <HomeBrain />
+      <HomePower />
+      <HomeFormatPicker />
+
+      {/* ---------------------------------------------------------- the close
+          Freshness, then no lock-in, then the objections, then the ask. */}
+      <HomeNewSets />
       <HomePortability />
-      <HomeColors />
-      <HomeCollection />
       <FAQSection />
       <HomeCTA />
       <HomeFooter />
     </div>
   );
 }
+
+/*
+ * Two sections were dropped from the page in this pass rather than reordered:
+ *
+ *   HomeCollection ("Your collection, not just your decklists") — a four-bullet
+ *     list beside /hero-768.webp, which is the hero's own background image
+ *     reused as decoration, cropped to 16:10. So the page opened and closed on
+ *     the same picture. Three of its four bullets are now whole sections
+ *     (storage, price history, the builder reading your collection); the fourth,
+ *     the wishlist, is a footer link. It is still exported from HomeSections.tsx.
+ *
+ *   HomeColors ("Colour identity, counted properly") — five live counts drawn as
+ *     five bars: 7,759 / 7,602 / 7,661 / 7,746 / 7,504. The numbers are real and
+ *     the point is true, but WUBRG is evenly distributed by design, so the chart
+ *     rendered as five bars of visibly identical length across 1,600px. A bar
+ *     chart whose bars are all the same length is an admission that there was
+ *     nothing to show. Still exported from HomeStats.tsx.
+ */

@@ -169,7 +169,7 @@ export function HomeScanner() {
   const art = card?.image_uris?.art_crop ?? null;
 
   return (
-    <Section>
+    <Section tint>
       <style>{SWEEP_CSS}</style>
 
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-20">

@@ -97,7 +97,17 @@ export function HomeCatalogue() {
     (async () => {
       const [total, legendary, mythic] = await Promise.all([
         supabase.from('cards').select('id', { count: 'exact', head: true }),
-        supabase.from('cards').select('id', { count: 'exact', head: true }).eq('is_legendary', true),
+        /* `is_legendary` alone also counts legendary lands, artifacts,
+           enchantments, planeswalkers and sagas, so the old query returned
+           4,364 under the caption "every one a possible commander" — the one
+           outright false statement left on the page. Rule 903.3 makes exactly
+           the legendary CREATURES eligible, so the count is narrowed to match
+           the sentence rather than the sentence softened to match the count. */
+        supabase
+          .from('cards')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_legendary', true)
+          .ilike('type_line', '%Creature%'),
         supabase.from('cards').select('id', { count: 'exact', head: true }).eq('rarity', 'mythic'),
       ]);
       setStats({
@@ -111,12 +121,12 @@ export function HomeCatalogue() {
 
   const tiles = [
     { label: 'Cards in the catalogue', value: stats?.total, sub: 'synced nightly from Scryfall' },
-    { label: 'Legendary creatures & more', value: stats?.legendary, sub: 'every one a possible commander' },
+    { label: 'Legendary creatures', value: stats?.legendary, sub: 'every one of them a legal commander' },
     { label: 'Mythic rares', value: stats?.mythic, sub: 'with full art and market prices' },
   ];
 
   return (
-    <Section size="compact">
+    <Section tint size="compact">
       <div className="grid gap-8 sm:grid-cols-3">
         {tiles.map(t => (
           <div key={t.label} className="text-center">

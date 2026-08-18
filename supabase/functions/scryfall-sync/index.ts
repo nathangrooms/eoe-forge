@@ -389,6 +389,91 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
   }
 }
 
+/**
+ * Repairs rows written before `faces` was persisted, without re-walking the
+ * whole 34k-card catalogue: only multi-face layouts are visited, 75 at a time
+ * through Scryfall's /cards/collection endpoint.
+ *
+ * Pagination is keyset on `id` (not offset) so it still terminates when a card
+ * comes back from Scryfall with no `card_faces` — those rows stay null but sit
+ * behind the cursor instead of being handed out forever.
+ */
+async function backfillFaces(opts: { onlyMissing?: boolean; deadlineMs?: number } = {}) {
+  const onlyMissing = opts.onlyMissing !== false;
+  const deadline = Date.now() + (opts.deadlineMs ?? 240_000);
+
+  let scanned = 0;
+  let updated = 0;
+  let notFound = 0;
+  let noFaces = 0;
+  let remaining = false;
+  let lastId = '';
+
+  console.log(`🔧 Backfilling faces (onlyMissing=${onlyMissing})...`);
+
+  while (true) {
+    if (Date.now() > deadline) {
+      remaining = true;
+      break;
+    }
+
+    // `.is()` only exists on the filter builder, so every filter has to be
+    // applied before .order()/.limit() turn it into a transform builder.
+    let filter = supabase
+      .from('cards')
+      .select('id')
+      .in('layout', MULTI_FACE_LAYOUTS)
+      .gt('id', lastId);
+
+    if (onlyMissing) filter = filter.is('faces', null);
+
+    const { data: rows, error } = await filter
+      .order('id', { ascending: true })
+      .limit(COLLECTION_BATCH);
+    if (error) throw new Error(`DB read failed: ${error.message}`);
+    if (!rows || rows.length === 0) break;
+
+    lastId = rows[rows.length - 1].id;
+    scanned += rows.length;
+
+    const response = await fetch('https://api.scryfall.com/cards/collection', {
+      method: 'POST',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ identifiers: rows.map((r) => ({ id: r.id })) }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Scryfall collection error: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const cards: ScryfallCard[] = payload.data || [];
+    notFound += (payload.not_found || []).length;
+
+    const withFaces = cards.filter((c) => Array.isArray(c.card_faces) && c.card_faces.length > 0);
+    noFaces += cards.length - withFaces.length;
+
+    if (withFaces.length > 0) {
+      const { error: writeError } = await supabase
+        .from('cards')
+        .upsert(withFaces.map(transformCard), { onConflict: 'id', ignoreDuplicates: false });
+
+      if (writeError) throw new Error(`DB write failed: ${writeError.message}`);
+      updated += withFaces.length;
+      console.log(`✅ Backfilled ${updated} cards (scanned ${scanned})`);
+    }
+
+    await new Promise((r) => setTimeout(r, RATE_LIMIT_DELAY));
+  }
+
+  console.log(`🎉 Backfill done: ${updated} updated, ${scanned} scanned, ${noFaces} single-faced, ${notFound} not found`);
+  return { scanned, updated, noFaces, notFound, remaining };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -396,11 +481,12 @@ serve(async (req) => {
 
   try {
     let action = 'sync';
+    let body: Record<string, any> = {};
     try {
-      const body = await req.json();
+      body = (await req.json()) || {};
       action = body.action || 'sync';
     } catch { /* default to sync */ }
-    
+
     if (action === 'status') {
       const { data } = await supabase
         .from('sync_status')
@@ -420,6 +506,22 @@ serve(async (req) => {
       });
     }
     
+    if (action === 'backfill-faces') {
+      const result = await backfillFaces({
+        onlyMissing: body.only_missing !== false,
+        deadlineMs: typeof body.deadline_ms === 'number' ? body.deadline_ms : undefined,
+      });
+
+      return new Response(JSON.stringify({
+        ...result,
+        message: result.remaining
+          ? `Backfilled ${result.updated} cards; time budget reached, call again to continue.`
+          : `Backfill complete. ${result.updated} cards now carry their faces.`,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     if (action === 'sync' || action === 'resume') {
       // Check for resumable state
       const resumeState = await getSyncState();

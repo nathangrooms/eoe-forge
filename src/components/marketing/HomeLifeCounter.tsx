@@ -217,7 +217,7 @@ export function HomeLifeCounter() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
 
   return (
-    <Section>
+    <Section tint>
       <div ref={ref} aria-hidden className="h-0" />
 
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,660px)]">

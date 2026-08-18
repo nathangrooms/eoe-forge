@@ -454,7 +454,7 @@ export function DeckTile({
         className
       )}
     >
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
+      <div className="flex h-full flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
         {/* The hero. Everything else on the tile is sized against this. */}
         <div className="mx-auto w-[64%] min-w-0 max-w-[260px] shrink-0 sm:mx-0 sm:w-[40%] sm:max-w-[230px] lg:w-[42%] lg:max-w-[260px]">
           <CommanderHero

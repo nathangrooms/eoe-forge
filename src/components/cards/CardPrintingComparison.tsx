@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -10,15 +9,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import {
-  formatUsd,
-  getCardImage,
-  rarityClass,
-  rarityCode,
-  scryfallUrl,
-  tcgplayerUrl,
-} from '@/lib/scryfall/card-utils';
-import { ExternalLink, ImageOff, Layers, ShoppingCart } from 'lucide-react';
+import { CardImage } from './CardImage';
+import { formatUsd, rarityClass, rarityCode, scryfallUrl, tcgplayerUrl } from '@/lib/scryfall/card-utils';
+import { ExternalLink, Layers, ShoppingCart } from 'lucide-react';
+
+/**
+ * Every printing of a card, side by side.
+ *
+ * This used to be a stack of bordered rows each holding a 60 px crop of the
+ * `small` (146 px) Scryfall image — the exact combination the product is being
+ * cleaned up to remove. Printings differ *visually*, so the art is now the
+ * primary content of each row and comes through `CardImage`, which requests a
+ * resolution that matches how large it is actually drawn.
+ */
 
 interface CardPrintingComparisonProps {
   cardName: string;
@@ -32,6 +35,9 @@ const SORTS: { value: SortKey; label: string }[] = [
   { value: 'price', label: 'Cheapest first' },
   { value: 'set', label: 'Set name' },
 ];
+
+/** Borderless field skin — `SelectTrigger` ships with `border border-input`. */
+const FIELD = 'border-0 bg-muted/50 focus:ring-1 focus:ring-ring focus:ring-offset-0';
 
 const priceOf = (printing: any): number | null => {
   const usd = parseFloat(printing?.prices?.usd ?? '');
@@ -115,8 +121,8 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
   const allLoaded = !nextPage;
 
   return (
-    <div className="rounded-lg border border-border">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+    <div className="overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 px-4 py-3">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-muted-foreground" aria-hidden />
           <h4 className="text-sm font-medium text-foreground">
@@ -130,10 +136,10 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
 
         {printings.length > 1 && (
           <Select value={sortKey} onValueChange={(v: SortKey) => setSortKey(v)}>
-            <SelectTrigger className="h-8 w-[152px]" aria-label="Sort printings">
+            <SelectTrigger className={cn(FIELD, 'h-8 w-[152px]')} aria-label="Sort printings">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-0 bg-popover shadow-xl shadow-black/40">
               {SORTS.map(s => (
                 <SelectItem key={s.value} value={s.value}>
                   {s.label}
@@ -145,7 +151,7 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
       </div>
 
       {cheapest && (
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+        <p className="bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
           Cheapest {allLoaded ? '' : 'so far '}: {cheapest.set_name} —{' '}
           <span className="text-foreground">{formatUsd(priceOf(cheapest))}</span>
         </p>
@@ -153,9 +159,9 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
 
       <div className="p-3">
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[0, 1, 2].map(i => (
-              <div key={i} className="h-24 animate-pulse rounded-md bg-muted" />
+              <div key={i} className="h-[124px] animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
             ))}
           </div>
         ) : error ? (
@@ -165,36 +171,21 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
             No printings found for this card.
           </p>
         ) : (
-          <ScrollArea className="h-[380px] pr-3">
+          <ScrollArea className="h-[420px] pr-3">
             <div className="space-y-2">
               {sorted.map(printing => {
-                const image = getCardImage(printing, 'small');
                 const isCheapest = cheapest && printing.id === cheapest.id;
                 return (
                   <div
                     key={printing.id}
                     className={cn(
-                      'flex gap-3 rounded-md border p-3 transition-colors',
-                      isCheapest ? 'border-foreground/50 bg-accent' : 'border-border hover:bg-accent'
+                      'flex gap-3 rounded-lg p-3 transition-colors',
+                      isCheapest ? 'bg-accent' : 'bg-muted/20 hover:bg-accent'
                     )}
                   >
-                    <div className="aspect-[63/88] w-[60px] shrink-0 overflow-hidden rounded border border-border bg-muted">
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={`${printing.name} — ${printing.set_name}`}
-                          loading="lazy"
-                          decoding="async"
-                          width={146}
-                          height={204}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
-                        </div>
-                      )}
-                    </div>
+                    {/* Printings differ by art and frame — show them at a size
+                        where that difference is actually visible. */}
+                    <CardImage card={printing} width={92} hideFlip title={printing.set_name} />
 
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -204,16 +195,16 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
                         <span
                           title={printing.rarity}
                           className={cn(
-                            'inline-flex h-4 w-4 items-center justify-center rounded-sm border border-border font-mono text-[10px]',
+                            'inline-flex h-4 w-4 items-center justify-center rounded-sm bg-muted font-mono text-[10px]',
                             rarityClass(printing.rarity)
                           )}
                         >
                           {rarityCode(printing.rarity)}
                         </span>
                         {isCheapest && (
-                          <Badge variant="outline" className="border-foreground/40 text-[10px] font-normal">
+                          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium leading-none text-primary-foreground">
                             Cheapest
-                          </Badge>
+                          </span>
                         )}
                       </div>
 
@@ -238,13 +229,13 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
                       </p>
 
                       <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                        <Button variant="secondary" size="sm" asChild className="h-7 text-xs">
                           <a href={scryfallUrl(printing)} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-1 h-3 w-3" />
                             View
                           </a>
                         </Button>
-                        <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                        <Button variant="secondary" size="sm" asChild className="h-7 text-xs">
                           <a href={tcgplayerUrl(printing)} target="_blank" rel="noopener noreferrer">
                             <ShoppingCart className="mr-1 h-3 w-3" />
                             Buy
@@ -258,7 +249,7 @@ export function CardPrintingComparison({ cardName, oracleId }: CardPrintingCompa
 
               {nextPage && (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   className="w-full"
                   disabled={loadingMore}
                   onClick={() => fetchPage(nextPage, true)}

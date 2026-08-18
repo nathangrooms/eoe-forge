@@ -84,7 +84,8 @@ export function DeckViewControls({
   return (
     <div className={cn('flex flex-wrap items-center justify-between gap-3', className)}>
       <p className="text-sm text-muted-foreground">
-        {resultCount} {resultCount === 1 ? 'deck' : 'decks'}
+        <span className="font-semibold tabular-nums text-foreground">{resultCount}</span>{' '}
+        {resultCount === 1 ? 'deck' : 'decks'}
       </p>
 
       <div className="flex items-center gap-2">
@@ -92,10 +93,14 @@ export function DeckViewControls({
           value={prefs.sortKey}
           onValueChange={value => onChange({ sortKey: value as DeckSortKey })}
         >
-          <SelectTrigger className="h-9 w-[168px]" aria-label="Sort decks by">
+          {/* Borderless: the muted surface separates it from the page, not a hairline. */}
+          <SelectTrigger
+            className="h-9 w-[168px] border-0 bg-muted text-foreground"
+            aria-label="Sort decks by"
+          >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="border-0 shadow-xl shadow-black/40">
             {SORT_LABELS.map(option => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -105,7 +110,7 @@ export function DeckViewControls({
         </Select>
 
         <Button
-          variant="outline"
+          variant="secondary"
           size="icon"
           className="h-9 w-9"
           aria-label={prefs.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
@@ -118,9 +123,11 @@ export function DeckViewControls({
           )}
         </Button>
 
-        <div className="flex items-center rounded-md border border-border p-0.5" role="group" aria-label="View mode">
+        <div className="flex items-center rounded-md bg-muted p-0.5" role="group" aria-label="View mode">
+          {/* `secondary` sits one lightness step from `muted`, so the selected
+              state was invisible. Selected now inverts. */}
           <Button
-            variant={prefs.mode === 'grid' ? 'secondary' : 'ghost'}
+            variant={prefs.mode === 'grid' ? 'default' : 'ghost'}
             size="icon"
             className="h-8 w-8"
             aria-pressed={prefs.mode === 'grid'}
@@ -130,7 +137,7 @@ export function DeckViewControls({
             <LayoutGrid className="h-4 w-4" />
           </Button>
           <Button
-            variant={prefs.mode === 'list' ? 'secondary' : 'ghost'}
+            variant={prefs.mode === 'list' ? 'default' : 'ghost'}
             size="icon"
             className="h-8 w-8"
             aria-pressed={prefs.mode === 'list'}

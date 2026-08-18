@@ -117,10 +117,22 @@ export default function Collection() {
     }
   }, [searchParams]);
 
+  /**
+   * Only the `tab` key is touched. The collection browser mirrors its filter
+   * into the same query string, so replacing the whole search string here used
+   * to wipe an active filter every time a tab was clicked.
+   */
   const setActiveTab = (tab: string) => {
     setCurrentTab(tab);
-    if (tab === 'collection') setSearchParams({});
-    else setSearchParams({ tab });
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (tab === 'collection') next.delete('tab');
+        else next.set('tab', tab);
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   const cards = useMemo(() => snapshot?.items ?? [], [snapshot]);
@@ -337,7 +349,7 @@ export default function Collection() {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header — carries state, not marketing copy */}
-      <div className="border-b border-border bg-card px-3 py-3 md:px-6 md:py-4">
+      <div className="bg-card px-3 py-3 shadow-lg shadow-black/20 md:px-6 md:py-4">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-foreground md:text-2xl">Collection</h1>
@@ -348,7 +360,7 @@ export default function Collection() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()} className="gap-2">
+            <Button variant="secondary" size="sm" onClick={() => refresh()} className="gap-2">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
@@ -360,7 +372,7 @@ export default function Collection() {
                 showSuccess('Collection updated', 'Import completed');
               }}
             />
-            <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-2">
+            <Button variant="secondary" size="sm" onClick={handleExportBackup} className="gap-2">
               <Download className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Backup</span>
             </Button>
@@ -373,7 +385,7 @@ export default function Collection() {
       </div>
 
       {/* Tabs */}
-      <div className="scrollbar-none overflow-x-auto border-b border-border bg-card px-3 sm:px-6">
+      <div className="scrollbar-none overflow-x-auto bg-card px-3 sm:px-6">
         <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="inline-flex h-12 w-max gap-1 bg-transparent p-0 sm:w-auto">
             {[

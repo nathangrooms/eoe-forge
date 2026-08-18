@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   ShoppingCart,
@@ -19,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CardGrid, CardImage } from '@/components/cards';
 import { formatPrice, toNumber } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
 
@@ -31,17 +31,13 @@ interface WishlistItem {
   note?: string;
   target_price_usd?: number;
   alert_enabled?: boolean;
-  card?: {
-    set_code?: string;
-    rarity?: string;
-    prices?: { usd?: string; usd_foil?: string };
-    image_uris?: { small?: string; normal?: string };
-  };
+  card?: any;
 }
 
 interface WishlistCardGridProps {
   items: WishlistItem[];
-  viewMode: 'grid' | 'compact';
+  /** Card width in px, straight from the shared size slider. */
+  width: number;
   onCardClick: (item: WishlistItem) => void;
   onBuy: (item: WishlistItem) => void;
   onAddToCollection: (item: WishlistItem) => void;
@@ -57,16 +53,21 @@ const PRIORITY_LABEL: Record<string, string> = {
   low: 'Low',
 };
 
+/** Below this the card is a thumbnail; the action row would not fit. */
+const ACTIONS_THRESHOLD = 132;
+
 /**
- * Density changes size, not capability.
+ * Size changes size, not capability.
  *
- * Compact mode previously gated BOTH the action overlay and the whole info
- * footer behind `viewMode === 'grid'`, so switching density silently removed
- * every affordance — no price, no buy, no remove, no reprioritise.
+ * The old compact mode gated BOTH the action overlay and the whole info footer
+ * behind `viewMode === 'grid'`, so switching density silently removed every
+ * affordance. Now the size is continuous and only the *layout* of the controls
+ * responds to it — below `ACTIONS_THRESHOLD` the buy/menu row folds into a
+ * single overlay button rather than disappearing.
  */
 export function WishlistCardGrid({
   items,
-  viewMode,
+  width,
   onCardClick,
   onBuy,
   onAddToCollection,
@@ -92,76 +93,134 @@ export function WishlistCardGrid({
     setTargetValue('');
   };
 
-  const minWidth = viewMode === 'grid' ? 160 : 108;
+  const roomy = width >= ACTIONS_THRESHOLD;
 
   return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${minWidth}px, 1fr))` }}
-    >
+    <CardGrid width={width}>
       {items.map(item => {
         const currentPrice = toNumber(item.card?.prices?.usd);
         const belowTarget = isPriceBelowTarget(item);
 
-        return (
-          <div
-            key={item.id}
-            className={cn(
-              'group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-colors',
-              belowTarget ? 'border-foreground' : 'border-border hover:border-foreground/40'
+        const menu = (
+          <DropdownMenuContent align="end" className="border-0">
+            {(['high', 'medium', 'low'] as const).map(priority => (
+              <DropdownMenuItem
+                key={priority}
+                onClick={() => onUpdatePriority(item.id, priority)}
+                className="capitalize"
+              >
+                {priority} priority
+                {item.priority === priority && <Check className="ml-auto h-4 w-4" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            {!roomy && (
+              <>
+                <DropdownMenuItem onClick={() => onBuy(item)}>
+                  <ShoppingCart className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Buy
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddToCollection(item)}>
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Move to collection
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
             )}
-          >
-            <button
-              type="button"
-              className="relative block w-full bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => onCardClick(item)}
-              aria-label={`${item.card_name} details`}
+            <DropdownMenuItem
+              onClick={() => {
+                setEditingTarget(item.id);
+                setTargetValue(item.target_price_usd?.toString() ?? '');
+              }}
             >
-              <div className="aspect-[5/7] w-full">
-                {item.card?.image_uris?.normal ? (
-                  <img
-                    src={item.card.image_uris.normal}
-                    alt={item.card_name}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center p-2 text-center">
-                    <span className="text-xs text-muted-foreground">{item.card_name}</span>
-                  </div>
-                )}
-              </div>
+              <TrendingDown className="mr-2 h-4 w-4" aria-hidden="true" />
+              Set target price
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onToggleAlert(item.id, !item.alert_enabled)}>
+              {item.alert_enabled ? (
+                <>
+                  <BellOff className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Disable alert
+                </>
+              ) : (
+                <>
+                  <Bell className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Enable alert
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onRemove(item.id)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              Remove
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        );
 
-              {/* Badges sit over card art, so black/white is the honest ground. */}
-              <span className="absolute left-1.5 top-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+        return (
+          <div key={item.id} className="group/wish relative flex flex-col gap-1.5">
+            <CardImage
+              card={item.card ?? { name: item.card_name }}
+              width={width}
+              fill
+              onClick={() => onCardClick(item)}
+              title={item.card_name}
+              imageClassName={cn(
+                belowTarget && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+              )}
+            >
+              {/* Badges sit over card art, so an ink plate is the honest ground. */}
+              <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                 {PRIORITY_LABEL[item.priority] ?? 'Med'}
               </span>
               {item.quantity > 1 && (
-                <span className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">
+                <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
                   ×{item.quantity}
                 </span>
               )}
               {belowTarget && (
-                <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                <span className="pointer-events-none absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                   <TrendingDown className="h-3 w-3" aria-hidden="true" />
                   Deal
                 </span>
               )}
-              {item.alert_enabled && item.target_price_usd && (
+              {item.alert_enabled && item.target_price_usd && !belowTarget && (
                 <span
-                  className="absolute bottom-1.5 right-1.5 rounded bg-black/80 p-1 text-white"
+                  className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 p-1 text-white backdrop-blur-sm"
                   title={`Alert at ${formatPrice(item.target_price_usd)}`}
                 >
                   <Bell className="h-3 w-3" aria-hidden="true" />
                 </span>
               )}
-            </button>
 
-            {/* Info + actions at EVERY density. */}
-            <div className="flex flex-1 flex-col gap-1 p-2">
+              {/* At thumbnail sizes the whole action set folds into one menu. */}
+              {!roomy && (
+                <div className="absolute bottom-1.5 right-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/wish:opacity-100">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="h-6 w-6"
+                        aria-label={`Actions for ${item.card_name}`}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    {menu}
+                  </DropdownMenu>
+                </div>
+              )}
+            </CardImage>
+
+            <div className="flex flex-col gap-0.5 px-0.5">
               <button
                 type="button"
-                className="truncate text-left text-xs font-medium text-card-foreground hover:underline"
+                className="truncate text-left text-xs font-medium text-foreground hover:underline"
                 onClick={() => onCardClick(item)}
                 title={item.card_name}
               >
@@ -171,7 +230,7 @@ export function WishlistCardGrid({
                 <span className="truncate font-mono uppercase text-muted-foreground">
                   {item.card?.set_code || '—'}
                 </span>
-                <span className="shrink-0 font-semibold tabular-nums text-card-foreground">
+                <span className="shrink-0 font-semibold tabular-nums text-foreground">
                   {formatPrice(currentPrice)}
                 </span>
               </div>
@@ -182,85 +241,45 @@ export function WishlistCardGrid({
                 </div>
               )}
 
-              <div className="mt-1 flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 flex-1 px-2 text-xs"
-                  onClick={() => onBuy(item)}
-                >
-                  <ShoppingCart className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                  Buy
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  onClick={() => onAddToCollection(item)}
-                  aria-label={`Move ${item.card_name} to collection`}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      aria-label={`More actions for ${item.card_name}`}
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {(['high', 'medium', 'low'] as const).map(priority => (
-                      <DropdownMenuItem
-                        key={priority}
-                        onClick={() => onUpdatePriority(item.id, priority)}
-                        className="capitalize"
+              {roomy && (
+                <div className="mt-1 flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 flex-1 px-2 text-xs"
+                    onClick={() => onBuy(item)}
+                  >
+                    <ShoppingCart className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                    Buy
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    onClick={() => onAddToCollection(item)}
+                    aria-label={`Move ${item.card_name} to collection`}
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        aria-label={`More actions for ${item.card_name}`}
                       >
-                        {priority} priority
-                        {item.priority === priority && <Check className="ml-auto h-4 w-4" />}
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setEditingTarget(item.id);
-                        setTargetValue(item.target_price_usd?.toString() ?? '');
-                      }}
-                    >
-                      <TrendingDown className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Set target price
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onToggleAlert(item.id, !item.alert_enabled)}>
-                      {item.alert_enabled ? (
-                        <>
-                          <BellOff className="mr-2 h-4 w-4" aria-hidden="true" />
-                          Disable alert
-                        </>
-                      ) : (
-                        <>
-                          <Bell className="mr-2 h-4 w-4" aria-hidden="true" />
-                          Enable alert
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => onRemove(item.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                        <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    {menu}
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
 
             {editingTarget === item.id && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/95 p-3">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/95 p-3 shadow-lg shadow-black/40">
                 <p className="text-sm font-medium">Target price</p>
                 <Input
                   type="number"
@@ -269,14 +288,14 @@ export function WishlistCardGrid({
                   value={targetValue}
                   onChange={e => setTargetValue(e.target.value)}
                   placeholder="0.00"
-                  className="h-8 text-sm"
+                  className="h-8 border-0 bg-muted/50 text-sm"
                   aria-label="Target price"
                   autoFocus
                 />
                 <div className="flex w-full gap-2">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     className="h-8 flex-1"
                     onClick={() => setEditingTarget(null)}
                   >
@@ -291,6 +310,6 @@ export function WishlistCardGrid({
           </div>
         );
       })}
-    </div>
+    </CardGrid>
   );
 }

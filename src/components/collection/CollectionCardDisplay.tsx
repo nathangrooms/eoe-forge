@@ -40,7 +40,9 @@ interface CollectionCardDisplayProps {
  *
  * `legalities`, `color_identity` and `mana_cost` are carried through here —
  * they were previously dropped by the transform, which is why the format filter
- * could never match and no card tile ever showed a mana cost.
+ * could never match and no card tile ever showed a mana cost. The full card
+ * record rides along as `raw` so the shared `CardImage` can pick its own
+ * resolution instead of being handed one pre-chosen URL.
  */
 export function toBrowserCard(item: CollectionCard): BrowserCard {
   const card = item.card;
@@ -61,7 +63,11 @@ export function toBrowserCard(item: CollectionCard): BrowserCard {
     colors: toColors(card?.colors),
     colorIdentity: toColors(card?.color_identity ?? card?.colors),
     legalities: (card?.legalities ?? {}) as Record<string, string>,
-    imageUrl: card?.image_uris?.normal ?? card?.image_uris?.small,
+    imageUrl: card?.image_uris?.large ?? card?.image_uris?.normal ?? card?.image_uris?.small,
+    // The whole card record, so the tile can draw from `image_uris.large`,
+    // flip a double-faced printing, and answer the advanced filter's oracle,
+    // artist and printing-flag facets.
+    raw: card,
     quantity: item.quantity ?? 0,
     foil: item.foil ?? 0,
     condition: normalizeCondition(item.condition),

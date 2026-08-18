@@ -12,6 +12,7 @@ import { BadgesSection } from '@/components/dashboard/BadgeDisplay';
 import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { RecentDecks } from '@/components/dashboard/RecentDecks';
+import { Reveal } from '@/components/dashboard/Reveal';
 import { StatTile, StatTileSkeleton } from '@/components/dashboard/StatTile';
 
 const QUICK_ACTIONS = [
@@ -20,6 +21,8 @@ const QUICK_ACTIONS = [
   { label: 'Import to collection', to: '/collection?tab=add-cards', icon: Package },
   { label: 'MTG Brain', to: '/brain', icon: Brain },
 ];
+
+const countFormat = (value: number) => Math.round(value).toLocaleString();
 
 const Dashboard = () => {
   useSessionTimeout();
@@ -52,12 +55,11 @@ const Dashboard = () => {
         </Button>
       }
     >
+      {/* Sections settle in reading order. `Reveal` no-ops entirely under
+          prefers-reduced-motion, so nothing depends on an animation to appear. */}
       <div className="space-y-4 md:space-y-6">
         {summaryError && (
-          <p
-            role="alert"
-            className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
+          <p role="alert" className="rounded-lg bg-destructive/15 px-4 py-3 text-sm text-destructive">
             {summaryError}
           </p>
         )}
@@ -73,65 +75,82 @@ const Dashboard = () => {
             </>
           ) : (
             <>
-              <StatTile
-                label="Collection value"
-                value={asUSD(collection?.totalValueUSD)}
-                hint={`${(collection?.uniqueCards ?? 0).toLocaleString()} unique cards`}
-                icon={DollarSign}
-                to="/collection"
-              />
-              <StatTile
-                label="Cards owned"
-                value={(collection?.totalCards ?? 0).toLocaleString()}
-                hint="Including foils"
-                icon={Package}
-                to="/collection"
-              />
-              <StatTile
-                label="Decks"
-                value={(deckStats?.count ?? 0).toLocaleString()}
-                hint={`${(deckStats?.favoritesCount ?? 0).toLocaleString()} starred`}
-                icon={Layers}
-                to="/decks"
-              />
-              <StatTile
-                label="Wishlist"
-                value={asUSD(wishlist?.valueUSD)}
-                hint={`${(wishlist?.totalItems ?? 0).toLocaleString()} cards wanted`}
-                icon={Heart}
-                to="/wishlist"
-              />
+              <Reveal index={0}>
+                <StatTile
+                  label="Collection value"
+                  value={collection?.totalValueUSD ?? 0}
+                  format={asUSD}
+                  hint={`${(collection?.uniqueCards ?? 0).toLocaleString()} unique cards`}
+                  icon={DollarSign}
+                  to="/collection"
+                />
+              </Reveal>
+              <Reveal index={1}>
+                <StatTile
+                  label="Cards owned"
+                  value={collection?.totalCards ?? 0}
+                  format={countFormat}
+                  hint="Including foils"
+                  icon={Package}
+                  to="/collection"
+                />
+              </Reveal>
+              <Reveal index={2}>
+                <StatTile
+                  label="Decks"
+                  value={deckStats?.count ?? 0}
+                  format={countFormat}
+                  hint={`${(deckStats?.favoritesCount ?? 0).toLocaleString()} starred`}
+                  icon={Layers}
+                  to="/decks"
+                />
+              </Reveal>
+              <Reveal index={3}>
+                <StatTile
+                  label="Wishlist"
+                  value={wishlist?.valueUSD ?? 0}
+                  format={asUSD}
+                  hint={`${(wishlist?.totalItems ?? 0).toLocaleString()} cards wanted`}
+                  icon={Heart}
+                  to="/wishlist"
+                />
+              </Reveal>
             </>
           )}
         </section>
 
-        <nav aria-label="Quick actions" className="flex flex-wrap gap-2">
+        <Reveal as="nav" index={4} aria-label="Quick actions" className="flex flex-wrap gap-2">
           {QUICK_ACTIONS.map(({ label, to, icon: Icon }) => (
-            <Button key={to} variant="outline" size="sm" asChild>
+            /* `secondary`, not `outline` — outline draws a hairline border. */
+            <Button key={to} variant="secondary" size="sm" asChild>
               <Link to={to}>
                 <Icon className="h-4 w-4" />
                 {label}
               </Link>
             </Button>
           ))}
-        </nav>
+        </Reveal>
 
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <Reveal index={5} className="lg:col-span-2">
             <RecentDecks
               decks={decks}
               loading={decksLoading}
               error={decksError}
               onToggleFavorite={toggleFavorite}
             />
-          </div>
-          <RecentActivity />
+          </Reveal>
+          <Reveal index={6}>
+            <RecentActivity />
+          </Reveal>
         </div>
 
-        <BadgesSection
-          earnedBadges={getEarnedBadges(badgeProgress)}
-          inProgressBadges={getInProgressBadges(badgeProgress)}
-        />
+        <Reveal index={7}>
+          <BadgesSection
+            earnedBadges={getEarnedBadges(badgeProgress)}
+            inProgressBadges={getInProgressBadges(badgeProgress)}
+          />
+        </Reveal>
       </div>
     </StandardPageLayout>
   );

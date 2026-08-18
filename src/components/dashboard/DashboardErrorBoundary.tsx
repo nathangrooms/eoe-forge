@@ -58,7 +58,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
           <Card className="w-full max-w-2xl">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/15">
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 </span>
                 <div>
@@ -73,7 +73,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent className="space-y-4">
               {this.state.error && (
-                <div className="rounded-md border border-border bg-muted p-4">
+                <div className="rounded-lg bg-muted p-4">
                   <p className="font-mono text-sm text-destructive">
                     {this.state.error.toString()}
                   </p>
@@ -85,7 +85,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
                   <RefreshCw className="h-4 w-4" />
                   Reload dashboard
                 </Button>
-                <Button variant="outline" className="flex-1" asChild>
+                <Button variant="secondary" className="flex-1" asChild>
                   <Link to="/decks">
                     <Home className="h-4 w-4" />
                     Go to decks
@@ -98,7 +98,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
                   <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                     Technical details
                   </summary>
-                  <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
+                  <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-muted p-4 text-xs">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </details>

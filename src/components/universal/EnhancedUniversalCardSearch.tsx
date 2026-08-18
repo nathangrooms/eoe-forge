@@ -336,6 +336,8 @@ export function EnhancedUniversalCardSearch({
   }, [resetFilters, clearResults]);
 
   const hasCriteria = filters.query !== '*';
+  /** Active facets excluding the free-text box, which has its own input. */
+  const facetCount = filters.activeCount - (committedText.trim() ? 1 : 0);
 
   const tableSort = useMemo(() => {
     const key = searchState.order ?? 'name';
@@ -498,8 +500,12 @@ export function EnhancedUniversalCardSearch({
           </div>
         </div>
 
-        {/* Removable chips for whatever the filter sheet set. */}
-        <ActiveFilterChips controller={filters} />
+        {/*
+          Removable chips for whatever the filter sheet set. Suppressed when the
+          only "filter" is the query text — the search box is already showing it,
+          and a chip repeating it verbatim is noise on this surface.
+        */}
+        {facetCount > 0 && <ActiveFilterChips controller={filters} />}
 
         {/* ------------------------ Results toolbar ------------------------ */}
         {(results.length > 0 || loading) && (

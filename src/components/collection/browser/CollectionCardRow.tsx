@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -10,7 +9,8 @@ import {
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import { Minus, MoreHorizontal, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { copiesOf, formatPrice, valueOf, type BrowserCard } from './types';
+import { CardImage } from '@/components/cards';
+import { copiesOf, formatPrice, imageCardOf, valueOf, type BrowserCard } from './types';
 import type { BrowserAction } from './actions';
 
 interface RowProps {
@@ -24,7 +24,7 @@ interface RowProps {
   showCondition: boolean;
 }
 
-/** Roomy list row — image thumb, full identity line, price. */
+/** Roomy list row — real card thumbnail, full identity line, price. */
 export function CollectionCardRow({
   card,
   onClick,
@@ -35,11 +35,13 @@ export function CollectionCardRow({
   onQuantityChange,
   showCondition,
 }: RowProps) {
+  const activate = () => (selectionMode ? onToggleSelect(card.rowId) : onClick?.(card));
+
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border bg-card px-3 py-2 transition-colors',
-        selected ? 'border-foreground bg-accent' : 'border-border hover:border-foreground/40'
+        'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
+        selected ? 'bg-muted' : 'bg-card hover:bg-muted/50'
       )}
     >
       {selectionMode && (
@@ -50,27 +52,21 @@ export function CollectionCardRow({
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => (selectionMode ? onToggleSelect(card.rowId) : onClick?.(card))}
-        className="h-16 w-12 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`${card.name} details`}
-      >
-        {card.imageUrl ? (
-          <img src={card.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-            {card.setCode?.toUpperCase() || '—'}
-          </span>
-        )}
-      </button>
+      <CardImage
+        card={imageCardOf(card)}
+        size="sm"
+        width={52}
+        onClick={activate}
+        hideFlip
+        className="shrink-0"
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => (selectionMode ? onToggleSelect(card.rowId) : onClick?.(card))}
-            className="truncate font-medium text-card-foreground hover:underline"
+            onClick={activate}
+            className="truncate font-medium text-foreground hover:underline"
           >
             {card.name}
           </button>
@@ -85,16 +81,16 @@ export function CollectionCardRow({
           </span>
           <span className="capitalize">{card.rarity}</span>
           {showCondition && (
-            <Badge variant="outline" className="h-4 px-1 text-[10px] font-normal">
+            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
               {card.condition}
-            </Badge>
+            </span>
           )}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
         <div className="text-right">
-          <div className="text-sm font-medium tabular-nums text-card-foreground">
+          <div className="text-sm font-medium tabular-nums text-foreground">
             {formatPrice(valueOf(card))}
           </div>
           <div className="text-xs tabular-nums text-muted-foreground">
@@ -112,7 +108,7 @@ export function CollectionCardRow({
           <div className="flex items-center gap-0.5">
             <Button
               size="icon"
-              variant="outline"
+              variant="ghost"
               className="h-7 w-7"
               aria-label={`Remove one copy of ${card.name}`}
               onClick={() => onQuantityChange(card, -1)}
@@ -121,7 +117,7 @@ export function CollectionCardRow({
             </Button>
             <Button
               size="icon"
-              variant="outline"
+              variant="ghost"
               className="h-7 w-7"
               aria-label={`Add one copy of ${card.name}`}
               onClick={() => onQuantityChange(card, 1)}
@@ -134,16 +130,24 @@ export function CollectionCardRow({
         {actions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Actions for ${card.name}`}>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label={`Actions for ${card.name}`}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="border-0">
               {actions.map(action => (
                 <DropdownMenuItem
                   key={action.id}
                   onClick={() => action.onSelect(card)}
-                  className={cn('gap-2', action.destructive && 'text-destructive focus:text-destructive')}
+                  className={cn(
+                    'gap-2',
+                    action.destructive && 'text-destructive focus:text-destructive'
+                  )}
                 >
                   {action.icon && <action.icon className="h-4 w-4" />}
                   {action.label}

@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { findActiveNavItem } from '@/components/navigation/nav-items';
+import { HistoryNav } from '@/components/navigation/HistoryNav';
 
 interface StandardPageLayoutProps {
   title: ReactNode;
@@ -38,8 +39,10 @@ export function StandardPageLayout({
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-6 pt-2 md:px-6 md:pt-4">
-      {showBreadcrumbs && (
-        <Breadcrumb className="mb-3">
+      <div className="mb-3 flex items-center gap-2">
+        <HistoryNav />
+        {showBreadcrumbs && (
+        <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
@@ -62,7 +65,8 @@ export function StandardPageLayout({
             )}
           </BreadcrumbList>
         </Breadcrumb>
-      )}
+        )}
+      </div>
 
       <StandardSectionHeader title={title} description={description} action={action} />
 

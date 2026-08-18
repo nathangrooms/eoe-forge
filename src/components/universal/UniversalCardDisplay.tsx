@@ -72,6 +72,12 @@ interface UniversalCardDisplayProps {
   onSortChange?: (key: CardSortKey) => void;
 }
 
+/**
+ * Borderless checkbox skin. The shadcn `Checkbox` draws `border border-primary`
+ * and nothing else, so stripping the border needs a surface to replace it.
+ */
+const CHECKBOX = 'border-0 bg-muted data-[state=checked]:bg-primary';
+
 /** Below this the art is too small to read a name off, so the tile gets a caption. */
 const CAPTION_BELOW = 132;
 /** Below this the set/price pill is clutter rather than information. */
@@ -383,6 +389,7 @@ export function UniversalCardDisplay({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onCardClick?.(card)}
+                        className={CHECKBOX}
                         aria-label={`Select ${card.name}`}
                       />
                     </td>
@@ -463,6 +470,7 @@ export function UniversalCardDisplay({
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onCardClick?.(card)}
+                    className={CHECKBOX}
                     aria-label={`Select ${card.name}`}
                   />
                 </div>
@@ -543,7 +551,7 @@ export function UniversalCardDisplay({
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => onCardClick?.(card)}
-                      className="border-0 bg-background/90 shadow-md shadow-black/40"
+                      className={cn(CHECKBOX, 'bg-background/90 shadow-md shadow-black/40')}
                       aria-label={`Select ${card.name}`}
                     />
                   </div>

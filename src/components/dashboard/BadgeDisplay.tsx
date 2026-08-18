@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { Badge as BadgeDef, BadgeProgress } from '@/lib/badges';
 import { cn } from '@/lib/utils';
+import { Reveal } from './Reveal';
 
 // Badges are earned against real collection/deck counts, so the tier is
-// expressed typographically rather than with metallic gradients.
+// expressed typographically rather than with metallic gradients. Earned and
+// unearned are separated by surface weight and shadow — no outlines.
 const CATEGORY_ICONS: Record<BadgeDef['category'], LucideIcon> = {
   deck_master: Layers,
   collector: Library,
@@ -25,16 +27,16 @@ export const BadgeDisplayCard = ({ badgeProgress, showProgress = false }: BadgeD
   return (
     <div
       className={cn(
-        'flex h-full gap-3 rounded-lg border p-3',
-        earned ? 'border-foreground/25 bg-card' : 'border-border bg-card'
+        'flex h-full gap-3 rounded-xl p-3 transition-colors duration-200 motion-reduce:transition-none',
+        earned ? 'bg-muted/60 shadow-lg shadow-black/20' : 'bg-muted/25'
       )}
     >
       <span
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-md border',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
           earned
-            ? 'border-transparent bg-primary text-primary-foreground'
-            : 'border-border bg-muted text-muted-foreground'
+            ? 'bg-primary text-primary-foreground shadow-md shadow-black/30'
+            : 'bg-background text-muted-foreground'
         )}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />
@@ -79,7 +81,7 @@ export const BadgesSection = ({ earnedBadges, inProgressBadges }: BadgesSectionP
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-4">
         <CardTitle className="text-base font-semibold">Milestones</CardTitle>
         <span className="text-xs tabular-nums text-muted-foreground">
           {earnedBadges.length} earned
@@ -89,13 +91,15 @@ export const BadgesSection = ({ earnedBadges, inProgressBadges }: BadgesSectionP
       <CardContent className="space-y-5 pt-0">
         {earnedBadges.length > 0 && (
           <section>
-            <h3 className="mb-2 flex items-center gap-1.5 border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
               Earned
             </h3>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-              {earnedBadges.map(bp => (
-                <BadgeDisplayCard key={bp.badge.id} badgeProgress={bp} />
+              {earnedBadges.map((bp, index) => (
+                <Reveal key={bp.badge.id} delay={index * 40}>
+                  <BadgeDisplayCard badgeProgress={bp} />
+                </Reveal>
               ))}
             </div>
           </section>
@@ -103,19 +107,21 @@ export const BadgesSection = ({ earnedBadges, inProgressBadges }: BadgesSectionP
 
         {inProgressBadges.length > 0 && (
           <section>
-            <h3 className="mb-2 border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Next up
             </h3>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-              {inProgressBadges.map(bp => (
-                <BadgeDisplayCard key={bp.badge.id} badgeProgress={bp} showProgress />
+              {inProgressBadges.map((bp, index) => (
+                <Reveal key={bp.badge.id} delay={index * 40}>
+                  <BadgeDisplayCard badgeProgress={bp} showProgress />
+                </Reveal>
               ))}
             </div>
           </section>
         )}
 
         {!hasAny && (
-          <p className="border-t border-border py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             Milestones unlock as you add decks and cards.
           </p>
         )}

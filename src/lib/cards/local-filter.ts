@@ -129,7 +129,8 @@ export function toLocalCard(raw: any, overrides: Partial<LocalCard> = {}): Local
       nonfoil: Boolean(card.nonfoil),
       promo: Boolean(card.promo),
       reprint: Boolean(card.reprint),
-      reserved: Boolean(card.reserved),
+      // Our `cards` table spells it `is_reserved`; Scryfall says `reserved`.
+      reserved: Boolean(card.reserved ?? card.is_reserved),
       showcase:
         Array.isArray(card.frame_effects) && card.frame_effects.includes('showcase'),
     },

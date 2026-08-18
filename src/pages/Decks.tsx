@@ -30,8 +30,54 @@ import {
   useDeckViewPrefs,
   type DeckSortKey,
 } from '@/components/deck/DeckViewControls';
+import { CardImageSkeleton } from '@/components/cards';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
+
+/**
+ * Two tiles per row on desktop, and never more.
+ *
+ * This is a hard ceiling rather than an `auto-fill` track: the commander card
+ * is the hero of the tile, so the tile has to stay wide enough for the art to
+ * be big. A third column at 1600px would shrink every commander back towards
+ * the thumbnail this redesign exists to get rid of.
+ */
+const DECK_GRID_CLASS = 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5';
+
+/** Same footprint as a real tile, so the first paint does not jump. */
+function DeckTileSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:gap-5 sm:p-5">
+        <div className="mx-auto w-[64%] max-w-[260px] shrink-0 sm:mx-0 sm:w-[40%] sm:max-w-[230px] lg:w-[42%] lg:max-w-[260px]">
+          <CardImageSkeleton size="xl" fill />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="h-6 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          <div className="h-4 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          <div className="h-[86px] animate-pulse rounded-lg bg-muted/60 motion-reduce:animate-none" />
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className="h-[62px] animate-pulse rounded-lg bg-muted/60 motion-reduce:animate-none"
+              />
+            ))}
+          </div>
+          <div className="h-2 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+          <div className="grid grid-cols-2 gap-2">
+            {[0, 1, 2, 3].map(i => (
+              <div
+                key={i}
+                className="h-9 animate-pulse rounded-md bg-muted motion-reduce:animate-none"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 /** Comparator for the deck sort control. */
 function compareDecks(a: DeckSummary, b: DeckSummary, key: DeckSortKey): number {
@@ -295,69 +341,71 @@ export default function Decks() {
           )}
 
           {loading ? (
-            <div className="grid gap-5 lg:grid-cols-2" aria-busy="true">
-              {[0, 1, 2].map(i => (
-                <Card key={i}>
-                  <CardContent className="space-y-3 p-6">
-                    <div className="h-6 w-1/2 animate-pulse rounded bg-muted" />
-                    <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
-                    <div className="h-24 animate-pulse rounded bg-muted" />
-                  </CardContent>
-                </Card>
+            <div className={DECK_GRID_CLASS} aria-busy="true">
+              {[0, 1, 2, 3].map(i => (
+                <DeckTileSkeleton key={i} />
               ))}
             </div>
           ) : sortedDecks.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-                <div className="rounded-full bg-muted p-3">
-                  <Crown className="h-6 w-6 text-muted-foreground" />
+              <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
+                <div className="rounded-full bg-muted p-4">
+                  <Crown className="h-7 w-7 text-muted-foreground" />
                 </div>
-                <div>
-                  <h3 className="font-semibold">No decks found</h3>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold">No decks found</h3>
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters
                       ? 'No deck matches these filters.'
                       : 'Create your first deck to get started.'}
                   </p>
                 </div>
-                {hasActiveFilters && (
-                  <Button variant="outline" onClick={resetFilters}>
+                {hasActiveFilters ? (
+                  <Button variant="secondary" onClick={resetFilters}>
                     Clear filters
+                  </Button>
+                ) : (
+                  <Button onClick={() => setShowOnboardingFlow(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    New deck
                   </Button>
                 )}
               </CardContent>
             </Card>
           ) : (
-            <div
-              className={
-                prefs.mode === 'grid'
-                  ? 'grid gap-5 lg:grid-cols-2'
-                  : 'space-y-2'
-              }
-            >
-              {sortedDecks.map(deckSummary => (
-                <DeckTile
+            <div className={prefs.mode === 'grid' ? DECK_GRID_CLASS : 'space-y-2'}>
+              {sortedDecks.map((deckSummary, index) => (
+                // The wrapper carries the entrance stagger and `h-full`, so the
+                // two tiles in a row keep equal height whatever their content.
+                <div
                   key={deckSummary.id}
-                  deckSummary={deckSummary}
-                  variant={prefs.mode}
-                  onOpen={() => navigate(`/deck/${deckSummary.id}`)}
-                  onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
-                  onDuplicate={() => duplicateDeck(deckSummary)}
-                  onDelete={() => setDeckToDelete(deckSummary)}
-                  onAnalysis={() => {
-                    setSelectedDeckSummary(deckSummary);
-                    setShowAnalysisModal(true);
-                  }}
-                  onMissingCards={() => {
-                    setMissingDeck({ id: deckSummary.id, name: deckSummary.name });
-                    setShowMissingDrawer(true);
-                  }}
-                  onShare={() => openShareDrawer(deckSummary)}
-                  onExport={() =>
-                    setExportDeck({ id: deckSummary.id, name: deckSummary.name })
-                  }
-                  onFavoriteChange={loadDeckSummaries}
-                />
+                  className="h-full animate-in fade-in slide-in-from-bottom-3 duration-500 [animation-fill-mode:both] motion-reduce:animate-none"
+                  style={{ animationDelay: `${Math.min(index, 7) * 45}ms` }}
+                >
+                  <DeckTile
+                    deckSummary={deckSummary}
+                    variant={prefs.mode}
+                    priority={index < 2}
+                    className="h-full"
+                    onOpen={() => navigate(`/deck/${deckSummary.id}`)}
+                    onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
+                    onDuplicate={() => duplicateDeck(deckSummary)}
+                    onDelete={() => setDeckToDelete(deckSummary)}
+                    onAnalysis={() => {
+                      setSelectedDeckSummary(deckSummary);
+                      setShowAnalysisModal(true);
+                    }}
+                    onMissingCards={() => {
+                      setMissingDeck({ id: deckSummary.id, name: deckSummary.name });
+                      setShowMissingDrawer(true);
+                    }}
+                    onShare={() => openShareDrawer(deckSummary)}
+                    onExport={() =>
+                      setExportDeck({ id: deckSummary.id, name: deckSummary.name })
+                    }
+                    onFavoriteChange={loadDeckSummaries}
+                  />
+                </div>
               ))}
             </div>
           )}

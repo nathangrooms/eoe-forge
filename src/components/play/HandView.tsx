@@ -177,6 +177,8 @@ export function HandView({
         )}
       </div>
 
+      {/* Your own mat under the readable hand, so this view still shows the
+          board you are casting into rather than a list in isolation. */}
       <SeatPanel
         state={state}
         player={me}
@@ -186,7 +188,7 @@ export function HandView({
         onCardClick={onCardClick}
         onOpenZone={onOpenZone}
         selectedIds={selectedIds}
-        className="min-h-[16rem]"
+        className="h-[26rem] shrink-0"
       />
     </div>
   );

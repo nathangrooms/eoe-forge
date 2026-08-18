@@ -1,4 +1,4 @@
-import { useEffect, useState, type ElementType, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -36,15 +36,15 @@ export function usePrefersReducedMotion(): boolean {
 /** Stagger step. Small enough that the page reads as one movement, not a queue. */
 export const REVEAL_STEP_MS = 60;
 
-interface RevealProps {
+/** Kept to intrinsic elements so `aria-*` and `role` still typecheck when spread. */
+type RevealTag = 'div' | 'li' | 'ul' | 'section' | 'nav' | 'article';
+
+interface RevealProps extends React.HTMLAttributes<HTMLElement> {
   children: ReactNode;
   /** Position in the stagger sequence. Ignored when `delay` is given. */
   index?: number;
   delay?: number;
-  as?: ElementType;
-  className?: string;
-  /** Forwarded to the rendered element — `aria-label`, `role` and friends. */
-  [key: string]: unknown;
+  as?: RevealTag;
 }
 
 export function Reveal({

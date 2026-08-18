@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { useCollectionStore } from '@/stores/collectionStore';
@@ -9,26 +7,8 @@ import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { getSetCode } from '@/lib/scryfall/card-utils';
 
 export default function Cards() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialQuery = searchParams.get('q') || '';
   const collection = useCollectionStore();
   const { user } = useAuth();
-
-  // Keep the query in the URL so a search is linkable and the back button works.
-  const handleQueryChange = useCallback(
-    (query: string) => {
-      setSearchParams(
-        prev => {
-          const next = new URLSearchParams(prev);
-          if (query) next.set('q', query);
-          else next.delete('q');
-          return next;
-        },
-        { replace: true }
-      );
-    },
-    [setSearchParams]
-  );
 
   const addToCollection = async (card: any) => {
     if (!user) {
@@ -143,17 +123,24 @@ export default function Cards() {
       title="Card search"
       description="Live Scryfall search across every Magic: The Gathering card ever printed"
     >
+      {/*
+        `urlSync` hands the whole filter — query text, colours, rarity, sort,
+        everything — to the query string, so a search on this page is a place:
+        it survives a reload, works with the back button, and can be pasted to
+        someone else. Embedded mounts of this component (deck builder, storage,
+        wishlist) leave it off, because there the URL belongs to the host page.
+      */}
       <EnhancedUniversalCardSearch
         onCardAdd={addToCollection}
         onCardWishlist={addToWishlist}
-        onQueryChange={handleQueryChange}
         placeholder="Search by name, or use Scryfall syntax — t:creature id:wu mv<=3"
         showFilters
         showAddButton
         showWishlistButton
         showViewModes
         showPresets
-        initialQuery={initialQuery}
+        urlSync
+        sizeKey="card-search"
       />
     </StandardPageLayout>
   );

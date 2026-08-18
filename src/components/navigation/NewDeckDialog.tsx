@@ -263,7 +263,8 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
               onKeyDown={event => {
                 if (event.key === 'Enter' && !creating) handleCreate();
               }}
-              className="h-10"
+              // `ui/input` ships a hairline border; this surface uses a tint instead.
+              className="h-10 border-none bg-muted/40"
             />
           </div>
 
@@ -313,7 +314,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
                       value={query}
                       onChange={event => setQuery(event.target.value)}
                       placeholder="Search legendary creatures"
-                      className="h-10 pl-9"
+                      className="h-10 border-none bg-muted/40 pl-9"
                     />
                     {searching && (
                       <Loader2
@@ -329,10 +330,10 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
                     </p>
                   )}
 
+                  {/* 132px crosses `cardSizeForWidth`'s `md` threshold, so the
+                      picker draws the `large` art rather than `normal` — you
+                      are choosing a commander by its face here. */}
                   {results.length > 0 && (
-                    {/* 132px crosses `cardSizeForWidth`'s `md` threshold, so the
-                        picker draws the `large` art rather than `normal` — you
-                        are choosing a commander by its face here. */}
                     <CardGrid width={132} className="max-h-64 overflow-y-auto p-0.5">
                       {results.map(card => (
                         <CardImage

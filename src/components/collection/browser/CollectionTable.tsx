@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -10,9 +9,11 @@ import {
 import { ManaCost } from '@/components/ui/mana-cost';
 import { ArrowDown, ArrowUp, MoreHorizontal, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CardImage } from '@/components/cards';
 import {
   copiesOf,
   formatPrice,
+  imageCardOf,
   valueOf,
   type BrowserCard,
   type SortDirection,
@@ -29,6 +30,7 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
+  { key: 'art', label: '', className: 'w-12' },
   { key: 'qty', label: 'Qty', sortKey: 'quantity', numeric: true, className: 'w-16' },
   { key: 'name', label: 'Name', sortKey: 'name' },
   { key: 'cost', label: 'Cost', sortKey: 'cmc', className: 'w-28 hidden md:table-cell' },
@@ -72,10 +74,10 @@ export function CollectionTable({
   const columns = COLUMNS.filter(c => c.key !== 'condition' || showCondition);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[640px] border-collapse text-sm">
-        <thead className="bg-muted/50">
-          <tr className="border-b border-border">
+    <div className="overflow-x-auto rounded-lg bg-card shadow-lg shadow-black/20">
+      <table className="w-full min-w-[680px] border-collapse text-sm">
+        <thead className="bg-muted/40">
+          <tr>
             {selectionMode && <th scope="col" className="w-10 px-2" />}
             {columns.map(col => (
               <th
@@ -126,8 +128,9 @@ export function CollectionTable({
               <tr
                 key={card.rowId}
                 className={cn(
-                  'border-b border-border last:border-0 transition-colors hover:bg-accent/50',
-                  selected && 'bg-accent'
+                  // Rows are separated by an alternating surface tint, not a rule.
+                  'transition-colors odd:bg-muted/20 hover:bg-muted/50',
+                  selected && 'bg-muted'
                 )}
               >
                 {selectionMode && (
@@ -139,6 +142,16 @@ export function CollectionTable({
                     />
                   </td>
                 )}
+                <td className="py-1.5 pl-3 pr-0">
+                  <CardImage
+                    card={imageCardOf(card)}
+                    width={36}
+                    hideFlip
+                    onClick={() =>
+                      selectionMode ? onToggleSelect(card.rowId) : onCardClick?.(card)
+                    }
+                  />
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   <span className="font-medium">{copiesOf(card)}</span>
                   {card.foil > 0 && (
@@ -177,9 +190,9 @@ export function CollectionTable({
                 </td>
                 {showCondition && (
                   <td className="hidden px-3 py-2 md:table-cell">
-                    <Badge variant="outline" className="h-5 px-1 text-[10px] font-normal">
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
                       {card.condition}
-                    </Badge>
+                    </span>
                   </td>
                 )}
                 <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
@@ -201,7 +214,7 @@ export function CollectionTable({
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="border-0">
                         {actions.map(action => (
                           <DropdownMenuItem
                             key={action.id}

@@ -1,6 +1,4 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,18 +6,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ManaCost } from '@/components/ui/mana-cost';
-import { MoreHorizontal, Minus, Plus, Sparkles } from 'lucide-react';
+import { Check, MoreHorizontal, Minus, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  copiesOf,
-  formatPrice,
-  valueOf,
-  type BrowserCard,
-} from './types';
+import { CardImage } from '@/components/cards';
+import { copiesOf, formatPrice, imageCardOf, valueOf, type BrowserCard } from './types';
 import type { BrowserAction } from './actions';
 
 interface TileProps {
   card: BrowserCard;
+  /** Rendered width in px, straight from the size slider. Drives image quality. */
+  width: number;
   onClick?: (card: BrowserCard) => void;
   actions: BrowserAction[];
   selectionMode: boolean;
@@ -29,12 +25,17 @@ interface TileProps {
   showCondition: boolean;
 }
 
+/** Below this the card is a thumbnail and the text strip would be unreadable. */
+const META_THRESHOLD = 132;
+
 /**
- * Grid tile. Shows the three facts that define a collection — copies, foil
- * count, condition — which the previous shared renderer never read off the row.
+ * Grid tile: the card at the resolution it is actually drawn at, with the three
+ * facts that define a collection entry — copies, foil count, condition — carried
+ * on the art rather than in a boxed caption underneath.
  */
 export function CollectionCardTile({
   card,
+  width,
   onClick,
   actions,
   selectionMode,
@@ -44,6 +45,7 @@ export function CollectionCardTile({
   showCondition,
 }: TileProps) {
   const copies = copiesOf(card);
+  const showMeta = width >= META_THRESHOLD;
 
   const handleActivate = () => {
     if (selectionMode) onToggleSelect(card.rowId);
@@ -51,43 +53,26 @@ export function CollectionCardTile({
   };
 
   return (
-    <div
-      className={cn(
-        'group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-colors',
-        selected ? 'border-foreground' : 'border-border hover:border-foreground/40'
-      )}
-    >
-      <button
-        type="button"
+    <div className="group/tile flex flex-col gap-1.5">
+      <CardImage
+        card={imageCardOf(card)}
+        width={width}
+        fill
         onClick={handleActivate}
-        aria-label={`${card.name}${selectionMode ? ', toggle selection' : ', view details'}`}
-        className="relative block w-full bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        title={`${card.name}${copies ? ` — ${copies} owned` : ''}`}
+        imageClassName={cn(
+          selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+        )}
       >
-        <div className="aspect-[5/7] w-full">
-          {card.imageUrl ? (
-            <img
-              src={card.imageUrl}
-              alt={card.name}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
-              <span className="text-xs font-medium text-muted-foreground">{card.name}</span>
-              <ManaCost cost={card.manaCost} size="xs" />
-            </div>
-          )}
-        </div>
-
-        {/* Copies owned. Over card art, so white-on-black is the honest ground. */}
+        {/* Copies owned — over card art, so a solid ink plate is the honest ground. */}
         {copies > 0 && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+          <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm">
             ×{copies}
           </span>
         )}
         {card.foil > 0 && (
           <span
-            className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+            className="pointer-events-none absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm"
             title={`${card.foil} foil ${card.foil === 1 ? 'copy' : 'copies'}`}
           >
             <Sparkles className="h-3 w-3" aria-hidden="true" />
@@ -96,91 +81,104 @@ export function CollectionCardTile({
         )}
 
         {selectionMode && (
-          <span className="absolute bottom-1.5 left-1.5">
-            <Checkbox
-              checked={selected}
-              aria-label={`Select ${card.name}`}
-              className="bg-background"
-              tabIndex={-1}
-            />
+          <span
+            className={cn(
+              'pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-full transition-colors',
+              selected ? 'bg-primary text-primary-foreground' : 'bg-black/60 text-white/70'
+            )}
+            aria-hidden="true"
+          >
+            <Check className="h-3.5 w-3.5" />
           </span>
         )}
-      </button>
 
-      <div className="flex flex-1 flex-col gap-1 p-2">
-        <div className="flex items-start justify-between gap-1">
-          <p className="min-w-0 flex-1 truncate text-xs font-medium text-card-foreground" title={card.name}>
-            {card.name}
-          </p>
-          <ManaCost cost={card.manaCost} size="xs" className="shrink-0" />
-        </div>
-
-        <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
-          <span className="truncate font-mono uppercase" title={card.typeLine}>
-            {card.setCode || '—'}
-            {card.collectorNumber ? ` · ${card.collectorNumber}` : ''}
-          </span>
-          <span className="shrink-0 tabular-nums text-card-foreground">
+        {/* Price rides the art at thumbnail sizes, where there is no meta strip. */}
+        {!showMeta && (
+          <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded bg-black/75 px-1 py-0.5 text-[10px] font-medium tabular-nums text-white backdrop-blur-sm">
             {formatPrice(valueOf(card))}
           </span>
-        </div>
+        )}
 
-        {showCondition && (
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className="h-5 px-1 text-[10px] font-normal">
-              {card.condition}
-            </Badge>
-            {onQuantityChange && (
-              <div className="ml-auto flex items-center gap-0.5">
+        {actions.length > 0 && showMeta && (
+          <div className="absolute bottom-1.5 right-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/tile:opacity-100">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   size="icon"
-                  variant="ghost"
-                  className="h-5 w-5"
-                  aria-label={`Remove one copy of ${card.name}`}
-                  onClick={() => onQuantityChange(card, -1)}
+                  variant="secondary"
+                  className="h-6 w-6"
+                  aria-label={`Actions for ${card.name}`}
+                  onClick={e => e.stopPropagation()}
                 >
-                  <Minus className="h-3 w-3" />
+                  <MoreHorizontal className="h-3.5 w-3.5" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-5 w-5"
-                  aria-label={`Add one copy of ${card.name}`}
-                  onClick={() => onQuantityChange(card, 1)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-0">
+                {actions.map(action => (
+                  <DropdownMenuItem
+                    key={action.id}
+                    onClick={() => action.onSelect(card)}
+                    className={cn(
+                      'gap-2',
+                      action.destructive && 'text-destructive focus:text-destructive'
+                    )}
+                  >
+                    {action.icon && <action.icon className="h-4 w-4" />}
+                    {action.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
-      </div>
+      </CardImage>
 
-      {actions.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon"
-              variant="secondary"
-              className="absolute bottom-1.5 right-1.5 h-6 w-6 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-              aria-label={`Actions for ${card.name}`}
+      {showMeta && (
+        <div className="flex flex-col gap-0.5 px-0.5">
+          <div className="flex items-start justify-between gap-1">
+            <p
+              className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
+              title={card.name}
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {actions.map(action => (
-              <DropdownMenuItem
-                key={action.id}
-                onClick={() => action.onSelect(card)}
-                className={cn('gap-2', action.destructive && 'text-destructive focus:text-destructive')}
+              {card.name}
+            </p>
+            <ManaCost cost={card.manaCost} size="xs" className="shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+            <span className="truncate font-mono uppercase" title={card.typeLine}>
+              {card.setCode || '—'}
+              {card.collectorNumber ? ` · ${card.collectorNumber}` : ''}
+              {showCondition ? ` · ${card.condition}` : ''}
+            </span>
+            <span className="shrink-0 tabular-nums text-foreground">
+              {formatPrice(valueOf(card))}
+            </span>
+          </div>
+
+          {showCondition && onQuantityChange && (
+            <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/tile:opacity-100">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5"
+                aria-label={`Remove one copy of ${card.name}`}
+                onClick={() => onQuantityChange(card, -1)}
               >
-                {action.icon && <action.icon className="h-4 w-4" />}
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <Minus className="h-3 w-3" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5"
+                aria-label={`Add one copy of ${card.name}`}
+                onClick={() => onQuantityChange(card, 1)}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

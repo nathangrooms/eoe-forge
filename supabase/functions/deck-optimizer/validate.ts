@@ -1,12 +1,31 @@
 /**
- * The gate. Nothing reaches the user without passing through here.
+ * The gate on every card the response names in a card-bearing FIELD.
  *
  * The prompt is grounded — the model is handed a pool of real, legal,
  * in-identity cards and told to choose from it — but a prompt is a request,
  * not a guarantee. Grounding reduces how often the model invents a card;
- * this file is what makes inventing one harmless. Every name in every section
- * of the model's answer is resolved against rows actually fetched from
- * `public.cards`, and anything that fails is dropped with a recorded reason.
+ * this file is what makes inventing one harmless. Every name in a card-bearing
+ * field is resolved before it ships, and anything that fails is dropped with a
+ * recorded reason.
+ *
+ * WHAT THIS DOES NOT COVER. Stated because the previous wording here was "the
+ * gate; nothing reaches the user without passing through here", and that is
+ * not true:
+ *
+ *   - `summary`, `strengths`, `strategy` and `manabase` are free prose written
+ *     by the model and shipped verbatim. The prompt tells it to name no cards
+ *     there, but nothing enforces it, so a card named in a sentence is
+ *     unverified. It carries no `cardId`, so it cannot be clicked or added —
+ *     the exposure is a sentence rather than an action — but it is an exposure,
+ *     and `validation.dropRate` does not measure it.
+ *   - `currentPowerLevel` and `projectedPowerLevel` are the model's opinion,
+ *     passed through unclamped. Both are pre-existing fields.
+ *
+ * Two card-bearing fields are checked against the DECK rather than against
+ * `cards`: `removals` / `replacements.remove`, and `issues[].card`. That is the
+ * stronger check for what they claim — "cut this card you play" is false unless
+ * the deck plays it — and it is why a card the deck contains but the catalogue
+ * does not is still cuttable.
  *
  * The reasons are recorded rather than merely counted because the count is the
  * point: it is the measurement of how often the ungrounded path was wrong, and
@@ -34,7 +53,8 @@ export type DropReason =
   | 'not-in-deck'
   | 'duplicate'
   | 'empty-name'
-  | 'not-a-land';
+  | 'not-a-land'
+  | 'is-commander';
 
 export interface DroppedItem {
   section: string;
@@ -206,4 +226,60 @@ export function isLandCard(card: CandidateCard): boolean {
  */
 export function isBasicLand(card: CandidateCard): boolean {
   return isLandCard(card) && /\bbasic\b/i.test(card.typeLine);
+}
+
+/**
+ * May this name be cut, and if not, why not.
+ *
+ * Both arguments are sets of NORMALISED names — `normalizeName` keys, not raw
+ * card names — because that is what the caller already holds and comparing raw
+ * names here would reintroduce the case sensitivity the normaliser exists to
+ * remove.
+ *
+ * Extracted from the validator so the commander exception is a rule with a test
+ * rather than a condition inside a closure. It had no test before, and it had
+ * no condition either: the commander is a member of the deck, `inDeck` was the
+ * only question asked, and so the commander was cuttable. The optimiser panel
+ * applies an accepted cut by calling `onRemoveCard(name)`, so that answer was
+ * one click away from removing the one card a Commander deck is built around
+ * and cannot replace by drawing another.
+ *
+ * Order matters and is asserted: `not-in-deck` is tested first so the reason
+ * recorded for a name that is neither in the deck nor the commander is the
+ * true one. The commander IS in the deck; being the commander is a separate
+ * and stronger objection.
+ *
+ * Returns null when the cut is allowed.
+ */
+export function cutRefusal(
+  key: string,
+  inDeck: ReadonlySet<string>,
+  commanderKeys: ReadonlySet<string>
+): Extract<DropReason, 'not-in-deck' | 'is-commander'> | null {
+  if (!inDeck.has(key)) return 'not-in-deck';
+  if (commanderKeys.has(key)) return 'is-commander';
+  return null;
+}
+
+/**
+ * The model named an already-accepted land a second time. Is that a second
+ * COPY, or the same suggestion said twice?
+ *
+ * Only basics can be a copy. Every other card is singleton in Commander and
+ * capped at four elsewhere, so "Command Tower, Command Tower" is the model
+ * repeating itself, not asking for two.
+ *
+ * This is the one rule in the validator that decides an outcome by ADDING to a
+ * suggestion rather than by dropping one, and it sits on the only path that
+ * bypasses `resolveAdd` — so the oracle-id duplicate guard that protects every
+ * other section never runs for lands. It got the answer wrong in both
+ * directions at once before this existed: a repeated non-basic was folded into
+ * `quantity: 2` and logged as ACCEPTED, and the response told a Commander
+ * player to add two copies of a singleton card.
+ *
+ * `null` is 'duplicate', not 'copy': an unresolved card is not a known basic,
+ * and the safe reading of "I cannot tell" is the one that adds nothing.
+ */
+export function landRepeatDisposition(existing: CandidateCard | null): 'copy' | 'duplicate' {
+  return existing && isBasicLand(existing) ? 'copy' : 'duplicate';
 }

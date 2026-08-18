@@ -11,7 +11,11 @@
  * looking at, and this module is the part of that with no pixels in it: given a
  * state, a seat and a card, what does that card offer right now, and if it
  * offers nothing, why not. Keeping it separate from `SeatMat` is what makes it
- * testable without a DOM — every rule below is asserted in `combatUi.test.ts`.
+ * testable without a DOM — every rule below is asserted in `combatUi.test.ts`,
+ * which runs under `node --test` alongside the engine's own suites. That is why
+ * the engine is imported by relative path here rather than through the `@/`
+ * alias: `npm test` has no bundler to resolve one, and a module the tests
+ * cannot load is a module whose rules are only claimed to be checked.
  *
  * ## Legality is asked, never restated
  *
@@ -49,7 +53,7 @@ import {
   type CardInstance,
   type GameState,
   type PlayerId,
-} from '@/lib/game';
+} from '../../lib/game/index.ts';
 
 /** The decision being made on the board right now, from this seat's point of view. */
 export type CombatStage = 'attackers' | 'blockers' | null;

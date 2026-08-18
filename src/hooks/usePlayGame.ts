@@ -129,6 +129,9 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
     setState(table.state);
     setUndoDepth(0);
     setFeed([]);
+    if (import.meta.env.DEV) {
+      (window as unknown as { __dmGame?: GameState }).__dmGame = table.state;
+    }
 
     const transport = createLocalTransport({
       tableId: table.state.id,
@@ -151,6 +154,33 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
 
       historyRef.current = [...historyRef.current.slice(-(MAX_UNDO_DEPTH - 1)), previous];
       stateRef.current = next;
+      /*
+       * A development-only window onto the live table.
+       *
+       * Combat is verified by playing, in a real browser, and a harness that
+       * has to infer "did that attack connect" from rendered pixels ends up
+       * asserting on the picture rather than the game. This publishes the same
+       * state object the board is drawing, so a Puppeteer run reads life
+       * totals and `combat.attackers` out of the engine itself. Stripped from
+       * production by `import.meta.env.DEV`; nothing in the app reads it.
+       */
+      if (import.meta.env.DEV) {
+        const debug = window as unknown as { __dmGame?: GameState; __dmLog?: string[] };
+        debug.__dmGame = next;
+        const lanes = next.combat.attackers
+          .map(d => {
+            const attacker = next.cards[d.attackerId]?.name ?? '?';
+            const blockers = d.blockedBy.map(id => next.cards[id]?.name ?? '?');
+            return blockers.length ? `${attacker} X ${blockers.join('+')}` : `${attacker} ->`;
+          })
+          .join(', ');
+        debug.__dmLog = [
+          ...(debug.__dmLog ?? []).slice(-400),
+          `T${previous.turn} ${previous.step} --${envelope.action.type}--> ${next.step} ` +
+            `life=${next.players.map(p => p.life).join('/')}` +
+            (lanes ? `  [${lanes}]` : ''),
+        ];
+      }
       if (!cancelled) {
         setState(next);
         setUndoDepth(historyRef.current.length);

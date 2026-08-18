@@ -50,3 +50,7 @@ scratch/
 
 # Windows/Git-Bash turns a /proc/self/fd/1 redirect into a real file
 proc/
+
+# play-mode screenshot harness, written by scripts/play-combat-shots.mjs
+play-harness.html
+src/dev/__playHarness.tsx

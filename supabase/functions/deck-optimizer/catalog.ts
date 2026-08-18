@@ -118,6 +118,32 @@ export class Catalog {
    * Measured cost of pinning it, on the two-colour commander pool: 13 ms to
    * 71 ms per page, the extra being a top-N heapsort over the matched rows.
    * Paid deliberately. A pool that is fast and wrong has no value here.
+   *
+   * What that two-colour figure does NOT show, measured 2026-08-18 with
+   * EXPLAIN (ANALYZE, BUFFERS) on the live catalogue: the sort is over every
+   * matched row, not over a page of them, so it is re-done in full for each
+   * page and the total is quadratic in page count. Worst case is a five-colour
+   * commander, where `color_identity <@ '{W,U,B,R,G}'` matches all 32,881
+   * commander-legal rows:
+   *
+   *   two-colour  (12,977 matched, 13 pages) ..  72 ms/page, quicksort
+   *   four-colour (25,376 matched, 26 pages) .. 129 ms/page, external merge 5.8 MB
+   *   five-colour (32,881 matched, 33 pages) .. 150 ms/page, external merge 7.6 MB
+   *
+   * Every page past the smallest spills to temp disk, so a five-colour run
+   * writes roughly 250 MB of temp across its 33 pages. Warm, that is about 5 s
+   * of database time and `PAGE_CONCURRENCY` keeps the wall clock near 1 s.
+   * Cold is the number to watch: the first five-colour page measured 3,984 ms
+   * against a `statement_timeout` of 3 s for `anon` and 8 s for
+   * `authenticated`. An anonymous caller is therefore within reach of a
+   * Postgres 57014 on a cold cache, and a signed-in caller's margin is 2x, not
+   * 50x.
+   *
+   * The clean fix is an index that already provides this order — a btree on
+   * `((legalities->>'commander'), id) WHERE (legalities->>'commander') =
+   * 'legal'` lets the planner walk it and drop the sort node entirely. That is
+   * a migration, which is not this file's to write. Recorded here so whoever
+   * sizes this next has the measurement rather than the guess.
    */
   async fetchAll<T>(pathAndQuery: string): Promise<T[]> {
     pathAndQuery = withStableOrder(pathAndQuery);
@@ -249,11 +275,24 @@ export class Catalog {
     for (let i = 0; i < unique.length; i += CHUNK) {
       const chunk = unique.slice(i, i + CHUNK);
       const list = chunk.map(quoteForIn).join(',');
-      const { rows } = await this.#get<CatalogRow>(
-        `cards?select=${encodeURIComponent(select)}&name=in.${encodeURIComponent(`(${list})`)}`,
-        { Range: `0-${PAGE_SIZE - 1}`, 'Range-Unit': 'items' }
+      // Paged, not capped. This used to ask for `Range: 0-999` once per chunk
+      // and keep whatever came back — the same silent truncation `fetchAll`
+      // exists to prevent, sitting in the function that resolves the user's own
+      // deck. It is not reachable on today's catalogue: the widest name has 6
+      // printings, so 80 names cannot exceed 480 rows. But it is safe only by a
+      // margin nothing enforces, and `scryfall-sync` ingesting more printings
+      // per card would close that margin without a word.
+      //
+      // What it would cost is not a missing image. Deck rows resolve through
+      // here and the commander's own row is one of them: lose it off the end of
+      // a truncated page and `commanderCard` is null, colour identity falls
+      // back to the deck union — a superset — and the pool silently widens to
+      // cards the deck may not legally play.
+      out.push(
+        ...(await this.fetchAll<CatalogRow>(
+          `cards?select=${encodeURIComponent(select)}&name=in.${encodeURIComponent(`(${list})`)}`
+        ))
       );
-      out.push(...rows);
     }
     // `legalities` arrived whole here, so make the projected key available too
     // and keep `normalizeRow` on one code path.

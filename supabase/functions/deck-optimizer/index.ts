@@ -46,7 +46,15 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { Catalog, normalizeName, type CatalogRow } from './catalog.ts';
-import { CardIndex, ValidationLog, diagnose, isBasicLand, isLandCard } from './validate.ts';
+import {
+  CardIndex,
+  ValidationLog,
+  cutRefusal,
+  diagnose,
+  isBasicLand,
+  isLandCard,
+  landRepeatDisposition,
+} from './validate.ts';
 import {
   chooseSwapTargets,
   collectCastability,
@@ -204,8 +212,20 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
   const rawCards = Array.isArray(deckContext.cards)
     ? (deckContext.cards as Record<string, unknown>[])
     : [];
+  // `commander` is forwarded from the client verbatim, and the only shape this
+  // read used to accept was `{ name }`. A bare string — the other shape a deck
+  // store plausibly holds — made `.name` undefined, which is indistinguishable
+  // here from "this deck has no commander". That is not a loud failure: colour
+  // identity then falls through to the deck-union branch, which is a SUPERSET
+  // of the commander's identity, so the SQL pool widens to include cards the
+  // deck may not legally play and every downstream check passes them, because
+  // every downstream check measures against this widened identity. It degrades
+  // into wrong answers rather than into no answer, so it is read defensively.
+  const commanderRaw = deckContext.commander;
   const commanderName = String(
-    (deckContext.commander as { name?: unknown } | null)?.name ?? ''
+    typeof commanderRaw === 'string'
+      ? commanderRaw
+      : ((commanderRaw as { name?: unknown } | null)?.name ?? '')
   ).trim();
 
   /* --- 1. Resolve the deck against the catalogue --------------------- */
@@ -465,6 +485,51 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
   const { raw, poolIndex, deckIndex, log, legalityKey, colorIdentity } = a;
 
   const inDeck = new Set(a.deckEntries.map(e => normalizeName(e.name)));
+
+  /**
+   * The commander is in the deck, and it is the one card in it that may not be
+   * cut. `deckEntries` carries it — that is deliberate, because it is a real
+   * card the deck plays and the profile, the colour identity and the role
+   * counts all have to see it — and `inDeck` is built from `deckEntries`, so
+   * "is it in the deck" answered YES for the commander and `resolveCut` had
+   * nothing else to ask. A `removals` entry or the remove half of a
+   * `replacements` pair naming the commander was therefore accepted, counted
+   * as accepted in `validation`, and shipped with a real `cardId` beside it.
+   *
+   * That is not a cosmetic mistake. The optimiser panel's cut path calls
+   * `onRemoveCard(name)` on the deck, so an accepted removal is an edit the
+   * user can apply in one click — and applying this one dismantles the deck
+   * around the only card the format will not let them replace by drawing it.
+   *
+   * The prompt already omits the commander from the DECK list, which is why
+   * this has stayed latent rather than common. A prompt is a request; this is
+   * the check. Kept separate from `inDeck` so that `issues[].card` may still
+   * name the commander — "your commander is expensive to cast" is a fair
+   * observation about a card, not an instruction to remove it.
+   */
+  const commanderKeys = new Set(
+    a.deckEntries.filter(e => e.isCommander).map(e => normalizeName(e.name))
+  );
+
+  /**
+   * The deck's own spelling of each card it plays.
+   *
+   * A cut is applied by NAME against the user's deck, so the name a removal
+   * ships has to be the deck's, not the model's recollection of it. The model
+   * is told to copy from the DECK list and mostly does, but `inDeck` is keyed
+   * on the normalised form — case-folded, apostrophes folded — so a name that
+   * differs only in those respects passes validation and then goes out
+   * verbatim. Downstream that name is matched against the deck again, and this
+   * time by something that has no normaliser, so the cut silently does nothing
+   * and the image lookup in `attachRealData` (an exact, case-sensitive
+   * `name=in.(...)`) returns no row either.
+   */
+  const deckNameByKey = new Map<string, string>();
+  for (const e of a.deckEntries) {
+    const key = normalizeName(e.name);
+    if (key && !deckNameByKey.has(key)) deckNameByKey.set(key, e.name);
+  }
+
   const touched = new Set<string>();
 
   // Collect every name the pool could not resolve, so the diagnostic lookup is
@@ -534,30 +599,45 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
    * cannot resolve is still cuttable: one real deck plays a Stickers card that
    * is not commander legal and therefore not in any pool, and telling the user
    * they may not remove it would be absurd.
+   *
+   * `deckName` is the deck's own spelling and is what callers must ship, for
+   * the reason given on `deckNameByKey`.
    */
   const resolveCut = (
     name: string,
     section: string,
     seen: Set<string>
-  ): { ok: boolean; card: CandidateCard | null } => {
+  ): { ok: boolean; card: CandidateCard | null; deckName: string } => {
     log.check();
     const key = normalizeName(name);
     if (!key) {
       log.drop(section, name, 'empty-name');
-      return { ok: false, card: null };
+      return { ok: false, card: null, deckName: name };
     }
-    if (!inDeck.has(key)) {
-      log.drop(section, name, 'not-in-deck');
-      return { ok: false, card: null };
+    // 'not-in-deck' before 'is-commander', so the recorded reason is the true
+    // one: the commander IS in the deck, and being it is the separate, stronger
+    // objection. The order is asserted in `cut-rules.test.ts`.
+    const refusal = cutRefusal(key, inDeck, commanderKeys);
+    if (refusal) {
+      log.drop(section, name, refusal);
+      return { ok: false, card: null, deckName: name };
     }
     if (seen.has(key)) {
       log.drop(section, name, 'duplicate');
-      return { ok: false, card: null };
+      return { ok: false, card: null, deckName: name };
     }
     seen.add(key);
     log.accept();
+    const deckName = deckNameByKey.get(key) ?? name;
+    const card = deckIndex.resolve(name);
+    // Every spelling of this card the function holds. `attachRealData` looks
+    // the display row up with an exact, case-sensitive `name=in.(...)`, so the
+    // catalogue's own spelling is the one that reliably matches; the other two
+    // are kept because a card the catalogue does not know still has a name.
+    if (card) touched.add(card.name);
+    touched.add(deckName);
     touched.add(name);
-    return { ok: true, card: deckIndex.resolve(name) };
+    return { ok: true, card, deckName };
   };
 
   /* --- additions --- */
@@ -569,7 +649,13 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     additions.push({
       name: card.name,
       reason: str(x.reason),
-      type: str(x.type) || card.typeLine,
+      // The resolved row's type line wins over the model's. `card` is the
+      // catalogue row this name resolved to, so `card.typeLine` is the fact
+      // and `x.type` is a recollection of it. Taking the model's first meant a
+      // verified card could be shipped wearing an invented type — "Legendary
+      // Creature" on an artifact — with `verified: true` beside it, which is
+      // the one combination the user has no way to doubt.
+      type: card.typeLine || str(x.type),
       category: str(x.category) || 'Other',
       priority: priority(x.priority),
       edhImpact: optionalNum(x.edhImpact),
@@ -584,7 +670,8 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     const cut = resolveCut(str(x.name), 'removals', seenCut);
     if (!cut.ok) continue;
     removals.push({
-      name: str(x.name),
+      // The deck's spelling, not the model's — a cut is applied by name.
+      name: cut.deckName,
       reason: str(x.reason),
       priority: priority(x.priority),
       edhImpact: optionalNum(x.edhImpact),
@@ -603,11 +690,13 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     const addCard = resolveAdd(str(x.add), 'replacements.add', seenRepAdd);
     if (!cut.ok || !addCard) continue;
     replacements.push({
-      remove: str(x.remove),
+      // The deck's spelling, not the model's — a swap removes by name.
+      remove: cut.deckName,
       removeReason: str(x.removeReason),
       add: addCard.name,
       addBenefit: str(x.addBenefit),
-      addType: str(x.addType) || addCard.typeLine,
+      // Measured type line first, for the reason given on `additions.type`.
+      addType: addCard.typeLine || str(x.addType),
       synergy: str(x.synergy) || null,
       category: str(x.category) || null,
       priority: priority(x.priority),
@@ -632,7 +721,8 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
       if (!cut.ok) continue;
       landRecommendations.push({
         type: 'remove',
-        name,
+        // The deck's spelling, not the model's — a cut is applied by name.
+        name: cut.deckName,
         reason: str(x.reason),
         priority: priority(x.priority),
         category: str(x.category) || 'Basic',
@@ -644,11 +734,25 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
 
     const existing = landAdds.get(normalizeName(name));
     if (existing) {
-      // A repeat of an already-accepted land: count the copy, do not re-check.
-      // It is still a name the model produced, so it is counted in the drop
-      // rate's denominator — otherwise "add five Plains" would move the
-      // measured rate simply by being asked for as five names instead of one.
+      // A repeat of an already-accepted land. It is still a name the model
+      // produced, so it is counted in the drop rate's denominator — otherwise
+      // "add five Plains" would move the measured rate simply by being asked
+      // for as five names instead of one.
       log.check();
+      // ONLY a basic may repeat. This branch returns before `resolveAdd` is
+      // called, so `seenLandAdd` — the oracle-id duplicate guard that stops
+      // every other section offering the same card twice — never sees a land
+      // at all. Without the test below, a model that listed "Command Tower"
+      // twice had the second occurrence silently folded into `quantity: 2`
+      // and recorded as ACCEPTED. The response then told a Commander player
+      // to add two copies of a singleton card: not a legal deck, produced by
+      // the one path in this file that accepted a name without checking it.
+      // Quantity is only meaningful for basics, so a repeat of anything else
+      // is the model saying the same thing twice — a duplicate, not a copy.
+      if (landRepeatDisposition(existing._card as CandidateCard | null) === 'duplicate') {
+        log.drop('landRecommendations.add', name, 'duplicate');
+        continue;
+      }
       log.accept();
       existing.quantity = (Number(existing.quantity) || 1) + 1;
       continue;
@@ -866,15 +970,37 @@ async function attachRealData(args: {
 
   // Ownership: the caller's own collection under RLS, unioned with whatever
   // names the client already passed in.
+  //
+  // These two sources are NOT the same strength of claim, and the response now
+  // says which one a number came from. `user_collections` carries a real
+  // `quantity` column, so a figure from there is counted. `collectionCards` is
+  // a bare list of names the client posted, with no quantities in it at all —
+  // the 1 below is a floor meaning "at least one", invented here because the
+  // field is numeric and something had to go in it. Emitting that 1 unlabelled
+  // put a fabricated count next to a measured one in the same field, where no
+  // reader could tell them apart. `ownedQuantity` keeps its type and meaning;
+  // `ownedQuantitySource` is new, and is what makes the 1 honest.
   const owned = await catalog.ownedQuantities(names);
+  const countedNames = new Set(owned.keys());
+  const claimedNames = new Set<string>();
   for (const n of args.collectionCards) {
     const key = normalizeName(n);
-    if (key && !owned.has(key)) owned.set(key, 1);
+    if (!key) continue;
+    claimedNames.add(key);
+    if (!owned.has(key)) owned.set(key, 1);
   }
 
   const facts = (name: string, card: CandidateCard | null) => {
-    const row = display.get(normalizeName(name));
-    const qty = owned.get(normalizeName(name)) ?? 0;
+    const key = normalizeName(name);
+    // `display` is keyed on the spelling the catalogue returned, and `name` is
+    // the spelling the response ships — the user's own deck for a cut. Those
+    // agree case-insensitively by construction but need not agree exactly, and
+    // `cardsByName` matches `name=in.(...)` exactly, so a deck that stores
+    // "sol ring" finds no row on the first lookup. Falling back to the resolved
+    // card's catalogue name recovers the image, set code, rarity and price that
+    // would otherwise all come back null on a card the function had in hand.
+    const row = display.get(key) ?? (card ? display.get(normalizeName(card.name)) : undefined);
+    const qty = owned.get(key) ?? 0;
     return {
       cardId: row?.id ?? card?.id ?? null,
       oracleId: row?.oracle_id ?? card?.oracleId ?? null,
@@ -884,6 +1010,18 @@ async function attachRealData(args: {
       priceUsd: row?.usd != null ? Number(row.usd) : (card?.usd ?? null),
       owned: qty > 0,
       ownedQuantity: qty,
+      /**
+       * Where `ownedQuantity` came from.
+       *   'collection'  counted from `user_collections.quantity`
+       *   'client-list' the client named this card but sent no quantity; the
+       *                 figure is a floor of 1, not a count
+       *   'none'        nothing claims ownership; the quantity is 0
+       */
+      ownedQuantitySource: countedNames.has(key)
+        ? 'collection'
+        : claimedNames.has(key)
+          ? 'client-list'
+          : 'none',
       verified: Boolean(row || card),
     };
   };
@@ -910,6 +1048,7 @@ async function attachRealData(args: {
       addPriceUsd: add.priceUsd,
       addOwned: add.owned,
       addOwnedQuantity: add.ownedQuantity,
+      addOwnedQuantitySource: add.ownedQuantitySource,
       removeCardId: cut.cardId,
       removeOracleId: cut.oracleId,
       removeImageUrl: cut.imageUrl,
@@ -944,12 +1083,19 @@ async function attachRealData(args: {
  *   analysis.swapTargets    cut candidates with their castability source
  *   analysis.categoriesSource  'model' | 'measured'
  *   per addition/removal/land: cardId, oracleId, imageUrl, setCode, rarity,
- *                              priceUsd, owned, ownedQuantity, verified,
+ *                              priceUsd, owned, ownedQuantity,
+ *                              ownedQuantitySource, verified,
  *                              and quantity on landRecommendations
  *   per replacement:        addCardId, addOracleId, addImageUrl, addPriceUsd,
- *                           addOwned, addOwnedQuantity, removeCardId,
+ *                           addOwned, addOwnedQuantity,
+ *                           addOwnedQuantitySource, removeCardId,
  *                           removeOracleId, removeImageUrl, removePriceUsd,
  *                           verified
+ *
+ * `ownedQuantitySource` is 'collection' | 'client-list' | 'none' and says
+ * whether `ownedQuantity` was counted from `user_collections.quantity` or is
+ * the floor of 1 stamped on a name the client listed without a quantity.
+ * Reading the number without it treats an invented 1 as a measured one.
  *
  * `cardId` is the printing id, which is what `/cards/:id` routes on.
  */

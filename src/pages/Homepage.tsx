@@ -122,7 +122,7 @@ export default function Homepage() {
     (async () => {
       const { count } = await supabase
         .from('cards')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       if (typeof count === 'number') setCardCount(count);
     })();
   }, []);

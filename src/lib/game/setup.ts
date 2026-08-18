@@ -16,7 +16,7 @@
  */
 
 import { addCard, applyAction, createGame, type NewGamePlayerConfig } from './rules';
-import type { Format, GameState, ManaColor, PlayerId, Zone } from './types';
+import type { Format, GameAction, GameState, ManaColor, PlayerId, Zone } from './types';
 
 /** One card as the play system needs it — a flattened row, not a Scryfall blob. */
 export interface PlayCard {
@@ -195,26 +195,33 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
 }
 
 /**
- * Take a mulligan: shuffle a hand back, reshuffle, and draw one fewer. London
- * mulligan's "put N on the bottom" is left to the player — this deals the hand
- * and lets them use the zone browser, which is how a paper playtest works too.
+ * Take a mulligan: hand back into the library, reshuffle, draw one fewer.
+ *
+ * Returned as actions rather than a new state so it travels the same path as
+ * every other move — one code path in, one log, one thing to replay. The London
+ * mulligan's "then put N on the bottom" is left to the player and the zone
+ * browser, which is exactly how it works on a table.
  */
-export function mulligan(state: GameState, playerId: PlayerId, at = 0): GameState {
+export function mulliganActions(
+  state: GameState,
+  playerId: PlayerId,
+  at = 0
+): GameAction[] {
   const player = state.players.find(p => p.id === playerId);
-  if (!player || state.mode !== 'full') return state;
+  if (!player || state.mode !== 'full') return [];
 
   const handSize = player.zones.hand.length;
-  let next = state;
+  if (handSize === 0) return [];
 
-  for (const instanceId of [...player.zones.hand]) {
-    next = applyAction(next, { type: 'MOVE_ZONE', instanceId, to: 'library', position: 'bottom', at });
-  }
-  next = applyAction(next, { type: 'SHUFFLE', playerId, at });
-  next = applyAction(next, {
-    type: 'DRAW',
-    playerId,
-    count: Math.max(1, handSize - 1),
+  const actions: GameAction[] = player.zones.hand.map(instanceId => ({
+    type: 'MOVE_ZONE',
+    instanceId,
+    to: 'library',
+    position: 'bottom',
     at,
-  });
-  return next;
+  }));
+
+  actions.push({ type: 'SHUFFLE', playerId, at });
+  actions.push({ type: 'DRAW', playerId, count: Math.max(1, handSize - 1), at });
+  return actions;
 }

@@ -57,19 +57,20 @@ export function useScrollLock(active: boolean): void {
       htmlOverflow: html.style.overflow,
       bodyOverflow: body.style.overflow,
       overscroll: body.style.overscrollBehavior,
-      touchAction: body.style.touchAction,
     };
 
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
+    // Deliberately not `touch-action: none` on the body: touch-action is
+    // evaluated up the ancestor chain, so blocking it here would also block
+    // panning inside the rotated detail sheet. The board and its tap targets set
+    // it on themselves instead.
     body.style.overscrollBehavior = 'none';
-    body.style.touchAction = 'none';
 
     return () => {
       html.style.overflow = previous.htmlOverflow;
       body.style.overflow = previous.bodyOverflow;
       body.style.overscrollBehavior = previous.overscroll;
-      body.style.touchAction = previous.touchAction;
     };
   }, [active]);
 }

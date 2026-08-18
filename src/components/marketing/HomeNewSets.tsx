@@ -52,7 +52,7 @@ export function HomeNewSets() {
         FEATURED_SETS.map(async s => {
           const { count } = await supabase
             .from('cards')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .eq('set_code', s.code);
 
           /* A mythic from the set makes the most striking tile art. */

@@ -36,10 +36,10 @@ function OverviewSection() {
     try {
       setLoading(true);
       
-      const cardsRes = await supabase.from('cards').select('*', { count: 'exact', head: true });
-      const profilesRes = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const decksRes = await supabase.from('user_decks').select('*', { count: 'exact', head: true });
-      const collectionsRes = await supabase.from('user_collections').select('*', { count: 'exact', head: true });
+      const cardsRes = await supabase.from('cards').select('id', { count: 'exact', head: true });
+      const profilesRes = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+      const decksRes = await supabase.from('user_decks').select('id', { count: 'exact', head: true });
+      const collectionsRes = await supabase.from('user_collections').select('id', { count: 'exact', head: true });
 
       setCardCount(cardsRes.count || 0);
       setUserCount(profilesRes.count || 0);

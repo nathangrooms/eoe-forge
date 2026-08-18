@@ -24,11 +24,18 @@ type RowsBuilder = {
   limit: (n: number) => PromiseLike<{ data: unknown[] | null }>;
 };
 
-/** `select('*', { count: 'exact', head: true })` over `cards`, awaiting a JSON-path `.eq`. */
+/**
+ * Count-only query over `cards`, awaiting a JSON-path `.eq`.
+ *
+ * Selects `id` rather than `*`: on a count-only HEAD request PostgREST still
+ * materialises every selected column, and asking for `*` over this table (which
+ * carries several large jsonb columns) makes the request fail with a 500. The
+ * count is identical either way.
+ */
 export const countCardsWhere = (): CountBuilder =>
   supabase
     .from('cards')
-    .select('*', { count: 'exact', head: true }) as unknown as CountBuilder;
+    .select('id', { count: 'exact', head: true }) as unknown as CountBuilder;
 
 /** `select(columns)` over `cards`, awaiting a JSON-path `.eq` plus normal filters. */
 export const selectCardsWhere = (columns: string): RowsBuilder =>

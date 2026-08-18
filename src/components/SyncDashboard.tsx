@@ -62,7 +62,7 @@ const SyncDashboard = () => {
       // Get card count
       const { count, error: countError } = await supabase
         .from('cards')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
 
       if (countError) {
         console.warn('Error loading card count:', countError);

@@ -9,6 +9,8 @@ import {
   Sparkles,
   Boxes,
   Swords,
+  Gamepad2,
+  HeartPulse,
   Trophy,
   Search,
   Store,
@@ -117,6 +119,18 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'play',
     label: 'Play',
     items: [
+      {
+        title: 'Play a Game',
+        href: '/play',
+        icon: Gamepad2,
+        description: 'Goldfish or take on bots at a real table',
+      },
+      {
+        title: 'Life Counter',
+        href: '/life',
+        icon: HeartPulse,
+        description: 'Full-screen life totals for the table',
+      },
       {
         title: 'Playtest',
         href: '/simulate',

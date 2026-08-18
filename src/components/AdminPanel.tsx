@@ -42,7 +42,7 @@ export function AdminPanel() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('cards')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       
       if (error) throw error;
       return { totalCards: count || 0 };
@@ -54,11 +54,11 @@ export function AdminPanel() {
     queryFn: async () => {
       const { count: profileCount, error: profileError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       
       const { count: deckCount, error: deckError } = await supabase
         .from('user_decks')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       
       if (profileError || deckError) throw profileError || deckError;
       

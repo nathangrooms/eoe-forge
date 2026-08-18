@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -109,7 +109,6 @@ export function CardImage({
   title,
   children,
 }: CardImageProps) {
-  const reactId = useId();
   const resolved: CardImageSize = size ?? (width ? cardSizeForWidth(width) : 'md');
   const renderedWidth = width ?? CARD_IMAGE_SIZES[resolved].width;
 
@@ -160,20 +159,31 @@ export function CardImage({
   const name: string = card?.name ?? 'Card';
   const alt = flippable && face > 0 ? `${name} (back face)` : name;
 
-  const Frame = onClick ? 'button' : 'div';
+  // Deliberately a div with button semantics rather than a <button>: the flip
+  // control and any overlay children would otherwise nest inside it.
+  const onKeyDown = onClick
+    ? (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(e as unknown as React.MouseEvent<HTMLElement>);
+        }
+      }
+    : undefined;
 
   return (
     <div
-      className={cn('relative select-none', fill ? 'w-full' : 'shrink-0', className)}
+      className={cn('group relative select-none', fill ? 'w-full' : 'shrink-0', className)}
       style={fill ? undefined : { width: renderedWidth }}
     >
-      <Frame
-        {...(onClick
-          ? { type: 'button' as const, onClick, 'aria-label': name }
-          : {})}
+      <div
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={onClick ? name : undefined}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
         title={title ?? name}
         className={cn(
-          'group relative block w-full overflow-hidden bg-muted p-0 text-left',
+          'relative block w-full overflow-hidden bg-muted',
           'transition-transform duration-200 ease-out motion-reduce:transition-none',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           SHADOW[resolved],
@@ -214,7 +224,6 @@ export function CardImage({
 
         {src && !failed && (
           <img
-            id={`card-img-${reactId}`}
             src={src}
             alt={alt}
             loading={eager ? 'eager' : 'lazy'}
@@ -231,7 +240,7 @@ export function CardImage({
         )}
 
         {children}
-      </Frame>
+      </div>
 
       {flippable && (
         <button

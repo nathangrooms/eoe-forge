@@ -91,7 +91,7 @@ export function HomeColors() {
         COLORS.map(async ({ c }) => {
           const { count } = await supabase
             .from('cards')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .contains('color_identity', [c]);
           return [c, count ?? 0] as const;
         })
@@ -155,9 +155,9 @@ export function HomeCatalogue() {
   useEffect(() => {
     (async () => {
       const [total, legendary, mythic] = await Promise.all([
-        supabase.from('cards').select('*', { count: 'exact', head: true }),
-        supabase.from('cards').select('*', { count: 'exact', head: true }).eq('is_legendary', true),
-        supabase.from('cards').select('*', { count: 'exact', head: true }).eq('rarity', 'mythic'),
+        supabase.from('cards').select('id', { count: 'exact', head: true }),
+        supabase.from('cards').select('id', { count: 'exact', head: true }).eq('is_legendary', true),
+        supabase.from('cards').select('id', { count: 'exact', head: true }).eq('rarity', 'mythic'),
       ]);
       setStats({
         total: total.count ?? 0,

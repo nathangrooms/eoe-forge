@@ -80,6 +80,47 @@ two views can never drift apart.
 
 **View mode works the same way** for an opponent: their quadrant, full screen, read-only.
 
+## Zones need distinct places on the mat
+
+> "Lands, creatures, enchantments, graveyard, exile, artifacts etc should all have different
+> locations too on map - seems like its all just one row."
+
+A real table has geography, and players read a board by WHERE things are before they read what
+they are. One undifferentiated row destroys that. Each seat's mat is laid out as:
+
+```
+                        ┌─────────────────────────────────────┬──────────┐
+   back of your area    │  LANDS            (tap for mana)    │ LIBRARY  │  ← card backs, stacked
+                        ├─────────────────────────────────────┤          │
+                        │  ARTIFACTS + ENCHANTMENTS + PWs     │ GRAVEYARD│  ← face up, top card visible
+                        │  (non-creature permanents)          │          │
+                        ├─────────────────────────────────────┤  EXILE   │
+   toward the middle    │  CREATURES        (attack/block)    │          │
+                        ├─────────────────────────────────────┤ COMMAND  │  ← commander when not cast
+                        │  HAND (viewer only)                 │          │
+                        └─────────────────────────────────────┴──────────┘
+```
+
+**Rows, nearest the middle of the table first:**
+1. **Creatures** — closest to the centre, because they attack across it. Tapped rotates 90°.
+2. **Artifacts, enchantments, planeswalkers** — the permanents that sit behind the line.
+3. **Lands** — furthest back, the mana row. Tapped lands rotate too.
+
+**Side column** (a narrow strip on the outer edge of each seat):
+- **Library** as a stack of card backs with a count.
+- **Graveyard** face up, top card visible, with a count — clicking opens the zone browser.
+- **Exile**, same treatment, visually distinct from graveyard.
+- **Command zone** holding the commander when it is not on the battlefield, with tax shown.
+
+Zones must be **visibly separate regions** — a change of surface tint and spacing, never a
+border. Each is clickable to inspect its contents (`ZoneBrowser.tsx` already exists).
+
+A row that is empty still holds its place, so the board does not reflow as permanents enter and
+leave. Its label stays visible at low contrast.
+
+This applies to every seat, not just the viewer's — the owner wants opponents' boards readable
+and clickable.
+
 ## Sizing — the hand is the biggest thing on screen
 
 > "For the player, the hand needs to be massive."

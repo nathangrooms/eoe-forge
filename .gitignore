@@ -44,3 +44,6 @@ src/pages/__*.tsx
 matshot.html
 src/__matshot.tsx
 dm-harness.*
+
+# Agent working files — never ship to Lovable
+scratch/

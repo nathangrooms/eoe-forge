@@ -22,10 +22,11 @@ import {
   startingLifeFor,
   type Format,
   type GameState,
-  type ManaColor,
   type PlayerId,
   type SeatingVariant,
 } from '@/lib/game';
+
+import { defaultMats, isMatColor, nextFreeMat, type MatColor } from './mats';
 
 /* -------------------------------------------------------------------------- */
 /* Config                                                                     */
@@ -33,8 +34,12 @@ import {
 
 export interface LifeSeatConfig {
   name: string;
-  /** Deck colour identity. Purely so a player can find their own panel fast. */
-  colors: ManaColor[];
+  /**
+   * The seat's colour. Chooses the mat it plays on, and doubles as the colour
+   * identity shown on the panel — one choice, not two, because at arm's length
+   * the mat is how a player finds their own seat and a row of pips is not.
+   */
+  mat: MatColor;
 }
 
 export interface LifeGameConfig {
@@ -70,17 +75,16 @@ export const LIFE_FORMATS: Array<{ format: Format; label: string; note: string }
 export const PLAYER_COUNTS = [2, 3, 4] as const;
 export type PlayerCount = (typeof PLAYER_COUNTS)[number];
 
-export const WUBRG: ManaColor[] = ['W', 'U', 'B', 'R', 'G'];
-
 export const MIN_STARTING_LIFE = 1;
 export const MAX_STARTING_LIFE = 200;
 
 export const DEFAULT_SEAT_NAMES = ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5', 'Player 6'];
 
 export function defaultSeats(count: number): LifeSeatConfig[] {
+  const mats = defaultMats(count);
   return Array.from({ length: count }, (_, i) => ({
     name: DEFAULT_SEAT_NAMES[i] ?? `Player ${i + 1}`,
-    colors: [],
+    mat: mats[i],
   }));
 }
 
@@ -92,16 +96,69 @@ export function defaultConfig(playerCount: number = 4, format: Format = 'command
   };
 }
 
-export function defaultOptions(): LifeOptions {
-  return { variant: 'table', partners: {} };
+/**
+ * Four players default to the 2x2 grid rather than the pinwheel.
+ *
+ * The pinwheel puts one player on each edge, which gives the left and right
+ * seats a tall thin strip and rotates them 90 degrees. Two rows of two keeps
+ * every panel the same shape and much larger.
+ */
+export function defaultVariantFor(playerCount: number): SeatingVariant {
+  return playerCount === 4 ? 'quads' : 'table';
+}
+
+export function defaultOptions(playerCount = 4): LifeOptions {
+  return { variant: defaultVariantFor(playerCount), partners: {} };
 }
 
 /**
  * Resize a seat list without losing the names and colours already entered —
- * changing the pod from 4 to 3 mid-setup should not wipe what was typed.
+ * changing the pod from 4 to 3 mid-setup should not wipe what was typed. A seat
+ * added by growing the pod takes a colour nobody at the table is already on.
  */
 export function resizeSeats(seats: LifeSeatConfig[], count: number): LifeSeatConfig[] {
-  return Array.from({ length: count }, (_, i) => seats[i] ?? { name: DEFAULT_SEAT_NAMES[i] ?? `Player ${i + 1}`, colors: [] });
+  const out: LifeSeatConfig[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const existing = seats[i];
+    out.push(
+      existing
+        ? { name: existing.name, mat: existing.mat }
+        : {
+            name: DEFAULT_SEAT_NAMES[i] ?? `Player ${i + 1}`,
+            mat: nextFreeMat(out.map(seat => seat.mat), i),
+          },
+    );
+  }
+  return out;
+}
+
+/**
+ * Read a seat back out of whatever shape it arrived in.
+ *
+ * Sessions written before the mats existed stored `colors: ManaColor[]`, and a
+ * game saved by that build should still resume rather than be discarded — so
+ * its first colour becomes the mat, and a seat that never picked one falls back
+ * to the default rotation for its position.
+ */
+export function normaliseSeat(seat: unknown, index: number): LifeSeatConfig {
+  const raw = (seat ?? {}) as { name?: unknown; mat?: unknown; colors?: unknown };
+  const legacy = Array.isArray(raw.colors) ? raw.colors.find(isMatColor) : undefined;
+  const mat: MatColor = isMatColor(raw.mat)
+    ? raw.mat
+    : (legacy ?? DEFAULT_MAT_ORDER[index % DEFAULT_MAT_ORDER.length]);
+  return {
+    name: typeof raw.name === 'string' ? raw.name : (DEFAULT_SEAT_NAMES[index] ?? `Player ${index + 1}`),
+    mat,
+  };
+}
+
+export function normaliseConfig(config: LifeGameConfig | undefined, fallback: LifeGameConfig): LifeGameConfig {
+  if (!config || !Array.isArray(config.seats) || config.seats.length === 0) return fallback;
+  return {
+    format: config.format ?? fallback.format,
+    startingLife: Number.isFinite(config.startingLife) ? config.startingLife : fallback.startingLife,
+    seats: config.seats.map(normaliseSeat),
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -268,7 +325,7 @@ export function loadSession(): LifeSession | null {
       state: parsed.state,
       past: Array.isArray(parsed.past) ? parsed.past.filter(looksLikeGameState) : [],
       options: {
-        variant: options.variant ?? 'table',
+        variant: options.variant ?? defaultVariantFor(parsed.state.players.length),
         partners: options.partners ?? {},
       },
     };

@@ -76,6 +76,22 @@ export interface RoundTimer {
   running: boolean;
 }
 
+/**
+ * The deck a player registered, denormalised onto the event.
+ *
+ * Stored rather than joined, because an event must keep reading correctly after
+ * the deck is renamed or deleted — exactly like the paper decklist handed in at
+ * the start of the day. Artwork is resolved live from `commanderName`.
+ */
+export interface PlayerDeck {
+  deckId: string;
+  deckName: string;
+  /** The deck's own format code (`commander`, `modern`, …) — drives the mismatch flag. */
+  format: string;
+  commanderName: string | null;
+  colors: string[];
+}
+
 export interface Tournament {
   id: string;
   name: string;
@@ -85,9 +101,13 @@ export interface Tournament {
   gameFormat: GameFormat;
   status: 'setup' | 'in-progress' | 'completed';
   players: string[];
+  /** Registered decks keyed by player name. A player may enter without one. */
+  decks: Record<string, PlayerDeck>;
   dropped: string[];
   rounds: Round[];
   currentRound: number;
+  /** Scheduled Swiss rounds — seeded from the DCI recommendation, adjustable by the TO. */
+  swissRounds: number;
   roundLengthMinutes: number;
   timer: RoundTimer;
   createdAt: string;
@@ -127,6 +147,31 @@ function shuffle<T>(input: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/**
+ * How many rounds this event is scheduled for.
+ *
+ * Swiss reads the TO's own figure (seeded from the DCI recommendation); a
+ * bracket is however many rounds it takes to halve the field down to one.
+ */
+export function totalRoundsFor(tournament: Tournament): number {
+  if (tournament.format === 'single-elimination') {
+    return tournament.rounds.length || Math.ceil(Math.log2(Math.max(2, tournament.players.length)));
+  }
+  return tournament.swissRounds || recommendedSwissRounds(tournament.players.length);
+}
+
+/**
+ * Randomise seating for round 1.
+ *
+ * `computeStandings` breaks a dead-heat alphabetically, which is correct for a
+ * standings sheet and wrong for the first pairing of the day — every event
+ * would open with Alice against Bob. Round 1 has no records to pair on, so the
+ * order handed to {@link generatePairings} is shuffled instead.
+ */
+export function randomiseSeating(standings: Standing[]): Standing[] {
+  return shuffle(standings);
 }
 
 function pairKey(a: string, b: string): string {

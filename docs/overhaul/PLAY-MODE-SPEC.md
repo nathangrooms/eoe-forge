@@ -70,3 +70,25 @@ substantially larger than the current measurements.
 > "it also doesn't utilise page width like rest of app"
 
 The board fills the viewport. This is a game surface; it gets the whole screen.
+
+## Cast spotlight — right edge, not centre
+
+> "When new creatures come on the map, perhaps show them on the right hand side for a second,
+> really large so people can read it, it should fade away or get replaced if another is cast though"
+
+`src/components/play/CastSpotlight.tsx` already detects the card that just left a hand and holds
+it enlarged. Two changes:
+
+- **Position:** right edge, not the centre of the board. The centre covers the table; the right
+  edge lets play continue underneath it.
+- **Size:** large enough to actually READ the rules text — this is the point of it. Somebody
+  casting across the table should be able to read what resolved without asking.
+- **Lifecycle:** hold for roughly a second, then fade. A new cast **replaces** the current one
+  immediately rather than queueing, so the spotlight always shows the most recent thing.
+- Respect `prefers-reduced-motion`: no fade, just swap.
+
+## Life counter shares the layout
+
+The life counter defaults 4 players to the same 2x2 grid (`defaultVariantFor` in
+`src/components/life/session.ts`). The pinwheel gave the left and right seats a tall thin strip;
+two rows of two keeps every panel the same shape and much larger.

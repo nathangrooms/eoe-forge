@@ -60,28 +60,10 @@ export function ManaSymbols({ colors, size = 'md', className }: ManaSymbolsProps
   );
 }
 
-interface PowerLevelBadgeProps {
-  level: number;
-  className?: string;
-}
-
-export function PowerLevelBadge({ level, className }: PowerLevelBadgeProps) {
-  const getColorFromLevel = (level: number) => {
-    if (level <= 3) return 'hsl(var(--power-1))';
-    if (level <= 6) return 'hsl(var(--power-4))';
-    if (level <= 8) return 'hsl(var(--power-7))';
-    return 'hsl(var(--power-10))';
-  };
-
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-primary-foreground",
-        className
-      )}
-      style={{ backgroundColor: getColorFromLevel(level) }}
-    >
-      Power: {level.toFixed(1)}
-    </div>
-  );
-}
+/*
+ * `PowerLevelBadge` used to live here — a bare `level: number` rendered with a
+ * private set of band cuts (3/6/8) that disagreed with the scoring engine's
+ * (3.4/6.6/8.5). It has no callers left. A deck's power is rendered in exactly
+ * one place now: `PowerScoreBadge` / `PowerScore` in
+ * `@/components/deck/PowerScore`, from the canonical `DeckPower`.
+ */

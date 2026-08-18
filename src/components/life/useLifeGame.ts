@@ -39,6 +39,7 @@ import {
   buildGame,
   clearSession,
   compactLog,
+  defaultVariantFor,
   loadSession,
   newSession,
   saveSession,
@@ -374,7 +375,7 @@ export function useLifeGame(): LifeGame {
       // the pod that just got up from the table.
       commitSession(
         newSession(config, Date.now(), {
-          variant: existing?.options.variant ?? 'table',
+          variant: existing?.options.variant ?? defaultVariantFor(config.seats.length),
           partners: {},
         }),
       );

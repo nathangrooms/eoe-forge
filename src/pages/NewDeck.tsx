@@ -144,7 +144,9 @@ export function NewDeck() {
           user_id: user.id,
           name: deckName,
           format,
-          power_level: 5,
+          // power_level mirrors the canonical EDH score and is written only by
+          // persistDeckPower once the deck has cards to score. Seeding it with
+          // a literal 5 is what made every new deck read "Power 5/10".
           colors: identity,
           description: '',
         })

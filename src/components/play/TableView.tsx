@@ -70,6 +70,8 @@ export interface TableViewProps {
   lifeDeltas?: LifeDeltaMap;
   /** Room left along the bottom edge for the viewer's fanned hand. */
   bottomInset?: number;
+  /** Room left along the top edge for the HUD that floats over the table. */
+  topInset?: number;
   className?: string;
 }
 

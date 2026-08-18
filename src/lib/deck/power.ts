@@ -306,6 +306,16 @@ export interface PowerDeckEntry {
   card: EngineCard;
   quantity: number;
   isCommander?: boolean;
+  /**
+   * The name to hash on, when it differs from the card's own name.
+   *
+   * The stored hash has to be reproducible from `deck_cards.card_name` alone,
+   * because that is all the deck summary and the dashboard queries carry. A
+   * joined `cards.name` can differ from it — a double-faced card is stored as
+   * "Front" in one place and "Front // Back" in the other — and a hash computed
+   * from the wrong one would mark every deck permanently stale.
+   */
+  hashName?: string;
 }
 
 /**
@@ -331,7 +341,9 @@ export function deckListHash(entries: Array<{ name: string; quantity: number }>)
 }
 
 function entryHash(entries: PowerDeckEntry[]): string {
-  return deckListHash(entries.map(e => ({ name: e.card.name, quantity: e.quantity })));
+  return deckListHash(
+    entries.map(e => ({ name: e.hashName ?? e.card.name, quantity: e.quantity }))
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -397,7 +409,14 @@ export function entriesFromDeckRows(rows: DeckCardRow[]): PowerDeckEntry[] {
           etbTapped: false,
         },
       };
-      return { card, quantity: Math.max(1, row.quantity || 1), isCommander: row.is_commander };
+      return {
+        card,
+        quantity: Math.max(1, row.quantity || 1),
+        isCommander: row.is_commander,
+        // Hash on the stored name so this matches what `compute_deck_summary`
+        // and the dashboard queries can reproduce.
+        hashName: row.card_name,
+      };
     });
 }
 

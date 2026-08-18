@@ -47,16 +47,25 @@ import {
  * resolving it live would mean downloading 85 MB of decklists to paint a grid.
  */
 
-const TILE_WIDTH = 300;
+/**
+ * Minimum tile width.
+ *
+ * Widened from 300 so the commander's artwork is presented at something like
+ * the size it was painted for rather than as a strip — the tile now carries the
+ * whole 626 × 457 crop plus a 132px card over it, and at 300 the art was too
+ * small for either to land.
+ */
+const TILE_WIDTH = 380;
 
 /**
- * Tiles rendered per page. Each one carries two images (the art band and the
+ * Tiles rendered per page. Each one carries two images (the artwork and the
  * commander's card), so mounting all 184 at once queues ~370 requests on first
  * paint — `loading="lazy"` alone does not save you when the whole grid is in
- * the document. The next page loads as the end of the list comes into view, or
- * on a click.
+ * the document. Trimmed alongside the wider tile: the images are bigger now, so
+ * a page costs more. The next page loads as the end of the list comes into
+ * view, or on a click.
  */
-const PAGE_SIZE = 36;
+const PAGE_SIZE = 24;
 
 /** A precon opened by deep link, before the catalogue has answered. */
 function summaryFromIndex(id: string): PreconSummary | null {

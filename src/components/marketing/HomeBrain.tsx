@@ -335,7 +335,7 @@ export function HomeBrain() {
                   <Stat value={String(stats.sorceries)} label="Sorceries" />
                   <Stat value={String(stats.instants)} label="Instants" />
                 </div>
-              ) : (
+              ) : failed ? null : (
                 <div className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i}>
@@ -346,23 +346,32 @@ export function HomeBrain() {
                 </div>
               )}
 
-              <div className="mt-7">
-                {stats ? (
+              {stats ? (
+                <div className="mt-7">
                   <Curve curve={stats.curve} avgMv={stats.avgMv} />
-                ) : (
-                  <Skeleton className="h-32 w-full rounded-lg" />
-                )}
-              </div>
+                </div>
+              ) : failed ? (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  A real, published 100-card list — the same one the Precons page loads, and the
+                  same one the assistant is handed when you ask it something.
+                </p>
+              ) : (
+                <Skeleton className="mt-7 h-32 w-full rounded-lg" />
+              )}
             </div>
           </div>
 
-          <p className="mt-8 text-[11px] uppercase tracking-wider text-muted-foreground">
-            {stats
-              ? `Top of the curve — the ${GRID_SIZE} heaviest of ${stats.nonland} nonland cards`
-              : 'Top of the curve'}
-          </p>
+          {/* The whole card wall is dropped rather than left as permanent
+              skeletons if the decklist never arrives. */}
+          {!failed && (
+            <p className="mt-8 text-[11px] uppercase tracking-wider text-muted-foreground">
+              {stats
+                ? `Top of the curve — the ${GRID_SIZE} heaviest of ${stats.nonland} nonland cards`
+                : 'Top of the curve'}
+            </p>
+          )}
 
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div className={cn('mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6', failed && 'hidden')}>
             {stats
               ? stats.top.map((e, i) => (
                   <figure key={e.scryfall_id} className="relative">

@@ -15,6 +15,29 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * One side of a multi-face card. Scryfall puts the printed characteristics of a
+ * transform / modal DFC / split / adventure card on the faces, NOT on the card:
+ * a Delver of Secrets row has no top-level oracle_text, mana_cost or power at
+ * all. Anything the UI needs per side has to be read off here, so every such
+ * field is declared — a narrower type silently discards the rest.
+ */
+interface ScryfallCardFace {
+  name?: string;
+  mana_cost?: string;
+  type_line?: string;
+  oracle_text?: string;
+  colors?: string[];
+  color_indicator?: string[];
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
+  defense?: string;
+  flavor_text?: string;
+  artist?: string;
+  image_uris?: Record<string, string>;
+}
+
 interface ScryfallCard {
   id: string;
   oracle_id: string;
@@ -34,12 +57,27 @@ interface ScryfallCard {
   keywords?: string[];
   legalities: Record<string, string>;
   image_uris?: Record<string, string>;
-  card_faces?: Array<{ image_uris?: Record<string, string> }>;
+  card_faces?: ScryfallCardFace[];
   prices?: Record<string, string>;
   rarity: string;
   reserved?: boolean;
   games?: string[];
 }
+
+/** Layouts Scryfall ships with a `card_faces` array. */
+const MULTI_FACE_LAYOUTS = [
+  'transform',
+  'modal_dfc',
+  'double_faced_token',
+  'reversible_card',
+  'split',
+  'flip',
+  'adventure',
+  'art_series',
+];
+
+/** Scryfall's /cards/collection endpoint takes at most 75 identifiers. */
+const COLLECTION_BATCH = 75;
 
 interface SyncState {
   next_page_url: string | null;
@@ -142,6 +180,49 @@ function getImageUris(card: ScryfallCard): Record<string, string> {
   return {};
 }
 
+/**
+ * The per-face payload for the `faces` jsonb column, in Scryfall's own shape so
+ * that a row read from Postgres and a card fetched live from the API are
+ * interchangeable (`src/lib/scryfall/card-utils.ts` reads `card_faces` first,
+ * then `faces`).
+ *
+ * Keys that are absent upstream are dropped rather than written as null: the UI
+ * decides a card has a real back face by testing `faces[1].image_uris`, and
+ * split/adventure/flip cards legitimately have no per-face art. Writing an
+ * empty object there would make every one of them claim a flippable back.
+ *
+ * Returns null — not [] — for single-faced cards so `faces is not null` means
+ * exactly "this card has faces".
+ */
+function transformFaces(card: ScryfallCard): Record<string, unknown>[] | null {
+  const faces = card.card_faces;
+  if (!Array.isArray(faces) || faces.length === 0) return null;
+
+  return faces.map((face) => {
+    const out: Record<string, unknown> = {};
+    const copy = (key: keyof ScryfallCardFace) => {
+      const value = face?.[key];
+      if (value !== undefined && value !== null) out[key] = value;
+    };
+
+    copy('name');
+    copy('mana_cost');
+    copy('type_line');
+    copy('oracle_text');
+    copy('colors');
+    copy('color_indicator');
+    copy('power');
+    copy('toughness');
+    copy('loyalty');
+    copy('defense');
+    copy('flavor_text');
+    copy('artist');
+    copy('image_uris');
+
+    return out;
+  });
+}
+
 function transformCard(card: ScryfallCard) {
   return {
     id: card.id,
@@ -162,6 +243,9 @@ function transformCard(card: ScryfallCard) {
     keywords: card.keywords || [],
     legalities: card.legalities || {},
     image_uris: getImageUris(card),
+    // Without this every double-faced card in our own table loses its back
+    // side, and any surface that does not re-fetch from Scryfall cannot flip.
+    faces: transformFaces(card),
     prices: card.prices || {},
     is_legendary: (card.type_line || '').toLowerCase().includes('legendary'),
     is_reserved: card.reserved || false,

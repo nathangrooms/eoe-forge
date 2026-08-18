@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import {
   loadCardsByName,
+  useCompact,
   useDeferred,
   useNearViewport,
   type MarketingCard,
@@ -227,14 +228,15 @@ function SeatLine({
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-lg font-semibold tabular-nums">
         {life}
       </span>
-      <div className={cn('min-w-0', align === 'right' && 'text-right')}>
+      <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
         <p className="text-sm font-medium leading-tight">{name}</p>
-        <p className="text-[11px] text-muted-foreground">{note}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{note}</p>
       </div>
+      {/* Secondary on a phone, where the seat's own name needs the width. */}
       {hand !== undefined && library !== undefined && (
         <div
           className={cn(
-            'ml-auto flex shrink-0 gap-2 text-[11px] tabular-nums text-muted-foreground',
+            'ml-auto hidden shrink-0 gap-2 text-[11px] tabular-nums text-muted-foreground sm:flex',
             align === 'right' && 'ml-0 mr-auto'
           )}
         >
@@ -276,6 +278,17 @@ function GameLog() {
   );
 }
 
+/**
+ * The one card scale on the table, chosen once per breakpoint.
+ *
+ * A phone that keeps the desktop sizes does not shrink the board — it wraps it,
+ * turning a five-card row into three rows and the section into a 2,800px scroll.
+ */
+const SCALE = {
+  wide: { botLand: 68, botCreature: 88, land: 74, creature: 100, commander: 100, hand: 104, fan: -26 },
+  narrow: { botLand: 46, botCreature: 60, land: 50, creature: 64, commander: 66, hand: 70, fan: -18 },
+} as const;
+
 const VIEWS = [
   { id: 'table', label: 'Table', icon: LayoutGrid },
   { id: 'hand', label: 'Hand', icon: HandIcon },
@@ -289,6 +302,7 @@ const VIEWS = [
 export function HomePlayTable() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const lookup = useDeferred(near, loadTable);
+  const size = useCompact() ? SCALE.narrow : SCALE.wide;
 
   const commander = lookup?.get(COMMANDER.toLowerCase());
   const botCommander = lookup?.get(BOT_COMMANDER.toLowerCase());
@@ -371,7 +385,7 @@ export function HomePlayTable() {
                   <PermanentRow
                     cards={BOT_LANDS}
                     lookup={lookup}
-                    width={68}
+                    width={size.botLand}
                     className="justify-center"
                   />
                 </div>
@@ -380,19 +394,19 @@ export function HomePlayTable() {
                   <PermanentRow
                     cards={BOT_CREATURES}
                     lookup={lookup}
-                    width={88}
+                    width={size.botCreature}
                     className="justify-center"
                   />
                 </div>
               </div>
 
-              <div className="w-[100px]">
+              <div style={{ width: size.commander }}>
                 <ZoneLabel className="text-right">Command zone</ZoneLabel>
                 <div className="flex justify-end">
                   {botCommander ? (
-                    <CardImage card={botCommander} size="md" width={100} />
+                    <CardImage card={botCommander} size="md" width={size.commander} />
                   ) : (
-                    <CardImageSkeleton size="md" width={100} />
+                    <CardImageSkeleton size="md" width={size.commander} />
                   )}
                 </div>
               </div>
@@ -407,9 +421,9 @@ export function HomePlayTable() {
               <div>
                 <ZoneLabel>Command zone</ZoneLabel>
                 {commander ? (
-                  <CardImage card={commander} size="md" width={100} />
+                  <CardImage card={commander} size="md" width={size.commander} />
                 ) : (
-                  <CardImageSkeleton size="md" width={100} />
+                  <CardImageSkeleton size="md" width={size.commander} />
                 )}
               </div>
 
@@ -420,7 +434,7 @@ export function HomePlayTable() {
                   <PermanentRow
                     cards={YOUR_CREATURES}
                     lookup={lookup}
-                    width={100}
+                    width={size.creature}
                     className="justify-center"
                   />
                 </div>
@@ -429,7 +443,7 @@ export function HomePlayTable() {
                   <PermanentRow
                     cards={YOUR_LANDS}
                     lookup={lookup}
-                    width={74}
+                    width={size.land}
                     className="justify-center"
                   />
                 </div>
@@ -466,15 +480,15 @@ export function HomePlayTable() {
                   key={name}
                   className="block origin-bottom transition-transform duration-300 hover:z-20 hover:-translate-y-3"
                   style={{
-                    marginLeft: i === 0 ? 0 : -26,
+                    marginLeft: i === 0 ? 0 : size.fan,
                     transform: `rotate(${offset * 4}deg) translateY(${Math.abs(offset) * 7}px)`,
                     zIndex: i,
                   }}
                 >
                   {card ? (
-                    <CardImage card={card} size="sm" width={104} title={name} />
+                    <CardImage card={card} size="sm" width={size.hand} title={name} />
                   ) : (
-                    <CardImageSkeleton size="sm" width={104} />
+                    <CardImageSkeleton size="sm" width={size.hand} />
                   )}
                 </span>
               );

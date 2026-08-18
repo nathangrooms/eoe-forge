@@ -87,6 +87,31 @@ export function useNearViewport<T extends HTMLElement>(rootMargin = '600px') {
 }
 
 /**
+ * True on a narrow viewport.
+ *
+ * `CardImage` sizes in real pixels — it has to, because the resolution it asks
+ * Scryfall for follows the rendered width, and a tapped permanent is rotated by
+ * a transform that needs its box swapped in advance. Neither can be expressed in
+ * a Tailwind breakpoint, so the one card scale on the page is chosen here.
+ */
+export function useCompact(query = '(max-width: 639px)'): boolean {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.(query).matches === true
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const list = window.matchMedia(query);
+    const onChange = () => setCompact(list.matches);
+    onChange();
+    list.addEventListener('change', onChange);
+    return () => list.removeEventListener('change', onChange);
+  }, [query]);
+
+  return compact;
+}
+
+/**
  * Run a memoised loader once the section is near the viewport.
  *
  * `load` is deliberately not a dependency: every loader below is a module-level

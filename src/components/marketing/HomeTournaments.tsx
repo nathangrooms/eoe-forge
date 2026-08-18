@@ -38,6 +38,7 @@ import {
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import {
   loadCardsById,
+  useCompact,
   useDeferred,
   useNearViewport,
   type MarketingCard,
@@ -157,11 +158,19 @@ const CAPABILITIES = [
 /* Pieces                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function Side({ entrant, points }: { entrant: Entrant; points: number }) {
+function Side({
+  entrant,
+  points,
+  width,
+}: {
+  entrant: Entrant;
+  points: number;
+  width: number;
+}) {
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
       {/* A deck is its commander, whole. */}
-      <CardImage card={entrant.card} size="md" width={146} title={entrant.card.name} />
+      <CardImage card={entrant.card} size="md" width={width} title={entrant.card.name} />
       <p className="mt-3 w-full truncate text-sm font-medium leading-tight">{entrant.name}</p>
       <p className="mt-1 w-full truncate text-[11px] text-muted-foreground">{entrant.card.name}</p>
       <div className="mt-2 flex items-center gap-2">
@@ -178,12 +187,14 @@ function PairingPanel({
   right,
   leftPoints,
   rightPoints,
+  cardWidth,
 }: {
   table: number;
   left: Entrant;
   right: Entrant;
   leftPoints: number;
   rightPoints: number;
+  cardWidth: number;
 }) {
   return (
     <div className="rounded-2xl bg-card p-5 shadow-lg shadow-black/20">
@@ -197,11 +208,11 @@ function PairingPanel({
       </div>
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
-        <Side entrant={left} points={leftPoints} />
+        <Side entrant={left} points={leftPoints} width={cardWidth} />
         <span className="mt-16 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           vs
         </span>
-        <Side entrant={right} points={rightPoints} />
+        <Side entrant={right} points={rightPoints} width={cardWidth} />
       </div>
     </div>
   );
@@ -214,6 +225,7 @@ function PairingPanel({
 export function HomeTournaments() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const cards = useDeferred(near, loadCommanders);
+  const cardWidth = useCompact() ? 104 : 146;
 
   const model = useMemo(() => {
     if (!cards) return null;
@@ -245,7 +257,7 @@ export function HomeTournaments() {
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
         {/* ------------------------------------------------------- pairings */}
-        <div>
+        <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {[1, 2, 3].map(n => (
               <span
@@ -283,6 +295,7 @@ export function HomeTournaments() {
                       right={right}
                       leftPoints={model.pointsOf.get(match.player1) ?? 0}
                       rightPoints={model.pointsOf.get(match.player2) ?? 0}
+                      cardWidth={cardWidth}
                     />
                   );
                 })}
@@ -290,7 +303,7 @@ export function HomeTournaments() {
         </div>
 
         {/* ------------------------------------------------------ standings */}
-        <div className="rounded-2xl bg-card p-5 shadow-2xl shadow-black/40 sm:p-6">
+        <div className="min-w-0 rounded-2xl bg-card p-5 shadow-2xl shadow-black/40 sm:p-6">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Standings after round 2

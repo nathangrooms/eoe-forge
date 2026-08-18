@@ -197,7 +197,7 @@ export function HomeMarketplace() {
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ---------------------------------------------------- the tracked card */}
-        <div className="flex flex-col rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
+        <div className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
           {hero === null ? (
             <div className="grid gap-8 sm:grid-cols-[200px_minmax(0,1fr)]">
               <Skeleton className="aspect-[5/7] w-[200px] rounded-xl" />
@@ -281,7 +281,7 @@ export function HomeMarketplace() {
         </div>
 
         {/* -------------------------------------------------------- the watchlist */}
-        <div className="flex flex-col rounded-2xl bg-card p-5 shadow-2xl shadow-black/40">
+        <div className="flex min-w-0 flex-col rounded-2xl bg-card p-5 shadow-2xl shadow-black/40">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             Also tracking
           </p>

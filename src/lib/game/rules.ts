@@ -54,12 +54,21 @@ import type {
   Zone,
 } from './types.ts';
 import { toggleKeyword } from './keywords.ts';
-import { triggeredActionsFor } from './effects.ts';
+import type { SbaFinding } from './sba.ts';
+import { lossReasonsFor, printedInteger, runStateBasedActions } from './sba.ts';
+import {
+  collectTriggers,
+  drainTriggers,
+  enqueueTriggers,
+  orderTriggers,
+  pendingTriggersOf,
+  spellResolutionNotes,
+} from './triggers.ts';
 import {
   castSpell,
   clearStack,
   counterStackObject,
-  describeStackObject,
+  hasSplitSecond,
   passPriority,
   popStack,
   putAbilityOnStack,
@@ -350,6 +359,13 @@ export function addCard(
     zone,
   };
 
+  // A planeswalker registered straight onto the battlefield — a test fixture, a
+  // restored game — gets the same CR 306.5b loyalty a cast one would, so
+  // CR 704.5i does not put it in the graveyard on the very next check.
+  if (zone === 'battlefield') {
+    instance.counters = withStartingLoyalty(instance, instance.counters);
+  }
+
   const zones = { ...owner.zones, [zone]: [...(owner.zones[zone] ?? []), instance.instanceId] };
   return {
     ...state,
@@ -596,19 +612,28 @@ function moveCard(
 
   const enteringBattlefield = to === 'battlefield' && card.zone !== 'battlefield';
   const leavingBattlefield = card.zone === 'battlefield' && to !== 'battlefield';
+  const changedZone = card.zone !== to;
   const nextCard: CardInstance = {
     ...card,
     zone: to,
+    // CR 400.7 — what arrives is a new object, and this is how anything
+    // still pointing at the old one finds out.
+    zoneChangeCounter: (card.zoneChangeCounter ?? 0) + (changedZone ? 1 : 0),
     controllerId: options.controllerId ?? (to === 'battlefield' ? card.controllerId : card.ownerId),
     tapped: to === 'battlefield' ? options.tapped ?? false : false,
     // Leaving the battlefield resets everything a permanent was carrying —
     // including the player's own overrides and hand-flagged keywords, because
     // what comes back is a new object (CR 400.7).
     damage: to === 'battlefield' ? card.damage : 0,
+    // Marked damage and the deathtouch flag travel together — a permanent that
+    // left and came back is a new object with neither (CR 400.7).
+    damagedByDeathtouch: to === 'battlefield' ? card.damagedByDeathtouch : undefined,
     // CR 614.1c — a permanent that enters with counters has them from the
     // moment it arrives, so an ETB trigger reading them sees the right number.
+    // CR 306.5b — a planeswalker enters with its printed loyalty, which is also
+    // what stops CR 704.5i binning it the instant it lands.
     counters: enteringBattlefield
-      ? { ...(options.counters ?? {}) }
+      ? withStartingLoyalty(card, { ...(options.counters ?? {}) })
       : to === 'battlefield'
         ? card.counters
         : {},
@@ -626,6 +651,27 @@ function moveCard(
   };
 
   return { ...state, players, cards: { ...state.cards, [instanceId]: nextCard } };
+}
+
+/**
+ * CR 306.5b — a planeswalker enters the battlefield with loyalty counters equal
+ * to its printed loyalty.
+ *
+ * Seeded here rather than left to the caller because CR 704.5i puts a
+ * planeswalker with no loyalty into its graveyard: without this, every
+ * planeswalker would die on arrival. A card with no printed loyalty is left
+ * alone and `sba.ts` declines to judge it, which is the honest pairing — the
+ * engine never destroys a permanent on a number it does not have.
+ */
+function withStartingLoyalty(
+  card: CardInstance,
+  counters: Record<string, number>
+): Record<string, number> {
+  if (!(card.typeLine ?? '').toLowerCase().includes('planeswalker')) return counters;
+  if (counters.loyalty !== undefined) return counters;
+  const printed = printedInteger(card.loyalty);
+  if (printed === null || printed <= 0) return counters;
+  return { ...counters, loyalty: printed };
 }
 
 function drawCards(state: GameState, playerId: PlayerId, count: number): GameState {
@@ -733,12 +779,14 @@ function clearMarkedDamage(state: GameState): GameState {
   let changed = false;
   for (const id of Object.keys(cards)) {
     const card = cards[id];
-    if (!card.damage) continue;
+    if (!card.damage && !card.damagedByDeathtouch) continue;
     if (!changed) {
       cards = { ...cards };
       changed = true;
     }
-    cards[id] = { ...card, damage: 0 };
+    // CR 704.5h speaks of damage dealt "since state-based actions were last
+    // checked", so the flag cannot outlive the damage that carried it.
+    cards[id] = { ...card, damage: 0, damagedByDeathtouch: undefined };
   }
   return changed ? { ...state, cards } : state;
 }
@@ -832,22 +880,6 @@ function advanceStep(state: GameState): GameState {
 /* State-based actions                                                        */
 /* -------------------------------------------------------------------------- */
 
-function lossReasonsFor(state: GameState, player: Player): LossReason[] {
-  const reasons: LossReason[] = [];
-  if (player.conceded) reasons.push('concede');
-  if (player.life <= 0) reasons.push('life');
-  if (player.poison >= state.rules.poisonLethal) reasons.push('poison');
-  if (state.rules.usesCommanderDamage) {
-    const lethal = Object.values(player.commanderDamage).some(
-      damage => damage >= state.rules.commanderDamageLethal
-    );
-    if (lethal) reasons.push('commander_damage');
-  }
-  // Only a game that tracks a library can deck someone out.
-  if (state.mode === 'full' && player.drewFromEmptyLibrary) reasons.push('empty_library');
-  return reasons;
-}
-
 /** CR 800.4a — everything a departing player owns leaves the game with them. */
 function removePlayerCards(state: GameState, playerId: PlayerId): GameState {
   const player = getPlayer(state, playerId);
@@ -886,34 +918,145 @@ function removePlayerCards(state: GameState, playerId: PlayerId): GameState {
 }
 
 /**
- * Run loss and win detection. Called after every applied action, so a UI never
- * has to remember to ask "is anyone dead yet".
+ * Apply one state-based action. The `apply` half of `sba.ts`'s detect/apply
+ * split: everything that moves a card between zones, marks a player as out, or
+ * writes to the log lives here, so `sba.ts` stays a pure selector with no
+ * dependency on this module.
+ *
+ * Every branch logs. CR 704 actions happen without anybody doing anything, so
+ * an unexplained empty battlefield is exactly the kind of silence this engine
+ * treats as a bug.
+ */
+function applySbaFinding(state: GameState, finding: SbaFinding, at: number): GameState {
+  const say = (message: string, actorId?: PlayerId): GameState =>
+    pushEvent(state, {
+      at,
+      turn: state.turn,
+      round: state.round,
+      step: state.step,
+      type: 'STATE_BASED_ACTION',
+      actorId,
+      message: `${message} (CR ${finding.rule})`,
+    });
+
+  switch (finding.kind) {
+    case 'player-loses': {
+      const player = finding.playerId ? getPlayer(state, finding.playerId) : undefined;
+      if (!player) return state;
+      const reasons = lossReasonsFor(state, player);
+      let next = patchPlayer(state, player.id, p => ({ ...p, hasLost: true, lossReasons: reasons }));
+      next = pushEvent(next, {
+        at,
+        turn: next.turn,
+        round: next.round,
+        step: next.step,
+        type: 'PLAYER_LOST',
+        actorId: player.id,
+        message: `${player.name} lost the game — ${lossReasonLabel(reasons[0] ?? 'effect')}.`,
+      });
+      if (next.mode === 'full') next = removePlayerCards(next, player.id);
+      return next;
+    }
+
+    case 'token-ceases': {
+      const id = finding.instanceId;
+      const card = id ? state.cards[id] : undefined;
+      if (!id || !card) return state;
+      const players = state.players.map(player => removeFromZones(player, id));
+      const next: GameState = {
+        ...state,
+        players,
+        cards: { ...state.cards, [id]: { ...card, removedFromGame: true, attachedTo: undefined } },
+      };
+      return pushEvent(next, {
+        at,
+        turn: next.turn,
+        round: next.round,
+        step: next.step,
+        type: 'STATE_BASED_ACTION',
+        message: `${card.name} ceased to exist — ${finding.detail} (CR ${finding.rule}).`,
+      });
+    }
+
+    case 'creature-zero-toughness':
+    case 'creature-destroyed':
+    case 'planeswalker-dies':
+    case 'aura-illegal': {
+      const id = finding.instanceId;
+      const card = id ? state.cards[id] : undefined;
+      if (!id || !card) return state;
+      const next = say(`${card.name} was put into its owner's graveyard — ${finding.detail}`);
+      return moveCard(next, id, 'graveyard');
+    }
+
+    case 'legend-rule': {
+      const id = finding.instanceId;
+      const card = id ? state.cards[id] : undefined;
+      if (!id || !card) return state;
+      const kept = finding.keptInstanceId ? state.cards[finding.keptInstanceId] : undefined;
+      const next = say(
+        `The legend rule put ${card.name} into its owner's graveyard; ${kept ? 'the copy that has been in play longest' : 'the other copy'} stays. Move the other one by hand if that was the wrong choice`
+      );
+      return moveCard(next, id, 'graveyard');
+    }
+
+    case 'equipment-unattached': {
+      const id = finding.instanceId;
+      const card = id ? state.cards[id] : undefined;
+      if (!id || !card) return state;
+      const next = say(`${card.name} became unattached — ${finding.detail}`);
+      return patchCard(next, id, c => ({ ...c, attachedTo: undefined }));
+    }
+
+    case 'counters-annihilate': {
+      const id = finding.instanceId;
+      const card = id ? state.cards[id] : undefined;
+      const pairs = finding.amount ?? 0;
+      if (!id || !card || pairs <= 0) return state;
+      const next = say(`${card.name}: ${finding.detail}`);
+      return patchCard(next, id, c => {
+        let counters = bumpCounter(c.counters, '+1/+1', -pairs);
+        counters = bumpCounter(counters, '-1/-1', -pairs);
+        return { ...c, counters };
+      });
+    }
+
+    default:
+      return state;
+  }
+}
+
+/**
+ * CR 704 — apply state-based actions until none apply, then settle the game.
+ *
+ * Called after every applied action, so no UI ever has to remember to ask "is
+ * anyone dead yet". The *loop* is the important part and the thing a one-pass
+ * implementation gets wrong: a creature dying frees an Aura, the Aura hitting
+ * the graveyard can drop a life total, and a player leaving takes their
+ * permanents with them, which can free more Auras. `sba.ts` owns the detection
+ * and the loop; this function owns applying a finding and the once-only work
+ * that follows — who won, and handing the turn on when the active player is the
+ * one who left.
  */
 export function checkStateBasedActions(state: GameState, at = state.updatedAt): GameState {
   if (state.status !== 'playing') return state;
 
-  let next = state;
-  const newlyLost: Array<{ player: Player; reasons: LossReason[] }> = [];
+  const run = runStateBasedActions(state, (current, finding) =>
+    applySbaFinding(current, finding, at)
+  );
+  let next = run.state;
 
-  for (const player of state.players) {
-    if (player.hasLost) continue;
-    const reasons = lossReasonsFor(state, player);
-    if (reasons.length === 0) continue;
-    newlyLost.push({ player, reasons });
-  }
-
-  for (const { player, reasons } of newlyLost) {
-    next = patchPlayer(next, player.id, p => ({ ...p, hasLost: true, lossReasons: reasons }));
+  if (!run.stable) {
+    // CR 704.4 calls an unbreakable loop a draw. A playtest tool must not hang,
+    // so it stops and says so rather than presenting a healthy-looking game.
     next = pushEvent(next, {
       at,
       turn: next.turn,
       round: next.round,
       step: next.step,
-      type: 'PLAYER_LOST',
-      actorId: player.id,
-      message: `${player.name} lost the game — ${lossReasonLabel(reasons[0])}.`,
+      type: 'STATE_BASED_ACTION',
+      message: `State-based actions did not settle after ${run.iterations} passes. In a real game this loop would be a draw (CR 704.4); check the board by hand.`,
     });
-    if (next.mode === 'full') next = removePlayerCards(next, player.id);
   }
 
   const alive = livingPlayers(next);
@@ -975,6 +1118,16 @@ const CARD_ACTIONS = new Set([
   'SET_KEYWORD',
   'CREATE_TOKEN',
   'MARK_MANUAL_RESOLVED',
+  // Damage marked on a permanent, and attachment: both need a permanent to
+  // exist, which a life counter has no way to produce.
+  'DAMAGE_CARD',
+  'ATTACH',
+  // The stack is a card zone; a life counter has no cards to put on it.
+  'CAST_SPELL',
+  'PUT_ABILITY_ON_STACK',
+  'PASS_PRIORITY',
+  'RESOLVE_STACK',
+  'COUNTER_SPELL',
 ]);
 
 /**
@@ -1050,6 +1203,71 @@ export function validateAction(state: GameState, action: GameAction): Validation
     return { ok: false, reason: 'An empty note says nothing.' };
   }
 
+  /* --- the stack --- */
+
+  if (action.type === 'CAST_SPELL') {
+    const card = state.cards[action.instanceId];
+    if (card && card.zone === 'stack') {
+      return { ok: false, reason: 'That spell is already on the stack.' };
+    }
+    // CR 702.61a — nothing but mana abilities while split second is waiting.
+    //
+    // Holding priority is deliberately NOT enforced here. DeckMatrix's existing
+    // surfaces are manual-first and do not run a strict priority loop; making
+    // the reducer refuse a cast because the loop was not driven would break
+    // them for no rules benefit, since an illegal-timing cast is a table
+    // problem, not a state-corruption one. A UI that wants the real thing gates
+    // on `canRespond()`, which is exported for exactly that.
+    if (hasSplitSecond(state)) {
+      return { ok: false, reason: 'A spell with split second is on the stack.' };
+    }
+  }
+
+  if (action.type === 'PUT_ABILITY_ON_STACK') {
+    if (!getPlayer(state, action.controllerId)) {
+      return { ok: false, reason: `Unknown player "${action.controllerId}".` };
+    }
+    if (!action.name.trim()) return { ok: false, reason: 'An ability needs a name.' };
+    // CR 702.61b — triggers still trigger and still go on the stack under
+    // split second; only *playing* things is stopped. So only activated
+    // abilities are refused here.
+    if (action.kind === 'activated' && hasSplitSecond(state)) {
+      return { ok: false, reason: 'A spell with split second is on the stack.' };
+    }
+  }
+
+  if (action.type === 'PASS_PRIORITY') {
+    const playerId = action.playerId ?? state.priorityPlayerId;
+    if (playerId !== state.priorityPlayerId) {
+      return { ok: false, reason: 'That player does not have priority.' };
+    }
+    const player = getPlayer(state, playerId);
+    if (!player || !isAlive(player)) {
+      return { ok: false, reason: 'That player has left the game.' };
+    }
+  }
+
+  if (action.type === 'RESOLVE_STACK' && stackOf(state).length === 0) {
+    return { ok: false, reason: 'The stack is empty.' };
+  }
+
+  if (action.type === 'COUNTER_SPELL') {
+    const object = stackObject(state, action.stackId);
+    if (!object) return { ok: false, reason: 'That is not on the stack.' };
+    // CR 701.5b. Fizzling is not countering (CR 608.2b), so this flag does not
+    // appear anywhere near `willFizzle`.
+    if (object.cantBeCountered) {
+      return { ok: false, reason: `${object.name} can't be countered.` };
+    }
+  }
+
+  if (action.type === 'ADD_REPLACEMENT') {
+    const effect = action.effect;
+    if (!effect?.id?.trim()) return { ok: false, reason: 'A replacement effect needs an id.' };
+    if (!effect.event) return { ok: false, reason: 'A replacement effect needs an event kind.' };
+    if (!effect.apply?.op) return { ok: false, reason: 'A replacement effect needs an operation.' };
+  }
+
   return { ok: true };
 }
 
@@ -1081,6 +1299,16 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${playerName(state, action.playerId)} ${action.delta >= 0 ? 'gained' : 'lost'} ${Math.abs(action.delta)} poison.`;
     case 'CONCEDE':
       return `${playerName(state, action.playerId)} conceded.`;
+    case 'DAMAGE_CARD': {
+      const source = action.sourceInstanceId ? cardName(state, action.sourceInstanceId) : undefined;
+      const from = source ? ` from ${source}` : '';
+      const touch = action.deathtouch ? ' (deathtouch)' : '';
+      return `${cardName(state, action.instanceId)} was dealt ${action.amount} damage${from}${touch}.`;
+    }
+    case 'ATTACH':
+      return action.toInstanceId
+        ? `${cardName(state, action.instanceId)} attached to ${cardName(state, action.toInstanceId)}.`
+        : `${cardName(state, action.instanceId)} unattached.`;
     case 'PLAYER_COUNTER':
       return `${playerName(state, action.playerId)} ${action.delta >= 0 ? '+' : ''}${action.delta} ${action.counter}.`;
     case 'CARD_COUNTER':
@@ -1109,6 +1337,28 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${action.blocks.length} block${action.blocks.length === 1 ? '' : 's'} declared.`;
     case 'END_COMBAT':
       return 'Combat ended.';
+    case 'CAST_SPELL': {
+      const card = state.cards[action.instanceId];
+      const who = playerName(state, action.controllerId ?? card?.controllerId ?? state.activePlayerId);
+      return `${who} cast ${cardName(state, action.instanceId)}.`;
+    }
+    case 'PUT_ABILITY_ON_STACK':
+      return `${action.name} goes on the stack.`;
+    case 'PASS_PRIORITY':
+      return `${playerName(state, action.playerId ?? state.priorityPlayerId)} passed priority.`;
+    case 'RESOLVE_STACK': {
+      const top = stackOf(state)[stackOf(state).length - 1];
+      return top ? `${top.name} resolves.` : 'Nothing to resolve.';
+    }
+    case 'COUNTER_SPELL': {
+      const object = stackObject(state, action.stackId);
+      const name = object ? object.name : 'A spell';
+      return action.reason ? `${name} countered by ${action.reason}.` : `${name} countered.`;
+    }
+    case 'ADD_REPLACEMENT':
+      return `${action.effect.name} is now replacing ${action.effect.event} events.`;
+    case 'REMOVE_REPLACEMENT':
+      return 'A replacement effect ended.';
     case 'PHASE_CHANGE':
       return `Step: ${action.step}.`;
     case 'ADVANCE_STEP':
@@ -1185,6 +1435,28 @@ function reduce(state: GameState, action: GameAction): GameState {
     case 'CONCEDE':
       return patchPlayer(state, action.playerId, p => (p.conceded ? p : { ...p, conceded: true }));
 
+    // CR 119.3 — damage is *marked*, and nothing more. Whether that is lethal
+    // is CR 704.5g/h, checked by `sba.ts` the next time state-based actions run,
+    // which is immediately after this action is applied.
+    case 'DAMAGE_CARD':
+      return patchCard(state, action.instanceId, card => {
+        const damage = Math.max(0, card.damage + action.amount);
+        const deathtouched = action.deathtouch ? true : card.damagedByDeathtouch;
+        if (damage === card.damage && deathtouched === card.damagedByDeathtouch) return card;
+        return { ...card, damage, damagedByDeathtouch: deathtouched };
+      });
+
+    case 'ATTACH':
+      return patchCard(state, action.instanceId, card => {
+        const to = action.toInstanceId ?? undefined;
+        if (card.attachedTo === to) return card;
+        // Attaching to something that is not in play at all is refused rather
+        // than recorded, so CR 704.5m does not immediately bin the card for a
+        // mistake the caller could have been told about.
+        if (to && !state.cards[to]) return card;
+        return { ...card, attachedTo: to };
+      });
+
     case 'PLAYER_COUNTER':
       return patchPlayer(state, action.playerId, p => ({
         ...p,
@@ -1227,6 +1499,8 @@ function reduce(state: GameState, action: GameAction): GameState {
       return moveCard(state, action.instanceId, action.to, {
         position: action.position,
         controllerId: action.controllerId,
+        counters: action.counters,
+        tapped: action.tapped,
       });
 
     case 'TAP':
@@ -1293,6 +1567,51 @@ function reduce(state: GameState, action: GameAction): GameState {
 
     case 'END_COMBAT':
       return { ...state, combat: { attackers: [] } };
+
+    /* --- the stack and priority (stack.ts owns the rules; this owns the cards) --- */
+
+    case 'CAST_SPELL': {
+      const card = state.cards[action.instanceId];
+      if (!card) return state;
+      const built = castSpell(state, action);
+      if (!built) return state;
+      // CR 601.2a — the card physically moves to the stack. Its controller is
+      // the caster, not its owner, so a spell cast off someone else's library
+      // resolves under the right person.
+      let next = moveCard(built.state, action.instanceId, 'stack', {
+        controllerId: built.object.controllerId,
+      });
+      // Commander tax is counted at announcement (CR 903.8), which is also the
+      // only moment the card is still in the command zone.
+      if (card.zone === 'command' && card.isCommander) {
+        next = incrementCommanderCast(next, action.instanceId);
+      }
+      return next;
+    }
+
+    case 'PUT_ABILITY_ON_STACK': {
+      const built = putAbilityOnStack(state, action);
+      return built ? built.state : state;
+    }
+
+    case 'PASS_PRIORITY':
+      return passPriority(state, action.playerId ?? state.priorityPlayerId);
+
+    case 'RESOLVE_STACK': {
+      const popped = popStack(state);
+      return popped ? popped.state : state;
+    }
+
+    case 'COUNTER_SPELL':
+      return counterStackObject(state, action.stackId);
+
+    /* --- replacement effects --- */
+
+    case 'ADD_REPLACEMENT':
+      return addReplacement(state, action.effect);
+
+    case 'REMOVE_REPLACEMENT':
+      return removeReplacement(state, action.replacementId);
 
     case 'PHASE_CHANGE':
       return enterStep(state, action.step);
@@ -1468,7 +1787,7 @@ export function resetGame(state: GameState): GameState {
     lossReasons: [],
   }));
 
-  return {
+  return clearStack({
     ...state,
     status: 'playing',
     players,
@@ -1478,11 +1797,13 @@ export function resetGame(state: GameState): GameState {
     priorityPlayerId: state.startingPlayerId,
     step: 'untap',
     combat: { attackers: [] },
+    // A registered replacement effect belongs to the game that registered it.
+    replacements: [],
     monarchId: null,
     initiativeId: null,
     winnerIds: [],
     log: [],
-  };
+  });
 }
 
 /**
@@ -1491,13 +1812,36 @@ export function resetGame(state: GameState): GameState {
  * A trigger can create a token, whose arrival can trigger something else. Real
  * Magic allows that to loop forever and calls it a draw; a playtest tool must
  * not hang, so the chain is capped and anything past the cap is simply not
- * applied. Four is deep enough for every trigger this module detects.
+ * applied.
+ *
+ * The stack spends levels too — a full round of passes resolves the top object,
+ * whose resolution plays a card, whose arrival triggers something — so this has
+ * to clear `pass -> resolve -> play -> trigger -> consequence` with room over.
+ * Replacement effects do NOT spend depth; they are bounded separately by the
+ * once-only rule.
  */
-const MAX_TRIGGER_DEPTH = 4;
+const MAX_TRIGGER_DEPTH = 8;
 
 function applyOne(state: GameState, action: GameAction, depth: number): GameState {
   const check = validateAction(state, action);
   if (!check.ok) return state;
+
+  // CR 614 — a replacement effect modifies an event *before* it happens, so
+  // this runs before the reducer sees anything. Exactly one effect applies per
+  // pass and the result comes straight back through here, which is CR 616.1's
+  // "apply one, then check again" rather than a shortcut around it.
+  //
+  // `depth` is not spent on this: the once-only marker on the action
+  // (`replacedBy`) already bounds the chain at the number of registered
+  // effects, and burning trigger depth on replacements would silently drop
+  // legitimate ones. `replaceAction` returns null when no effect is registered,
+  // so a game without any pays a single property read.
+  const replaced = replaceAction(state, action);
+  if (replaced) {
+    let next = state;
+    for (const substitute of replaced) next = applyOne(next, substitute, depth);
+    return next;
+  }
 
   const at = action.at ?? state.updatedAt;
   const prefix = action.cause ? `${action.cause}: ` : '';
@@ -1511,16 +1855,40 @@ function applyOne(state: GameState, action: GameAction, depth: number): GameStat
   next = { ...next, version: state.version + 1, updatedAt: at };
   next = checkStateBasedActions(next, at);
 
-  // Triggered abilities. `effects.ts` reads the before and after states and
-  // says what else should happen — including a NOTE when it has decided NOT to
-  // resolve something, because a card that silently does nothing is the bug
-  // this whole path exists to fix. Everything it returns is fed back through
-  // the same reducer, so a trigger is an ordinary logged, undoable action, and
-  // detection is pure so every client derives the identical chain.
   if (depth < MAX_TRIGGER_DEPTH) {
-    for (const followUp of triggeredActionsFor(state, action, next, at)) {
+    // The stack's own consequences come first: a full round of passes resolves
+    // the top object, a resolution does what the object says, a counter puts
+    // the card in the graveyard. All derived from state, never sent, so every
+    // client replaying the same log builds the identical chain.
+    for (const followUp of stackFollowUps(state, action, next, at)) {
       next = applyOne(next, followUp, depth + 1);
     }
+
+    // CR 603 — triggered abilities. `triggers.ts` diffs the state before and
+    // after (which is how a death caused by a *state-based action* still
+    // triggers a dies ability — nothing in the action says a creature died) and
+    // puts what triggered onto the waiting list in CR 603.3b order, with the
+    // controller's own ordering taken from `action.triggerOrder`.
+    const triggered = collectTriggers(state, action, next);
+    if (triggered.length > 0) {
+      next = enqueueTriggers(next, orderTriggers(next, triggered, action.triggerOrder));
+    }
+
+    // A spell that resolved into a graveyard having done nothing is the loudest
+    // silent no-op there is, and the complaint this whole subsystem answers.
+    for (const followUp of spellResolutionNotes(state, action, next, at)) {
+      next = applyOne(next, followUp, depth + 1);
+    }
+  }
+
+  // CR 603.3 — the waiting list empties the next time a player would receive
+  // priority, which for this engine is once the action and everything it caused
+  // have finished. Draining only at the outermost call is what makes a chain of
+  // triggers resolve last-in-first-out through one shared stack instead of
+  // recursing: a trigger that triggers something else pushes onto the same
+  // queue, and the loop below picks it up before the rest.
+  if (depth === 0 && pendingTriggersOf(next).length > 0) {
+    next = drainTriggers(next, (current, followUp) => applyOne(current, followUp, 1), at).state;
   }
 
   return next;

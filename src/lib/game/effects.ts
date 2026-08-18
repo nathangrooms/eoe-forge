@@ -59,12 +59,16 @@
 import { deriveCardTags, normalizeOracleText } from '../cards/tagger.ts';
 import type {
   CardInstance,
+  DetectedEffect,
+  DetectedTrigger,
   GameAction,
   GameState,
   InstanceId,
+  InterveningCondition,
   ManaColor,
   PlayerId,
   TokenSpec,
+  TriggerTiming,
 } from './types.ts';
 import {
   ENGINE_KEYWORDS,
@@ -78,51 +82,23 @@ import {
 /* Shape                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type TriggerTiming = 'etb' | 'attack' | 'upkeep' | 'death' | 'end-step' | 'cast';
-
+/**
+ * `TriggerTiming`, `DetectedTrigger` and `DetectedEffect` live in `types.ts`,
+ * not here, because a trigger waiting to resolve is part of a serialised game
+ * state (`GameState.pendingTriggers`) and every state shape belongs in one
+ * file. This module owns the *reading* of them out of oracle text.
+ */
 export const TRIGGER_LABELS: Record<TriggerTiming, string> = {
   etb: 'Enters the battlefield',
   attack: 'Attacks',
+  blocks: 'Blocks',
+  'deals-damage': 'Deals damage',
   upkeep: 'Your upkeep',
   death: 'Dies',
   'end-step': 'Your end step',
   cast: 'On cast',
+  draw: 'You draw a card',
 };
-
-export type EffectKind =
-  | 'gain-life'
-  | 'lose-life'
-  | 'each-opponent-loses-life'
-  | 'draw'
-  | 'create-token'
-  | 'counter-on-self'
-  | 'damage-each-opponent';
-
-export interface DetectedEffect {
-  kind: EffectKind;
-  /** Always a concrete number — a variable amount is never emitted as an effect. */
-  amount: number;
-  /** The fragment of oracle text this came from, for the log line. */
-  text: string;
-  token?: TokenSpec;
-  /** Token creation only: "create a tapped … token". */
-  tapped?: boolean;
-}
-
-export interface DetectedTrigger {
-  timing: TriggerTiming;
-  /** The trigger's own text, normalised. Shown when the player must resolve it. */
-  clause: string;
-  effects: DetectedEffect[];
-  /** True when at least one effect will be applied by the engine. */
-  automated: boolean;
-  /**
-   * Text inside an otherwise-automated trigger that the engine did not handle.
-   * Surfaced as a manual note so a half-resolved trigger never passes for a
-   * whole one.
-   */
-  residual?: string;
-}
 
 export type AutomationLevel =
   /** No rules text at all. Basics, vanilla creatures. Nothing to miss. */
@@ -514,8 +490,16 @@ function taggerShapeOf(card: CardInstance): Parameters<typeof deriveCardTags>[0]
   };
 }
 
-/** Self-reference as the normaliser leaves it, plus every modern templating. */
-const SELF = '(?:~|this (?:creature|permanent|artifact|enchantment|land|vehicle|token|planeswalker))';
+/**
+ * Self-reference as the normaliser leaves it, plus every modern templating.
+ *
+ * Exported because `triggers.ts` builds patterns of its own against the same
+ * normalised shape, and two copies of this string would drift.
+ */
+export const SELF_PATTERN =
+  '(?:~|this (?:creature|permanent|artifact|enchantment|land|vehicle|token|planeswalker))';
+
+const SELF = SELF_PATTERN;
 
 interface TriggerPattern {
   timing: TriggerTiming;
@@ -573,21 +557,134 @@ const TRIGGER_PATTERNS: TriggerPattern[] = [
     re: new RegExp(`(?:^|\\n)\\s*when ${SELF} dies,\\s*([^\\n]+)`, 'g'),
     clauseGroup: 1,
   },
+  // The four timings `triggers.ts` added to the event model. Same discipline as
+  // above: the opener is exact, so "whenever this creature deals combat damage
+  // to a player **and isn't blocked**" is not recognised and stays manual.
+  {
+    timing: 'blocks',
+    re: new RegExp(`(?:^|\\n)\\s*whenever ${SELF} blocks,\\s*([^\\n]+)`, 'g'),
+    clauseGroup: 1,
+  },
+  {
+    timing: 'deals-damage',
+    re: new RegExp(
+      `(?:^|\\n)\\s*whenever ${SELF} deals (?:combat )?damage to a player,\\s*([^\\n]+)`,
+      'g'
+    ),
+    clauseGroup: 1,
+  },
+  {
+    timing: 'cast',
+    re: new RegExp(`(?:^|\\n)\\s*when you cast (?:${SELF}|this spell),\\s*([^\\n]+)`, 'g'),
+    clauseGroup: 1,
+  },
+  {
+    timing: 'draw',
+    re: /(?:^|\n)\s*whenever you draw a card,\s*([^\n]+)/g,
+    clauseGroup: 1,
+  },
 ];
+
+/**
+ * Read one trigger clause into a `DetectedTrigger`.
+ *
+ * Exported so `triggers.ts` can rebuild a trigger from the remainder of a
+ * clause once it has lifted a CR 603.4 intervening "if" off the front — without
+ * that, the bare `if` in `NEEDS_A_HUMAN` would keep every such trigger manual
+ * even when both halves are things this engine understands perfectly well.
+ */
+export function buildDetectedTrigger(timing: TriggerTiming, clause: string): DetectedTrigger {
+  return buildTrigger(timing, clause);
+}
+
+/* -------------------------------------------------------------------------- */
+/* CR 603.4 — intervening "if" clauses                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Read the condition out of an intervening "if" clause.
+ *
+ * The set is deliberately tiny and each pattern must match the *whole*
+ * condition. "If you control a creature" is read; "if you control a creature
+ * with flying" is not, and comes back `unknown` — which keeps the whole trigger
+ * manual. That asymmetry is the design: a condition evaluated wrongly silently
+ * fires or silently suppresses an ability, and both are worse than asking.
+ *
+ * Input is the normalised oracle shape: lower-cased, apostrophes stripped.
+ */
+export function parseIntervening(text: string): InterveningCondition {
+  const condition = text.trim().replace(/\s+/g, ' ');
+
+  // "you control a creature" / "you control three or more artifacts"
+  const controls = /^you control (a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|\d+)(?: or more)? ([a-z]+)$/.exec(
+    condition
+  );
+  if (controls) {
+    const atLeast = readQuantity(controls[1]);
+    if (atLeast !== null) {
+      const word = controls[2];
+      const typeWord = word.endsWith('s') ? word.slice(0, -1) : word;
+      return { kind: 'controls', typeWord, atLeast: Math.max(1, atLeast) };
+    }
+  }
+
+  // "you have 25 or more life" / "your life total is 5 or less"
+  const life = /^(?:you have|your life total is) (\d+) or (more|less|greater|fewer)(?: life)?$/.exec(
+    condition
+  );
+  if (life) {
+    const amount = parseInt(life[1], 10);
+    const upward = life[2] === 'more' || life[2] === 'greater';
+    return upward ? { kind: 'life-at-least', amount } : { kind: 'life-at-most', amount };
+  }
+
+  if (/^its your turn$/.test(condition)) return { kind: 'your-turn' };
+
+  return { kind: 'unknown', text: condition };
+}
+
+/**
+ * Split a clause into its CR 603.4 condition and the effect it guards.
+ *
+ * A condition the engine cannot classify leaves the clause whole, so the bare
+ * `if` in `NEEDS_A_HUMAN` still catches it and the trigger stays manual —
+ * exactly the behaviour that existed before intervening "if" was understood.
+ */
+function liftIntervening(clause: string): {
+  body: string;
+  condition: InterveningCondition | undefined;
+} {
+  const match = /^if ([^,]+),\s*(.+)$/.exec(clause);
+  if (!match) return { body: clause, condition: undefined };
+  const condition = parseIntervening(match[1]);
+  if (condition.kind === 'unknown') return { body: clause, condition };
+  return { body: match[2].trim(), condition };
+}
 
 function buildTrigger(timing: TriggerTiming, clause: string): DetectedTrigger {
   const trimmed = clause.trim();
-  if (needsAHuman(trimmed)) {
-    return { timing, clause: trimmed, effects: [], automated: false, residual: trimmed };
+  const { body, condition } = liftIntervening(trimmed);
+
+  if (needsAHuman(body)) {
+    return {
+      timing,
+      clause: trimmed,
+      effects: [],
+      automated: false,
+      residual: trimmed,
+      intervening: condition,
+    };
   }
-  const fragments = readFragments(trimmed);
+
+  const fragments = readFragments(body);
   const effects = fragments.map(f => f.effect);
   return {
     timing,
     clause: trimmed,
     effects,
     automated: effects.length > 0,
-    residual: residualOf(trimmed, fragments),
+    residual: residualOf(body, fragments),
+    intervening: condition,
   };
 }
 
@@ -888,7 +985,7 @@ export function manualNoteAction(
  * (`automationFor().needsManual`), where it costs nothing to look at and
  * nothing to ignore.
  */
-function noteForDeclinedTrigger(
+export function noteForDeclinedTrigger(
   card: CardInstance,
   trigger: DetectedTrigger,
   at: number

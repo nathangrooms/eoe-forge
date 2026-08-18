@@ -57,6 +57,7 @@ Upstream: <https://github.com/magefree/mage> · Licence file: `LICENSE.txt` in t
 | `effects.ts` | `mage.abilities.TriggeredAbility`, `mage.abilities.effects.*` | Triggered abilities as (timing condition → effect list); effects that emit changes rather than mutate directly |
 | `types.ts` | `mage.game.GameState`, `mage.cards.Card`, `mage.players.Player` | The state's shape: one flat card registry, zones as ordered id lists, players holding zone references rather than card objects |
 | `mana.ts` | `mage.abilities.mana.*`, `mage.ManaCost` | Cost as a parsed symbol list, payment as a separate planning step over available sources |
+| `layers.ts` | `mage.abilities.effects.ContinuousEffect`, `ContinuousEffects.apply(Game)`, `mage.constants.Layer`, `mage.constants.SubLayer`, `mage.constants.DependencyType` | The CR 613 layer pipeline as an explicit ordered walk; one effect declaring several layers rather than the layer being inferred from which fields it sets; timestamp ordering within a layer; dependency declared as tag sets (`getDependencyTypes`/`getDependedToTypes` → `provides`/`dependsOn`) because 613.8 dependency is not inferable in general |
 | `manual.ts` | *(none — DeckMatrix-specific)* | The manual-resolution path has no XMage counterpart; XMage scripts every card instead |
 
 Files added by the current overhaul — a continuous-effects **layer system**, an explicit

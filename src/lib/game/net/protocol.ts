@@ -174,6 +174,15 @@ export interface Reveal {
   causeBatchId?: string;
   cards: Record<InstanceId, CardIdentity>;
   /**
+   * Instances the recipient must drop from its overlay.
+   *
+   * Required for correctness, not just secrecy. When a known card is shuffled
+   * back into a library the dealer re-randomises which slot holds which card,
+   * so a client that kept "slot 17 is Sol Ring" would now be *wrong*. Forgetting
+   * is how a shuffle actually shuffles.
+   */
+  forget?: InstanceId[];
+  /**
    * Set when the information is public anyway — a creature entering the
    * battlefield, a card revealed to the table. The dealer sends these to
    * everyone and clients may cache them without leaking anything.

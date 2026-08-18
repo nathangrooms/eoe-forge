@@ -17,7 +17,7 @@
  * Specifically ported, with names kept recognisable on purpose:
  *
  *   - `mage.constants.Layer`            -> `Layer` / `LAYER_OF_SUBLAYER`
- *   - `mage.constants.SubLayer`         -> `SubLayer` / `LAYER_ORDER`
+ *   - `mage.constants.SubLayer`         -> `SubLayer` / `SUBLAYER_ORDER`
  *   - `mage.constants.DependencyType`   -> `DEPENDENCY_KEYS`
  *   - `ContinuousEffect.hasLayer/apply` -> `ContinuousEffect.parts[]`
  *   - `ContinuousEffect.getDependencyTypes()` / `getDependedToTypes()`
@@ -124,7 +124,7 @@ export type SubLayer =
   | '7e';
 
 /** The pipeline. This order is the whole point of the file. */
-export const LAYER_ORDER: readonly SubLayer[] = [
+export const SUBLAYER_ORDER: readonly SubLayer[] = [
   '1a',
   '1b',
   '2a',
@@ -262,15 +262,15 @@ export interface LayeredCharacteristics {
  * The exception is CR 613.6: once an effect has applied in any layer, its target
  * set is locked and reused for its remaining layers.
  */
-export type Selector =
+export type LayerSelector =
   | { kind: 'self' }
   | { kind: 'all' }
   | { kind: 'none' }
   | { kind: 'ids'; ids: ObjectId[] }
-  | ({ kind: 'match' } & MatchFilter)
-  | { kind: 'and'; of: Selector[] }
-  | { kind: 'or'; of: Selector[] }
-  | { kind: 'not'; of: Selector };
+  | ({ kind: 'match' } & LayerMatchFilter)
+  | { kind: 'and'; of: LayerSelector[] }
+  | { kind: 'or'; of: LayerSelector[] }
+  | { kind: 'not'; of: LayerSelector };
 
 /**
  * Every field is optional and every present field must hold. Array fields mean
@@ -281,7 +281,7 @@ export type Selector =
  * stolen anthem pumps its new controller's team, which is the behaviour a player
  * expects and the reason control change is layer 2 rather than layer 7.
  */
-export interface MatchFilter {
+export interface LayerMatchFilter {
   ids?: ObjectId[];
   notIds?: ObjectId[];
   names?: string[];
@@ -329,7 +329,7 @@ export type DynamicValue =
   | { kind: 'power'; of: 'affected' | 'source' | ObjectId }
   | { kind: 'toughness'; of: 'affected' | 'source' | ObjectId }
   | { kind: 'counters'; counter: string; on: 'affected' | 'source' | ObjectId }
-  | { kind: 'count'; of: Selector }
+  | { kind: 'count'; of: LayerSelector }
   | { kind: 'sum'; of: DynamicValue[] }
   | { kind: 'negate'; of: DynamicValue };
 
@@ -350,7 +350,7 @@ export interface CopiableValues {
   manaValue?: number;
 }
 
-export type Modification =
+export type LayerModification =
   /** 1a — become a copy of something. Counters and control are not copiable. */
   | { kind: 'copy'; values: CopiableValues }
   /** 1b — a face-down permanent is a 2/2 colourless creature with no name or abilities. */
@@ -406,7 +406,7 @@ export type Modification =
 /** One layer's worth of one effect. An effect may hold several. */
 export interface EffectPart {
   sublayer: SubLayer;
-  modification: Modification;
+  modification: LayerModification;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -479,7 +479,7 @@ export interface ContinuousEffect {
   fromAbility?: string;
   /** Overrides "you" when the effect came from a spell rather than a permanent. */
   controllerId?: PlayerId;
-  affects: Selector;
+  affects: LayerSelector;
   parts: EffectPart[];
   /** CR 613.8 — what this effect produces, in `DEPENDENCY_KEYS` terms. */
   provides?: DependencyKey[];
@@ -595,7 +595,7 @@ function effectController(ctx: Ctx): PlayerId | undefined {
   return source?.controller;
 }
 
-function matches(object: Working, filter: MatchFilter, ctx: Ctx): boolean {
+function matches(object: Working, filter: LayerMatchFilter, ctx: Ctx): boolean {
   const { effect } = ctx;
 
   if (filter.ids && !filter.ids.includes(object.id)) return false;
@@ -671,7 +671,7 @@ function matches(object: Working, filter: MatchFilter, ctx: Ctx): boolean {
   return true;
 }
 
-function selects(object: Working, selector: Selector, ctx: Ctx): boolean {
+function selects(object: Working, selector: LayerSelector, ctx: Ctx): boolean {
   switch (selector.kind) {
     case 'self':
       return !!ctx.effect.sourceId && object.id === ctx.effect.sourceId;
@@ -693,7 +693,7 @@ function selects(object: Working, selector: Selector, ctx: Ctx): boolean {
 }
 
 /** Deterministic: always walks `ctx.order`, which is the caller's input order. */
-function resolveTargets(selector: Selector, ctx: Ctx): ObjectId[] {
+function resolveTargets(selector: LayerSelector, ctx: Ctx): ObjectId[] {
   const out: ObjectId[] = [];
   for (const id of ctx.order) {
     const object = ctx.objects[id];
@@ -738,7 +738,10 @@ function resolveValue(
     case 'count':
       return resolveTargets(value.of, ctx).length;
     case 'sum':
-      return value.of.reduce((total, part) => total + resolveValue(part, affected, ctx), 0);
+      return value.of.reduce<number>(
+        (total, part) => total + resolveValue(part, affected, ctx),
+        0
+      );
     case 'negate':
       return -resolveValue(value.of, affected, ctx);
   }
@@ -867,7 +870,7 @@ function applyCopiable(object: Working, values: CopiableValues): void {
 
 function applyModification(
   object: Working,
-  modification: Modification,
+  modification: LayerModification,
   ctx: Ctx,
   unsupported: (detail: string) => void
 ): void {
@@ -1032,7 +1035,7 @@ export function computeLayers(input: LayerInput): LayerResult {
   const lockedTargets = new Map<EffectId, ObjectId[]>();
   const hasApplied = new Set<EffectId>();
 
-  for (const sublayer of LAYER_ORDER) {
+  for (const sublayer of SUBLAYER_ORDER) {
     if (sublayer === '7d') {
       applyCounterLayer(objects, order, trace);
       continue;
@@ -1063,17 +1066,17 @@ export function computeLayers(input: LayerInput): LayerResult {
     for (const effect of orderEffectGroup(group)) {
       const ctx: Ctx = { objects, order, effect };
       const targets = lockedTargets.get(effect.id) ?? resolveTargets(effect.affects, ctx);
-      lockedTargets.set(effect.id, targets);
-
       const parts = effect.parts.filter(part => part.sublayer === sublayer);
 
       if (targets.length === 0) {
+        // An effect that found nothing has not "started to apply", so CR 613.6
+        // does not protect it: it neither locks a set nor stops being liveness-
+        // checked in later layers. Reported, because silence is the bug.
         skipped.push({ effectId: effect.id, sublayer, reason: 'no-targets' });
-        // It still counts as applied: CR 613.6 locks the (empty) set, and an
-        // effect that found nothing this layer must not be re-evaluated later.
-        hasApplied.add(effect.id);
         continue;
       }
+
+      lockedTargets.set(effect.id, targets);
 
       for (const id of targets) {
         const object = objects[id];
@@ -1172,7 +1175,7 @@ interface BuilderCommon {
   dependsOnEffects?: EffectId[];
 }
 
-function build(common: BuilderCommon, affects: Selector, parts: EffectPart[]): ContinuousEffect {
+function build(common: BuilderCommon, affects: LayerSelector, parts: EffectPart[]): ContinuousEffect {
   return {
     id: common.id,
     timestamp: common.timestamp,
@@ -1195,9 +1198,9 @@ function build(common: BuilderCommon, affects: Selector, parts: EffectPart[]): C
  * roughly every anthem in Magic has; pass `affects` for the exceptions.
  */
 export function anthemEffect(
-  common: BuilderCommon & { power?: DynamicValue; toughness?: DynamicValue; affects?: Selector }
+  common: BuilderCommon & { power?: DynamicValue; toughness?: DynamicValue; affects?: LayerSelector }
 ): ContinuousEffect {
-  const affects: Selector =
+  const affects: LayerSelector =
     common.affects ?? { kind: 'match', cardTypes: ['creature'], controller: 'you' };
   return build(
     { ...common, provides: common.provides ?? ['modify-pt'] },
@@ -1218,7 +1221,7 @@ export function anthemEffect(
 /** "… has base power and toughness 1/1". Layer 7b unless told it is a CDA. */
 export function setBasePTEffect(
   common: BuilderCommon & {
-    affects: Selector;
+    affects: LayerSelector;
     power?: DynamicValue | null;
     toughness?: DynamicValue | null;
     /** Pass `'7a'` only for a characteristic-defining ability on the object itself. */
@@ -1236,7 +1239,7 @@ export function setBasePTEffect(
 /** "… gains flying" / "… loses all abilities". Layer 6. */
 export function abilityEffect(
   common: BuilderCommon & {
-    affects: Selector;
+    affects: LayerSelector;
     add?: string[];
     remove?: string[];
     removeAll?: boolean;
@@ -1262,7 +1265,7 @@ export function abilityEffect(
 /** "… is a creature in addition to its other types". Layer 4. */
 export function typeEffect(
   common: BuilderCommon & {
-    affects: Selector;
+    affects: LayerSelector;
     addCardTypes?: CardType[];
     setCardTypes?: CardType[];
     removeCardTypes?: CardType[];
@@ -1297,7 +1300,7 @@ export function typeEffect(
 /** "… is blue" / "… is colourless". Layer 5. */
 export function colorEffect(
   common: BuilderCommon & {
-    affects: Selector;
+    affects: LayerSelector;
     setColors?: LayerColor[];
     addColors?: LayerColor[];
     removeAllColors?: boolean;
@@ -1318,7 +1321,7 @@ export function colorEffect(
 
 /** "Gain control of …". Layer 2. */
 export function controlEffect(
-  common: BuilderCommon & { affects: Selector; controller: PlayerId | 'you' }
+  common: BuilderCommon & { affects: LayerSelector; controller: PlayerId | 'you' }
 ): ContinuousEffect {
   return build({ ...common, provides: common.provides ?? ['control-change'] }, common.affects, [
     { sublayer: '2a', modification: { kind: 'control', controller: common.controller } },
@@ -1326,7 +1329,7 @@ export function controlEffect(
 }
 
 /** "Switch … power and toughness". Layer 7e. */
-export function switchPTEffect(common: BuilderCommon & { affects: Selector }): ContinuousEffect {
+export function switchPTEffect(common: BuilderCommon & { affects: LayerSelector }): ContinuousEffect {
   return build({ ...common, provides: common.provides ?? ['switch-pt'] }, common.affects, [
     { sublayer: '7e', modification: { kind: 'switch-pt' } },
   ]);
@@ -1339,9 +1342,20 @@ export function switchPTEffect(common: BuilderCommon & { affects: Selector }): C
 const CARD_TYPE_SET = new Set<string>(CARD_TYPES);
 const SUPERTYPE_SET = new Set<string>(SUPERTYPES);
 
+/**
+ * A printed power/toughness, or `null` when it is not a plain number.
+ *
+ * Deliberately stricter than `baseNumber` in `combat.ts`, which uses `parseInt`
+ * and therefore reads Tarmogoyf's `1+*` as a confident `1`. A characteristic-
+ * defining ability this engine cannot evaluate must read as "unknown", so the UI
+ * can ask for a manual override instead of showing a number that is wrong. Same
+ * rule as everywhere else here: silence, or a confident wrong answer, is the bug.
+ */
 function parseNumber(value: string | undefined): number | null {
-  if (value === undefined || value === null || value === '') return null;
-  const parsed = parseInt(value, 10);
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  if (!/^[+-]?\d+$/.test(trimmed)) return null;
+  const parsed = parseInt(trimmed, 10);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -1352,7 +1366,7 @@ function parseNumber(value: string | undefined): number | null {
  * ` // ` by taking the union, which is right for split/adventure cards on the
  * battlefield in every case this engine can currently reach.
  */
-export function parseTypeLine(typeLine: string | undefined): {
+export function splitTypeLine(typeLine: string | undefined): {
   cardTypes: CardType[];
   supertypes: string[];
   subtypes: string[];
@@ -1402,7 +1416,7 @@ export function parseTypeLine(typeLine: string | undefined): {
  * "add two +1/+1 counters" compose in the order a player expects: 7b then 7d.
  */
 export function baseObjectFromCard(card: CardInstance): BaseObject {
-  const { cardTypes, supertypes, subtypes } = parseTypeLine(card.typeLine);
+  const { cardTypes, supertypes, subtypes } = splitTypeLine(card.typeLine);
   const colors = (card.colorIdentity ?? []).filter((c): c is LayerColor =>
     LAYER_COLORS.includes(c as LayerColor)
   );

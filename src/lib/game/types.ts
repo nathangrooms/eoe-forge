@@ -221,6 +221,17 @@ export interface CardInstance {
   counters: Record<string, number>;
   /** Equipment / Auras: the instance this is attached to. */
   attachedTo?: InstanceId;
+  /**
+   * CR 400.7 — bumped every time this card changes zones.
+   *
+   * A card that leaves a zone and comes back is a *new object*: the same
+   * `instanceId`, but not the thing anything was pointing at. Comparing zones
+   * alone misses the case a player will actually hit — flicker a creature in
+   * response to a removal spell and it returns to the battlefield, same zone,
+   * different object. Targets snapshot this number on announcement so
+   * `stack.ts` can tell those apart on resolution.
+   */
+  zoneChangeCounter?: number;
 
   isCommander: boolean;
   /** Times cast from the command zone. Drives commander tax. */
@@ -420,6 +431,8 @@ export interface StackTarget {
   stackId?: StackObjectId;
   /** Zone the card was in when it was targeted. */
   zone?: Zone;
+  /** `CardInstance.zoneChangeCounter` at announcement. Catches flicker (CR 400.7). */
+  zoneChangeCounter?: number;
 }
 
 /**
@@ -765,6 +778,18 @@ export interface GameState {
   nextStackId?: number;
   /** CR 614 — registered replacement effects. See `replacement.ts`. */
   replacements?: ReplacementEffect[];
+  /**
+   * CR 603.3 — abilities that have triggered and are waiting for the next time
+   * a player would receive priority, **bottom of the stack first**.
+   *
+   * This is the waiting list, not the stack: a trigger sits here from the
+   * moment its event happens until it is put on the stack in APNAP order. It is
+   * drained inside `applyAction`, so it is normally empty between actions; it
+   * lives in state anyway so the batch is inspectable, serialisable and
+   * identical on every client replaying the log. Read it through
+   * `pendingTriggersOf()` in `triggers.ts`, never directly.
+   */
+  pendingTriggers?: PendingTrigger[];
 
   monarchId?: PlayerId | null;
   initiativeId?: PlayerId | null;
@@ -819,6 +844,19 @@ export interface ActionMeta {
    * that never asks still never diverges.
    */
   replacementOrder?: ReplacementId[];
+  /**
+   * CR 603.3b — when several of one player's abilities trigger at once, that
+   * player chooses the order they go on the stack. Like `replacementOrder`,
+   * the choice travels with the action instead of pausing the reducer for a
+   * prompt: a client calls `previewTriggers` to see the batch this action will
+   * cause, and hands the ids back here in the order it wants them stacked. The
+   * last id listed is the top of the stack and therefore resolves first.
+   *
+   * Ids that are unknown, repeated, or belong to another player are ignored,
+   * and anything left out keeps its default position — so a malformed choice
+   * degrades to the deterministic default rather than desynchronising clients.
+   */
+  triggerOrder?: string[];
 }
 
 export type GameAction = ActionMeta &
@@ -848,9 +886,36 @@ export type GameAction = ActionMeta &
     | { type: 'POISON'; playerId: PlayerId; delta: number }
     | { type: 'CONCEDE'; playerId: PlayerId }
 
+    /**
+     * Mark damage on a permanent. CR 119.3 — marked damage sits there until
+     * cleanup; whether it is lethal is a *state-based action*, not part of
+     * dealing it, which is why this action never destroys anything itself.
+     *
+     * `deathtouch` records that the source had it. CR 702.2b makes any nonzero
+     * amount from such a source lethal, and the amount alone cannot say that,
+     * so the flag rides along to `CardInstance.damagedByDeathtouch`.
+     */
+    | {
+        type: 'DAMAGE_CARD';
+        instanceId: InstanceId;
+        amount: number;
+        sourceInstanceId?: InstanceId;
+        sourcePlayerId?: PlayerId;
+        deathtouch?: boolean;
+        combat?: boolean;
+      }
+
     /* --- counters --- */
     | { type: 'PLAYER_COUNTER'; playerId: PlayerId; counter: string; delta: number }
     | { type: 'CARD_COUNTER'; instanceId: InstanceId; counter: string; delta: number }
+
+    /**
+     * CR 301.5 / 303.4 — attach an Equipment or Aura to a permanent, or pass
+     * `null` to unattach it. State-based actions unattach an Equipment whose
+     * host has become illegal (CR 704.5n) through this action, so the change is
+     * an ordinary logged, replayable step.
+     */
+    | { type: 'ATTACH'; instanceId: InstanceId; toInstanceId?: InstanceId | null }
 
     /* --- manual intervention ('full' mode; see manual.ts for builders) --- */
     /**

@@ -518,10 +518,19 @@ export function replaceAction(state: GameState, action: GameAction): GameAction[
   // re-asked halfway through the same event.
   const replacedBy = [...used, chosen.id];
   return produced.map(next => {
+    // Most produced actions are `{ ...action, <modified field> }`, so they
+    // arrive carrying the *old* marker list. Overwriting it with the new one is
+    // the whole once-only rule: inheriting the stale list instead would leave
+    // the effect eligible again and spin forever. Anything the produced action
+    // added on its own is merged in rather than dropped.
+    const merged = [...replacedBy];
+    for (const previous of next.replacedBy ?? []) {
+      if (!merged.includes(previous)) merged.push(previous);
+    }
     const { id: _discarded, ...rest } = next as GameAction & { id?: string };
     return {
       ...(rest as GameAction),
-      replacedBy: [...(next.replacedBy ?? replacedBy)],
+      replacedBy: merged,
       replacementOrder: next.replacementOrder ?? action.replacementOrder,
       cause: next.cause ?? chosen.name,
       at: next.at ?? at,

@@ -61,7 +61,34 @@ export interface TransportEnvelope {
   baseVersion: number;
   /** Epoch ms stamped by the sender. The reducer never reads a clock itself. */
   at: number;
+  /**
+   * The first action. Always present, including on a batch, so a reader written
+   * before batching existed still sees a well-formed envelope.
+   */
   action: GameAction;
+  /**
+   * The whole run when this envelope carries a batch. Read it via
+   * `envelopeActions()` rather than reaching for it directly.
+   *
+   * Batching exists because both Supabase's messages/second quota and its
+   * billing count *messages*, not actions, and this reducer is deliberately
+   * fine-grained — a quiet turn is a dozen `ADVANCE_STEP`s. Coalescing is worth
+   * roughly 5x on both, which is the difference between one plan tier and the
+   * next. See `net/protocol.ts`.
+   */
+  actions?: GameAction[];
+  /**
+   * Opaque payload for messages that are not actions — reveals, checkpoints,
+   * resync. Carried here so one channel serves the whole protocol rather than
+   * one channel per concern; channels are a metered resource (100 per
+   * connection) and joins are rate-limited per project.
+   */
+  meta?: { kind: string; body: unknown };
+}
+
+/** Every action in an envelope, batch or not. The one correct way to read one. */
+export function envelopeActions(envelope: TransportEnvelope): GameAction[] {
+  return envelope.actions ?? (envelope.action ? [envelope.action] : []);
 }
 
 export interface TransportPresence {
@@ -92,6 +119,17 @@ export interface GameTransport {
   leave(): Promise<void>;
   /** Ship one action to the table. Resolves once handed to the channel, not once applied. */
   broadcast(action: GameAction, baseVersion: number, at?: number): Promise<void>;
+  /**
+   * Ship a run of actions as one message. Optional so an implementation may
+   * omit it; `net/session.ts` falls back to `broadcast` when it is absent, at
+   * the cost of the message saving.
+   */
+  broadcastBatch?(actions: GameAction[], baseVersion: number, at?: number): Promise<void>;
+  /**
+   * Ship a non-action protocol message — a reveal, a checkpoint, a resync.
+   * Optional for the same reason.
+   */
+  broadcastMeta?(kind: string, body: unknown): Promise<void>;
 
   status(): TransportStatus;
   presence(): TransportPresence[];
@@ -203,6 +241,25 @@ class LocalTransport implements GameTransport {
   }
 
   async broadcast(action: GameAction, baseVersion: number, at?: number): Promise<void> {
+    return this.send({ action, baseVersion, at });
+  }
+
+  async broadcastBatch(actions: GameAction[], baseVersion: number, at?: number): Promise<void> {
+    if (actions.length === 0) return;
+    return this.send({ action: actions[0], actions, baseVersion, at });
+  }
+
+  async broadcastMeta(kind: string, body: unknown): Promise<void> {
+    return this.send({ actions: [], baseVersion: -1, meta: { kind, body } });
+  }
+
+  private async send(part: {
+    action?: GameAction;
+    actions?: GameAction[];
+    baseVersion: number;
+    at?: number;
+    meta?: { kind: string; body: unknown };
+  }): Promise<void> {
     if (this.state !== 'connected') {
       throw new Error('LocalTransport: broadcast before join');
     }
@@ -212,9 +269,11 @@ class LocalTransport implements GameTransport {
       tableId: this.tableId,
       from: this.participantId,
       seq: this.seq,
-      baseVersion,
-      at: at ?? Date.now(),
-      action,
+      baseVersion: part.baseVersion,
+      at: part.at ?? Date.now(),
+      action: part.action as GameAction,
+      actions: part.actions,
+      meta: part.meta,
     };
 
     const hub = hubs.get(this.tableId);
@@ -230,7 +289,9 @@ class LocalTransport implements GameTransport {
     };
 
     if (this.options.latencyMs && this.options.latencyMs > 0) {
-      window.setTimeout(deliver, this.options.latencyMs);
+      // `globalThis`, not `window`: this module is imported by node test runs
+      // and by any future server-side replay, neither of which has a DOM.
+      globalThis.setTimeout(deliver, this.options.latencyMs);
     } else {
       // Synchronous delivery keeps solo play ordered without a queue. A real
       // channel is async; the reducer's determinism is what makes both safe.

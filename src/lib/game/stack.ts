@@ -176,6 +176,14 @@ export function targetIsLegal(
       if (!card || card.removedFromGame) return false;
       // Changed zones since it was targeted: a new object, so not our target.
       if (target.zone && card.zone !== target.zone) return false;
+      // ...and the counter catches what the zone alone cannot — flickered out
+      // and straight back, same zone, different object (CR 400.7).
+      if (
+        target.zoneChangeCounter !== undefined &&
+        (card.zoneChangeCounter ?? 0) !== target.zoneChangeCounter
+      ) {
+        return false;
+      }
       const source = object.sourceInstanceId ?? object.cardInstanceId;
       const sourceCard = source ? getCard(state, source) : undefined;
       return canBeTargetedBy(card, object.controllerId, sourceCard);
@@ -504,6 +512,10 @@ export function castSpell(
   const minted = mintStackId(state);
   const stackId = action.stackId ?? minted.stackId;
 
+  // Optional flags are only written when they are actually set. A key holding
+  // `undefined` disappears through `JSON.stringify`, so a state built in memory
+  // and the same state rehydrated off the wire would not compare equal — and
+  // anything hashing state for a desync check would see two different games.
   const object: StackObject = {
     stackId,
     kind: 'spell',
@@ -513,8 +525,8 @@ export function castSpell(
     targets: action.targets ?? [],
     effects: action.effects ?? [],
     resolvesTo: action.resolvesTo ?? defaultResolutionZone(card),
-    splitSecond: action.splitSecond,
-    cantBeCountered: action.cantBeCountered,
+    ...(action.splitSecond ? { splitSecond: true } : {}),
+    ...(action.cantBeCountered ? { cantBeCountered: true } : {}),
     turn: state.turn,
   };
 
@@ -535,7 +547,7 @@ export function putAbilityOnStack(
     kind: action.kind ?? 'triggered',
     name: action.name,
     controllerId: action.controllerId,
-    sourceInstanceId: action.sourceInstanceId,
+    ...(action.sourceInstanceId ? { sourceInstanceId: action.sourceInstanceId } : {}),
     targets: action.targets ?? [],
     effects: action.effects ?? [],
     turn: state.turn,
@@ -779,7 +791,12 @@ export function targetPlayer(playerId: PlayerId): StackTarget {
  * "same card, different zone" means "different object" (CR 400.7).
  */
 export function targetCard(state: GameState, instanceId: InstanceId): StackTarget {
-  return { kind: 'card', instanceId, zone: getCard(state, instanceId)?.zone };
+  const card = getCard(state, instanceId);
+  return {
+    kind: 'card',
+    instanceId,
+    ...(card ? { zone: card.zone, zoneChangeCounter: card.zoneChangeCounter ?? 0 } : {}),
+  };
 }
 
 export function targetStackObject(stackId: StackObjectId): StackTarget {

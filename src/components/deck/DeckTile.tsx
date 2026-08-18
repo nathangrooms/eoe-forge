@@ -39,7 +39,6 @@ import { ColorIdentity } from '@/components/ui/mana-cost';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
-import { MiniManaCurve } from '@/components/deck-builder/MiniManaCurve';
 import { LegalityBadge } from '@/components/deck-builder/LegalityBadge';
 import { CATEGORY_BG_CLASS, CATEGORY_LABEL, type DeckCategory } from '@/lib/deck/cardCategories';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
@@ -365,19 +364,28 @@ export function DeckTile({
   return (
     <Card className={cn('flex flex-col overflow-hidden transition-colors hover:border-foreground/25', className)}>
       <CardContent className="flex flex-1 flex-col p-0">
-        <div className="flex gap-3 border-b border-border p-3">
+        <div className="relative flex gap-4 p-4">
+          {/* The commander's own art, bled behind the header, so a tile reads as
+              that specific deck before a word is read. */}
+          {commanderImage && (
+            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+              <img src={commanderImage} alt="" className="h-full w-full scale-110 object-cover blur-2xl saturate-150 opacity-25" />
+              <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-card/60" />
+            </div>
+          )}
           <button
             type="button"
             onClick={onOpen}
             aria-label={`Open ${deckSummary.name}`}
-            className="relative h-[112px] w-20 flex-shrink-0 overflow-hidden rounded-md bg-muted"
+            className="group/cmd relative aspect-[5/7] w-[150px] flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-xl shadow-black/40 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transition-none sm:w-[190px]"
           >
             {commanderImage ? (
               <img
                 src={commanderImage}
                 alt={deckSummary.commander?.name ?? ''}
-                className="h-full w-full object-cover object-top"
+                className="h-full w-full object-cover"
                 loading="lazy"
+                decoding="async"
               />
             ) : (
               <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
@@ -498,50 +506,9 @@ export function DeckTile({
             <Progress value={ownershipPct} className="h-1.5" />
           </div>
 
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Mana curve
-              </span>
-            </div>
-            <MiniManaCurve curveData={(deckSummary.curve?.bins ?? {}) as Record<string, number>} className="h-16" />
-          </div>
-
-          {composition.length > 0 && (
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Composition
-                </span>
-                <span className="text-[10px] text-muted-foreground">{counts.total} cards</span>
-              </div>
-              <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
-                {composition.map(entry => (
-                  <div
-                    key={entry.category}
-                    className={CATEGORY_BG_CLASS[entry.category]}
-                    style={{ width: `${(entry.count / Math.max(counts.total, 1)) * 100}%` }}
-                    title={`${entry.label}: ${entry.count}`}
-                  />
-                ))}
-              </div>
-              <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                {composition.map(entry => (
-                  <li key={entry.category} className="flex items-center gap-1.5 text-[10px]">
-                    <span
-                      className={cn('h-2 w-2 rounded-full', CATEGORY_BG_CLASS[entry.category])}
-                      aria-hidden
-                    />
-                    <span className="text-muted-foreground">{entry.label}</span>
-                    <span className="font-medium tabular-nums">{entry.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border p-3">
+        <div className="mt-auto flex items-center justify-between gap-2 p-3">
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />

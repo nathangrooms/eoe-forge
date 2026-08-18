@@ -14,12 +14,12 @@
  * seat and a human seat are indistinguishable to everything downstream: both
  * are just a source of actions arriving over a transport.
  *
- * Pure. No clock (timestamps arrive as `at`), no `Math.random` — variety comes
- * from the game's own seeded RNG via `shuffleWithRng`, so a bot game replays
- * identically.
+ * Pure. No clock (timestamps arrive as `at`) and no `Math.random`, so a bot
+ * game replays identically — which is what makes a bad beat reproducible
+ * instead of anecdotal.
  */
 
-import { getPlayer, isAlive, livingPlayers, shuffleWithRng } from './rules';
+import { getPlayer, isAlive, livingPlayers } from './rules';
 import {
   canBlock,
   eligibleAttackers,
@@ -338,10 +338,10 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
   const blocks: Array<{ blockerId: string; attackerId: string }> = [];
 
   for (const attacker of attackers) {
-    const options_ = availableBlockers.filter(
+    const candidates = availableBlockers.filter(
       blocker => !used.has(blocker.instanceId) && canBlock(attacker, blocker)
     );
-    if (options_.length === 0) continue;
+    if (candidates.length === 0) continue;
 
     const kind = (blocker: CardInstance) => {
       const kills =
@@ -353,7 +353,7 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
       return 0; // chump
     };
 
-    const best = options_.slice().sort((a, b) => {
+    const best = candidates.slice().sort((a, b) => {
       const byKind = kind(b) - kind(a);
       if (byKind !== 0) return byKind;
       // Among equals, spend the cheapest creature.
@@ -417,13 +417,4 @@ export function botsAwaitingMove(
   options: BotOptions = {}
 ): PlayerId[] {
   return botPlayerIds.filter(id => nextBotMove(state, id, options) !== null);
-}
-
-/**
- * A shuffled copy of a list using the game's own seeded RNG. Exposed so a
- * caller that wants a bot to vary its choices can do so without reaching for
- * `Math.random` and breaking replay determinism.
- */
-export function botShuffle<T>(items: readonly T[], state: GameState): T[] {
-  return shuffleWithRng(items, state.rng).items;
 }

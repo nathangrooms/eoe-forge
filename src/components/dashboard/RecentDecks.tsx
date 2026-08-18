@@ -9,6 +9,7 @@ import { showError } from '@/components/ui/toast-helpers';
 import { formatTimeAgo } from '@/features/dashboard/value';
 import type { DeckSummary } from '@/features/dashboard/hooks';
 import { logActivity } from '@/lib/activityLogger';
+import { useCardArt, cardArtKey } from '@/hooks/useCardArt';
 import { cn } from '@/lib/utils';
 
 interface RecentDecksProps {
@@ -28,6 +29,8 @@ function powerToneClass(level: number): string {
 
 export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentDecksProps) {
   const navigate = useNavigate();
+  /* A deck reads as itself through its commander's art, not through a coloured dot. */
+  const art = useCardArt(decks.map(d => d.commanderName));
   const [starredOnly, setStarredOnly] = useState(false);
 
   const visible = useMemo(
@@ -113,13 +116,33 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
             </Button>
           </div>
         ) : (
-          <ul className="divide-y divide-border border-t border-border">
-            {visible.map(deck => (
+          <ul className="space-y-2">
+            {visible.map(deck => {
+              const commander = deck.commanderName
+                ? art.get(cardArtKey(deck.commanderName))
+                : null;
+              return (
               <li key={deck.id}>
                 {/* One button covers the row (via the stretched ::after) so the
                     star stays a separate, independently focusable control. */}
-                <div className="relative flex items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-accent focus-within:bg-accent">
-                  <ColorIdentity colors={deck.colors} size="sm" className="shrink-0" />
+                <div className="group relative flex items-center gap-3 overflow-hidden rounded-xl bg-muted/25 px-2 py-2 transition-colors hover:bg-accent focus-within:bg-accent">
+                  {/* Commander art as the row's identity. */}
+                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                    {commander?.art_crop ? (
+                      <img
+                        src={commander.art_crop}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 motion-reduce:transition-none"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ColorIdentity colors={deck.colors} size="sm" />
+                      </div>
+                    )}
+                  </div>
 
                   <div className="min-w-0 flex-1">
                     <button
@@ -129,12 +152,17 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                     >
                       {deck.name}
                     </button>
-                    <p className="truncate text-xs text-muted-foreground">
-                      <span className="capitalize">{deck.format}</span>
-                      {deck.commanderName && <> &middot; {deck.commanderName}</>}
-                      {deck.cardCount > 0 && <> &middot; {deck.cardCount} cards</>}
-                      <> &middot; {formatTimeAgo(deck.updatedAt)}</>
-                    </p>
+                    {deck.commanderName && (
+                      <p className="truncate text-xs text-muted-foreground">{deck.commanderName}</p>
+                    )}
+                    <div className="mt-1 flex items-center gap-2">
+                      <ColorIdentity colors={deck.colors} size="xs" />
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        <span className="capitalize">{deck.format}</span>
+                        {deck.cardCount > 0 && <> &middot; {deck.cardCount} cards</>}
+                        <> &middot; {formatTimeAgo(deck.updatedAt)}</>
+                      </span>
+                    </div>
                   </div>
 
                   {deck.powerLevel > 0 && (
@@ -166,7 +194,8 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                   </Button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </CardContent>

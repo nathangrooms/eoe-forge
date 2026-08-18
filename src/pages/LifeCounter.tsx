@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Trophy, Undo2 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { seatAt, type PlayerId, type SeatingVariant } from '@/lib/game';
@@ -155,6 +154,18 @@ export default function LifeCounter() {
 
         {/* The one control cluster every seat can reach. */}
         <div className="absolute left-1/2 top-1/2 z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-popover p-1.5 shadow-[0_2px_10px_hsl(0_0%_0%/0.45)]">
+          {complete && (
+            <div className="flex items-center gap-2 pl-3 pr-1">
+              <Trophy aria-hidden className="h-4 w-4 shrink-0 text-type-commander" />
+              <p className="whitespace-nowrap text-sm font-semibold">
+                {winners.length === 1
+                  ? `${winners[0]} wins`
+                  : winners.length > 1
+                    ? `${winners.join(' & ')} win`
+                    : 'Draw'}
+              </p>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -179,20 +190,6 @@ export default function LifeCounter() {
           </Button>
         </div>
 
-        {complete && (
-          <div
-            className={cn(
-              'absolute left-1/2 top-1/2 z-20 -translate-x-1/2 flex flex-col items-center gap-1 rounded-2xl bg-popover px-5 py-3 text-center shadow-[0_2px_10px_hsl(0_0%_0%/0.45)]',
-              'translate-y-[-8.5rem]',
-            )}
-          >
-            <Trophy aria-hidden className="h-5 w-5 text-type-commander" />
-            <p className="text-sm font-semibold">
-              {winners.length === 1 ? `${winners[0]} wins` : winners.length > 1 ? `${winners.join(' & ')} win` : 'Draw'}
-            </p>
-            <p className="text-xs text-muted-foreground">Undo to keep playing</p>
-          </div>
-        )}
         </div>
       </div>
 

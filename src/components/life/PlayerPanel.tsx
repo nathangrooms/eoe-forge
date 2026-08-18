@@ -37,6 +37,65 @@ import type { PlayerView } from './useLifeGame';
 /** Travel before a press is treated as a swipe rather than a tap. */
 const SWIPE_PX = 56;
 
+/* -------------------------------------------------------------------------- */
+/* Corner placement                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Corners of the panel's content box, clockwise from its own top-left. "Own"
+ * matters: a rotated seat's top-left is not the screen's top-left.
+ */
+type Corner = 0 | 1 | 2 | 3;
+
+/**
+ * Which content corner lands furthest from the middle of the board.
+ *
+ * The control cluster sits dead centre, which is the one point every seat can
+ * reach — and in the three-player layout it is also where two panels meet, so a
+ * chip pinned to a fixed corner ends up underneath it. Rotating the content by
+ * `r` degrees clockwise moves corner `i` to visual corner `i + r/90`, so the
+ * placement can just be solved rather than special-cased per layout.
+ */
+function outerCorner(seat: Seat): Corner {
+  const { x, y, w, h } = seat.rect;
+  const visual = [
+    { x, y },
+    { x: x + w, y },
+    { x: x + w, y: y + h },
+    { x, y: y + h },
+  ];
+
+  let best = 0;
+  let bestDistance = -1;
+  visual.forEach((point, index) => {
+    const distance = Math.hypot(point.x - 0.5, point.y - 0.5);
+    if (distance > bestDistance + 1e-6) {
+      bestDistance = distance;
+      best = index;
+    }
+  });
+
+  const turns = seat.rotation / 90;
+  return ((((best - turns) % 4) + 4) % 4) as Corner;
+}
+
+/** The other end of the same content edge — never the inner corner. */
+const ALONG_EDGE: Record<Corner, Corner> = { 0: 1, 1: 0, 2: 3, 3: 2 };
+
+const CORNER_POSITION: Record<Corner, string> = {
+  0: 'left-0 top-0 rounded-tl-2xl rounded-br-xl',
+  1: 'right-0 top-0 rounded-tr-2xl rounded-bl-xl',
+  2: 'right-0 bottom-0 rounded-br-2xl rounded-tl-xl',
+  3: 'left-0 bottom-0 rounded-bl-2xl rounded-tr-xl',
+};
+
+const CORNER_ALIGN: Record<Corner, string> = {
+  0: 'left-0 top-0 justify-start',
+  1: 'right-0 top-0 justify-end',
+  2: 'right-0 bottom-0 justify-end',
+  3: 'left-0 bottom-0 justify-start',
+};
+
 export interface PlayerPanelProps {
   player: Player;
   seat: Seat;
@@ -183,7 +242,7 @@ export function PlayerPanel({
   const canTap = interactive && !dead;
 
   const lifeSize = `clamp(2.5rem, 33${h}, 12rem)`;
-  const nameSize = `clamp(0.8rem, 8${h}, 1.5rem)`;
+  const nameSize = `clamp(0.8rem, 7${h}, 1.35rem)`;
   const chipSize = `clamp(0.7rem, 6${h}, 1.1rem)`;
   const deltaSize = `clamp(0.9rem, 11${h}, 2.25rem)`;
   const glyphSize = `clamp(1.25rem, 11${h}, 2.75rem)`;
@@ -198,6 +257,9 @@ export function PlayerPanel({
   const energy = view.counters[COUNTER_ENERGY] ?? 0;
   const experience = view.counters[COUNTER_EXPERIENCE] ?? 0;
   const colors = player.commanders[0]?.colorIdentity ?? [];
+
+  const nameCorner = outerCorner(seat);
+  const chipCorner = ALONG_EDGE[nameCorner];
 
   return (
     <div style={seatBoxStyle(seat)}>
@@ -260,12 +322,15 @@ export function PlayerPanel({
             )}
           </div>
 
-          {/* Name — top-left, i.e. the far corner from the player, clear of thumbs. */}
+          {/* Name — pinned to the corner furthest from the board's centre. */}
           <button
             type="button"
             onClick={onOpenDetail}
             aria-label={`${player.name}: open details`}
-            className="absolute left-0 top-0 flex max-w-[70%] items-center gap-1.5 rounded-br-xl rounded-tl-2xl bg-muted/50 px-2 py-1 text-left font-medium leading-none text-muted-foreground outline-none focus-visible:bg-muted"
+            className={cn(
+              'absolute flex max-w-[60%] items-center gap-1.5 bg-muted/50 px-2 py-1 text-left font-medium leading-none text-muted-foreground outline-none focus-visible:bg-muted',
+              CORNER_POSITION[nameCorner],
+            )}
             style={{ fontSize: nameSize, touchAction: 'none' }}
           >
             <span className="truncate">{player.name}</span>
@@ -273,7 +338,12 @@ export function PlayerPanel({
           </button>
 
           {/* Counters that are actually in play. Absent counters show nothing. */}
-          <div className="absolute right-1 top-1 flex flex-wrap items-center justify-end gap-1">
+          <div
+            className={cn(
+              'pointer-events-none absolute flex max-w-[45%] flex-wrap items-center gap-1 p-1',
+              CORNER_ALIGN[chipCorner],
+            )}
+          >
             {rules.usesCommanderDamage && view.worstCommanderDamage > 0 && (
               <StatusChip
                 icon={Crown}

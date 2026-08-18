@@ -27,10 +27,10 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { GameCardView } from './GameCardView';
 import {
+  attackableWith,
   attackingPlayerId,
   canBlock,
   combatLanes,
-  eligibleAttackers,
   eligibleBlockers,
   powerOf,
   toughnessOf,
@@ -123,7 +123,9 @@ export function CombatView({
   const lethal = !!defender && unblockedDamage >= defender.life;
 
   const opponents = state.players.filter(p => p.id !== viewerPlayerId && !p.hasLost);
-  const available = mode === 'declare-attackers' ? eligibleAttackers(state, viewerPlayerId) : [];
+  // `attackableWith` gates on turn and step itself, so the view never has to
+  // restate the legality rule alongside the engine.
+  const available = attackableWith(state, viewerPlayerId);
 
   const blockedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -226,9 +228,18 @@ export function CombatView({
       {mode === 'declare-attackers' && (
         <div className="rounded-xl bg-card p-4 shadow-sm">
           {available.length === 0 ? (
-            <p className="rounded-lg bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
-              Nothing can attack this turn — creatures are tapped, summoning sick, or absent.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-4">
+              <p className="text-sm text-muted-foreground">
+                {/* Once you have swung, "nothing can attack" is true but reads as a
+                    failure. Say what actually happened instead. */}
+                {state.combat.attackers.length > 0
+                  ? `${state.combat.attackers.length} attacker${state.combat.attackers.length === 1 ? '' : 's'} declared — everything else is tapped or sick.`
+                  : 'Nothing can attack this turn — creatures are tapped, summoning sick, or absent.'}
+              </p>
+              <Button size="sm" className="h-8 text-xs" onClick={onAdvance}>
+                {state.combat.attackers.length > 0 ? 'On to blockers' : 'Skip combat'}
+              </Button>
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap gap-2">

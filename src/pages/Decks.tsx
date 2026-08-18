@@ -295,7 +295,7 @@ export default function Decks() {
           )}
 
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+            <div className="grid gap-5 lg:grid-cols-2" aria-busy="true">
               {[0, 1, 2].map(i => (
                 <Card key={i}>
                   <CardContent className="space-y-3 p-6">
@@ -331,7 +331,7 @@ export default function Decks() {
             <div
               className={
                 prefs.mode === 'grid'
-                  ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
+                  ? 'grid gap-5 lg:grid-cols-2'
                   : 'space-y-2'
               }
             >

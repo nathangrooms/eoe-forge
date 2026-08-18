@@ -139,7 +139,7 @@ export function StoreAvailabilityCheck({ cardName, cardId }: StoreAvailabilityCh
             <Store className="h-4 w-4 text-muted-foreground" />
             Where to buy
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -160,7 +160,7 @@ export function StoreAvailabilityCheck({ cardName, cardId }: StoreAvailabilityCh
               href={row.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent"
+              className="flex items-center justify-between gap-3 rounded-lg p-3 transition-colors hover:bg-accent"
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-foreground">{row.store}</div>

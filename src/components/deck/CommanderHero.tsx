@@ -97,6 +97,9 @@ export function CommanderHero({
       format={format}
       identity={identity}
       cardCount={cardCount}
+      // Below ~110px the copy cannot be set without clipping, so the small
+      // sizes fall back to the pips alone.
+      compact={size === 'xs' || size === 'sm'}
       onClick={onClick}
       className={className}
     >
@@ -110,6 +113,8 @@ interface FallbackProps {
   format: string;
   identity: string[];
   cardCount: number;
+  /** Pips only — for list rows and other thumbnail-sized slots. */
+  compact?: boolean;
   onClick?: () => void;
   className?: string;
   children?: React.ReactNode;
@@ -127,6 +132,7 @@ export function CommanderFallback({
   format,
   identity,
   cardCount,
+  compact = false,
   onClick,
   className,
   children,
@@ -168,7 +174,7 @@ export function CommanderFallback({
           strokeWidth={1}
         />
 
-        <div className="relative flex flex-col items-center gap-[6%]">
+        <div className={cn('relative flex flex-col items-center', compact ? 'gap-2' : 'gap-[6%]')}>
           {pips.length > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-1.5">
               {pips.map(c => (
@@ -176,36 +182,46 @@ export function CommanderFallback({
                   key={c}
                   symbol={c}
                   size="lg"
-                  className="h-8 w-8 text-sm shadow-md shadow-black/30 sm:h-9 sm:w-9"
+                  className={cn(
+                    'shadow-md shadow-black/30',
+                    compact ? 'h-5 w-5 text-[10px]' : 'h-8 w-8 text-sm sm:h-9 sm:w-9'
+                  )}
                 />
               ))}
             </div>
           ) : (
             <span
               aria-hidden="true"
-              className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5 text-muted-foreground"
+              className={cn(
+                'grid place-items-center rounded-full bg-foreground/5 text-muted-foreground',
+                compact ? 'h-7 w-7' : 'h-12 w-12'
+              )}
             >
               {wantsCommander ? (
-                <Crown className="h-6 w-6" />
+                <Crown className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
               ) : (
-                <Layers className="h-6 w-6" />
+                <Layers className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
               )}
             </span>
           )}
 
-          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
-            {label}
-          </p>
+          {!compact && (
+            <>
+              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+                {label}
+              </p>
 
-          <p className="text-balance text-base font-bold leading-tight text-foreground sm:text-lg">
-            {wantsCommander ? 'No commander' : `${cardCount} cards`}
-          </p>
+              <p className="text-balance text-base font-bold leading-tight text-foreground sm:text-lg">
+                {wantsCommander ? 'No commander' : `${cardCount} cards`}
+              </p>
 
-          {wantsCommander && onClick && (
-            <p className="inline-flex items-center gap-1 text-[0.7rem] font-medium text-muted-foreground transition-colors group-hover:text-foreground motion-reduce:transition-none">
-              <Sparkles className="h-3 w-3" />
-              Choose one in the builder
-            </p>
+              {wantsCommander && onClick && (
+                <p className="inline-flex items-center gap-1 text-[0.7rem] font-medium text-muted-foreground transition-colors group-hover:text-foreground motion-reduce:transition-none">
+                  <Sparkles className="h-3 w-3" />
+                  Choose one in the builder
+                </p>
+              )}
+            </>
           )}
         </div>
 

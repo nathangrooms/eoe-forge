@@ -24,7 +24,7 @@ export function AddCardsHeader({
   selectedBoxName,
 }: AddCardsHeaderProps) {
   return (
-    <div className="flex flex-col justify-between gap-3 border-b border-border pb-4 md:flex-row md:items-center">
+    <div className="flex flex-col justify-between gap-3 pb-4 md:flex-row md:items-center">
       <div className="min-w-0">
         <h2 className="text-xl font-bold text-foreground">Add cards</h2>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
@@ -53,7 +53,7 @@ export function AddCardsHeader({
         </div>
       </div>
 
-      <Button asChild variant="outline" size="sm" className="shrink-0 gap-2">
+      <Button asChild variant="secondary" size="sm" className="shrink-0 gap-2">
         <Link to="/scan">
           <Camera className="h-4 w-4" aria-hidden="true" />
           Scan cards

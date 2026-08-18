@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Crown, Search, X, Loader2 } from 'lucide-react';
+import { Crown, Search, X, Loader2, SlidersHorizontal } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
+import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
+import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
 
 interface CommanderSelectorProps {
   currentCommander?: any;
@@ -22,15 +22,29 @@ interface ScryfallCard {
   cmc?: number;
   color_identity?: string[];
   colors?: string[];
-  image_uris?: { small?: string; normal?: string; large?: string };
+  image_uris?: Record<string, string>;
+  card_faces?: any[];
+  layout?: string;
   prices?: { usd?: string };
   keywords?: string[];
   edhrec_rank?: number;
 }
 
+/**
+ * The commander picker.
+ *
+ * A commander is chosen by looking at it — the art, the colour pips, the
+ * silhouette — so this is a card grid at a size the user controls, not a list of
+ * 64px thumbnails beside a name. The narrowing controls are the shared
+ * `CardFilterPanel`, which matters more here than anywhere: "at most these
+ * colours" is *the* question when picking a commander, and it is one click.
+ */
 export function CommanderSelector({ currentCommander, onSelect }: CommanderSelectorProps) {
   const { setCommander } = useDeckStore();
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const filters = useCardFilterState({ urlSync: false });
+  const [cardWidth, setCardWidth] = useCardSize('commander-picker', 150);
+
   const [searchResults, setSearchResults] = useState<ScryfallCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [topCommanders, setTopCommanders] = useState<ScryfallCard[]>([]);
@@ -50,7 +64,7 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
         );
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
-        if (!cancelled) setTopCommanders((data.data || []).slice(0, 8));
+        if (!cancelled) setTopCommanders((data.data || []).slice(0, 12));
       } catch {
         if (!cancelled) setTopError(true);
       } finally {
@@ -62,43 +76,49 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
     };
   }, []);
 
-  const searchCommanders = async (query: string) => {
-    if (!query.trim()) {
+  /**
+   * `is:commander legal:commander` is non-negotiable and is ANDed onto whatever
+   * the filter produces — it covers legendary creatures, Backgrounds and the
+   * planeswalkers that say "can be your commander", all of which the old
+   * `t:legendary t:creature` query missed.
+   */
+  const query = useMemo(() => {
+    const built = filters.query;
+    const base = 'is:commander legal:commander';
+    return built === '*' ? base : `${base} ${built}`;
+  }, [filters.query]);
+
+  const hasCriteria = filters.activeCount > 0;
+
+  useEffect(() => {
+    if (!hasCriteria) {
       setSearchResults([]);
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
-    try {
-      // `is:commander` covers legendary creatures, Backgrounds, and the
-      // planeswalkers that say "can be your commander" — the previous
-      // `t:legendary t:creature` query missed all of those.
-      const response = await fetch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(
-          `is:commander legal:commander ${query}`
-        )}&order=edhrec&unique=cards`
-      );
 
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.data || []);
-      } else {
-        setSearchResults([]);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&order=edhrec&unique=cards`
+        );
+        const data = response.ok ? await response.json() : null;
+        if (!cancelled) setSearchResults(data?.data ?? []);
+      } catch (error) {
+        console.error('Error searching commanders:', error);
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (error) {
-      console.error('Error searching commanders:', error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      searchCommanders(searchQuery);
     }, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, hasCriteria]);
 
   const handleCommanderSelect = async (card: ScryfallCard) => {
     const commanderCard = {
@@ -151,167 +171,224 @@ export function CommanderSelector({ currentCommander, onSelect }: CommanderSelec
       return;
     }
 
-    setSearchQuery('');
+    filters.reset();
     setSearchResults([]);
     showSuccess('Commander set', `${card.name} now leads this deck`);
     onSelect?.(commanderCard);
   };
 
+  const commitText = useCallback(
+    (next: string | undefined) => filters.patch({ text: next }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters.patch]
+  );
+
   const renderResult = (card: ScryfallCard, rank?: number) => (
-    <button
-      key={card.id}
-      onClick={() => handleCommanderSelect(card)}
-      className="group flex gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-foreground/40 hover:bg-accent"
-    >
-      {card.image_uris?.small ? (
-        <img
-          src={card.image_uris.small}
-          alt={card.name}
-          loading="lazy"
-          className="h-auto w-16 shrink-0 rounded border border-border"
-          onError={e => {
-            e.currentTarget.src = '/placeholder.svg';
-            e.currentTarget.onerror = null;
-          }}
-        />
-      ) : (
-        <div className="h-[88px] w-16 shrink-0 rounded border border-border bg-muted" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="truncate text-sm font-medium">{card.name}</h4>
-          {rank !== undefined && (
-            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">#{rank}</span>
-          )}
-        </div>
-        <p className="mb-2 line-clamp-2 text-xs text-muted-foreground">{card.type_line}</p>
-        <div className="flex items-center gap-2">
+    <div key={card.id} className="flex flex-col gap-1.5">
+      <CardImage
+        card={card}
+        width={cardWidth}
+        fill
+        onClick={() => handleCommanderSelect(card)}
+        title={`${card.name} — choose as commander`}
+      >
+        {rank !== undefined && (
+          <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+            #{rank}
+          </span>
+        )}
+        {card.prices?.usd && (
+          <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white backdrop-blur-sm">
+            ${card.prices.usd}
+          </span>
+        )}
+      </CardImage>
+      <div className="flex flex-col gap-0.5 px-0.5">
+        <p className="truncate text-xs font-medium text-foreground" title={card.name}>
+          {card.name}
+        </p>
+        <div className="flex items-center gap-1.5">
           <ManaCost cost={card.mana_cost} size="xs" />
           <ColorIdentity colors={card.color_identity} size="xs" />
         </div>
       </div>
-    </button>
+    </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Current commander */}
       {currentCommander && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-              {currentCommander.image_uris?.normal && (
-                <img
-                  src={currentCommander.image_uris.normal}
-                  alt={currentCommander.name}
-                  className="h-auto w-24 rounded-md border border-border"
-                  onError={e => {
-                    e.currentTarget.src = '/placeholder.svg';
-                    e.currentTarget.onerror = null;
-                  }}
-                />
-              )}
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <Crown className="h-3.5 w-3.5 text-type-commander" />
-                  Current commander
-                </div>
-                <h3 className="text-lg font-semibold">{currentCommander.name}</h3>
-                <p className="text-sm text-muted-foreground">{currentCommander.type_line}</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <ManaCost cost={currentCommander.mana_cost} size="sm" />
-                  <Badge variant="secondary">MV {currentCommander.cmc ?? 0}</Badge>
-                  <ColorIdentity
-                    colors={currentCommander.color_identity || currentCommander.colors}
-                    size="sm"
-                  />
-                  {currentCommander.prices?.usd && (
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      ${currentCommander.prices.usd}
-                    </span>
-                  )}
-                </div>
+        <div className="rounded-lg bg-card p-4 shadow-lg shadow-black/20">
+          <div className="flex items-start gap-4">
+            <CardImage
+              card={currentCommander}
+              width={110}
+              interactive={false}
+              className="shrink-0"
+            />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <Crown className="h-3.5 w-3.5 text-type-commander" aria-hidden="true" />
+                Current commander
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setCommander(undefined as any)}
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                title="Remove commander"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <h3 className="text-lg font-semibold text-foreground">{currentCommander.name}</h3>
+              <p className="text-sm text-muted-foreground">{currentCommander.type_line}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <ManaCost cost={currentCommander.mana_cost} size="sm" />
+                <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-foreground">
+                  MV {currentCommander.cmc ?? 0}
+                </span>
+                <ColorIdentity
+                  colors={currentCommander.color_identity || currentCommander.colors}
+                  size="sm"
+                />
+                {currentCommander.prices?.usd && (
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    ${currentCommander.prices.usd}
+                  </span>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search commanders, backgrounds and partners…"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-        {searchQuery && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-            onClick={() => setSearchQuery('')}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
-      {loading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Searching…
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCommander(undefined as any)}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              title="Remove commander"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
-      {!loading && searchQuery && searchResults.length === 0 && (
-        <div className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">No commanders match "{searchQuery}".</p>
+      {/* Search + the shared filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <CommanderSearchBox value={filters.state.text ?? ''} onCommit={commitText} />
+
+        <CardFilterSheet
+          controller={filters}
+          showSort={false}
+          showChips={false}
+          trigger={
+            <Button variant="secondary" className="shrink-0 gap-2">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Filters
+              {filters.activeCount > 0 && (
+                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
+                  {filters.activeCount}
+                </span>
+              )}
+            </Button>
+          }
+        />
+
+        <CardSizeSlider
+          storageKey="commander-picker"
+          value={cardWidth}
+          onValueChange={setCardWidth}
+          showValue={false}
+          className="ml-auto hidden sm:flex"
+        />
+      </div>
+
+      {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
+
+      {loading && <CardGridSkeleton width={cardWidth} count={8} />}
+
+      {!loading && hasCriteria && searchResults.length === 0 && (
+        <div className="rounded-lg bg-muted/30 py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            No commander matches these filters.
+          </p>
         </div>
       )}
 
       {!loading && searchResults.length > 0 && (
-        <div className="grid max-h-96 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2 lg:grid-cols-3">
-          {searchResults.slice(0, 24).map(card => renderResult(card))}
+        <div className="max-h-[28rem] overflow-y-auto pr-1">
+          <CardGrid width={cardWidth}>
+            {searchResults.slice(0, 60).map(card => renderResult(card))}
+          </CardGrid>
         </div>
       )}
 
       {/* Most played — real EDHREC ordering from Scryfall, not invented percentages */}
-      {!searchQuery && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              Most played commanders
-              <span className="ml-2 font-normal text-muted-foreground">by EDHREC rank</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topLoading ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading…
-              </div>
-            ) : topError || topCommanders.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">
-                Could not reach Scryfall. Search by name above instead.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {topCommanders.map((c, i) => renderResult(c, i + 1))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {!hasCriteria && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-foreground">
+            Most played commanders
+            <span className="ml-2 font-normal text-muted-foreground">by EDHREC rank</span>
+          </h4>
+          {topLoading ? (
+            <CardGridSkeleton width={cardWidth} count={8} />
+          ) : topError || topCommanders.length === 0 ? (
+            <p className="py-4 text-sm text-muted-foreground">
+              Could not reach Scryfall. Search by name above instead.
+            </p>
+          ) : (
+            <CardGrid width={cardWidth}>
+              {topCommanders.map((c, i) => renderResult(c, i + 1))}
+            </CardGrid>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Debounced name box, feeding the same `text` facet the filter panel edits. */
+function CommanderSearchBox({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (next: string | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [committed, setCommitted] = useState(value);
+
+  useEffect(() => {
+    if (value !== committed) {
+      setCommitted(value);
+      setDraft(value);
+    }
+    // Adopts external changes (chip removal, clear all) without stomping typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (draft === committed) return;
+    const id = window.setTimeout(() => {
+      setCommitted(draft);
+      onCommit(draft.trim() ? draft : undefined);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [draft, committed, onCommit]);
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        placeholder="Search commanders, backgrounds and partners…"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        spellCheck={false}
+        className="border-0 bg-muted/50 pl-9 pr-9 focus-visible:ring-1 focus-visible:ring-offset-0"
+      />
+      {draft && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+          onClick={() => setDraft('')}
+          aria-label="Clear search"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       )}
     </div>
   );

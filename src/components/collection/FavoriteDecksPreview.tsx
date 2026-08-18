@@ -133,14 +133,14 @@ export function FavoriteDecksPreview() {
 
   if (favoriteDecks.length === 0) {
     return (
-      <Card className="border-dashed">
+      <Card className="">
         <CardContent className="p-6 text-center">
           <Heart className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <h3 className="font-medium mb-2">No Favorite Decks</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Add some decks to your favorites to see them here
           </p>
-          <Button variant="outline" onClick={() => navigate('/decks')}>
+          <Button variant="secondary" onClick={() => navigate('/decks')}>
             <Plus className="h-4 w-4 mr-2" />
             Browse Decks
           </Button>
@@ -164,7 +164,7 @@ export function FavoriteDecksPreview() {
           return (
             <Card 
               key={deck.id} 
-              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+              className="cursor-pointer transition-all hover:shadow-md"
               onClick={() => handleDeckClick(deck)}
             >
               <CardContent className="p-4">
@@ -172,7 +172,7 @@ export function FavoriteDecksPreview() {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium truncate text-sm">{deck.name}</h4>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="secondary" className="text-xs">
                         {deck.format}
                       </Badge>
                       {deck.format === 'commander' && (

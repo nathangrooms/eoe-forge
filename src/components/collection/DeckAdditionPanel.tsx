@@ -171,7 +171,7 @@ export function DeckAdditionPanel({
         {/* Three columns for collection, deck, and box */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Add to Collection Toggle */}
-          <div className="flex items-center justify-between p-3 border rounded-lg">
+          <div className="flex items-center justify-between p-3 rounded-lg">
             <div className="flex items-center gap-3">
               <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
@@ -190,7 +190,7 @@ export function DeckAdditionPanel({
           </div>
 
           {/* Add to Deck Section */}
-          <div className="flex items-center justify-between p-3 border rounded-lg">
+          <div className="flex items-center justify-between p-3 rounded-lg">
             <div className="flex items-center gap-3">
               <Crown className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
@@ -209,7 +209,7 @@ export function DeckAdditionPanel({
           </div>
 
           {/* Add to Box Section */}
-          <div className="flex items-center justify-between p-3 border rounded-lg">
+          <div className="flex items-center justify-between p-3 rounded-lg">
             <div className="flex items-center gap-3">
               <Box className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <div>
@@ -235,15 +235,15 @@ export function DeckAdditionPanel({
             <div className="space-y-3">
               <Label className="text-sm font-medium">Select Deck</Label>
               <Select value={selectedDeckId} onValueChange={(value) => handleSelectionChange({ selectedDeckId: value })}>
-                <SelectTrigger className="bg-background border">
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Choose a deck..." />
                 </SelectTrigger>
-                <SelectContent className="bg-background border">
+                <SelectContent className="bg-background">
                   {decks.map(deck => (
                     <SelectItem key={deck.id} value={deck.id}>
                       <div className="flex items-center gap-2">
                         <span className="max-w-32 truncate">{deck.name}</span>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="secondary" className="text-xs">
                           {deck.format}
                         </Badge>
                         {deck.colors.length > 0 && getColorIndicator(deck.colors)}
@@ -278,16 +278,16 @@ export function DeckAdditionPanel({
             <div className="space-y-3">
               <Label className="text-sm font-medium">Select Box</Label>
               <Select value={selectedBoxId} onValueChange={(value) => handleSelectionChange({ selectedBoxId: value })}>
-                <SelectTrigger className="bg-background border">
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Choose a box..." />
                 </SelectTrigger>
-                <SelectContent className="bg-background border">
+                <SelectContent className="bg-background">
                   {storageContainers.map(container => (
                     <SelectItem key={container.id} value={container.id}>
                       <div className="flex items-center gap-2">
                         <Box className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                         <span className="max-w-32 truncate">{container.name}</span>
-                        <Badge variant="outline" className="text-xs capitalize">
+                        <Badge variant="secondary" className="text-xs capitalize">
                           {container.type}
                         </Badge>
                       </div>
@@ -319,7 +319,7 @@ export function DeckAdditionPanel({
         </div>
 
         {/* Summary */}
-        <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+        <div className="bg-primary/5 p-3 rounded-lg">
           <p className="text-sm font-medium text-primary">
             Cards will be added to: {' '}
             {[

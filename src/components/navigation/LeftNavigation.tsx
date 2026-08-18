@@ -4,7 +4,6 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { NewDeckDialog } from './NewDeckDialog';
 import {
   NAV_HOME,
   isNavItemActive,
@@ -37,7 +36,6 @@ export function LeftNavigation() {
   const location = useLocation();
   const { isAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
-  const [newDeckOpen, setNewDeckOpen] = useState(false);
 
   // Layout effect: the content offset is driven off this attribute, so setting
   // it after paint would flash a 256px gutter on a page loaded while collapsed.
@@ -86,18 +84,14 @@ export function LeftNavigation() {
         </>
       );
 
-      // An action item opens a flow; following its `href` would land the user
-      // somewhere its label does not describe.
-      const link =
-        item.action === 'new-deck' ? (
-          <button type="button" onClick={() => setNewDeckOpen(true)} className={className}>
-            {body}
-          </button>
-        ) : (
-          <Link to={item.href} aria-current={active ? 'page' : undefined} className={className}>
-            {body}
-          </Link>
-        );
+      // Every entry is a real link — including "New Deck", which is the
+      // `/decks/new` route rather than a dialog, so it is middle-clickable and
+      // highlights like the rest of the rail.
+      const link = (
+        <Link to={item.href} aria-current={active ? 'page' : undefined} className={className}>
+          {body}
+        </Link>
+      );
 
       if (!collapsed) return link;
 
@@ -117,67 +111,63 @@ export function LeftNavigation() {
   const groups = visibleGroups(isAdmin);
 
   return (
-    <>
-      <div
+    <div
+      className={cn(
+        // Surface tint + shadow rather than a hairline rule: the rail reads as
+        // a raised panel against the page instead of being fenced off by it.
+        'flex h-full flex-col bg-muted/30 shadow-lg shadow-black/20 transition-[width] duration-150 motion-reduce:transition-none',
+        collapsed ? 'w-16' : 'w-64',
+      )}
+    >
+      <nav
+        aria-label="Main"
         className={cn(
-          // Surface tint + shadow rather than a hairline rule: the rail reads as
-          // a raised panel against the page instead of being fenced off by it.
-          'flex h-full flex-col bg-muted/30 shadow-lg shadow-black/20 transition-[width] duration-150 motion-reduce:transition-none',
-          collapsed ? 'w-16' : 'w-64',
+          'flex-1 overflow-y-auto overflow-x-hidden py-3',
+          collapsed ? 'px-3.5' : 'px-3',
         )}
       >
-        <nav
-          aria-label="Main"
+        <ul className="space-y-0.5">
+          <li>{renderItem(NAV_HOME)}</li>
+        </ul>
+
+        {groups.map(group => (
+          <section key={group.id} className={cn('mt-5', collapsed && 'mt-4')}>
+            <h2
+              className={cn(
+                'px-2.5 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground',
+                collapsed && 'sr-only',
+              )}
+            >
+              {group.label}
+            </h2>
+            <ul className="space-y-0.5">
+              {group.items.map(item => (
+                <li key={item.href}>{renderItem(item)}</li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </nav>
+
+      <div className={cn('py-2', collapsed ? 'px-3.5' : 'px-3')}>
+        <button
+          type="button"
+          onClick={() => setCollapsed(value => !value)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
           className={cn(
-            'flex-1 overflow-y-auto overflow-x-hidden py-3',
-            collapsed ? 'px-3.5' : 'px-3',
+            'flex h-9 items-center gap-3 rounded-md text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            collapsed ? 'w-9 justify-center px-0' : 'w-full px-2.5',
           )}
         >
-          <ul className="space-y-0.5">
-            <li>{renderItem(NAV_HOME)}</li>
-          </ul>
-
-          {groups.map(group => (
-            <section key={group.id} className={cn('mt-5', collapsed && 'mt-4')}>
-              <h2
-                className={cn(
-                  'px-2.5 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground',
-                  collapsed && 'sr-only',
-                )}
-              >
-                {group.label}
-              </h2>
-              <ul className="space-y-0.5">
-                {group.items.map(item => (
-                  <li key={item.href}>{renderItem(item)}</li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </nav>
-
-        <div className={cn('py-2', collapsed ? 'px-3.5' : 'px-3')}>
-          <button
-            type="button"
-            onClick={() => setCollapsed(value => !value)}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            className={cn(
-              'flex h-9 items-center gap-3 rounded-md text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              collapsed ? 'w-9 justify-center px-0' : 'w-full px-2.5',
-            )}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-4 w-4 shrink-0" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4 shrink-0" />
-            )}
-            {!collapsed && <span>Collapse</span>}
-          </button>
-        </div>
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4 shrink-0" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4 shrink-0" />
+          )}
+          {!collapsed && <span>Collapse</span>}
+        </button>
       </div>
-
-      <NewDeckDialog open={newDeckOpen} onOpenChange={setNewDeckOpen} />
-    </>
+    </div>
   );
 }

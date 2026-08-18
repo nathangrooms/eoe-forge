@@ -122,6 +122,9 @@ export function PreconDeckView({
     return CURVE_BINS.map(bin => ({ bin, count: counts[bin], ratio: counts[bin] / peak }));
   }, [rows]);
 
+  /** Derived numbers are meaningless until the card metadata has landed. */
+  const ready = !loading && rows.length > 0;
+
   const totalCards = deck?.totalCards ?? precon.total ?? stats.totalCards;
   const composition = groups.filter(g => g.category !== 'sideboard');
   const compositionTotal = composition.reduce(
@@ -200,13 +203,17 @@ export function PreconDeckView({
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {/* Capped, or four stats stretch across a 900px hero as four
+                lonely numbers with a hand's width between them. */}
+            <div className="grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
               <Stat label="Cards" value={String(totalCards)} />
-              <Stat label="Lands" value={String(landCount)} />
-              <Stat label="Avg MV" value={stats.avgManaValue.toFixed(2)} />
+              <Stat label="Lands" value={ready ? String(landCount) : '—'} />
+              <Stat label="Avg MV" value={ready ? stats.avgManaValue.toFixed(2) : '—'} />
               <Stat
                 label="Est. value"
-                value={stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—'}
+                value={
+                  ready && stats.totalValueUSD > 0 ? `$${stats.totalValueUSD.toFixed(0)}` : '—'
+                }
               />
             </div>
 
@@ -236,7 +243,7 @@ export function PreconDeckView({
       </section>
 
       {/* Shape of the deck */}
-      {rows.length > 0 && (
+      {ready && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -324,6 +331,13 @@ export function PreconDeckView({
               <CardImageSkeleton key={i} width={cardWidth} fill />
             ))}
           </CardGrid>
+        ) : groups.length === 0 ? (
+          <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
+            <p className="font-medium">This decklist could not be loaded</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Precon lists are fetched live from a public repository. Try again shortly.
+            </p>
+          </div>
         ) : (
           groups.map(group => {
             const count = group.items.reduce((n, row) => n + row.quantity, 0);

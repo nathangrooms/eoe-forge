@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ManaCost } from '@/components/ui/mana-cost';
 import {
   ExternalLink,
@@ -13,14 +12,16 @@ import {
   Plus,
   Package,
   Info,
+  X,
 } from 'lucide-react';
+import { CardImage } from '@/components/cards';
 import { CardPriceData } from './PriceSearchPanel';
 import { CardPriceHistoryChart } from './CardPriceHistoryChart';
 import { BuyLinks } from './BuyLinks';
 
 interface CardPriceDetailProps {
   card: CardPriceData;
-  isOpen: boolean;
+  /** Clears the selection in the parent list. */
   onClose: () => void;
   showFoil?: boolean;
   onAddToWatchlist?: (card: CardPriceData) => void;
@@ -48,9 +49,13 @@ const RARITY_LABEL: Record<string, string> = {
   bonus: 'Bonus',
 };
 
+/**
+ * Price detail for one card. This used to be a right-hand Sheet that covered
+ * the results it was meant to be compared against; it is now an inline pane the
+ * list renders beside (or above) itself, with its own close control.
+ */
 export function CardPriceDetail({
   card,
-  isOpen,
   onClose,
   showFoil = false,
   onAddToWatchlist,
@@ -120,10 +125,10 @@ export function CardPriceDetail({
   }, [card.scryfallData?.prints_search_uri, showFoil]);
 
   useEffect(() => {
-    if (isOpen && card) {
+    if (card) {
       loadAllPrintings();
     }
-  }, [isOpen, card, loadAllPrintings]);
+  }, [card, loadAllPrintings]);
 
   const displayPrice = showFoil ? card.tcgplayerFoilPrice : card.tcgplayerPrice;
   const manaCost: string | undefined =
@@ -139,22 +144,26 @@ export function CardPriceDetail({
     : [];
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="pb-4">
-          <SheetTitle>Price details</SheetTitle>
-        </SheetHeader>
+    <section className="rounded-lg bg-card p-4 shadow-lg shadow-black/20">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">Price details</h2>
+        <Button variant="ghost" size="sm" onClick={onClose} className="gap-1">
+          <X className="h-4 w-4" />
+          Close
+        </Button>
+      </div>
 
-        <div className="space-y-6">
+      <div className="space-y-6">
           {/* Card Info */}
           <div className="flex gap-4">
-            {card.image_uri && (
-              <img
-                src={card.image_uri}
-                alt={card.name}
-                className="h-auto w-32 shrink-0 rounded-lg border border-border"
-              />
-            )}
+            {/* This pane is where the card is looked AT, so it gets the
+                large print and a flip control if it has a back face. */}
+            <CardImage
+              card={card.scryfallData ?? { name: card.name, image_uris: { large: card.image_uri } }}
+              width={160}
+              interactive={false}
+              className="shrink-0"
+            />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-semibold text-foreground">{card.name}</h2>
@@ -170,7 +179,9 @@ export function CardPriceDetail({
                     <span className="text-2xl font-semibold tabular-nums text-foreground">
                       ${displayPrice.toFixed(2)}
                     </span>
-                    <Badge variant="outline">TCGplayer{showFoil ? ' foil' : ''}</Badge>
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      TCGplayer{showFoil ? ' foil' : ''}
+                    </span>
                   </>
                 ) : (
                   <span className="text-muted-foreground">No price data</span>
@@ -178,12 +189,12 @@ export function CardPriceDetail({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => onAddToWatchlist?.(card)}>
+                <Button variant="secondary" size="sm" onClick={() => onAddToWatchlist?.(card)}>
                   <Star className="mr-1 h-4 w-4" />
                   Watch
                 </Button>
                 {onAddToShoppingList && (
-                  <Button variant="outline" size="sm" onClick={() => onAddToShoppingList(card)}>
+                  <Button variant="secondary" size="sm" onClick={() => onAddToShoppingList(card)}>
                     <Plus className="mr-1 h-4 w-4" />
                     Add to list
                   </Button>
@@ -224,7 +235,7 @@ export function CardPriceDetail({
               <CardContent>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {stats.map(stat => (
-                    <div key={stat.label} className="rounded-lg border border-border p-3">
+                    <div key={stat.label} className="rounded-lg bg-muted/40 p-3">
                       <p className="text-xs text-muted-foreground">{stat.label}</p>
                       <p className="text-lg font-semibold tabular-nums text-foreground">
                         ${stat.value.toFixed(2)}
@@ -260,7 +271,7 @@ export function CardPriceDetail({
               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                 <Package className="h-4 w-4 text-muted-foreground" />
                 All printings ({allPrintings.length})
-                <Badge variant="outline" className="ml-auto font-normal">
+                <Badge variant="secondary" className="ml-auto font-normal">
                   Cheapest first
                 </Badge>
               </CardTitle>
@@ -284,8 +295,8 @@ export function CardPriceDetail({
                         href={printing.tcgplayerUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-accent ${
-                          isCheapest ? 'border-foreground' : 'border-border'
+                        className={`flex items-center justify-between gap-3 rounded-lg p-3 transition-colors ${
+                          isCheapest ? 'bg-primary text-primary-foreground' : 'bg-muted/40 hover:bg-muted'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
@@ -330,7 +341,7 @@ export function CardPriceDetail({
             </CardContent>
           </Card>
 
-          <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <div className="rounded-lg bg-muted/50 p-4">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
@@ -339,8 +350,7 @@ export function CardPriceDetail({
               </p>
             </div>
           </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </section>
   );
 }

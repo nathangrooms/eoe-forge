@@ -66,9 +66,9 @@ export function BulkActionsToolbar({
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex flex-col items-start justify-between gap-3 rounded-lg border border-border bg-secondary px-4 py-3 text-secondary-foreground sm:flex-row sm:items-center">
+      <div className="sticky top-0 z-30 flex flex-col items-start justify-between gap-3 rounded-lg bg-secondary px-4 py-3 text-secondary-foreground sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="px-2 py-1 text-sm font-semibold">
+          <Badge variant="secondary" className="px-2 py-1 text-sm font-semibold">
             {selectedCount} selected
           </Badge>
           {typeof selectedValue === 'number' && selectedValue > 0 && (
@@ -85,7 +85,7 @@ export function BulkActionsToolbar({
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="secondary" size="sm">
                 Quantity
                 <ChevronDown className="ml-1 h-4 w-4" />
               </Button>
@@ -105,7 +105,7 @@ export function BulkActionsToolbar({
           {storageContainers.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   <Package className="mr-1 h-4 w-4" />
                   Assign storage
                   <ChevronDown className="ml-1 h-4 w-4" />
@@ -155,7 +155,7 @@ export function BulkActionsToolbar({
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuantityDialog(false)}>
+            <Button variant="secondary" onClick={() => setShowQuantityDialog(false)}>
               Cancel
             </Button>
             <Button onClick={handleQuantitySubmit}>Confirm</Button>

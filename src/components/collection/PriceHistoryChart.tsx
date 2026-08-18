@@ -158,7 +158,7 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
           </CardDescription>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" onClick={captureSnapshot} disabled={capturing}>
+          <Button variant="secondary" size="sm" onClick={captureSnapshot} disabled={capturing}>
             <RefreshCw className={`h-4 w-4 ${capturing ? 'animate-spin' : ''}`} aria-hidden="true" />
             <span className="ml-1 hidden sm:inline">
               {capturing ? 'Capturing…' : 'Capture now'}
@@ -196,7 +196,7 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
       <Card>
         {header}
         <CardContent>
-          <div className="flex h-[300px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
+          <div className="flex h-[300px] flex-col items-center justify-center gap-3 rounded-lg p-6 text-center">
             <LineChartIcon className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <div>
               <p className="font-medium text-foreground">

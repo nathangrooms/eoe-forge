@@ -15,6 +15,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { CardImage } from '@/components/cards';
 
 interface WatchlistItem {
   id: string;
@@ -145,24 +146,16 @@ export function PriceWatchlist({
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    atTarget
-                      ? 'border-foreground bg-accent'
-                      : 'border-border hover:bg-muted/50'
+                  className={`flex items-center gap-3 rounded-lg p-3 transition-colors ${
+                    atTarget ? 'bg-muted' : 'bg-muted/20 hover:bg-muted/50'
                   }`}
                 >
-                  {item.image_uri ? (
-                    <img
-                      src={item.image_uri}
-                      alt={item.name}
-                      className="h-14 w-auto rounded shadow-sm"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-14 w-10 bg-muted rounded flex items-center justify-center">
-                      <Star className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
+                  <CardImage
+                    card={{ name: item.name, image_uris: { large: item.image_uri } }}
+                    width={46}
+                    hideFlip
+                    interactive={false}
+                  />
 
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{item.name}</p>
@@ -177,8 +170,8 @@ export function PriceWatchlist({
 
                       {item.priceChange !== undefined && (
                         <Badge
-                          variant="outline"
-                          className="text-xs tabular-nums"
+                          variant="secondary"
+                          className="border-0 text-xs tabular-nums"
                         >
                           {item.priceChange >= 0 ? (
                             <TrendingUp className="h-3 w-3 mr-0.5" />
@@ -191,8 +184,8 @@ export function PriceWatchlist({
 
                       {item.targetPrice && (
                         <Badge
-                          variant="outline"
-                          className={atTarget ? 'border-foreground text-foreground' : 'text-muted-foreground'}
+                          variant="secondary"
+                          className={atTarget ? 'border-0 text-foreground' : 'border-0 text-muted-foreground'}
                         >
                           <Target className="h-3 w-3 mr-0.5" />
                           ${item.targetPrice.toFixed(2)}

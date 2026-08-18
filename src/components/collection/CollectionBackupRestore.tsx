@@ -221,14 +221,14 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
           <Button
             onClick={createBackup}
             disabled={creating || restoring}
-            variant="outline"
+            variant="secondary"
           >
             <Download className="h-4 w-4 mr-2" />
             {creating ? 'Creating...' : 'Create Backup'}
           </Button>
           
           <Button
-            variant="outline"
+            variant="secondary"
             disabled={creating || restoring}
             asChild
           >
@@ -247,7 +247,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         </div>
 
         {/* Info */}
-        <div className="p-3 rounded-lg border bg-muted/50 space-y-2 text-sm">
+        <div className="p-3 rounded-lg bg-muted/50 space-y-2 text-sm">
           <div className="flex items-start gap-2">
             <CheckCircle className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <div>
@@ -262,7 +262,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
         </div>
 
         {/* Warning */}
-        <div className="rounded-lg border border-border bg-muted/40 p-3">
+        <div className="rounded-lg bg-muted/40 p-3">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <div className="text-xs space-y-1">
@@ -287,7 +287,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
                 {backups.map((backup) => (
                   <div
                     key={backup.id}
-                    className="p-3 rounded-lg border bg-card"
+                    className="p-3 rounded-lg bg-card"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -296,7 +296,7 @@ export function CollectionBackupRestore({ userId }: CollectionBackupRestoreProps
                           <span className="font-medium text-sm">
                             {backup.cardCount} cards
                           </span>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="secondary" className="text-xs">
                             {backup.fileSize}
                           </Badge>
                         </div>

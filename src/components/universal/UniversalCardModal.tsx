@@ -1,15 +1,16 @@
-import { UniversalCardModal as CardDetailModal } from '@/components/enhanced/UniversalCardModal';
+import { CardDetailPane } from '@/components/cards/CardDetailPane';
 
 /**
- * Adapter, not a second card-detail experience.
+ * Compatibility shim over the inline card-detail pane.
  *
  * There used to be two components both exported as `UniversalCardModal` with
- * incompatible props and different tab sets, so clicking the same card from a
- * storage box and from search opened two visibly different dialogs — one of
- * which shipped a "Prints" tab that said "Loading other printings…" forever and
- * a "Synergy analysis coming soon…" tab. This file now keeps only the
- * `open`/`onOpenChange` prop contract its callers use and renders the single
- * real modal.
+ * incompatible props, so the same card looked different depending on whether
+ * you clicked it in a storage box or in search. That was reconciled to one
+ * dialog; the dialog is now gone too. This keeps the `open`/`onOpenChange`
+ * prop names its callers use and renders the in-layout pane instead — nothing
+ * dims, nothing traps focus, and the list behind it stays usable.
+ *
+ * @deprecated Use `CardDetailPane` from `@/components/cards`, or `/cards/:id`.
  */
 interface UniversalCardModalProps {
   card: any;
@@ -19,6 +20,7 @@ interface UniversalCardModalProps {
   onCardWishlist?: (card: any) => void;
   showAddButton?: boolean;
   showWishlistButton?: boolean;
+  className?: string;
 }
 
 export function UniversalCardModal({
@@ -29,14 +31,19 @@ export function UniversalCardModal({
   onCardWishlist,
   showAddButton = true,
   showWishlistButton = false,
+  className,
 }: UniversalCardModalProps) {
+  if (!open || !card) return null;
+
   return (
-    <CardDetailModal
+    <CardDetailPane
       card={card}
-      isOpen={open}
       onClose={() => onOpenChange(false)}
       onAddToCollection={showAddButton ? onCardAdd : undefined}
       onAddToWishlist={showWishlistButton ? onCardWishlist : undefined}
+      className={className ?? 'mt-6'}
     />
   );
 }
+
+export default UniversalCardModal;

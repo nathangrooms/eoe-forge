@@ -123,7 +123,7 @@ export function PriceTrendCard() {
           </Button>
         </div>
 
-        <div className="mt-2 inline-flex rounded-md border border-border p-0.5">
+        <div className="mt-2 inline-flex rounded-md p-0.5">
           <Button
             variant={activeTab === 'gainers' ? 'secondary' : 'ghost'}
             size="sm"
@@ -176,7 +176,7 @@ export function PriceTrendCard() {
                     ${card.firstPrice.toFixed(2)} → ${card.lastPrice.toFixed(2)}
                   </p>
                 </div>
-                <Badge variant="outline" className="shrink-0 tabular-nums">
+                <Badge variant="secondary" className="shrink-0 tabular-nums">
                   {card.changePercent > 0 ? '+' : ''}
                   {card.changePercent.toFixed(1)}%
                 </Badge>
@@ -196,7 +196,7 @@ export function PriceTrendCard() {
           </div>
         )}
 
-        <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+        <p className="mt-4 pt-3 text-xs text-muted-foreground">
           Computed from DeckMatrix daily USD price snapshots. Cards under $
           {MIN_PRICE.toFixed(2)} are excluded.
         </p>

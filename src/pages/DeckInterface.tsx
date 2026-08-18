@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
 import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
 import { DeckCardTable } from '@/components/deck/DeckCardTable';
@@ -46,14 +46,13 @@ interface DeckRecord {
 export default function DeckInterface() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
   const [deck, setDeck] = useState<DeckRecord | null>(null);
   const [cards, setCards] = useState<DeckCardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<any>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [showExport, setShowExport] = useState(false);
 
@@ -106,6 +105,13 @@ export default function DeckInterface() {
 
   const stats = useMemo(() => computeDeckStats(cards), [cards]);
   const commander = useMemo(() => cards.find(c => c.is_commander) ?? null, [cards]);
+
+  const selectedCardId = searchParams.get('card');
+  const selectedCard = useMemo(() => {
+    if (!selectedCardId) return null;
+    const row = cards.find(c => c.card_id === selectedCardId);
+    return row ? toCardObject(row) : null;
+  }, [cards, selectedCardId]);
 
   const identity = useMemo(() => {
     if (commander?.card?.color_identity?.length) return commander.card.color_identity;
@@ -169,10 +175,26 @@ export default function DeckInterface() {
     }
   };
 
+  /* The open card lives in the URL rather than in component state, so browser
+     Back closes the detail pane and a deck link can carry a card with it. */
   const openCard = (row: DeckCardRow) => {
-    setSelectedCard(toCardObject(row));
-    setShowCardModal(true);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('card', row.card_id);
+      return next;
+    });
   };
+
+  const closeCard = useCallback(() => {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('card');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
 
   if (loading) {
     return (
@@ -322,6 +344,11 @@ export default function DeckInterface() {
         </div>
       )}
 
+      <CardDetailSplit
+        pane={
+          selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
+        }
+      >
       <Tabs defaultValue="visual" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="visual">
@@ -367,12 +394,7 @@ export default function DeckInterface() {
           )}
         </TabsContent>
       </Tabs>
-
-      <UniversalCardModal
-        card={selectedCard}
-        isOpen={showCardModal}
-        onClose={() => setShowCardModal(false)}
-      />
+      </CardDetailSplit>
 
       <DeckExportDialog
         open={showExport}

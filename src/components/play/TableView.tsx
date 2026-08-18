@@ -67,25 +67,40 @@ export interface TableViewProps {
   className?: string;
 }
 
+/** Below this, a card stops being identifiable at a glance. */
+const MIN_READABLE_WIDTH = 52;
+
 interface SeatMetrics {
   cardWidth: number;
   capacity: number;
+  rows: 1 | 2;
   lifeSize: LifeBadgeSize;
 }
 
+/**
+ * How large this seat may draw a card, and whether it has the height for the
+ * usual two rows.
+ *
+ * The order matters: two rows are tried first, and a seat only drops to one
+ * when two would push cards below the size at which you can tell a Thragtusk
+ * from a Thrashing Brontodon. A row is a nicety; a legible card is the product.
+ */
 function metricsFor(contentWidth: number, contentHeight: number): SeatMetrics {
   const lifeSize: LifeBadgeSize =
     contentHeight >= 320 ? 'lg' : contentHeight >= 210 ? 'md' : 'sm';
 
   const available = Math.max(60, contentHeight - STRIP_HEIGHT[lifeSize]);
-  // Two rows of cards — non-lands and lands — have to fit in what is left, and
-  // a narrow seat must not end up with four enormous cards jammed across it.
+  const widthCap = Math.min(112, contentWidth / 4.5);
+
+  const twoRow = Math.min(widthCap, (available / 2) * CARD_RATIO);
+  const rows: 1 | 2 = twoRow >= MIN_READABLE_WIDTH ? 2 : 1;
+
   const cardWidth = Math.round(
-    Math.max(34, Math.min(112, contentWidth / 4.5, (available / 2) * CARD_RATIO))
+    Math.max(34, rows === 2 ? twoRow : Math.min(widthCap, available * CARD_RATIO))
   );
   const capacity = Math.max(3, Math.floor((contentWidth * 0.94) / (cardWidth * 1.08)));
 
-  return { cardWidth, capacity, lifeSize };
+  return { cardWidth, capacity, rows, lifeSize };
 }
 
 /**
@@ -236,6 +251,7 @@ export function TableView({
                   lifeDeltas={lifeDeltas?.[player.id]}
                   cardWidth={metrics.cardWidth}
                   rowCapacity={metrics.capacity}
+                  rows={metrics.rows}
                   lifeSize={metrics.lifeSize}
                 />
               </div>

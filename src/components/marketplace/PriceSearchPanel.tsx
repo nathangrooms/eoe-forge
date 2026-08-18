@@ -1,13 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ManaCost } from '@/components/ui/mana-cost';
 import {
   Search,
@@ -19,8 +15,13 @@ import {
   Filter,
   LayoutGrid,
   List,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { cn } from '@/lib/utils';
+import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
+import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
+import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
 
 interface PriceResult {
@@ -164,10 +165,9 @@ function toCardPriceData(card: any, showFoil: boolean): CardPriceData {
     name: card.name,
     set_name: card.set_name,
     set_code: card.set,
-    image_uri:
-      card.image_uris?.normal ||
-      card.image_uris?.small ||
-      card.card_faces?.[0]?.image_uris?.normal,
+    // The quality ladder, not `normal`: a price comparison is a *looking* task,
+    // and this URL is what the detail drawer blows up to full size.
+    image_uri: getBestCardImage(card, 'large'),
     prices,
     tcgplayerPrice: tcgPrice,
     tcgplayerFoilPrice: tcgFoilPrice,
@@ -189,10 +189,23 @@ function toCardPriceData(card: any, showFoil: boolean): CardPriceData {
   };
 }
 
+/**
+ * Price search.
+ *
+ * This used to be a name box: whatever you typed was sent to Scryfall verbatim
+ * and that was the entire query surface. It now drives the shared
+ * `CardFilterPanel`, so every facet available on the card-search pages — colour
+ * identity, mana value, format legality, rarity, set, price bounds — is
+ * available when shopping, which is exactly where a price ceiling matters most.
+ * The marketplace's own axes (foil pricing, printing variants, "hide no price")
+ * stay beside it because they are properties of the *listing*, not the card.
+ */
 export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: PriceSearchPanelProps) {
   const storedPrefs = getStoredPreferences();
 
-  const [query, setQuery] = useState('');
+  const filters = useCardFilterState();
+  const [cardWidth, setCardWidth] = useCardSize('marketplace', 200);
+
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<CardPriceData[]>([]);
@@ -200,7 +213,6 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
   const [totalCards, setTotalCards] = useState(0);
   const [selectedCard, setSelectedCard] = useState<CardPriceData | null>(null);
   const [showFoil, setShowFoil] = useState(storedPrefs.showFoil ?? false);
-  const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>(storedPrefs.sortBy ?? 'name');
   const [filterBy, setFilterBy] = useState<FilterOption>(storedPrefs.filterBy ?? 'all');
   const [hideNoPrice, setHideNoPrice] = useState(storedPrefs.hideNoPrice ?? true);
@@ -261,28 +273,37 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     [showFoil]
   );
 
-  // Debounced auto-search
+  /**
+   * `'*'` is what the builder emits for an empty state, and asking Scryfall for
+   * every card ever printed is not a search. A bare one-character name is also
+   * refused, exactly as before.
+   */
+  const searchUrl = useMemo(() => {
+    const q = filters.query;
+    const text = (filters.state.text ?? '').trim();
+    if (q === '*') return null;
+    if (filters.activeCount === 1 && text.length > 0 && text.length < 2) return null;
+
+    const url = new URL('https://api.scryfall.com/cards/search');
+    url.searchParams.set('q', q);
+    // Printings, newest first, unless the filter says otherwise — this is a
+    // price comparison, so the different printings ARE the answer.
+    url.searchParams.set('unique', filters.params.unique ?? 'prints');
+    url.searchParams.set('order', filters.params.order ?? 'released');
+    url.searchParams.set('dir', filters.params.dir ?? 'desc');
+    return url.toString();
+  }, [filters.query, filters.params, filters.state.text, filters.activeCount]);
+
   useEffect(() => {
-    if (!query.trim() || query.length < 2) {
-      if (query.length === 0) {
-        setResults([]);
-        setNextPage(null);
-        setTotalCards(0);
-      }
+    if (!searchUrl) {
+      setResults([]);
+      setNextPage(null);
+      setTotalCards(0);
       return;
     }
-
-    const timer = setTimeout(() => {
-      runSearch(
-        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(
-          query
-        )}&unique=prints&order=released&dir=desc`,
-        false
-      );
-    }, 400);
-
+    const timer = setTimeout(() => runSearch(searchUrl, false), 400);
     return () => clearTimeout(timer);
-  }, [query, runSearch]);
+  }, [searchUrl, runSearch]);
 
   const handleAddToWatchlist = (card: CardPriceData) => {
     onAddToWatchlist?.(card);
@@ -295,7 +316,6 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
 
   const handleCardClick = (card: CardPriceData) => {
     setSelectedCard(card);
-    setShowDetailPanel(true);
   };
 
   const filteredAndSortedResults = useMemo(() => {
@@ -352,332 +372,393 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     return null;
   };
 
+  const commitText = useCallback(
+    (next: string | undefined) => filters.patch({ text: next }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters.patch]
+  );
+
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Search and compare prices</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Input
-                placeholder="Start typing a card name..."
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                className="pr-10 text-base"
-                aria-label="Card name"
-              />
-              {loading ? (
-                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              ) : query ? (
-                <button
-                  onClick={() => {
-                    setQuery('');
-                    setResults([]);
-                    setNextPage(null);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : (
-                <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              )}
-            </div>
+      {/* Search + filters */}
+      <div className="space-y-4 rounded-lg bg-card p-4 shadow-lg shadow-black/20">
+        <h2 className="text-base font-semibold text-foreground">Search and compare prices</h2>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <PriceSearchBox
+            value={filters.state.text ?? ''}
+            onCommit={commitText}
+            loading={loading}
+          />
+
+          <CardFilterSheet
+            controller={filters}
+            showSort={false}
+            showChips={false}
+            trigger={
+              <Button variant="secondary" className="shrink-0 gap-2">
+                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                Filters
+                {filters.activeCount > 0 && (
+                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
+                    {filters.activeCount}
+                  </span>
+                )}
+              </Button>
+            }
+          />
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch id="foil-toggle" checked={showFoil} onCheckedChange={setShowFoil} />
+            <Label htmlFor="foil-toggle" className="text-sm">
+              Foil prices
+            </Label>
+          </div>
+        </div>
+
+        {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
+
+        {/* Listing-level controls — printings, sort, density, view. */}
+        {results.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <div className="flex items-center gap-2">
-              <Switch id="foil-toggle" checked={showFoil} onCheckedChange={setShowFoil} />
-              <Label htmlFor="foil-toggle" className="text-sm">
-                Foil prices
+              <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Select value={filterBy} onValueChange={v => setFilterBy(v as FilterOption)}>
+                <SelectTrigger className="h-8 w-[170px] border-0 bg-muted/50">
+                  <SelectValue placeholder="Filter versions" />
+                </SelectTrigger>
+                <SelectContent className="border-0">
+                  <SelectItem value="all">All versions ({results.length})</SelectItem>
+                  <SelectItem value="standard">Standard ({standardCount})</SelectItem>
+                  <SelectItem value="art-variants">Alt art ({artVariantCount})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
+                <SelectTrigger className="h-8 w-[160px] border-0 bg-muted/50">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent className="border-0">
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="price-asc">Price: low to high</SelectItem>
+                  <SelectItem value="price-desc">Price: high to low</SelectItem>
+                  <SelectItem value="set">Set name</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch id="hide-no-price" checked={hideNoPrice} onCheckedChange={setHideNoPrice} />
+              <Label htmlFor="hide-no-price" className="cursor-pointer text-xs">
+                Hide no price {noPriceCount > 0 && `(${noPriceCount})`}
               </Label>
             </div>
-          </div>
 
-          {/* Filters, sort, view mode */}
-          {results.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select value={filterBy} onValueChange={v => setFilterBy(v as FilterOption)}>
-                  <SelectTrigger className="h-8 w-[170px]">
-                    <SelectValue placeholder="Filter versions" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All versions ({results.length})</SelectItem>
-                    <SelectItem value="standard">Standard ({standardCount})</SelectItem>
-                    <SelectItem value="art-variants">Alt art ({artVariantCount})</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
-                  <SelectTrigger className="h-8 w-[160px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Name</SelectItem>
-                    <SelectItem value="price-asc">Price: low to high</SelectItem>
-                    <SelectItem value="price-desc">Price: high to low</SelectItem>
-                    <SelectItem value="set">Set name</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="hide-no-price"
-                  checked={hideNoPrice}
-                  onCheckedChange={setHideNoPrice}
+            <div className="ml-auto flex items-center gap-3">
+              {viewMode === 'grid' && (
+                <CardSizeSlider
+                  storageKey="marketplace"
+                  value={cardWidth}
+                  onValueChange={setCardWidth}
+                  showValue={false}
+                  className="hidden sm:flex"
                 />
-                <Label htmlFor="hide-no-price" className="cursor-pointer text-xs">
-                  Hide no price {noPriceCount > 0 && `(${noPriceCount})`}
-                </Label>
-              </div>
-
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={viewMode}
-                onValueChange={v => v && setViewMode(v as ViewMode)}
-                className="ml-auto"
-              >
-                <ToggleGroupItem value="grid" aria-label="Grid view">
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="List view">
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-
-              <div className="w-full text-xs text-muted-foreground sm:w-auto">
-                Showing {filteredAndSortedResults.length} of {results.length} loaded
-                {totalCards > results.length && ` · ${totalCards} printings match`}
+              )}
+              <div className="flex items-center gap-1 rounded-md bg-muted/40 p-0.5">
+                {(
+                  [
+                    { mode: 'grid' as const, icon: LayoutGrid, label: 'Card grid' },
+                    { mode: 'list' as const, icon: List, label: 'List' },
+                  ]
+                ).map(({ mode, icon: Icon, label }) => (
+                  <Button
+                    key={mode}
+                    size="icon"
+                    variant={viewMode === mode ? 'secondary' : 'ghost'}
+                    className="h-7 w-7"
+                    onClick={() => setViewMode(mode)}
+                    aria-label={label}
+                    aria-pressed={viewMode === mode}
+                    title={label}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </Button>
+                ))}
               </div>
             </div>
-          )}
 
-          {query.length > 0 && query.length < 2 && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Type at least 2 characters to search.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            <div className="w-full text-xs text-muted-foreground sm:w-auto">
+              Showing {filteredAndSortedResults.length} of {results.length} loaded
+              {totalCards > results.length && ` · ${totalCards} printings match`}
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* Loading skeleton */}
-      {loading && results.length === 0 && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="aspect-[63/88] w-full" />
-              <CardContent className="space-y-2 p-4">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Price detail — an inline pane above the results it is compared
+          against, not a Sheet sliding over them. */}
+      {selectedCard && (
+        <CardPriceDetail
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          showFoil={showFoil}
+          onAddToWatchlist={handleAddToWatchlist}
+          onAddToShoppingList={onAddToShoppingList ? handleAddToShoppingList : undefined}
+        />
       )}
+
+      {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={12} />}
 
       {/* Results — grid */}
       {!loading && filteredAndSortedResults.length > 0 && viewMode === 'grid' && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <CardGrid width={cardWidth}>
           {filteredAndSortedResults.map(card => {
             const price = priceLabel(card);
 
             return (
-              <Card
-                key={card.id}
-                className="cursor-pointer overflow-hidden transition-colors hover:border-foreground/40"
-                onClick={() => handleCardClick(card)}
-              >
-                <div className="relative bg-muted">
-                  {card.image_uri ? (
-                    <img
-                      src={card.image_uri}
-                      alt={card.name}
-                      className="aspect-[63/88] w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex aspect-[63/88] w-full items-center justify-center">
-                      <Search className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                  )}
+              <div key={card.id} className="group/price flex flex-col gap-1.5">
+                <CardImage
+                  card={card.scryfallData ?? { name: card.name, image_uris: { large: card.image_uri } }}
+                  width={cardWidth}
+                  fill
+                  onClick={() => handleCardClick(card)}
+                  title={`${card.name} — ${card.set_name}`}
+                >
                   {card.isArtVariant && (
-                    <Badge variant="secondary" className="absolute right-2 top-2 text-xs">
+                    <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                       Alt art
-                    </Badge>
+                    </span>
                   )}
-                </div>
+                  {/* Price rides the art — it is the reason this page exists. */}
+                  <span
+                    className={cn(
+                      'pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-xs font-semibold tabular-nums backdrop-blur-sm',
+                      price ? 'text-white' : 'text-white/60'
+                    )}
+                  >
+                    {price ?? 'No price'}
+                  </span>
+                </CardImage>
 
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="truncate text-sm font-medium text-foreground">{card.name}</h3>
+                <div className="flex flex-col gap-0.5 px-0.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                      {card.name}
+                    </h3>
                     {card.manaCost && <ManaCost cost={card.manaCost} size="xs" />}
                   </div>
-                  <p className="mb-2 truncate text-xs text-muted-foreground">
+                  <p className="truncate text-[11px] text-muted-foreground">
                     {card.set_name} · {card.set_code.toUpperCase()}
                   </p>
 
-                  <p className="mb-2 text-sm font-semibold tabular-nums text-foreground">
-                    {price ?? <span className="font-normal text-muted-foreground">No price data</span>}
-                  </p>
-
-                  <div className="flex gap-1.5">
+                  <div className="mt-1 flex gap-1.5">
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
-                      className="h-8 flex-1 text-xs"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleAddToWatchlist(card);
-                      }}
+                      className="h-7 flex-1 px-2 text-xs"
+                      onClick={() => handleAddToWatchlist(card)}
                     >
-                      <Star className="mr-1 h-3 w-3" />
+                      <Star className="mr-1 h-3 w-3" aria-hidden="true" />
                       Watch
                     </Button>
                     {onAddToShoppingList && (
                       <Button
                         size="sm"
-                        className="h-8 flex-1 text-xs"
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleAddToShoppingList(card);
-                        }}
+                        className="h-7 flex-1 px-2 text-xs"
+                        onClick={() => handleAddToShoppingList(card)}
                       >
-                        <Plus className="mr-1 h-3 w-3" />
+                        <Plus className="mr-1 h-3 w-3" aria-hidden="true" />
                         List
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
-        </div>
+        </CardGrid>
       )}
 
       {/* Results — table */}
       {!loading && filteredAndSortedResults.length > 0 && viewMode === 'list' && (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="px-4 py-2 font-medium">Card</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Cost</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Set</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Rarity</th>
-                  <th scope="col" className="px-4 py-2 text-right font-medium">Price</th>
-                  <th scope="col" className="px-4 py-2 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAndSortedResults.map(card => (
-                  <tr
-                    key={card.id}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-accent"
-                    onClick={() => handleCardClick(card)}
-                  >
-                    <td className="px-4 py-2">
-                      <span className="font-medium text-foreground">{card.name}</span>
-                      {card.isArtVariant && (
-                        <Badge variant="secondary" className="ml-2 text-xs">Alt art</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {card.manaCost ? <ManaCost cost={card.manaCost} size="xs" /> : '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-muted-foreground">
-                      {card.set_code.toUpperCase()}
-                    </td>
-                    <td className="px-4 py-2 capitalize text-muted-foreground">
-                      {card.rarity ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-foreground">
-                      {priceLabel(card) ?? <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-right">
+        <div className="overflow-x-auto rounded-lg bg-card shadow-lg shadow-black/20">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-muted/40">
+              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th scope="col" className="w-12 px-3 py-2 font-medium" />
+                <th scope="col" className="px-4 py-2 font-medium">Card</th>
+                <th scope="col" className="px-4 py-2 font-medium">Cost</th>
+                <th scope="col" className="px-4 py-2 font-medium">Set</th>
+                <th scope="col" className="px-4 py-2 font-medium">Rarity</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">Price</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAndSortedResults.map(card => (
+                <tr
+                  key={card.id}
+                  className="cursor-pointer transition-colors odd:bg-muted/20 hover:bg-muted/50"
+                  onClick={() => handleCardClick(card)}
+                >
+                  <td className="py-1.5 pl-3 pr-0">
+                    <CardImage
+                      card={
+                        card.scryfallData ?? {
+                          name: card.name,
+                          image_uris: { large: card.image_uri },
+                        }
+                      }
+                      width={36}
+                      hideFlip
+                      interactive={false}
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="font-medium text-foreground">{card.name}</span>
+                    {card.isArtVariant && (
+                      <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground">
+                        Alt art
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {card.manaCost ? <ManaCost cost={card.manaCost} size="xs" /> : '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-muted-foreground">
+                    {card.set_code.toUpperCase()}
+                  </td>
+                  <td className="px-4 py-2 capitalize text-muted-foreground">
+                    {card.rarity ?? '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-foreground">
+                    {priceLabel(card) ?? <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleAddToWatchlist(card);
+                      }}
+                      aria-label={`Watch ${card.name}`}
+                    >
+                      <Star className="h-3.5 w-3.5" />
+                    </Button>
+                    {onAddToShoppingList && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2"
                         onClick={e => {
                           e.stopPropagation();
-                          handleAddToWatchlist(card);
+                          handleAddToShoppingList(card);
                         }}
-                        aria-label={`Watch ${card.name}`}
+                        aria-label={`Add ${card.name} to shopping list`}
                       >
-                        <Star className="h-3.5 w-3.5" />
+                        <Plus className="h-3.5 w-3.5" />
                       </Button>
-                      {onAddToShoppingList && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleAddToShoppingList(card);
-                          }}
-                          aria-label={`Add ${card.name} to shopping list`}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* Pagination */}
       {!loading && nextPage && (
         <div className="flex justify-center">
-          <Button variant="outline" onClick={() => runSearch(nextPage, true)} disabled={loadingMore}>
-            {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button variant="secondary" onClick={() => runSearch(nextPage, true)} disabled={loadingMore}>
+            {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             Load more printings
           </Button>
         </div>
       )}
 
-      {!loading && results.length === 0 && query.length >= 2 && (
-        <Card className="p-12 text-center">
-          <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+      {!loading && results.length === 0 && searchUrl && (
+        <div className="rounded-lg bg-muted/30 p-12 text-center">
+          <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
           <h3 className="mb-2 text-lg font-medium text-foreground">No cards found</h3>
           <p className="text-sm text-muted-foreground">Try a different search term.</p>
-        </Card>
+        </div>
       )}
 
       {!loading && results.length > 0 && filteredAndSortedResults.length === 0 && (
-        <Card className="p-12 text-center">
+        <div className="rounded-lg bg-muted/30 p-12 text-center">
           <h3 className="mb-2 text-lg font-medium text-foreground">
             Every result is filtered out
           </h3>
           <p className="text-sm text-muted-foreground">
             Loosen the version filter or turn off &ldquo;hide no price&rdquo;.
           </p>
-        </Card>
+        </div>
       )}
 
-      {/* Price Detail Panel */}
-      {selectedCard && (
-        <CardPriceDetail
-          card={selectedCard}
-          isOpen={showDetailPanel}
-          onClose={() => setShowDetailPanel(false)}
-          showFoil={showFoil}
-          onAddToWatchlist={handleAddToWatchlist}
-          onAddToShoppingList={onAddToShoppingList ? handleAddToShoppingList : undefined}
-        />
+    </div>
+  );
+}
+
+/** Debounced name/syntax box. The request itself is debounced downstream too. */
+function PriceSearchBox({
+  value,
+  onCommit,
+  loading,
+}: {
+  value: string;
+  onCommit: (next: string | undefined) => void;
+  loading: boolean;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [committed, setCommitted] = useState(value);
+
+  useEffect(() => {
+    if (value !== committed) {
+      setCommitted(value);
+      setDraft(value);
+    }
+    // Adopts external changes (chip removal, clear all) without stomping typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (draft === committed) return;
+    const id = window.setTimeout(() => {
+      setCommitted(draft);
+      onCommit(draft.trim() ? draft : undefined);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [draft, committed, onCommit]);
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <Input
+        placeholder="Card name, or Scryfall syntax"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        spellCheck={false}
+        className="border-0 bg-muted/50 pr-10 text-base focus-visible:ring-1 focus-visible:ring-offset-0"
+        aria-label="Card name"
+      />
+      {loading ? (
+        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      ) : draft ? (
+        <button
+          type="button"
+          onClick={() => setDraft('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Clear search"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       )}
     </div>
   );

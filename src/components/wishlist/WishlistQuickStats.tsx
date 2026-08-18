@@ -54,18 +54,35 @@ export function WishlistQuickStats({ items }: WishlistQuickStatsProps) {
         <div
           key={stat.label}
           className={cn(
-            'flex items-center gap-3 rounded-lg border bg-card p-4',
-            stat.highlight ? 'border-foreground' : 'border-border'
+            // A tile that matters is raised, not outlined.
+            'flex items-center gap-3 rounded-lg p-4 shadow-lg shadow-black/20',
+            stat.highlight ? 'bg-primary text-primary-foreground' : 'bg-card'
           )}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <stat.icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <div
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+              stat.highlight ? 'bg-primary-foreground/15' : 'bg-muted'
+            )}
+          >
+            <stat.icon
+              className={cn(
+                'h-5 w-5',
+                stat.highlight ? 'text-primary-foreground' : 'text-muted-foreground'
+              )}
+              aria-hidden="true"
+            />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xs text-muted-foreground">{stat.label}</p>
-            <p className="truncate text-lg font-bold tabular-nums text-card-foreground">
-              {stat.value}
+            <p
+              className={cn(
+                'truncate text-xs',
+                stat.highlight ? 'text-primary-foreground/80' : 'text-muted-foreground'
+              )}
+            >
+              {stat.label}
             </p>
+            <p className="truncate text-lg font-bold tabular-nums">{stat.value}</p>
           </div>
         </div>
       ))}

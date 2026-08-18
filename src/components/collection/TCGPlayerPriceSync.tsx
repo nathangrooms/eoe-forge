@@ -252,7 +252,7 @@ export function TCGPlayerPriceSync() {
         )}
 
         {/* Info */}
-        <div className="text-xs text-muted-foreground border-t pt-4">
+        <div className="text-xs text-muted-foreground pt-4">
           <p className="mb-1">
             <strong>Note:</strong> Prices are fetched from Scryfall which aggregates TCGPlayer data.
           </p>

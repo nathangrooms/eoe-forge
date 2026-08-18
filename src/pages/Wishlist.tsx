@@ -558,6 +558,18 @@ export default function Wishlist() {
   const activeFilterCount = filters.activeCount + (priorityFilter === 'all' ? 0 : 1);
   const hasActiveFilter = activeFilterCount > 0;
 
+  /**
+   * Keyed on `filters.patch` — which `useCardFilterState` keeps stable — rather
+   * than on the controller object, which is rebuilt every render. WishlistSearchBox
+   * debounces inside an effect keyed on this callback, so a new identity per render
+   * would reset the 250ms timer before it ever fired.
+   */
+  const { patch: patchFilters } = filters;
+  const commitFilterText = useCallback(
+    (next: string | undefined) => patchFilters({ text: next }),
+    [patchFilters]
+  );
+
   const clearFilters = useCallback(() => {
     setPriorityFilter('all');
     filters.reset();
@@ -579,7 +591,7 @@ export default function Wishlist() {
             </p>
           </div>
 
-          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={wishlistItems.length === 0}>
+          <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={wishlistItems.length === 0}>
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export
           </Button>

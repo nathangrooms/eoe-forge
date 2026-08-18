@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Package, Archive, DollarSign, AlertCircle, Box, Eye, Layers } from 'lucide-react';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { StorageOverview as StorageOverviewType, StorageContainer } from '@/types/storage';
-import { CreateContainerDialog } from './CreateContainerDialog';
+import { CreateContainerPanel } from './CreateContainerPanel';
 import { showError } from '@/components/ui/toast-helpers';
 import { formatPrice } from '@/components/collection/browser/types';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ export function StorageManagement({
 }: StorageManagementProps) {
   const [overview, setOverview] = useState<StorageOverviewType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [initialType, setInitialType] = useState<string | undefined>();
 
   const loadOverview = async () => {
@@ -50,7 +50,12 @@ export function StorageManagement({
 
   const openCreate = (type?: string) => {
     setInitialType(type);
-    setShowCreateDialog(true);
+    setCreating(true);
+  };
+
+  const closeCreate = () => {
+    setCreating(false);
+    setInitialType(undefined);
   };
 
   if (loading) {
@@ -108,7 +113,7 @@ export function StorageManagement({
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card px-4 py-5 md:px-6">
+      <div className="bg-card px-4 py-5 shadow-lg shadow-black/20 md:px-6">
         <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Storage</h2>
@@ -116,7 +121,11 @@ export function StorageManagement({
               Where each physical card actually lives
             </p>
           </div>
-          <Button onClick={() => openCreate()} className="gap-2">
+          <Button
+            onClick={() => (creating ? closeCreate() : openCreate())}
+            aria-expanded={creating}
+            className="gap-2"
+          >
             <Plus className="h-4 w-4" aria-hidden="true" />
             New container
           </Button>
@@ -143,7 +152,7 @@ export function StorageManagement({
         </div>
 
         {unassignedCount > 0 && (
-          <Card className="mt-4 border-border bg-muted/40">
+          <Card className="mt-4 border-0 bg-muted/40 shadow-none">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
@@ -173,11 +182,23 @@ export function StorageManagement({
           )}
         </div>
 
+        {creating && (
+          <CreateContainerPanel
+            key={initialType ?? 'default'}
+            initialType={initialType}
+            onCancel={closeCreate}
+            onSuccess={() => {
+              closeCreate();
+              loadOverview();
+            }}
+          />
+        )}
+
         {containers.length === 0 ? (
-          <Card className="border border-dashed border-border">
+          <Card className="border-0 bg-card">
             <CardContent className="px-6 py-16">
               <div className="mx-auto max-w-md space-y-6 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                   <Package className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                 </div>
 
@@ -196,7 +217,7 @@ export function StorageManagement({
                       key={type.id}
                       type="button"
                       onClick={() => openCreate(type.id)}
-                      className="group rounded-lg border border-border bg-card p-3 text-center transition-colors hover:border-foreground/40 hover:bg-accent"
+                      className="group rounded-lg bg-muted/40 p-3 text-center transition-colors hover:bg-accent"
                     >
                       <type.icon
                         className="mx-auto mb-1 h-6 w-6 text-muted-foreground group-hover:text-foreground"
@@ -217,14 +238,14 @@ export function StorageManagement({
                 <Card
                   key={container.id}
                   className={cn(
-                    'cursor-pointer transition-colors hover:border-foreground/40',
-                    isSelected && 'border-foreground'
+                    'cursor-pointer border-0 shadow-md shadow-black/20 transition-colors hover:bg-accent/40',
+                    isSelected && 'bg-accent'
                   )}
                   onClick={() => onContainerSelect(container)}
                 >
                   <CardContent className="p-5">
                     <div className="mb-4 flex items-start gap-3">
-                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
                         <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -277,17 +298,6 @@ export function StorageManagement({
           </div>
         )}
       </div>
-
-      <CreateContainerDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        initialType={initialType}
-        onSuccess={() => {
-          setShowCreateDialog(false);
-          setInitialType(undefined);
-          loadOverview();
-        }}
-      />
     </div>
   );
 }

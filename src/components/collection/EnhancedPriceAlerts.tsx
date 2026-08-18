@@ -199,7 +199,7 @@ export function EnhancedPriceAlerts() {
                   />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button variant="secondary" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
                   <Button onClick={createAlert}>

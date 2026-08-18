@@ -15,8 +15,9 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,20 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { StorageQuickActions } from './StorageQuickActions';
-import { EditContainerDialog } from './EditContainerDialog';
 import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
@@ -91,14 +80,18 @@ export function StorageContainerView({
   onContainerDeleted,
   onContainerUpdated,
 }: StorageContainerViewProps) {
+  const navigate = useNavigate();
   const [container, setContainer] = useState(initialContainer);
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showQuickActions, setShowQuickActions] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedCard, setSelectedCard] = useState<BrowserCard | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  /** In-place rename — the header title becomes the field, no overlay. */
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(initialContainer.name);
+  const [savingName, setSavingName] = useState(false);
+  /** In-place delete confirmation — the action row swaps, nothing dims. */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -158,12 +151,36 @@ export function StorageContainerView({
     else await handleUnassign(item, Math.abs(delta));
   };
 
+  const handleRename = async () => {
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === container.name) {
+      setRenaming(false);
+      setDraftName(container.name);
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      const updated = await StorageAPI.updateContainer(container.id, { name: trimmed });
+      setContainer(updated);
+      onContainerUpdated?.(updated);
+      setRenaming(false);
+      showSuccess('Saved', `Container renamed to ${updated.name}`);
+    } catch (error) {
+      showError('Error', error instanceof Error ? error.message : 'Failed to update container');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const quickAddPath = `/collection/storage/${container.id}/add`;
+
   const handleDeleteContainer = async () => {
     try {
       setDeleting(true);
       await StorageAPI.deleteContainer(container.id);
       showSuccess('Deleted', `${container.name} has been deleted`);
-      setShowDeleteDialog(false);
+      setConfirmingDelete(false);
       onContainerDeleted?.();
       onBack();
     } catch (error) {
@@ -237,24 +254,62 @@ export function StorageContainerView({
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card px-3 py-4 md:px-6 md:py-5">
+      <div className="bg-card px-3 py-4 shadow-lg shadow-black/20 md:px-6 md:py-5">
         <div className="mb-4 flex flex-col justify-between gap-3 md:gap-4 lg:flex-row lg:items-center">
           <div className="flex items-center gap-3 md:gap-4">
-            <Button variant="outline" onClick={onBack} size="sm" className="shrink-0 gap-2">
+            <Button variant="secondary" onClick={onBack} size="sm" className="shrink-0 gap-2">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
             </Button>
             <div className="flex min-w-0 items-center gap-2 md:gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted md:h-12 md:w-12">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted md:h-12 md:w-12">
                 <Package className="h-5 w-5 text-muted-foreground md:h-6 md:w-6" aria-hidden="true" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-lg font-bold text-foreground md:text-2xl">
-                    {container.name}
-                  </h1>
-                  {items.length === 0 && !loading && (
-                    <Badge variant="outline" className="shrink-0">
+                  {renaming ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={draftName}
+                        onChange={e => setDraftName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleRename();
+                          }
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setDraftName(container.name);
+                            setRenaming(false);
+                          }
+                        }}
+                        aria-label="Container name"
+                        autoFocus
+                        disabled={savingName}
+                        className="h-9 w-48 border-0 bg-muted/50 text-lg font-bold md:w-64 md:text-2xl"
+                      />
+                      <Button size="sm" onClick={handleRename} disabled={savingName}>
+                        {savingName ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={savingName}
+                        onClick={() => {
+                          setDraftName(container.name);
+                          setRenaming(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <h1 className="truncate text-lg font-bold text-foreground md:text-2xl">
+                      {container.name}
+                    </h1>
+                  )}
+                  {items.length === 0 && !loading && !renaming && (
+                    <Badge variant="secondary" className="shrink-0">
                       Empty
                     </Badge>
                   )}
@@ -264,7 +319,7 @@ export function StorageContainerView({
                     {container.type}
                   </Badge>
                   {container.deck_id && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="secondary" className="text-xs">
                       Deck-linked
                     </Badge>
                   )}
@@ -273,23 +328,50 @@ export function StorageContainerView({
             </div>
           </div>
 
+          {confirmingDelete ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
+              <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
+              <span className="text-sm font-medium text-foreground">
+                {items.length > 0
+                  ? `Remove its ${totalCards} card${totalCards === 1 ? '' : 's'} first`
+                  : `Delete ${container.name}?`}
+              </span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleDeleteContainer}
+                disabled={items.length > 0 || deleting}
+              >
+                {deleting ? 'Deleting...' : 'Confirm'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
           <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" size="sm" onClick={loadItems} className="gap-1">
+            <Button variant="secondary" size="sm" onClick={loadItems} className="gap-1">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="secondary" size="sm" className="gap-1">
                   <Settings2 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Manage</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2" onClick={() => setShowEditDialog(true)}>
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => {
+                    setDraftName(container.name);
+                    setRenaming(true);
+                  }}
+                >
                   <Edit className="h-4 w-4" aria-hidden="true" />
-                  Edit container
+                  Rename container
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="gap-2"
@@ -302,7 +384,7 @@ export function StorageContainerView({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="gap-2 text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => setConfirmingDelete(true)}
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Delete container
@@ -318,9 +400,11 @@ export function StorageContainerView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2" onClick={() => setShowQuickActions(true)}>
-                  <Search className="h-4 w-4" aria-hidden="true" />
-                  Search manually
+                <DropdownMenuItem asChild>
+                  <Link to={quickAddPath} className="flex items-center gap-2">
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                    Search manually
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/scan" className="flex items-center gap-2">
@@ -331,6 +415,7 @@ export function StorageContainerView({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          )}
         </div>
 
         {/* Stats */}
@@ -390,30 +475,10 @@ export function StorageContainerView({
             onQuantityChange={handleQuantityChange}
             emptyTitle="This container is empty"
             emptyDescription="Add cards from your collection, or scan them in."
-            emptyAction={{ label: 'Add cards', onClick: () => setShowQuickActions(true) }}
+            emptyAction={{ label: 'Add cards', onClick: () => navigate(quickAddPath) }}
           />
         )}
       </div>
-
-      <StorageQuickActions
-        isOpen={showQuickActions}
-        onClose={() => setShowQuickActions(false)}
-        containerId={container.id}
-        onSuccess={() => {
-          setShowQuickActions(false);
-          loadItems();
-        }}
-      />
-
-      <EditContainerDialog
-        container={container}
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        onSaved={updated => {
-          setContainer(updated);
-          onContainerUpdated?.(updated);
-        }}
-      />
 
       <UniversalCardModal
         card={selectedCard ? { ...selectedCard, id: selectedCard.cardId, set_code: selectedCard.setCode } : null}
@@ -422,35 +487,6 @@ export function StorageContainerView({
         showWishlistButton={false}
       />
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
-              Delete container
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Delete &ldquo;{container.name}&rdquo;? This cannot be undone.
-              {items.length > 0 && (
-                <span className="mt-2 block font-medium text-destructive">
-                  This container still holds {totalCards} card{totalCards === 1 ? '' : 's'}.
-                  Remove them first.
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteContainer}
-              disabled={items.length > 0 || deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? 'Deleting…' : 'Delete container'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

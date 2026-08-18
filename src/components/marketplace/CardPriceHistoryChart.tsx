@@ -130,7 +130,7 @@ export function CardPriceHistoryChart({
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             Price History (30 Days)
             {hasRealData && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="secondary" className="text-xs">
                 <Database className="h-3 w-3 mr-1" />
                 Live data
               </Badge>
@@ -138,7 +138,7 @@ export function CardPriceHistoryChart({
           </CardTitle>
           {priceChange && (
             <Badge
-              variant="outline"
+              variant="secondary"
               className="tabular-nums"
             >
               {priceChange.direction === 'up' ? (
@@ -205,7 +205,7 @@ export function CardPriceHistoryChart({
         )}
 
         {hasRealData && priceHistory.length < 7 && (
-          <div className="mt-2 pt-2 border-t border-border flex items-center justify-between">
+          <div className="mt-2 pt-2 flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
               {priceHistory.length} data point{priceHistory.length !== 1 ? 's' : ''} - chart improves with more history
             </p>

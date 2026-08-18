@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
-import { NewDeckDialog } from './NewDeckDialog';
 
 /**
  * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
@@ -17,7 +16,6 @@ import { NewDeckDialog } from './NewDeckDialog';
 export function TopNavigation() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [newDeckOpen, setNewDeckOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Ctrl/Cmd+K focuses the header search. Nothing else in the app binds it
@@ -132,21 +130,19 @@ export function TopNavigation() {
           </Button>
 
           {/* `/deck-builder` with no `?deck=` redirects to the deck list, so this
-              button used to promise a new deck and deliver the list instead. */}
-          <Button
-            size="sm"
-            className="hidden h-9 md:inline-flex"
-            onClick={() => setNewDeckOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            New deck
+              button used to promise a new deck and deliver the list instead. It
+              now goes to the `/decks/new` route — a real link, so it can be
+              middle-clicked and browser Back leaves it. */}
+          <Button size="sm" className="hidden h-9 md:inline-flex" asChild>
+            <Link to="/decks/new">
+              <Plus className="h-4 w-4" />
+              New deck
+            </Link>
           </Button>
 
           <AccountMenu />
         </div>
       </div>
-
-      <NewDeckDialog open={newDeckOpen} onOpenChange={setNewDeckOpen} />
     </header>
   );
 }

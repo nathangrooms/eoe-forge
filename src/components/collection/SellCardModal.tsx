@@ -118,7 +118,7 @@ export function SellCardModal({
               <h3 className="font-medium">{card?.name}</h3>
               <p className="text-sm text-muted-foreground">{card?.set_name}</p>
               <div className="flex gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="secondary" className="text-xs">
                   Owned: {ownedQuantity} regular, {ownedFoil} foil
                 </Badge>
               </div>
@@ -220,7 +220,7 @@ export function SellCardModal({
             <div className="flex gap-2 pt-4">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setFormData(prev => ({ ...prev, status: 'draft' }))}
                 disabled={isSubmitting}
                 className="flex-1"

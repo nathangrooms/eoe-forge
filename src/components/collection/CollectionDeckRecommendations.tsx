@@ -164,12 +164,12 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
         ) : (
           <div className="space-y-4">
             {recommendations.map((rec) => (
-              <div key={rec.id} className="p-4 rounded-lg border bg-card space-y-3">
+              <div key={rec.id} className="p-4 rounded-lg bg-card space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold truncate">{rec.name}</h3>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="secondary" className="text-xs">
                         {rec.format}
                       </Badge>
                     </div>
@@ -183,7 +183,7 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
                   </div>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handleViewDeck(rec.id)}
                   >
                     View

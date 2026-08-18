@@ -11,12 +11,13 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import Collection from "./pages/Collection";
 import Homepage from "./pages/Homepage";
 import Dashboard from "./pages/Dashboard";
-import DashboardPreviewTemp from "./pages/__DashboardPreview";
 import Scan from "./pages/Scan";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
+import NewDeck from "./pages/NewDeck";
 import Templates from "./pages/Templates";
 import Cards from "./pages/Cards";
+import CardDetailPage from "./pages/CardDetail";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -86,7 +87,9 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ResetPassword />} />
         <Route path="/p/:slug" element={<PublicDeck />} />
-        <Route path="/__dashboard-preview" element={<DashboardPreviewTemp />} />
+        {/* Card detail is public Scryfall data, so a card link shared out of a
+            public deck resolves instead of bouncing a visitor to the homepage. */}
+        <Route path="/cards/:id" element={<CardDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -126,6 +129,7 @@ function AppContent() {
             <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
             <Route path="/decks" element={<ProtectedRoute><Decks /></ProtectedRoute>} />
+            <Route path="/decks/new" element={<ProtectedRoute><NewDeck /></ProtectedRoute>} />
             <Route path="/precons" element={<ProtectedRoute><Precons /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
@@ -136,6 +140,7 @@ function AppContent() {
             <Route path="/brain" element={<ProtectedRoute><Brain /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
+            <Route path="/cards/:id" element={<ProtectedRoute><CardDetailPage /></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/play" element={<ProtectedRoute><Play /></ProtectedRoute>} />
             <Route path="/simulate" element={<ProtectedRoute><Simulate /></ProtectedRoute>} />

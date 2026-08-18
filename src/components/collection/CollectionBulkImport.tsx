@@ -223,7 +223,7 @@ export function CollectionBulkImport({
 
   return (
     <>
-      <Button variant="outline" size="sm" className="gap-2" onClick={() => setOpen(true)}>
+      <Button variant="secondary" size="sm" className="gap-2" onClick={() => setOpen(true)}>
         <Upload className="h-4 w-4" aria-hidden="true" />
         <span className="hidden sm:inline">Import</span>
       </Button>
@@ -272,7 +272,7 @@ export function CollectionBulkImport({
             </div>
 
             {failures.length > 0 && (
-              <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+              <div className="space-y-2 rounded-lg bg-destructive/5 p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-destructive">
                   <AlertCircle className="h-4 w-4" aria-hidden="true" />
                   {failures.length} line{failures.length === 1 ? '' : 's'} could not be matched
@@ -285,7 +285,7 @@ export function CollectionBulkImport({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="flex items-center justify-between pt-4">
               <div className="text-sm text-muted-foreground">
                 <FileText className="mr-2 inline h-4 w-4" aria-hidden="true" />
                 {importing && progress.total > 0
@@ -293,7 +293,7 @@ export function CollectionBulkImport({
                   : `${lineCount} line${lineCount === 1 ? '' : 's'}`}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setOpen(false)} disabled={importing}>
+                <Button variant="secondary" onClick={() => setOpen(false)} disabled={importing}>
                   Cancel
                 </Button>
                 <Button onClick={handleImport} disabled={importing || !importText.trim()}>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
+import { CardImage } from '@/components/cards';
 
 interface MissingCard {
   card_id: string;
@@ -125,7 +125,8 @@ export function MissingCardsDrawer({
             estimated_price: estimatedPrice,
             rarity: cardDetails?.rarity,
             type_line: cardDetails?.type_line,
-            image_uri: imageUris?.normal || imageUris?.large
+            // `large` first: this drawer is a shopping list you look at.
+            image_uri: imageUris?.large || imageUris?.png || imageUris?.normal
           });
         }
       }
@@ -215,17 +216,18 @@ export function MissingCardsDrawer({
 
   const getRarityColor = (rarity?: string) => {
     switch (rarity) {
-      case 'mythic': return 'bg-muted text-foreground border-border';
-      case 'rare': return 'bg-muted text-foreground border-border';
-      case 'uncommon': return 'bg-muted text-foreground border-border';
-      default: return 'bg-muted text-foreground border-border';
+      // Rarity reads as a weight ramp on one surface, never as a hue or a rule.
+      case 'mythic': return 'bg-muted text-foreground font-bold border-0';
+      case 'rare': return 'bg-muted text-foreground font-semibold border-0';
+      case 'uncommon': return 'bg-muted text-foreground border-0';
+      default: return 'bg-muted text-muted-foreground border-0';
     }
   };
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
       <DrawerContent className="max-h-[80vh]">
-        <DrawerHeader className="border-b">
+        <DrawerHeader>
           <div className="flex items-center justify-between">
             <div>
               <DrawerTitle className="text-xl">Missing Cards from {deckName}</DrawerTitle>
@@ -262,7 +264,7 @@ export function MissingCardsDrawer({
               {(['all', 'high', 'medium', 'low'] as const).map((f) => (
                 <Button
                   key={f}
-                  variant={filter === f ? "default" : "outline"}
+                  variant={filter === f ? "default" : "secondary"}
                   size="sm"
                   onClick={() => setFilter(f)}
                   className="capitalize"
@@ -277,7 +279,7 @@ export function MissingCardsDrawer({
           <ScrollArea className="h-96">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border border-muted-foreground border-t-transparent" />
+                <div className="h-8 w-8 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
               </div>
             ) : filteredCards.length === 0 ? (
               <div className="text-center py-8">
@@ -290,22 +292,14 @@ export function MissingCardsDrawer({
             ) : (
               <div className="space-y-3">
                 {filteredCards.map((card) => (
-                  <Card key={card.card_id} className="p-4">
+                  <div key={card.card_id} className="rounded-lg bg-card p-4 shadow-lg shadow-black/20">
                     <div className="flex items-start gap-4">
-                      {/* Card Image */}
-                      <div className="w-16 h-22 bg-muted rounded-lg flex-shrink-0 overflow-hidden">
-                        {card.image_uri ? (
-                          <img 
-                            src={card.image_uri} 
-                            alt={card.card_name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                            <Package className="h-6 w-6" />
-                          </div>
-                        )}
-                      </div>
+                      <CardImage
+                        card={{ name: card.card_name, image_uris: { large: card.image_uri } }}
+                        width={64}
+                        hideFlip
+                        interactive={false}
+                      />
 
                       {/* Card Details */}
                       <div className="flex-1 min-w-0">
@@ -358,7 +352,7 @@ export function MissingCardsDrawer({
                         </div>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 ))}
               </div>
             )}

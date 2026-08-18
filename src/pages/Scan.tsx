@@ -1,28 +1,22 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Camera, Zap, Settings, BarChart3, Plus, Target } from 'lucide-react';
-import { CameraScanDrawer } from '@/features/scan/CameraScanDrawer';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { ScanInsightsHelper } from '@/components/scan/ScanInsightsHelper';
 
 export default function Scan() {
-  const [showScanDrawer, setShowScanDrawer] = useState(false);
   const [selectedDeckId, setSelectedDeckId] = useState<string>('');
   const [addToCollection, setAddToCollection] = useState(true);
   const [addToDeck, setAddToDeck] = useState(false);
-  
-  const { recentScans, settings, updateSettings } = useScanStore();
 
-  // No toast on card added - the scanner shows inline feedback
-  const handleCardAdded = (_card: any) => {
-    // Silent - scanner shows last added card inline
-  };
+  const { recentScans, settings, updateSettings } = useScanStore();
 
   const recentScanStats = {
     totalScanned: recentScans.length,
@@ -37,10 +31,12 @@ export default function Scan() {
       title="Card Scanner"
       description="Camera scanning for instant card recognition"
       action={
-        <Button onClick={() => setShowScanDrawer(true)} size="lg" className="gap-2 touch-target">
-          <Camera className="h-5 w-5" />
-          <span className="hidden sm:inline">Start Scanning</span>
-          <span className="sm:hidden">Scan</span>
+        <Button asChild size="lg" className="gap-2 touch-target">
+          <Link to="/scan/camera">
+            <Camera className="h-5 w-5" />
+            <span className="hidden sm:inline">Start Scanning</span>
+            <span className="sm:hidden">Scan</span>
+          </Link>
         </Button>
       }
     >
@@ -172,13 +168,15 @@ export default function Scan() {
           <p className="text-muted-foreground mb-4 md:mb-8 max-w-md mx-auto text-sm md:text-base">
             Point your camera at any Magic: The Gathering card for instant recognition.
           </p>
-          <Button 
-            onClick={() => setShowScanDrawer(true)} 
-            size="lg" 
+          <Button
+            asChild
+            size="lg"
             className="gap-2 px-6 md:px-8 py-3 md:py-4 text-base md:text-lg touch-target w-full sm:w-auto"
           >
-            <Camera className="h-5 w-5 md:h-6 md:w-6" />
-            Start Camera Scan
+            <Link to="/scan/camera">
+              <Camera className="h-5 w-5 md:h-6 md:w-6" />
+              Start Camera Scan
+            </Link>
           </Button>
         </Card>
 
@@ -221,8 +219,8 @@ export default function Scan() {
               
               {recentScans.length > 6 && (
                 <div className="text-center mt-4">
-                  <Button variant="outline" onClick={() => setShowScanDrawer(true)} className="touch-target">
-                    View All Scans
+                  <Button asChild variant="outline" className="touch-target">
+                    <Link to="/scan/camera">View All Scans</Link>
                   </Button>
                 </div>
               )}
@@ -270,12 +268,6 @@ export default function Scan() {
           </CardContent>
         </Card>
       </div>
-
-      <CameraScanDrawer
-        isOpen={showScanDrawer}
-        onClose={() => setShowScanDrawer(false)}
-        onCardAdded={handleCardAdded}
-      />
     </StandardPageLayout>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Copy, Download, ExternalLink, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import {
   computeDeckStats,
   fetchCardsByIds,
@@ -79,8 +79,31 @@ export default function PublicDeck() {
   const [rows, setRows] = useState<DeckCardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tracked, setTracked] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<any>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
+
+  /* The open card lives in the URL. This is the page people send each other,
+     so a visitor who opens a card and copies the address bar shares the card
+     they were looking at — and Back closes the pane instead of leaving. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedCardId = searchParams.get('card');
+
+  const openCard = (row: DeckCardRow) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('card', row.card_id);
+      return next;
+    });
+  };
+
+  const closeCard = () => {
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('card');
+        return next;
+      },
+      { replace: true }
+    );
+  };
 
   useEffect(() => {
     if (!slug) return;
@@ -337,49 +360,35 @@ export default function PublicDeck() {
                 />
               </aside>
 
-              <Tabs defaultValue="visual">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="visual">Visual</TabsTrigger>
-                  <TabsTrigger value="list">List</TabsTrigger>
-                </TabsList>
-                <TabsContent value="visual" className="mt-4">
-                  <DeckCardGrid
-                    rows={rows}
-                    collapsedByDefault={['lands']}
-                    onCardClick={row => {
-                      setSelectedCard(toCardObject(row));
-                      setShowCardModal(true);
-                    }}
-                  />
-                </TabsContent>
-                <TabsContent value="list" className="mt-4">
-                  <Card>
-                    <CardContent className="p-0">
-                      <DeckCardTable
-                        rows={rows}
-                        onCardClick={row => {
-                          setSelectedCard(toCardObject(row));
-                          setShowCardModal(true);
-                        }}
-                      />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
+              <CardDetailSplit
+                pane={
+                  selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
+                }
+              >
+                <Tabs defaultValue="visual">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="visual">Visual</TabsTrigger>
+                    <TabsTrigger value="list">List</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="visual" className="mt-4">
+                    <DeckCardGrid
+                      rows={rows}
+                      collapsedByDefault={['lands']}
+                      onCardClick={openCard}
+                    />
+                  </TabsContent>
+                  <TabsContent value="list" className="mt-4">
+                    <Card>
+                      <CardContent className="p-0">
+                        <DeckCardTable rows={rows} onCardClick={openCard} />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </CardDetailSplit>
             </div>
           )}
         </div>
-
-        {selectedCard && (
-          <UniversalCardModal
-            card={selectedCard}
-            isOpen={showCardModal}
-            onClose={() => {
-              setShowCardModal(false);
-              setSelectedCard(null);
-            }}
-          />
-        )}
       </div>
     </>
   );

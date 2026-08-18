@@ -94,7 +94,7 @@ export function AddToDeckDialog({ item, open, onOpenChange }: AddToDeckDialogPro
                 onClick={() => handleAdd(deck.id, deck.name)}
               >
                 <span className="truncate">{deck.name}</span>
-                <Badge variant="outline" className="ml-2 shrink-0 capitalize">
+                <Badge variant="secondary" className="ml-2 shrink-0 capitalize">
                   {deck.format}
                 </Badge>
               </Button>

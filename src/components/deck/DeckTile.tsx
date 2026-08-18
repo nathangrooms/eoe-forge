@@ -20,6 +20,7 @@ import {
   Download,
   Edit,
   Layers,
+  Loader2,
   MoreVertical,
   Package,
   Play,
@@ -367,12 +368,15 @@ export function DeckTile({
               cardCount={counts.total}
               size="sm"
               onClick={onOpen}
-            >
-              {favouriteBadge}
-            </CommanderHero>
+            />
+            {/* No favourite badge here — at 72px it would swallow the art, and
+                the toggle itself is a few pixels to the right. */}
           </div>
 
-          <div className="min-w-0 flex-1">
+          {/* `basis-0 grow` with a floor: a plain `flex-1 min-w-0` let this
+              column collapse to nothing once the stats and buttons were laid
+              out, and the name disappeared behind them. */}
+          <div className="min-w-[9rem] shrink basis-0 grow overflow-hidden">
             <button
               type="button"
               onClick={onOpen}
@@ -394,15 +398,18 @@ export function DeckTile({
             </div>
           </div>
 
+          {/* Breakpoints are viewport-wide, but ~280px of that is the nav rail,
+              so these secondary columns start two steps later than they look
+              like they should. At `md` there is no room for either. */}
           {showPower && (
             <DeckPowerInline
               score={deckSummary.power?.score}
               band={deckSummary.power?.band}
-              className="hidden w-28 shrink-0 lg:block"
+              className="hidden w-28 shrink-0 2xl:block"
             />
           )}
 
-          <dl className="hidden items-center gap-6 text-sm md:flex">
+          <dl className="hidden items-center gap-5 text-sm xl:flex">
             <div className="text-right">
               <dt className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
                 Cards
@@ -440,7 +447,7 @@ export function DeckTile({
               className="h-8 w-8"
             >
               {favoriteLoading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               ) : (
                 <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
               )}
@@ -589,7 +596,7 @@ export function DeckTile({
               className={CTA_CLASS}
             >
               {addingToWishlist ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               ) : (
                 <Package className="h-4 w-4" />
               )}
@@ -604,7 +611,7 @@ export function DeckTile({
               className={CTA_CLASS}
             >
               {favoriteLoading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               ) : (
                 <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
               )}

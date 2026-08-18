@@ -42,6 +42,14 @@ import {
 
 const TILE_WIDTH = 300;
 
+/**
+ * Tiles rendered per page. Each one carries two images (the art band and the
+ * commander's card), so mounting all 184 at once queues ~370 requests on first
+ * paint — `loading="lazy"` alone does not save you when the whole grid is in
+ * the document. A sentinel appends the next page as it comes into view.
+ */
+const PAGE_SIZE = 36;
+
 /** A precon opened by deep link, before the catalogue has answered. */
 function summaryFromIndex(id: string): PreconSummary | null {
   const entry = preconIndexEntry(id);
@@ -235,6 +243,35 @@ export default function Precons() {
     setSet('all');
   }, []);
 
+  /* -------------------------------------------------- paging ---------- */
+
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  // Any change to the result set starts the page count over, or a narrow
+  // search would inherit a limit large enough to render everything anyway.
+  useEffect(() => {
+    setLimit(PAGE_SIZE);
+  }, [query, colors, set, sort]);
+
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || limit >= visible.length) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          setLimit(current => current + PAGE_SIZE);
+        }
+      },
+      { rootMargin: '600px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [limit, visible.length]);
+
+  const page = useMemo(() => visible.slice(0, limit), [visible, limit]);
+
   /* -------------------------------------------------- saving ---------- */
 
   const savePrecon = useCallback(async () => {
@@ -300,13 +337,12 @@ export default function Precons() {
 
   /* -------------------------------------------------- render ---------- */
 
+  // One header for both modes. The open precon states its own name in the hero
+  // at display size, so repeating it in the section header just prints the deck
+  // name twice, six lines apart.
   if (selectedId) {
     return (
-      <StandardPageLayout
-        title={selected?.name ?? 'Precon'}
-        description={selected?.set}
-        breadcrumbs={false}
-      >
+      <StandardPageLayout title="Precons" breadcrumbs={false}>
         {selected ? (
           <PreconDeckView
             precon={selected}
@@ -393,17 +429,29 @@ export default function Precons() {
             )}
           </div>
         ) : (
-          <CardGrid width={TILE_WIDTH}>
-            {visible.map((precon, index) => (
-              <PreconTile
-                key={precon.id}
-                precon={precon}
-                cards={commanderCards}
-                onSelect={openPrecon}
-                eager={index < 4}
-              />
-            ))}
-          </CardGrid>
+          <>
+            <CardGrid width={TILE_WIDTH}>
+              {page.map((precon, index) => (
+                <PreconTile
+                  key={precon.id}
+                  precon={precon}
+                  cards={commanderCards}
+                  onSelect={openPrecon}
+                  eager={index < 4}
+                />
+              ))}
+            </CardGrid>
+
+            {limit < visible.length && (
+              <div ref={sentinel} className="pt-2">
+                <CardGrid width={TILE_WIDTH}>
+                  {Array.from({ length: Math.min(3, visible.length - limit) }, (_, i) => (
+                    <PreconTileSkeleton key={i} />
+                  ))}
+                </CardGrid>
+              </div>
+            )}
+          </>
         )}
       </div>
     </StandardPageLayout>

@@ -1,32 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Crown, Loader2, Search, Sword, Wand2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Crown, Loader2, Search, Sword, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { CardGrid, CardImage } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
+import { HistoryNav } from '@/components/navigation/HistoryNav';
 
 /**
- * The "New Deck" flow, owned by the nav shell.
+ * The "New Deck" flow, as a real page at `/decks/new`.
  *
- * The rail's builder entry used to link straight to `/deck-builder`, and that
- * route bounces to `/decks` whenever there is no `?deck=` parameter — so a
- * control labelled "Deck Builder" reliably landed the user on the deck *list*.
- * A new deck has to exist before the builder has anything to open, so the nav
- * creates one here and then navigates to `/deck-builder?deck=<id>`, which is
- * the same destination the deck list's own "New deck" button uses.
+ * This used to be a dialog owned by the nav shell, which meant the flow had no
+ * URL, no browser Back, and covered the deck list it was launched from. It is a
+ * destination — you go there, you fill it in, you leave — so it is a route.
+ *
+ * The rail's builder entry cannot simply link to `/deck-builder`: that route
+ * bounces to `/decks` whenever there is no `?deck=` parameter, so a control
+ * labelled "Deck Builder" reliably landed the user on the deck *list*. A deck
+ * has to exist before the builder has anything to open, so this page creates
+ * one and then navigates to `/deck-builder?deck=<id>`.
  */
 
 type DeckFormat = 'commander' | 'standard' | 'custom';
@@ -44,12 +41,7 @@ const FORMATS: ReadonlyArray<{
 
 const FALLBACK_NAME = 'Untitled deck';
 
-export interface NewDeckDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
+export function NewDeck() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -66,18 +58,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
   const nameTouchedRef = useRef(false);
   const searchAbortRef = useRef<AbortController | null>(null);
 
-  // A dialog that remembers last time's half-finished deck is a trap, so every
-  // open starts clean.
-  useEffect(() => {
-    if (!open) return;
-    setFormat('commander');
-    setName('');
-    setCommander(null);
-    setQuery('');
-    setResults([]);
-    setSearching(false);
-    nameTouchedRef.current = false;
-  }, [open]);
+  // No reset-on-open effect: a fresh route mount is already clean.
 
   useEffect(
     () => () => {
@@ -89,7 +70,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
   const wantsCommander = format === 'commander';
 
   useEffect(() => {
-    if (!open || !wantsCommander) return;
+    if (!wantsCommander) return;
 
     const trimmed = query.trim();
     if (!trimmed) {
@@ -135,7 +116,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [query, open, wantsCommander]);
+  }, [query, wantsCommander]);
 
   const pickCommander = useCallback((card: any) => {
     setCommander(card);
@@ -188,29 +169,40 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
       }
 
       showSuccess('Deck created', `"${deckName}" is ready to build`);
-      onOpenChange(false);
-      navigate(`/deck-builder?deck=${newDeck.id}`);
+      // `replace`: Back from the builder should return to the deck list, not to
+      // a half-filled form for a deck that already exists.
+      navigate(`/deck-builder?deck=${newDeck.id}`, { replace: true });
     } catch (error) {
       console.error('Error creating deck:', error);
       showError('Could not create deck', 'Something went wrong. Please try again.');
-    } finally {
       setCreating(false);
     }
-  }, [user, name, commander, wantsCommander, format, navigate, onOpenChange]);
+  }, [user, name, commander, wantsCommander, format, navigate]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl border-none bg-card p-0 shadow-2xl shadow-black/40 sm:rounded-xl">
-        <DialogHeader className="px-6 pt-6 text-left">
-          <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-            New deck
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Pick a format, name it, and the builder opens on the empty list.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
+      <div className="mx-auto w-full max-w-2xl">
+        {/* Back / forward, plus a labelled destination so the control does not
+            depend on browser chrome that PWA and mobile do not show. */}
+        <div className="mb-3 flex items-center gap-2">
+          <HistoryNav />
+          <Link
+            to="/decks"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Decks
+          </Link>
+        </div>
 
-        <div className="space-y-5 px-6 pb-6">
+        <header className="mb-4 md:mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">New deck</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick a format, name it, and the builder opens on the empty list.
+          </p>
+        </header>
+
+        <div className="space-y-5 rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-6">
           <fieldset className="space-y-2">
             <legend className="pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Format
@@ -270,10 +262,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
 
           {wantsCommander && (
             <div className="space-y-3">
-              <Label
-                htmlFor="new-deck-commander"
-                className="text-sm font-medium text-foreground"
-              >
+              <Label htmlFor="new-deck-commander" className="text-sm font-medium text-foreground">
                 Commander <span className="text-muted-foreground">(optional)</span>
               </Label>
 
@@ -334,7 +323,7 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
                       picker draws the `large` art rather than `normal` — you
                       are choosing a commander by its face here. */}
                   {results.length > 0 && (
-                    <CardGrid width={132} className="max-h-64 overflow-y-auto p-0.5">
+                    <CardGrid width={132} className="p-0.5">
                       {results.map(card => (
                         <CardImage
                           key={card.id}
@@ -352,28 +341,32 @@ export function NewDeckDialog({ open, onOpenChange }: NewDeckDialogProps) {
               )}
             </div>
           )}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={creating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-                  Creating
-                </>
-              ) : (
-                'Create deck'
-              )}
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {/* Sticky action row: the commander grid is tall, and the primary action
+          should not scroll off the bottom of it. */}
+      <div className="sticky bottom-0 z-10 mt-4 bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex w-full max-w-2xl justify-end gap-2">
+          {/* A real button, not `asChild` around a Link: `disabled` does nothing
+              to an anchor, and Cancel must not fire mid-create. */}
+          <Button variant="ghost" onClick={() => navigate('/decks')} disabled={creating}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={creating}>
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                Creating
+              </>
+            ) : (
+              'Create deck'
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
+
+export default NewDeck;

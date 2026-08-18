@@ -88,6 +88,16 @@ export interface BattlefieldProps {
   cardWidth: number;
   /** Cards that fit side by side in one row before overlapping starts. */
   capacity: number;
+  /**
+   * Two rows when the seat is tall enough for them; one when it is not.
+   *
+   * A four-player pinwheel hands the top and bottom seats a strip barely two
+   * hundred pixels deep. Two rows of cards in that strip means cards too small
+   * to identify, which is worse than losing the row: so a short seat gets a
+   * single band with the lands set apart and dropped a few pixels — still
+   * plainly a separate group, still the same size card.
+   */
+  rows?: 1 | 2;
   renderCard: (card: CardInstance, index: number, width: number) => ReactNode;
   /** Shown when the seat controls nothing. Plain text on the mat, never a box. */
   emptyLabel?: string;
@@ -99,6 +109,7 @@ export function Battlefield({
   cards,
   cardWidth,
   capacity,
+  rows = 2,
   renderCard,
   emptyLabel = 'Empty battlefield',
   className,
@@ -113,6 +124,41 @@ export function Battlefield({
         <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
           {emptyLabel}
         </p>
+      </div>
+    );
+  }
+
+  if (rows === 1) {
+    // Share the width between the two groups in proportion to what is in them,
+    // so a seat with eleven lands and one creature does not overlap the lands
+    // into illegibility while the creature sits in open space.
+    const total = Math.max(1, permanents.length + lands.length);
+    const share = (count: number) =>
+      Math.max(2, Math.round((capacity * count) / total));
+
+    return (
+      <div
+        className={cn(
+          'flex items-end gap-4 overflow-visible',
+          align === 'center' ? 'justify-center' : 'justify-start',
+          className
+        )}
+      >
+        <PermanentRow
+          cards={permanents}
+          cardWidth={cardWidth}
+          capacity={share(permanents.length)}
+          renderCard={renderCard}
+          align={align}
+        />
+        <PermanentRow
+          cards={lands}
+          cardWidth={cardWidth}
+          capacity={share(lands.length)}
+          renderCard={renderCard}
+          align={align}
+          className="translate-y-1.5"
+        />
       </div>
     );
   }

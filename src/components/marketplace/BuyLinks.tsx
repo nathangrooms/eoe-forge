@@ -100,7 +100,7 @@ export function BuyLinks({ card, showFoil = false }: BuyLinksProps) {
           href={row.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent"
+          className="flex items-center justify-between gap-3 rounded-lg p-3 transition-colors hover:bg-accent"
         >
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">{row.name}</p>

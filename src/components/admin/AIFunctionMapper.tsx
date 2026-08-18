@@ -76,7 +76,7 @@ const AI_FUNCTIONS: AIFunction[] = [
     name: "scan-match",
     purpose: "OCR card recognition from camera/images for collection management",
     usageLocations: [
-      "ScanDrawer.tsx (card scanning)"
+      "CameraScanView.tsx (card scanning)"
     ],
     model: "N/A (OCR only)",
     avgInputTokens: 0,

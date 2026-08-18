@@ -165,6 +165,13 @@ export interface DeckSummary {
    * name lookup happens to land on.
    */
   commanderCardId: string | null;
+  /**
+   * The card whose art represents the deck: the commander, or failing that the
+   * first card in the list. A deck without a commander (60-card formats, or an
+   * EDH list still missing its helm) is still a pile of Magic cards, and one of
+   * them is a better banner than an empty rectangle.
+   */
+  faceCardId: string | null;
   isFavorite: boolean;
 }
 
@@ -216,6 +223,7 @@ export function useRecentDecks(limit = 6) {
 
       const cardCounts: Record<string, number> = {};
       const commanders: Record<string, { id: string | null; name: string }> = {};
+      const faces: Record<string, string> = {};
 
       if (rows.length > 0) {
         const { data: cardRows } = await supabase
@@ -229,6 +237,9 @@ export function useRecentDecks(limit = 6) {
           }
           if (card.is_commander && !commanders[card.deck_id]) {
             commanders[card.deck_id] = { id: card.card_id ?? null, name: card.card_name };
+          }
+          if (!card.is_sideboard && !faces[card.deck_id] && card.card_id) {
+            faces[card.deck_id] = card.card_id;
           }
         }
       }
@@ -244,6 +255,7 @@ export function useRecentDecks(limit = 6) {
           cardCount: cardCounts[row.id] ?? 0,
           commanderName: commanders[row.id]?.name ?? null,
           commanderCardId: commanders[row.id]?.id ?? null,
+          faceCardId: commanders[row.id]?.id ?? faces[row.id] ?? null,
           isFavorite: favoriteIds.has(row.id),
         }))
       );

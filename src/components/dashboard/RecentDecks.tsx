@@ -54,7 +54,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
   /* A deck reads as itself through its commander's art, not a coloured dot.
      The printing id is preferred so the deck shows the art the player picked. */
   const lookup = useCardLookup(
-    decks.map(deck => deck.commanderCardId),
+    decks.map(deck => deck.faceCardId),
     decks.map(deck => deck.commanderName)
   );
 
@@ -143,7 +143,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((deck, index) => {
-              const commander = lookup.resolve(deck.commanderCardId, deck.commanderName);
+              const commander = lookup.resolve(deck.faceCardId, deck.commanderName);
               const banner = bannerFor(commander);
               /* `user_decks.colors` is empty on plenty of real rows, which used
                  to render a Commander deck as colourless. The commander's own
@@ -173,7 +173,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                         /* No commander (or no art yet): the deck still reads
                            visually through its colour identity, at size. */
                         <div className="flex h-full w-full items-center justify-center">
-                          <ColorIdentity colors={colors} size="lg" />
+                          <ColorIdentity colors={colors} size="lg" className="scale-150" />
                         </div>
                       )}
 

@@ -106,7 +106,7 @@ export function MoveToCollectionDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
           <Button onClick={() => onConfirm({ quantity, foil, condition })} disabled={busy}>

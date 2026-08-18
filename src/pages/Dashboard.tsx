@@ -48,7 +48,10 @@ const Dashboard = () => {
       title={displayName ? `Welcome back, ${displayName}` : 'Welcome back'}
       action={
         <Button asChild>
-          <Link to="/deck-builder">
+          {/* `/deck-builder` with no `?deck=` bounces to the deck list, so this
+              promised a new deck and delivered the list. `/decks/new` is the
+              real create route. */}
+          <Link to="/decks/new">
             <Plus className="h-4 w-4" />
             New deck
           </Link>

@@ -27,26 +27,16 @@ import {
  * both listed two different items literally titled "Deck Builder").
  */
 
-/**
- * Some nav entries are not destinations. "New Deck" cannot be a plain link:
- * `/deck-builder` redirects to `/decks` whenever there is no `?deck=` parameter,
- * so the old "Deck Builder" link put the user on the deck *list* every time.
- * A deck has to be created before the builder has anything to open, so the item
- * runs a flow and the flow decides where to go.
- */
-export type NavAction = 'new-deck';
-
 export interface NavItem {
   /** Label shown in the rail, the sheet and the breadcrumb. */
   title: string;
   /**
-   * Where the item goes. For an `action` item this is not followed on click —
-   * it is the route the flow lands on, and so still drives the active state.
+   * Where the item goes. Every item is a plain link — "New Deck" used to open a
+   * dialog instead, which meant it had no URL and could not be middle-clicked;
+   * it is now the `/decks/new` route.
    */
   href: string;
   icon: ComponentType<{ className?: string }>;
-  /** Runs a flow instead of navigating. See `NavAction`. */
-  action?: NavAction;
   /**
    * Extra path prefixes that should light this item up. `/deck/:id` is a child
    * of Decks, and `/dashboard` is an alias of `/`, but neither shares a prefix
@@ -107,14 +97,15 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'My Decks',
         href: '/decks',
         icon: Layers,
-        matches: ['/deck'],
+        // `/deck-builder` is a child of Decks in every way except its path, and
+        // nothing else claims it now that "New Deck" owns `/decks/new`.
+        matches: ['/deck', '/deck-builder'],
         description: 'Every deck you have built',
       },
       {
         title: 'New Deck',
-        href: '/deck-builder',
+        href: '/decks/new',
         icon: Plus,
-        action: 'new-deck',
         description: 'Start a fresh deck and open it in the builder',
       },
       {
@@ -216,9 +207,23 @@ export function pathMatches(pathname: string, target: string): boolean {
   return pathname.startsWith(target.endsWith('/') ? target : `${target}/`);
 }
 
+/** Length of the longest target of `item` that claims `pathname`, or -1. */
+function matchDepth(pathname: string, item: NavItem): number {
+  let best = -1;
+  for (const target of [item.href, ...(item.matches ?? [])]) {
+    if (pathMatches(pathname, target)) best = Math.max(best, target.length);
+  }
+  return best;
+}
+
 export function isNavItemActive(pathname: string, item: NavItem): boolean {
-  return [item.href, ...(item.matches ?? [])].some(target =>
-    pathMatches(pathname, target),
+  const depth = matchDepth(pathname, item);
+  if (depth < 0) return false;
+  /* `/decks/new` is claimed by both "My Decks" (`/decks`) and "New Deck"
+     (`/decks/new`). The more specific item owns the route, otherwise the rail
+     lights up twice and neither highlight means anything. */
+  return !ALL_NAV_ITEMS.some(
+    other => other !== item && matchDepth(pathname, other) > depth,
   );
 }
 

@@ -10,10 +10,11 @@ import {
   Trash2, 
   ExternalLink,
   DollarSign,
-  Check,
-  Package
+  Check
 } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
+import { CardImage } from '@/components/cards';
+import { getBestCardImage } from '@/lib/scryfall/card-utils';
 
 interface ShoppingListItem {
   id: string;
@@ -80,7 +81,9 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
           id: crypto.randomUUID(),
           name: card.name,
           set_code: card.set,
-          image_uri: card.image_uris?.small,
+          // `large`, not `small`: 146px art was being drawn into a row that
+          // any larger view of the same item reuses.
+          image_uri: getBestCardImage(card, 'large'),
           estimatedPrice: parseFloat(card.prices?.usd || '0'),
           quantity: 1,
           purchased: false,
@@ -147,7 +150,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
             )}
           </CardTitle>
           {totalEstimate > 0 && (
-            <Badge variant="outline" className="tabular-nums">
+            <Badge variant="secondary" className="tabular-nums">
               <DollarSign className="h-3 w-3 mr-0.5" />
               ~${totalEstimate.toFixed(2)}
             </Badge>
@@ -193,25 +196,19 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                 {unpurchasedItems.map((item) => (
                   <div 
                     key={item.id}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-3 rounded-lg bg-muted/20 p-2 transition-colors hover:bg-muted/50"
                   >
                     <Checkbox
                       checked={item.purchased}
                       onCheckedChange={() => handleTogglePurchased(item.id)}
                     />
                     
-                    {item.image_uri ? (
-                      <img 
-                        src={item.image_uri} 
-                        alt={item.name}
-                        className="h-10 w-auto rounded shadow-sm"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-10 w-7 bg-muted rounded flex items-center justify-center">
-                        <Package className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                    )}
+                    <CardImage
+                      card={{ name: item.name, image_uris: { large: item.image_uri } }}
+                      width={34}
+                      hideFlip
+                      interactive={false}
+                    />
                     
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.name}</p>
@@ -228,7 +225,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                     <div className="flex items-center gap-1">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         className="h-7 w-7 p-0"
                         onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
@@ -240,7 +237,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                       </span>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         className="h-7 w-7 p-0"
                         onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
                       >
@@ -288,7 +285,7 @@ export function ShoppingList({ items: externalItems, onUpdate }: ShoppingListPro
                 {purchasedItems.map((item) => (
                   <div 
                     key={item.id}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-border bg-muted/30 opacity-60"
+                    className="flex items-center gap-3 rounded-lg bg-muted/30 p-2 opacity-60"
                   >
                     <Checkbox
                       checked={item.purchased}

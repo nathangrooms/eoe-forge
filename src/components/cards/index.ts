@@ -39,3 +39,18 @@ export {
 } from './CardSizeSlider';
 
 export { CardGrid, CardGridSkeleton, type CardGridProps } from './CardGrid';
+
+/**
+ * Card detail. `CardDetail` is the body with no container; `CardDetailPane`
+ * docks it beside a list; `CardDetailSplit` is the list-plus-pane layout. The
+ * routed view lives at `/cards/:id`. None of these is an overlay.
+ */
+export { CardDetail, CardDetailHeading, type CardDetailProps } from './CardDetail';
+
+export {
+  CardDetailPane,
+  CardDetailSplit,
+  cardDetailPath,
+  type CardDetailPaneProps,
+  type CardDetailSplitProps,
+} from './CardDetailPane';

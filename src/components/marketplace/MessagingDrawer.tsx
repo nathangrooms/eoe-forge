@@ -189,7 +189,7 @@ export function MessagingDrawer({ open, onClose, listingId, sellerId, cardName }
                   Loading messages...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center py-8 border border-dashed rounded-lg">
+                <div className="text-center py-8 rounded-lg">
                   <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p className="text-muted-foreground">
                     No messages yet. Start the conversation!
@@ -223,7 +223,7 @@ export function MessagingDrawer({ open, onClose, listingId, sellerId, cardName }
                             {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                           </span>
                           {isSender && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="secondary" className="text-xs">
                               {msg.is_read ? 'Read' : 'Sent'}
                             </Badge>
                           )}

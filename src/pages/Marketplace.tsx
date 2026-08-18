@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,9 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { MarkAsSoldModal } from '@/components/marketplace/MarkAsSoldModal';
-import { EditListingModal } from '@/components/marketplace/EditListingModal';
-import { MessagingDrawer } from '@/components/marketplace/MessagingDrawer';
+import { MarkAsSoldInline } from '@/components/marketplace/MarkAsSoldInline';
 import { MessageNotificationBadge } from '@/components/marketplace/MessageNotificationBadge';
 import { MarketplaceHeader } from '@/components/marketplace/MarketplaceHeader';
 import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
@@ -83,10 +82,8 @@ export default function Marketplace() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [soldListings, setSoldListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showSoldModal, setShowSoldModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showMessagingDrawer, setShowMessagingDrawer] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  /** Which listing card has its inline "record this sale" form expanded. */
+  const [sellingListingId, setSellingListingId] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [activeTab, setActiveTab] = useState('search');
@@ -312,47 +309,6 @@ export default function Marketplace() {
     } catch (error) {
       console.error('Error marking as sold:', error);
       showError('Error', 'Failed to record sale');
-    }
-  };
-
-  const handleShowSoldModal = (listing: Listing) => {
-    setSelectedListing(listing);
-    setShowSoldModal(true);
-  };
-
-  const handleShowEditModal = (listing: Listing) => {
-    setSelectedListing(listing);
-    setShowEditModal(true);
-  };
-
-  const handleUpdateListing = async (data: {
-    id: string;
-    price_usd: number;
-    qty: number;
-    condition: string;
-    note?: string;
-    status: string;
-  }) => {
-    try {
-      const { error } = await supabase
-        .from('listings')
-        .update({
-          price_usd: data.price_usd,
-          qty: data.qty,
-          condition: data.condition,
-          note: data.note,
-          status: data.status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', data.id);
-
-      if (error) throw error;
-
-      showSuccess('Listing Updated', 'Your changes have been saved');
-      loadMyListings();
-    } catch (error) {
-      console.error('Error updating listing:', error);
-      showError('Error', 'Failed to update listing');
     }
   };
 

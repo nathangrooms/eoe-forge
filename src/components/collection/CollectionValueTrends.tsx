@@ -146,7 +146,7 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
         <CardContent>
           <div className="space-y-3">
             {analytics.topSets.map(([set, value], idx) => (
-              <div key={set} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+              <div key={set} className="flex items-center justify-between p-3 rounded-lg bg-card">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-muted-foreground">{idx + 1}</span>
                   <div>

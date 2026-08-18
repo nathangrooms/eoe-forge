@@ -107,7 +107,7 @@ export function InsuranceReport({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="secondary">
           <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
           Insurance report
         </Button>
@@ -155,7 +155,7 @@ export function InsuranceReport({
                           {card.setCode && (
                             <span className="font-mono uppercase">{card.setCode}</span>
                           )}
-                          <Badge variant="outline" className="h-5 px-1 text-[10px] font-normal">
+                          <Badge variant="secondary" className="h-5 px-1 text-[10px] font-normal">
                             {normalizeCondition(card.condition)}
                           </Badge>
                           <span className="tabular-nums">×{copies}</span>
@@ -177,7 +177,7 @@ export function InsuranceReport({
         </Card>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="secondary" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
             Print
           </Button>

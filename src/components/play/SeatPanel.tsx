@@ -64,6 +64,8 @@ export interface SeatPanelProps {
   cardWidth?: number;
   /** Cards that fit in a row before it starts overlapping. */
   rowCapacity?: number;
+  /** Two rows (permanents over lands) or one band when the seat is short. */
+  rows?: 1 | 2;
   lifeSize?: LifeBadgeSize;
   /** Draw this seat's hand as card backs along its own edge. */
   showHandBacks?: boolean;
@@ -125,6 +127,7 @@ export function SeatPanel({
   lifeDeltas,
   cardWidth,
   rowCapacity,
+  rows = 2,
   lifeSize,
   showHandBacks = true,
   className,
@@ -184,6 +187,7 @@ export function SeatPanel({
               cards={battlefield}
               cardWidth={width}
               capacity={capacity}
+              rows={rows}
               align="center"
               className="w-full"
               emptyLabel={dead ? 'Out of the game' : 'Empty battlefield'}

@@ -1,0 +1,2605 @@
+# DeckMatrix Overhaul Audit — 2026-08-18
+
+Automated audit of every page and cross-cutting system. **278 findings** across 12 areas.
+
+| Severity | Count |
+|---|---|
+| critical | 51 |
+| high | 116 |
+| medium | 90 |
+| low | 21 |
+
+---
+
+## dashboard-nav (app shell: AppSidebar, navigation/, layouts/, Dashboard page + dashboard widgets)
+
+The app shell is three half-finished navigation systems stacked on top of each other: two of them (`src/components/AppSidebar.tsx`, `src/components/TopNavigation.tsx`, 423 lines combined) are completely unreferenced dead code, and the one that actually ships is a flat 14-item link list with no collapse, no density control, no breadcrumbs, no account menu, and no way to sign out or change theme on desktop. Theming is broken at the root: `:root` in `src/index.css:27` defines a *dark* background, `.dark` defines a slightly darker one, and the only theme toggle in the codebase lives in the dead top-nav file — so `ThemeProvider defaultTheme="system"` in `App.tsx:140` is decorative and every `dark:` variant in the dashboard silently never fires for system-light users. The Dashboard itself renders 3 of 9 available widgets, ships hardcoded fake search history to every user (`SearchHistory.tsx:33-38`), hand-rolls MTG color identity as generic Tailwind pastel dots while a correct `ManaSymbols` component and `--mana-*` token set already exist, and duplicates the shared `StandardSectionHeader` markup rather than using `StandardPageLayout` like every other page. Measured against Moxfield/Archidekt this shell is pre-alpha: no collapsible sidebar, no user menu, no breadcrumbs, no format-aware navigation, and four real pages (including a third, 444-line deck builder at `/builder`) unreachable from any nav.
+
+### [CRITICAL] Three competing app-shell navigations; two are fully dead code (423 lines)
+
+- **File:** `src/components/AppSidebar.tsx:1-247`
+- **Category:** architecture
+
+`AppSidebar.tsx` (247 lines, collapsible shadcn Sidebar with brand header, avatar, sign-out, and a "Popular Formats" list) is imported by nothing — it is the only file in `src/` that references `@/components/ui/sidebar` (verified by grep across `src/`). `src/components/TopNavigation.tsx` (176 lines: theme toggle, notifications bell, profile dropdown, global search with `/` hotkey hint) is also unreferenced — `App.tsx:8` imports the *different* `@/components/navigation/TopNavigation`. So the app carries two complete, more-featured shells that no user can ever see, while the shipped shell (`navigation/LeftNavigation.tsx` + `navigation/TopNavigation.tsx`) lacks every one of those features. `App.tsx:10` also imports `MobileNavigation` and never renders it (it is rendered from inside `navigation/TopNavigation.tsx:62`) — a dangling import.
+
+EXACT SHIPPED NAV (LeftNavigation.tsx:33-120, rendered at App.tsx:96, `hidden md:block`, fixed `w-64`):
+Main — Home→`/`; Collection Manager→`/collection`; Marketplace→`/marketplace`; Decks→`/decks`; Precons→`/precons`; Card Search→`/cards`.
+Tools — Fast Scan→`/scan`; Deck Builder [badge "New"]→`/smart-builder`; MTG Brain→`/brain`; Wishlist→`/wishlist`; Deck Simulation [badge "Alpha"]→`/simulate`; Tournaments→`/tournament`.
+Admin (isAdmin only) — Admin Panel→`/admin`.
+User — Settings→`/settings`.
+Footer text: "DeckMatrix v1.0 / Currently in early development".
+Top bar (navigation/TopNavigation.tsx:56-141): logo→`/`; search input + format `<Select>`; New Deck→`/deck-builder`; Import→`/collection?tab=add-cards`; Card Search→`/cards`. Mobile only: hamburger sheet, camera→`/scan`, search icon→`/cards`.
+
+> **Fix:** Delete `src/components/AppSidebar.tsx` and `src/components/TopNavigation.tsx` outright, or promote one of them to be the single shell. Then build ONE `AppShell` component (header + collapsible rail + content slot) that owns nav data in a single exported `NAV` array consumed by desktop rail, mobile sheet, and a command palette. Remove the dead `MobileNavigation` import from `App.tsx:10`.
+
+### [CRITICAL] There is no light theme — `:root` is dark, and the only theme toggle is in dead code
+
+- **File:** `src/index.css:27`
+- **Category:** theming
+
+`src/index.css:27` sets `:root { --background: 228 25% 8% }` (near-black) and `:122-124` sets `.dark { --background: 228 30% 5% }`. The two "themes" differ by 3% lightness; there is no light palette at all. `App.tsx:140` configures `<ThemeProvider attribute="class" defaultTheme="system" enableSystem>`, so a user on a light OS gets `:root` — still dark — and never receives the `.dark` class. Consequence: every `dark:` variant in the dashboard is dead for that user. Concretely, `Dashboard.tsx:75-79` renders MTG color pips as `bg-yellow-100 … dark:bg-yellow-950` etc.; for system-light users only the `bg-yellow-100`/`bg-blue-100`/`bg-gray-100` half applies, painting near-white pastel dots on a near-black card. Grep across `src/` shows `setTheme` is called in exactly one place — `src/components/TopNavigation.tsx:141` — which is dead code, so the app ships zero theme controls. Separately, `:root` sidebar tokens are light-mode leftovers (`--sidebar-background: 0 0% 98%` at `index.css:105`, overridden to dark only at `:152`), so any use of the shadcn sidebar primitive renders a white rail on the dark shell.
+
+> **Fix:** Decide: either commit to dark-only (delete the `.dark` block, delete `next-themes`, delete all `dark:` variants) or author a real light palette in `:root` and move the cosmic dark values into `.dark`. Either way, expose a theme control in the shell header (and in `/settings`), and fix the `--sidebar-*` tokens at `index.css:105-118` to match whichever decision is made.
+
+### [CRITICAL] Desktop shell has no account menu and no way to sign out
+
+- **File:** `src/components/navigation/TopNavigation.tsx:48`
+- **Category:** dead-ui
+
+`navigation/TopNavigation.tsx:21` destructures `signOut` and `:48-51` defines `handleSignOut`, but neither is referenced anywhere in the returned JSX — a dead handler. `LeftNavigation.tsx` has no user block, no avatar, and no sign-out. The only sign-out controls in the app are `MobileNavigation.tsx:230-239` (inside a `md:hidden` sheet, `:214`) and `src/pages/Settings.tsx:219`. On a desktop viewport there is therefore no avatar, no username, no profile menu, no notifications, no help, and no logout anywhere in the shell — the user must know to navigate to `/settings`. The dead `AppSidebar.tsx:182-243` implements exactly this user block (avatar, email, Settings, Sign Out), and the dead `TopNavigation.tsx:152-171` implements a profile dropdown — but its three items (`Profile`, `Settings`, `Sign Out` at `:159-169`) have no `onClick`, so even the abandoned version was non-functional.
+
+> **Fix:** Add a real account menu to the shell header: avatar + display name, and items for Profile, Settings, Theme, Keyboard shortcuts, and Sign Out, all wired. Remove `handleSignOut` from `navigation/TopNavigation.tsx` or wire it into that menu.
+
+### [HIGH] Dashboard ships hardcoded fake search history to every user
+
+- **File:** `src/components/dashboard/SearchHistory.tsx:33`
+- **Category:** copy
+
+`SearchHistory.tsx:31-39` seeds `history` with fabricated entries when `localStorage.search_history` is absent: `{ query: 'Sol Ring', results: 50 }`, `{ query: 'Counterspell', results: 120 }`, `{ query: 'Lightning Bolt', results: 200 }`, timestamped 5m/30m/60m ago. A grep across `src/` shows `search_history` is *only ever read* (`:20`) and *removed* (`:43`) — nothing in the codebase ever writes it. So this widget, rendered live on the dashboard at `Dashboard.tsx:394`, shows nothing but invented data for every user forever, with fake result counts rendered as authoritative badges (`:109-111`). `clearHistory` (`:42-45`) is also broken: it removes the key and empties state, but on the next mount the `else` branch re-seeds the same demo rows, so "Clear" appears to undo itself on reload.
+
+> **Fix:** Delete the demo-data branch, write real search history from the card-search entry points (`Cards.tsx`, the header search form), persist the actual result count from the query response, and have `clearHistory` write an empty array so it survives a reload. If real history is not ready, remove the widget from the dashboard rather than fabricating rows.
+
+### [HIGH] 6 of 9 dashboard components are dead; only 3 are rendered
+
+- **File:** `src/pages/Dashboard.tsx:38`
+- **Category:** dead-ui
+
+Grep across `src/` for each file in `src/components/dashboard/` shows only `BadgeDisplay` (via `BadgesSection`, `Dashboard.tsx:389`), `DashboardErrorBoundary` (`:404`) and `SearchHistory` (`:394`) are ever rendered. Unreferenced by any file: `AIDeckRecommendations.tsx` (173 lines, calls the `mtg-brain` edge function), `DashboardCustomization.tsx` (136 lines), `KeyboardShortcutsPanel.tsx` (75 lines), `QuickStatsCard.tsx` (70 lines), `SystemHealthDashboard.tsx` (222 lines). `RecentActivity` is worse: `Dashboard.tsx:38` sets up a `lazy()` import for it and it is never placed in the tree — a code-split chunk that is never loaded. `Dashboard.tsx` also carries unused imports `Sparkles` (:10), `Eye` (:21), `BarChart3` (:23), `Avatar/AvatarFallback/AvatarImage` (:6), `ErrorBoundary` (:31), and destructures `user` at `:42` without using it. `RecentActivity.tsx:6` does `import * as Icons from 'lucide-react'`, which defeats tree-shaking and pulls the entire icon set into the bundle.
+
+> **Fix:** Either wire these widgets into a real dashboard grid or delete them. `RecentActivity` in particular is finished and useful — render it. Replace `import * as Icons` with an explicit icon map keyed by the small set of activity types actually logged in `src/lib/activityLogger.ts`. Strip the unused imports and the unused `user` destructure.
+
+### [HIGH] Desktop and mobile navs disagree, and two items are both titled "Deck Builder"
+
+- **File:** `src/components/navigation/MobileNavigation.tsx:37`
+- **Category:** architecture
+
+`MobileNavigation.tsx:37` carries the comment `// Match LeftNavigation exactly` above a nav array that does not match. `MobileNavigation.tsx:69-74` includes `{ title: 'Deck Builder', href: '/deck-builder', icon: Hammer }` in the Main section; `LeftNavigation.tsx:33-120` has no `/deck-builder` entry at all. Since `/deck-builder` (`App.tsx:112` → the 1054-line `DeckBuilder.tsx`) is the destination of the header's "New Deck" button (`navigation/TopNavigation.tsx:53`) and the dashboard's primary quick action (`Dashboard.tsx:216`), the desktop rail shows *no active item* on one of the app's most-used pages. Mobile additionally ends up with two entries literally titled "Deck Builder" — `/deck-builder` at `:70` and `/smart-builder` at `:88` — indistinguishable by label. Both files also define an unused `handleQuickBuild` (`LeftNavigation.tsx:179-194`, `MobileNavigation.tsx:198-211`) that builds a deck object and writes `localStorage.pendingDeck`; neither is called from any JSX, and `LeftNavigation` therefore also has an unused `navigate` and unused `Hammer`, `Plus`, and `Separator` imports (`:4`, `:10`, `:16`).
+
+> **Fix:** Extract a single `NAV_ITEMS` module imported by both the rail and the sheet — the duplication is the bug. Rename `/smart-builder` to "AI Deck Builder" (it routes to `AIBuilder.tsx`) and `/deck-builder` to "Deck Builder". Delete both `handleQuickBuild` copies and the unused imports.
+
+### [HIGH] Header height and content offset disagree on desktop — 16px of overlap
+
+- **File:** `src/App.tsx:93`
+- **Category:** layout
+
+`navigation/TopNavigation.tsx:58` sizes the header bar `h-16 md:h-20` (64px mobile / 80px desktop). `App.tsx:93` offsets the content wrapper with `pt-16 md:pt-16` (64px at both breakpoints), `App.tsx:95` pins the left rail at `top-16` (64px), and `App.tsx:100` sets `min-h-[calc(100vh-4rem)]` (4rem = 64px). At `md` and above the header is 80px tall, so it overlaps the first 16px of both the page content and the top of the sidebar, and the min-height calc overshoots the viewport by 16px, adding a phantom scroll. The header is also double-positioned: `App.tsx:88` wraps it in `fixed top-0 … z-50` while the `<header>` itself is `sticky top-0 z-50` (`TopNavigation.tsx:57`), which is a no-op inside a fixed ancestor.
+
+> **Fix:** Define the header height once as a CSS variable (`--header-h`) and drive `pt-*`, `top-*`, and the `min-h` calc from it, or make the header a fixed 64px at all breakpoints and shrink the oversized 80px logo (`TopNavigation.tsx:69` uses `h-12 md:h-20`). Drop the redundant `sticky` on the inner `<header>`.
+
+### [HIGH] MTG color identity rendered as generic Tailwind pastel dots, ignoring the existing mana token system
+
+- **File:** `src/pages/Dashboard.tsx:73`
+- **Category:** mtg-domain
+
+`Dashboard.tsx:73-92` hand-rolls `getColorIndicator`, mapping WUBRG to `bg-yellow-100`, `bg-blue-100`, `bg-gray-100`, `bg-red-100`, `bg-green-100` and rendering 3×3px `rounded-full` divs. This is wrong on three counts: (1) White is rendered yellow and Black is rendered light grey — an MTG player reads a yellow pip as gold/multicolor, not white; (2) the app already has `src/components/ui/mana-symbols.tsx` exporting `<ManaSymbol>`/`<ManaSymbols>` driven by correct tokens `--mana-white: 56 100% 94%`, `--mana-blue: 201 85% 36%`, `--mana-black: 33 100% 4%`, `--mana-red: 356 73% 48%`, `--mana-green: 162 100% 23%` (`index.css:75-79`), used by `standardized-components.tsx:5` and six other files — the dashboard bypasses all of it; (3) the classes carry `text-*` and `border-*` variants that are meaningless on an empty 3px dot, and the fallback `bg-gray-200` gives colorless/devoid decks a grey blob rather than the `C` symbol `ManaSymbol` already handles. The tiles also show `Power {deck.power_level}` as raw text (`:349`) instead of the existing `PowerLevelBadge`, and the format is a bare lowercase `<Badge>` (`:327-329`) with a Crown icon bolted on only for `commander` (`:330-332`) — no legality indicator, no commander name, no card count, no mana curve.
+
+> **Fix:** Replace `getColorIndicator` with `<ManaSymbols colors={deck.colors} size="sm" />` and the power text with `<PowerLevelBadge>`. On the favorite-deck tile show what an MTG player actually needs: commander name, color identity pips, card count / legality state, and format, using the shared components.
+
+### [HIGH] Global format selector is a dead control; deck store models only 3 formats
+
+- **File:** `src/components/navigation/TopNavigation.tsx:93`
+- **Category:** mtg-domain
+
+The header search form has a format `<Select>` (`navigation/TopNavigation.tsx:93-104`) offering Standard, Commander, Modern, Pioneer, Legacy, Vintage (`:11-18`). On submit it navigates to `/cards?q=…&format=${selectedFormat}` (`:44`). `src/pages/Cards.tsx:22-23` reads only `searchParams.get('q')` — grep shows no read of `format` anywhere in that page. The selector therefore does nothing but pollute the URL. It is also keyboard-only: there is no submit button in the form (`:83-105`), so changing the format alone has no effect until Enter is pressed in the text input. Underneath, `src/stores/deckStore.ts:49` types format as `'standard' | 'commander' | 'custom'` — Modern, Pioneer, Legacy, Vintage, Pauper, Brawl and Historic have no representation, which is why the dead `AppSidebar.tsx:39-41` maps Modern, Legacy and Vintage all to `value: 'custom'`. A platform benchmarked against Scryfall/Moxfield cannot treat format as a 3-value enum.
+
+> **Fix:** Either wire `format` through to the Scryfall query in `Cards.tsx` (as `legal:<format>`) or remove the selector from the header. Widen `deckStore`'s format union to the real Wizards format list and drive both the selector and deck legality checks from one shared `FORMATS` constant.
+
+### [MEDIUM] Four routes with real page components are unreachable from any navigation
+
+- **File:** `src/App.tsx:105`
+- **Category:** architecture
+
+Comparing the route table in `App.tsx:103-130` against the union of `LeftNavigation.tsx` and `MobileNavigation.tsx` hrefs, these routes have no nav entry anywhere: `/landing` (`App.tsx:105` → `Index.tsx`, 254 lines), `/builder` (`:114` → `Builder.tsx`, 444 lines), `/templates` (`:117` → `Templates.tsx`, 324 lines), and `/dashboard` (`:104`, a silent duplicate of `/`). `Builder.tsx:39` titles itself "Deck Builder" — making it a *third* deck-building page alongside `/deck-builder` (`DeckBuilder.tsx`, 1054 lines) and `/smart-builder` (`AIBuilder.tsx`, 1140 lines), none of which are distinguished in the nav. The only place `/builder` and `/templates` were ever linked from is the dead `src/components/TopNavigation.tsx:31-32`.
+
+> **Fix:** Audit the three deck builders and collapse to one canonical route, redirecting the others. Delete `/landing` and `/dashboard` or make `/dashboard` a redirect to `/`. Surface `/templates` in the nav or remove the page.
+
+### [MEDIUM] No sidebar collapse, no density control, no breadcrumbs — the rail is a flat 14-item list
+
+- **File:** `src/components/navigation/LeftNavigation.tsx:197`
+- **Category:** layout
+
+`LeftNavigation.tsx:197` hard-codes `w-64` and `App.tsx:95` renders it `hidden md:block` with `App.tsx:100` reserving `md:ml-64`. There is no collapse toggle, no icon-rail mode, no resize, and no persistence — 256px of a card-grid application is permanently gone at every desktop width. The dead `AppSidebar.tsx:74-77` implements exactly this (`collapsible="icon"`, `w-16`/`w-64` swap driven by `useSidebar()`), so the feature was built and then abandoned. There is also no breadcrumb anywhere in the app (grep for `ui/breadcrumb` across `src/` returns zero importers despite `src/components/ui/breadcrumb.tsx` existing), so on nested pages like `/deck/:id` the user has no positional cue at all — and the rail's active-state check (`LeftNavigation.tsx:135-136`, `startsWith`) does not match `/deck/:id` against `/decks`, leaving the entire rail unhighlighted there.
+
+> **Fix:** Restore the collapsible rail (icon mode + persisted state), group Tools behind collapsible sections, and add a breadcrumb strip to `StandardPageLayout` fed by the route. Fix the active-state matcher so `/deck/:id` and `/deck-builder` highlight the Decks item.
+
+### [MEDIUM] Shell navigation has no accessibility semantics
+
+- **File:** `src/components/navigation/LeftNavigation.tsx:172`
+- **Category:** layout
+
+Grep for `aria-` across `src/components/navigation/` returns zero matches. `LeftNavigation.tsx:172` emits a separate unlabelled `<nav>` per section, producing four anonymous navigation landmarks on the page; screen-reader users get "navigation, navigation, navigation, navigation" with no way to tell them apart. Active links are plain `<Link>` (`:139`) styled only with background color — no `aria-current="page"`. `MobileNavigation.tsx:157` has the same problem. There is no skip-to-content link in `App.tsx`, and the `<main>` at `App.tsx:100` has no `id` to skip to. The only `sr-only` text in the shell is on two icon buttons (`TopNavigation.tsx:65`, `MobileNavigation.tsx:219`); the mobile search button (`TopNavigation.tsx:113-115`) and desktop icon-only controls have none.
+
+> **Fix:** Use one `<nav aria-label="Main">` wrapping the whole rail with `<ul>`/`<li>` groups and `<h2 class="sr-only">` section headings, switch the links to `NavLink` and emit `aria-current="page"`, add `id="main"` to `<main>` plus a skip link, and label every icon-only button.
+
+### [MEDIUM] Dashboard bypasses StandardPageLayout and re-implements StandardSectionHeader inline
+
+- **File:** `src/pages/Dashboard.tsx:124`
+- **Category:** layout
+
+Every other page (`Builder`, `Cards`, `DeckBuilder`, `DeckInterface`, `Decks`, `Marketplace`, `Scan`, `Tournament`) wraps in `StandardPageLayout`. `Dashboard.tsx:124` instead hand-rolls `min-h-screen bg-background px-3 md:px-6 py-2 md:py-6`, and `:127-136` hand-copies `StandardSectionHeader`'s exact markup — `h1.text-xl.md:text-2xl.font-bold.text-foreground` over `p.text-sm.text-muted-foreground.mt-1` — which is the identical markup at `standardized-components.tsx:157-164`. Spacing then triple-stacks: `App.tsx:100` adds `py-1 md:py-4` to `<main>`, `StandardPageLayout.tsx:21` adds `py-2 md:py-4`, and each page body adds its own. `StandardPageLayout.tsx:20` also re-declares `min-h-screen bg-background` inside a `<main>` that is already `min-h-[calc(100vh-4rem)]` on a `bg-background` body, guaranteeing a page taller than the viewport on every route. The dashboard loading state (`Dashboard.tsx:96`) uses yet a third padding scale, `p-3 sm:p-4 md:p-6`, so the skeleton visibly jumps when data lands.
+
+> **Fix:** Make `StandardPageLayout` the single owner of page padding and the page header, delete the inline header from `Dashboard.tsx:127-136`, remove the duplicated `min-h-screen`/`bg-background`, and give the loading skeleton the same padding as the loaded state.
+
+### [MEDIUM] "Customize Dashboard" is a complete, fully non-functional settings UI
+
+- **File:** `src/components/dashboard/DashboardCustomization.tsx:23`
+- **Category:** dead-ui
+
+`DashboardCustomization.tsx` renders a dialog with nine widget toggles and a Save button that writes `localStorage.dashboard_widgets` (`:43`) and fires a success toast "Dashboard customization updated" (`:45`). Its companion reader `getDashboardWidgets()` (`:118-136`) is never called by anything — grep across `src/` returns only the definition. The component itself is never rendered anywhere. Worse, the widget list is aspirational: of the nine entries at `:24-32`, `price-alerts`, `missing-cards`, `top-value`, `wishlist-preview`, `deck-recommendations` and `recent-activity` have no corresponding rendered widget on `Dashboard.tsx` at all. The default array is also duplicated verbatim in two places (`:23-33` and `:125-135`), so they can drift. `:79` uses a raw `text-green-500` rather than a semantic token.
+
+> **Fix:** Either wire this up (single source of truth for the widget list, `Dashboard` reads `getDashboardWidgets()`, widgets rendered conditionally, prefs persisted to the user profile rather than localStorage) or delete the file. Do not ship a Save button that toasts success and changes nothing.
+
+### [MEDIUM] Keyboard shortcuts panel advertises five shortcuts that do not exist
+
+- **File:** `src/components/dashboard/KeyboardShortcutsPanel.tsx:10`
+- **Category:** dead-ui
+
+`KeyboardShortcutsPanel.tsx:10-18` documents seven shortcuts. Grep across `src/` for keydown handling finds only `src/hooks/useKeyboardShortcuts.ts`, `src/components/universal/EnhancedUniversalCardSearch.tsx:96`, `src/components/ui/sidebar.tsx:102` and `src/lib/deckbuilder/undo-redo.ts:235`. Comparing: `Ctrl+B` (New Deck Builder), `Ctrl+Shift+C` (Open Collection), `Ctrl+Shift+D` (View Dashboard), `Ctrl+Shift+A` (Open AI Brain) are implemented nowhere. `Ctrl+K` is advertised as "Quick Search" but `useKeyboardShortcuts.ts:55-59` binds it to *clear search*, and only when focus is already inside an input. `/` and `Esc` are real but only inside the card-search component. The panel is also never rendered — it is not imported by any file — so this is a dead component documenting a mostly-imaginary shortcut scheme.
+
+> **Fix:** Implement a real global shortcut layer at the shell level (command palette on Ctrl/Cmd+K, `g` then a letter for navigation, `?` to open the reference), then render this panel from the shell and generate its contents from the same registry that binds the keys.
+
+### [MEDIUM] Dead top-nav file contains fabricated notification content
+
+- **File:** `src/components/TopNavigation.tsx:123`
+- **Category:** copy
+
+`src/components/TopNavigation.tsx:114-116` hardcodes a notification `<Badge>` reading `3`, and `:123-131` hardcodes three fake notifications: "Price alert: Lightning Bolt dropped to $0.25", "Deck \"Azorius Control\" shared by @player", "New set \"Outlaws of Thunder Junction\" added". The dropdown items at `:159-169` (Profile / Settings / Sign Out) have no handlers, and the Help button at `:147-149` has no handler. `:45` performs navigation with `window.location.href` inside a react-router SPA, forcing a full page reload. The file is unreferenced, so this never ships — but it is exactly the placeholder-data pattern the owner flagged, and it sits next to the real nav where it will be copied.
+
+> **Fix:** Delete the file. If a notifications surface is wanted, build it against the real `src/components/notifications/` directory with live data and no seeded rows.
+
+### [MEDIUM] Nav copy is generic and self-contradictory
+
+- **File:** `src/components/navigation/LeftNavigation.tsx:203`
+- **Category:** copy
+
+`LeftNavigation.tsx:203-206` and `MobileNavigation.tsx:240-243` both print "DeckMatrix v1.0" directly above "Currently in early development" — a stable 1.0 release that is simultaneously pre-alpha, duplicated in two files so it will drift. Section labels are content-free developer categories (`Main`, `Tools`, `Admin`, `User` — `LeftNavigation.tsx:122-127`); "Tools" holds Fast Scan, a deck builder, an AI assistant, a wishlist, a simulator and tournaments, which share nothing. "Collection Manager" (`:41`) is verbose next to bare "Decks" and "Precons". Badges say "New" and "Alpha" (`:80`, `:99`) with no expiry or definition. On the dashboard, `Dashboard.tsx:130` greets every user with "Welcome back, Planeswalker" despite `user` being available at `:42` and never used, and `:133` is stock filler — "Your command center for deck building, collection management, and strategic insights". `Dashboard.tsx:276` reads "Your most loved deck builds ready for battle".
+
+> **Fix:** Drop the version/status footer or drive it from one build constant. Regroup nav by user intent (Play / Build / Collect / Discover). Use the actual display name in the greeting and delete the subtitle — a dashboard does not need to explain that it is a dashboard.
+
+### [LOW] Dashboard stat tiles have inconsistent affordance and alignment
+
+- **File:** `src/pages/Dashboard.tsx:189`
+- **Category:** layout
+
+The four stat tiles at `Dashboard.tsx:141-206` are visually identical, but only the Wishlist tile is interactive — `:189` wraps it in `<Link to="/wishlist">`; Collection Value, Total Cards and Active Decks are inert despite carrying `hover:shadow-md transition-all group cursor`-style hover treatments (`:141`, `:157`, `:173`) that promise clickability. The `<Link>` wrapper is also a grid item while the `<Card>` inside has no `h-full`, so the fourth tile renders shorter than its three neighbours whenever the row stretches. Each tile hardcodes a different accent (`station`, `spacecraft`, `warp`, `void`) with no semantic meaning — the colors are sci-fi theme tokens (`index.css:68-72`), not MTG concepts, so "Collection Value = gold, Total Cards = cyan, Active Decks = purple, Wishlist = magenta" is arbitrary and unlearnable.
+
+> **Fix:** Make all four tiles navigate (Collection Value and Total Cards → `/collection`, Active Decks → `/decks`), add `h-full` to the linked card, and either drop the per-tile accents or map them to something a player can learn.
+
+### [LOW] QuickStatsCard builds Tailwind classes at runtime, so its icon background never renders
+
+- **File:** `src/components/dashboard/QuickStatsCard.tsx:43`
+- **Category:** theming
+
+`QuickStatsCard.tsx:43` computes a class name with `${color.replace('from-', 'bg-').replace('to-', '').split(' ')[0]}/10`. Tailwind's compiler scans source text for complete class strings; a name assembled by `String.replace` at runtime is invisible to it, so the resulting utility is never emitted into the stylesheet and the icon chip renders with no background. `:48` also hardcodes `text-green-600`/`text-red-600` instead of semantic success/destructive tokens. The component is currently unreferenced anywhere in `src/`, so the bug is latent — but it is the obvious candidate to reuse when the dashboard tiles are refactored.
+
+> **Fix:** Replace the string manipulation with an explicit variant map (`const TONES = { value: { bar: 'from-station …', chip: 'bg-station/10' }, … }`) so every class literal appears in source, and swap the hardcoded green/red for `text-success`/`text-destructive` tokens.
+
+### [LOW] Power-level design tokens are RGB triplets inside an HSL token system
+
+- **File:** `src/index.css:93`
+- **Category:** theming
+
+`src/index.css:93-96` defines `--power-1: 34 197 94`, `--power-4: 59 130 246`, `--power-7: 168 85 247`, `--power-10: 239 68 68` — RGB channel triplets — in a file whose own header comment at `:21` states "All colors MUST be HSL". `mana-symbols.tsx` consumes them as `hsl(var(--power-1))`, which the browser parses as `hsl(34 197 94)`: saturation 197% clamps to 100% and lightness 94% yields a pale yellow, so the "low power = green" comment on `:93` describes a color that never appears. Every power-level badge in the app is therefore washed out and the four tiers are not visually distinguishable.
+
+> **Fix:** Convert the four `--power-*` tokens to HSL triplets (e.g. `--power-1: 142 71% 45%`) to match the rest of the file, and add a lint rule or a comment-adjacent test so RGB triplets cannot creep back into an HSL-only token file.
+
+---
+
+## design-system
+
+DeckMatrix has a reasonable shadcn/Tailwind token foundation on paper — 53 of 55 files in src/components/ui/ are token-clean — but the application almost entirely ignores it. 193 of 485 source files contain hardcoded Tailwind palette colors totalling 2,683 occurrences, and MTG color identity is reimplemented from scratch in 32 separate files while a canonical module (src/lib/magic/colors.ts) sits with only 3 importers. Worse, several declared tokens are structurally broken and ship dead: the mana-* colors are never registered in tailwind.config.ts (66 dead utility usages across 8 marketing/homepage files), shadow-glow-subtle/elegant generate no CSS (49 usages), and --power-* are RGB triplets fed into hsl() so every PowerLevelBadge renders near-white. There is no typography scale, no font family is ever set, and light mode does not exist — :root is itself a dark palette, so the working Sun/Moon toggle changes almost nothing while stranding 156 dark:-variant declarations and leaving light-designed classes like text-gray-600 on a near-black background.
+
+### [CRITICAL] mana-* color tokens are never registered in Tailwind — 66 utility usages across the homepage render with no color at all
+
+- **File:** `tailwind.config.ts:16-79 (colors block); src/index.css:74-79`
+- **Category:** theming
+
+src/index.css:74-79 defines --mana-white/blue/black/red/green as proper HSL tokens. The `colors` block in tailwind.config.ts (lines 16-79) registers border, input, ring, background, foreground, primary, secondary, destructive, muted, accent, popover, card, sidebar, the five EOE colors (spacecraft/station/warp/void/planet) and the nine type-* colors — but NOT mana-*. Consequently `bg-mana-white`, `border-mana-blue`, `from-mana-red to-mana-black` etc. are not real utilities and emit zero CSS. Verified against the shipped bundle dist/assets/index-Cq7kCi-l.css: `grep -c "bg-mana"` returns 0, and the only five `mana-` matches in the whole stylesheet are the `--mana-white:`, `--mana-black:`, `--mana-green:` custom-property declarations themselves. There are 66 such dead class usages in 8 files, all of them marketing surfaces: src/components/marketing/Hero.tsx, NewHero.tsx, AITechnologySection.tsx (lines 97-117 render five WUBRG orbs as `bg-mana-white/30 ... border-mana-white/40` etc.), BentoFeatures.tsx:42,49, ComprehensiveFeatures.tsx:47-101, FeatureShowcase.tsx, FinalCTA.tsx, UseCaseShowcase.tsx. The homepage's entire color-identity visual language is invisible — this is a concrete, mechanical cause of the owner's 'homepage is complete AI slop' verdict.
+
+> **Fix:** Add the five mana colors to tailwind.config.ts `theme.extend.colors` alongside the existing type-* entries (`'mana-white': 'hsl(var(--mana-white))'`, etc.), or better, nest them as `mana: { white: ..., blue: ... }`. Then add a CI guard (a Tailwind safelist audit or a simple grep test) that fails the build when a `-mana-*`/`-type-*` class is used without a matching config entry, so token drift cannot silently ship again.
+
+### [CRITICAL] --power-* tokens are RGB triplets consumed through hsl() — every PowerLevelBadge renders white/cream instead of green→red
+
+- **File:** `src/index.css:93-96; src/components/ui/mana-symbols.tsx:69-74`
+- **Category:** theming
+
+src/index.css:93-96 declares `--power-1: 34 197 94;` `--power-4: 59 130 246;` `--power-7: 168 85 247;` `--power-10: 239 68 68;`. These are plainly RGB channel values (they are exactly Tailwind green-500 #22c55e, blue-500 #3b82f6, purple-500 #a855f7, red-500 #ef4444) — note they carry no `%` units, unlike every other token in the file, and they directly violate the file's own header comment at line 21: 'All colors MUST be HSL.' src/components/ui/mana-symbols.tsx:70-73 then consumes them as `hsl(var(--power-1))` etc. CSS parses `hsl(34 197 94)` as hue 34 / saturation 197% (clamped to 100%) / lightness 94% — a pale cream. All four levels collapse to near-white or washed-out pastels: level 1-3 → cream, 4-6 → white, 7-8 → white, 9-10 → light periwinkle. The intended green/blue/purple/red power ramp is entirely destroyed, so PowerLevelBadge (a core MTG bracket/power-level UI element, rendered inline at mana-symbols.tsx:76-86 with `text-primary-foreground`) conveys no information.
+
+> **Fix:** Convert the four tokens to HSL to match the rest of the file: `--power-1: 142 71% 45%; --power-4: 217 91% 60%; --power-7: 262 83% 58%; --power-10: 0 84% 60%;` — these values already exist verbatim as --type-creatures/--type-instants/--type-enchantments/--type-sorceries at src/index.css:84-87, so alias them instead of duplicating. Longer term, replace the 1/4/7/10 buckets with named Commander bracket tokens (--bracket-1..5) now that Bracket system is the community standard.
+
+### [CRITICAL] MTG color identity is reimplemented in 32 separate files while the canonical colors.ts module has only 3 importers
+
+- **File:** `src/lib/magic/colors.ts:4-10 (3 importers) vs. 32 ad-hoc maps`
+- **Category:** architecture
+
+There are three parallel, non-agreeing sources of truth for WUBRG. (1) src/index.css:74-79 --mana-* CSS tokens — unusable as utilities, see the Tailwind registration finding. (2) src/lib/magic/colors.ts — a genuinely well-modelled 208-line module with BASIC_COLORS hexes (lines 4-10), plus correct GUILDS/SHARDS/WEDGES/FOUR_COLOR tables and a ColorIdentity class; it is imported by exactly 3 files (AdvancedSearchFilters.tsx:21, SearchFilters.tsx:9, useCardSearch.ts:3). (3) 32 files that each declare their own inline `W:/U:/B:/R:/G:` map, including src/components/ui/mana-symbols.tsx:9-16, universal/UniversalCardDisplay.tsx, universal/UniversalCardModal.tsx, enhanced/UniversalCardModal.tsx, deck-builder/CommanderSelector.tsx:170, deck-builder/ModernDeckTile.tsx, deck-builder/RefreshedDeckTile.tsx, deck-builder/ImprovedDeckTile.tsx, pages/Dashboard.tsx, pages/Decks.tsx, pages/Builder.tsx, pages/Brain.tsx, pages/AIBuilder.tsx. On top of that, 14 files re-type the same hex literals colors.ts already exports — and do so in both cases, proving copy-paste rather than shared import: `#0E68AB` appears 9 times and `#0e68ab` 5 more (e.g. AnalysisPanel.tsx:111, ArchetypeLibrary.tsx:288, EnhancedAnalysisPanel.tsx:272, EnhancedDeckCanvas.tsx:220, CollectionDeckRecommendations.tsx:183). The variants disagree semantically too: several maps render Black mana as light grey (`B: 'bg-gray-100 text-gray-800 border-gray-300'` at brain/CardAdditionPanel.tsx:72, collection/DeckAdditionPanel.tsx:133, collection/FavoriteDecksPreview.tsx:103, deck-builder/CommanderSelector.tsx:170, deck-builder/DeckSelector.tsx:70) while mana-symbols.tsx:12 correctly uses near-black --mana-black. The same pip is a different colour depending on which screen you are on.
+
+> **Fix:** Make src/lib/magic/colors.ts the single source of truth and have it export token references rather than hexes (`W: 'hsl(var(--mana-white))'`). Delete all 32 inline maps and route every WUBRG render through one <ManaSymbol>/<ColorIdentity> component. Add an ESLint `no-restricted-syntax` rule banning object literals with W/U/B/R/G keys outside src/lib/magic/, which is the only durable way to stop this regrowing.
+
+### [CRITICAL] Light mode does not exist — :root is itself a dark palette, so the theme toggle is near-inert and 156 dark: variants are stranded
+
+- **File:** `src/index.css:25-120 (:root) vs 122-160 (.dark); src/App.tsx:140; src/components/TopNavigation.tsx:141`
+- **Category:** theming
+
+src/App.tsx:140 mounts `<ThemeProvider attribute="class" defaultTheme="system" enableSystem>` and src/components/TopNavigation.tsx:141-143 renders a working Sun/Moon button calling `setTheme(theme === 'dark' ? 'light' : 'dark')`. But there is no light palette to switch to: `:root` (src/index.css:27-28) is `--background: 228 25% 8%` / `--foreground: 220 15% 95%` — i.e. white text on near-black — and `.dark` (lines 124-125) is merely `228 30% 5%` / `220 15% 98%`. Toggling 'light' vs 'dark' moves the background by 3% lightness. Three consequences, all verified: (a) the toggle is visibly a no-op, which reads as a broken control; (b) the 156 `dark:` variant declarations across 34 files only fire under `.dark`, so in the default 'light' state components fall back to their light-designed base classes on a black page — e.g. deck-builder/DeckCompatibilityChecker.tsx:249 `B: 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'` and ai-builder/CommanderFinder.tsx:16 `bg-gray-300 dark:bg-gray-600 / text-gray-800 dark:text-gray-100`; (c) the :root sidebar tokens at src/index.css:105-119 are still stock shadcn LIGHT values (`--sidebar-background: 0 0% 98%`, `--sidebar-foreground: 240 5.3% 26.1%`) sitting inside a dark palette, versus properly dark values in .dark at lines 152-159 — a latent white-on-black blowout the moment a sidebar is ever mounted.
+
+> **Fix:** Decide explicitly. If DeckMatrix is dark-only (defensible — Moxfield and Archidekt both default dark), delete the .dark block, set `defaultTheme="dark" enableSystem={false}` or drop next-themes entirely, remove the Sun/Moon button from TopNavigation.tsx:141, and strip all 156 dark: variants. If light mode is wanted, author a real light palette in :root, move the current dark values into .dark, and fix the sidebar tokens at index.css:105-119 — but that requires migrating the 2,683 hardcoded colors first or light mode will be unusable.
+
+### [CRITICAL] 2,683 hardcoded palette-colour occurrences across 193 of 485 files, plus Recharts demo colours driving the mana curve
+
+- **File:** `src/components/deck-builder/EdhAnalysisPanel.tsx (52 occurrences); src/components/deck-builder/DeckAnalysisPanel.tsx:14-15`
+- **Category:** theming
+
+Repo-wide measurement: 193 of 485 .ts/.tsx files (40%) contain hardcoded Tailwind palette classes, totalling 2,683 occurrences of the form (bg|text|border|from|to|via|ring|fill|stroke)-(slate|gray|zinc|blue|red|green|…)-[0-9]{2,3}. A further 53 files use bare bg-white/bg-black/text-white/text-black, 34 files embed raw hex, and 62 files use inline `style={{ }}` to bypass classes entirely. Worst offenders: deck-builder/EdhAnalysisPanel.tsx (52), deck-builder/DeckQuickStats.tsx (39), deck-builder/RefreshedDeckTile.tsx (31), deck-builder/ModernDeckTile.tsx (31), marketplace/CardPriceDetail.tsx (30), tournament/TournamentManager.tsx (28), features/collection/CollectionAnalytics.tsx (27), marketing/TwoColumnFeatures.tsx (27). The ui/ primitive layer is by contrast almost clean — only 2 of 55 files offend — so the tokens work; nothing above the primitives uses them. Charts are the sharpest case: src/components/deck-builder/DeckAnalysisPanel.tsx:14-15 sets `MANA_CURVE_COLORS = ['#8884d8', '#82ca9d', '#ffc658', ...]` and `TYPE_COLORS = ['#0088fe', '#00c49f', ...]`, and line 35 renders `<Bar dataKey="count" fill="#8884d8" />`. #8884d8/#82ca9d/#ffc658 are the verbatim Recharts documentation-example palette, also copied into collection/CardTypeDistribution.tsx:45 and deck-builder/EnhancedDeckAnalysis.tsx:61. The mana curve — the single most-read chart in any deck builder — is coloured by an untouched charting-library tutorial default rather than by card type or colour identity.
+
+> **Fix:** Treat this as a codemod, not manual cleanup: map the recurring palette classes onto semantic tokens (gray-400/500 → muted-foreground, gray-900/slate-900 → card or background, white → foreground/card, the status greens/reds → success/destructive tokens that need adding), run it file-by-file starting with the eight worst offenders, and add an ESLint tailwindcss/no-arbitrary-value plus a custom no-restricted-syntax rule banning raw palette shades outside src/components/ui/. Rebuild every Recharts surface on a token-driven palette derived from --type-* and --mana-* so the mana curve and type distribution finally read as MTG data.
+
+### [HIGH] shadow-glow-subtle and shadow-glow-elegant are used 49 times but no boxShadow scale exists in Tailwind — both classes emit zero CSS
+
+- **File:** `tailwind.config.ts:80-96; src/index.css:64-65`
+- **Category:** theming
+
+src/index.css:64-65 defines `--shadow-glow-subtle` and `--shadow-glow-elegant` as CSS custom properties. tailwind.config.ts has no `boxShadow` key anywhere in `theme.extend` (the only `boxShadow` occurrences are inside the glow-pulse keyframes at lines 114-115), and index.css only hand-writes one class, `.shadow-cosmic-glow`, at line 227. So `shadow-glow-subtle` (29 usages) and `shadow-glow-elegant` (20 usages) across 16 files are non-existent classes. Verified against dist/assets/index-Cq7kCi-l.css: there is no `.shadow-glow-subtle` rule and no `.shadow-glow-elegant` rule (grep count 0 for both); the single `shadow-glow-subtle` string in the bundle is the `--shadow-glow-subtle: 0 4px 20px hsl(var(--primary)/.15)` declaration. Meanwhile the app also mixes in raw Tailwind shadows — shadow-lg (115), shadow-md (53), bare shadow (48), shadow-sm (22), shadow-xl (17), shadow-2xl (12) — so there are effectively 7 competing elevation vocabularies, 2 of which are silently no-ops.
+
+> **Fix:** Add a `boxShadow` scale to tailwind.config.ts theme.extend mapping the existing vars (`'glow-subtle': 'var(--shadow-glow-subtle)'`, `'glow-elegant': 'var(--shadow-glow-elegant)'`, `'cosmic-glow': 'var(--shadow-glow-elegant)'`) and delete the hand-written .shadow-cosmic-glow from index.css. Then collapse to a single 3-step elevation scale (raised / overlay / glow) and codemod the ~250 raw shadow-* usages onto it.
+
+### [HIGH] Rarity — a core MTG concept — has zero design tokens and 15 competing implementations, several failing WCAG contrast
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:60; src/index.css (no rarity tokens)`
+- **Category:** mtg-domain
+
+`grep -n "rarity|mythic|uncommon" src/index.css tailwind.config.ts` returns nothing — there is no --rarity-common/uncommon/rare/mythic token pair anywhere, despite nine --type-* tokens existing for card types. Instead 15 files each hand-roll a rarity colour map: PowerScoringEngine.tsx, cards/CardPrintingComparison.tsx, collection/CollectionQuickStats.tsx, deck-builder/AdvancedCardFilters.tsx, deck-builder/DeckBudgetTracker.tsx:84-89, deck-builder/MissingCardsDrawer.tsx, enhanced/UniversalCardModal.tsx:308, marketplace/CardPriceDetail.tsx:117, universal/UniversalCardDisplay.tsx:60, universal/UniversalCardModal.tsx:48, universal/UniversalFilterPanel.tsx:341, wishlist/WishlistCardDisplay.tsx:58, wishlist/WishlistCardModal.tsx:105, features/collection/CardSearch.tsx:207, features/collection/EnhancedCardSearch.tsx. Many render 'common' as `text-gray-600` (#4B5563) with no background — on the app's `--background: 228 25% 8%` (~#0F1219) that is roughly a 2.4:1 contrast ratio, well under the WCAG AA 4.5:1 floor for body text. Concrete instances: universal/UniversalCardDisplay.tsx:60 `case 'common': return 'text-gray-600';`, universal/UniversalCardModal.tsx:48, wishlist/WishlistCardDisplay.tsx:58, wishlist/WishlistCardModal.tsx:105, universal/UniversalFilterPanel.tsx:341, deck-builder/DeckBudgetTracker.tsx:84. Scryfall/Moxfield treat rarity as a first-class, instantly-scannable visual (the set-symbol gradient); here it is illegible and inconsistent between the card grid, the modal, and the wishlist showing the same card.
+
+> **Fix:** Add four rarity tokens to index.css and register them in tailwind.config.ts next to the type-* block, using the canonical MTG treatments (common = neutral foreground, uncommon = silver #B5BFC6, rare = gold #D4AF37, mythic = the orange→red mythic gradient). Ship one <RarityBadge>/<RaritySymbol> primitive in src/components/ui/ and delete all 15 local maps. Verify every pairing clears 4.5:1 against --background.
+
+### [HIGH] No typography scale and no font family — the whole app renders in the browser default stack with 157 off-scale arbitrary sizes
+
+- **File:** `tailwind.config.ts:15-96 (theme.extend); index.html:1-30`
+- **Category:** theming
+
+tailwind.config.ts `theme.extend` has no `fontFamily` and no `fontSize` key (grep for both returns nothing). index.html loads no webfont — no <link> to a font CDN, no preconnect — and there is no @font-face anywhere in src/. So every surface of an MTG platform renders in Tailwind's default `ui-sans-serif, system-ui` stack, meaning the product looks materially different on Windows vs macOS and has no typographic identity at all (contrast with Moxfield/Archidekt/Scryfall, all of which invest in deliberate type). Because no scale was defined, usage sprawled across 13 default steps plus 5 invented arbitrary values used 157 times: `text-[10px]` × 129, `text-[9px]` × 20, `text-[8px]` × 5, `text-[11px]` × 2, `text-[0.8rem]` × 1 — all below Tailwind's smallest step (text-xs = 12px), i.e. a de-facto 'text-2xs' tier that nobody added to the system. Distribution is also inverted for a data-dense app: text-sm (1,444) and text-xs (1,060) dominate while text-base is used only 93 times. The same drift appears in radii — --radius: 0.75rem (index.css:103) feeds only lg/md/sm, while bare `rounded` (292 uses, a fixed 0.25rem), rounded-xl (83), rounded-2xl (27) and rounded-3xl (11) bypass the token entirely.
+
+> **Fix:** Define fontFamily (a UI sans such as Inter, self-hosted via @font-face, plus a tabular-numeral setting for price/count columns) and an explicit fontSize scale in tailwind.config.ts that includes a real `2xs: '0.625rem'` step, then codemod the 157 arbitrary sizes onto it. Extend borderRadius so xl/2xl/3xl derive from calc(var(--radius) + n) instead of Tailwind defaults, and remove bare `rounded` in favour of an explicit step.
+
+### [MEDIUM] src/App.css is dead Vite scaffold that still ships raw hex and a global .card rule colliding with the design system
+
+- **File:** `src/App.css:1-38`
+- **Category:** dead-ui
+
+src/App.css is the untouched create-vite React template stylesheet: `#root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }`, the React/Vite `.logo` spin animation, `.logo:hover { filter: drop-shadow(0 0 2em #646cffaa) }`, `.logo.react:hover { ... #61dafbaa }`, `.card { padding: 2em; }` and `.read-the-docs { color: #888; }`. It is never imported — src/main.tsx imports only './index.css' (line 3) and a repo-wide grep for 'App.css' in src/ returns nothing. It contributes four raw hex colours to the codebase's hex count and, more dangerously, defines a global `.card` rule that would collide head-on with the shadcn Card primitive and a `#root` centring/max-width rule that would fight every page layout the instant anyone imports it — a live trap for the next developer.
+
+> **Fix:** Delete src/App.css outright. While there, drop the three non-existent content globs in tailwind.config.ts:6-8 ('./pages/**', './components/**', './app/**' — none exist at repo root; only './src/**' matches), so the config stops advertising a directory structure the project does not have.
+
+### [MEDIUM] 1,007 lines of sidebar code and 16 sidebar design tokens exist for a component that is never mounted
+
+- **File:** `src/components/ui/sidebar.tsx:1-761; src/components/AppSidebar.tsx:1-246`
+- **Category:** dead-ui
+
+src/components/ui/sidebar.tsx is 761 lines and src/components/AppSidebar.tsx is 246 — the largest单 block in the UI layer. Neither is reachable: grepping 'AppSidebar' across src/ returns only its own definition at src/components/AppSidebar.tsx:44, and 'SidebarProvider' appears nowhere outside src/components/ui/sidebar.tsx itself (it is defined at line 48, exported at line 756, and never consumed). Since sidebar.tsx:42 throws 'useSidebar must be used within a SidebarProvider', the whole subsystem is provably unrendered. It nonetheless carries real cost in the design system: 8 --sidebar-* CSS variables in :root (src/index.css:105-119), 8 more in .dark (lines 152-159), and 8 Tailwind color entries (tailwind.config.ts:52-61) — and it is those unused :root values that hold the stale light-mode shadcn defaults flagged above. Navigation is actually delivered by src/components/TopNavigation.tsx, of which there are two files sharing the basename (alongside duplicated basenames AIBuilder.tsx, CollectionAnalytics.tsx, EnhancedDeckAnalysis.tsx and UniversalCardModal.tsx).
+
+> **Fix:** Delete src/components/AppSidebar.tsx and src/components/ui/sidebar.tsx along with the 16 --sidebar-* variables and the sidebar block in tailwind.config.ts — unless a left rail is part of the overhaul, in which case mount it and rewrite the :root token values, which are currently light-theme leftovers. Either way resolve the five duplicated component basenames before the redesign multiplies them.
+
+### [MEDIUM] 'standardized-components.tsx' hardcodes format colors and its main export is dead; the layout it backs reaches only 8 of 25 pages
+
+- **File:** `src/components/ui/standardized-components.tsx:42-48; src/components/layouts/StandardPageLayout.tsx`
+- **Category:** theming
+
+The file named standardized-components.tsx is one of only two files in the 55-file src/components/ui/ directory that violate the token system (the other is toast.tsx:78, which hardcodes red-300/red-50/red-400/red-600 inside the destructive variant instead of using --destructive). Lines 42-48 define `formatColors` entirely in raw palette classes — `standard: 'bg-blue-500/20 text-blue-400 border-blue-500/30'`, `commander: 'bg-purple-500/20 ...'`, `modern: 'bg-green-500/20 ...'`, `legacy: 'bg-yellow-500/20 ...'`, `custom: 'bg-gray-500/20 ...'` — despite nine --type-* tokens already existing for exactly this purpose. Worse, the badge these colours feed (line 98-100) is keyed on `format` but renders `{cardCount} cards`, so the format-derived colour labels a card count. StandardDeckTile, the file's primary export, is imported by nobody — only StandardSectionHeader is consumed, by src/components/layouts/StandardPageLayout.tsx:2 and src/pages/Templates.tsx:4. StandardPageLayout in turn wraps just 8 of the 25 files in src/pages/, which is why page shells diverge: max-w-4xl (3), max-w-6xl (2), max-w-7xl (1), max-w-5xl (1) plus the Tailwind `container` (5 pages, capped at 1400px by tailwind.config.ts:14-18 — too narrow for a card-image deck grid).
+
+> **Fix:** Delete the dead StandardDeckTile, move StandardSectionHeader into its own file, and rebuild format badges on the --type-* tokens (adding --format-* tokens if format needs distinct colour from card type). Fix the toast.tsx:78 destructive close-button to use --destructive-foreground. Then make one page shell mandatory across all 25 pages and widen the container — deck grids and collection tables need well past 1400px.
+
+### [MEDIUM] Edge of Eternities set-mechanic tokens are repurposed as the app-wide 'AI' accent, revealing a missing semantic slot
+
+- **File:** `tailwind.config.ts:63-68; src/index.css:67-72`
+- **Category:** theming
+
+src/index.css:67-72 declares five tokens under the comment 'Spacecraft theme colors' — --spacecraft, --station, --warp, --void, --planet — registered in tailwind.config.ts:63-68 under the comment '// EOE Mechanic Colors'. These are named after Edge of Eternities mechanics, i.e. a single MTG set. They are used 136 times across 21 files, but never for EOE mechanics: `text-spacecraft` (49 uses) and `border-spacecraft` (26) are the generic accent for AI features throughout — cards/AIFeaturedCard.tsx:113 'FEATURED CARD SPOTLIGHT', collection/AICollectionInsights.tsx:123 'COLLECTION ANALYSIS', dashboard/AIDeckRecommendations.tsx:138 'STRATEGIC RECOMMENDATIONS', deck-builder/AIAnalysisPanel.tsx:352 'DECKMATRIX ANALYSIS'. A set-specific token was hijacked because the palette has no semantic slot for an AI/intelligence accent, and the names now actively mislead (`--void` and `--planet` read as generic concepts, and EOE will be out of Standard long before this code is). Conversely the properly-named --type-* tokens are barely adopted: only 9 files use them, and 5 of the 9 (lands, sorceries, artifacts, planeswalkers, battles) are declared at src/index.css:83-90 yet never referenced once.
+
+> **Fix:** Rename the five EOE tokens to their actual semantic role (--accent-ai / --accent-info / --accent-warn, etc.) and codemod the 136 usages. Either adopt the five unused --type-* tokens across the deck list, curve chart and type-distribution views — where a serious MTG user expects consistent type colour-coding — or delete them. Set-specific colours, if genuinely needed, belong in a separate per-set map outside the core token layer.
+
+---
+
+## deck-detail
+
+The deck list/detail surface is not close to Moxfield/Archidekt quality — it is three unrelated design languages stitched together over a partly non-functional data layer. The worst problem is not cosmetic: `DeckInterface.tsx` (the `/deck/:id` detail page) fetches deck cards without any card metadata, so every card except the commander and sideboard is silently invisible, Avg CMC is always 0.0, value is always $0, and every card image is an empty grey box. `Templates.tsx` is 100% fabricated data (invented win rates and popularity) with every single control — search, format chips, filter button, sort dropdown, Preview/View buttons — wired to nothing. Across the five pages there are five competing deck-tile implementations (four dead), four competing mana-color renderers, three different page shells, no grid/list/density toggle anywhere, no sort control, and a power-level filter that is a mathematical no-op because it reads a field that does not exist on the data model. The design tokens the project already defines (`--type-creatures`, `--mana-blue`, etc.) are used in exactly one component; everything else hardcodes raw Tailwind palette classes.
+
+### [CRITICAL] Deck detail page silently hides every card except the commander — no card data is ever fetched
+
+- **File:** `src/pages/DeckInterface.tsx:95`
+- **Category:** dead-ui
+
+The `deck_cards` query at lines 95-105 selects only `id, card_id, card_name, quantity, is_commander, is_sideboard`. It never joins the related `cards` table, and `src/integrations/supabase/types.ts:311-341` confirms `deck_cards` itself carries no `type_line`, `cmc`, `prices` or `image_uris` columns (there is an unused FK `deck_cards_card_id_fkey` -> `cards` at types.ts:344-349). Consequence: the optional `card` field declared at lines 35-45 is `undefined` for every row, so (a) `getCardsByType()` lines 211-242 returns EMPTY arrays for creatures, spells, artifacts, enchantments, planeswalkers and lands because each filter tests `c.card?.type_line?.includes(...)` — only `commanders` and `sideboard` (which test `is_commander`/`is_sideboard`) ever have members, so the Visual tab renders a Commander section and nothing else for a 100-card deck; (b) `getDeckStats()` line 197 always computes `avgCmc = 0` and line 200 always computes `totalValue = 0`, which are then rendered as authoritative stats at lines 428 and 437; (c) the image slot at lines 282-290 is a bare grey `bg-muted` box for every card; (d) the hero art at lines 396-397 falls through to `undefined` so the commander banner is a flat gradient.
+
+> **Fix:** Replace the query with a real join — `.select('id, card_id, card_name, quantity, is_commander, is_sideboard, cards(name, type_line, mana_cost, cmc, colors, color_identity, image_uris, prices, oracle_text, power, toughness, rarity, set, legalities)')` — and map `row.cards` onto `card`. Add a dev-time assertion/empty-state so a deck that resolves to zero typed groups renders an explicit error rather than a page that looks like an empty deck. This page cannot be visually overhauled until it actually has data.
+
+### [CRITICAL] Templates page is entirely fabricated data with six dead controls and a stub action
+
+- **File:** `src/pages/Templates.tsx:25`
+- **Category:** copy
+
+Lines 25-110 are a hardcoded literal array of six invented archetypes carrying fabricated statistics presented as real metrics: `winRate: 62`, `popularity: 89`, `lastUpdated: "2 days ago"` (a frozen string that will always say 2 days ago). These are rendered as authoritative numbers at lines 220-225 and 299-306. Every interactive control on the page is dead: `searchQuery` (line 113) is bound to the input at line 170 but never used in either render path (lines 199 and 276 map the raw `templates` array); the six format quick-filter buttons at lines 183-188 have no `onClick`; the `Filters` button at lines 175-178 has no `onClick`; the sort `<select>` at lines 266-271 has no `onChange` and no backing state; `Preview` (line 250) and `View` (line 313) have no `onClick`; `handleUseTemplate` at lines 142-145 fires a success toast then hits the comment `// Implement template usage` and returns. `selectedFormat` (line 114) is only ever read, never set, so the AI recommendation panel at line 157 always receives `undefined`.
+
+> **Fix:** Delete the fake dataset and either back this page with real aggregated data (deck counts, format legality, actual archetype definitions from `src/lib/deckbuilder`) or remove the page from the router until it has substance. Never ship invented win rates on an MTG platform — enthusiasts cross-check against EDHREC/MTGGoldfish and this destroys trust instantly. If the page stays, wire search/format/sort to a single shared filter hook and implement `handleUseTemplate` to actually create a deck.
+
+### [CRITICAL] "Full Analysis" modal shows identical fabricated power subscores for every deck
+
+- **File:** `src/components/deck-builder/DeckAnalysisModal.tsx:77`
+- **Category:** copy
+
+Lines 77-85 define `powerSubscores` behind the comment `// Mock power subscores - would be computed by the power engine`: Speed 7.2, Interaction 6.8, Card Advantage 8.1, Tutors 5.4, Wincons 7.9, Resilience 6.2. These constants are rendered at lines 120-143 as six cards with `/10` badges and filled `<Progress>` bars, indistinguishable from real analysis. Every deck a user opens shows the exact same six numbers. This modal is reached from the Decks page tile (`src/pages/Decks.tsx:695-698`) and from the tile's "Full Analysis" dropdown item and "Stats" footer button (`ModernDeckTile.tsx:384-386`, `551-554`). A real engine exists and is already wired up elsewhere — `EDHPowerCalculator` in `src/lib/deckbuilder/score/edh-power-calculator.ts`, used by `ComprehensiveAnalytics.tsx:73`.
+
+> **Fix:** Replace the mock array with a call to `EDHPowerCalculator.calculatePower(...)`, or reuse `ComprehensiveAnalytics` directly in this modal so the Decks page and the public deck page report the same subscores from the same engine. Until then the modal should not render subscore cards at all.
+
+### [HIGH] Power-level filter is a no-op — reads a field that does not exist on DeckSummary
+
+- **File:** `src/hooks/useDeckFilters.ts:64`
+- **Category:** filtering
+
+Line 64 reads `const deckPower = deck.power_level || deck.powerLevel || 5;`. The objects passed in from `src/pages/Decks.tsx:133` are `DeckSummary[]`, and `src/lib/api/deckAPI.ts:39-44` shows power lives at `power.score` — there is no `power_level` or `powerLevel` property anywhere on the type. So `deckPower` is literally always `5` for every deck. Consequence: dragging the Min slider (`DeckSearchFilters.tsx:135-142`) to 6 or above filters out 100% of decks and the page shows "No decks found"; dragging Max below 5 does the same. The filter can never produce a correct result, and the active-filter badge at `DeckSearchFilters.tsx:66-68` will still count it as an applied filter.
+
+> **Fix:** Change line 64 to `const deckPower = (deck as any).power?.score ?? deck.power_level ?? 5;` and tighten the `DeckItem` interface (lines 11-18) to match `DeckSummary` rather than a speculative shape. Add a unit test that filters a fixture with known `power.score` values.
+
+### [HIGH] Enabling deck sharing shows a success toast but the share link never appears
+
+- **File:** `src/pages/Decks.tsx:782`
+- **Category:** dead-ui
+
+`Decks.tsx:782-790` renders `<ShareDrawer isPublic={shareIsPublic} onShareToggle={loadDeckSummaries} />`. `shareIsPublic` is set once when the drawer opens (line 714) and `loadDeckSummaries` (lines 149-180) only refreshes `deckSummaries` — it never calls `setShareIsPublic`. Inside the drawer, `handleEnableSharing` (`ShareDrawer.tsx:93-107`) sets local `shareUrl` and toasts "Deck sharing enabled", but the entire link/QR/embed/analytics block is gated at `ShareDrawer.tsx:203` on `{isPublic && shareUrl && ...}` — and the `isPublic` prop is still `false`. The user flips the switch, sees a success toast, and the drawer stays empty; the switch itself (line 190, `checked={isPublic}`) also snaps back to off. Sharing is the single highest-value social feature on a deck platform and its happy path is broken.
+
+> **Fix:** Either lift the enabled state into `ShareDrawer` (`const [enabled, setEnabled] = useState(isPublic)` synced on open, set to true in `handleEnableSharing`), or have `onShareToggle` in Decks.tsx re-read `public_enabled`/`public_slug` and call `setShareIsPublic`/`setShareSlug`. Also consider making `ShareDrawer` fetch its own share state from `deckId` so no caller can desynchronise it.
+
+### [HIGH] No grid/list toggle, no card-size density control, and no sort anywhere in the deck area
+
+- **File:** `src/pages/Decks.tsx:687`
+- **Category:** layout
+
+Verified by reading every file in this area: there is no `viewMode` state, no grid/list toggle, and no sort control in `Decks.tsx`, `DeckInterface.tsx`, `PublicDeck.tsx`, `Precons.tsx`, `Templates.tsx`, `ModernDeckTile.tsx`, `CardGallery.tsx` or `DeckSearchFilters.tsx`. The deck list at `Decks.tsx:687-728` is a hardcoded `space-y-4` vertical stack of `ModernDeckTile`s, each pinned to `minHeight: '320px'` by an inline style at `ModernDeckTile.tsx:250` — twenty decks is ~6,400px of scroll with no way to compact it. `DeckSearchFilters.tsx` offers only search + a filter popover; there is no sort by name/updated/power/value/completion. The public deck gallery is locked to `grid-cols-2 md:grid-cols-3 lg:grid-cols-4` (`CardGallery.tsx:100`) with no density slider and no table view. `DeckInterface.tsx:454-468` has Visual/List/Analysis tabs, but the List tab (482-507) is a plain unsorted `name + price` stack with no columns and no sortable headers. Moxfield and Archidekt both ship grid/list/table with adjustable card size and multi-column sortable tables as table stakes.
+
+> **Fix:** Build one shared `ViewControls` component (view mode: grid | list | table | compact; density: 3-8 columns; sort key + direction) persisted to localStorage, and apply it to the deck list, the deck detail card sections, and the public deck gallery. For the table view, `@tanstack/react-table` is already a dependency (package.json) and unused here — use it for sortable Name / Qty / Mana Cost / MV / Type / Rarity / Set / Price / Owned columns.
+
+### [HIGH] Five competing deck-tile implementations, four of them completely dead
+
+- **File:** `src/components/deck-builder/ModernDeckTile.tsx:91`
+- **Category:** architecture
+
+Only `ModernDeckTile` (562 lines) is referenced, from `src/pages/Decks.tsx:689`. Zero references exist anywhere in `src/` for `EnhancedDeckTile.tsx` (437 lines), `ImprovedDeckTile.tsx` (427 lines), `RefreshedDeckTile.tsx` (534 lines), or `StandardDeckTile` (exported from `src/components/ui/standardized-components.tsx:26`) — that is ~1,400 lines of orphaned, divergently-themed tile code. The same pattern repeats for deck lists: `DeckList.tsx` (334 lines) and `ModernDeckList.tsx` (430 lines) have no importers; only `EnhancedDeckList.tsx` is used (by DeckBuilder). Each dead tile carries its own format-colour map — e.g. `standardized-components.tsx:42-48` maps `modern` to green while the live `ModernDeckTile.tsx:75` maps `modern` to emerald and `Decks.tsx:571-578` (also dead) maps it to grey. This is the mechanical root of the owner's "entire app is so inconsistent" complaint.
+
+> **Fix:** Delete `EnhancedDeckTile.tsx`, `ImprovedDeckTile.tsx`, `RefreshedDeckTile.tsx`, `DeckList.tsx`, `ModernDeckList.tsx` and `StandardDeckTile`. Keep exactly one `DeckTile` that takes a `variant: 'grid' | 'list' | 'compact'` prop, and one format/colour map exported from a single module so no page can drift.
+
+### [HIGH] Design tokens are defined but ignored — 55 raw palette classes in the live deck tile alone
+
+- **File:** `src/components/deck-builder/ModernDeckTile.tsx:65`
+- **Category:** theming
+
+`tailwind.config.ts:65-77` defines semantic card-type tokens (`type-commander`, `type-lands`, `type-creatures`, `type-instants`, `type-sorceries`, `type-enchantments`, `type-artifacts`, `type-planeswalkers`, `type-battles`) and `src/index.css:76-90` defines `--mana-white/blue/black/red/green`. `CardGallery.tsx:21-29` is the only component in this entire area that uses them. `ModernDeckTile.tsx` hardcodes 55 raw palette classes instead: `powerBandConfig` 65-70 (green/blue/orange/red-400), `formatConfig` 72-81 (eight raw hues), `colorMap` 83-89 (`bg-blue-600`, `bg-gray-900` as mana pips), `typeBreakdown` 233-239 (`bg-green-500`, `bg-amber-600` for the exact types that have tokens), plus `text-green-500` at 426, `text-amber-400` at 271, `fill-yellow-400` at 290, and the red/green ownership states at 452-456. Counts across the area: ModernDeckTile 55, DeckAnalysisModal 23, Decks.tsx 12, DecksSummaryStats 10, DeckSearchFilters 10, LegalityBadge 10. `Decks.tsx:582-586` additionally hardcodes raw hex (`#FFFBD5`, `#0E68AB`, `#150B00`, `#D3202A`, `#00733E`).
+
+> **Fix:** Sweep the area to semantic tokens: `bg-type-creatures`, `bg-type-lands`, etc. for composition bars and type headers; `--mana-*` for all colour pips; and add `--success`/`--warning` tokens for the legality and completion states instead of `green-500`/`red-500`. Add an ESLint rule banning raw Tailwind palette classes in `src/components/deck-builder/**` and `src/pages/**` so this cannot regress.
+
+### [HIGH] Four different mana-colour renderers, none of which draws an actual mana symbol
+
+- **File:** `src/components/deck-builder/DeckSearchFilters.tsx:29`
+- **Category:** mtg-domain
+
+Colour identity is drawn four incompatible ways in this one area: (1) `src/components/ui/mana-symbols.tsx:9-16` — HSL-token circles with a W/U/B/R/G letter, the only token-correct one, used exclusively by `Templates.tsx:209`; (2) `ModernDeckTile.tsx:83-89` — plain Tailwind dots with no letter (`W: 'bg-amber-100'`, `B: 'bg-gray-900'`); (3) `Decks.tsx:580-598` — raw-hex circles (dead code, never called); (4) `DeckSearchFilters.tsx:29-35` — light-mode text chips on a dark cosmic theme where **white mana is rendered yellow** (`W: 'bg-yellow-100 text-yellow-900'`). None renders a real MTG mana pip: `package.json` has no `mana-font` or `keyrune` dependency, and no card anywhere in this area shows its mana cost — `CardGallery.tsx:147-148` prints the bare text `CMC 3` under each card instead of the cost symbols, and `DeckInterface.tsx:299-301` prints the CMC integer in an outline badge. Mana symbols are the visual grammar of Magic; Scryfall, Moxfield, Archidekt and EDHREC all render true pips everywhere.
+
+> **Fix:** Add `mana-font` (or ship the SVG pips locally) and build one `<ManaCost cost="{2}{U}{B}" />` plus one `<ColorIdentity colors={[...]} />` component driven by the `--mana-*` tokens. Delete the other three implementations. Render real costs on every card row, tile, filter chip and curve axis.
+
+### [HIGH] Decks page carries ~250 lines of dead code including a whole unreachable AI deck builder
+
+- **File:** `src/pages/Decks.tsx:409`
+- **Category:** dead-ui
+
+Of 793 lines, roughly a third is unreachable. Verified by grep (each symbol appears exactly once, at its own definition): `createDeck` (194-224), `loadDeck` (351-407), `generateAIDeck` (409-569, ~160 lines including a full Supabase edge-function call plus a local fallback builder), `getFormatBadgeColor` (571-578), `getColorIcons` (580-598). The state that drives them is equally orphaned: `showCreateDialog` (76), `showAIDialog` (77), `selectedDeck` (82), `localDecks` (116), `loadDeckFromHook` (122). `activeTab` (line 184) is computed from the `?tab=` URL param and never read in JSX — the URL parameter does nothing, yet dead code at lines 393 and 557 still calls `setActiveTab('deck-editor')`. Eleven imports are unused: `Tabs`/`TabsContent`/`TabsList`/`TabsTrigger`, `Dialog`, `Badge`, `Select`, `Label`, `EnhancedAnalysisPanel`, `PowerSliderCoaching`, `LandEnhancerUX`, `ArchetypeLibrary`, `DeckImportExport`.
+
+> **Fix:** Delete all of it. If AI deck generation is meant to be reachable from this page, wire it to an actual button; otherwise the canonical entry point is `/smart-builder` and this copy is pure maintenance debt. Enable `noUnusedLocals` in `tsconfig.app.json` and turn on `@typescript-eslint/no-unused-vars` as an error to prevent re-accumulation.
+
+### [HIGH] "Export" and "Deckbox" menu items are console.log stubs
+
+- **File:** `src/pages/Decks.tsx:717`
+- **Category:** dead-ui
+
+Lines 717-722 pass `onExport={() => { console.log('Export deck:', deckSummary.id); }}` and `onDeckbox={() => { console.log('Open deckbox for:', deckSummary.id); }}`. `onExport` is rendered as a real "Export" item with a Download icon in the tile's dropdown menu (`ModernDeckTile.tsx:397-399`) — clicking it does nothing at all, with no toast and no error. `onDeckbox` is declared in the props interface (`ModernDeckTile.tsx:59`) but never rendered anywhere in the component, so it is a prop that can never fire. A working exporter already exists at `src/lib/deckExport.ts` (`exportDeckToText`) and is used by `PublicDeck.tsx:50,62`, and a richer `DeckImportExport` component is imported into Decks.tsx (line 49) but never rendered.
+
+> **Fix:** Wire `onExport` to open a format picker (Arena / MTGO / plain text / Moxfield / Archidekt / CSV) backed by `src/lib/deckExport.ts`, and either implement or delete `onDeckbox` from the props interface. No menu item should ever be a console.log.
+
+### [MEDIUM] The same deck reports two different average mana values in two places
+
+- **File:** `src/components/deck-builder/ModernDeckTile.tsx:226`
+- **Category:** mtg-domain
+
+`ModernDeckTile.tsx:226-229` computes avg CMC by dividing the weighted curve total by `counts.total - counts.lands` (non-land count). `DeckAnalysisModal.tsx` (Mana Curve tab, ~lines 214-217) runs the identical weighted sum but divides by `deckSummary.counts.total` — including lands. So the tile shows e.g. 3.21 and the analysis modal opened from that same tile shows 2.14 for the same deck. Both are approximations anyway, since the shared bucket-midpoint fudge (`'0-1' -> 0.5`, `'6-7' -> 6.5`, `'8-9' -> 8.5`, `'10+' -> 10`) is duplicated verbatim in both files. Separately, the term used throughout is "CMC"; Wizards renamed this to mana value (MV) in 2021 and every modern MTG site labels it MV.
+
+> **Fix:** Compute average mana value once, server-side or in `deckAPI`, exclude lands (the community convention), expose it as a field on `DeckSummary`, and delete both client-side reimplementations. Relabel to "Avg MV" with a tooltip noting lands are excluded.
+
+### [MEDIUM] Deck format filter covers 3 of the 8 supported formats
+
+- **File:** `src/components/deck-builder/DeckSearchFilters.tsx:23`
+- **Category:** filtering
+
+`FORMAT_OPTIONS` at lines 23-27 offers only Standard, Commander and Custom. But `Decks.tsx:64` types `format` as `'standard' | 'commander' | 'modern' | 'legacy' | 'pioneer' | 'vintage' | 'pauper' | 'custom'` and `ModernDeckTile.tsx:72-81` renders styled badges for all eight. A user with Modern, Legacy, Pioneer, Vintage or Pauper decks cannot filter to them — and because `useDeckFilters.ts:46-50` uses `filters.format.includes(deck.format)`, selecting any of the three available options hides all five unsupported formats entirely. Formats like Brawl, Historic, Alchemy, Oathbreaker and Duel Commander are absent from the model altogether.
+
+> **Fix:** Derive the format list from a single exported constant shared by the type, the filter and the badge map, so adding a format updates all three at once. Include the full Scryfall legality format set.
+
+### [MEDIUM] Colour filtering ignores colour identity, the operation Commander players actually need
+
+- **File:** `src/hooks/useDeckFilters.ts:53`
+- **Category:** mtg-domain
+
+Lines 53-61 implement colour filtering as a pure OR — a deck matches if it contains at least one selected colour. There is no exact match, no subset ("decks I can build with this commander"), no superset, and no colourless/C option (`DeckSearchFilters.tsx:29-35` lists only W/U/B/R/G). More fundamentally it filters `deck.colors`, while `DeckSummary` also carries `identity: string[]` (`src/lib/api/deckAPI.ts:10`) — and a grep across `src/` shows `.identity` is read only in card-search code (`AdvancedFilterPanel.tsx:209`, `scryfall/query-builder.ts:68`) and never once in the deck list, deck tile, or deck detail. Colour identity is the single most important filtering axis in Commander (it is what legality is built on), and the deck area does not use it at all.
+
+> **Fix:** Filter on `identity`, not `colors`, for Commander decks, and add the Scryfall-style operator set that MTG users already know: exactly (=), includes (>=), at most / subset (<=), plus a colourless toggle. Show the operator in the UI as `id<=WUB` style shorthand so power users recognise it.
+
+### [MEDIUM] Public deck gallery silently drops and double-counts cards
+
+- **File:** `src/pages/PublicDeck.tsx:158`
+- **Category:** mtg-domain
+
+`cardGroups` at lines 158-171 is seven hardcoded substring filters with no fallback bucket. Cards whose type line matches none of them — Battles (a real type since March of the Machine, and `DeckSummary.counts.battles` exists at `deckAPI.ts:26`), Kindred/Tribal, Dungeons, or any card whose `type_line` failed to persist (line 122 defaults it to `''`) — vanish from the gallery entirely while the header at line 213 still reports `deck.counts.total` cards. Conversely a card typed "Legendary Artifact Enchantment" satisfies both the Artifacts filter (167) and the Enchantments filter (168) and is rendered twice; the Instants & Sorceries filter (163-165) is the only one that omits the `!c.is_commander` guard, so a commander like an Instant-typed background or an Adventure would also appear twice. The same brittle substring-cascade is duplicated a third time in `transformedCards` at lines 146-153 and a fourth time in `DeckInterface.tsx:211-242`.
+
+> **Fix:** Write one `categorizeCard(typeLine)` helper that returns a single canonical bucket via ordered precedence (Land > Commander > Battle > Planeswalker > Creature > Artifact > Enchantment > Instant > Sorcery > Other), guarantee an `Other` bucket, and assert that the sum of grouped quantities equals `counts.total`. Reuse it in PublicDeck, DeckInterface and the deck builder.
+
+### [MEDIUM] Public deck analysis builds the commander object from an arbitrary deck card
+
+- **File:** `src/components/deck-builder/ComprehensiveAnalytics.tsx:65`
+- **Category:** mtg-domain
+
+Lines 65-71 construct the commander passed to the power engine as `{ ...convertedDeck[0], name, cmc, type_line, is_legendary: true }` — it spreads whatever card happens to sit at index 0 of the deck array and overrides only four fields. Everything else, crucially `color_identity`, is inherited from that unrelated card. `src/lib/deckbuilder/score/edh-power-calculator.ts:313` then does `const commanderColors = new Set(commander.color_identity || [])` and scores every card against it, so colour-identity-derived scoring on the public deck page is computed against the wrong colours. Compounding this, line 48 of the same file sets `color_identity: card.colors || []` for every deck card — colour identity is not the same as colour (a colourless artifact with a `{U}` activation has blue identity; a card with a hybrid or off-colour reminder symbol differs), and `PublicDeck.tsx:126` feeds it the raw `card.colors` column. `is_legendary` is also hardcoded `false` for all deck cards (line 60).
+
+> **Fix:** Pass the real commander object through rather than reconstructing it, persist and use a genuine `color_identity` column from Scryfall instead of aliasing `colors`, and derive `is_legendary` from the type line. This is the kind of error an EDH player spots immediately when a mono-colour deck scores as five-colour.
+
+### [MEDIUM] Precons page is off the design system, hardcodes the project URL, and fires a wasted request on every load
+
+- **File:** `src/pages/Precons.tsx:243`
+- **Category:** theming
+
+Line 243 opens with a bare `<div className="w-full px-4 md:px-6 space-y-6">` and a hand-rolled header (245-256) rather than `StandardPageLayout`, which `Decks.tsx:609` and `DeckInterface.tsx:357` both use — so page padding, title scale and header spacing differ from its sibling pages. The Supabase project URL is hardcoded twice, at lines 72 and 100, despite `VITE_SUPABASE_URL` existing in `.env`. Lines 66-68 call `supabase.functions.invoke('fetch-precons', { body: null })` and discard both `data` and `error`, then lines 71-78 immediately re-fetch the same function with `fetch()` — a wasted network round-trip on every page load, acknowledged by the comment on line 70. Line 427 sets `max-h-[300px]` on a container with no `overflow` property, so the class does nothing. Both panels are pinned to a magic `h-[600px]` (304, 362). The third stat card (278-286) shows the literal constant "Commander" under the label "Format" — a filler tile that conveys nothing. Hardcoded palette colours at 271, 280, 346, 408.
+
+> **Fix:** Move to `StandardPageLayout`, read the function URL from `import.meta.env.VITE_SUPABASE_URL`, delete the dead `invoke` call, drop the no-op `max-h-[300px]` and the fake Format stat, and replace fixed pixel heights with a responsive grid.
+
+### [MEDIUM] Precon browser shows zero card imagery for a product line sold on its commander art
+
+- **File:** `src/pages/Precons.tsx:335`
+- **Category:** layout
+
+The precon list (lines 335-350) renders each deck as a text row with a generic Lucide `Crown` icon, and the detail pane (402-437) renders the full 100-card list as two plain text columns of `{quantity}x {card_name}` with no images, no mana costs, no colour identity, no mana curve, no price, and no type grouping (only a Commander / Main Deck split at 405 and 423). Precons are chosen almost entirely by commander and colour identity — every competing site leads with the commander's art. The `PreconCard` interface (lines 30-35) does carry `scryfall_id`, so images are one lookup away and simply are not used.
+
+> **Fix:** Use `scryfall_id` to render commander art on every list row and card thumbnails in the detail pane, add colour-identity pips and a mana curve to the detail header, and group the main deck by card type using the shared categorizer. Reuse `CardGallery` here rather than hand-rolling a third list layout.
+
+### [MEDIUM] Card images use the wrong aspect ratio and the hover state hides the art
+
+- **File:** `src/components/deck-builder/CardGallery.tsx:107`
+- **Category:** layout
+
+Line 107 sets `aspect-[3/4]` (0.750) on the image frame. A Magic card is 63mm x 88mm — 5:7, or 0.714 — and Scryfall's own `normal` images are 488x680 (0.7176). Combined with `object-cover` on line 112 this crops roughly 5% off the card, cutting into the border and the bottom text box on every single card in the gallery. Worse, the hover treatment at lines 137-142 paints `bg-background/90` with `backdrop-blur-sm` across the entire card and shows a "View Details" label — hovering a card completely obscures the art the user is trying to look at. Every serious MTG site does the opposite: hover reveals a larger, sharper preview.
+
+> **Fix:** Use `aspect-[488/680]` (or `aspect-[5/7]`) with `object-contain`, and replace the opaque hover scrim with a scale/elevation treatment plus a hover-card preview at full resolution. Add `srcSet` for Scryfall's small/normal/large so the density control can serve appropriately-sized images.
+
+### [MEDIUM] Deck detail List tab prints raw internal object keys as section headings
+
+- **File:** `src/pages/DeckInterface.tsx:486`
+- **Category:** copy
+
+Lines 486-491 iterate `Object.entries(cardsByType)` and render `{type}` directly into an uppercased `<h3>`. Because the keys come from the object literal at lines 245-254, users see section headers reading "COMMANDERS", "SPELLS", "PLANESWALKERS", "SIDEBOARD" — with "SPELLS" being the internal name for what the Visual tab correctly labels "Instants & Sorceries" (line 474). The same tab shows no quantities column alignment, no mana costs, no types, and no sortable headers — just `{qty}x {name}` and a price that is always blank because `card.prices` is never fetched (see the critical finding above). Separately, the Analysis tab (509-521) is a hardcoded placeholder reading "Advanced deck analysis features coming soon" — while a fully-built `ComprehensiveAnalytics` component already ships on the public deck page (`PublicDeck.tsx:249`).
+
+> **Fix:** Map keys to display labels through the shared categorizer's label table, rebuild the List tab as a real sortable table (`@tanstack/react-table` is already installed), and drop `ComprehensiveAnalytics` into the Analysis tab instead of the coming-soon copy — a logged-in owner should never see less analysis than an anonymous visitor.
+
+### [MEDIUM] Three different page shells across five sibling pages
+
+- **File:** `src/pages/Templates.tsx:147`
+- **Category:** theming
+
+The five pages in this area use three unrelated wrappers. `Decks.tsx:609` and `DeckInterface.tsx:357` use `StandardPageLayout`, which applies `px-3 md:px-6 py-2 md:py-4` full-bleed (`src/components/layouts/StandardPageLayout.tsx:20-21`). `Templates.tsx:147-148` uses `min-h-screen bg-background` + `container mx-auto px-4 py-6` — a centred, max-width container with different padding. `Precons.tsx:243` uses a bare `w-full px-4 md:px-6` div with a hand-rolled header. `PublicDeck.tsx:195-242` builds a fourth variant with its own sticky `border-b bg-card/50 backdrop-blur-sm` header. Header typography differs too: `Precons.tsx:251` is `text-xl md:text-2xl font-bold`, `PublicDeck.tsx:202` is `text-2xl font-bold`, and `StandardSectionHeader` supplies yet another scale. Navigating between these pages produces visible jumps in content width, gutter and title size.
+
+> **Fix:** Make `StandardPageLayout` the single shell for all authenticated pages (adding an optional `maxWidth` prop for the cases that genuinely need a narrower measure), give `PublicDeck` a dedicated public shell that reuses the same spacing and type scale tokens, and delete the ad-hoc wrappers.
+
+### [LOW] Type composition bar truncates to five rows and omits Battles entirely
+
+- **File:** `src/components/deck-builder/ModernDeckTile.tsx:496`
+- **Category:** mtg-domain
+
+`typeBreakdown` at lines 232-240 enumerates Creatures, Instants, Sorceries, Artifacts, Enchantments, Planeswalkers and Lands — but not Battles, even though `DeckSummary.counts.battles` exists (`src/lib/api/deckAPI.ts:26`), so Battle cards are counted in the total but never surface in the composition breakdown. Line 496 then renders `.slice(0, 5)` with no "+N more" affordance, so for a typical Commander deck the two smallest categories — very often Planeswalkers and Lands — are silently dropped from a panel whose header reads "Composition". The percentages are computed against `counts.total` (line 497) while the header label at line 493 reports `totalNonLand` as "spells", mixing two denominators in one panel.
+
+> **Fix:** Add Battles to the enumeration, drop the slice in favour of a compact stacked bar with a legend (or a hover breakdown), and use one consistent denominator with an explicit label.
+
+### [LOW] Templates uses raw HTML form controls beside imported shadcn equivalents
+
+- **File:** `src/pages/Templates.tsx:167`
+- **Category:** theming
+
+Line 167 renders a bare `<input type="text">` with fifteen hand-copied utility classes reproducing the shadcn input styling, while the real `Input` component is imported at line 11 and never used. Line 266 renders a bare `<select>` with `border border-input bg-background rounded px-2 py-1` while shadcn `Select` is used across the rest of the app (e.g. `Decks.tsx:13`). Native selects render with OS chrome that ignores the dark cosmic theme entirely, so this dropdown will appear as a light-mode system widget on a dark page. Unused icon imports `Zap`, `Shield` and `Target` (lines 15-18) round it out.
+
+> **Fix:** Swap in the imported `Input` and shadcn `Select`, delete the hand-copied classes and unused imports. Add a lint rule forbidding raw `<input>`/`<select>`/`<button>` in `src/pages/**`.
+
+### [LOW] PowerLevelBadge composes malformed CSS colours from RGB triplets wrapped in hsl()
+
+- **File:** `src/components/ui/mana-symbols.tsx:70`
+- **Category:** theming
+
+Lines 70-73 return `hsl(var(--power-1))` through `hsl(var(--power-10))`. But `src/index.css:93-96` defines those variables as RGB triplets, not HSL: `--power-1: 34 197 94;` (Tailwind green-500's RGB). Wrapping them in `hsl()` yields `hsl(34 197 94)` — hue 34 (orange), saturation 197% and lightness 94%, both clamped — so the "low power" badge renders near-white instead of green and the four bands are visually indistinguishable. Every other variable in `index.css` is correctly HSL (the file header at line 22 even states "All colors MUST be HSL"), so these four are the outliers. Currently reachable only via `standardized-components.tsx:112` and the dead `EnhancedDeckTile.tsx:317`, but `StandardSectionHeader` from that same module is used by every page in this area.
+
+> **Fix:** Convert `--power-1/4/7/10` to HSL triplets to match the rest of the file (e.g. `--power-1: 142 71% 45%`), or rename them and use `rgb()`. Add a CI grep asserting no `hsl(var(--x))` reference points at a variable stored in RGB form.
+
+### [LOW] Commander-only power level is applied to 60-card formats
+
+- **File:** `src/components/deck-builder/DecksSummaryStats.tsx:22`
+- **Category:** mtg-domain
+
+Lines 22-24 average `power.score` across every deck regardless of format and present it as "Avg Power /10" (lines 41-48). Power level is a Commander/EDH social-contract concept (now formalised by Wizards as Brackets 1-5); it has no meaning for Standard, Modern or Pioneer, where decks are measured by tier and matchup win rate. `Templates.tsx` compounds this by assigning "Power 7.5/10" to a Standard deck and "8.7" to a Pioneer deck (lines 32, 60). `ModernDeckTile.tsx:348-351` likewise renders the casual/mid/high/cEDH band badge on every deck — labelling a Standard deck "cEDH" is nonsensical to any player.
+
+> **Fix:** Gate power score and band on `format === 'commander'` (plus Brawl/Oathbreaker), and show a format-appropriate metric elsewhere. Consider adopting the official Bracket 1-5 vocabulary alongside the 1-10 score, since that is what the Commander community now uses.
+
+---
+
+## card-sync
+
+The card sync is not "stalled" in the sense of a crashed job — it is architecturally incapable of ever being complete, and architecturally incapable of ever restarting itself. The root cause of the missing sets is a single query parameter: `supabase/functions/scryfall-sync/index.ts:205` searches Scryfall with `unique=cards`, which collapses every printing of a card down to ONE representative printing. The `cards` table's primary key is the printing-specific Scryfall `id` and `user_collections`/`deck_cards` carry FKs to it, so the schema is printing-scoped while the sync is oracle-scoped. That mismatch is exactly why sets that are mostly reprints (msc 7/866, sos, soc, msh, hob, hoc) are near-empty, and why 31,880 rows sits just under Scryfall's 32,726 for that same deduped query — the sync is ~97% "done" against a target that is only ~30% of paper Magic. Second, there is no scheduler at all and the only continuation mechanism is a self-`fetch` chain fired from `EdgeRuntime.waitUntil` that is explicitly NOT fired on error (`needsResume:false` on every failure path, index.ts:301), so one 429 or worker timeout kills the run permanently until a human clicks a button. Third, the resume checkpoint is stored in the `error_message` column, which four separate code paths and six migrations wipe. The six "reset the stuck sync" migrations dated 2025-12-07 are the fossil record of this failure loop.
+
+### [CRITICAL] `unique=cards` in the sync query is the root cause of the missing sets — the sync stores one printing per card while the schema is printing-keyed
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:205`
+- **Category:** mtg-domain
+
+The sync URL is `https://api.scryfall.com/cards/search?q=-is%3Adigital+game%3Apaper&unique=cards&page=1` (line 205, duplicated in the reconstruct-fallback at line 94). Scryfall's `unique=cards` removes duplicate gameplay objects — it returns ONE representative printing per functionally-unique card, not every printing. But `cards.id` is the printing-specific Scryfall id (migration 20250828015357_...sql:5, comment on 20250828022749_...sql:3 literally says "scryfall id (printing-specific)"), and `user_collections.card_id` + `deck_cards.card_id` + `listings.card_id` all FK to it. So the sync can only ever populate ~32.7k of the ~105k paper printings. This exactly explains the reported symptom: msc/sos/soc/msh/hob/hoc are recent sets composed almost entirely of reprints, and under `unique=cards` a reprint-heavy set yields near-zero rows — msc's 7 rows are its handful of genuinely new cards out of 866 printings. It also explains why 31,880 is so close to Scryfall's 32,726 for the identical query: the sync essentially DID finish, against the wrong target. Note the app already knows it needs prints — `src/components/cards/CardPrintingComparison.tsx:49` uses `unique=prints`, and `src/components/marketplace/PriceSearchPanel.tsx:152` uses `unique=prints`.
+
+> **Fix:** Drop `unique=cards` entirely. The correct target is every paper printing. Recommended approach (set-sharded, naturally resumable, auditable): (1) create a `sets` table and sync `GET https://api.scryfall.com/sets` daily, storing code, name, set_type, released_at, card_count, digital; (2) create `sync_sets(set_code pk, expected_count int, synced_count int, next_page_url text, status text, last_synced_at timestamptz, etag text)`; (3) per set, page `?q=set:<code>&unique=prints&include_variations=true&order=set&dir=asc` until exhausted, then assert `synced_count = sets.card_count` and mark complete. This gives per-set completeness you can prove (msc 866/866), makes new sets appear automatically the day Scryfall publishes them, and turns resume into "pick the next set with status != complete" instead of a fragile global cursor. If you prefer a single pass, use `q=game:paper -is:digital&unique=prints&order=released&dir=asc` — but the set-sharded version is what lets you show a coverage report in the admin UI.
+
+### [CRITICAL] No scheduler exists and the self-invoking chain is explicitly not fired on error — the sync can never resume without a human click
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:298-302`
+- **Category:** architecture
+
+Three compounding facts. (a) There is no pg_cron job for card sync: the only `cron.schedule` in the repo is `supabase/migrations/20251206201658_...sql:2-12`, which schedules `daily-price-capture` at 06:00 UTC. Nothing schedules scryfall-sync. (b) The only continuation mechanism is the self-`fetch` at index.ts:371-390, fired inside `EdgeRuntime.waitUntil` ONLY when `result.needsResume` is true. (c) The catch block at index.ts:298-302 returns `{ success: false, processed: 0, needsResume: false }` — so on ANY error (a Scryfall 429, a 503, a DB timeout, a worker CPU/wall-clock kill mid-run) the chain is not re-fired and nothing else ever calls the function again. With MAX_PAGES_PER_RUN = 25 (line 12) and 175 cards/page, a full run needs ~8 chained hops today and would need ~24 hops for a real printing-complete sync; every hop is a single point of permanent failure. `saveSyncState` does write the checkpoint in the catch (line 271-276), but nothing on earth ever reads it because nothing ever invokes the function again. The six 2025-12-07 migrations (20251207014426, 015510, 015804, 022313, 024410, 030138) manually UPDATE-ing sync_status back to idle/completed, plus 20250831011152 ("Sync appeared stuck at 8100 cards - manually reset"), are direct evidence this loop has been hit repeatedly.
+
+> **Fix:** Two independent drivers, both required. (1) A pg_cron watchdog, modelled on the existing daily-price-capture schedule but running frequently: `SELECT cron.schedule('scryfall-sync-watchdog','*/10 * * * *', $$ SELECT net.http_post(url:='.../functions/v1/scryfall-sync', headers:=..., body:='{"action":"resume"}'::jsonb) $$)`. Make the function idempotent: if state is complete AND the Scryfall bulk `updated_at` watermark is unchanged, return immediately; if a run is genuinely alive (heartbeat < 90s), return 409; otherwise pick up the checkpoint. (2) Fire the continuation on failure too: change the error path to `needsResume: true` with an incremented `attempt` counter and exponential backoff, and only give up after N consecutive failures on the same cursor (then set status='failed' with a real error and emit a notification). Also add a `sync_runs` audit table (run_id, started_at, ended_at, pages, rows_upserted, error) so stalls are visible instead of inferred.
+
+### [CRITICAL] The resume checkpoint is stored in the `error_message` column and is destroyed by four different code paths
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:112`
+- **Category:** architecture
+
+`saveSyncState` serialises the resume cursor into `sync_status.error_message` (line 112), and `getSyncState` JSON.parses it back out (lines 81-88). That column is clobbered by: (1) the frontend reset button — `src/components/SyncDashboard.tsx:236-245` upserts `error_message: 'Manually reset by user'`; (2) the function's own `stop` action — index.ts:330 writes `'Manually stopped'`; (3) `simple-sync` — `supabase/functions/simple-sync/index.ts:33` writes `error_message: null` and again at line 105; (4) all six 2025-12-07 reset migrations, every one of which sets `error_message = NULL`. Each of these silently converts "resume at page 143" into "start again at page 1". Since a run only covers 25 pages, any one of these guarantees the sync restarts from the beginning. The column is also *displayed* to the user: SyncDashboard.tsx:686-689 renders it under a red "Error Details" heading, so the admin sees a raw JSON blob presented as an error, and `src/components/dashboard/SystemHealthDashboard.tsx:77` computes `apiStatus = syncStatus?.error_message ? 'degraded' : 'healthy'` — meaning a perfectly healthy resumable sync permanently reports the Scryfall API as degraded.
+
+> **Fix:** Add first-class columns (or the `sync_sets` table from the first finding): `cursor_url text`, `cursor_page int`, `rows_upserted int`, `heartbeat_at timestamptz`, `attempt int`, `bulk_watermark timestamptz`. Reserve `error_message` for actual human-readable errors and clear it on every successful completion. Remove the `stop`/reset paths' ability to touch the cursor — a stop should set `status='paused'` and leave the cursor intact so `resume` actually resumes.
+
+### [HIGH] The "Test Sync (10 cards)" button in the live admin UI overwrites real sync state with fabricated numbers
+
+- **File:** `supabase/functions/simple-sync/index.ts:26-36`
+- **Category:** dead-ui
+
+`simple-sync` upserts the shared `scryfall_cards` row with `status:'running'`, `records_processed: 0`, `total_records: 100000` (a made-up number, line 31) and `error_message: null` — destroying any resume cursor. It then fetches 10 cards from a single hardcoded set (`?q=set:war`, line 47), upserts them, and writes `status:'completed', records_processed: 10, total_records: 10` (lines 100-107). It is wired to a visible, enabled button labelled "Test Sync (10 cards)" at `src/components/SyncDashboard.tsx:724-741`. Pressing it at any point wipes the checkpoint and leaves the dashboard reporting a completed sync of 10 cards. It also has its own third copy of the card transform (lines 58-82) which omits `card_faces` handling and will throw on any card with a null `type_line` (line 78 calls `.toLowerCase()` unguarded, unlike scryfall-sync:166 which guards).
+
+> **Fix:** Delete `supabase/functions/simple-sync` and the button. If a smoke test is wanted, add a `{action:'dry-run'}` branch to scryfall-sync that fetches one page and reports counts without writing to `cards` or `sync_status` at all.
+
+### [HIGH] Completion always reports 100% because total_records is overwritten with the count actually processed
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:295`
+- **Category:** architecture
+
+On completion the function calls `updateSyncStatus('completed', totalProcessed, totalProcessed, 'complete', currentPage)` — the third argument is `total`, so `total_records` is set equal to `records_processed`. `SyncDashboard.calculateProgress()` (src/components/SyncDashboard.tsx:327-333) then divides processed by total and always yields 100%. The system is structurally unable to report incompleteness. Combined with `src/pages/Cards.tsx` showing a card count with no expected-count comparison, there is no surface anywhere in the app that could have revealed 31,880 vs 32,726, or msc at 7/866. Related: `fetchPage` swallows HTTP 404 and 422 by returning `{cards: [], nextPage: null, total: 0}` (lines 178-180), and the main loop treats an empty page as success (`if (cards.length === 0) { break; }`, lines 224-227) — so a transient Scryfall 404 or a malformed cursor URL marks the entire sync 'completed'.
+
+> **Fix:** Keep `total_records` as the authoritative expected count fetched once from Scryfall's `total_cards` (and per-set `card_count`), never overwrite it with the processed count, and refuse to write status='completed' unless `rows_upserted >= expected * 0.995`. Distinguish 404 (genuine end of pagination) from 422 (bad query — must be an error). Surface a coverage table in the admin UI: set code, expected, actual, delta, sorted by delta desc — that one table would have caught this on day one.
+
+### [HIGH] Incomplete sync + FK on cards(id) makes "add to collection" fail silently while showing a success toast
+
+- **File:** `src/pages/Cards.tsx:123-135`
+- **Category:** architecture
+
+`user_collections.card_id` has a foreign key to `cards(id)` (migrations 20250828022749_...sql:41-45 with ON DELETE RESTRICT, re-added by 20250828141847 and 20250831125550). The browse UI does NOT read from the `cards` table — `src/pages/Cards.tsx:4` renders `EnhancedUniversalCardSearch`, which goes through `src/lib/scryfall/query-builder.ts:124` to the live Scryfall API, returning printing ids for ALL printings. Any printing missing from the synced table (i.e. ~70% of paper Magic, and ~99% of msc/sos/soc/msh/hob/hoc) will violate that FK on insert. And `Cards.tsx:123-132` awaits the insert without destructuring `error`, so the failure is swallowed; line 135 unconditionally fires `showSuccess('Added to Collection', ...)` and `collection.addCard()` at line 80 already mutated the local store. The user sees the card in their collection until they refresh, then it is gone, with no error ever shown.
+
+> **Fix:** Fix both halves. Short term: capture and check the insert error and surface it; better, upsert the missing card row into `cards` on demand from the Scryfall payload the UI already has (a "lazy backfill" write-through) so the FK is always satisfiable. Long term: complete the printing-level sync per the first finding so lazy backfill is only ever a same-day-spoiler edge case.
+
+### [HIGH] A migration permanently deleted user deck rows that referenced printings the incomplete sync had never imported
+
+- **File:** `supabase/migrations/20251130044306_9d7da23e-7b8f-4811-8ce8-317468feb221.sql:2-3`
+- **Category:** architecture
+
+The migration runs `DELETE FROM deck_cards WHERE card_id NOT IN (SELECT id FROM cards);` before adding `deck_cards_card_id_fkey`. Because the sync only ever imported one printing per card, every deck row pointing at any other printing — which is what the live-Scryfall-fed deck builder produces (`src/stores/deckStore.ts:465`, `src/components/deck-builder/DeckImportExport.tsx:163`, etc. all resolve cards straight from api.scryfall.com) — was destroyed. `supabase/migrations/20250831125619_...sql:2` does the same to `listings` (`DELETE FROM public.listings WHERE card_id IS NULL OR card_id = ''`, then adds the FK). This is real, already-executed user data loss caused by the sync gap, not a hypothetical.
+
+> **Fix:** Before running any further referential cleanup, complete the printing-level sync. Going forward, never delete user rows to satisfy a constraint — backfill the missing `cards` rows from Scryfall instead, or make the FK deferrable and quarantine orphans into a `deck_cards_orphaned` table so they can be reattached. Audit whether affected decks can be reconstructed from `deck_cards` history or user-facing deck exports.
+
+### [HIGH] The transform drops nearly every printing-identity and MTG-domain field the app actually renders; the `faces` column is dead and DFC backs are discarded
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:145-171`
+- **Category:** mtg-domain
+
+`transformCard` writes 21 fields. The `cards` schema (confirmed against `src/integrations/supabase/types.ts`) has no `set_name`, `set_type`, `released_at`, `games`, `finishes`, `promo`, `full_art`, `border_color`, `frame`/`frame_effects`, `artist`, `edhrec_rank`, `produced_mana`, `lang`, `digital`, `reprint`, `variation`, `security_stamp`, or `tcgplayer_id`/`cardmarket_id`. Yet `card.set_name` is rendered in at least 10 components (`src/components/marketplace/CardPriceDetail.tsx:148`, `BuyOptionsModal.tsx:113,162`, `PriceSearchPanel.tsx:240,504`, `src/components/deck-builder/CardPreview.tsx:86`, `src/components/PowerScoringEngine.tsx:82`, `src/pages/PublicDeck.tsx:128`) and `card.edhrec_rank` at `src/components/enhanced/UniversalCardModal.tsx:118` — all blank for any DB-sourced card, which is precisely why those views are wired to live Scryfall instead. Separately, the schema has a `faces jsonb` column (migration 20250828015357_...sql:27, "For double-faced cards") that NO sync path ever writes and no frontend file ever reads (grep for `.faces` in src/ returns nothing). `getImageUris` (lines 139-143) takes only `card_faces[0].image_uris`, so the back face of every transform/MDFC/flip card is thrown away, and `mana_cost` is null for split/DFC cards because those carry it per-face. The `games?: string[]` field is declared in the interface at line 41 and never used. For a platform benchmarking against Scryfall and Moxfield, no set names, no release dates, no foil/etched finishes, and no back faces is disqualifying.
+
+> **Fix:** Extend the `cards` schema to full printing fidelity and populate it in one place: set_name, set_type, released_at, games[], finishes[], promo, full_art, border_color, frame, frame_effects[], artist, edhrec_rank, produced_mana[], lang, digital, reprint, variation, collector_number_int (for correct numeric sorting), scryfall_uri, tcgplayer_id, cardmarket_id. Populate the existing `faces` column with the full `card_faces` array (name, mana_cost, type_line, oracle_text, power, toughness, loyalty, image_uris per face) and render back faces in the card modal. Add a `synced_at` column so partial coverage is diagnosable per row.
+
+### [MEDIUM] Three divergent card-transform implementations with no shared module
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:145`
+- **Category:** architecture
+
+The Scryfall→DB mapping exists three times with three different field sets: `supabase/functions/scryfall-sync/index.ts:145-171` (21 fields, tags derived, guards null type_line), `supabase/functions/simple-sync/index.ts:58-82` (21 fields, tags hardcoded to `[]`, crashes on null type_line), and `scripts/scryfallSync.ts:182-202` (16 fields — no layout, mana_cost, power, toughness, loyalty, tags, or is_reserved; adds updated_at; and derives is_legendary with case-sensitive `.includes('Legendary')` at line 197 vs the lowercased check at scryfall-sync:166). There is no `supabase/functions/_shared` directory. Whichever writer touched a row last determines which fields are populated, so the table's completeness varies row by row.
+
+> **Fix:** Create `supabase/functions/_shared/scryfall.ts` exporting a single `transformPrinting(card): CardRow` plus the Scryfall fetch/rate-limit/retry helper, and import it from every function. Delete the other two copies.
+
+### [MEDIUM] 35+ components call api.scryfall.com directly from the browser, making the synced table a second-class, largely-bypassed data source
+
+- **File:** `src/hooks/useCardSearch.ts:102`
+- **Category:** architecture
+
+Grepping `api.scryfall.com` across src/ returns 35+ call sites in 30+ files — `src/hooks/useCardSearch.ts:102`, `useEnhancedCardSearch.ts:27`, `useScryfallAutocomplete.ts:69`, `useScryfallCatalogs.ts:97`, `useMTGSets.ts:25`, `src/stores/deckStore.ts:465`, `src/features/scan/api.ts:90,94`, `src/features/scan/cardRecognition.ts:32,43,55,78`, all of `src/components/marketplace/*`, `src/components/deck-builder/*`, `src/components/ai-builder/*`, `src/pages/AIBuilder.tsx:156,599`, `src/pages/Decks.tsx:250`. Meanwhile 24 files read `from('cards')`. Two competing sources of truth with different field shapes and different id coverage, which is the underlying reason the FK failures above are invisible. These browser calls also set a `User-Agent` header (`src/lib/api/scryfall.ts:52`, `useCardSearch.ts:105`) which browsers silently strip as a forbidden header, so DeckMatrix is anonymous traffic against Scryfall's guidelines, rate-limited per end-user with no shared cache. There is also no `sets` table at all (confirmed against the generated types) — `useMTGSets.ts:25` hits Scryfall's /sets live on every mount, so no set filter can ever join against the DB.
+
+> **Fix:** Once the sync is printing-complete, route all card search/lookup through the DB (or one edge function that fronts both), and keep direct Scryfall calls only for genuinely live needs (autocomplete, day-of-spoiler lookups) behind a single server-side proxy that sets a real User-Agent and caches. Add a `sets` table populated by the same sync.
+
+### [MEDIUM] SyncDashboard is mounted twice on the Admin page, and a third dead sync trigger lives in an unimported component
+
+- **File:** `src/pages/Admin.tsx:111`
+- **Category:** dead-ui
+
+`SyncDashboard` is rendered at `src/pages/Admin.tsx:111` (inside the Overview section) and again at line 227 (the Sync tab). Both instances mount, both run `loadSyncStatus()` on mount (SyncDashboard.tsx:281-283), both run the 5-second polling interval when status is 'running' (lines 286-294), and both expose enabled Start/Reset buttons — so a user can trigger two syncs or a sync-plus-reset race from one page. Separately, `src/components/AdminPanel.tsx` contains a fourth sync trigger (`startSync`, lines 72-93) and its own card-count query (line 44), but nothing imports it — grep for imports of AdminPanel returns only a string literal inside `src/components/admin/AIFunctionMapper.tsx:91`. `src/components/admin/TaskManagement.tsx:534` carries a hardcoded TODO string 'Add better error handling to scryfall-sync function'.
+
+> **Fix:** Render SyncDashboard once, in the Sync tab only; put a read-only status summary card in Overview. Delete `src/components/AdminPanel.tsx` (superseded by Admin.tsx + EnhancedAdminPanel.tsx).
+
+### [MEDIUM] Seven different sync status values across the codebase with no single state machine
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:70`
+- **Category:** architecture
+
+`status` is written as: 'pending' (migration 20250828015357:166 and SyncDashboard.tsx:240), 'running' (index.ts:107), 'completed' (index.ts:295), 'failed' (simple-sync:131), 'stopped' (index.ts:330), 'idle' (migrations 20251207022313/024410/030138), and `current_step` separately carries 'initializing'/'processing'/'resumable'/'complete'/'ready'/'reset'/'stopped'. Consumers only handle a subset: `SyncDashboard.getStatusIcon` (lines 296-307) and `getStatusColor` (309-320) handle completed/running/failed and fall through to a grey clock for pending/stopped/idle. `getSyncState` (index.ts:91) only attempts cursor reconstruction when `status === 'running'`, so the current 'idle' value written by the last migration silently disables that fallback. `getSyncSteps` (lines 335-342) describes stages — 'Fetch Bulk Data Info', 'Download & Process Cards' — that the paginated search implementation does not have, and gates them on `step_progress >= 1` / `>= 3` where step_progress actually holds a page number, so the second stage lights up permanently after page 3.
+
+> **Fix:** Define one enum — idle | running | paused | failed | complete — in a shared module, migrate existing rows onto it, add a CHECK constraint, and make the dashboard exhaustive over it. Rewrite getSyncSteps to reflect the real pipeline (fetch set list → sync set N of M → verify coverage) or delete it.
+
+### [MEDIUM] No retry, backoff, or 429/Retry-After handling anywhere in the sync
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:182-184`
+- **Category:** architecture
+
+`fetchPage` throws on any non-ok status other than 404/422 (`throw new Error(\`Scryfall API error: ${response.status}\`)`, lines 182-184). Scryfall returns 429 with a Retry-After under load and periodically 503s; a single one propagates through the per-page catch (lines 269-278), out of `syncCards`'s catch (298-302) with `needsResume:false`, and — with no cron — kills the sync forever. The DB upsert path has the same shape: any Postgres error on one batch of 100 (lines 241-250) aborts the whole run. Rate limiting is a flat `setTimeout(120ms)` (line 267) with no adaptation. Note `src/lib/api/scryfall.ts:56-63` already implements 429 retry on the client, so the correct pattern exists in the repo and was simply not used server-side.
+
+> **Fix:** Add a `fetchWithRetry` in the shared module: honour Retry-After on 429, exponential backoff with jitter on 5xx/network errors (5 attempts), and treat 404 on a cursor page as end-of-pagination but 422 as fatal. Retry DB batch upserts independently, and on repeated batch failure skip that batch, record the failing card ids in a `sync_failures` table, and continue rather than aborting the whole run.
+
+### [MEDIUM] No authorization check on scryfall-sync — any authenticated caller can wipe and restart the entire card database
+
+- **File:** `supabase/functions/scryfall-sync/index.ts:305-417`
+- **Category:** architecture
+
+The handler dispatches on `body.action` with no role check whatsoever — no `is_admin`, no `has_role`, no user_roles lookup (grep for those across supabase/functions returns zero hits in any function). `scryfall-sync`, `simple-sync`, and `test-scryfall` are all absent from `supabase/config.toml`, so they inherit `verify_jwt = true`, meaning any signed-in user — or anyone holding the publishable anon key, which is a valid JWT — can POST `{"action":"sync"}` to restart the full sync from page 1, or `{"action":"stop"}` to halt it and destroy the checkpoint. The RLS policy on the table (migration 20250828015357:134-143) correctly restricts writes to admins, but the edge function runs on the service role key (index.ts:15-16) and bypasses RLS entirely. Related: the existing cron migration `20251206201658_...sql:8` hardcodes the anon JWT in plaintext SQL, which is the template anyone would copy for a sync cron.
+
+> **Fix:** Verify the caller's JWT and require an admin role for `sync`/`stop`/`resume`, and accept a separate shared-secret header (stored as a function secret) for the cron path so pg_cron does not need a user JWT. Move the cron's Authorization value out of migration SQL into Vault (`vault.decrypted_secrets`) rather than committing a key to the repo.
+
+### [MEDIUM] The Cards page "Total Sets" stat is computed from a 10,000-row sample and is therefore wrong
+
+- **File:** `src/pages/Cards.tsx:43-48`
+- **Category:** architecture
+
+The stat queries `supabase.from('cards').select('set_code').limit(10000)` then does `new Set(setsData.map(...)).size`. With 31,880 rows, this samples under a third of the table in arbitrary PostgREST order and pulls 10,000 rows over the wire on every page mount to produce a number that is guaranteed to under-report. There is no `sets` table to count against, so the app has no way to state a correct figure. This also means the one place a user might have noticed the missing sets displays a number that is wrong for an unrelated reason.
+
+> **Fix:** Add a `sets` table populated by the sync and count it directly, or expose a Postgres RPC (`select count(distinct set_code) from cards`). Better: replace the stat with the coverage report from the completeness finding — 'X of Y sets fully synced' is both correct and diagnostic.
+
+### [MEDIUM] set_code case mismatch between the cards table and user_collections
+
+- **File:** `src/pages/Cards.tsx:129`
+- **Category:** mtg-domain
+
+The sync writes `set_code: card.set` verbatim (scryfall-sync/index.ts:150), and Scryfall set codes are lowercase — so `cards.set_code` is 'msc', 'neo', 'ltr'. But `src/pages/Cards.tsx:129` inserts `set_code: card.set?.toUpperCase() || 'UNK'` into `user_collections`, and line 83 does the same into the local store. Any join, filter, or grouping that compares `user_collections.set_code` to `cards.set_code` silently matches nothing, and the fallback literal 'UNK' will be written as a real set code whenever a card object arrives without a `set` field. `src/pages/Decks.tsx:509` compounds this by assigning `set_name: collectionCard.setCode` — putting a set code where a set name belongs.
+
+> **Fix:** Normalise to Scryfall's lowercase codes everywhere, add a CHECK or a normalising trigger on user_collections.set_code, and backfill existing rows with lower(set_code). Drop the 'UNK' fallback — a collection row with an unknown printing should fail loudly, not persist a fake set.
+
+### [LOW] test-scryfall is a console-log-only stub wired to a production admin button whose output the user can never see
+
+- **File:** `supabase/functions/test-scryfall/index.ts:9-64`
+- **Category:** dead-ui
+
+The function's entire value is in `console.log` calls (lines 14-49) — bulk data size, download URI, content-length, available bulk types. It returns only `{success: true, message: 'Scryfall API test completed successfully'}` (lines 52-55), and the caller at `src/components/SyncDashboard.tsx:190-217` just shows a generic toast. So the admin clicks the button, sees 'API Test Successful', and learns nothing. Note the irony: this function verifies the `/bulk-data` endpoint and its `default_cards` download URI work — the very endpoint the production sync does not use.
+
+> **Fix:** Either delete it, or make it return the bulk-data metadata (default_cards size, updated_at, download_uri) and Scryfall's current `total_cards` for the sync query, and render that in the dashboard next to the DB row count as a live drift indicator.
+
+### [LOW] scripts/scryfallSync.ts is unreferenced dead code that would import digital-only cards and OOM if it ran
+
+- **File:** `scripts/scryfallSync.ts:206-209`
+- **Category:** dead-ui
+
+No npm script references it (checked package.json) and nothing imports `ScryfallSync`. It gates on `require.main === module` (line 206), CommonJS syntax in a TypeScript ESM project. `downloadBulkData` (lines 114-141) does `await response.text()` on Scryfall's default_cards file — roughly 500MB of JSON held in memory as a single string before splitting. Its filter (line 131) excludes tokens but has no `-is:digital` / `game:paper` equivalent, so it would import Arena/Alchemy-only cards into a paper collection database. And its transform (lines 182-202) writes a different, smaller column set than the edge function's. `scripts/README.md` documents only the AI deck builder test suite and does not mention this file at all.
+
+> **Fix:** Delete it. If a local backfill tool is wanted, rewrite it against the shared transform, stream the NDJSON line-by-line via the response body reader instead of buffering, filter on `games.includes('paper') && !digital && lang === 'en'`, and document it in scripts/README.md.
+
+### [LOW] The dashboard's ETA calculation divides by an elapsed time derived from last_sync, producing a meaningless number
+
+- **File:** `src/components/SyncDashboard.tsx:344-356`
+- **Category:** copy
+
+`getEstimatedTimeRemaining` computes `elapsed = Date.now() - new Date(syncStatus.last_sync).getTime()`, but `last_sync` is updated on every status write (scryfall-sync/index.ts:61, every 5 pages at line 259), so it is the time since the last heartbeat — usually a few seconds — not the time since the run started. `rate = records_processed / (elapsed/1000)` therefore treats all 8,000 processed cards as having been done in the last 3 seconds, yielding a rate ~1000x too high and an ETA of a few seconds that never counts down. The result is rendered as '~Xs remaining' at line 532. Also at line 129-131, the polling interval started in `triggerSync` closes over a stale `syncStatus` from the render in which it was created, so its clear-on-complete condition can never fire correctly and the interval runs until the 30-minute timeout at line 135, on top of the separate 5-second poll at lines 286-294.
+
+> **Fix:** Add `started_at` to the sync state and compute rate from `(now - started_at)`. Replace the ad-hoc interval in triggerSync with a single React Query subscription (or a Supabase realtime subscription on sync_status) so there is one poller with correct dependencies.
+
+---
+
+## cards-search
+
+Card browse/search is the most functionally broken area of the app, not just the ugliest. The headline failure is that Scryfall syntax — advertised in the page placeholder, taught in the help drawer, and used by all 8 "Quick Preset" buttons — is silently destroyed by a quote-escaping helper before it reaches the API, so `t:creature`, `c:red mv<=3` and every preset return "No cards found." The sort dropdown and direction toggle are dead (sort params never invalidate the search cache), the three-way grid/list/compact toggle renders two layouts that are pixel-identical on desktop with no density control and no sortable table, mana costs are never rendered anywhere despite a ManaSymbols component sitting imported-and-unused in two files, double-faced cards show no image at all, and the card detail modal invents fake Scryfall rulings and links to `scryfall.com/card/undefined/…`. Underneath that sit four rival filter implementations with incompatible state shapes, five different rarity color maps, ~915 lines of fully dead components, and hardcoded light-only Tailwind palette colors alongside `--mana-*` design tokens that already exist in index.css and are ignored. Repo root audited: C:/Users/natha/Desktop/Software/Deckmatrix.
+
+### [CRITICAL] Scryfall syntax is silently destroyed before it reaches the API — every syntax query and every preset returns zero results
+
+- **File:** `src/lib/scryfall/query-builder.ts:40`
+- **Category:** mtg-domain
+
+`const esc = (s) => /[\s:"]/.test(s) ? `"${s.replace(/"/g,'\\"')}"` : s;` is applied to the raw free-text box at line 54 (`tokens.push(esc(normalized))`). Any query containing a space, a colon, or a quote — i.e. all Scryfall syntax — gets wrapped in double quotes and sent to Scryfall as a literal name/oracle phrase. Verified by executing the function: `t:creature` -> `"t:creature"`, `c:red mv<=3` -> `"c:red mv<=3"`, `o:"draw a card"` -> `"o:\"draw a card\""`. Scryfall returns 404/no-cards, and useAdvancedCardSearch.ts:52-57 swallows the 404 into an empty result set, so the user just sees "No cards found. Try adjusting your search terms." This makes the promise on src/pages/Cards.tsx:214 (placeholder "…or use Scryfall syntax…") and the entire Search Syntax help panel (EnhancedUniversalCardSearch.tsx:507-513, which literally teaches `t:creature`, `c:red`, `mv<=3`, `o:"draw a card"`) false. It also breaks ALL 8 PRESET_QUERIES (query-builder.ts:133-166) — every one contains spaces and colons, so clicking any "Quick Preset" chip guarantees zero results while firing a "Preset Applied" success toast (EnhancedUniversalCardSearch.tsx:162). Line 53 additionally strips every comma from user input (`.replace(/,/g,'')`) with no indication.
+
+> **Fix:** Do not escape the free-text box at all. Pass raw user text straight through as its own token and let Scryfall parse it — Scryfall's parser is the product feature here. Only apply `esc()` to values the UI itself injects (artist names, set names). Add a lightweight syntax highlighter/validator in the input (like Scryfall's own) so users see `t:` / `c:` / `mv` tokens colorized, and surface Scryfall's actual error payload (`details` field on a 400/404 response) instead of the generic empty state, so a malformed query says why.
+
+### [CRITICAL] Card detail modal fabricates fake Scryfall rulings and presents them as real
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:49`
+- **Category:** mtg-domain
+
+`loadRulings()` contains the comment `// Simulate API call to Scryfall rulings` and then `setTimeout` -> hardcoded array of two invented rulings: `'Sample ruling about this card\'s interaction with other cards.'` (dated 2023-01-01) and `'Additional clarification about timing and priority.'` (dated 2022-06-15). These render in the default-selected "Rulings" tab (lines 356, 363-385) for EVERY card, with a fake loading skeleton to sell the illusion. `card.oracle_id` is fetched and checked at line 50 but never used to call the real endpoint. For an MTG platform, showing invented rules text under a "Rulings" heading is a trust-destroying correctness failure — this is the tab a player opens when they need to resolve an actual game dispute.
+
+> **Fix:** Delete the fake data and fetch `https://api.scryfall.com/cards/{id}/rulings` (or `/cards/search?q=oracleid:…`). Render `source` (wotc vs scryfall) and `published_at` per Scryfall's own presentation. If the fetch fails, show an explicit error, never placeholder prose. Audit the rest of the repo for the same `// Simulate` pattern.
+
+### [CRITICAL] Sort dropdown and sort-direction toggle are dead controls — changing them never re-runs the search
+
+- **File:** `src/components/universal/EnhancedUniversalCardSearch.tsx:116`
+- **Category:** dead-ui
+
+`performSearch` guards with `if (q === lastSearchRef.current && q !== '*') return;`. But `buildScryfallQuery` (query-builder.ts:115-120) returns `order`, `dir` and `unique` in the separate `params` object, NOT inside `q`. So changing the Sort select (lines 350-366: Name/CMC/Color/Rarity/Price/Date/EDHREC) or clicking the asc/desc button (lines 368-378) mutates searchState, fires the debounce effect, produces an identical `q`, and hits the early return. No fetch, no re-sort, no feedback. Results stay in whatever order the first search returned, permanently. Sorting by mana value, price and EDHREC rank is table stakes on Moxfield/Archidekt/Scryfall — here all seven sort options are inert after the first query. The direction button's tooltip is also inverted (line 375 shows current state, not the action it performs).
+
+> **Fix:** Key the cache on the full request URL (`buildScryfallURL(state)`), not just `q`, so any param change invalidates. Better: drop the manual ref cache entirely and move the search into TanStack Query (already a dependency, package.json:43) keyed on the serialized search state — you get dedupe, caching and cancellation for free. Also expose Scryfall's `unique=cards|prints|art` toggle, which the state type already supports (query-builder.ts:35) but no UI ever sets.
+
+### [CRITICAL] Double-faced, transform and MDFC cards render with no image anywhere in browse/search
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:239`
+- **Category:** mtg-domain
+
+Grid mode reads `card.image_uris?.normal` (line 239), list mode reads `card.image_uris?.small` (line 121), the modal reads `card.image_uris?.normal` (enhanced/UniversalCardModal.tsx:234; universal/UniversalCardModal.tsx:122), and printings read `printing.image_uris?.small` (cards/CardPrintingComparison.tsx:164). On Scryfall, transform/modal-DFC/battle cards have NO top-level `image_uris` — art lives in `card_faces[n].image_uris`. `grep -rn "card_faces"` across src/components/universal, src/components/cards, src/components/search, src/components/filters and src/components/enhanced returns ZERO hits, while the rest of the repo does handle it (components/deck-builder/FirstDeckOnboarding.tsx:395, features/scan/cardRecognition.ts:189). Result: every MDFC (all of Zendikar Rising's land-backs), every transform commander, every Siege/battle shows a blank grey box in list view and a text-only fallback tile in grid view. There is also no flip/transform control anywhere in the modal.
+
+> **Fix:** Add a shared `getCardImage(card, size, faceIndex)` helper that falls back to `card.card_faces?.[face]?.image_uris?.[size]`, and use it in all five call sites. Add a flip button to the modal and a small flip affordance on grid tiles for `layout` in transform/modal_dfc/double_faced_token, matching Scryfall/Moxfield behavior.
+
+### [HIGH] Mana costs are never rendered — ManaSymbols is imported and unused in two files while colored dots stand in
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:4`
+- **Category:** mtg-domain
+
+`import { ManaSymbols } from '@/components/ui/mana-symbols';` at line 4 is never referenced in the file. Instead `getColorIndicator` (lines 65-91) renders 3px grey/colored dots from `card.colors`, truncated with `.slice(0,3)` so any 4- or 5-color card collapses to three dots plus a rainbow blob (lines 86-88). The same dead import exists at universal/UniversalCardModal.tsx:7, which instead prints the raw mana cost string in a mono font at line 171 — a user sees the literal text `{2}{U}{U}`. The enhanced modal (the one actually used by Cards.tsx) renders no mana cost at all, only a CMC number and W/U/B/R/G letters in circles (lines 91-112, 277). Three separate problems: (a) `colors` is not `color_identity` and not `mana_cost` — generic, hybrid `{W/U}`, phyrexian `{W/P}`, X and colorless costs are unrepresentable; (b) lands and artifacts (`colors: []`) render an anonymous grey dot; (c) even the ManaSymbols primitive itself (ui/mana-symbols.tsx:24-43) only draws a letter in a circle for WUBRG+C, so it could not render a real cost anyway.
+
+> **Fix:** Build a real mana-cost renderer that tokenizes a `mana_cost` string (`{2}{W/U}{X}{P}`) into pip glyphs — either bundle the Mana font/SVG set or inline the symbol paths. Show the actual mana cost on grid tiles and list rows (right-aligned, as Moxfield/Scryfall do), and show color identity separately as WUBRG pips where commander legality matters. Retire the dot-cluster helper and the two dead imports.
+
+### [HIGH] Card detail modal reads the wrong field for set — shows an empty set and links to scryfall.com/card/undefined
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:296`
+- **Category:** mtg-domain
+
+Results in this flow come straight from the live Scryfall API (useAdvancedCardSearch.ts:41-49 fetches api.scryfall.com/cards/search), and Scryfall card objects expose the set code as `set`, not `set_code` — the repo itself acknowledges this at cards/CardPrintingComparison.tsx:61 (`set_code: card.set`) and src/pages/Cards.tsx:83 (`card.set?.toUpperCase()`). But the modal used by Cards.tsx reads `card.set_code` at line 296 (Set row renders as a bare ` #123` badge with no set) and again at line 437, producing the external link `https://scryfall.com/card/undefined/{collector_number}` — a guaranteed 404 on the "Scryfall" button. The duplicate modal at universal/UniversalCardModal.tsx:149,177 uses `card.set` correctly, so the two rival modals disagree about the data contract.
+
+> **Fix:** Fix the field, then eliminate the ambiguity: define a typed `ScryfallCard` interface (every prop in this area is `card: any`) and normalize Supabase rows to Scryfall shape at one boundary. Show set name + code + collector number + rarity as MTG users expect, and add Scryfall/EDHREC/TCGplayer/Gatherer links that are all built from the same normalized object.
+
+### [HIGH] Result count shows the current page size, not total matches — the hook already computes the right number and it is discarded
+
+- **File:** `src/components/universal/EnhancedUniversalCardSearch.tsx:322`
+- **Category:** copy
+
+`{loading ? 'Searching...' : `${results.length} cards found`}`. `results` is the accumulated page buffer, capped at 175 per Scryfall page. useAdvancedCardSearch returns `totalResults` (set from `data.total_cards`, hook line 67, exposed at line 109), but the destructure at EnhancedUniversalCardSearch.tsx:83-91 omits it entirely. So a search matching 14,000 cards proudly reports "175 cards found", and after one "Load More" it says "350 cards found". Scryfall, Moxfield and Archidekt all show the true total plus a page position — an MTG user reads "175" as the search being wrong.
+
+> **Fix:** Destructure `totalResults` and render `Showing {results.length} of {totalResults.toLocaleString()} cards`. Replace the manual "Load More Cards" button with infinite scroll (IntersectionObserver) or real numbered pagination, and virtualize the grid — the results array grows unbounded with no windowing.
+
+### [HIGH] Three view-mode buttons produce two layouts that are pixel-identical on desktop, and there is no card-size/density control
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:41`
+- **Category:** layout
+
+`getGridClasses()`: 'grid' -> `grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6`; 'compact' -> `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3`. At Tailwind's xl breakpoint (>=1280px, i.e. most desktops) both resolve to 4 columns — the only difference is gap. Worse, the branches that were meant to make 'compact' actually compact key off the `compact` PROP, not `viewMode`: line 241 picks `image_uris.small` vs `.normal` from `compact`, and line 255 hides the text footer from `compact`. Cards.tsx never passes `compact`, so it is always false and 'compact' view still downloads full-size images and still renders the footer. Line 238 is a no-op tell: `className={compact ? "aspect-[5/7]" : "aspect-[5/7]"}` — both branches identical. There is no density slider / card-size control anywhere, and 'list' mode (lines 93-211) is a vertical stack of shadcn Cards with a fixed 16x20 thumbnail — not a table, not sortable, no columns. @tanstack/react-table is installed (package.json:44) and a data-table primitive exists at src/components/ui/data-table.tsx, but it is only used by the admin panel.
+
+> **Fix:** Make the three modes genuinely distinct: (1) Image grid with a real density control (a 3-5 step size slider or S/M/L segmented control writing a CSS custom property that drives `grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr))`); (2) a true sortable data table built on the existing TanStack table — columns for Name, Mana Cost, Type, Set, Rarity, P/T, Price, EDHREC rank, with click-to-sort headers wired to Scryfall's `order` param; (3) a text/compact list. Persist the choice to localStorage. Fix or delete the `compact` prop so it is not a second, contradictory axis alongside `viewMode`.
+
+### [HIGH] No lazy loading, no error fallback, no virtualization — a single search eagerly downloads ~175 full-size card images
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:240`
+- **Category:** layout
+
+`grep -rn 'loading="lazy"|decoding=|srcSet|onError'` across src/components/universal, src/components/cards, src/components/search and src/components/filters returns ZERO matches. Every `<img>` in the area (UniversalCardDisplay.tsx:122 and 240, enhanced/UniversalCardModal.tsx:235, universal/UniversalCardModal.tsx:123, CardPrintingComparison.tsx:165) is a bare eager-loading tag with no `loading="lazy"`, no `decoding="async"`, no width/height (so no reserved space -> layout shift), no `srcSet` for DPR, and no `onError` fallback for a dead Scryfall CDN URL. A Scryfall page is 175 cards; at ~120KB per `normal` image that is ~20MB fetched on every keystroke-debounced search, and "Load More" appends another 175 to a non-virtualized DOM. Grid images also use `object-cover` (line 243), which crops the card frame rather than letterboxing it.
+
+> **Fix:** Add `loading="lazy" decoding="async"` plus explicit intrinsic dimensions to every card image; use `image_uris.small` for grid thumbnails and `normal`/`large` only in the modal and on hover-preview; add an `onError` fallback tile. Virtualize the results grid (react-virtual pairs with the TanStack deps already present). Switch to `object-contain` or crop the art box deliberately — a cropped card frame reads as broken to an MTG player.
+
+### [HIGH] Four separate, incompatible filter implementations for the same job
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:32`
+- **Category:** filtering
+
+Verified four distinct systems with four different state shapes and zero shared logic: (1) AdvancedFilterPanel (511 lines) drives `CardSearchState` -> Scryfall tokens, used by EnhancedUniversalCardSearch.tsx:396; (2) UniversalFilterPanel (367 lines) drives a flat `{colors[], types[], formats[], rarities[], cmc:[n,n], power:[n,n], toughness:[n,n], priceMin, priceMax}` shape (lines 19-29); (3) UniversalLocalSearch.tsx:119-193 hand-rolls a client-side predicate over that second shape; (4) the fully-dead UniversalCardSearch.tsx:101-130 has its own third `buildQuery()` string-concatenator. The two color palettes are copy-pasted duplicates (query-builder.ts COLOR_SYMBOLS:169-195 vs UniversalFilterPanel COLORS:35-72 — byte-identical gradient class strings). UniversalLocalSearch.tsx:258-259 has to cast both props `as any` to bridge the shapes. Filter *coverage* is also thin versus Scryfall: no set/block picker (despite `sets` existing in CardSearchState and being counted in activeFilterCount at EnhancedUniversalCardSearch.tsx:215), no oracle-text field, no keyword/ability filter, no artist-vs-flavor distinction, no `is:` flags beyond six checkboxes, no banned/restricted states (only 'legal' is reachable, AdvancedFilterPanel.tsx:362).
+
+> **Fix:** Collapse to ONE filter model. `CardSearchState` is the right base — it already maps cleanly to Scryfall. Write two adapters off it: `toScryfallQuery(state)` (exists) and `toLocalPredicate(state)` for offline collection filtering, then delete UniversalFilterPanel, UniversalCardSearch and the inline predicate. Extract the color/rarity/type/format constants into one module consumed everywhere. Then close the coverage gaps against Scryfall's advanced search page.
+
+### [HIGH] Local search color filter never matches anything — lowercase filter values compared against uppercase Scryfall colors
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:138`
+- **Category:** filtering
+
+UniversalFilterPanel's COLORS array uses lowercase values: `{ value: 'w' }`, `'u'`, `'b'`, `'r'`, `'g'`, `'c'` (lines 37, 43, 49, 55, 61, 67). UniversalLocalSearch filters with `const colors = card.colors || []; const overlaps = filters.colors.some((c) => colors.includes(c));` — but `card.colors` from Scryfall/the DB is uppercase `['W','U']`. `['W','U'].includes('w')` is false, always. Selecting ANY color in the local filter panel therefore returns zero cards. `'c'` (Colorless) can never match either, since colorless cards have `colors: []`. The same file's text search (lines 124-132) only looks at name, type_line and set_code — it never searches oracle text, which is the single most common thing an MTG player searches for, and it reads `card.set_code` while the display component reads `card.set` (UniversalCardDisplay.tsx:146).
+
+> **Fix:** Normalize case at the comparison (`.map(c => c.toUpperCase())`) and special-case colorless as `colors.length === 0`. Add oracle_text to the local text search, and unify on one field name for set code across the area.
+
+### [HIGH] Empty-string SelectItem will throw a Radix runtime error when the Extras filter tab is opened
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:492`
+- **Category:** dead-ui
+
+`<SelectItem value="">Any language</SelectItem>` inside the Language select. @radix-ui/react-select is ^2.2.5 (package.json:32); v2 throws `A <Select.Item /> must have a value prop that is not an empty string` at render time. src/components/ui/tabs.tsx has no `forceMount`, so TabsContent mounts lazily — meaning this is latent until a user clicks the "Extras" tab, at which point the filter panel subtree errors. `searchState.language` also has no way back to 'any' once set (query-builder.ts:97 emits `lang:` unconditionally when truthy).
+
+> **Fix:** Use a sentinel like `value="any"` and map it to `undefined` in the onValueChange handler. Add an error boundary around the filter panel so one bad control cannot blank the whole search page.
+
+### [HIGH] ~915 lines of fully dead components, plus two rival UniversalCardModal implementations
+
+- **File:** `src/components/universal/UniversalCardSearch.tsx:52`
+- **Category:** architecture
+
+Verified by repo-wide grep for each symbol: UniversalCardSearch.tsx (392 lines) has zero importers — only self-references; src/components/search/AutocompleteSearchInput.tsx (262 lines) has zero importers, taking useScryfallAutocomplete and useScryfallCatalogs down with it; src/components/cards/AICardInsights.tsx (127 lines) and src/components/cards/AIFeaturedCard.tsx (134 lines) both have zero importers. Separately there are TWO different components exported as `UniversalCardModal` with incompatible APIs — src/components/enhanced/UniversalCardModal.tsx (`isOpen`/`onClose`/`onAddToCollection`, 5 tabs: Rulings/Analysis/Legality/Stores/Printings) used by Cards search, Collection, DeckInterface, PublicDeck and Wishlist; and src/components/universal/UniversalCardModal.tsx (`open`/`onOpenChange`/`onCardAdd`, 4 different tabs: Overview/Market/Prints/Synergy) used by StorageContainerView and Brain. Two different card detail experiences depending on which page you clicked from.
+
+> **Fix:** Delete the four dead files (the autocomplete one is worth salvaging first — Scryfall-style name autocomplete is a genuine gap in the live search box). Merge the two modals into one component with a single prop contract and one tab set, and route every entry point through it.
+
+### [HIGH] Hardcoded Tailwind palette colors and light-only gradients throughout, while matching design tokens sit unused in index.css
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:55`
+- **Category:** theming
+
+src/index.css:75-79 already defines `--mana-white/blue/black/red/green`, and ui/mana-symbols.tsx:9-16 consumes them correctly. The search area ignores all of it: UniversalCardDisplay.tsx:71-77 hardcodes `bg-yellow-100 border-yellow-400` / `bg-blue-500` / `bg-gray-800` / `bg-red-500` / `bg-green-500`; enhanced/UniversalCardModal.tsx:99-105 hardcodes the raw hex `#fffbd5 / #0e68ab / #150b00 / #d3202a / #00733e` — byte-for-byte duplicates of the token values, with the token comment in index.css even citing `#FFFBD5`. Light-only classes that break in dark mode: query-builder.ts COLOR_SYMBOLS:169-195 (`from-yellow-50 … text-yellow-900`, and MTG black mapped to a near-white `from-gray-50 to-slate-50`), UniversalFilterPanel.tsx:40-71 (same strings again), AdvancedFilterPanel.tsx:368 `bg-green-100 text-green-800` and :392 `bg-blue-100 text-blue-800`, plus hardcoded `bg-white/30` and `bg-white` at UniversalFilterPanel.tsx:196,203. There are FIVE competing rarity color maps: UniversalCardDisplay.tsx:55-63, universal/UniversalCardModal.tsx:43-51, enhanced/UniversalCardModal.tsx:304-309, query-builder.ts RARITY_INFO:198-203, and CardPrintingComparison.tsx:92-103 — only the last handles dark mode. `text-gray-600` for Common (used in three of the five) is near-invisible on a dark background.
+
+> **Fix:** Add `--rarity-common/uncommon/rare/mythic` tokens next to the existing `--mana-*` set, with dark-mode overrides, and export ONE `rarityClasses()` and ONE `manaColor()` helper. Replace every hardcoded hex, `bg-*-500`, `text-gray-*` and `from-*-50` gradient in the area with token references. MTG convention should drive the values: mythic orange-red gradient, rare gold, uncommon silver, common black/grey.
+
+### [HIGH] Format legality panel dumps raw snake_case for ~20 formats and colors 'banned' identically to 'not legal'
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:394`
+- **Category:** mtg-domain
+
+`Object.entries(card.legalities).map(...)` iterates every key Scryfall returns (~20+, including oldschool, premodern, paupercommander, predh, oathbreaker, alchemy, timeless…) with no ordering, no filtering, and `<span className="text-sm capitalize">{format}</span>` — so a user sees "Paupercommander", "Standardbrawl", "Duel". The value is printed raw at line 408: `{legality as string}` renders the literal string `not_legal`. The color logic (lines 402-406) has only three branches, so `banned` and `not_legal` both get identical red styling — an MTG player cannot tell "this card is BANNED in Modern" from "this card was never in Modern". Colors are also `text-green-700 / text-yellow-700 / text-red-700` (light-weight text on a dark card in dark mode = unreadable). The duplicate modal is worse: universal/UniversalCardModal.tsx:245 uses `variant={legality === 'legal' ? 'default' : 'destructive'}`, painting every not-legal format as a destructive red badge.
+
+> **Fix:** Curate and order the format list (Standard, Pioneer, Modern, Legacy, Vintage, Commander, Pauper, Brawl, Alchemy, Historic, Timeless, Oathbreaker), map keys to display names, and use four distinct visual states: Legal (green), Not Legal (muted grey), Banned (red), Restricted (amber) — Scryfall's own convention. Move the colors onto tokens with dark-mode variants.
+
+### [HIGH] 'Color Identity' and 'Commander Identity' labels are swapped, and colorless/multicolor are unfilterable
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:141`
+- **Category:** mtg-domain
+
+Line 141 labels the first color picker "Color Identity", but that control writes `searchState.colors`, which query-builder.ts:61-67 emits as `c:` / `c=` / `c>=` — Scryfall's CARD COLOR operator, not color identity. Line 205 labels the second picker "Commander Identity", which writes `searchState.identity` -> `id:` — that IS color identity, the thing every Commander player filters by daily. The labels are backwards, and "Commander Identity" is not standard terminology. Neither picker offers Colorless or Multicolor, so `c:c`, `id:c` and `c:m` are unreachable — you cannot search for colorless artifacts or multicolor cards at all. (UniversalFilterPanel.tsx:66-71 does have a Colorless chip, but per the case-mismatch finding it never matches anything.) The mode select (lines 196-198) also uses vague copy — 'Any of these colors' / 'Exactly these colors' / 'At least these colors' — where Scryfall users expect the operator semantics spelled out.
+
+> **Fix:** Rename to 'Colors' (`c:`) and 'Color Identity' (`id:`), add Colorless and Multicolor toggles to both, and label the modes with their operators ('Includes any (c:)', 'Exactly (c=)', 'At least (c>=)'). Since Commander is the dominant format, put Color Identity first and consider a commander-deck-aware default.
+
+### [MEDIUM] Cards page runs three Supabase queries including a 10,000-row scan whose results are never rendered
+
+- **File:** `src/pages/Cards.tsx:26`
+- **Category:** dead-ui
+
+`dbStats` state (lines 26-30), `loadingStats` (line 31), the whole `fetchStats` effect (lines 34-70) and `formatLastUpdated` (lines 187-200) exist but appear nowhere in the returned JSX (lines 202-224), which renders only StandardPageLayout + EnhancedUniversalCardSearch. The effect still fires on every mount: an exact count over `cards`, a `.select('set_code').limit(10000)` that pulls 10,000 rows across the wire purely to compute `new Set(...).size`, and a sync_status lookup — all discarded. The imports Card, CardContent, Badge, Skeleton and the icons Database, TrendingUp, Layers, Clock, Search, Sparkles (lines 9-19) are all unused. Separately, line 212 wires `onCardSelect={(card) => console.log('Selected:', card)}` — a console.log shipped as a handler.
+
+> **Fix:** Either delete the stats block or actually render it — a 'X cards across Y sets, synced Z ago' strip under the page title is genuinely useful trust-signal copy for a card database, and it is already computed. If kept, replace the 10k-row fetch with a `count` on a distinct set view or a cached sync_status column. Drop the console.log handler.
+
+### [MEDIUM] Falsy-zero bugs hide or corrupt power/toughness on 0-power creatures
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:319`
+- **Category:** mtg-domain
+
+enhanced/UniversalCardModal.tsx:319 renders `{card.power || '*'}/{card.toughness || '*'}` — Scryfall returns power as the STRING '0', which is truthy, but the guard on line 315 and the display are inconsistent with the sibling modal. universal/UniversalCardModal.tsx:185 gates the entire P/T block on `card.power && card.toughness`, and UniversalCardDisplay.tsx:160 uses `card.power && card.toughness ? …` — for a card whose printed power is literally `*` those work, but any card with an empty-string or 0-number normalization drops the stat line entirely. The `|| '*'` fallback is also semantically wrong: `*` is a real MTG printed value meaning 'defined by a characteristic-defining ability', so substituting it for missing data misrepresents the card.
+
+> **Fix:** Test with `card.power != null` (Scryfall omits the key entirely for non-creatures) rather than truthiness, and never substitute `*` — render the raw printed value, which is already a string and can legitimately be '*', '1+*', or '∞'.
+
+### [MEDIUM] Second card modal ships two permanently-empty placeholder tabs
+
+- **File:** `src/components/universal/UniversalCardModal.tsx:305`
+- **Category:** dead-ui
+
+The 'Prints' tab (lines 299-308) renders the fixed string `Loading other printings...` with no fetch, no state, no effect — it says Loading forever. The 'Synergy' tab (lines 310-322) renders `Synergy analysis coming soon...`. Both are top-level tabs of equal visual weight to the working Overview and Market tabs. This modal is reachable from StorageContainerView.tsx:328 and Brain.tsx:40. Meanwhile a working printings implementation already exists at src/components/cards/CardPrintingComparison.tsx and is wired only into the other modal.
+
+> **Fix:** Delete this modal per the consolidation finding and route its callers to the merged one, which already has a real Printings tab. Never ship a tab whose body is 'coming soon' — omit the tab.
+
+### [MEDIUM] Card 'Analysis' is keyword-substring guesswork presented as data, and mislabels any Legendary permanent as a Commander
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:133`
+- **Category:** mtg-domain
+
+`getCardAnalysis()` derives its four indicator dots from naive substring tests: Removal = oracle_text contains 'destroy' OR 'exile' (so Ghostly Prison-style text, self-exile ETBs, and Path-adjacent wording all count, while Swords to Plowshares-style 'Exile target creature' correctly counts only by luck); Card Draw = contains 'draw' (matches 'target opponent draws'); Ramp = contains 'add' AND contains 'mana' (matches any 'add' anywhere in the text); and Commander = `card.type_line?.includes('Legendary')` (line 138) — so Sol Ring's Legendary artifacts, Legendary enchantments and Legendary lands are all flagged as valid Commanders. Commander eligibility requires a Legendary Creature or explicit 'can be your commander' text (Background/Planeswalker cases). `budgetViability` is computed at line 130 and never rendered. The EDHREC score at lines 122-127 is an invented linear transform of rank presented as an authoritative 'X/10'.
+
+> **Fix:** Drop the fabricated scores. Show real EDHREC rank and penny rank as raw values with a link out, and derive card-role tags from structured data (`keywords`, type line, and a curated oracle-text ruleset) rather than substring guesses — or remove the tab until it can be backed by real data. Fix Commander eligibility to check `type_line` for 'Legendary Creature' plus the 'can be your commander' oracle clause.
+
+### [MEDIUM] Printings tab silently truncates at one Scryfall page and reports the truncated count as the total
+
+- **File:** `src/components/cards/CardPrintingComparison.tsx:48`
+- **Category:** mtg-domain
+
+`loadPrintings` fetches a single page of `/cards/search?...&unique=prints&order=released` and never reads `data.has_more` or `data.total_cards`. Scryfall pages at 175 results, so heavily-reprinted cards (basic lands, Sol Ring, Lightning Bolt, Command Tower) lose printings with no indication — and the header at line 126 renders `Available Printings ({printings.length})`, presenting the truncated page size as the authoritative count. The 'cheapest' badge and the auto-selection are therefore computed over a partial set and can be wrong. The cheapest-reduce logic is also duplicated verbatim at lines 77-81 and 112-116, and the second copy re-runs on every render.
+
+> **Fix:** Follow `next_page` (or paginate with a 'show all N printings' control driven by `total_cards`), hoist the cheapest calculation into a single memo, and add a sort/filter for printings (by price, by set, foil vs nonfoil) — comparing printings is a core collection-building workflow.
+
+### [MEDIUM] Loading skeleton and rendered card use different aspect ratios, guaranteeing layout shift on every search
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:273`
+- **Category:** layout
+
+The local search skeleton uses `aspect-[63/88]` (line 273, the true physical MTG card ratio, 0.716) while UniversalCardDisplay renders tiles at `aspect-[5/7]` (line 238, 0.714) and the search-results skeleton comes from a third source (ui/loading-skeleton.tsx via EnhancedUniversalCardSearch.tsx:404). The skeleton card also wraps its image in `CardContent p-4` while the real tile puts the image flush at the top of the Card with `CardContent p-3` below (lines 238-256) — so the placeholder and the real thing are structurally different, and results visibly jump when they swap. The list-view thumbnail is a hardcoded `w-16 h-20` (line 120), which is 0.8 — noticeably wrong for a card.
+
+> **Fix:** Define one `--card-aspect: 63/88` token, use it for every card frame and every skeleton, and make the skeleton structurally mirror the real tile. Size the list thumbnail from the same ratio.
+
+### [MEDIUM] No hover preview and no keyboard navigation of results — both are baseline expectations on every major MTG site
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:100`
+- **Category:** layout
+
+List rows (lines 100-206) show a 64x80px thumbnail and nothing else on hover — no full-card popover. On Scryfall, Moxfield, Archidekt and EDHREC, hovering any card name pops the full card image; it is how players actually read results. Grid tiles instead get a `bg-black/60` scrim overlay (line 282) that covers the tile including its text footer and hides the card art behind three icon buttons on hover — the opposite of what a user wants. Keyboard support stops at the search box: EnhancedUniversalCardSearch.tsx:94-109 handles only '/' to focus and Escape to clear; there is no arrow-key traversal of results, no Enter-to-open, and the help drawer (lines 492-496) advertises exactly those three shortcuts as the complete set. Grid tiles also use `hover:scale-105` (line 233) on a Card with `overflow-hidden` inside a tight grid, so the growing tile clips against neighbours.
+
+> **Fix:** Add a hover/focus card preview popover on list rows and card names. Replace the full-tile scrim with a small action bar pinned to the tile's bottom edge so the art stays visible. Add arrow-key/Enter navigation across the results grid with a visible focus ring, and a `?` shortcut sheet documenting it — this is cheap and it is a large part of what makes Scryfall feel fast.
+
+### [LOW] Declared props that are silently ignored across the display and filter components
+
+- **File:** `src/components/universal/UniversalFilterPanel.tsx:25`
+- **Category:** dead-ui
+
+UniversalFilterPanel's props declare `power: [number, number]`, `toughness: [number, number]`, `priceMin` and `priceMax` (lines 25-28) — none of them render any control; only the CMC slider exists (lines 276-287). But UniversalLocalSearch.tsx:86-89 counts power/toughness/price toward its active-filter badge, so the badge can claim filters the user has no way to see or clear. UniversalLocalSearch's `EmptyState.actionLabel` (line 30) is never read — the button hardcodes 'Quick Add Cards' (line 289). UniversalCardDisplay imports Star, TrendingUp, DollarSign, Zap, Shield and Check (lines 9-14) and uses none of them. AIFeaturedCard declares `onRequestInsights` (line 9) and never calls it, and AICardInsights.tsx:108 uses `prose-xs`, which is not a Tailwind Typography size (sm/base/lg/xl/2xl only) so it is a no-op class.
+
+> **Fix:** Either render the power/toughness/price controls or remove them from the props and from the active-filter count. Honor actionLabel. Strip unused imports and the invalid prose class as part of the dead-code sweep.
+
+---
+
+## admin-settings
+
+Admin, Settings, and Auth are three visually unrelated products sharing a router. The design system defines a rich token set (including MTG-specific `--mana-*` and `--type-*` colors) that this entire area ignores — 190+ raw Tailwind palette classes across 15 files, with SyncDashboard and TaskManagement the worst offenders. Worse, `:root` and `.dark` in index.css are *both* dark palettes, so there is no light theme at all: every `dark:` variant in this area is dead for default (system) users, and light-only shades like `bg-green-100`/`bg-red-50` render as bright chips on a near-black card. Functionally the area is hollow — Settings' notification toggles persist nothing, its data export is a TODO that fires a success toast, Login's "Remember me" and Register's "Free Plan" checkboxes are wired to nothing, three built auth components (OAuth, 2FA, API keys) are never mounted, and the RLS security audit fabricates a clean bill of health. Most damningly for the owner's stated pain: SyncDashboard has no concept of staleness — a card database last synced 2026-01-31 renders as an unremarkable locale timestamp, and pressing "Reset Status" overwrites `last_sync` with `now()`, destroying the only staleness signal that exists.
+
+### [CRITICAL] No light theme exists — :root and .dark are both dark, making every `dark:` variant in this area dead code
+
+- **File:** `src/index.css:25-121 (:root), src/index.css:122+ (.dark); src/App.tsx:60; src/components/TopNavigation.tsx:141`
+- **Category:** theming
+
+`:root` defines `--background: 228 25% 8%` / `--card: 228 20% 12%` (dark cosmic) and `.dark` defines `--background: 228 30% 5%` (also dark). There is no `.light` block anywhere — `grep '^\s*\.\(light\|dark\)\|:root' src/index.css` returns only `:root` (25) and `.dark` (122). Meanwhile App.tsx:60 mounts `<ThemeProvider attribute="class" defaultTheme="system" enableSystem>` and TopNavigation.tsx:141 ships a user-facing toggle `setTheme(theme === 'dark' ? 'light' : 'dark')`. Consequence: a user on a light OS (the default) gets NO `.dark` class, falls through to `:root`, and still sees a dark UI — but every `dark:`-prefixed utility in this area silently switches off. That means the admin panel's ~120 `dark:text-emerald-400`-style fallbacks all collapse to their 600-weight light-mode values (e.g. `text-emerald-600`, `text-orange-600`, `text-gray-600` in TaskManagement.tsx:58-85 and FeatureFlagsManager.tsx:45-47) rendered on a `hsl(228 20% 12%)` card — well under 3:1 contrast. The theme toggle is simultaneously a no-op (backgrounds don't change) and a contrast regression (dark: variants flip off).
+
+> **Fix:** Decide one of two things and commit: (a) DeckMatrix is dark-only — delete the TopNavigation toggle, drop `enableSystem`, force `defaultTheme="dark"`, and strip every `dark:` prefix in the codebase since it is meaningless; or (b) author a genuine light palette in `:root`, move the cosmic palette into `.dark`, and set `defaultTheme="dark"`. Option (b) is what Moxfield/Archidekt do. Either way, the fix must land before any component-level color cleanup, because it changes which half of every `x-600 dark:x-400` pair is actually rendering.
+
+### [CRITICAL] Card sync staleness is completely invisible — a 6-month-old database looks normal
+
+- **File:** `src/components/SyncDashboard.tsx:322-325, 457-459, 612-613, 672-677`
+- **Category:** dead-ui
+
+`formatLastSync` (322-325) is `new Date(timestamp).toLocaleString()` — a raw absolute string with no age computation. It is surfaced in exactly two places: "Last updated: {formatLastSync(...)}" (457-459) and a `Last Sync:` row in Sync Details (652-654), plus a `toLocaleDateString()` under "Last Updated:" (674-676). None of them compare against `Date.now()`. The only age-aware code in the whole file is the stuck-sync alert at 612-613, which is gated on `syncStatus?.status === 'running'` — so a sync that *completed* on 2026-01-31 and was never run again produces zero warnings, zero color change, and a green `CheckCircle` via `getStatusIcon('completed')` (298-299). The "Cards in Database" stat card (463-474) reports a count with the subtitle "Total unique cards available" and no indication that it predates ~6 months of Standard/Commander releases.
+
+> **Fix:** Add a staleness computation next to `calculateProgress()`: `const daysSinceSync = last_sync ? (Date.now() - +new Date(last_sync)) / 864e5 : Infinity`. Render relative age everywhere ("Last synced 199 days ago") with the absolute timestamp as a tooltip. Gate a persistent `<Alert variant="destructive">` on `daysSinceSync > 7` — Scryfall publishes bulk data daily, so anything over a week is stale and anything over a month means the card pool is wrong. Badge the 'Sync' tab trigger in Admin.tsx:192-195 with a dot when stale, so an admin sees it without opening the tab.
+
+### [CRITICAL] "Reset Status" falsifies last_sync to now(), destroying the only staleness signal
+
+- **File:** `src/components/SyncDashboard.tsx:236-245, 257-265`
+- **Category:** dead-ui
+
+`resetSyncStatus` upserts `sync_status` with `{ status: 'pending', error_message: 'Manually reset by user', records_processed: 0, total_records: 0, last_sync: new Date().toISOString() }` (236-245) and then mirrors the same object into local state (257-265). `last_sync` semantically means "when cards were last synchronized", but this writes the *reset click time* into it. Since "Reset Status" is rendered up to four times on this one screen (header 416-436, error alert 603-605, stuck alert 620-622, Manual Actions 743-750) and is offered as the remedy for every failure state, the realistic sequence is: sync fails → admin clicks Reset → the record now claims it synced seconds ago while the `cards` table is untouched. There is also no confirmation dialog on any of the four, despite one being `variant="destructive"`.
+
+> **Fix:** Never write `last_sync` outside of a successful sync completion. The reset path should set `status: 'pending'` and leave `last_sync` alone (or introduce a separate `last_reset_at` column). Collapse the four reset controls into one, put it behind an `AlertDialog` confirm, and label it by what it does ("Clear stuck sync lock") rather than "Reset Status".
+
+### [HIGH] Sync progress polling stops after one tick due to a stale-closure bug
+
+- **File:** `src/components/SyncDashboard.tsx:124-135`
+- **Category:** dead-ui
+
+`triggerSync` sets up `const pollInterval = setInterval(async () => { await loadSyncStatus(); if (syncStatus && syncStatus.status !== 'running') { clearInterval(pollInterval); } }, 3000)`. `syncStatus` here is captured from the render in which `triggerSync` was defined — it never updates inside the closure. At the moment the admin clicks Start, `syncStatus.status` is whatever it was *before* the sync (`'pending'`, `'completed'`, or `'failed'`), so on the very first 3-second tick the condition `syncStatus && syncStatus.status !== 'running'` is true and the interval clears itself. The 30-minute safety timeout at line 135 then has nothing to clear. A secondary `useEffect` poll at 286-294 does work correctly (it depends on `syncStatus?.status`), so the effect is partially masked — but the two polling systems (3s and 5s) racing on the same endpoint is itself duplication that should not exist.
+
+> **Fix:** Delete the entire `setInterval` block in `triggerSync` (124-135) and the 30-minute timeout with it. The `useEffect`-based poll at 286-294 already covers the running state correctly and is the right pattern. If you want faster feedback on start, just call `loadSyncStatus()` once after the invoke resolves.
+
+### [HIGH] Settings notification toggles are local-only state — nothing is persisted or read
+
+- **File:** `src/pages/Settings.tsx:86-87, 455-475`
+- **Category:** dead-ui
+
+`const [emailNotifications, setEmailNotifications] = useState(true)` and `const [priceAlerts, setPriceAlerts] = useState(true)` (86-87) are bound directly to two `<Switch>` components (460-463, 471-474). There is no supabase write anywhere in the file for either value, and `loadUserData` (95-127) only fetches `profiles` and `user_subscriptions` — it never reads a preferences row. Both switches reset to `true` on every navigation. The second one advertises "Get notified when wishlist prices drop", a feature the Wishlist page's price-alert system would need to actually consume.
+
+> **Fix:** Either persist these to a `user_preferences` table (upsert on change, hydrate in `loadUserData`) and have the price-alert job read them, or remove the Notifications card entirely until the backend exists. A settings toggle that silently forgets is worse than no toggle.
+
+### [HIGH] Data export is a TODO stub that fires a success toast
+
+- **File:** `src/pages/Settings.tsx:212-215, 485-494`
+- **Category:** dead-ui
+
+```const handleExportData = async () => { showSuccess('Export Started', 'Your data export will be ready shortly'); // TODO: Implement actual data export };``` — the entire function body is a lie plus a comment. The UI (485-494) presents it as "Export Your Data / Download your collection and decks" with a Download icon. Nothing is ever generated and nothing ever arrives. Ironically a working exporter already exists in this same area: `src/components/admin/DatabaseBackupManager.tsx:12-63` builds a Blob and triggers a download for `user_collections`, `user_decks`, `deck_cards`, `wishlist` — and that component is never mounted anywhere.
+
+> **Fix:** Wire `handleExportData` to the working logic in DatabaseBackupManager.tsx (scoped to the current user), and offer MTG-native formats a real player wants: Moxfield/Archidekt CSV, plain decklist txt, and Scryfall-compatible JSON — not an opaque "export". Until then, disable the button rather than toasting success.
+
+### [HIGH] Three separate "Coming soon" actions fire success toasts, and Upgrade navigates to a nonexistent anchor
+
+- **File:** `src/pages/Settings.tsx:304-311, 387-396`
+- **Category:** dead-ui
+
+The avatar camera button (304-311) calls `showSuccess('Coming soon', 'Avatar upload coming soon')` and "Manage Billing" (393) calls `showSuccess('Coming soon', 'Billing portal coming soon')` — using the *success* variant for a non-action, so the user gets a green confirmation for something that did not happen. The free-tier Upgrade button (388) does `window.location.href = '/#pricing'`, which (a) forces a full page reload discarding React state, and (b) for a signed-in user resolves to `/` which App.tsx:103 maps to `<Dashboard />` — there is no `#pricing` section on the Dashboard, so the user lands on their dashboard with a dead hash. The pricing content that *does* exist ($0 / $9.99 / $24.99) is hardcoded inside the admin-only SubscriptionManager.tsx:228-291, unreachable from Settings.
+
+> **Fix:** Use a neutral/info toast for unimplemented actions, or disable the controls with a `Soon` badge. Replace the `window.location.href` hop with a real in-app pricing route (`<Link to="/pricing">`) rendering tier data sourced from `useSubscriptionLimits()` — the same hook SubscriptionManager already calls — so the marketing numbers and the enforced limits cannot drift.
+
+### [HIGH] Change-password dialog collects no current password despite holding state for it
+
+- **File:** `src/pages/Settings.tsx:76, 153-184, 510-547`
+- **Category:** dead-ui
+
+`const [currentPassword, setCurrentPassword] = useState('')` is declared at line 76 and reset at line 174, but no `<Input>` in the dialog (510-547) is bound to it — the dialog renders only "New Password" and "Confirm Password". `handleChangePassword` (153-184) calls `supabase.auth.updateUser({ password: newPassword })` with no re-authentication step. The dead state variable is the fossil of an intended verification step that was dropped. Separately, the minimum is 6 characters here (159) and 6 in Register.tsx:45 and 6 in UpdatePasswordForm.tsx:20 — three independent copies of the same rule.
+
+> **Fix:** Either add the current-password field and verify it (re-sign-in with the old credential before `updateUser`), or delete the unused state. Extract the password policy into one shared validator so Settings, Register, and UpdatePasswordForm cannot diverge.
+
+### [HIGH] Login "Remember me" and Register "Free Plan" checkboxes are wired to nothing
+
+- **File:** `src/pages/Login.tsx:16, 100-110; src/pages/Register.tsx:21, 186-201`
+- **Category:** dead-ui
+
+Login.tsx declares `rememberMe` at line 16 and binds it to a Checkbox at 104, but the only auth call is `signIn(email, password)` (line 26) and the interface is `signIn: (email, password) => Promise<{error}>` (AuthProvider.tsx:10) — the flag is never read. It is doubly meaningless because `src/integrations/supabase/client.ts:13-14` sets `storage: localStorage, persistSession: true` unconditionally, so sessions always persist whether the box is ticked or not. Register.tsx is the same pattern: `freePlan` (line 21) is checked by default, bound at 189, wrapped in a prominent bordered callout at 186-201 listing "Basic collection manager, 1 deck, wishlist tracking", and then `signUp(formData.email, formData.password, formData.username)` (line 57) discards it — signature `signUp: (email, password, username?)` at AuthProvider.tsx:11. Unticking it changes nothing about the account created.
+
+> **Fix:** Delete both controls. If "Remember me" is genuinely wanted, it requires switching Supabase between `localStorage` and `sessionStorage` at client construction, which is a real change, not a checkbox. If plan selection at signup is wanted, it needs a `user_subscriptions` insert — otherwise the callout is a promise the form does not keep.
+
+### [HIGH] Three fully-built auth/settings components are never mounted, leaving an "or" divider that leads nowhere
+
+- **File:** `src/components/auth/OAuthProviders.tsx, src/components/auth/TwoFactorSetup.tsx, src/components/settings/APIKeyManagement.tsx; src/pages/Login.tsx:136-143; src/pages/Register.tsx:232-240`
+- **Category:** dead-ui
+
+Grepping every import of these three names across `src/` returns only their own definition lines — `OAuthProviders` (Google + GitHub via `supabase.auth.signInWithOAuth`), `TwoFactorSetup` (full TOTP enroll/verify/unenroll against `supabase.auth.mfa`), and `APIKeyManagement` (Scryfall/TCGPlayer/EDHREC/Moxfield/Archidekt key storage, 12.5KB) are all orphaned. The visible symptom: both Login (136-143) and Register (232-240) render a horizontal rule with a centered "or" chip — the universal signifier of alternative sign-in methods — followed by nothing but a plaintext "Don't have an account?" link. The Settings Security card (402-443) offers only Change Email and Change Password; there is no 2FA row despite a working implementation sitting on disk. `src/components/settings/` contains exactly one file and it is the dead one.
+
+> **Fix:** Mount `<OAuthProviders>` below the divider on Login and Register (or delete the divider). Add a Two-Factor Authentication row to the Settings Security card rendering `<TwoFactorSetup>` in a dialog. `APIKeyManagement` belongs behind a "Connected Services" section in Settings — MTG users expect to link TCGPlayer/Moxfield, and the component already enumerates exactly those. If any of the three are not wanted, delete the file rather than leaving it to rot.
+
+### [HIGH] Two competing feature-flag systems: a dead localStorage one and the live DB one
+
+- **File:** `src/components/admin/FeatureFlags.tsx (entire file); src/components/admin/FeatureFlagsManager.tsx; src/pages/Admin.tsx:14, 206-208`
+- **Category:** architecture
+
+`FeatureFlags.tsx` hardcodes eight flags in component state (19-76: `ai_deck_coach`, `tcgplayer_sync`, `marketplace_v2`, `maintenance_mode`, …), persists them to `localStorage.setItem('feature_flags', ...)` (109), and toasts "Changes will take effect on next page load". `FeatureFlagsManager.tsx` reads real rows via `useFeatureFlags()` (12) and mutates them through `useUpdateFeatureFlag()` (13) with per-flag tier gating. Admin.tsx imports only the Manager (line 14, rendered at 206-208) — `FeatureFlags` is imported nowhere. Both render near-identical UI (Card + Flag icon + "Feature Flags" title + Switch rows + `bg-*-500/10 text-*-600 dark:text-*-400` badges), so a future maintainer has a 50/50 chance of editing the wrong one. `HomepageModeToggle.tsx` is then a *third* flag surface, hitting the same `feature_flags` table but hardcoded to a single key (`show_testing_banner`, lines 23/41) and rendered as its own separate Card above the Overview tab (Admin.tsx:201).
+
+> **Fix:** Delete `src/components/admin/FeatureFlags.tsx`. Fold `HomepageModeToggle` into `FeatureFlagsManager` as a pinned/starred row rather than a bespoke card — it is the same table and the same operation, and having one flag get a privileged Card while the rest share a list is the exact inconsistency the owner is describing.
+
+### [HIGH] RLS security audit fabricates its results and reports success
+
+- **File:** `src/components/admin/RLSPolicyAudit.tsx:41-72`
+- **Category:** dead-ui
+
+`runAudit` builds `const mockRLS: RLSStatus[] = knownTables.map(table => ({ tablename: table, rowsecurity: true }))` (55-58) — it hardcodes `rowsecurity: true` for all 27 tables without querying anything — then sets `const mockPolicies: TablePolicy[] = []` with the comment "Mock policies - these would come from database in production" (62-63), feeds both into `analyzeSecurityIssues` (67), and toasts "Audit Complete / RLS policy audit has been completed successfully" (69-72). A security tool that always reports a clean bill of health regardless of the actual database is worse than no tool. The component is currently unreferenced (never imported by Admin.tsx or any other file), which is the only thing preventing active harm.
+
+> **Fix:** Delete the file, or replace the mock with a real `supabase.rpc()` against `pg_policies`/`pg_tables` before it ever gets mounted. Do not ship a component whose failure mode is a false all-clear.
+
+### [HIGH] AI System admin dashboard reports entirely invented metrics as live telemetry
+
+- **File:** `src/components/admin/AISystemAdmin.tsx:37-68, 75-91, 105-107, 150-161, 177-223; src/components/admin/AIFunctionMapper.tsx:18-60`
+- **Category:** dead-ui
+
+`AI_FUNCTIONS` (37-68) hardcodes `estimatedTokens: { inputAvg: 2100, outputAvg: 600 }` per function; `dailyCallEstimates` (75-79) hardcodes `{ "mtg-brain": 50, "ai-deck-builder-v2": 10, "gemini-deck-coach": 20 }`; `estimatedMonthlyCost` (91) multiplies those invented numbers by a hardcoded `$0.075 per 1M tokens` — and the result is rendered as the page's headline metric, `Est. Monthly: ${...}`, in a large badge (105-107). The "Cache Hit Rate" stat card (150-161) displays a literal `~40%`. The "Optimization Status" card (177-223) is a static four-item changelog ("System Prompt Condensed (83% reduction)", "~40% hit rate") rendered with green `CheckCircle2` icons as if it were live health. `AIFunctionMapper.tsx:18-60` compounds this with a hardcoded architecture doc listing source filenames ("Brain.tsx (main chat interface)", "BrainAnalysis.tsx (deep deck analysis)") that will silently rot on the first rename. No query against `build_logs` or any usage table exists in either file.
+
+> **Fix:** Either query real usage (the `build_logs` table is already read by UserDetailsModal.tsx) and show actual call counts and token totals, or relabel the whole tab honestly — "Configuration Reference (static)" — and demote the invented cost from a headline badge to an inline note with its assumptions visible. Delete AIFunctionMapper's filename listing; that belongs in a repo doc, not a production admin tab.
+
+### [HIGH] Scryfall syntax reference contains multiple factually wrong operators — visible MTG incompetence
+
+- **File:** `src/components/admin/ScryfallSyntaxReference.tsx:113-117, 153, 176-180, 260-264, 272-276, 278-282, 209-213`
+- **Category:** mtg-domain
+
+Verified errors in the reference an admin is meant to trust: (1) Line 115-116 documents `c>=wu` as "White OR blue OR both" — `>=` is the superset operator, so it matches cards containing *both* white and blue; "white or blue" is `c<=wu` or `(c:w or c:u)`. (2) Line 274-275 documents `r:rare r:mythic` as "Rare or mythic cards" — space-separated terms in Scryfall are AND, so this query matches zero cards; the correct form is `r>=rare` or `(r:rare or r:mythic)`. (3) Line 153 states "`st:` for subtypes" — there is no `st:` operator in Scryfall; subtypes use `t:`, as the example directly below it at 172 (`t:elf t:warrior`) correctly does. The alert contradicts its own examples. (4) Line 178-179 labels `(t:instant OR t:sorcery)` as "All spells" — in MTG every nonland card cast is a spell; this is "instants and sorceries". Any Commander player will read that as a tell. (5) Line 262 shows `f:commander legal:commander` as one snippet — `legal:` is not a Scryfall operator and the two are redundant. (6) Line 280 labels `o:haste o:trample` as "Keywords" — `o:` searches oracle text (so it matches "target creature gains haste"), and Scryfall has a dedicated `keyword:` operator for the real thing. (7) Line 210-212 heads a block "Mana Value (CMC)" then describes it as "converted mana cost" — WotC retired that term in 2021.
+
+> **Fix:** Correct all seven, and reduce risk of the next drift by making each snippet a live link to `scryfall.com/search?q=...` so a wrong query is immediately visible as a zero-result search. Standardize on "mana value"/`mv` with `cmc` noted as the legacy alias, and use `keyword:` for keywords. This file is a good candidate to promote out of admin into user-facing search help, but only once it's correct.
+
+### [HIGH] Admin page has no consistent shell — each tab brings its own container, padding, and page title
+
+- **File:** `src/pages/Admin.tsx:153-163, 199-228; src/components/SyncDashboard.tsx:379-387; src/components/admin/TaskManagement.tsx:829-836; src/components/admin/AISystemAdmin.tsx:94-104`
+- **Category:** layout
+
+Admin.tsx wraps everything in `container mx-auto py-6 space-y-6` with an `<h1 className="text-3xl font-bold">Admin Dashboard</h1>` (156). Each tab then re-declares its own shell and its own page-level heading at the same visual weight: SyncDashboard renders `<h2 className="text-3xl font-bold tracking-tight">Card Sync Dashboard</h2>` (383) with no wrapper padding; TaskManagement renders `<h2 className="text-3xl font-bold">Task Management</h2>` inside `space-y-6 p-4 md:p-6` (829-833), adding padding no other tab has; AISystemAdmin renders `<h1 className="text-3xl font-bold">AI System Control Center</h1>` inside a *second* `container mx-auto py-8` (94-97), nesting a container inside Admin's container so that tab is inset and centered differently from every sibling. Result: switching tabs shifts the content's left edge and stacks two competing 3xl titles. Separately, `<SyncDashboard />` is rendered twice — once inside OverviewSection (Admin.tsx:111) and again as its own tab (227) — so the same 400-line dashboard is the majority of two different tabs.
+
+> **Fix:** Make Admin.tsx own the shell exclusively: one `<h1>`, one container, one padding scale. Strip the container/padding/h1 from SyncDashboard, TaskManagement, and AISystemAdmin — child panels should render bare Cards and let the page position them. Remove `<SyncDashboard />` from OverviewSection and replace it with a compact 3-stat summary row (status, card count, days-since-sync) that links to the Sync tab.
+
+### [HIGH] ~190 raw Tailwind palette classes bypass the design system, including MTG tokens that already exist
+
+- **File:** `src/components/admin/TaskManagement.tsx:58-85 (81 occurrences); src/components/SyncDashboard.tsx (22); src/components/admin/SubscriptionManager.tsx:109-111, 137, 231-275 (21); src/components/admin/FeatureFlagsManager.tsx:45-47 (17); src/pages/Settings.tsx:231-237, 362-370 (10); src/pages/Admin.tsx:73-100 (6)`
+- **Category:** theming
+
+A per-file count of `(bg|text|border|from|to|via)-(slate|gray|…|rose)-[0-9]+` across this area returns 190 hits in 15 files. TaskManagement.tsx alone hardcodes a 15-color taxonomy (58-85) covering violet/cyan/orange/green/pink/indigo/teal/slate/fuchsia/rose/gray for app sections. Meanwhile src/index.css:75-96 already defines the exact semantic tokens this app needs — `--mana-white/blue/black/red/green` (75-79) and `--type-commander/lands/creatures/instants/sorceries/enchantments/artifacts/planeswalkers/battles` (82-90) — and not one of them is referenced anywhere in admin, settings, or auth. Concretely wrong instances: SyncDashboard.tsx:512-514 uses `bg-green-100 text-green-600` / `bg-blue-100 text-blue-600` / `bg-gray-100 text-gray-400` for step chips and 539 uses `bg-gray-200` for connectors — these are light-mode 100/200 shades painted on a `hsl(228 20% 12%)` card. SyncDashboard.tsx:687 is `bg-red-50 dark:bg-red-950`, which for default (system) users resolves to near-white `red-50` on the dark card. SubscriptionManager.tsx:137 puts `text-white` on a gradient chip. SyncDashboard.tsx:450 applies `getStatusColor()` (`bg-green-500`/`bg-blue-500`) to a `Badge variant="outline"` whose text color stays `foreground`, producing a saturated fill with inherited light text.
+
+> **Fix:** Add semantic status tokens (`--success`, `--warning`, `--info`) to index.css alongside the existing destructive token, and replace every `*-500/600/400` status color with them. Replace TaskManagement's 15-color section map with a small set of tokenized variants. For anything MTG-flavored, use the `--mana-*` and `--type-*` tokens that already exist — a task tagged `deck_builder` showing in arbitrary orange while the app has a real color language is exactly the inconsistency being complained about.
+
+### [MEDIUM] Tabs nested three levels deep, with a 7-column TabsList that has no mobile overflow handling
+
+- **File:** `src/components/admin/AISystemAdmin.tsx:111, 322; src/pages/Admin.tsx:166-167; src/components/admin/ScryfallSyntaxReference.tsx:25; src/components/admin/PromptEditor.tsx:273`
+- **Category:** layout
+
+Admin.tsx's own TabsList is responsive-aware — `<div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">` wrapping `inline-flex w-max sm:grid sm:w-full sm:grid-cols-7` (166-167) with labels hidden below `sm` (170, 174, …). The nested one is not: AISystemAdmin.tsx:111 is a bare `<TabsList className="grid w-full grid-cols-7">` with seven always-visible text labels (Overview / Function Map / Config / Prompts / Scryfall / Optimize / Knowledge), which on a 375px viewport gives each trigger ~50px and truncates every label. Below that, the Prompts tab contains a further `grid-cols-3` TabsList (322) whose panels each render a `PromptEditor` carrying its own `grid-cols-3` TabsList (PromptEditor.tsx:273), and the Scryfall tab renders a `grid-cols-5` TabsList (ScryfallSyntaxReference.tsx:25). That is four tab bars stacked vertically to reach one prompt template.
+
+> **Fix:** Flatten. Promote the AI sub-sections to top-level Admin tabs or convert them to a left-hand section nav (which is what a settings-heavy admin panel wants anyway), and never nest a second horizontal TabsList inside a first. At minimum, apply the same overflow-x-auto + hidden-label treatment Admin.tsx already uses to every nested TabsList.
+
+### [MEDIUM] Task management has a rich four-axis taxonomy but only free-text search — and silently deletes rows it doesn't recognize
+
+- **File:** `src/components/admin/TaskManagement.tsx:801-826, 884-902`
+- **Category:** filtering
+
+The data model has four categorical axes with full config maps — `statusConfig`, `categoryConfig`, `priorityConfig`, `appSectionConfig` (58-85, 15 app sections alone). The filter UI exposes exactly two controls: a text `<Input>` (889-894) and a "Show completed tasks" switch (896-900). There is no way to filter by status, priority, category, or app section, so the color taxonomy is decorative. Worse, the third filter stage (813-821) drops any task whose `status`/`category`/`priority`/`app_section` is missing from its config map — commented "Filter out tasks with invalid config values to prevent crashes". A task created with a value the frontend doesn't know about vanishes from the list entirely, with no count, no warning, and no way to find it. Separately, the four stat cards (846-881) compute `activeCount`/`completedCount`/`inProgressCount`/`blockedCount` from the unfiltered `tasks` array (823-826) while the list below shows `filteredTasks`, so searching makes the header numbers contradict the visible rows.
+
+> **Fix:** Add faceted filter chips for status/priority/category/section driven off the existing config maps — the labels and colors are already defined, this is a small change with a large payoff. Replace the silent drop at 813-821 with a fallback config entry plus an "Unknown" badge so bad data is visible rather than invisible. Derive the stat cards from `filteredTasks` (or label them "of N total") so the numbers agree with the list.
+
+### [MEDIUM] Subscription pricing is hardcoded in the same component that renders the DB-driven limits table
+
+- **File:** `src/components/admin/SubscriptionManager.tsx:190-211 vs 228-291`
+- **Category:** architecture
+
+The "Subscription Limits" table (190-211) is fully data-driven: it maps `features` derived from `useSubscriptionLimits()` and calls `getLimitForTier(featureKey, tier)` per cell. Directly beneath it, the "Subscription Tiers" pricing cards (228-291) hardcode the same information as literal JSX bullets — "5 AI deck builds/month", "50 card scans/month", "10 decks maximum", "1,000 collection cards" for Free (240-243); "50 AI deck builds/month", "100 decks", "50,000 collection cards" for Pro (260-265) — plus hardcoded prices `$0` / `$9.99` / `$24.99` (237, 257, 278) and a hardcoded `<Badge>Popular</Badge>` (251). Two representations of one truth, one live and one frozen, stacked in the same scroll view. They will disagree the first time a limit changes in the database, and the admin looking at this screen has no way to tell which is authoritative.
+
+> **Fix:** Generate the tier cards from the same `limits` data as the table above (`getLimitForTier` already does the lookup), and move price and the 'Popular' designation into the `subscription_limits` table or a config module so there is one source. This is also the data Settings' Upgrade button should be linking to.
+
+### [MEDIUM] Three different toast systems across one feature area, with two Toaster roots mounted
+
+- **File:** `src/pages/Login.tsx:9; src/components/SyncDashboard.tsx:21; src/components/admin/UserManagement.tsx:8; src/pages/Settings.tsx:32; src/App.tsx:88-89`
+- **Category:** architecture
+
+Within admin/auth/settings alone: `toast` from `'sonner'` in UserManagement.tsx:8, HomepageModeToggle.tsx:6, DatabaseBackupManager.tsx:5, OAuthProviders.tsx:5, TwoFactorSetup.tsx:7, UpdatePasswordForm.tsx:8, APIKeyManagement.tsx:13; `useToast`/`toast` from `'@/hooks/use-toast'` in SyncDashboard.tsx:21, RLSPolicyAudit.tsx:9, Login.tsx:9, Register.tsx:9; and `showSuccess`/`showError` from `'@/components/ui/toast-helpers'` in Settings.tsx:32, TaskManagement.tsx:32, FeatureFlagsManager.tsx:9, FeatureFlags.tsx:8, PasswordResetFlow.tsx:7. App.tsx:88-89 consequently mounts both `<Toaster />` and `<Sonner />`. The three render in different corners with different animation, dismissal, and stacking behavior, so the same admin session produces visually unrelated notifications depending on which button was pressed — and a Settings action that touches two systems can stack two different-looking toasts at once.
+
+> **Fix:** Pick one (the `toast-helpers` wrapper is the best-typed of the three), migrate all 16 call sites, delete the loser, and remove the second Toaster from App.tsx. Mechanical change, immediately visible consistency win.
+
+### [MEDIUM] Auth pages are visually disconnected from the app and carry unverifiable social-proof copy
+
+- **File:** `src/components/auth/AuthLayout.tsx:15-25, 68-71; src/pages/Register.tsx:96; src/pages/Login.tsx:55, 122`
+- **Category:** copy
+
+AuthLayout wraps every auth page in a full-viewport `animate-pulse` grid overlay (line 17) plus four `animate-float` blurred orbs with staggered delays (21-24) — a permanently animating background behind a login form, on a layout no other page in the app uses. Line 70 renders "Trusted by thousands of Magic players worldwide" as static text with no source; Register.tsx:96 says "Join thousands of players building better decks with AI." — the same unverifiable claim twice, and the sort of empty superlative the owner flagged. Login.tsx:55 opens with "Welcome back, Planeswalker!", the only place in the entire area that uses MTG voice, so it reads as decoration rather than a consistent tone. Both submit buttons hardcode `bg-gradient-to-r from-primary to-purple-600` (Login:122, Register:206) instead of the app's `--gradient-primary` token (index.css:56), so the auth CTA is a different purple from every other primary button.
+
+> **Fix:** Drop the fabricated social proof entirely (or replace with a real number pulled from the profiles count — Admin.tsx:39 already queries it). Kill the `animate-pulse` on the background grid; a pulsing full-screen overlay behind a password field is fatiguing and reads as template filler. Swap the hand-rolled gradients for `var(--gradient-primary)`. Decide whether the product speaks MTG or speaks plain, and apply it to both pages.
+
+### [MEDIUM] Settings has no appearance controls and no MTG preferences at all
+
+- **File:** `src/pages/Settings.tsx:275-507`
+- **Category:** mtg-domain
+
+The full Settings surface is five cards: Profile, Subscription, Security, Notifications, Data & Account (289-507). There is no Appearance section — the theme toggle lives only as an icon button in TopNavigation.tsx:141, which is both undiscoverable and (per the theming finding) non-functional. More importantly for the stated bar, there are zero MTG-domain preferences anywhere in the app's settings: no default format (Commander/Modern/Standard), no preferred price source (TCGPlayer vs Cardmarket vs Card Kingdom), no currency, no default card image quality or art preference (normal/large/art_crop), no default collection view or card size, no foil/condition defaults, no "treat basic lands as owned". Moxfield and Archidekt both surface most of these, and the app already has the underlying concepts — `subscription.tier`, format strings (`format === 'commander'` in UserDetailsModal.tsx:123), and the `--type-*`/`--mana-*` token sets.
+
+> **Fix:** Add two cards: **Appearance** (theme, card image size/quality, default view density — which also gives the grid/list density controls a home) and **Magic Preferences** (default format, price source + currency, foil default, basics-owned toggle). Persist to a `user_preferences` table and read it from Collection/Decks/Builder so the settings actually change something. This is the single largest gap between this Settings page and a serious MTG platform's.
+
+### [MEDIUM] Admin role changes have no confirmation and the user table has no pagination or sorting
+
+- **File:** `src/components/admin/UserManagement.tsx:48-62, 92-157`
+- **Category:** dead-ui
+
+`toggleAdmin` (48-62) flips `is_admin` on a single click from a row button labeled "Make Admin"/"Remove Admin" (140-149) with no `AlertDialog` and no guard against the current admin demoting themselves — the only feedback is a `toast.success('User permissions updated')`. The table (96-155) renders `filteredProfiles` unbounded with no pagination, no page size, and no sortable column headers (`<TableHead>Username</TableHead>` etc. at 99-103 are plain text); `loadProfiles` (31-46) does `.select('*')` with no `.range()`, so every profile row is fetched and rendered on mount. Search is client-side only (64-67) and matches username or raw UUID — not email, which is the identifier an admin actually has when a user writes in. The footer count (159-162) reports `profiles.length` (unfiltered) even while the table shows a filtered subset.
+
+> **Fix:** Wrap the role toggle in an AlertDialog naming the user, and disable it for `profile.id === currentUser.id`. Add server-side pagination via `.range()` plus sortable headers on Joined/Role — this is the same sortable-table pattern the deck/collection views need, so build it once as a shared component. Fix the footer to report filtered-of-total.
+
+### [LOW] Dead "Implementation Summary" component is a 100-item AI-generated feature brag list
+
+- **File:** `src/components/admin/ImplementationSummary.tsx:6-165`
+- **Category:** copy
+
+A hardcoded array of 14 categories containing ~100 feature strings — "AI-powered archetype detection", "Power slider with AI coaching for optimization", "Null-safe stat calculations", "Deck compatibility checker for collection analysis" (listed twice, at lines 35 and 44), "Deck comparison tool for side-by-side analysis" (also duplicated at 45 and 162) — rendered as green checkmarks under the title "Recent Implementation Summary" with a "Total Features Implemented" counter (200). It is a changelog-as-marketing artifact with no source of truth, entries that describe internal refactors as user features, and visible copy-paste duplication. It is imported by nothing.
+
+> **Fix:** Delete the file. If a changelog is wanted, it belongs in a repo CHANGELOG or a real `releases` table, not a hardcoded array rendered in an admin panel.
+
+---
+
+## marketplace-social (Marketplace, Tournament, Simulate, Scan + components/marketplace, components/simulation, components/scan, components/tournament)
+
+This area is the least finished and least consistent part of DeckMatrix. Two shipped surfaces display fabricated data as real market information — StoreAvailabilityCheck.tsx hardcodes store prices/stock for every card and is rendered inside the app-wide card modal, and PriceTrendCard.tsx generates 7-day "price movers" with Math.random(). Roughly 1,500 lines across 8 components (AIPricingInsights, ListingTemplates, PriceComparison, ShippingCalculator, AnimationTestPanel, PhaseIndicator, ZoneSection, AdvancedScanOptions) are completely orphaned. Simulate.tsx is the only page in the app that bypasses StandardPageLayout, uses h-screen inside a 64px-offset shell, hardcodes hex backgrounds, and has zero responsive handling — it is unusable below 768px. The simulation invents its own card-type color scheme that directly contradicts the app's own --type-* tokens, renders every MTG concept as an emoji, never displays commander damage despite tracking it, and has two permanently dead interactions. Tournament Manager cannot record a draw (the UI explicitly says "Matches cannot end in a tie"), uses wins×3 scoring with no draw points and no OMW%/OGW% tiebreakers, and its Swiss pairer will re-pair players who already met. Nothing in this area has a grid/list toggle or density control, while 14 files elsewhere in the app do.
+
+### [CRITICAL] Shipped card modal shows fabricated store prices and stock levels for every card
+
+- **File:** `src/components/marketplace/StoreAvailabilityCheck.tsx:23-74`
+- **Category:** mtg-domain
+
+The component seeds state with a hardcoded array: TCGPlayer $12.99 in stock, Card Kingdom $13.50 in stock, ChannelFireball out of stock, Star City Games $14.99 (lines 23-52). These values are identical for every card — Black Lotus and a bulk common both render $12.99 at TCGPlayer. The 'Refresh' handler (lines 55-74) does `await new Promise(resolve => setTimeout(resolve, 1500))`, then only rewrites `lastChecked: new Date()` and fires `showSuccess('Availability Updated', 'Store availability has been refreshed')`. Nothing is fetched. This is NOT dead code: it is rendered at src/components/enhanced/UniversalCardModal.tsx:419, which is imported by Collection.tsx:25, DeckInterface.tsx:9, PublicDeck.tsx:12, Wishlist.tsx:23, UniversalCardSearch.tsx:11 and EnhancedUniversalCardSearch.tsx:9 — i.e. the primary card-detail modal across the whole app. The footnote at line 166 ('Prices are for reference only') does not disclose that the numbers are invented.
+
+> **Fix:** Remove StoreAvailabilityCheck from UniversalCardModal immediately. Either delete it, or rebuild it against real data — Scryfall already supplies purchase_uris and prices per printing, which is what CardPriceDetail.tsx uses. If genuine per-store stock is not obtainable, replace the panel with the real Scryfall price row plus outbound links and drop the 'in stock / out of stock' claim entirely.
+
+### [CRITICAL] 'Price Movers (7 Days)' invents price history with Math.random()
+
+- **File:** `src/components/marketplace/PriceTrendCard.tsx:39-77`
+- **Category:** mtg-domain
+
+loadTrendingCards() iterates a hardcoded array of six card names (lines 41-44: Sol Ring, Mana Crypt, The One Ring, Sheoldred, Ragavan, Force of Will), fetches only the current Scryfall price, then computes `const changePercent = (Math.random() * 30 - 15)` (line 56) and back-derives `previousPrice = currentPrice / (1 + changePercent / 100)` (line 57). The UI then renders '$12.40 ← $10.90' and a '+13.8%' gainer badge (lines 163-183) under the heading 'Price Movers (7 Days)' (line 93) with Gainers/Losers tabs. Clicking the refresh button at line 95 re-rolls the dice, so the same card flips between gainer and loser. The only disclosure is 10px muted text at line 197. This sits on the Marketplace Trends tab (Marketplace.tsx:541) whose entire stated purpose is price accuracy ('Compare prices across platforms and find the best deals', Marketplace.tsx:478).
+
+> **Fix:** Delete the random generator. The app already has a real price-history table — CardPriceHistoryChart.tsx queries `card_price_history` with snapshot_date/price_usd and a `capture-card-price` edge function. Compute gainers/losers from that table with a real 7-day window, and render the empty state honestly ('collecting price history') as CardPriceHistoryChart.tsx:198-207 already does, rather than fabricating movers.
+
+### [CRITICAL] Tournament Manager cannot record a draw — MTG match scoring is wrong
+
+- **File:** `src/components/tournament/TournamentManager.tsx:1129`
+- **Category:** mtg-domain
+
+The Submit Result button is `disabled={p1Score === p2Score || (p1Score === 0 && p2Score === 0)}` and line 1141 tells the user 'Matches cannot end in a tie'. In sanctioned Magic a 1-1 intentional draw or time-limit draw is legal and extremely common, worth 1 point to each player. The `draws` field exists on the Standing interface (line 61) and is rendered at line 801, but the standings recalculation (lines 350-357) never sets it — the returned object contains wins, losses, points, matchWinPct, gameWinPct and no draws — so the column is permanently dead. Points are `(wins + byeMatches.length) * 3` (line 354), i.e. draws contribute zero rather than one point. Consequently the Standings table's Points column can never match a real DCI standings sheet.
+
+> **Fix:** Allow equal game scores to be submitted as a draw. Change scoring to the official formula: win 3, draw 1, loss 0, and increment `draws` in the standings map. Add an explicit 'Draw' button next to the two 'Wins' buttons at lines 1010-1016 and 1034-1040 rather than relying on the score stepper.
+
+### [HIGH] Swiss pairings allow rematches and use the wrong tiebreakers
+
+- **File:** `src/components/tournament/TournamentManager.tsx:119-165`
+- **Category:** mtg-domain
+
+generatePairings() sorts standings by points then matchWinPct and greedily pairs adjacent unpaired players (lines 129-148). It never inspects previous rounds, so in round 3 of a small event the top two players who already met in round 1 will be paired again — a violation of the core Swiss rule. Separately, `matchWinPct` (line 355) is the player's OWN wins/matches and `gameWinPct` (line 356) is their own games won. Real MTG standings are broken by OMW% (opponents' match-win percentage, floored at 33%), then GW%, then OGW% — none of which are computed. The Standings table labels these columns 'Match %' and 'Game %' (lines 774-775), which a tournament organiser will read as the DCI tiebreakers they are not.
+
+> **Fix:** Track each player's opponent history and exclude prior opponents in generatePairings, falling back to the nearest legal pairing. Implement OMW%/GW%/OGW% with the 33% floor, sort standings by points → OMW% → GW% → OGW%, and relabel the columns accordingly. Also replace `[...players].sort(() => Math.random() - 0.5)` at line 168 with Fisher-Yates — that comparator produces a biased bracket seeding.
+
+### [HIGH] Simulate.tsx is the only page bypassing StandardPageLayout and breaks the app shell
+
+- **File:** `src/pages/Simulate.tsx:648`
+- **Category:** layout
+
+Every other page in this area wraps in StandardPageLayout (Marketplace.tsx:476, Scan.tsx:34, Tournament.tsx:6). Simulate returns a bare `<div className="h-screen flex flex-col bg-background">`. App.tsx renders routes inside `<main className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-64 ... py-1 md:py-4">` (App.tsx:100) nested in a `pt-16` wrapper below a `fixed top-0` 64px TopNavigation. A full 100vh child inside a container already pushed down 64px plus vertical padding overflows the viewport by ~72-96px, so the 'full screen' simulator forces the whole page to scroll and its internal `overflow-hidden`/`overflow-auto` panes never resolve to the intended height. The page title is also a bare `<h1 className="text-4xl font-bold">` (line 732) versus StandardSectionHeader's `text-xl md:text-2xl font-bold text-foreground` (standardized-components.tsx:158) — a third page-title typography in four pages.
+
+> **Fix:** Replace `h-screen` with `h-[calc(100vh-4rem)]` (or a shared `--app-shell-height` token) and route the pre-game deck-selection screen through StandardPageLayout so its title matches every other page. Keep the immersive full-bleed treatment only for the active game board.
+
+### [HIGH] Simulation has zero responsive handling — unusable below 768px
+
+- **File:** `src/pages/Simulate.tsx:820-829`
+- **Category:** layout
+
+The active-game layout is `<div className="flex-1 flex overflow-hidden">` containing `<div className="flex-[4] ...">` for the board and `<div className="w-96 flex flex-col bg-[#0f0f14] border-l ...">` for the log. There is no breakpoint prefix anywhere — no `hidden lg:flex`, no `flex-col md:flex-row`, no drawer fallback. On a 375px phone (where App.tsx hides the left nav at `hidden md:block`, App.tsx:94) the fixed 384px log panel exceeds the viewport, the `flex-[4]` board is compressed toward zero, and the parent `overflow-hidden` clips the remainder with no scroll recovery. Every other page in this area is mobile-first (Scan.tsx uses `grid-cols-2 sm:grid-cols-3`, `p-3 md:p-6`, `touch-target` throughout).
+
+> **Fix:** Stack the board and log vertically below `lg`, or move the log/controls into a Sheet triggered from a floating button. Give the log panel `w-full lg:w-96`. Also replace `bg-[#0f0f14]` (line 829) and `bg-[#0a0a0f]` (GameBoard.tsx:114) with `bg-card`/`bg-background` tokens — they are the only raw hex backgrounds in the area and they do not respond to the theme.
+
+### [HIGH] Simulation invents a card-type color scheme that contradicts the app's own design tokens
+
+- **File:** `src/components/simulation/DetailedPlayerZone.tsx:53-140`
+- **Category:** theming
+
+index.css:82-90 defines --type-commander (golden), --type-lands (emerald), --type-creatures (green), --type-artifacts (slate), --type-enchantments (purple), --type-planeswalkers (pink), --type-battles (orange), and tailwind.config.ts:66-76 exposes them as `type-creatures`, `type-lands` etc. DetailedPlayerZone ignores all of them and hardcodes a conflicting palette: creatures `border-red-500/20 text-red-400` (lines 53-54) where the token is green; lands `border-green-500/20 text-green-400` (72-73); artifacts `border-cyan-500/20 text-cyan-400` (84-85) where the token is slate; planeswalkers `border-amber-500/20 text-amber-400` (108-109) where the token is pink; graveyard `border-gray-500/20 text-gray-400` (120-121); hand `text-blue-400` (145). So the same card type is red in the simulator and green everywhere else in DeckMatrix. Every zone label is also an emoji rather than a symbol or icon (⭐ ⚔️ 🏔️ 🔧 ✨ 👤 ⚰️ 🚫 ✋), and GameBoard.tsx:127-129 renders life/library/hand as ❤️ 📚 ✋.
+
+> **Fix:** Swap the raw palette classes for the existing type tokens (`border-type-creatures/20 text-type-creatures`, etc.) so the simulator matches the rest of the app. Replace zone emoji with lucide icons or the project's own iconography, and render life totals with a real heart icon rather than an emoji glyph whose rendering varies by OS.
+
+### [HIGH] Commander damage is fully tracked in the engine but never shown anywhere in the UI
+
+- **File:** `src/components/simulation/GameBoard.tsx:116-183`
+- **Category:** mtg-domain
+
+Player.commanderDamage is defined at src/lib/simulation/types.ts:40, accumulated in src/lib/simulation/combatSystem.ts:67-70, and checked as a lethal win condition in src/lib/simulation/turnEngine.ts:155-170. A grep for `commanderDamage` across src/components/simulation/ and src/pages/Simulate.tsx returns zero hits — the status bar shows only life/library/hand (GameBoard.tsx:126-130, 165-169). A Commander player therefore watches a game end to a 21-damage commander kill with no visible clock. `commanderCastCount` (types.ts:41, commander tax) is likewise never displayed, and the command zone row (DetailedPlayerZone.tsx:42-49) shows the commander card with no tax counter. TurnOverview.tsx:202-206 is the only place commander damage appears, and only as a transient 2.5s popup fed from Simulate.tsx's own turnDamage state.
+
+> **Fix:** Add a per-opponent commander-damage readout to the GameBoard status bar (e.g. '⚔ 14/21' beside life) and show commander tax on the command-zone card. These are the two numbers a Commander player watches constantly; the data is already in state.
+
+### [HIGH] Two permanently dead interactions in the simulation card renderer
+
+- **File:** `src/components/simulation/FullCardDisplay.tsx:54-65`
+- **Category:** dead-ui
+
+(1) The card div has `hover:scale-[1.15] hover:z-30` at line 54, but lines 61-65 set an unconditional inline `style={{ transform: card.isTapped ? 'rotate(90deg)' : 'rotate(0deg)' }}`. An inline style transform overrides Tailwind's transform utility, so the hover zoom never fires on any card, tapped or untapped. (2) Lines 143-149 render an 'ATK' badge with `opacity-0 group-hover:opacity-100`, but no ancestor carries the `group` class — grepping `group` across src/components/simulation/ returns only this line and two unrelated `group.card` references in GroupedCardDisplay.tsx:50-51. The badge is invisible under all conditions. It is also mislabeled: the condition is `zone === 'battlefield' && !isTapped && isCreature`, which is 'can attack', not 'is attacking' — the real attack state is the unused `isAttacking` prop already passed in at line 18.
+
+> **Fix:** Compose the tapped rotation into the class list (`card.isTapped && 'rotate-90'`) and drop the inline style so hover:scale works. Delete the phantom ATK badge or add `group` to the wrapper in GroupedCardDisplay.tsx:54 and drive it from the `isAttacking` prop.
+
+### [HIGH] Eight components in this area are completely orphaned (~1,500 lines of dead code)
+
+- **File:** `src/components/marketplace/PriceComparison.tsx:1`
+- **Category:** dead-ui
+
+A repo-wide grep for each component name outside its own file returns zero hits for: marketplace/AIPricingInsights.tsx (151 lines), marketplace/ListingTemplates.tsx (197), marketplace/PriceComparison.tsx (314), marketplace/ShippingCalculator.tsx (121), simulation/AnimationTestPanel.tsx (125, a dev-only animation harness), simulation/PhaseIndicator.tsx (39), simulation/ZoneSection.tsx (43), scan/AdvancedScanOptions.tsx (184). PriceComparison is a fourth independent Scryfall price-fetching implementation (cards/named?fuzzy, line 45) that duplicates PriceSearchPanel, CardPriceDetail and PriceTrendCard. ShippingCalculator hardcodes 2023-era USPS rates ($0.73 PWE, $3.50 First Class, $8.50 Priority, lines 24-27). ListingTemplates keeps templates in useState only (line 20) and never persists them.
+
+> **Fix:** Delete all eight. Before deleting AdvancedScanOptions, note it is the only UI that can change scan settings (see the Scan settings finding) — either wire it into Scan.tsx or fold its controls into the page. Keeping four dead price-fetch implementations alongside the three live ones is a large part of the 'multiple systems, messy' complaint.
+
+### [HIGH] Marketplace page renders a second competing <h1> directly under the page title
+
+- **File:** `src/components/marketplace/MarketplaceHeader.tsx:24`
+- **Category:** theming
+
+Marketplace.tsx:476-478 passes title='Marketplace' / description='Compare prices across platforms and find the best deals' to StandardPageLayout, which renders `<h1 className="text-xl md:text-2xl font-bold text-foreground">` via StandardSectionHeader (standardized-components.tsx:154-168). MarketplaceHeader is then rendered immediately below at Marketplace.tsx:482 and emits a second `<h1 className="text-xl md:text-2xl font-bold text-foreground">Price Comparison Hub</h1>` with its own near-duplicate subtitle ('Compare prices across TCGPlayer, CardMarket, eBay & more. Find the best deals instantly.', line 31). The user sees two stacked headers with two different names for the same page, two duplicate one-line descriptions, and two h1s (an a11y violation). MarketplaceHeader also reimplements the header layout from scratch with blurred decorative blobs (lines 13-14) that no other page has.
+
+> **Fix:** Delete the h1/description block from MarketplaceHeader (lines 22-33) and keep only the partner badges and the watching counter, or drop MarketplaceHeader entirely and pass its stats through StandardPageLayout's `action` slot as Scan.tsx:37-43 does.
+
+### [HIGH] ShoppingList is mounted twice on the same page with independent duplicate state
+
+- **File:** `src/pages/Marketplace.tsx:542`
+- **Category:** architecture
+
+`<ShoppingList />` is rendered with no props both in the Trends tab (line 542) and in the Watchlist tab (line 553). With no `items` prop, ShoppingList.tsx:40-54 falls through to reading `localStorage.getItem('shopping_list')` on mount, and ShoppingList.tsx:56-63 writes back to the same key on every mutation. Two live instances therefore each hold their own copy of the list: adding or checking off an item in the Trends tab does not update the Watchlist tab's copy, and whichever instance writes last clobbers the other's changes. Marketplace.tsx also writes the same key directly in handleAddToShoppingList (lines 117-140) without notifying either mounted instance, so items added from the Buy modal do not appear until remount.
+
+> **Fix:** Render ShoppingList once, lift the list into Marketplace state alongside `watchlist` (which is already lifted at line 79), and pass `items`/`onUpdate` down — the props already exist at ShoppingList.tsx:30-33. Better still, move both lists to Supabase alongside listings.
+
+### [HIGH] No grid/list toggle, density control, or table view anywhere in this area
+
+- **File:** `src/components/marketplace/PriceSearchPanel.tsx:455`
+- **Category:** layout
+
+Every card surface here is a hardcoded grid with no user control: PriceSearchPanel results are `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4` (line 455) with a fixed `h-64` image (line 470); Marketplace 'My Listings' and 'Sold' are `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4` (Marketplace.tsx:618 and 637) with `h-64` images (line 353); Scan recent scans are `grid grid-cols-2 lg:grid-cols-3` (Scan.tsx:181). Grepping viewMode/LayoutGrid/cardSize/density across src/components/marketplace, /tournament, /scan, /simulation and the four pages returns zero results, while 14 other files in the app implement toggles (Collection.tsx, Wishlist.tsx, Builder.tsx, CollectionHeader.tsx, UniversalCardDisplay.tsx, WishlistCardGrid.tsx, ModernDeckList.tsx, StorageContainerView.tsx and others). Search results are also capped at 24 with no pagination (PriceSearchPanel.tsx:165, `data.data.slice(0, 24)`) despite Scryfall returning 175 per page.
+
+> **Fix:** Extract the existing Collection/Wishlist view-mode control into a shared component and reuse it on the price search results and the listings grids, including a compact table view (name / set / rarity / condition / price / market delta) with sortable columns — that is the default expectation from Moxfield and Archidekt. Add pagination or infinite scroll to replace the hard 24-result cap.
+
+### [MEDIUM] Price search hand-rolls its own filter/sort system instead of the app's shared one
+
+- **File:** `src/components/marketplace/PriceSearchPanel.tsx:68-130`
+- **Category:** filtering
+
+PriceSearchPanel defines private SortOption/FilterOption types (lines 68-69), its own MarketplacePreferences shape persisted under a bespoke 'marketplace-preferences' localStorage key (lines 71-95), its own debounced Scryfall fetch (lines 133-268), and its own filter/sort memo (lines 286-324) exposed as two Selects plus a Switch (lines 382-430). The app already ships src/components/filters/AdvancedFilterPanel.tsx and five search/filter hooks (useAdvancedCardSearch, useCardSearch, useEnhancedCardSearch, useOptimizedCollectionSearch, useDeckFilters) — none are used here. The available filters are also unrelated to how MTG players filter a price search: there is no color identity, no CMC range, no type line, no rarity, no format legality, and no set filter. 'Art Variants' is detected heuristically at lines 98-109 by testing whether the collector number contains a letter or exceeds 500, which misclassifies many normal high-number cards in modern sets.
+
+> **Fix:** Route price search through the shared search hook + AdvancedFilterPanel so filter semantics and persisted preferences match Cards/Collection. If a Scryfall-backed search is genuinely needed here, pass the filter state into the Scryfall query string (`c:`, `cmc<=`, `t:`, `r:`, `is:showcase`) rather than post-filtering 24 client-side rows, and use `is:showcase or is:extendedart or is:borderless` instead of the collector-number heuristic.
+
+### [MEDIUM] Battlefield type classification double-renders permanents and ignores Battles
+
+- **File:** `src/components/simulation/DetailedPlayerZone.tsx:21-27`
+- **Category:** mtg-domain
+
+The five filters are plain `type_line.includes()` calls with only one exclusion. `enchantments` (line 26) does not exclude creatures, so an Enchantment Creature (any of the Theros gods, Nyxborn creatures) renders in both the Creatures row and the Enchantments row simultaneously. `lands` (line 21) and `artifacts` (lines 23-25) overlap for Artifact Lands (Darksteel Citadel, the Mirrodin artifact lands), which appear twice. `planeswalkers` (line 27) does not exclude creatures either. Battle — a permanent type since March of the Machine, for which index.css:90 already defines a --type-battles token — has no row at all, so Battles on the battlefield are invisible. Token permanents also have no row and are only marked by a corner badge (FullCardDisplay.tsx:83-87). Separately, `commanderOnBattlefield` is computed at lines 30-33 (by name match, not instanceId) and never referenced in the returned JSX.
+
+> **Fix:** Classify each permanent once into a single bucket with proper precedence (Land → Battle → Planeswalker → Creature → Artifact → Enchantment), add a Battles row using the existing token, and delete the unused commanderOnBattlefield calculation or wire it to a 'commander on field' indicator.
+
+### [MEDIUM] Player zone never indicates active player or priority — the props are passed and ignored
+
+- **File:** `src/components/simulation/DetailedPlayerZone.tsx:17-38`
+- **Category:** dead-ui
+
+GameBoard.tsx passes isActive, hasPriority and orientation to both zones (lines 190-193 and 203-206). DetailedPlayerZone destructures all three at line 17, derives `const isTop = orientation === 'top'` at line 18, and then returns `<div className={cn("h-full flex flex-col")}>` at lines 36-38 — a cn() call wrapping a single static string. None of isTop, isActive or hasPriority appear anywhere in the render. So the two zones are visually identical regardless of whose turn it is or who holds priority, and the top/bottom orientation is never applied (GameBoard.tsx:186 lays them out side-by-side as `grid grid-cols-2`, not the opposing top/bottom arrangement every MTG client uses). The only turn indicator is a badge in the shared status bar (GameBoard.tsx:171-181).
+
+> **Fix:** Apply isActive/hasPriority as a ring or background treatment on the zone container, and either honour orientation with a stacked top/bottom board (flipping the opponent's row order) or remove the prop. Priority is the single most important piece of state in a Magic game view.
+
+### [MEDIUM] Simulation controls and phase tracker overflow the 384px sidebar they are rendered into
+
+- **File:** `src/components/simulation/SimulationControls.tsx:29`
+- **Category:** layout
+
+SimulationControls is a single-row `flex items-center gap-2 p-4` with no flex-wrap (line 29), containing a size='lg' Play/Pause button, Step, Restart, a 'Speed:' label with five w-10 buttons (lines 56-66), a spacer, the Legend popover trigger, and an 'Export Results' button — roughly 700-750px of intrinsic width. Simulate.tsx:838 mounts it inside `<div className="w-96 ...">` with `p-3` padding, i.e. about 360px of usable width. It also carries `bg-background border-t border-border` while its container is `bg-gradient-to-b from-primary/10` (Simulate.tsx:830), producing a mismatched opaque block. PhaseProgress in the same column uses `grid grid-cols-6` for twelve phases (PhaseProgress.tsx:68) at `text-[9px]` with `whitespace-nowrap` (line 87) — roughly 55px per cell for labels like 'Begin Combat' and 'Declare Blockers'.
+
+> **Fix:** Add flex-wrap and drop to icon-only buttons inside the sidebar, or move the transport controls into a bottom bar spanning the board. For PhaseProgress, use a vertical list or a 3-column grid at this width, and remove whitespace-nowrap so labels can wrap.
+
+### [MEDIUM] Two overlapping buy-links UIs built independently for the same job
+
+- **File:** `src/components/marketplace/BuyOptionsModal.tsx:47-117`
+- **Category:** architecture
+
+BuyOptionsModal builds a `platforms: PlatformPrice[]` array carrying per-platform `color`/`bgColor` Tailwind strings (lines 47-117) and maps it to link rows (lines 206-230). CardPriceDetail.tsx:245-333 renders the exact same four destinations as four separately hardcoded anchor blocks with the same copy — 'Best for US buyers', 'Best for EU buyers', 'Reliable US seller', 'Auctions & Buy It Now' — and the same blue/orange/purple/yellow scheme, but written inline. Both are reachable from the same card in PriceSearchPanel: clicking the card opens CardPriceDetail (line 573), clicking the 'Buy' button opens BuyOptionsModal (line 583). A third copy of the platform list exists as `prices: PriceResult[]` in PriceSearchPanel.tsx:176-235 with a `color` string field that no consumer reads, plus an always-undefined `logo` field (line 34).
+
+> **Fix:** Extract one BuyLinks component taking a Scryfall card and render it in both the sheet and the modal, then delete the unused PriceResult.color/logo fields. Consider dropping BuyOptionsModal entirely — CardPriceDetail already contains everything it shows plus the price history chart and all printings.
+
+### [MEDIUM] Counters render as '+N' regardless of type and mana costs render as raw text
+
+- **File:** `src/components/simulation/FullCardDisplay.tsx:90-99`
+- **Category:** mtg-domain
+
+The counter badge maps every entry of card.counters to `+{count}` (lines 92-99), discarding the type. A planeswalker with 3 loyalty shows '+3'; a creature with two -1/-1 counters shows '+2'; charge, oil, stun and shield counters are indistinguishable. The tooltip repeats the error as `+{count} {type}` (lines 208-212), so -1/-1 counters read '+2 minus1minus1'. Separately, the tooltip prints `{card.mana_cost || "—"}` as plain monospace text at line 160, so a card shows the literal string '{2}{U}{U}' instead of pips — even though src/components/ui/mana-symbols.tsx exports a ManaSymbol component backed by the --mana-white/blue/black/red/green tokens (index.css:75-79) and is already used in six other files including UniversalCardDisplay and UniversalCardModal. No card in the simulation is bordered or tinted by color identity either; FullCardDisplay.tsx:56 colours borders only by land/summoning-sick/default.
+
+> **Fix:** Render the counter type (or a symbol per counter type) and use the correct sign for -1/-1 and loyalty. Parse mana_cost through the existing ManaSymbol component in the tooltip, and use color identity for the card border so the board reads at a glance the way Arena and Cockatrice do.
+
+### [MEDIUM] Marketplace and Tournament persist to localStorage while the rest of the same page uses Supabase
+
+- **File:** `src/components/tournament/TournamentManager.tsx:83`
+- **Category:** architecture
+
+TournamentManager reads and writes the entire tournament dataset to `localStorage.getItem('tournaments')` / setItem (lines 83, 108), including a hand-rolled migration block (lines 87-95) for previously-stored shapes. Marketplace does the same for `price_watchlist` (Marketplace.tsx:88, 113, 147) and `shopping_list` (Marketplace.tsx:117, 140), and PriceSearchPanel for `marketplace-preferences` (lines 82, 91) — while listings, sales, messages and collection removal on the same page all go through Supabase (Marketplace.tsx:159-198, 242-282). The result: a tournament organiser loses the whole event by switching device or clearing site data, standings cannot be shared with players, and a watchlist does not follow the user's account. Tournament players are also plain strings (TournamentManager.tsx:33) with no link to DeckMatrix users or their registered decks.
+
+> **Fix:** Move tournaments, watchlist and shopping list to Supabase tables with RLS, matching how listings already work. For tournaments this also unlocks the feature that would make the page worth using — shareable standings and per-player decklists linked to user_decks.
+
+### [MEDIUM] Tournament Manager has no MTG game format, decklists, timer, or drop handling
+
+- **File:** `src/components/tournament/TournamentManager.tsx:543-573`
+- **Category:** mtg-domain
+
+The only 'Format' field in the create dialog offers Swiss and Single Elimination (lines 553-564) — pairing structures, not Magic formats. There is nowhere to record whether the event is Standard, Modern, Pioneer, Legacy, Commander, Draft or Sealed, no deck registration or decklist attachment, no round timer or match clock, and no way to drop a player mid-event (the only destructive action is deleting the entire tournament at line 696). Round count for Swiss is `Math.ceil(Math.log2(playerCount))` (line 115), which under-runs the DCI recommendation at several player counts. The 'round-robin' member of the Tournament format union (line 31) is unreachable from the UI and falls through to the Swiss branch at line 273, so it is dead. Line 190 is `status: roundNum === 1 ? 'pending' : 'pending'` — a ternary with identical branches.
+
+> **Fix:** Add an MTG format field, per-player decklist links to user_decks, a round timer with the standard 50-minute default, and a drop action. Replace the log2 round calculation with the DCI recommended-rounds table. Remove the unreachable round-robin union member and the dead ternary.
+
+### [MEDIUM] Scan page shows scan settings as read-only badges with no way to change them
+
+- **File:** `src/pages/Scan.tsx:18`
+- **Category:** dead-ui
+
+Scan.tsx destructures `const { recentScans, settings, updateSettings } = useScanStore()` at line 18. `updateSettings` appears exactly once in the file — that destructure — and is never called. The 'Auto Features' card at lines 81-96 renders `settings.autoCapture` and `settings.autoAdd` as Badges whose variant flips between 'default' and 'secondary', which looks like a toggle but is inert. The component that would provide these controls, src/components/scan/AdvancedScanOptions.tsx (184 lines, with switches for autoCapture, captureDelay, quality, batchMode, autoAddToCollection, defaultCondition, skipDuplicates), is orphaned — no file in the repo imports it. So the settings are displayed, the control panel exists, and the two were never connected.
+
+> **Fix:** Either wire AdvancedScanOptions into the Scan page (calling updateSettings) or make the two badges real Switch controls. Leaving state-shaped badges that cannot be clicked is worse than not showing them.
+
+### [MEDIUM] CardPriceDetail hardcodes a full colour palette including MTG rarity colours
+
+- **File:** `src/components/marketplace/CardPriceDetail.tsx:116-123`
+- **Category:** theming
+
+This one 421-line file contains 55 raw palette classes — the highest density in the area. `rarityColors` (lines 116-123) maps MTG rarities to `bg-gray-500/10 text-gray-600` (common), `bg-gray-400/10 text-gray-500` (uncommon — should read as silver, and is nearly identical to common), `bg-yellow-500/10` (rare), `bg-orange-500/10` (mythic), `bg-purple-500/10` (special/bonus). These do not derive from any token and common/uncommon are visually indistinguishable at these values. The Buy Now rows use solid `bg-blue-600`, `bg-orange-600`, `bg-purple-600`, `bg-yellow-600` swatches with `text-white` (lines 254, 279, 304, 323) — `text-white` is fixed regardless of theme. Every price figure is `text-green-600` (lines 155, 218, 264, 289, 386), and the price statistics grid hardcodes green/red/blue/purple tint cards (lines 216-231). QuickPriceStats.tsx:117-149 independently defines a fourth colour set for the same page.
+
+> **Fix:** Add rarity tokens (--rarity-common/uncommon/rare/mythic) to index.css alongside the existing --type-* tokens and consume them here; make uncommon visibly silver. Replace text-green-600 price styling with a semantic --price-positive/--price-negative pair, and replace the solid marketplace swatches with token-driven surfaces so they survive a theme change.
+
+### [LOW] Simulation legend and feature list contradict what the code actually does
+
+- **File:** `src/components/simulation/SimulationLegend.tsx:135`
+- **Category:** copy
+
+The legend states 'Blue bar: Current phase' (line 135), but PhaseProgress.tsx:80-81 renders the current-phase bar as `bg-primary`, and --primary is 250 70% 60% (index.css:36) — purple, not blue. Line 145 says 'Step: Advance one turn manually', but Simulate.tsx's step() advances a single action/phase (the code comment at Simulate.tsx:262 says 'Step through one action/phase at a time'). The pre-game feature list claims 'Speed controls: 0.25x to 2x playback' (Simulate.tsx:813) while SimulationControls.tsx:56 renders `[0.25, 0.5, 1, 2, 4]`. The same feature list promises 'Full MTG rules' (Simulate.tsx:809) directly beneath a badge reading 'ALPHA - Still in very early stages of development' (lines 733-736).
+
+> **Fix:** Correct the three statements, and resolve the 'Full MTG rules' vs 'ALPHA' contradiction — pick one framing. A legend that describes colours the app does not use is the kind of detail an MTG enthusiast notices immediately.
+
+### [LOW] 'Potential Savings' stat is hardcoded to zero and always renders '--'
+
+- **File:** `src/pages/Marketplace.tsx:492`
+- **Category:** dead-ui
+
+Marketplace passes `savedAmount={0}` to QuickPriceStats (line 492) and `totalSavings={0}` to MarketplaceHeader (line 484), both as literals with no computation anywhere in the file. QuickPriceStats.tsx:143-148 renders the fourth stat tile as `savedAmount > 0 ? '$...' : '--'`, so one of the four headline tiles is permanently '--'. MarketplaceHeader.tsx:41-46 gates its savings pill on `totalSavings > 0`, so that element is permanently absent — meaning lines 41-46 are unreachable code. A quarter of the page's primary metric row is a placeholder.
+
+> **Fix:** Either compute real savings (cheapest printing vs the market price for cards on the watchlist — CardPriceDetail.tsx:96-107 already computes lowest/highest/average/median across printings) or drop the tile to a three-column stat row and remove the dead pill from MarketplaceHeader.
+
+### [LOW] Scan page hardcodes purple and green accents outside the token system
+
+- **File:** `src/pages/Scan.tsx:100`
+- **Category:** theming
+
+Scan.tsx is otherwise the most token-clean page in this area, but two hero cards mix a token with a raw palette colour: `bg-gradient-to-br from-primary/10 to-purple-500/10` (line 100) and `bg-gradient-to-br from-primary/5 to-purple-500/5` (line 155). The app already defines --accent as 280 60% 55% (index.css:45) — a purple that is the intended gradient partner for primary, and tailwind.config.ts:82-84 exposes `bg-cosmic`/`bg-nebula` built from exactly this pair. The four feature dots at lines 113, 117, 121 and 125 use `bg-green-500` with no semantic meaning attached. TurnOverview.tsx:162 does the same thing at larger scale with `from-red-900 via-red-800 to-red-950 border-4 border-red-500`.
+
+> **Fix:** Replace `to-purple-500/N` with `to-accent/N` or the existing `bg-cosmic` utility, and swap the green dots for `bg-primary` or a semantic success token. This is a one-line change per site that brings Scan fully onto the token system.
+
+---
+
+## collection (Collection.tsx, Wishlist.tsx, components/collection/*, components/wishlist/*, components/storage/*)
+
+This area is a prototype wearing three coats of paint, not a shippable collection manager. 20 of the 53 components in the three folders are dead code (never imported anywhere), including three separate near-identical "assign cards to a container" implementations and an entire unused parallel wishlist UI. The card grid that renders your collection cannot show quantity, foil, or condition — the three facts that define a collection — has no sort control of any kind, has a color filter that is broken by a case mismatch, and its "grid" and "compact" modes render nearly identically because there is no density system. Four different code paths compute "collection value" with different foil/price rules, so the Collection tab and Analytics tab can display different totals for the same cards, and the price history chart silently falls back to `Math.random()` walk data presented as a real market chart. The design system defines proper `--mana-white/blue/black/red/green` and `--type-*` tokens; this area uses zero of them, instead shipping six competing hardcoded WUBRG color maps, several of which are light-mode-only Tailwind ramps that will be unreadable in the app's dark default theme. Against Moxfield/Archidekt this is not a near-miss — the core browsing surface is missing.
+
+### [CRITICAL] "Select All" selects the entire collection, not the filtered results — then bulk delete nukes it
+
+- **File:** `src/components/collection/CollectionCardDisplay.tsx:77-85`
+- **Category:** filtering
+
+Filtering happens inside `UniversalLocalSearch` (src/components/universal/UniversalLocalSearch.tsx:119-193), which owns `filteredCards` and never exposes it. `handleSelectAll` in CollectionCardDisplay operates on the unfiltered `items` prop: `setSelectedItems(new Set(items.map(item => item.id)))`. So a user who searches "Bolt", sees 3 results, clicks Select → All, and then Delete gets a `confirm()` saying "Delete 4,812 card(s)" and, if they misread it, loses their whole collection. `handleBulkDelete` (line 111) passes those ids straight to `CollectionAPI.bulkDelete`. Confirmation is also a native `window.confirm` (line 112) rather than the AlertDialog used elsewhere (e.g. StorageContainerView.tsx:345).
+
+> **Fix:** Lift filtering out of UniversalLocalSearch into the page (or have it call back with the filtered id set), scope Select All to visible results, label the button "Select all N results", and replace `confirm()` with AlertDialog that names the count and total value being destroyed.
+
+### [CRITICAL] React hooks-order violation: useMemo declared after a conditional return — the error state crashes the page
+
+- **File:** `src/pages/Collection.tsx:397-413`
+- **Category:** architecture
+
+`if (error) { return (...) }` at line 397 sits above `const recentlyAddedCount = useMemo(...)` at line 409. On the render where `error` flips from null to a string, React executes fewer hooks than the previous render and throws "Rendered fewer hooks than expected", so the intended friendly "Error loading collection / Retry" screen never appears — the user gets a blank page or the app-level error boundary instead. This is the one path a user hits when the collection API fails, i.e. exactly when they most need the Retry button.
+
+> **Fix:** Move the `recentlyAddedCount` useMemo above the early return (with the other memos around line 128), and add a lint rule (react-hooks/rules-of-hooks) to CI — this pattern is easy to reintroduce.
+
+### [CRITICAL] Collection color filter returns zero results — filter panel emits lowercase, cards store uppercase
+
+- **File:** `src/components/universal/UniversalFilterPanel.tsx:35-72`
+- **Category:** filtering
+
+`COLORS` uses `value: 'w' | 'u' | 'b' | 'r' | 'g' | 'c'` (lines 37, 43, 49, 55, 61, 67). The consumer at UniversalLocalSearch.tsx:136-140 does `const colors = card.colors || []; filters.colors.some(c => colors.includes(c))`. Scryfall `colors` are uppercase (`['W']`), so `['W'].includes('w')` is false and clicking any color returns an empty grid. `'c'` (Colorless) is worse: colorless cards have `colors: []`, which no membership test can ever match, so Colorless is permanently a zero-result filter. This is the single most-used filter in any MTG collection tool and it does not work on the Collection tab or the Storage container view (both render UniversalLocalSearch).
+
+> **Fix:** Normalize to uppercase WUBRG at the filter source, add explicit colorless handling (`colors.length === 0`), and offer the standard MTG modes MTG users expect: exactly-these-colors / at-most / includes, plus a color-identity toggle for Commander.
+
+### [CRITICAL] The collection grid cannot display quantity, foil count, or condition
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:255-277`
+- **Category:** layout
+
+CollectionCardDisplay.tsx:161-186 carefully maps `quantity`, `foil`, and `condition` onto each transformed card. `UniversalCardDisplay` — the only renderer — never reads them: grepping the file for `quantity|foil|condition` returns no matches. The card body (lines 255-277) renders name, a colored dot, CMC, rarity, price. The list row (lines 130-162) adds type line, set (broken, see separate finding), and power/toughness. A user browsing their own collection therefore cannot see how many copies they own or whether a copy is foil — the two facts that distinguish a collection from a card search. The same component powers the Storage container view, where `storageQty`/`storageFoil` are attached (StorageContainerView.tsx:119-120) and likewise never rendered, so a deck box does not show how many of each card is in it.
+
+> **Fix:** Build a dedicated collection card tile: quantity pill (`×4`), foil indicator (foil-treatment shimmer or ✦ badge with separate foil count), condition chip (NM/LP/MP/HP), and per-copy value. Moxfield/Archidekt both surface all of these at grid density.
+
+### [CRITICAL] No sorting anywhere in the collection view
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:195-307`
+- **Category:** layout
+
+The control bar contains a search input, a Filters toggle, Select/All, Clear, and three view-mode buttons (lines 201-253). There is no sort control and no sort state — `filteredCards` (line 119) preserves the incoming array order, which is the API's `updated_at desc`. A user cannot sort their collection by name, price, quantity, CMC, rarity, set, or date acquired. The list view (UniversalCardDisplay.tsx:93-211) is a stack of Cards, not a table — no header row, no clickable column headers. Ironically the dead `CollectionSearch.tsx:98-123` contains a fully-built sort UI (name/price/quantity/set/rarity/CMC + asc/desc) that is imported by nothing.
+
+> **Fix:** Add a persistent sort control to the shared search bar, and rebuild list mode as a real table with sortable columns (Qty, Name, Set, Mana Cost, Type, Rarity, Condition, Price, Total) — this is the table Archidekt/Moxfield users live in.
+
+### [HIGH] Four different "collection value" calculations produce different totals on different tabs
+
+- **File:** `src/pages/Collection.tsx:160-217`
+- **Category:** architecture
+
+Verified four distinct implementations, all live simultaneously: (1) server totals at src/server/routes/collection.ts:56-62 applies the NON-foil `prices.usd` to foil copies (`item.foil * price`); (2) src/features/collection/value.ts:22-60 `collectionTotals` correctly applies `usd_foil` to foils — this feeds CollectionQuickStats on the Collection tab (Collection.tsx:535-542); (3) the inline `collectionStats` memo at Collection.tsx:160-217 re-derives everything a third time with its own foil fallback — this feeds AnalyticsHeader (line 566) and InsuranceReport (line 612); (4) PriceHistoryChart.tsx:49-52 and CollectionValueTrends.tsx:12-13 use the denormalized `card.price_usd` column, a stale snapshot written once at insert time (collection.ts:130, 156) and never refreshed, and ignore foil quantity entirely. Result: the Collection tab, the Analytics header, the value-trends card, and the exported backup can all state a different total value for the same collection.
+
+> **Fix:** Delete three of the four. Keep one `collectionValue(items, opts)` in features/collection/value.ts, have the server return raw rows only, drop the stale `price_usd` column from all UI reads, and make foil/etched pricing an explicit, tested rule.
+
+### [HIGH] Price history chart silently fabricates data with Math.random() and presents it as a market chart
+
+- **File:** `src/components/collection/PriceHistoryChart.tsx:132-168`
+- **Category:** mtg-domain
+
+`generateSimulatedData` runs a random walk — `const randomChange = (Math.random() - 0.48) * dailyVolatility;` (line 147) — with a deliberate upward bias, and feeds the result into the same Recharts LineChart plus the same `changePercent`/`changeAmount` headline numbers as real data. It is invoked on four separate paths: no session (line 59), query error (line 76), fewer than 2 real snapshots (line 122), and any thrown exception (line 126). So a brand-new user with no history sees a plausible-looking 30-day upward trend of their collection value that is pure noise, regenerated differently on every render. For a tool people use to decide when to sell cards, inventing price movement is a trust-destroying defect, not a placeholder.
+
+> **Fix:** Never render synthetic values in a price chart. Show an explicit empty state ("Tracking starts today — capture your first snapshot") with the existing `captureSnapshot` CTA, and remove `generateSimulatedData` entirely.
+
+### [HIGH] 20 of 53 components in this area are dead code, including three duplicate implementations of the same flow
+
+- **File:** `src/components/storage/AssignDrawer.tsx:1`
+- **Category:** dead-ui
+
+Verified by grepping every component name across src/ excluding its own file. Never imported anywhere: collection/ — AICollectionInsights, AdvancedConditionTracking, BulkOperations, CardConditionPhotos, CardTypeDistribution, CategoryManager, CollectionComparison, CollectionHeader, CollectionImport, CollectionSearch, CollectionSnapshotManager, PriceAlertManager (12 of 32). wishlist/ — WishlistBudgetTracker, WishlistCardDisplay, WishlistCardModal, WishlistCategoryManager, WishlistDeckNeeds, WishlistImportFromURL, WishlistPurchaseTracker, WishlistShareManager (8 of 13). storage/ — AssignDrawer (18.5KB), FullScreenAssignment (16.9KB), StorageSidebar (15.3KB) (3 of 8). AssignDrawer, FullScreenAssignment, and the live StorageQuickActions are three separate builds of "pick owned cards and assign them to a container", sharing an identical `OwnedCard` interface (AssignDrawer.tsx:30-40, FullScreenAssignment.tsx:21-33). WishlistCardDisplay + WishlistCardModal are a complete parallel wishlist UI competing with the live WishlistCardGrid/WishlistListView.
+
+> **Fix:** Delete all 20 before the overhaul — they are the main reason the app "feels inconsistent": every one is a slightly different visual dialect that leaks into the next feature someone copies from. Salvage the sort UI from CollectionSearch and the condition-grade table from AdvancedConditionTracking into the new shared components first.
+
+### [HIGH] Saved Filter Presets saves nothing, applies nothing, and lies to the user about both
+
+- **File:** `src/pages/Collection.tsx:590-595`
+- **Category:** dead-ui
+
+Collection.tsx wires it as `onApplyPreset={(filters) => { console.log('Apply filters:', filters); }}` with `currentFilters={{}}`. So (a) every preset is saved with an empty filter object — the save dialog always reads "Current filters: No filters" (SavedFilterPresets.tsx:167) — and (b) clicking Apply console.logs and then fires `showSuccess('Filters applied', ...)` (SavedFilterPresets.tsx:100), telling the user something happened when nothing did. It also introduces a fifth filter shape (`colors/types/rarity/sets/minValue/maxValue/searchText`, lines 14-22) incompatible with UniversalLocalSearch's `Filters` (colors/types/formats/rarities/cmc/power/toughness/priceMin/priceMax), and it is placed on the Analytics tab, nowhere near the grid it would filter.
+
+> **Fix:** Either wire presets to the real shared filter state and move the control into the collection toolbar, or delete the component. Never fire a success toast from a handler whose only effect is console.log.
+
+### [HIGH] "Grid" and "compact" view modes are nearly identical; there is no density control and no card-size adjustment
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:41-53`
+- **Category:** layout
+
+Three buttons offer grid / list / compact. `getGridClasses` returns `grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6` for grid and `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3` for compact — a one-column difference at two breakpoints. Compact still renders the full card body, because the `!compact` gate at line 255 reads the boolean `compact` PROP (default false, never passed by UniversalLocalSearch), not `viewMode === 'compact'`. Line 238 is `className={compact ? "aspect-[5/7]" : "aspect-[5/7]"}` — a ternary with identical branches, dead code, duplicated verbatim at WishlistCardGrid.tsx:121-124. Net effect: two of three view modes look the same, and a user with 5,000 cards cannot make tiles smaller. Max density is 4 columns on desktop where Moxfield offers ~10 plus a size slider.
+
+> **Fix:** Replace the three-mode toggle with two real modes (Image grid / Table) plus an independent density or card-size slider (e.g. 5 steps from 90px to 260px card width driven by CSS `grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr))`), and persist the choice.
+
+### [HIGH] Collection view mode is hardcoded to grid; the store's persisted viewMode is a third, orphaned vocabulary
+
+- **File:** `src/pages/Collection.tsx:548-555`
+- **Category:** layout
+
+`<CollectionCardDisplay ... viewMode="grid" />` — a literal. Collection.tsx:62 destructures `viewMode` from `useCollectionStore()` and never uses it. That store declares `viewMode: 'grid' | 'table' | 'binder'` with a `setViewMode` action and zustand `persist` (src/features/collection/store.ts:22, 35, 122) — a third vocabulary alongside UniversalLocalSearch's `grid|list|compact` and Wishlist's `grid|compact|list`. `setViewMode` is called by nothing; `'binder'` mode exists only as a type and a button in the dead CollectionHeader.tsx:109-111 and is implemented nowhere. `getFilteredCards` and the entire `CollectionFilters` state in that store are likewise dead for this page (Collection.tsx:85 comments "removed - now in UniversalLocalSearch"). So the user's view choice resets to grid on every navigation.
+
+> **Fix:** Pick one ViewMode union, store it once (URL param or the collection store), pass it down, and either build binder view (a genuinely differentiating 3×3 page-flip layout for MTG collectors) or delete the enum member.
+
+### [HIGH] Zero mana symbols in the entire collection/wishlist/storage area — six competing hardcoded WUBRG color maps instead
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:65-91`
+- **Category:** mtg-domain
+
+`ManaSymbols` is imported at UniversalCardDisplay.tsx:4 and never used — the file instead renders `getColorIndicator`, up to three flat dots, collapsing 4+ colors into a red→blue→green gradient blob (line 87). Grepping components/collection, components/wishlist, and components/storage for `ManaSymbols|mana_cost` returns only CollectionExport (CSV field). Mana cost is never shown on a card tile, a list row, or a wishlist entry; the list view prints `CMC {card.cmc}` as a bare number (line 150). Six separate WUBRG maps exist in this flow: UniversalCardDisplay.tsx:71-77 (`W: 'bg-yellow-100'`), UniversalFilterPanel.tsx:35-72 (lowercase keys, light-only gradients), WishlistByDeck.tsx:50-56 (`W: 'bg-amber-100'`), DeckAdditionPanel.tsx:129-135 (`W: 'bg-yellow-100 text-yellow-800'`), enhanced/UniversalCardModal.tsx (inline hex `#fffbd5`/`#0e68ab`/`#150b00`/`#d3202a`/`#00733e`), universal/UniversalCardModal.tsx (`W: 'bg-yellow-100 text-yellow-800'`). Meanwhile src/index.css:75-79 defines `--mana-white/blue/black/red/green` with those exact canonical hexes, exposed to Tailwind and used only by the marketing pages.
+
+> **Fix:** Delete all six maps. Render real mana pips via the existing `ManaSymbols` component for mana_cost, and use the `--mana-*` tokens for color-identity chips. Show mana cost on tiles and rows; MTG users read cost before they read name.
+
+### [HIGH] Set code badge is always empty in list view (reads `card.set`, data provides `set_code`)
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:144-146`
+- **Category:** mtg-domain
+
+`<Badge variant="outline">{card.set?.toUpperCase()}</Badge>`. The collection transform supplies `set_code`, not `set` (CollectionCardDisplay.tsx:170), and the domain type is `set_code` (src/types/collection.ts:9, 42). The storage transform spreads `...item.card`, which is also `set_code` (server/routes/collection.ts:51 → transformDbCard). So every row in list view renders an empty outlined badge — a visible artifact on the Collection tab and the Storage container view. Set/printing is a primary identity axis for collectors (a Beta Bolt is not an M11 Bolt); collector number and set icon are absent entirely.
+
+> **Fix:** Fix the field name, and upgrade to a proper printing display: set icon + set code + collector number, with a printing-switcher on the card detail, matching Scryfall/Moxfield conventions.
+
+### [HIGH] You cannot remove a card from a storage container — the unassign handler is written but never wired
+
+- **File:** `src/components/storage/StorageContainerView.tsx:85-93`
+- **Category:** dead-ui
+
+`handleUnassign` is fully implemented (calls `StorageAPI.unassignCard`, toasts, reloads) and is referenced nowhere in the JSX — grep for `handleUnassign` across src/ returns only its own definition at line 85. The only card-level action in the container view is `onCardAdd` (line 292), whose hover "+" button adds ANOTHER copy of a card already in the box. So the deck-box screen offers increment-only editing: you can put cards in and never take them out. There is no quantity stepper and no per-card menu.
+
+> **Fix:** Add a +/- quantity stepper and a Remove action on each container card tile, wired to the existing `handleUnassign`, plus multi-select bulk move-between-containers.
+
+### [HIGH] Storage container "Manage" menu: Edit Container and Export List are inert menu items
+
+- **File:** `src/components/storage/StorageContainerView.tsx:193-200`
+- **Category:** dead-ui
+
+```
+<DropdownMenuItem className="gap-2"><Edit className="h-4 w-4" />Edit Container</DropdownMenuItem>
+<DropdownMenuItem className="gap-2"><Download className="h-4 w-4" />Export List</DropdownMenuItem>
+```
+Neither has an `onClick`. They render enabled, highlight on hover, close the menu on click, and do nothing — so a container's name, color, and type can never be changed after creation, and its contents can never be exported. Only the third item (Delete) is wired.
+
+> **Fix:** Implement both, or remove them from the menu. Never ship an enabled menu item with no handler — disabled-with-tooltip is the honest state.
+
+### [HIGH] Storage empty state offers three container-type buttons that all do the same thing
+
+- **File:** `src/components/storage/StorageManagement.tsx:248-270`
+- **Category:** dead-ui
+
+Three quick-create tiles labelled "Deck Box", "Binder", and "Storage Box" each call the identical `onClick={() => setShowCreateDialog(true)}` (lines 250, 257, 264) with no type argument, then the dialog opens on its default template (CreateContainerDialog.tsx:50 defaults `color: '#8B5CF6'`). The choice the user just made is discarded. The fourth button below them opens the same dialog, so the section is four buttons doing one thing.
+
+> **Fix:** Pass the chosen template id into CreateContainerDialog and preselect it, or collapse the four buttons into one.
+
+### [HIGH] Three bulk/queue actions fire success toasts without performing any action
+
+- **File:** `src/components/collection/CollectionCardDisplay.tsx:153-158`
+- **Category:** dead-ui
+
+(1) `handleBulkMarkForSale` computes the selected list, calls `showSuccess('Marked', ...)`, clears selection, and ends with the comment `// Open bulk sale dialog or process individually` — nothing is persisted, yet the Bulk toolbar's "Mark for Sale" button (BulkActionsToolbar.tsx:125-128) looks identical to the working Delete beside it. (2) Collection.tsx:255-258 `handleAddToDeck` is `showSuccess('Added to Queue', 'Card added to deck builder queue')` with the comment "Simplified add to deck" — there is no queue; the "+" on every collection card tile is decorative. (3) Collection.tsx:656 passes `onCardSelect={(card) => console.log('Selected:', card)}`. Separately, BulkActionsToolbar.tsx:130 renders a stray `<DropdownMenuSeparator />` outside any DropdownMenuContent, in the middle of a flex row of buttons.
+
+> **Fix:** Implement or remove all three. The bulk toolbar should be the flagship power feature here — Moxfield's bulk edit does quantity, condition, language, foil, tags, and container in one pass; this one does quantity, storage, and delete.
+
+### [HIGH] Empty-state "Import List" button targets a DOM attribute that does not exist
+
+- **File:** `src/pages/Collection.tsx:525-529`
+- **Category:** dead-ui
+
+```
+onImport={() => {
+  const importBtn = document.querySelector('[data-import-trigger]') as HTMLButtonElement;
+  importBtn?.click();
+}}
+```
+Grepping the whole repo for `data-import-trigger` returns exactly one hit — this querySelector. No element carries the attribute; CollectionBulkImport.tsx:169-173 renders a plain `<Button>` inside a DialogTrigger. So the middle of the three onboarding cards in CollectionEmptyState ("Import List — Bulk import from Arena, MTGO, or text files", CollectionEmptyState.tsx:60-73) is dead on the very first screen a new user sees. The optional-chained `?.` swallows it silently.
+
+> **Fix:** Hoist import dialog open-state into Collection.tsx and pass a real callback. Eliminate querySelector-based component communication throughout.
+
+### [HIGH] Wishlist "compact" view removes every action — cards become unclickable thumbnails
+
+- **File:** `src/components/wishlist/WishlistCardGrid.tsx:186-295`
+- **Category:** layout
+
+Both the hover action overlay (Buy / Add to collection / priority / target price / alert / remove) and the entire info footer (name, set, price, target) are gated behind `{viewMode === 'grid' && ...}` at lines 186 and 269. In compact mode the tile is a bare image with three tiny corner badges; there is no name, no price, and no way to buy, remove, reprioritize, or set a target — the only affordance left is click-to-open-modal. A user who switches to compact to see more cards loses the ability to act on any of them, with no indication why.
+
+> **Fix:** Keep actions available at every density (persistent overflow menu or right-click context menu), and show price on hover at minimum. Density should change size, not capability.
+
+### [HIGH] Two different UniversalCardModal components with incompatible prop APIs are both in use
+
+- **File:** `src/components/storage/StorageContainerView.tsx:47`
+- **Category:** architecture
+
+`src/components/enhanced/UniversalCardModal.tsx` takes `{ card, isOpen, onClose, onAddToCollection, onAddToWishlist, onAddToDeck }`; `src/components/universal/UniversalCardModal.tsx` takes `{ card, open, onOpenChange, onCardAdd, onCardWishlist, showAddButton, showWishlistButton }`. Collection.tsx:25 and Wishlist.tsx:23 import the `enhanced` one; StorageContainerView.tsx:47 imports the `universal` one. They render different content (the enhanced one has rulings/EDHREC-rank tabs and inline-hex color icons; the universal one uses ManaSymbols and its own rarity map). So clicking a card in your collection and clicking the same card inside a deck box opens two visibly different dialogs with different actions.
+
+> **Fix:** Collapse to one card-detail surface. It's the highest-traffic component in the product and should be identical everywhere: printings, legality, rulings, price by source, owned/wishlisted state, and add-to actions.
+
+### [HIGH] Card detail modal displays fabricated Scryfall rulings
+
+- **File:** `src/components/enhanced/UniversalCardModal.tsx:50-70`
+- **Category:** mtg-domain
+
+`loadRulings` is `// Simulate API call to Scryfall rulings` followed by a 500ms setTimeout that sets two invented rulings for every card: `{ published_at: '2023-01-01', comment: 'Sample ruling about this card\'s interaction with other cards.' }` and `{ published_at: '2022-06-15', comment: 'Additional clarification about timing and priority.' }`. This is the modal opened from the Collection tab (Collection.tsx:676) and the Wishlist (Wishlist.tsx:570). Rules text is the one thing in an MTG app that must be authoritative — Scryfall exposes real rulings at `/cards/:id/rulings` for free. The identical block exists in the dead WishlistCardModal.tsx:64.
+
+> **Fix:** Fetch real rulings from Scryfall (they're cache-friendly and free), or hide the rulings tab. Never render invented rules text.
+
+### [HIGH] Moving a wishlist card to the collection creates duplicate rows and loses foil/price data
+
+- **File:** `src/pages/Wishlist.tsx:315-335`
+- **Category:** mtg-domain
+
+`addToCollection` does a bare `supabase.from('user_collections').insert({...})` with no existence check, unlike CollectionBulkImport.tsx:102-132 which selects-then-updates. Buying the same card twice (or moving it, re-adding it, moving again) produces multiple `user_collections` rows for one `card_id`, which then double-count in every value calculation and show as separate tiles in the grid. It also hardcodes `condition: 'near_mint'`, sets no `foil` (so foil purchases are recorded as non-foil), and omits `price_usd`, which means PriceHistoryChart and CollectionValueTrends — which read that column (PriceHistoryChart.tsx:50) — value every wishlist-acquired card at $0.
+
+> **Fix:** Route all collection writes through one upsert-aware API (CollectionAPI.addCardByName already exists), and prompt for condition/foil/printing on the move — that's the moment the user knows what they bought.
+
+### [HIGH] Three incompatible card-condition vocabularies across the same area
+
+- **File:** `src/types/collection.ts:45`
+- **Category:** mtg-domain
+
+The domain type is `'mint' | 'near_mint' | 'excellent' | 'good' | 'light_played' | 'played' | 'poor'` — a seven-grade hybrid matching no real MTG marketplace. SellCardModal.tsx:175-179 offers the actual market scale `NM / LP / MP / HP / D`. AdvancedConditionTracking.tsx:37-38 uses `near_mint` / `lightly_played` (note: `lightly_` vs the type's `light_`), and CollectionExport.tsx:156 maps `lightly_played`, a value the type can never produce. CollectionSearch.tsx:191 filters on `light_played`. So a card listed for sale as LP cannot round-trip into a collection condition, and the export mapping silently falls through for every real row.
+
+> **Fix:** Standardize on the TCGplayer/CardMarket grades (NM/LP/MP/HP/DMG) with a single labelled enum + display map, migrate existing rows, and surface condition as a first-class filter, badge, and bulk-edit field with condition-adjusted pricing.
+
+### [MEDIUM] No shared currency formatter — the same value renders four different ways across the area
+
+- **File:** `src/components/collection/CollectionQuickStats.tsx:36`
+- **Category:** theming
+
+Four formatting styles coexist: `toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})` (CollectionQuickStats.tsx:36), `toLocaleString(undefined, {minimumFractionDigits:2})` (InsuranceReport.tsx:88), bare `` `$${x.toFixed(2)}` `` (WishlistQuickStats.tsx:46, StorageContainerView.tsx:134, WishlistCardGrid.tsx:285, WishlistListView.tsx:165, StorageManagement.tsx:187), and raw unformatted strings `` `$${item.card.prices.usd}` `` (WishlistCardDisplay.tsx:168, UniversalCardDisplay.tsx:157, 272 → renders "$1.5", "$0.03"). A $12,345.60 collection shows as "$12,345.60" on the Collection tab and "$12345.60" in Storage. `src/lib/` contains no `formatCurrency`/`formatPrice` helper at all. Currency is also USD-only with no EUR/TIX/CardMarket option despite Scryfall providing `eur` and `tix`.
+
+> **Fix:** Add one `formatPrice(value, currency)` util built on Intl.NumberFormat, use it everywhere, and add a user currency preference (USD/EUR) plus a price-source preference — international MTG users will not tolerate USD-only.
+
+### [MEDIUM] Insurance report sorts by computed value then prints an unrelated (usually $0) price column
+
+- **File:** `src/pages/Collection.tsx:612-619`
+- **Category:** mtg-domain
+
+`collectionStats.topValueCards` is built at lines 202-209 by attaching `calculatedValue` (quantity × usd + foil × usd_foil) and sorting on it. The InsuranceReport props then discard it: `topCards={collectionStats.topValueCards?.map(c => ({ name: c.card_name, value: parseFloat(String(c.price_usd || 0)) || 0 }))}`. `price_usd` is the stale per-single denormalized column that is null for every card added via Wishlist→Collection or CollectionAPI.addCard, so the generated document (InsuranceReport.tsx:36-38) lists cards in correct value order beside values that are wrong or `$0.00`, while the header total comes from a third calculation. This is a document users would hand to an insurer.
+
+> **Fix:** Pass `calculatedValue`, and make the report itemize quantity, condition, foil status, set, and per-copy vs total value from the single canonical valuation function.
+
+### [MEDIUM] Format, price, and power/toughness filters are unreachable or always-empty in the collection
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:65-91`
+- **Category:** filtering
+
+The `Filters` state declares `power`, `toughness`, `priceMin`, and `priceMax` and counts them in `activeFilterCount` (lines 86-89), but UniversalFilterPanel renders no UI for any of them — it exposes only colors, types, CMC, formats, and rarity. So four filter fields are permanently unreachable dead state. Separately, the format filter reads `card.legalities` (line 151), which the collection transform never provides (CollectionCardDisplay.tsx:168-185 has no `legalities` key), so selecting Standard/Modern/Commander returns zero results on the Collection tab every time. Also missing for a collection tool: set, condition, foil-only, language, owned-quantity, and storage-container filters — CollectionFilters in the store defines `sets`, `foilOnly`, and `condition` (store.ts:53-62) but that store is dead for this page.
+
+> **Fix:** Include `legalities` in the transform, build the missing filter controls, and cut the phantom state. Format legality is a headline filter for MTG users — "what Commander-legal cards do I own" is the question this app exists to answer.
+
+### [MEDIUM] Hardcoded light-mode Tailwind palettes across a dark-default app; MTG design tokens ignored entirely
+
+- **File:** `src/components/collection/AddCardsHeader.tsx:40-124`
+- **Category:** theming
+
+src/index.css:27 sets `--background: 228 25% 8%` — the app's base theme is dark — yet this area ships 300+ raw palette classes. Worst offenders by count: AddCardsHeader (29), StorageManagement (23), DeckAdditionPanel (22), WishlistListView (21), WishlistCardGrid (21), CreateContainerDialog (20), FavoriteDecksPreview (19). Concrete failures: UniversalFilterPanel.tsx:40-70 builds every color button from `from-yellow-50 to-orange-50 text-yellow-900` style light ramps — near-white chips with dark text on a dark surface; UniversalCardDisplay.tsx:57-62 maps rarity to `text-gray-600`/`text-gray-400` (common is effectively invisible on `--background`); AddCardsHeader.tsx:45, 78 and StorageManagement.tsx:129 use `text-white` on gradient chips instead of `text-primary-foreground`. Raw hex is embedded in logic: CreateContainerDialog.tsx:21-30 hardcodes ten swatches and five template colors, StorageManagement.tsx:305 and StorageContainerView.tsx:150 fall back to `'#6366F1'`, DeckAdditionPanel.tsx:304 to `'#64748b'`. Meanwhile index.css:75-90 defines `--mana-*` and `--type-*` and tailwind.config.ts:72-80 exposes `type-commander`, `type-lands`, `type-creatures` etc. — this area uses none of them.
+
+> **Fix:** Ban raw palette classes here via an eslint rule, define semantic tokens for the recurring roles (value/positive, alert, priority-high/med/low, rarity-common/uncommon/rare/mythic, container-type), and route every color through them so a single theme change re-skins the app.
+
+### [MEDIUM] Wishlist ships a fourth filter/sort implementation, hand-rolled and disconnected from the shared one
+
+- **File:** `src/pages/Wishlist.tsx:79-93`
+- **Category:** filtering
+
+Wishlist.tsx defines its own `SORT_OPTIONS`, `PRIORITY_FILTERS`, `ViewMode`, `SortOption`, `PriorityFilter` types (lines 75-93) and its own sort/filter memo (lines 206-235), plus a bespoke view-toggle button group (lines 473-498) — none of it shared with UniversalLocalSearch, which the Collection tab and Storage view use. Counting across the audited area there are five live filter implementations (UniversalLocalSearch+UniversalFilterPanel, EnhancedUniversalCardSearch+AdvancedFilterPanel, this inline one, SavedFilterPresets' shape, and the dead store's CollectionFilters) plus the dead CollectionSearch. The wishlist can only filter by priority — no color, type, CMC, rarity, set, or price filtering, and no text search on a list that can run to hundreds of cards. Notably its sort UI (price/name/date/priority) is exactly what the Collection tab lacks and doesn't share.
+
+> **Fix:** Extract one `<CardBrowser>` (search + filter + sort + density + view mode + selection) and mount it on Collection, Wishlist, and Storage with per-surface filter/column config. This single change addresses the owner's "multiple filtering systems which make it messy" complaint directly.
+
+### [MEDIUM] "Cards needed for this deck" is a naive color-identity subset test, not a deck-gap analysis
+
+- **File:** `src/components/wishlist/WishlistByDeck.tsx:68-78`
+- **Category:** mtg-domain
+
+`getWishlistForDeck` filters the ENTIRE wishlist by whether the card's colors fit the deck's colors, and returns `true` for any colorless card (line 72). It never checks whether the card is actually in the deck's list, whether you already own a copy, or whether the format allows it. So every Sol Ring, Arcane Signet, and colorless land in your wishlist appears as "needed" by every deck, and the UI states `{items.length} card{s} needed` (line 209) with a `Buy All ($X)` button (line 267). It compares against `deck.colors` rather than the commander's color identity, and applies commander-style color-identity logic uniformly to Modern/Standard decks where it is meaningless (`deck.format` is only rendered as a badge, line 181). Commander singleton rules and format legality are not considered anywhere.
+
+> **Fix:** Compute real gaps: deck list minus owned quantity, respecting the format's copy limits (4-of, or singleton for Commander/Brawl), commander color identity for EDH, and format legality. That is the feature MTG users actually want and it is a genuine differentiator.
+
+### [MEDIUM] Bulk import parser breaks on real Arena/MTGO exports and reports failures only to the console
+
+- **File:** `src/components/collection/CollectionBulkImport.tsx:37-44`
+- **Category:** mtg-domain
+
+The regex is `/^(\d+)x?\s+(.+?)(\s+\(([A-Z0-9]+)\))?$/i`. Real MTG Arena export lines end with a collector number — `4 Lightning Bolt (2X2) 117` — which fails the anchored group, so the whole line is swallowed into the card name and the Scryfall exact-name lookup `!"4 Lightning Bolt (2X2) 117"` returns nothing. Foil markers (`*F*`), double-faced `//` names, and set-code prefixes are unhandled; `foil: 0` is hardcoded (line 128). Cards are looked up one at a time in a `for` loop with an awaited network call each (lines 87-140), so a 500-line collection import fires 500 sequential Scryfall requests with no rate-limit backoff and no progress bar. Failures are pushed into an `errors` array that is only `console.error`'d (line 152) — the user sees "Added 3 cards. 497 failed." with no list of what failed or why. The empty-state promises "Bulk import from Arena, MTGO, or text files" (CollectionEmptyState.tsx:71).
+
+> **Fix:** Handle the real Arena/MTGO/Moxfield/Deckbox/CSV grammars including set, collector number, foil, and condition; batch lookups via Scryfall's /cards/collection endpoint (75 per request); and show a preview/reconciliation step listing unmatched lines with manual resolution — import quality is the #1 switching cost for collectors.
+
+### [LOW] Generic AI-marketing copy and invented feature pills inside the app chrome
+
+- **File:** `src/components/collection/AddCardsHeader.tsx:111-125`
+- **Category:** copy
+
+The Add Cards tab renders three decorative "feature pills" — "Instant Add", "Smart Search", "Multi-Destination" (lines 113-124) — which are non-interactive divs describing the page to the user who is already on it, above a Card Scanner promo carrying a `Sparkles` + "Fast" badge (lines 50-53). CollectionEmptyState.tsx:92-97 ends with a gradient pill reading "Tip: Our AI can help you build optimal decks from your collection", and AnalyticsHeader.tsx:37 is subtitled "Deep insights into your Magic collection". Collection.tsx:427 is "Track, organize, and optimize your MTG collection". This is landing-page voice inside a working tool — Moxfield's collection page has no marketing copy at all.
+
+> **Fix:** Strip the pills and taglines. In-app headers should carry state, not pitch: card count, unique count, total value, last-updated, and a single primary action.
+
+### [LOW] Deck navigation uses window.location.href, forcing a full page reload out of the SPA
+
+- **File:** `src/pages/Wishlist.tsx:555`
+- **Category:** architecture
+
+`onNavigateToDeck={(deckId) => window.location.href = `/decks?deck=${deckId}`}` — a full document reload that discards all zustand state, re-fetches the collection, and loses the wishlist's scroll position and filters. The same pattern appears at WishlistByDeck.tsx:109 (`window.location.href = '/decks'`). The file already has react-router available (Collection.tsx:2 uses `useNavigate`), so this is inconsistency rather than necessity.
+
+> **Fix:** Use `useNavigate()` throughout. Also persist filter/sort/view state to the URL so a collection view is shareable and back-button-safe.
+
+---
+
+## filtering
+
+DeckMatrix has at least 11 mutually incompatible filter-state models and ~19 distinct filter/search UIs, of which roughly 4,600 lines are entirely orphaned (never imported). The one genuinely good asset — `src/lib/scryfall/query-builder.ts` with a typed `CardSearchState` and `buildScryfallQuery` — is used by only one of them, while 15+ components hand-concatenate their own Scryfall query strings. Worse, the filters that users actually touch are frequently broken: the Collection/Storage color filter can never match (lowercase filter values vs uppercase Scryfall `colors`), the format filter there can never match (legalities are never mapped into the card objects), and on the main card search the CMC/power/toughness/price/identity/extras filters silently refuse to fire a query at all. No filter state is ever reflected in the URL, there is no sort control on the Collection, and no user-facing sortable table view exists anywhere despite TanStack Table being installed and used in the admin panel. Against Moxfield/Archidekt/Scryfall this is not "messy" — the core filtering contract is broken, and it needs a single shared filter engine, not a cleanup pass.
+
+### [CRITICAL] Eleven parallel filter-state models with no shared filter layer
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:32`
+- **Category:** architecture
+
+Independent, incompatible filter shapes coexist: (1) `CardSearchState` in src/lib/scryfall/query-builder.ts:5 driving AdvancedFilterPanel + useAdvancedCardSearch + EnhancedUniversalCardSearch (Cards, Collection>add-cards, DeckBuilder, Builder, Wishlist, StorageQuickActions); (2) `Filters` in src/components/universal/UniversalLocalSearch.tsx:14 + UniversalFilterPanel (Collection, StorageContainerView); (3) `DeckFilters` in src/hooks/useDeckFilters.ts:3 + DeckSearchFilters (Decks page); (4) `CollectionFilters` in src/types/collection.ts:64 with getFilteredCards in src/features/collection/store.ts:276 (persisted, zero consumers); (5) a second persisted Zustand model with selectedSets/selectedColors/selectedRarities/selectedConditions/priceRange in src/stores/collectionStore.ts:44 (setters never called anywhere); (6) `SearchQuery` + 548-line SearchSyntaxParser in src/lib/magic/search.ts:6 behind useCardSearch; (7) `SearchFilters` in src/hooks/useOptimizedCollectionSearch.ts:16; (8) `FilterState` in src/components/deck-builder/AdvancedCardFilters.tsx:11; (9) `OptimizerFiltersState` in src/components/deck-builder/optimizer/OptimizerFilters.tsx:10; (10) `FilterPreset['filters']` in src/components/collection/SavedFilterPresets.tsx:14; (11) server-side `CollectionFilters` query building in src/server/routes/collection.ts:308. Sort state is equally fragmented: five unrelated SortOption unions (src/pages/Wishlist.tsx:76, src/components/marketplace/PriceSearchPanel.tsx:68, src/components/deck-builder/DeckList.tsx:66, src/features/collection/CollectionInventory.tsx:48, src/components/collection/CollectionSearch.tsx:20). Even the color vocabulary disagrees: lowercase 'w','u','b','r','g','c' (UniversalFilterPanel.tsx:35-72), uppercase W/U/B/R/G (query-builder.ts:169, DeckSearchFilters.tsx:29), and rarity is 'common'/'mythic' in one panel and 'c'/'m' in the other (query-builder.ts:198).
+
+> **Fix:** Build one filter engine and delete the rest. (A) Single source of truth: promote `CardSearchState` in src/lib/scryfall/query-builder.ts to a canonical `CardFilter` type, extended with the fields the local filters need (quantity, condition, foil, storage container, deck, tags, priority) and always using Scryfall's own vocabulary (uppercase WUBRG, single-letter rarity, format codes from src/lib/magic/formats.ts ALL_FORMATS). (B) Two compilers, one type: `toScryfallQuery(filter)` (already exists) for remote search, and a new `matchesFilter(card, filter)` predicate for client-side arrays — so the Collection, storage boxes, deck lists and Scryfall search all interpret the same filter object identically. (C) One hook: `useCardFilter({ source: 'scryfall' | 'local', initial, syncToUrl })` owning filter + sort + view + pagination, serialising to/from URLSearchParams so every filtered view is linkable and back-button-correct. (D) One UI: a single `<CardFilterBar>` (query input + active-filter chips + clear-all + sort + view/density) plus `<CardFilterPanel>` rendered from a declarative field registry, so adding a facet is a data change, not a new component. (E) Presets and saved searches serialise the same `CardFilter`, making SavedFilterPresets work for free. Then delete AdvancedSearchFilters, SearchFilters, AdvancedCardFilters, CardSearchFilter, OptimizerFilters, CollectionSearch, UniversalCardSearch, UniversalFilterPanel, features/collection/{CardSearch,EnhancedCardSearch,CollectionInventory}, AutocompleteSearchInput, useOptimizedCollectionSearch, useEnhancedCardSearch, and one of the two collection stores.
+
+### [CRITICAL] Collection and Storage color filter can never match a single card
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:136`
+- **Category:** filtering
+
+UniversalFilterPanel emits lowercase color values ('w','u','b','r','g','c' — src/components/universal/UniversalFilterPanel.tsx:35-72). UniversalLocalSearch filters with `filters.colors.some((c) => colors.includes(c))` at line 138, where `colors` is `card.colors` supplied verbatim from the database in Scryfall format — uppercase `["W","U"]` (mapped at src/components/collection/CollectionCardDisplay.tsx:183 from `item.card?.colors`). 'w' never equals 'W', so selecting any color in the Collection tab or in a Storage container view returns zero results, every time. The 'c' (Colorless) chip is doubly broken: colorless cards have an empty `colors` array, so no value can ever match.
+
+> **Fix:** Normalise on Scryfall's uppercase WUBRG at the type level (`type Color = 'W'|'U'|'B'|'R'|'G'`) and represent colorless as an explicit predicate (`colors.length === 0`), not as a pseudo-color. Add a unit test asserting a known mono-green card survives a `{colors:['G']}` filter — this class of bug is invisible without one.
+
+### [CRITICAL] CMC, power, toughness, price, color-identity and extras filters never trigger a search
+
+- **File:** `src/components/universal/EnhancedUniversalCardSearch.tsx:121`
+- **Category:** filtering
+
+`performSearch` gates on `hasSearchCriteria`, which only checks `state.text`, `types`, `colors.value`, `rarities`, `legal` and `sets` (lines 121-126). Every other facet the AdvancedFilterPanel exposes — mana value (panel line 312), power (325), toughness (338), commander identity (207-225), price min/max (410-437), foil/showcase/reserved/promo extras (455-472), artist (477), language (487) — is absent. With an empty text box, dragging the Mana Value slider or entering a max price falls to the `else` branch at line 133 and calls `clearResults()`, so the user sees the empty state and concludes the filters are broken. This is the primary card search on Cards, Collection>Add Cards, DeckBuilder, Builder and Wishlist.
+
+> **Fix:** Delete the hand-maintained criteria whitelist. Derive emptiness from the compiler instead: `const { q } = buildScryfallQuery(state); if (q !== '*') search(state)`. One expression, impossible to fall out of sync as facets are added.
+
+### [HIGH] Format filter in Collection and Storage always returns zero results
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:150`
+- **Category:** filtering
+
+The format filter reads `card.legalities` (line 151) and requires `legalities[f] === 'legal'`. But the objects passed in from the Collection are built at src/components/collection/CollectionCardDisplay.tsx:168-185 and include only id, name, set_code, quantity, foil, condition, collectionItemId, prices, image_uris, type_line, rarity, colors, cmc — `legalities` is never mapped. `card.legalities || {}` yields `{}`, `{}[f]` is undefined, and every card is filtered out. Selecting 'commander' in a Commander collection empties the grid.
+
+> **Fix:** Map `legalities`, `color_identity`, `mana_cost`, `power`, `toughness`, `oracle_text` and `set_name` through the transform, or better, stop hand-transforming: pass the joined `card` row plus collection metadata so a single predicate can read canonical Scryfall fields everywhere.
+
+### [HIGH] Advanced Filters 'Extras' tab throws on a Radix Select with an empty-string value
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:492`
+- **Category:** dead-ui
+
+`<SelectItem value="">Any language</SelectItem>` inside the Language select. @radix-ui/react-select ^2.2.5 (package.json:32) throws at render for an item with an empty string value — the empty string is reserved for clearing the selection. Opening the Extras tab of the advanced filter panel therefore errors. The same pattern exists at src/components/collection/CollectionSearch.tsx:138 and :186 ('Any rarity', 'Any condition'), currently masked only because that component is never imported.
+
+> **Fix:** Use a sentinel value ('any') and map it to `undefined` in the change handler, or render the placeholder via `<SelectValue placeholder="Any language" />` with no empty item. Add an ESLint rule or a grep in CI for `SelectItem value=""`.
+
+### [HIGH] Templates page search box, format buttons and Filters button are all inert
+
+- **File:** `src/pages/Templates.tsx:167`
+- **Category:** dead-ui
+
+`searchQuery` (line 113) is bound to the input at line 170 but is never read anywhere else in the file — the only `.filter()` call in the page is `templates.filter(t => t.featured)` (line 199), which ignores it. The 'Filters' button (line 175) and the six format buttons 'All Formats' / 'Standard' / 'Modern' / 'Commander' / 'Pioneer' / 'Legacy' (lines 183-188) have no `onClick` at all. `setSelectedFormat` is never called, so `selectedFormat` is permanently 'all'. The entire filter bar is decoration over a hardcoded template array.
+
+> **Fix:** Either wire this page to the unified filter hook (format facet + text match over name/description/tags) or remove the control bar until the data is real. Shipping visibly dead controls on a public page is the single loudest signal of an unfinished product.
+
+### [HIGH] Saved filter presets save an empty object and applying one only logs to console
+
+- **File:** `src/pages/Collection.tsx:590`
+- **Category:** dead-ui
+
+`<SavedFilterPresets onApplyPreset={(filters) => { console.log('Apply filters:', filters); }} currentFilters={{}} />`. `currentFilters` is a literal `{}`, so `handleSaveCurrentFilters` (src/components/collection/SavedFilterPresets.tsx:70) persists `filters: {}` into localStorage for every preset the user names and saves, and the apply handler discards the payload. The component then shows a success toast ('Filters applied') for an action that did nothing (SavedFilterPresets.tsx:100). It also introduces an eleventh filter shape (colors/types/rarity/sets/minValue/maxValue/searchText, line 14) matching none of the others.
+
+> **Fix:** Presets should serialise the canonical `CardFilter` from the unified hook and apply by calling `setFilter(preset.filter)`. Until the hook exists, hide the card rather than shipping a feature that lies to the user.
+
+### [HIGH] Roughly 4,600 lines of orphaned filter and search components
+
+- **File:** `src/components/deck-builder/AdvancedSearchFilters.tsx:1`
+- **Category:** dead-ui
+
+Verified as never imported anywhere in src: AdvancedSearchFilters.tsx (506), SearchFilters.tsx (221), AdvancedCardFilters.tsx (227), optimizer/CardSearchFilter.tsx (230), optimizer/OptimizerFilters.tsx (149), collection/CollectionSearch.tsx (237), universal/UniversalCardSearch.tsx (392), features/collection/EnhancedCardSearch.tsx (428), features/collection/CardSearch.tsx (275), features/collection/CollectionInventory.tsx (535), search/AutocompleteSearchInput.tsx (262), hooks/useOptimizedCollectionSearch.ts (254), hooks/useEnhancedCardSearch.ts (97, only consumer is the dead UniversalCardSearch), deck-builder/ModernDeckList.tsx (430), deck-builder/DeckList.tsx (334). Additionally src/pages/DeckBuilder.tsx:10 imports EnhancedDeckList but never renders it (no `<EnhancedDeckList` in the file). The waste is not just size — it is why the codebase looks like it has 'multiple filtering systems': most of them are ghosts a reader cannot distinguish from live code.
+
+> **Fix:** Delete all of the above in one commit before any redesign work, and add `knip` or `ts-prune` to CI so orphaned components cannot accumulate again. Salvage first: AutocompleteSearchInput.tsx is the only Scryfall autocomplete implementation in the repo and should be folded into the unified filter bar rather than deleted.
+
+### [HIGH] Collection and storage views have no sort control at all
+
+- **File:** `src/components/universal/UniversalLocalSearch.tsx:49`
+- **Category:** filtering
+
+UniversalLocalSearch — the component that renders the entire Collection tab (src/pages/Collection.tsx:548 via CollectionCardDisplay) and every storage container (src/components/storage/StorageContainerView.tsx:283) — exposes a search input, a filter toggle and three view buttons, and nothing else. `filteredCards` (line 119) returns cards in raw insertion order; there is no sort state, no sort UI, and no default ordering. A user cannot sort their collection by price, mana value, name, rarity, set, quantity or date added. Moxfield and Archidekt treat sortable collection views as table stakes.
+
+> **Fix:** Sort belongs in the unified hook alongside filter, with an MTG-aware comparator set: name, mana value, color/color-identity (WUBRG order, not alphabetical), type, rarity, set/collector number, USD price, quantity owned, date added, and EDHREC rank. Persist sort per view and mirror it in the URL.
+
+### [HIGH] No user-facing sortable table view despite TanStack Table being installed
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:93`
+- **Category:** layout
+
+The 'list' view mode is a stack of `<Card>` rows (lines 93-180), not a table — no column headers, no sortable columns, no column selection, no alignment. @tanstack/react-table is a dependency (package.json:44) and src/components/ui/data-table.tsx implements sorting, column filtering, visibility and pagination (lines 38-41), but its only three consumers are admin screens (src/components/EnhancedAdminPanel.tsx:160, :330, :512). Separately, the list row renders `{card.set?.toUpperCase()}` at line 145, but collection-transformed cards carry `set_code`, not `set` (CollectionCardDisplay.tsx:171) — so the set badge renders empty in the Collection list view.
+
+> **Fix:** Add a real table view driven by DataTable with MTG columns (mana cost, name, type line, set/collector number, rarity, qty, condition, foil, price, legality) and sortable headers, and make grid/table/list the three view modes everywhere. Fix the `set` vs `set_code` field access as part of consolidating on canonical Scryfall field names.
+
+### [HIGH] No filter or sort state is ever reflected in the URL
+
+- **File:** `src/pages/Cards.tsx:22`
+- **Category:** filtering
+
+Cards.tsx reads `searchParams.get('q')` once (line 23) and passes it as `initialQuery` (line 220), which EnhancedUniversalCardSearch consumes only in a `useState` initialiser (src/components/universal/EnhancedUniversalCardSearch.tsx:63) — it is never written back and never re-read. Across the whole app, `useSearchParams` is used in only five files and only ever for tab selection or a one-shot seed (Collection.tsx:75 tab, Decks.tsx:183 tab, DeckBuilder.tsx:91). Consequences: a filtered search cannot be shared or bookmarked, the browser back button does not undo a filter change, and navigating to /cards?q=... from the global nav while already on /cards does nothing because the state initialiser has already run.
+
+> **Fix:** Make URLSearchParams the storage for filter+sort+view state in the unified hook, with a compact encoding (`?q=...&c=WU&mv=2-4&f=commander&sort=edhrec&view=grid`). This is how Scryfall, Moxfield and Archidekt all work and it is what enthusiasts expect when they paste a search to a playgroup.
+
+### [MEDIUM] Global nav format selector is silently discarded by the destination page
+
+- **File:** `src/components/navigation/TopNavigation.tsx:44`
+- **Category:** filtering
+
+`navigate(`/cards?q=${encodeURIComponent(searchQuery)}&format=${selectedFormat}`)`. Cards.tsx only reads `q` (line 23); the `format` param is never parsed by any page. The format dropdown next to the global search box (TopNavigation.tsx:93-104, defaulting to 'standard') therefore has zero effect on results while visually promising format-scoped search. The global search also has no submit button, no autocomplete, and no Scryfall syntax hints despite the placeholder advertising 'Scryfall syntax' (line 87).
+
+> **Fix:** Once filter state lives in the URL, the nav should construct a real `CardFilter` (`{text, legal:[{format, state:'legal'}]}`) and serialise it, so the destination reconstructs exactly what was requested. Attach the existing AutocompleteSearchInput here.
+
+### [MEDIUM] Search results report the number of cards loaded, not the number found
+
+- **File:** `src/components/universal/EnhancedUniversalCardSearch.tsx:322`
+- **Category:** filtering
+
+`{loading ? 'Searching...' : `${results.length} cards found`}`. `useAdvancedCardSearch` does return `totalResults` from Scryfall's `total_cards` (src/hooks/useAdvancedCardSearch.ts:67, :108), but the destructure at lines 83-91 omits it. A query matching 20,000 cards reports '175 cards found' and then keeps growing as the user clicks Load More. Pagination is also Load-More-only with no page count or jump, so a user cannot tell how deep a result set goes.
+
+> **Fix:** Surface `totalResults` ('175 of 20,431'), and pair it with either infinite scroll or real pagination. Result-count honesty is the first thing an experienced Scryfall user checks.
+
+### [MEDIUM] Filter facets are missing the ones commander and constructed players actually use
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:139`
+- **Category:** mtg-domain
+
+The Scryfall panel offers colors with modes any/exact/atleast (lines 182-200) but no 'at most' / subset mode — the single most important mode for Commander deckbuilding (`id<=` to find cards legal in a commander's identity). 'Commander Identity' (line 205) is a flat include list compiled to `id:` (query-builder.ts:68), with no operator choice. There is no `is:commander` toggle, no creature-subtype/tribal facet (`CardSearchState.subtypes` exists at query-builder.ts:9 with no UI), no oracle-text field (`o:`), no keyword facet, no set/block picker (`sets` exists at line 17, no UI), no year/released range, and no EDHREC-rank or price-per-format facets. The local UniversalFilterPanel is thinner still: colors, types, a single CMC slider, formats, rarity — and it filters on `colors` rather than `color_identity`, which is the wrong field for commander legality.
+
+> **Fix:** Drive facets from a registry that covers what Scryfall exposes and enthusiasts use daily: color + color identity each with all five operators, subtypes with autocomplete from Scryfall catalogs (useScryfallCatalogs already exists), oracle text, keywords, sets, mana value / power / toughness / loyalty ranges, price, rarity, format legality with legal/banned/restricted state, `is:` flags (commander, foil, reserved, showcase, digital), artist, year. Filter on color_identity wherever a format is Commander.
+
+### [MEDIUM] Format lists are hardcoded to eight strings while a 14-format registry sits unused
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:47`
+- **Category:** mtg-domain
+
+`const FORMATS: Format[] = ['standard','pioneer','modern','legacy','vintage','commander','pauper','historic']` — duplicated verbatim in src/components/universal/UniversalFilterPanel.tsx:78, and a third, three-item list in src/components/deck-builder/DeckSearchFilters.tsx:23 ('standard','commander','custom'). Meanwhile src/lib/magic/formats.ts defines fourteen formats with metadata plus FORMAT_CATEGORIES and a FormatValidator (ALL_FORMATS at line 249), including Brawl, Alchemy, Explorer, Penny Dreadful, Draft and Sealed — and its only consumers are the dead AdvancedSearchFilters.tsx:23 and EnhancedDeckAnalysis.tsx:43. Similarly src/lib/magic/colors.ts exports GUILDS/SHARDS/WEDGES (guild-name color shortcuts like 'Azorius', 'Esper' — a hallmark of a serious MTG search UI) used only by dead components. Card types are hardcoded three times (AdvancedFilterPanel.tsx:38, UniversalFilterPanel.tsx:74, AdvancedCardFilters.tsx:37) with 'tribal' present in one and absent in others, and 'kindred' (the current name) nowhere.
+
+> **Fix:** Make src/lib/magic/{formats,colors,types}.ts the only source of MTG vocabulary and have every filter surface read from it. Support guild/shard/wedge names as color-filter shortcuts — typing 'Jund' or clicking a guild chip is standard on EDHREC and Archidekt and costs nothing given GUILDS/SHARDS/WEDGES already exist.
+
+### [MEDIUM] Two competing persisted collection stores, both with orphaned filter state
+
+- **File:** `src/features/collection/store.ts:276`
+- **Category:** architecture
+
+Both src/features/collection/store.ts and src/stores/collectionStore.ts export a hook named `useCollectionStore`, both use zustand `persist`, and both carry filter state that nothing reads. features/collection/store.ts persists `filters`, `searchQuery` and `viewMode` (partialize, lines 358-362) and implements a full `getFilteredCards()` (lines 276-354) — Collection.tsx:67 destructures `getFilteredCards` and never calls it, with the comment 'Removed - filtering now done in UniversalLocalSearch' at line 125. Its `viewMode` union is `'grid' | 'table' | 'binder'` (line 23), a third vocabulary versus `'grid' | 'list' | 'compact'` used elsewhere, and Collection.tsx:550 hardcodes `viewMode="grid"` so the persisted value is ignored. stores/collectionStore.ts declares selectedSets/selectedColors/selectedRarities/selectedConditions/priceRange with setters (lines 44-49, 173-179) that are never called from anywhere in src. Because both persist, users carry stale filter state in localStorage that no UI can see or clear.
+
+> **Fix:** Collapse to one collection store, strip filter/sort/view state out of it entirely (that belongs to the URL-backed filter hook), and bump the persist `name`/`version` with a migration so stale localStorage payloads are dropped.
+
+### [MEDIUM] Scryfall query strings are hand-assembled at 15+ call sites instead of using the query builder
+
+- **File:** `src/hooks/useCardSearch.ts:102`
+- **Category:** architecture
+
+A typed compiler exists (buildScryfallQuery / buildScryfallURL, src/lib/scryfall/query-builder.ts:48, :124) and is used by exactly one hook. Everything else concatenates by hand: useCardSearch.ts:102, useEnhancedCardSearch.ts:27, CommanderSelector.tsx:42 and :58, EnhancedCommanderStep.tsx:117, CommanderFinder.tsx:130, FirstDeckOnboarding.tsx:98, CardReplacementModal.tsx:43, ReplacementsPanel.tsx:50, AIBuilder.tsx:170, CardPrintingComparison.tsx:49, PriceSearchPanel.tsx:152, features/scan/api.ts:94, features/scan/cardRecognition.ts:78, features/collection/EnhancedCardSearch.tsx:73. Each picks its own `order`/`unique`/`dir` defaults, its own error handling, and its own (absent) rate limiting — Scryfall asks for ~10 req/s with delays, and only the unused useScryfallAutocomplete.ts:18 implements a limiter. There is also a completely separate Supabase-side filter path in src/server/routes/collection.ts:308 with yet another operator mapping.
+
+> **Fix:** One `scryfallClient` module: rate limiter, request de-duplication, React Query caching, 404-as-empty handling, and a single `search(filter, page)` entry point taking the canonical filter type. Every call site becomes one line, and Scryfall etiquette is enforced in one place.
+
+### [MEDIUM] Filter chips hardcode raw Tailwind palette colors with no dark-mode variants
+
+- **File:** `src/components/universal/UniversalFilterPanel.tsx:35`
+- **Category:** theming
+
+The color chips are defined as literal palette classes — `bg-gradient-to-br from-yellow-50 to-orange-50 text-yellow-900 border-yellow-200` etc. (lines 35-72), duplicated almost verbatim in src/lib/scryfall/query-builder.ts:169-195 (COLOR_SYMBOLS.className — presentation classes living inside a query-building module). Rarity colors are hardcoded twice more: UniversalFilterPanel.tsx:340-345 and query-builder.ts:198-203, plus a third copy at src/components/universal/UniversalCardDisplay.tsx:55-63 and a fourth color map at :71-77. Format chips use `bg-green-100 text-green-800` (AdvancedFilterPanel.tsx:368), game chips `bg-blue-100 text-blue-800` (:392), deck color chips `bg-gray-800 text-gray-100` (DeckSearchFilters.tsx:32). Across AdvancedFilterPanel.tsx, UniversalFilterPanel.tsx, DeckSearchFilters.tsx and UniversalCardDisplay.tsx there are zero `dark:` variants — every one of these is a light-mode-only chip that will render as near-white text on near-white background, or vice versa, in dark mode.
+
+> **Fix:** Define MTG color/rarity as semantic CSS variables in the theme (`--mtg-white`, `--mtg-blue`, `--rarity-mythic`, with light/dark values) and expose one `<ManaPip>` / `<RarityBadge>` primitive. Presentation classes must not live in query-builder.ts. Then filter chips inherit correct contrast in both themes automatically.
+
+### [MEDIUM] Card search results render no mana costs; the ManaSymbols component is imported but unused
+
+- **File:** `src/components/universal/UniversalCardDisplay.tsx:4`
+- **Category:** mtg-domain
+
+`import { ManaSymbols } from '@/components/ui/mana-symbols'` at line 4, with zero `<ManaSymbols` usages in the file. Instead, color is conveyed by anonymous colored dots via `getColorIndicator` (lines 65-91), which also truncates to the first three colors (`colors.slice(0, 3)`) — so a five-color card and a three-color card are indistinguishable. The list row shows 'CMC {card.cmc}' as plain text (line 150) with no mana cost. Scryfall, Moxfield and Archidekt all render actual mana symbols in every result row; showing colored dots instead reads as non-native to anyone who plays the game.
+
+> **Fix:** Render `card.mana_cost` through ManaSymbols in grid, list and table rows (and `color_identity` pips for commanders), and drop the ad-hoc dot renderer. Make sure `mana_cost` and `color_identity` survive the CollectionCardDisplay transform so collection rows get them too.
+
+### [MEDIUM] Four separate in-deck card search and categorisation implementations
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:98`
+- **Category:** filtering
+
+Searching the cards inside a deck is implemented four times with four different behaviours: VisualDeckView.tsx:98 matches name only; EnhancedDeckList.tsx:90 matches name only (imported at DeckBuilder.tsx:10 but never rendered); ModernDeckList.tsx:149-154 matches name + type_line + a non-standard `card.mechanics` array (dead component); DeckList.tsx:66 has no search but a `sortBy` of name/cmc/type/color (dead component). Each also re-implements category bucketing independently. The live DeckBuilder therefore offers name-only search with no type/CMC/color filter over the deck itself — you cannot ask 'show me my 2-drops' or 'show me my ramp' inside your own decklist.
+
+> **Fix:** Delete ModernDeckList and DeckList, drop the unused EnhancedDeckList import, and drive VisualDeckView from the same `matchesFilter` predicate as everywhere else, with a shared category/grouping utility (type, CMC, color, custom category) rather than four private copies.
+
+### [MEDIUM] No active-filter chips, no clear-all, and no visible filter state outside the panel
+
+- **File:** `src/components/filters/AdvancedFilterPanel.tsx:82`
+- **Category:** filtering
+
+AdvancedFilterPanel renders six tabs (line 111) and no clear-all control and no summary of what is currently applied — the only affordance is a badge count on the Filters button in the parent (EnhancedUniversalCardSearch.tsx:263-267), whose `activeFilterCount` calculation (lines 210-225) is itself wrong: `searchState.mv?.min || searchState.mv?.max` evaluates falsy when a min of 0 is paired with a max of 0, and it omits artist, language, game, `is` and `not` entirely. Because facets are hidden behind tabs, a user who set a price cap on the Price tab and then works on the Colors tab has no way to see or remove it without hunting. The reset button (line 283) is disabled unless `activeFilterCount > 0`, so filters the counter fails to see also cannot be reset.
+
+> **Fix:** Render a persistent row of removable active-filter chips above results (Scryfall/Archidekt pattern), derived mechanically from the canonical filter object so it can never drift from the real state, with a clear-all at the end. Derive the count from the same derivation rather than a hand-written expression.
+
+---
+
+## homepage-marketing
+
+The owner's "complete AI slop" verdict is accurate and understated. The public homepage is a 10-section stack of generic SaaS marketing scaffolding containing six fabricated testimonials, four mutually contradictory sets of invented usage statistics, a fabricated competitor feature matrix naming Moxfield/Archidekt/TappedOut, and a "Live Market Prices — TCGPlayer" panel whose dollar figures are literally Math.random(). Underneath the copy the styling is structurally broken: bg-gradient-primary, shadow-glow-elegant, shadow-glow-subtle, from-mana-* and via-celestial/to-cosmic are used ~50 times across the marketing surface but are defined nowhere in tailwind.config.ts or index.css, so the primary conversion CTA's gradient and every hover glow silently render as nothing; a nonexistent xs: breakpoint kills 19 classes in the demo section. 16 of 28 marketing components are orphaned dead code (four competing heroes, two pricing tables with different plan names, two testimonial sets with different fake people), 14 of 16 footer links including Privacy and Terms redirect to /, and nothing on the page renders a single mana symbol despite src/components/ui/mana-symbols.tsx existing. An MTG player who uses Moxfield would bounce in ten seconds: the page never shows a card image, a mana curve, or a decklist.
+
+### [CRITICAL] Six fabricated testimonials with invented people, dollar figures, and a fake 4.9/5 aggregate rating
+
+- **File:** `src/components/marketing/EnhancedTestimonials.tsx:7-56`
+- **Category:** copy
+
+Hardcoded array of six invented personas — 'Alex Rivera / Competitive Commander Player', 'Sarah Chen / MTG Content Creator', 'Marcus Johnson / LGS Tournament Winner', 'Emily Thompson / Budget Builder', 'David Park / Deck Brewer', 'Lisa Martinez / Modern Enthusiast' — each with a scripted quote making specific unverifiable claims: 'optimize my cEDH deck to a consistent Turn 3-4 win', 'my entire $50K+ collection value in real-time', 'Went from casual player to tournament winner in 3 months', 'Sold my entire collection transition from Modern to Pioneer in a week'. All six are rating: 5. Line 82 renders '4.9/5 from 2,500+ reviews' with five filled stars — there is no review system anywhere in the codebase. A second, different set of fake people (Alex Chen, Sarah Martinez, Jordan Kim) exists in the orphaned src/components/marketing/Testimonials.tsx:6-28, proving these were generated, not collected. In the MTG community these read as instantly fake — 'Turn 3-4 win' phrasing plus a generic stock-name roster is the exact signature of AI filler, and fabricated endorsements are an FTC 16 CFR 255 problem for a product that charges $9-19/mo.
+
+> **Fix:** Delete the entire testimonials section until real, attributable quotes exist. If social proof is needed before launch, replace with something true and verifiable: a live count of public decks built on the platform pulled from Supabase, or a 'built by an EDH player, in the open' founder note. Never ship invented names.
+
+### [CRITICAL] 'Live Market Prices' panel badged TCGPlayer renders Math.random() dollar values that reshuffle on every render
+
+- **File:** `src/components/marketing/InteractiveDemo.tsx:224`
+- **Category:** copy
+
+Under a heading 'Live Market Prices' (line 195) and a green 'TCGPlayer' badge (line 196), each card's price is `${(Math.random() * 50 + 10).toFixed(2)}`. Because this is computed inline during render with no memoization, Sol Ring's price visibly changes every time React re-renders the component. Above it, line 203 shows a hardcoded 'Total Deck Value $247.50' and line 207 a hardcoded '+12.5%' that bear no relationship to the four random numbers below them, so the arithmetic on screen never adds up. Sol Ring's real market price is a few dollars; this generator can display Sol Ring at $58. Any MTG player recognizes those prices as nonsense on sight, and asserting a TCGPlayer data source for randomly generated numbers is a false-advertising exposure.
+
+> **Fix:** Either wire the demo to real Scryfall/TCGPlayer prices for a real sample decklist, or drop the pricing tab entirely. If it must stay static, remove the 'Live' and 'TCGPlayer' badges, freeze the four prices at their true values, and make the total the actual sum.
+
+### [CRITICAL] Fabricated competitor feature matrix asserting false capabilities about Moxfield, Archidekt, and TappedOut
+
+- **File:** `src/components/marketing/ComparisonTable.tsx:8-26`
+- **Category:** copy
+
+A 10-row x 4-column checkmark grid hardcodes claims about three named commercial competitors — every row is invented, none is sourced or dated. Several are flatly wrong to anyone who uses those sites: 'Real-time Pricing' is marked false for TappedOut (it has had TCGPlayer/CK pricing for over a decade); 'Mobile Optimized' is marked false for Archidekt (which ships native iOS and Android apps); 'Collection Tracking' and 'Power Level Analysis' assignments are arbitrary. Meanwhile DeckMatrix is marked true on all ten including 'Deck Simulation' and 'Marketplace'. The section header reads 'The Most Complete Platform'. Naming competitors and publishing false capability claims about them is comparative advertising with real legal exposure, and it destroys credibility with exactly the audience it targets — Moxfield and Archidekt power users will spot the errors immediately.
+
+> **Fix:** Delete the competitor table. Replace with a positioning section that only makes first-person claims about DeckMatrix's own features. If a comparison is strategically necessary, restrict it to a small number of claims that are verifiably true today, cite the date checked, and never mark a competitor false on a feature they ship.
+
+### [CRITICAL] Four contradictory sets of invented usage statistics across four sections of the same page
+
+- **File:** `src/components/marketing/RedesignedHero.tsx:87-98`
+- **Category:** copy
+
+The same page states four different, conflicting numbers with no data source. RedesignedHero.tsx:87-98 — '50K+ Decks Built', '1.2M+ Cards Tracked', '95% User Satisfaction'. EnhancedTestimonials.tsx:141-159 — '50K+ Active Users', '1M+ Cards Tracked', '100K+ Decks Built', '98% Satisfaction Rate'. FixedLiveStats.tsx:5-39 — 50,000 'Decks Built', 1,200,000 'Cards Managed', 95% 'User Retention', 100 'Formats Supported'. UseCaseShowcase.tsx:13-39 — '95% Win Rate Improvement', '1000+ Combos Detected', '$250K+ Collections', '15% ROI Average'. So decks built are simultaneously 50K and 100K, cards are 1M and 1.2M, and 95% describes satisfaction in one section and retention in another. FixedLiveStats compounds this by animating the hardcoded constants with a counter and labeling each tile 'Live' with a pulsing dot (lines 153-157) — presenting static literals as a live telemetry feed. '95% Win Rate Improvement' is not a coherent metric in any format.
+
+> **Fix:** Pull every number from one source of truth — a Supabase count query or a single constants module — and show only metrics you can actually compute. Remove the 'Live' indicators from any figure that is not fetched. If the real numbers are small, omit the section; contradictory invented stats are worse than no stats.
+
+### [CRITICAL] 14 of 16 footer links plus the nav Docs link silently redirect visitors back to the homepage, including Privacy and Terms
+
+- **File:** `src/components/marketing/ModernFooter.tsx:5-30`
+- **Category:** dead-ui
+
+The public route table in App.tsx:73-80 exposes only /, /login, /register, /auth, /reset-password, /forgot-password, /p/:slug, and a catch-all `<Route path="*" element={<Navigate to="/" replace />} />` at line 80. Every other footer href therefore bounces the visitor back to the homepage with no error: /smart-builder, /collection, /docs, /guides, /api, /community, /about, /blog, /careers, /contact, /privacy, /terms, /cookies, /licenses. PublicNavigation.tsx:38 and :100 link to /docs with the same result. A four-column footer of 16 links where 14 are dead is pure generated scaffolding. Beyond the UX damage, ModernPricing advertises paid $9 and $19 plans while Privacy Policy, Terms, and Cookie Policy are unreachable — that is a consent and consumer-law gap, not just a broken link. Separately, ModernFooter.tsx:7-8 use `<Link to="/#features">` and `to="/#pricing"`: React Router pushes the hash but performs no scroll and there is no hash handler (ScrollToTop.tsx is mounted only at App.tsx:101, inside the authenticated tree), so both do nothing.
+
+> **Fix:** Cut the footer to links that resolve today (Features, Pricing, Login, Register) and ship real /privacy and /terms routes before taking payment. Replace the two hash Links with plain <a href="#features"> so native anchor scrolling works, add scroll-mt-16 to the targets to clear the sticky nav, and mount ScrollToTop in the public route tree too.
+
+### [CRITICAL] The entire public homepage returns null until a Supabase round-trip completes — blank screen as first paint, indefinite blank if the call hangs
+
+- **File:** `src/pages/Homepage.tsx:18-42`
+- **Category:** architecture
+
+showTestingBanner initializes to null; the component returns null (lines 35-37, commented 'Show nothing while loading') until a feature_flags query resolves. Every first-time visitor therefore sees an empty document while a network request completes — no logo, no nav, no skeleton, no LCP element. The query at lines 22-26 has no error handling, no timeout, and no AbortController: if Supabase is slow, blocked by an ad blocker, or the anon key is misconfigured, setShowTestingBanner never fires and the marketing site renders a permanently blank page. This is a client-rendered Vite SPA with no SSR, so crawlers see the same empty root. Gating the single most important public page in the product behind an uncached remote boolean is the highest-leverage bug on this surface.
+
+> **Fix:** Default showTestingBanner to false and render the marketing page immediately, then swap to the banner only if the flag resolves true. Wrap the query in try/catch with a short timeout, and cache the flag in localStorage so repeat visits paint instantly.
+
+### [CRITICAL] 'Real Success Stories' section is four blocks of invented outcomes including a claimed tournament record
+
+- **File:** `src/components/marketing/UseCaseShowcase.tsx:8-41`
+- **Category:** copy
+
+A badge reading 'Real Success Stories' (line 58) sits above four fabricated case studies. Each carries invented metrics — '95% Win Rate Improvement', '1000+ Combos Detected', '$250K+ Collections', '15% ROI Average', '$50 Budget Builds' — and an italicized quote styled as a customer testimonial (line 109): 'Built a tier-1 cEDH deck that won 3 tournaments', 'Matched 6 friends to power level 6-7 for amazing games', 'Tracked $50K collection, sold at peak for 20% profit', 'Built a $45 deck that beats $500+ decks regularly'. None is attributed and none can be true — the platform has no tournament results ingestion and no ROI tracking. '15% ROI Average' is an unqualified investment-return claim on a collectibles product, which is the most legally exposed sentence on the page. The 'Collectors & Investors' framing plus ROI language will also read badly to a large part of the MTG community.
+
+> **Fix:** Delete the fabricated stats and quotes. Keep the four-persona structure — competitive, casual, collector, budget — because the segmentation is sound, but replace each card's body with a concrete description of the feature that serves that persona, linked to a real screenshot of it.
+
+### [HIGH] bg-gradient-primary and shadow-glow-elegant/subtle are used ~50 times but defined nowhere — the main CTA gradient and every hover glow render as nothing
+
+- **File:** `src/components/marketing/EnhancedTestimonials.tsx:96`
+- **Category:** theming
+
+index.css defines the CSS custom properties --gradient-primary (line 56), --shadow-glow-subtle (line 64) and --shadow-glow-elegant (line 65), but never emits matching utility classes, and tailwind.config.ts extends neither backgroundImage with 'gradient-primary' nor boxShadow at all (the only boxShadow references are inside a keyframe at lines 114-115). I enumerated every class selector in index.css and App.css: .bg-gradient-primary, .shadow-glow-elegant, .shadow-glow-subtle and .shadow-elegant do not exist. Live consequences on the homepage: PublicNavigation.tsx:61 and :117 — the primary 'Start Free Trial' conversion button's gradient never renders; EnhancedTestimonials.tsx:120 — AvatarFallback has bg-gradient-primary text-white, so white initials sit on the default muted fill; InteractiveDemo.tsx:110 — the mana-cost tile is bg-gradient-primary with text-white, i.e. white text on no background; hover:shadow-glow-subtle at EnhancedTestimonials.tsx:96 and FixedLiveStats.tsx:127 and hover:shadow-glow-elegant at UseCaseShowcase.tsx:81 are all inert, so testimonial, stat and use-case cards have dead hover states. Note the contrast: index.css:224-229 DOES hand-write .bg-gradient-cosmic and .shadow-cosmic-glow as 'backwards-compatible aliases' — so half the tokens were patched by hand and half were forgotten.
+
+> **Fix:** Register these properly in tailwind.config.ts under theme.extend.backgroundImage ('gradient-primary': 'var(--gradient-primary)') and theme.extend.boxShadow ('glow-subtle', 'glow-elegant', 'elegant'), delete the hand-written aliases in index.css:219-249, and add a CI lint (eslint-plugin-tailwindcss no-custom-classname) so an undefined utility fails the build rather than silently vanishing.
+
+### [HIGH] 16 of 28 marketing components are orphaned dead code — four competing heroes, two pricing tables with different plans, two testimonial sets
+
+- **File:** `src/components/marketing/`
+- **Category:** dead-ui
+
+I resolved every import of src/components/marketing/*: only 12 files are reachable (all via src/pages/Homepage.tsx:2-14). The other 16 are imported by nothing: AITechnologySection, BentoFeatures, ComprehensiveFeatures, ConsolidatedFeatures, EnhancedHero, FeatureShowcase, Features, FinalCTA, Footer, Hero, LiveStats, NewHero, Pricing, ProductShowcase, Screenshots, Testimonials. The redundancy sets are stark: four heroes (Hero, NewHero, EnhancedHero, RedesignedHero), six feature grids (Features, BentoFeatures, ComprehensiveFeatures, ConsolidatedFeatures, FeatureShowcase, TwoColumnFeatures), two footers, two stat blocks, two testimonial blocks, two pricing tables. ConsolidatedFeatures.tsx and ComprehensiveFeatures.tsx are near-identical forks — a whitespace-insensitive diff shows they differ only in copy strings and a gradient/color field name. The two pricing tables disagree on the product: ModernPricing.tsx:10-21 names the tier 'Free' with CTA 'Get Started' and Pro's CTA 'Start 14-Day Trial', while Pricing.tsx:9-55 names it 'Free Plan' with CTA 'Get Started Free' and Pro's CTA 'Start Free Trial'. Screenshots.tsx (dead) is the only component on the whole marketing surface that shows product imagery, importing deck-builder-mockup.jpg, collection-manager-mockup.jpg and ai-analysis-mockup.jpg — the live homepage shows zero screenshots of the actual app.
+
+> **Fix:** Delete all 16 orphans in one commit. Rebuild the page from a small set of section primitives (Section, SectionHeader, FeatureCard) so the next redesign edits components instead of forking them, and recover the product screenshots from Screenshots.tsx — a real screenshot of the deck builder is worth more than all ten current sections.
+
+### [HIGH] The xs: breakpoint does not exist, so 19 responsive classes in InteractiveDemo are dead — desktop permanently shows the truncated mobile labels
+
+- **File:** `src/components/marketing/InteractiveDemo.tsx:63-74`
+- **Category:** layout
+
+tailwind.config.ts defines screens only at line 16, inside theme.container — there is no theme.extend.screens, so xs: is not a registered variant and every xs: class is dropped. InteractiveDemo uses 19 of them. Visible breakage: line 63 `<span className="hidden xs:inline">Builder</span>` stays hidden forever while line 64 `<span className="xs:hidden">Build</span>` shows forever, so on a 27-inch monitor the three tabs read 'Build', 'Stats', 'Price' instead of 'Builder', 'Analysis', 'Pricing'. Lines 86, 141, 194 use `flex flex-col xs:flex-row xs:items-center xs:justify-between` — the header rows never go horizontal at any width, so section titles and their badges stack vertically on desktop. Line 200 `flex flex-col xs:flex-row xs:items-end xs:justify-between` stacks the deck value and trend indicator on desktop. Line 223 `hidden xs:inline` hides the 'Market' price label at every width. This is the flagship 'See It In Action' section of the homepage and it is laid out as if permanently on a phone.
+
+> **Fix:** Either add screens: { xs: '480px' } to theme.extend in tailwind.config.ts, or replace all 19 xs: classes with sm:. Add eslint-plugin-tailwindcss so an unregistered variant is a build error.
+
+### [HIGH] Undefined color tokens mana-blue/green/red/white and celestial/cosmic produce silently broken gradients
+
+- **File:** `src/components/marketing/UseCaseShowcase.tsx:15-39`
+- **Category:** theming
+
+index.css:75-79 defines --mana-white/blue/black/red/green as CSS variables, but tailwind.config.ts colors (lines 21-81) never registers them, so from-mana-blue, to-mana-green, to-mana-red and to-mana-white in UseCaseShowcase.tsx:23, :31 and :39 are not real classes. Three of the four use-case cards therefore render their gradient overlay with a missing or single color stop, while the fourth (line 15, from-primary to-accent) works — so the four cards in one grid are visually inconsistent for reasons invisible in the source. Separately, --celestial and --cosmic are defined nowhere in src/ (I grepped for the variable declarations), and neither is a Tailwind color, yet src/pages/Index.tsx:76, :110 and :166 use `via-celestial/5 to-cosmic/5` and `to-celestial/5`. The tailwind 'cosmic' key exists only under backgroundImage, which emits bg-cosmic — never to-cosmic. That the app already has correct MTG color tokens sitting unused while the marketing pages reach for purple-500/pink-500 is the theming failure in miniature.
+
+> **Fix:** Register mana-white/blue/black/red/green and the type-* colors in tailwind.config.ts colors, delete or define --celestial/--cosmic, and rebuild the marketing gradients on the mana palette instead of raw purple/pink — an MTG platform whose brand gradient is generic SaaS purple looks like a template.
+
+### [HIGH] 143 hardcoded palette utilities across the homepage bypass the design token system entirely
+
+- **File:** `src/components/marketing/TwoColumnFeatures.tsx:19-167`
+- **Category:** theming
+
+Counting (bg|text|border|from|via|to|shadow|fill)-<palette>-<number> across the 12 live homepage components gives 143 raw palette usages: TwoColumnFeatures 52, ModernCTA 22, ModernPricing 19, RedesignedHero 18, InteractiveDemo 13, FixedLiveStats 11, ComparisonTable 4, ModernFooter 4. TwoColumnFeatures.tsx:19-167 alone hardcodes 24 distinct from-X-500 to-Y-500 gradient pairs as data, so the feature grid is 24 unrelated colors with no semantic meaning — nothing maps to a mana color, a card type, or a rarity. The proof this is fixable is in the same folder: TestingBanner.tsx, UseCaseShowcase.tsx, EnhancedTestimonials.tsx and FAQSection.tsx score 0 raw palette usages and run entirely on primary/accent/card/muted/foreground. So the page mixes two incompatible styling philosophies section by section, which is exactly the inconsistency the owner is describing. Every purple-950/pink-950 background (RedesignedHero.tsx:11, ModernCTA.tsx:10) also hard-assumes a dark canvas.
+
+> **Fix:** Convert the 143 usages to semantic tokens (primary/accent/muted/card) or to registered mana/type tokens, and add a lint rule banning raw Tailwind palette scales in src/components/marketing/. Reduce TwoColumnFeatures' 24 gradients to one accent per feature category.
+
+### [HIGH] There is no light theme — :root ships dark values, so the system/light setting renders dark
+
+- **File:** `src/index.css:24-121`
+- **Category:** theming
+
+App.tsx:140 mounts `<ThemeProvider attribute="class" defaultTheme="system" enableSystem>`, which for a light-mode OS applies no class and falls through to :root. But :root at index.css:24-121 is the dark palette — --background: 228 25% 8%, --foreground: 220 15% 95%, --card: 228 20% 12%. The .dark block at line 122 is only a marginally darker variant (--background: 228 30% 5%). So light mode and dark mode are both dark, differing by ~3% lightness, and a user who picks Light gets no change. Marketing components that hardcode purple-950/20 and pink-950/20 backdrops (RedesignedHero.tsx:11, ModernCTA.tsx:10) and text-white on undefined gradient fills (InteractiveDemo.tsx:110, EnhancedTestimonials.tsx:120) only survive because of this accident — the moment a real light theme lands, those become white-on-white.
+
+> **Fix:** Either build a genuine light palette under :root and move the current values entirely into .dark, or commit to dark-only: set defaultTheme="dark" with enableSystem={false} and remove the theme toggle. Shipping a toggle that does nothing is worse than not having one.
+
+### [HIGH] The MTG platform's homepage renders no mana symbols, no card images, and no mana curve — mana costs are printed as raw text
+
+- **File:** `src/components/marketing/InteractiveDemo.tsx:9-14`
+- **Category:** mtg-domain
+
+The demo's card list stores mana as literal strings '{1}', '{2}{U}', '{1}{U}', '{3}{W}' (lines 10-13) and line 111 dumps that string into a rounded tile — so the page shows the characters '{2}{U}' rather than a generic-2 pip and a blue pip. src/components/ui/mana-symbols.tsx exports ManaSymbol and ManaSymbols; I grepped the whole marketing folder plus Homepage.tsx and Index.tsx and neither is ever imported. Across all ten homepage sections there is not one card image, not one mana curve histogram, not one color-identity pip, not one type line, not one decklist. Line 119 gives each card a 'Power Score' of 95/92/89/87 on a 0-100 scale while line 150 shows the deck at 7.5/10 — two incompatible power scales in the same widget, and neither matches the community 1-10 bracket vocabulary. 'Sol Ring / Artifact' is also an incomplete type line (it is 'Artifact' with a mana ability, fine, but Rhystic Study's line is 'Enchantment' where players expect the full printed line). This is what makes the page read as written by someone who has never played: Moxfield, Archidekt and EDHREC all lead with card imagery and mana pips within the first viewport.
+
+> **Fix:** Rebuild the hero and demo around real product surface: a real Scryfall card image grid, a real mana curve bar chart, real {2}{U} pips via the existing ManaSymbol component, and a real color-identity strip. Pick one power scale (the 1-10 bracket) and use it everywhere. This single change does more for MTG credibility than all the copy combined.
+
+### [HIGH] '100+ Formats Supported' is impossible and contradicts two other format claims on the same site
+
+- **File:** `src/components/marketing/FixedLiveStats.tsx:31-38`
+- **Category:** mtg-domain
+
+FixedLiveStats.tsx:31-38 animates a counter to 100 with suffix '+' under the label 'Formats Supported'. Magic has roughly twenty sanctioned constructed and limited formats total; '100+' is not an exaggeration, it is a number no MTG player can read without concluding the page is machine-written. It also contradicts the rest of the site: FAQSection.tsx:31 lists eight ('Commander/EDH, Modern, Pioneer, Standard, Legacy, Vintage, Pauper, and more'), while src/pages/Index.tsx:64-70 shows exactly five format cards (Standard, Commander, Modern, Legacy, Vintage) and omits Pioneer and Pauper, which the FAQ promises. The codebase's own format union at src/lib/synergyEngine.ts:12 is 'standard' | 'commander' | 'modern' | 'legacy' | 'vintage' | 'custom' — six, one of which is a placeholder. Index.tsx:64-70 also mislabels Vintage as 'Most powerful' and Legacy as 'Eternal format' when both are eternal, and omits Pauper, Brawl, Historic, Alchemy, Timeless, and Limited entirely.
+
+> **Fix:** Replace the '100+' tile with the true supported-format count taken from the synergyEngine union, and make FAQ, Index and the stats block read from that one list. List the formats explicitly with correct one-line descriptions — MTG users check this.
+
+### [HIGH] Free-forever, 14-day-trial and paid-plan messaging contradict each other in four places
+
+- **File:** `src/components/marketing/ModernPricing.tsx:83`
+- **Category:** copy
+
+The page cannot decide what the offer is. RedesignedHero.tsx:131 promises 'Free Forever Plan' and :135 'No Credit Card Required'. PublicNavigation.tsx:45 shows a 'Free Trial' pill and :63/:119 CTA 'Start Free Trial'. ModernPricing.tsx:83 states 'All plans include 14-day free trial' while the Free plan directly below it is $0/forever with CTA 'Get Started' and no trial (lines 10-22) — so the sentence is false for one of the three plans it describes. ModernPricing.tsx:183-191 then asserts 'No credit card required', 'Cancel anytime' and '14-day money-back guarantee' simultaneously — a money-back guarantee on a plan that took no card is incoherent. ModernCTA.tsx:72-80 repeats 'Free forever plan' and '14-day free trial' side by side. CTA labels are equally scattered across one page: 'Start Building Free', 'Get Started Free', 'Start 14-Day Trial', 'Get Started', 'Start Free Trial', 'Create Your Free Account', 'Start Building'.
+
+> **Fix:** Pin one offer sentence and one primary CTA label in a shared constants module and reference it from the nav, hero, pricing, and final CTA. Remove the money-back guarantee line unless it is real.
+
+### [HIGH] Unsubstantiated security, accuracy and uniqueness claims in the FAQ
+
+- **File:** `src/components/marketing/FAQSection.tsx:12-45`
+- **Category:** copy
+
+Four answers make claims that are either unverifiable or contradicted by the codebase. Line 19: 'bank-level encryption for all user data' — a meaningless phrase repeated verbatim as a feature bullet at TwoColumnFeatures.tsx:88. Line 27: the power calculator analyzes 'over 50 other factors with 95%+ accuracy validated by the community' — there is no validation dataset and no accuracy metric could be defined for a subjective power score. Line 43: 'We are the only platform that combines smart deck building, power level analysis, collection tracking, and marketplace features' — a sole-provider claim about a market containing Moxfield, Archidekt and TappedOut. Line 23 promises working imports from 'Archidekt, Moxfield, TappedOut, and other platforms' with 'full formatting preserved', which is a specific capability promise a prospect will test on day one. Line 103's support address support@deckmatrix.com is a third contact identity alongside ModernFooter.tsx:67's hello@deckmatrix.com — two different mailboxes on a site with no /contact route.
+
+> **Fix:** Rewrite each answer to describe only shipped behavior, name the actual encryption posture (Supabase at-rest plus TLS) instead of 'bank-level', drop the accuracy percentage and the sole-provider claim, and verify each named importer exists before listing it. Consolidate to one support address.
+
+### [MEDIUM] 'Generate Full Deck' button and the format cards are dead affordances with no handlers
+
+- **File:** `src/components/marketing/InteractiveDemo.tsx:127-130`
+- **Category:** dead-ui
+
+InteractiveDemo.tsx:127-130 renders a full-width primary Button labelled 'Generate Full Deck' with a Brain icon and no onClick, no Link, and no form — the most action-oriented control in the demo does nothing when clicked. The selectedCard state (line 27) is set on click but only changes a border; nothing reads it. The `<AnimatePresence mode="wait">` at line 78 wraps three sibling TabsContent elements with no key prop, so exit animations can never run — the wrapper is inert. On the /landing page, src/pages/Index.tsx:207-219 renders five format Cards with `cursor-pointer group` and hover styling but no onClick or Link, so they present as clickable and are not; Index.tsx:241-246 labels a button 'Explore Features' and routes it to /cards.
+
+> **Fix:** Give 'Generate Full Deck' a Link to /register (it is the natural conversion point), remove the unused selectedCard state and the inert AnimatePresence, make the format cards link to a filtered card search or drop cursor-pointer, and relabel 'Explore Features' to match its /cards destination.
+
+### [MEDIUM] A second, divergent marketing homepage lives at /landing behind auth using a different visual language
+
+- **File:** `src/pages/Index.tsx:1-254`
+- **Category:** architecture
+
+App.tsx:105 routes /landing to `<ProtectedRoute><Index /></ProtectedRoute>` — so a signed-in user can reach an entirely separate 254-line marketing page. It duplicates the public homepage's job (hero, feature grid, CTA) with different copy, a different feature list, and a different design system: Index.tsx uses bg-gradient-cosmic, shadow-cosmic-glow, text-spacecraft and the spacecraft/celestial/cosmic palette, whereas the live Homepage uses purple-500/pink-500 gradients. Neither shares a single component with the other. It also carries copy the public page does not: line 87 'The ultimate Magic: The Gathering deck builder powered by advanced AI', line 124 a 'Powered by Gemini' badge naming the AI vendor publicly, and line 232 'Join thousands of players'. Its hero background at lines 76, 110 and 166 relies on the undefined celestial/cosmic tokens. Serving a marketing page to already-converted users is the clearest evidence of accumulated iteration debt on this surface.
+
+> **Fix:** Delete src/pages/Index.tsx and the /landing route; signed-in users should land on the dashboard. If any of its content is worth keeping, port it into the single public homepage.
+
+### [MEDIUM] Four different heading scales and four different section rhythms across ten sections on one page
+
+- **File:** `src/components/marketing/UseCaseShowcase.tsx:60`
+- **Category:** theming
+
+The section headings on one scroll use four distinct responsive ramps: `text-3xl sm:text-4xl md:text-5xl lg:text-6xl` (6 sections), `text-4xl md:text-6xl` (UseCaseShowcase.tsx:60, FAQSection.tsx:62 — jumping two steps with no sm or lg stop), `text-4xl sm:text-5xl md:text-6xl lg:text-7xl` (RedesignedHero.tsx:43, ModernCTA.tsx:31), and `text-3xl sm:text-4xl md:text-5xl` (TwoColumnFeatures.tsx:186). Vertical rhythm is equally scattered: py-12 sm:py-20 (3 sections), py-16 sm:py-24 (3), py-20 sm:py-32 (2), py-24 with no responsive step (2) — so sections visibly jerk between spacing systems as you scroll, and two of them do not shrink on mobile at all. ComparisonTable.tsx:74 sets `text-[8px]` on the 'DeckMatrix' label under its own column header — 8px is below any legible minimum and is an arbitrary value outside the type scale, alongside `text-[10px]` at ComparisonTable.tsx:70 and InteractiveDemo.tsx:120.
+
+> **Fix:** Define exactly two heading ramps (h1 and h2) and one section padding token, extract them into a shared <Section>/<SectionHeader> primitive, and refactor all ten sections onto it. Remove the text-[8px] and text-[10px] arbitrary values in favor of text-xs.
+
+### [MEDIUM] Share preview uses the favicon as its OG image and the viewport blocks pinch-zoom
+
+- **File:** `index.html:5-25`
+- **Category:** copy
+
+index.html:22 sets og:image to /favicon.png and line 25 sets twitter:image to the same, while line 24 declares twitter:card as summary_large_image — so every Discord, Reddit and Twitter share of the site renders a favicon stretched into a 1200x630 frame. For an MTG product whose audience shares links in Discord constantly, this is the first impression. Line 5 sets `maximum-scale=1.0, user-scalable=no`, disabling pinch-zoom on mobile, which fails WCAG 2.1 SC 1.4.4 and is actively hostile on a site about reading card text. Line 15 hardcodes theme-color #7c3aed, a raw hex that does not correspond to --primary (250 70% 60%), so the browser chrome color is off-brand against the app it frames. There is also no react-helmet or per-route metadata anywhere (only these static tags), so /login, /register and public deck pages at /p/:slug all share the homepage title and description.
+
+> **Fix:** Produce a real 1200x630 OG image showing the deck builder, drop maximum-scale/user-scalable from the viewport, derive theme-color from --primary, and add per-route meta via react-helmet — starting with /p/:slug, where a shared decklist should preview with the commander's art.
+
+### [LOW] Footer social icons link to twitter.com and github.com root rather than any DeckMatrix profile
+
+- **File:** `src/components/marketing/ModernFooter.tsx:51-65`
+- **Category:** dead-ui
+
+ModernFooter.tsx:51 links the Twitter icon to https://twitter.com and :59 links the GitHub icon to https://github.com — the bare homepages of both services, not DeckMatrix accounts. index.html:24 separately declares twitter:site as @deckmatrix, so the intended handle exists in the metadata but was never wired into the footer. The mailto at line 67 uses hello@deckmatrix.com while FAQSection.tsx:103 uses support@deckmatrix.com, and neither is reachable through a /contact route since that path redirects to /.
+
+> **Fix:** Point the icons at the real profiles or remove them — placeholder social links signal abandonment more strongly than an absent social row. Settle on one contact address.
+
+---
+
+## deck-builder
+
+The deck builder is three competing half-built surfaces plus a graveyard: `/deck-builder` (DeckBuilder.tsx) is the only functional one, `/builder` (Builder.tsx) is a static mockup where every count is hardcoded `0` and every button is dead, and `/deck/:id` (DeckInterface.tsx) is an unreachable third deck view whose Analysis tab literally says "coming soon". Of 95 files in `src/components/deck-builder/`, 33 (~9,000 lines) are imported by nothing — including a Maybeboard panel, undo/redo controls with a full history manager, drag-and-drop builder, and four separate deck-tile components. The app defines a proper MTG token system (`--type-creatures`, `--mana-blue`, wired into tailwind.config.ts) but it is used exclusively by `src/components/marketing/*`; the actual builder paints itself with `text-green-500`, `bg-gray-800`, and raw hex. Measured against Moxfield/Archidekt the domain gaps are disqualifying: mana costs render as literal `{2}{W}{U}` text because no mana-symbol renderer exists, there is no mana curve on the main build surface, no card-size/density control, no sortable table view, no singleton enforcement, and no color-identity check at add time.
+
+### [CRITICAL] /builder is a fully dead static mockup shipped as a live route
+
+- **File:** `src/pages/Builder.tsx:111-261`
+- **Category:** dead-ui
+
+Registered at App.tsx:114 as `/builder`. Every card-stack count is a hardcoded literal `0` (lines 133, 163, 178, 193, 208, 223, 238, 253) and is never derived from `deck.cards`. The creature CMC buckets are hardcoded `{ range: '0-1', count: 0 }` through `6+` (lines 139-146). Color Sources is hardcoded `{ color: 'W', needed: 0, sources: 0 }` for all five colors (lines 331-337). Role Balance is hardcoded Ramp/Draw/Removal/Threats all at `count: 0` (lines 401-406). Export/Playtest (43-50), History/Share/Export/Playtest (89-104) have no `onClick` at all. Auto-Build and Optimize Lands are permanently `disabled` (433, 437). Deck name is the string literal `"Untitled Deck"` (line 80) and legality is a hardcoded `<Badge variant="outline">Legal</Badge>` (line 84). Eight panels say "Drop cards here" but there is no drag-and-drop handler anywhere in the file.
+
+> **Fix:** Delete Builder.tsx and remove the `/builder` route. Nothing links to it (no reference in LeftNavigation/MobileNavigation/TopNavigation), it is reachable only by typing the URL, and a user who lands there sees a deck builder that reports 0 cards and 0 mana sources for a full deck.
+
+### [CRITICAL] Builder.tsx three-column layout cannot render — no flex parent
+
+- **File:** `src/pages/Builder.tsx:55-267`
+- **Category:** layout
+
+Builder.tsx renders three sibling panels — `<div className="w-80 border-r ...">` (55), `<div className="flex-1 flex flex-col">` (75), `<div className="w-80 border-l ...">` (267) — directly as `StandardPageLayout` children. StandardPageLayout wraps children in `<div className={`mt-4 md:mt-6 overflow-x-hidden ${className}`}>` (src/components/layouts/StandardPageLayout.tsx:28), a plain block container. With no `display:flex` parent, `flex-1` is inert and the three panels stack vertically: a 320px-wide search column, then the deck canvas, then a 320px analysis column, in one long scroll. The intended IDE-style layout has never rendered.
+
+> **Fix:** Moot if Builder.tsx is deleted. If any of it is salvaged, the three-pane shell belongs in a dedicated layout component that owns its own flex/grid container rather than relying on StandardPageLayout's block wrapper.
+
+### [CRITICAL] Mana costs render as raw Scryfall text — no mana symbol renderer exists in the app
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:181`
+- **Category:** mtg-domain
+
+`<span className="text-xs text-muted-foreground font-mono">{card.mana_cost}</span>` prints the literal string `{2}{W}{U}`, braces and all. Same at VisualDeckView.tsx:435 for the commander (`<Badge variant="outline" className="font-mono">{commander.mana_cost}</Badge>`), DeckCardDisplay.tsx:137, and UniversalCardModal.tsx:171. The only symbol component in the codebase, `src/components/ui/mana-symbols.tsx:24`, renders a bare letter in a colored circle and accepts only single color-identity letters (colorMap at lines 9-16 covers W/U/B/R/G/C). It cannot express generic costs, hybrid `{W/U}`, Phyrexian `{W/P}`, `{X}`, or `{T}`. Default size is `w-3 h-3 text-[10px]` (line 19) — a 10px glyph in a 12px circle. Scryfall, Moxfield, Archidekt and EDHREC all render true mana symbols; this is the single most visible signal that the app was not built by someone who plays.
+
+> **Fix:** Build a `<ManaCost cost="{2}{W}{U}" />` component that tokenizes the Scryfall mana string and renders each symbol as an SVG (Scryfall's `/symbology` endpoint, cached locally, or the mana font). Use it everywhere `mana_cost` is currently interpolated as text, and use color-identity pips only for deck-level color identity.
+
+### [CRITICAL] Design token system exists but the deck builder ignores it entirely
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:59-68`
+- **Category:** theming
+
+src/index.css:82-90 defines `--type-commander`, `--type-lands`, `--type-creatures`, `--type-instants`, `--type-sorceries`, `--type-enchantments`, `--type-artifacts`, `--type-planeswalkers`, `--type-battles`, and index.css:75-79 defines `--mana-white/blue/black/red/green`. tailwind.config.ts:68-79 exposes all of them as `text-type-creatures`, `bg-mana-blue`, etc. Grepping usage: every consumer is in `src/components/marketing/*` (FeatureShowcase, BentoFeatures, EnhancedHero, Features, AITechnologySection) plus the orphaned CardGallery.tsx:22-28. Zero live deck-builder component uses them. Instead VisualDeckView's CATEGORY_CONFIG hardcodes `text-green-500`, `text-blue-400`, `text-blue-600`, `text-gray-400`, `text-purple-500`, `text-orange-500`, `text-amber-600`, `text-gray-500`. Raw-palette counts in live builder files: EdhAnalysisPanel 68, DeckQuickStats 53, DeckValidationPanel 30, DeckCompatibilityChecker 28, VisualDeckView 27, CommanderSelector 20. The landing page is themed; the product is not.
+
+> **Fix:** Replace every hardcoded palette class in the live deck-builder tree with the existing `type-*`/`mana-*` tokens, and add semantic status tokens (`--status-warning`, `--status-danger`) so panels stop each inventing their own orange/amber/yellow. A single `CATEGORY_CONFIG` exported from one module should drive icon + token color for all category rendering.
+
+### [CRITICAL] Four different card-type classifiers in one feature produce contradictory categories
+
+- **File:** `src/pages/DeckBuilder.tsx:288-292`
+- **Category:** mtg-domain
+
+Four independent type-line classifiers: (1) DeckBuilder.tsx:288-292 `handleAddCardToDeck` maps only creature/land/instant/sorcery and dumps artifacts, enchantments, planeswalkers and battles into `'other'`; (2) DeckBuilder.tsx:576-583 `deckStats` checks creature→land→instant→sorcery→artifact→enchantment→planeswalker, no battles; (3) VisualDeckView.tsx:85-95 `getCategory` checks creature→instant→sorcery→artifact→enchantment→planeswalker→land; (4) deckStore.ts:488-508 `loadDeck` checks commander→creature→land→instant→sorcery→artifact→enchantment→planeswalker→battle. Concrete divergence: an Artifact Land (Seat of the Synod, Tree of Tales) is counted under Lands by the header stats (classifier 2, land checked before artifact) but filed under Artifacts in the card grid directly beneath it (classifier 3, artifact checked before land). A newly added Sol Ring is `'other'` under classifier 1 but becomes `'artifacts'` after a page reload under classifier 4 — the same card changes category on refresh.
+
+> **Fix:** Extract one `categorizeCard(card): CardCategory` into `src/lib/magic/types.ts`, handle the full type set including Battle and Kindred, resolve multi-type cards with an explicit documented precedence (Land wins over Artifact, Creature wins over Artifact/Enchantment), and have all four call sites import it.
+
+### [CRITICAL] No singleton, no copy limit, no color-identity gate — MTG rules unenforced at add time
+
+- **File:** `src/stores/deckStore.ts:117-156`
+- **Category:** mtg-domain
+
+`addCard` (deckStore.ts:117) increments `quantity` unconditionally for an existing card with no format awareness. VisualDeckView.tsx:255-265 renders a `+` button on every card in the grid, wired via DeckBuilder.tsx:759-764 to `updateCardQuantity(cardId, quantity + 1)`, also unbounded. In a Commander deck a user can click `+` on Rhystic Study and reach 4 copies with no warning; in a 60-card format nothing stops a 5th copy. There is no basic-land exemption logic because there is no rule to exempt from. Color identity is equally unguarded: `handleAddCardToDeck` (DeckBuilder.tsx:278) never consults `deck.commander.color_identity`, so an off-identity card is accepted silently and only surfaces later if the user happens to open the Analysis tab where `DeckCompatibilityChecker` sits (DeckBuilder.tsx:847). `src/lib/deckbuilder/legality-checker.ts` and `color-identity-calculator.ts` exist; the latter has zero UI references.
+
+> **Fix:** Enforce at the store boundary: `addCard`/`updateCardQuantity` should clamp to 1 for Commander non-basics, 4 for constructed non-basics, unlimited for basics and cards with 'A deck can have any number' text. Block or hard-warn off-color-identity adds inline in the search result card (Archidekt greys the add button and shows the offending pips) rather than deferring to a panel two tabs away.
+
+### [CRITICAL] 33 orphaned components (~9,000 lines) including Maybeboard, undo/redo and drag-drop
+
+- **File:** `src/components/deck-builder/MaybeboardPanel.tsx:1`
+- **Category:** architecture
+
+Imported by nothing anywhere in src: AICardReplacements (220), AIDeckCoach (658), AIReplacementsPanel (590), AdvancedCardFilters (227), CardReplacementEngine (235), DeckCardDisplay (237), DeckComparisonView (252), DeckExportOptions (268), DeckFolderManager (300), DeckPerformanceTracker (332), DeckSelector (233), DeckSocialFeatures (276), DeckStatsCard (62), DeckSynergyAnalyzer (329), DeckVersionHistory (255), DragDropDeckBuilder (213), EnhancedDeckCanvas (291), EnhancedDeckTile (437), EnhancedPerformanceTracker (304), HandSimulator (276), ImprovedDeckTile (427), ManaSourcesIndicator (58), MaybeboardPanel (293), ModernDeckList (430), RefreshedDeckTile (534), ReplacementsPanel (357), UndoRedoControls (108), plus optimizer/CardSearchFilter, OptimizerEmptyState, OptimizerFilters, OptimizerQuickActions, OptimizerStats, ReplacementRow. Supporting libs are dead too: `src/lib/deckbuilder/undo-redo.ts` (DeckHistoryManager + setupUndoRedoShortcuts) is referenced only by the orphaned UndoRedoControls; deck-tagger, color-identity-calculator, mana-curve-optimizer, archetype-detector and color-compatibility have zero UI references. Four separate deck-tile implementations exist (Enhanced/Improved/Refreshed/Modern) of which only ModernDeckTile is live.
+
+> **Fix:** Delete the orphans in one pass, but first pull three of them back into the product because they are table-stakes features that were built and then abandoned: MaybeboardPanel, UndoRedoControls + undo-redo.ts (there is currently no undo for a destructive card delete anywhere), and CardPreview for hover previews. Then enforce a lint rule against unreferenced components.
+
+### [CRITICAL] Deck load fires ~100 concurrent Scryfall requests and silently corrupts cards on failure
+
+- **File:** `src/stores/deckStore.ts:460-479`
+- **Category:** architecture
+
+`loadDeck` collects unique card names (line 460) and issues one `fetch('https://api.scryfall.com/cards/named?exact=...')` per name, all in parallel via `Promise.all` (463-479). Opening a 100-card Commander deck means ~100 simultaneous requests against an API that asks for ~10 req/s. When a request fails or is throttled, the fallback at lines 543-580 does not surface an error — it fabricates a card with `cmc: 0`, `type_line: ''`, `image_uris: {}`, `prices: {}`, `category: 'other'`. Those cards land in the "Other" pile with a placeholder image and silently poison avg CMC (DeckBuilder.tsx:605), deck value, and the type breakdown. The fallback also contains hardcoded name-sniffing: `cardName.includes('sol ring')` → Artifact (line 552), and `cardName.includes('plains'|'island'|'swamp'|'mountain'|'forest')` → `Basic Land` (548-551), which misclassifies 'Forest Bear' (a creature) and 'Island of Wak-Wak' (a nonbasic land) as basic lands.
+
+> **Fix:** Use Scryfall's `/cards/collection` batch endpoint (75 identifiers per POST) — two requests instead of a hundred — and persist the hydrated card data (oracle id, type_line, cmc, image_uris, prices) in `deck_cards` so a deck opens from your own DB with Scryfall as a background refresh. On lookup failure show an explicit "n cards could not be loaded" banner instead of inventing 0-CMC placeholders, and delete the sol-ring/basic-land name heuristics.
+
+### [HIGH] The deck grid has no density control, no sort, and no table view — the flagship view is the weakest one
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:230`
+- **Category:** layout
+
+The card grid is a fixed `grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3` (line 230) with no user control over card size. View switching is a two-state `<Switch>` (lines 336-347) labelled "Visual"/"List" — a binary toggle, not the segmented control MTG users expect, and it exposes exactly two modes. Sort is hardcoded CMC-then-name inside the memo (lines 119-124) with no UI to change it. The "List" mode (renderListView, 150-207) is not a table: each row is `{qty}x {name} {mana_cost}` with hover-revealed buttons — no CMC column, no type, no price, no set, no rarity, no sortable headers. Cards in the grid have no `onClick` (the wrapper at line 232-235 is `<div className="group relative">`), so clicking a card in your own deck does nothing; hover reveals +/−/Replace/Delete only. Meanwhile the *Add Cards* tab (EnhancedUniversalCardSearch.tsx:333-364) offers three view modes plus a 7-option sort — so the search surface is better equipped than the deck itself.
+
+> **Fix:** Rebuild as three real modes — Grid (with a card-size slider driving CSS `--card-w` / grid-template-columns, Moxfield-style), Table (sortable columns: qty, name, mana cost, type, CMC, rarity, set, price, EDHREC rank), and Text (plain decklist for copy-paste) — persisted per user. Add click-to-open card detail and hover preview. Note that `grid` and `compact` in UniversalCardDisplay.tsx:46-48 are already near-duplicates (`lg:grid-cols-3 xl:grid-cols-4` vs `lg:grid-cols-4`), so consolidate there too.
+
+### [HIGH] No mana curve anywhere on the primary build surface
+
+- **File:** `src/components/deck-builder/DeckQuickStats.tsx:120-345`
+- **Category:** mtg-domain
+
+The header of the deck builder (DeckBuilder.tsx:689) renders DeckQuickStats: six stat tiles (cards, power, value, avg CMC, owned, color identity), an optional five-tile EDH metrics row, and a type breakdown. There is no curve. `MiniManaCurve.tsx` exists and is well-formed but is imported only by ModernDeckTile.tsx:47 (the deck *list* tile, not the builder). The only curve in the builder is buried inside `EnhancedDeckAnalysisPanel`'s own internal 'Mana Curve' tab (EnhancedDeckAnalysis.tsx:253), which is the 11th panel down inside the Analysis tab. Every serious MTG tool puts the curve permanently beside the decklist because it is what you watch while you build.
+
+> **Fix:** Put a persistent curve in the builder chrome — MiniManaCurve is already written and correctly bins 0-1/2/3/4/5/6-7/8-9/10+. Stack the bars by card type or color the way Archidekt does, exclude lands from the curve (standard convention), and count copies rather than distinct cards.
+
+### [HIGH] Analysis tab dumps 11 stacked panels with duplicated validation and nested tab bars
+
+- **File:** `src/pages/DeckBuilder.tsx:836-910`
+- **Category:** layout
+
+`activeTab === 'analysis'` renders, vertically stacked: EdhAnalysisPanel (838), DeckCompatibilityChecker (847), DeckValidationPanel (860), CommanderPowerDisplay (866), PowerLevelConsistency (877), ArchetypeDetection (882), EnhancedMatchTracker (888), DeckBudgetTracker (893), DeckNotesPanel (897), MatchAnalytics (899), EnhancedDeckAnalysisPanel (904). The last one contains its own six-tab bar — Mana Curve / Land Base / Synergy / Validation / Suggestions / AI (EnhancedDeckAnalysis.tsx:253-263) — so the user hits tabs inside a stack inside tabs. Validation is rendered twice by two different implementations (DeckValidationPanel at 860 and the 'Validation' tab at EnhancedDeckAnalysis.tsx:624). Match tracking appears twice (EnhancedMatchTracker at 888 and MatchAnalytics at 899). DeckBudgetTracker is passed `targetBudget={200}` as a hardcoded literal (line 895) with no way for the user to set their own budget.
+
+> **Fix:** Collapse to one analysis surface with a single level of navigation. Curve/lands/colors belong in a persistent right rail beside the decklist, not behind two tab layers; match history and notes are not analysis and belong on their own deck tabs. Delete the duplicate validation and match panels, and make the budget target a user setting.
+
+### [HIGH] /deck/:id is a second, unreachable deck view whose Analysis tab says 'coming soon'
+
+- **File:** `src/pages/DeckInterface.tsx:509-521`
+- **Category:** dead-ui
+
+DeckInterface.tsx (531 lines) is routed at `/deck/:id` (App.tsx:113) with its own Visual/List/Analysis tabs (455-467), its own category grouping, and its own card row renderer (257-300). Its Analysis tab body is a literal placeholder: "Advanced deck analysis features coming soon. This will include mana curve analysis, color distribution, synergy detection, and power level breakdown." (517-520) — while `/deck-builder` ships all four of those things. Its 'Visual' tab is not visual: `renderCardSection` uses `w-12 h-16` thumbnails in a text list (282), whereas DeckBuilder's 'Visual' means full card images — the same tab name meaning two different things in two screens. No navigation reaches it: every deck entry point in Decks.tsx (284, 485, 692, 768) goes to `/deck-builder?deck=${id}`. Notably it does render a Sideboard section (480), which the actual builder cannot produce.
+
+> **Fix:** Delete DeckInterface.tsx and the `/deck/:id` route, or repoint `/deck/:id` at DeckBuilder and retire the duplicate. Shipping a route containing the words 'coming soon' in a product that already implements the feature elsewhere is the clearest single example of the inconsistency the owner is describing.
+
+### [HIGH] Six filter implementations inside deck-builder/, four of them orphaned, none of them the one actually used
+
+- **File:** `src/components/deck-builder/AdvancedCardFilters.tsx:11`
+- **Category:** filtering
+
+Six filter components live in the deck-builder tree with six incompatible state shapes: AdvancedCardFilters.tsx:11 (`{cmcMin, cmcMax, colors, types, keywords, rarity, legality}`), AdvancedSearchFilters.tsx:25 (untyped `Record<string, any>`), SearchFilters.tsx:12 (`{sets, types, colors, mechanics, colorIdentity, colorOperator}`), DeckSearchFilters.tsx:14, optimizer/CardSearchFilter.tsx:17 (`FilterOptions`), optimizer/OptimizerFilters.tsx:10 (`OptimizerFiltersState`). Four of the six are imported by nothing. The filter the deck builder actually renders is a seventh one from a different folder — `AdvancedFilterPanel` from `@/components/filters/` (EnhancedUniversalCardSearch.tsx:10). Two more exist at `src/components/universal/UniversalFilterPanel.tsx` and `src/components/collection/SavedFilterPresets.tsx`. Each reimplements the WUBRG picker: AdvancedCardFilters uses `bg-yellow-100` for White and `bg-gray-800` for Black (lines 38-44), SearchFilters pulls hexes from `lib/magic/colors.ts`, CommanderSelector uses `bg-yellow-100`/`bg-gray-100` (CommanderSelector.tsx:165-171 — Black rendered as light grey).
+
+> **Fix:** One `CardFilterState` type and one `<CardFilters>` component in `src/lib/magic/`, consumed by search, deck view, optimizer and collection alike, with a single shared `<ColorPicker>` driven by the `--mana-*` tokens. Delete the other eight.
+
+### [HIGH] Commander picker never closes its own dialog and its markup is triplicated
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:368-384`
+- **Category:** dead-ui
+
+`CommanderSelectorProps` is `{ currentCommander?: any }` (CommanderSelector.tsx:10-12) — no `onSelect`, no `onClose`. `handleCommanderSelect` (CommanderSelector.tsx:82-148) sets the commander, writes to Supabase, and calls `setShowSearch(false)` on its own internal state, but has no way to close the parent Dialog. VisualDeckView renders it inside `<Dialog open={showCommanderDialog}>` at three places — 368-384 (mobile), 404-420 (desktop), 453-469 (empty state) — three near-identical copies of the same DialogTrigger/DialogContent/DialogHeader/CommanderSelector block. After choosing a commander the modal stays open over the deck. The picker also only searches `t:legendary t:creature` (CommanderSelector.tsx:54), missing Backgrounds, planeswalkers with 'can be your commander', and partner pairs, and switching commanders never re-validates the existing 99 for the new color identity.
+
+> **Fix:** Add `onSelect: (card) => void` to CommanderSelector, close the dialog from the callback, and extract the triplicated dialog into one `<CommanderDialog>`. Broaden the search to Scryfall's `is:commander`, support partner/background as a second slot, and prompt to review off-identity cards when the commander changes.
+
+### [HIGH] Fake stats presented as real data: 100% owned, and invented commander popularity percentages
+
+- **File:** `src/pages/DeckBuilder.tsx:618-619`
+- **Category:** copy
+
+`deckStats` returns `missingCards: 0, ownedPct: 100` as hardcoded literals (DeckBuilder.tsx:618-619). DeckQuickStats renders these as a headline tile — `{ownedPct.toFixed(0)}%` with the label "Owned" and a progress bar (DeckQuickStats.tsx:207-210). Every deck therefore reports 100% owned and 0 missing cards regardless of the user's actual collection, in an app whose whole premise is collection + deck integration. Separately, CommanderSelector.tsx:14-22 hardcodes a POPULAR_COMMANDERS list with fabricated `popularity` values (Atraxa 95, Edgar Markov 88, Ur-Dragon 85, …) rendered to the user as `{commander.popularity}% popularity` (line 306). Those numbers are not derived from anything.
+
+> **Fix:** Either compute owned/missing against the user's collection or remove the tile — a permanently-100% stat is worse than no stat. Replace invented popularity with real EDHREC rank (already available: the search sort exposes an `edhrec` order option at EnhancedUniversalCardSearch.tsx:363), or drop the metric.
+
+### [HIGH] AIBuilder shows a 3-step progress indicator where step 3 does not exist
+
+- **File:** `src/pages/AIBuilder.tsx:650-663`
+- **Category:** dead-ui
+
+The header renders `{[1, 2, 3].map((s) => …)}` as a three-dot progress rail (line 652). `setStep` is called with 2 (lines 232, 243, 256), 4 (415) and 1 (578) — never 3. Rendered branches are `step === 1` (673), `step === 2` (820), `building` (1017) and `step === 4` (1087); there is no `step === 3` block. The third dot can never become active, and after step 2 the user jumps to the build screen with the rail still showing an unreached step. Separately, five of the six components in `src/components/ai-builder/` — ArchetypeSelectionStep, BuildConfigurationStep, BuildPhaseProgress, BuildSummaryStep, EnhancedCommanderStep — have zero imports; AIBuilder.tsx reimplements all of those steps inline across 1,140 lines, and a third full AI builder sits dead at `src/components/deck-builder/AIBuilder.tsx` (775 lines, imported nowhere).
+
+> **Fix:** Make the rail derive its length from the actual state machine. Then pick one AI builder implementation: adopt the extracted `ai-builder/*` step components (which is what they were written for) and delete both the inline duplication and deck-builder/AIBuilder.tsx.
+
+### [HIGH] Three concurrent auto-save debouncers, one of them on a window global
+
+- **File:** `src/pages/DeckBuilder.tsx:300-310`
+- **Category:** architecture
+
+Three independent debounced saves race on every card mutation: (1) DeckBuilder.tsx:156-176, a 1000ms `setTimeout` held in `saveTimeoutRef` keyed off `deck.cards`; (2) DeckBuilder.tsx:300-310 inside `handleAddCardToDeck`, a second 1000ms timer stored on `(window as any).__autoSaveTimeout`; (3) deckStore.ts:135-140, a 500ms `setTimeout(() => get().updateDeck(...))` fired from inside `addCard` for the existing-card branch only. The store's own comments acknowledge the problem — "NOTE: Auto-save removed to prevent race conditions" appears twice (deckStore.ts:152, 200) — yet path (3) survives on the other branch. Adding a second copy of a card triggers all three. Roughly twenty `console.log` calls also fire on every mutation (deckStore.ts:123, 135, 152, 168, 188, 197, 207, 222 and more).
+
+> **Fix:** One save path: a single debounced `persistDeck` inside the store, invoked by every mutation, with an explicit dirty flag and a visible save indicator. Remove the window global, remove the component-level timers, and strip the console logging.
+
+### [HIGH] No sideboard or maybeboard write path, though the schema, the panel and the reader all exist
+
+- **File:** `src/stores/deckStore.ts:388`
+- **Category:** mtg-domain
+
+`deck_cards` carries an `is_sideboard` column, but the store writes it as the literal `false` at all four insert sites (deckStore.ts:388, 404, 699, 727) and no UI ever sets it true. `MaybeboardPanel.tsx` (293 lines) is fully implemented and imported by nothing. DeckInterface.tsx:480 renders a Sideboard section, so the read path exists on a page nobody can reach. The live builder (DeckBuilder.tsx / VisualDeckView.tsx) contains no sideboard or maybeboard affordance at all. Maybeboard is one of the most-used features on Moxfield and Archidekt — it is where a Commander player parks the 30 cards they are deciding between.
+
+> **Fix:** Wire MaybeboardPanel into the builder as a board toggle (Main / Maybeboard / Sideboard) that flips `is_sideboard` / a new `board` column, with drag-or-click to move cards between boards, and exclude non-main boards from card counts and curve.
+
+### [MEDIUM] AIBuilder bypasses the shared page layout and double-centers its content
+
+- **File:** `src/pages/AIBuilder.tsx:630-668`
+- **Category:** theming
+
+DeckBuilder.tsx (639) and Builder.tsx (38) both render inside `StandardPageLayout`, which applies `px-3 md:px-6 py-2 md:py-4` and a `StandardSectionHeader`. AIBuilder instead hand-rolls `<div className="min-h-screen bg-background">` with a custom gradient hero (`bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5`, line 632), a gradient icon tile, and `bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent` title treatment (641) that appears nowhere else in the builder. It then wraps content in `container mx-auto px-4` (633, 669); since App.tsx already offsets `<main>` by `md:ml-64`, the container centers within the already-offset region, giving AIBuilder different gutters and a different max width from every neighbouring page. Same pattern in DeckInterface (StandardPageLayout) vs AIBuilder (bespoke) means three deck screens with three different headers.
+
+> **Fix:** Move AIBuilder onto StandardPageLayout so header, gutters and max-width match, and if a hero treatment is wanted, add it as a supported StandardPageLayout variant rather than a one-off.
+
+### [MEDIUM] Five conflicting WUBRG color maps with different hex values for the same colors
+
+- **File:** `src/pages/AIBuilder.tsx:710`
+- **Category:** theming
+
+White is `#F9FAF4` at AIBuilder.tsx:710, `#FFFBD5` at Builder.tsx:344, `#FFFBD5` in `src/lib/magic/colors.ts:5`, `hsl(var(--mana-white))` in mana-symbols.tsx:10, and `bg-amber-100 border-amber-300 dark:bg-amber-200` in DeckQuickStats.tsx:63. Black is `#150B00` in two places, `bg-gray-800` in DeckQuickStats.tsx:65, and `bg-gray-100 text-gray-800` (light grey) in CommanderSelector.tsx:169. AIBuilder additionally falls back to `'#888'` for anything unmapped (line 711) so colorless renders as arbitrary grey rather than the colorless symbol. The `--mana-*` tokens in index.css:75-79 already encode the canonical values as HSL and are used by exactly two files.
+
+> **Fix:** Delete the inline maps; export one `MANA_COLORS` keyed to the `--mana-*` tokens and have the pip renderer be the single component everyone imports.
+
+### [MEDIUM] --power-* tokens are RGB triplets consumed through hsl(), producing invalid colors
+
+- **File:** `src/index.css:93-96`
+- **Category:** theming
+
+index.css:93-96 defines `--power-1: 34 197 94;` (rgb green-500), `--power-4: 59 130 246;`, `--power-7: 168 85 247;`, `--power-10: 239 68 68;` — RGB channel values. mana-symbols.tsx:70-73 consumes them as `hsl(var(--power-1))`, which expands to `hsl(34 197 94)`. Unitless saturation/lightness is invalid per the CSS spec; browsers that do coerce it clamp to ~197%→100% saturation and 94% lightness, so all four power bands render as near-white washes rather than the intended green/blue/purple/red. `PowerLevelBadge` is used in standardized-components.tsx:112 and the orphaned EnhancedDeckTile.tsx:317. Every other token in the file (`--primary`, `--mana-*`, `--type-*`) is correctly stored as HSL triplets, so this one is simply inconsistent with its own system.
+
+> **Fix:** Convert `--power-1/4/7/10` to HSL triplets to match the rest of index.css, or switch the consumer to `rgb(var(--power-1))`. Worth checking the whole file for other RGB-vs-HSL mixups while there.
+
+### [MEDIUM] Error condition reported through the success toast
+
+- **File:** `src/pages/DeckBuilder.tsx:279-282`
+- **Category:** copy
+
+`handleAddCardToDeck` opens with `if (!deck.name) { showSuccess("No Active Deck", "Please select a deck first"); return; }`. A failure to add a card is announced with the green success styling from `src/components/ui/toast-helpers`, while `showError` is imported in the same file (line 32) and used correctly elsewhere (e.g. line 972). The user sees a green checkmark telling them the operation did not happen.
+
+> **Fix:** Use `showError` here. Better still, this state should be unreachable — DeckBuilder already redirects to /decks when no deck param is present (lines 208-211), so the guard is compensating for a load-order gap that should be fixed at the source.
+
+### [MEDIUM] AI-marketing copy in the builder flow: 'perfect deck', 'Your optimized deck is ready!'
+
+- **File:** `src/pages/AIBuilder.tsx:645`
+- **Category:** copy
+
+AIBuilder.tsx:645 subtitles the page "Build the perfect Commander deck with intelligent assistance"; line 1027 headlines the build screen "Building Your Perfect Deck" with the body "This may take a moment while we validate everything..."; BUILD_PHASES[8] description is "Your optimized deck is ready!" (line 49). The nine build phases are themselves presentational — 'AI Planning', 'Iterative Refinement', 'Final Validation' — advancing on a `buildPhase` counter rather than reflecting real backend stages. DeckBuilder.tsx:927-930 tells users "Our deck optimization feature is currently being enhanced with new capabilities. Check back soon" behind an "In Development" badge on a shipped tab.
+
+> **Fix:** Replace superlatives with what the builder actually did: 'Built a 100-card Commander deck for Atraxa — 37 lands, avg CMC 3.2, $214 estimated.' MTG players judge a tool by whether its numbers are right, and 'perfect' reads as filler. Either finish or hide the Optimizer tab rather than shipping a 'check back soon' panel.
+
+### [MEDIUM] VisualDeckView declares an onUpdateQuantity prop it never uses; quantity is only editable ±1
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:53`
+- **Category:** dead-ui
+
+`VisualDeckViewProps` declares `onUpdateQuantity?: (cardId: string, quantity: number) => void` (line 53) and destructures it (line 77), but it appears nowhere in the body — no call site in the 493-line file. DeckBuilder.tsx:753-786 correspondingly never passes it. Consequently the only way to change a quantity is repeated +/− clicks (lines 255-276 in grid, 185-194 in list); there is no numeric input, and no way to type '10' for a basic land count. The grid `+` also has no upper bound and no format awareness.
+
+> **Fix:** Either wire `onUpdateQuantity` to an inline numeric stepper/input on each card, or delete the prop. Basic lands especially need direct numeric entry.
+
+### [MEDIUM] Category headers are non-standard MTG groupings with no custom-category support
+
+- **File:** `src/components/deck-builder/VisualDeckView.tsx:57-68`
+- **Category:** mtg-domain
+
+`CATEGORY_CONFIG` fixes eight buckets: creatures, instants, sorceries, artifacts, enchantments, planeswalkers, lands, other. Battles are absent despite `--type-battles` existing in index.css:90 and `battles` being a valid category in deckStore's own loader (deckStore.ts:506). There is no user-defined categorization — Moxfield and Archidekt both let players group by Ramp / Card Draw / Removal / Wincon / Protection, which is how Commander decks are actually organised and reviewed, and `src/lib/deckbuilder/deck-tagger.ts` exists in the repo with zero UI references. Grouping cannot be changed at all: the eight type buckets are the only view, always in the same order, with no group-by-color, group-by-CMC, or group-by-price alternative.
+
+> **Fix:** Add a group-by selector (Type / Custom Category / Color / CMC / Price / None) and let users assign and reorder custom categories per card, persisted on deck_cards. Wire deck-tagger.ts to seed suggested categories on import. Add the Battle bucket.
+
+---
+
+## ai-brain
+
+The AI surfaces are the weakest part of the app judged against Moxfield/Archidekt/EDHREC: roughly 4,100 lines of dead AI components sit alongside three live surfaces that each invent their own card-data pipeline (mtg-brain hits Scryfall live, ai-deck-builder-v2 reads a 6-month-stale local `cards` table via an arbitrary unordered 8,000-row slice, deck-optimizer has no card grounding at all), their own color-identity rendering (three different palettes, none using the existing `ManaSymbols`/`--mana-*` tokens), and their own filter UI. The core value loop is broken: MTG Brain can recommend cards but has no way to add them (both purpose-built "add card" components are unreferenced), and the AI Builder silently drops cards at save time so generated decks land in the database illegal. Multiple headline widgets display fabricated numbers — power sub-metrics are one score times fixed constants, collection ownership is hardcoded to 100%, and four build-configuration controls are never sent to or read by the edge function. The stale card table makes all of this worse, but the deeper problem is that the recommendation engine ranks cards by rarity because the `cards` table has no `edhrec_rank` column at all.
+
+### [CRITICAL] MTG Brain card recommendations cannot be added to anything — the add button never renders
+
+- **File:** `src/pages/Brain.tsx:603`
+- **Category:** dead-ui
+
+CardRecommendationDisplay gates its add button on the optional `onAddCard` prop (src/components/shared/CardRecommendationDisplay.tsx:92 `{onAddCard && (<Button .../>)}`). Brain.tsx:603-615 renders it with only `cards`, `onCardClick`, and `compact={false}` — never `onAddCard`. So the entire AI chat surface can recommend cards and open a read-only modal (the modal is mounted with `showAddButton={false} showWishlistButton={false}` at Brain.tsx:723-729) but offers zero path to a deck, collection, or wishlist. The two components built for exactly this job — src/components/brain/CardAddModal.tsx and src/components/brain/CardAdditionPanel.tsx — have zero imports anywhere in src/. This is the single highest-value interaction on an AI assistant page and it does not exist.
+
+> **Fix:** Wire `onAddCard` from Brain.tsx into a single shared add-to-destination flow, delete the duplicate brain/ components, and enable the modal's add/wishlist buttons. Every recommended card should be one click from a deck.
+
+### [CRITICAL] AI Builder silently discards cards on save, writing illegal decks to the database
+
+- **File:** `src/pages/AIBuilder.tsx:487`
+- **Category:** mtg-domain
+
+saveDeckToDatabase skips any card whose id is falsy or starts with `missing-basic-` / `pad-`, logging only `console.warn('Skipping card with invalid ID:', card.name)` (lines 487-489). The edge function creates exactly those placeholder ids when the stale `cards` table has no matching row — supabase/functions/ai-deck-builder-v2/index.ts:302 pushes `id: \`missing-basic-${basicName}\`` whenever a basic land is missing from the DB. The result screen shows a 100-card deck, the user clicks Save, and a deck with fewer than 100 cards is written with no toast, no error, and no user-visible warning. saveDeckToDatabase also has no success or failure toast at all — on error it only console.errors (line 526) and the user is left staring at an unchanged screen.
+
+> **Fix:** Never persist a Commander deck that isn't exactly 100 cards. Resolve missing cards against Scryfall at save time, and surface a blocking dialog listing anything unresolvable. Add success/error toasts.
+
+### [CRITICAL] AI deck builder's card pool is an arbitrary unordered 8,000-row slice with no color filter for colored commanders
+
+- **File:** `supabase/functions/ai-deck-builder-v2/index.ts:85`
+- **Category:** mtg-domain
+
+The pool query is `.from('cards').select(...).eq('legalities->>commander','legal')` with `.limit(8000)` and NO `.order()` (line 98). Postgres returns an arbitrary subset of the ~30k commander-legal cards. Worse, the color filter at lines 92-95 is inside `if (isColorless)` — for every COLORED commander no server-side color predicate is applied at all, so a mono-white commander gets whatever fraction of those arbitrary 8,000 rows happens to be W/colorless after the client-side filter at line 118. Combined with a 6-month-stale table, the builder cannot reliably see staples: it explicitly hunts for 'Sol Ring', 'Arcane Signet', 'Command Tower' by name at line 197 and silently skips each one if it isn't in the slice.
+
+> **Fix:** Filter color identity server-side with a containment predicate for all commanders, order deterministically by a play-rate signal, and page the pool rather than truncating. Fail loudly if the core staples are absent rather than building a deck without them.
+
+### [CRITICAL] deck-optimizer has zero card-data grounding — suggestions are unverified model recall
+
+- **File:** `supabase/functions/deck-optimizer/index.ts:240`
+- **Category:** mtg-domain
+
+The function makes a single call to `https://ai.gateway.lovable.dev/v1/chat/completions` with `model: 'google/gemini-2.5-flash'` (lines 240-247) and never touches the `cards` table or Scryfall — grep for `from('cards')` and `scryfall` in that file returns nothing. Nothing verifies that a suggested card exists, is Commander-legal, is inside the commander's color identity, or costs what the model thinks. This is a third, completely different card-knowledge architecture from mtg-brain (live Scryfall fuzzy lookup) and ai-deck-builder-v2 (stale local table). The same app therefore gives three different answers to 'what card should I add' with three different freshness and correctness guarantees.
+
+> **Fix:** Ground the optimizer against the same validated card source as the rest of the app, and reject any suggestion that fails a color-identity and legality check before it reaches the UI.
+
+### [HIGH] Undefined `celestial` design token breaks every AI brand gradient and the chart palette
+
+- **File:** `src/pages/Brain.tsx:389`
+- **Category:** theming
+
+`bg-gradient-to-br from-spacecraft to-celestial` appears at Brain.tsx:389, 509, 579, and 667 (the page header icon, the empty-state hero, the assistant avatar, and the loading avatar). `celestial` is defined nowhere: it is absent from tailwind.config.ts (which registers spacecraft/station/warp/void/planet at lines 66-70) and absent from src/index.css (which defines --spacecraft at :68 but no --celestial). Tailwind emits no `to-celestial` class, so every one of these gradients renders as spacecraft-to-transparent. The same phantom token is used as a chart color in src/components/shared/AIVisualDisplay.tsx:38 (`'hsl(var(--celestial))'`, DEFAULT_COLORS[1]) and as an icon color at :56 (`text-celestial`), so the second series in every AI-generated pie chart resolves to an invalid CSS color.
+
+> **Fix:** Either define --celestial in index.css and register it in tailwind.config.ts, or replace all six usages with a real token. Add a CI check that fails on Tailwind color classes with no matching theme entry.
+
+### [HIGH] Four different hardcoded color-identity palettes across AI surfaces; the shared token-based ManaSymbols component is used by none of the live ones
+
+- **File:** `src/pages/Brain.tsx:372`
+- **Category:** theming
+
+src/components/ui/mana-symbols.tsx exists and is correctly token-driven (`hsl(var(--mana-white))` etc., matching the --mana-* tokens at src/index.css:75-79). Neither live AI page uses it. Brain.tsx:372-379 hardcodes `W: 'bg-amber-100 text-amber-800'... B: 'bg-gray-800 text-gray-100'`. AIBuilder.tsx:710 hardcodes raw hex `W:'#F9FAF4', U:'#0E68AB', B:'#150B00', R:'#D3202A', G:'#00733E'` — note white is #F9FAF4 here versus #FFFBD5 in the token. CommanderFinder.tsx:11-16 uses a third set (`bg-amber-100 dark:bg-amber-900`, `bg-blue-500`, `bg-gray-800`) plus emoji as mana symbols (☀️💧💀🔥🌲◇). CardAdditionPanel.tsx:69-75 uses a fourth (`B: 'bg-gray-100'` — black rendered as light gray). The only files that DO import ManaSymbols in this area (ai-builder/BuildSummaryStep.tsx, ai-builder/EnhancedCommanderStep.tsx) are dead code.
+
+> **Fix:** Delete all four local colorMaps and route every color-identity pip through ManaSymbols. Replace the letter-in-a-circle rendering with a real mana font (keyrune/mana) — package.json has neither — so {2}{U}{U} renders as pips everywhere instead of raw text.
+
+### [HIGH] ~4,100 lines of dead AI components, including 5 of the 6 files in components/ai-builder/
+
+- **File:** `src/components/ai-builder/BuildConfigurationStep.tsx`
+- **Category:** dead-ui
+
+Verified zero imports anywhere in src/ for: ai-builder/ArchetypeSelectionStep.tsx (154), BuildConfigurationStep.tsx (253), BuildPhaseProgress.tsx (141), BuildSummaryStep.tsx (246), EnhancedCommanderStep.tsx (338); brain/CardAddModal.tsx (343) and brain/CardAdditionPanel.tsx (328) — the entire brain/ folder; deck-builder/AIBuilder.tsx (775) and DeterministicAIBuilder.tsx (316), both older builders still calling the v1 `ai-deck-builder` function; deck-builder/AIDeckCoach.tsx (658); deck-builder/AIReplacementsPanel.tsx (590); deck-builder/AICardReplacements.tsx (220). Only ai-builder/CommanderFinder.tsx is live (imported at AIBuilder.tsx:38). This is why the app feels inconsistent — several generations of AI UI coexist and it is impossible to tell from the tree which is real.
+
+> **Fix:** Delete all of it in one commit. Keep exactly one AI builder, one AI chat, one AI optimizer, and one shared card-recommendation surface.
+
+### [HIGH] AICardReplacements calls an edge function that does not exist
+
+- **File:** `src/components/deck-builder/AICardReplacements.tsx:50`
+- **Category:** dead-ui
+
+`supabase.functions.invoke('ai-card-replacements', {...})` — there is no supabase/functions/ai-card-replacements directory and no entry in supabase/config.toml. Every invocation 404s straight into the catch and shows 'Analysis Failed'. Separately, handleReplace (lines 75-94) fires `showSuccess('Card Replaced', ...)` and removes the row from the list even when the optional `onReplace` prop is undefined — so on a component with no handler it claims a swap happened and nothing did. The component is also unreferenced, so this is dead code calling a dead endpoint with a lying success path.
+
+> **Fix:** Delete the component. If replacement suggestions are wanted, fold them into AIOptimizerPanel, which already implements the swap flow with real Scryfall image hydration.
+
+### [HIGH] Build progress UI is theatre: fake delays, three phases that never fire, and two phases describing work the backend does not do
+
+- **File:** `src/pages/AIBuilder.tsx:38`
+- **Category:** copy
+
+BUILD_PHASES (lines 39-49) declares nine phases and all nine are rendered with spinners/checkmarks at AIBuilder.tsx:1051-1074. handleBuild only ever calls setBuildPhase(0) through setBuildPhase(6), so 'Iterative Refinement', 'Final Validation', and 'Complete' never light up, and `Progress value={(buildPhase / BUILD_PHASES.length) * 100}` (line 1078) caps at 67% before the screen flips to results. handleBuild also pads the run with pure `await new Promise(r => setTimeout(r, 800/600/600/500))` at lines 289, 328, 355, 371 — 2.5s of manufactured waiting. Two phase descriptions are outright false: 'Iterative Refinement — Replacing weak cards with better options' and 'Budget Optimization — Finding cheaper alternatives if needed', while the edge function comments say 'Single pass - no iterations to save CPU time' (ai-deck-builder-v2/index.ts:135) and never substitutes a cheaper card. The matching `refinement` and `cardSelection` prompt templates in ai-deck-builder-v2/admin-config.ts:133,172 are never called — only `deckPlanning` is (index.ts:489).
+
+> **Fix:** Drive the phase list from events the backend actually emits, delete the artificial timeouts, and remove phases for work that isn't performed. If iterative refinement is desirable, implement it — the prompt is already written.
+
+### [HIGH] Four Build Configuration controls are never read by the edge function
+
+- **File:** `src/pages/AIBuilder.tsx:969`
+- **Category:** dead-ui
+
+The Build Configuration step renders checkboxes for Prioritize Synergy (line 953), Include Lands (961), Include Basic Lands (969) and a custom-prompt Textarea (981). `includeBasics` is never even included in the invoke body (lines 316-323). The other three are sent, but ai-deck-builder-v2's BuildRequest interface (index.ts:11-23) declares only commander, archetype, powerLevel, budget, useAIPlanning — grep confirms `customPrompt`, `prioritizeSynergy`, and `includeLands` appear nowhere in the function body or admin-config.ts. All four controls are decorative; the land count is hardwired to 15 utility + basics-to-99 regardless (index.ts:255, 285).
+
+> **Fix:** Either implement the four options in the edge function or remove the controls. A builder whose settings are ignored is worse than one with fewer settings.
+
+### [HIGH] AI result screen displays fabricated power sub-metrics and hardcoded 100% collection ownership
+
+- **File:** `src/components/deck-builder/AIGeneratedDeckList.tsx:316`
+- **Category:** copy
+
+CommanderPowerDisplay is fed metrics that are one number times fixed constants: `speed: power*0.9, interaction: power*1.1, resilience: power*0.8, comboPotential: power*1.2` (lines 316-320). These four axes carry zero information and are perfectly correlated by construction; at power 9 comboPotential renders 10.8 on a 1-10 scale. DeckQuickStats is passed `ownedPct={100}` and `missingCards={0}` (lines 252-253), so an AI-generated deck always claims the user owns every card regardless of their actual collection. DeckBudgetTracker gets `targetBudget={totalValue || 200}` (line 342) — the deck's own value as its budget — so it always reads exactly 100% of budget consumed and ignores the `maxBudget` the user set. DeckCompatibilityChecker gets `onRemoveCard={() => {}}` (line 300), a no-op.
+
+> **Fix:** Delete the fabricated radar entirely rather than fake it. Compute ownedPct against user_collections, pass the user's real maxBudget, and either implement card removal on this screen or hide the affordance.
+
+### [HIGH] Commander search misses every non-creature commander and returns illegal ones
+
+- **File:** `src/pages/AIBuilder.tsx:157`
+- **Category:** mtg-domain
+
+Both commander search paths query Scryfall with `type:legendary type:creature` — AIBuilder.tsx:157 and CommanderFinder.tsx:86 (`let query = 't:legendary t:creature'`). This excludes planeswalkers with 'can be your commander' (Freyalise, Rowan, the entire Commander Legends cycle), Backgrounds and 'choose a Background' pairings, and legendary non-creature commanders, while including legendary creatures that are not legal commanders in some contexts. Scryfall has a purpose-built `is:commander` predicate that every competing site uses. CommanderFinder's partner support is also just `o:partner` (line 111), which misses 'Partner with', 'Friends forever', and Doctor's companion.
+
+> **Fix:** Use `is:commander` as the base predicate everywhere and add explicit partner/background handling. This is the first interaction on the page and it currently cannot find a large class of legal commanders.
+
+### [HIGH] CommanderFinder's tribal filter is broken for 23 of 24 types — it queries plural type names
+
+- **File:** `src/components/ai-builder/CommanderFinder.tsx:35`
+- **Category:** filtering
+
+TRIBAL_TYPES (lines 35-39) holds plural forms — 'Elves', 'Goblins', 'Zombies', 'Vampires', 'Dragons', 'Angels', 'Demons', 'Wizards', 'Humans', 'Soldiers', 'Knights', 'Beasts', 'Dinosaurs', 'Slivers', 'Spirits', 'Cats', 'Dogs', 'Rats', 'Birds', 'Rogues', 'Warriors', 'Clerics', 'Shamans' — and they are interpolated raw into the Scryfall query at line 108 (`query += \` t:${selectedTribal}\``). Magic creature types are singular ('Creature — Elf Druid'), and Scryfall's `t:` does substring matching without lemmatization, so `t:Elves` matches nothing. Only 'Merfolk' works, by accident of being its own plural. The playstyle heuristics are similarly weak: 'combo' is `(o:infinite OR o:untap OR o:whenever)` where `o:whenever` matches nearly every creature with a triggered ability and virtually no card prints the word 'infinite'; 'control' uses `o:counter`, which matches +1/+1 counters far more often than counterspells; 'draw' includes `o:wheels`, a term no card uses.
+
+> **Fix:** Store singular type names, and validate each playstyle query against Scryfall's result counts before shipping it. Consider replacing the hand-rolled oracle-text guesses with EDHREC theme tags.
+
+### [HIGH] mtg-brain resolves AI-named cards by fuzzy match with no name verification and no rate limiting
+
+- **File:** `supabase/functions/mtg-brain/index.ts:183`
+- **Category:** mtg-domain
+
+getCardByName builds `/cards/named?fuzzy=${name}` (lines 183-187) and the result is pushed into cardData unchecked at lines 702-728 and 735-756 — the only place a returned name is compared against the requested one is the comma-join heuristic at line 690. When the model hallucinates or mistypes a card name, Scryfall's fuzzy matcher returns *some* real card and the UI displays that card's image as if the AI recommended it. The ScryfallAPI class here (lines 162-187) is a bare `fetch` with no delay, unlike the client-side src/lib/api/scryfall.ts which enforces `minDelay = 100` — the fallback path loops up to 12 sequential lookups (line 731 `.slice(0, 12)`) plus a combined-name probe per segment, so a single Brain reply can fire 20+ unthrottled Scryfall requests.
+
+> **Fix:** Reject a fuzzy result whose name isn't a close match to the request and drop it from the card list rather than displaying the wrong card. Share the throttled client between the edge function and the frontend.
+
+### [HIGH] Deck composition stats count entries instead of quantities, so land counts are wildly wrong
+
+- **File:** `src/components/deck-builder/AIGeneratedDeckList.tsx:83`
+- **Category:** mtg-domain
+
+`totalCards` correctly sums quantities (line 84) but every type breakdown uses `.length` on filtered entries (lines 85-94). The edge function collapses basic lands into one row per basic with a `quantity` field (ai-deck-builder-v2/index.ts:290-296), so a deck with 15 utility lands + 21 basics across three colors reports `lands: 18` instead of 36. These numbers feed DeckQuickStats (lines 240-256) — the headline composition panel on the AI result screen. `avgCmc` (97-99) has the same entry-vs-quantity flaw. Type classification is also inconsistent: `artifacts` correctly excludes artifact creatures (89-92) but `enchantments` (93) does not exclude enchantment creatures, so Bestow/aura creatures are double-counted.
+
+> **Fix:** Sum `quantity` in every bucket and use a single shared type-classification helper so artifacts and enchantments are treated identically.
+
+### [HIGH] 'Optimize from my collection' silently truncates the collection to 200 cards
+
+- **File:** `src/components/deck-builder/AIOptimizerPanel.tsx:197`
+- **Category:** filtering
+
+When `fromCollection` is on, the panel queries `user_collections` with no ordering and no limit (lines 155-160) then sends `collectionCards: collectionCards.slice(0, 200)` to deck-optimizer (line 197). A serious MTG collector has thousands to tens of thousands of cards. The optimizer therefore reasons about an arbitrary, unordered 200-card sample while the UI presents the feature as optimizing from the user's collection. There is no indication in the UI that truncation occurred.
+
+> **Fix:** Filter the collection server-side to cards inside the commander's color identity and relevant to the requested roles before truncating, and show the user how many of their cards were actually considered.
+
+### [HIGH] CardAdditionPanel's 'Box' destination is never written, and its success toast fires on database failure
+
+- **File:** `src/components/brain/CardAdditionPanel.tsx:100`
+- **Category:** dead-ui
+
+The panel offers four destinations with a Box toggle (lines 242-256) and a box selector (286-311), and enables the submit button when only Box is chosen (line 318). handleAddCard (100-168) pushes promises for collection, deck, and wishlist only — there is no storage_items insert. getActiveSummary then reports the box name in a success toast (line 158). Independently, `Promise.allSettled` + `results.filter(r => r.status === 'rejected')` (154-155) cannot detect failures: supabase query builders resolve with `{data, error}` rather than rejecting, so RLS denials and constraint violations all count as fulfilled and the panel reports success unconditionally. Sibling component CardAddModal.tsx:151-159 *does* write storage_items — the two duplicates disagree about what the feature is. They also mint incompatible card_ids: CardAdditionPanel.tsx:108 slugifies the name (`card.name.toLowerCase().replace(/[^a-z0-9]/g,'-')`) with `set_code: 'unknown'`, while CardAddModal.tsx:112-114 uses `(card as any).id || card.name` — neither reliably a Scryfall UUID, so rows added this way never join to the `cards` table and lose price, image, and set data.
+
+> **Fix:** Delete both and build one add-to-destination component that requires a real Scryfall card id, checks `error` on every insert, and writes all four destinations.
+
+### [MEDIUM] Recommendation ranking uses rarity as a power proxy because the cards table has no play-rate column
+
+- **File:** `supabase/functions/ai-deck-builder-v2/index.ts:155`
+- **Category:** mtg-domain
+
+scoreCard (lines 155-176) awards `+4` for mythic, `+2` for rare, `Math.max(0, 5 - cmc)` for cheapness, `+2` per shared keyword between commander and card text drawn from a five-word list ['token','counter','sacrifice','graveyard','draw'], and a hardcoded `+20` for Sol Ring / Arcane Signet / Command Tower. Rarity is close to orthogonal to Commander power — Swords to Plowshares and Sol Ring are uncommon, Rhystic Study and Cyclonic Rift are rare, Ponder and Brainstorm are common, and most mythics are unplayable in EDH. The root cause is structural: src/integrations/supabase/types.ts:195-222 shows the `cards` table has no `edhrec_rank`, no `released_at`, and no `produced_mana`, so there is no play-rate signal available even in principle. `is_reserved` exists (line 205) and is never used. The role heuristics at lines 178-193 are equally coarse — `ramp` is `text.includes('add') && /\{[wubrgc]\}/`, which matches 'in addition'; `draw` is `text.includes('draw') && text.includes('card')`, which matches symmetric draw the opponents also get.
+
+> **Fix:** Add edhrec_rank (and ideally a Game Changers flag) to the cards table and rank on play rate. Replace substring role detection with a tagged category system; this is the difference between a deck that looks generated and one a player would keep.
+
+### [MEDIUM] Deck prices in the AI builder come from a JSON blob only refreshed by a manual full sync
+
+- **File:** `supabase/functions/ai-deck-builder-v2/index.ts:159`
+- **Category:** mtg-domain
+
+Every budget behaviour reads `card.prices?.usd` off the local cards row: scoring penalty (index.ts:159), deck total (366), and the over-budget validation (482-483) that surfaces as 'Deck cost $X exceeds budget' in the UI (AIBuilder.tsx:365-367). That `prices` column is only written by scryfall-sync, which paginates `/cards/search?q=-is:digital game:paper` a page at a time with resumable cursor state (scryfall-sync/index.ts:94, 204-210) and is triggered manually from SyncDashboard/AdminPanel — supabase/config.toml has no cron or schedule entries at all. daily-price-capture writes to `card_price_history` (daily-price-capture/index.ts:32), not back into `cards.prices`. So the builder's budget features run on prices as old as the last manual full sync, which is why a $500 budget can produce a deck that costs far more today.
+
+> **Fix:** Switch the sync to Scryfall's bulk-data endpoint (which they recommend over paginating search), schedule it, and add a price-only daily job that writes back into cards.prices — or read prices from card_price_history at build time.
+
+### [MEDIUM] AI Builder uses the deprecated 1-10 power scale while the bracket system it already fetches goes unused
+
+- **File:** `src/pages/AIBuilder.tsx:614`
+- **Category:** mtg-domain
+
+getPowerLevelLabel (lines 614-620) maps a 1-10 slider to Casual/Focused/Optimized/High Power/cEDH. The official Commander Bracket system (1-5, Exhibition through cEDH, gated on Game Changers, MLD, extra turns, and two-card combos) is what EDHREC, Moxfield, and Archidekt now lead with, and this repo already parses it — edh-power-check/index.ts:113-148 extracts recommended bracket, minimum bracket, extraTurns, massLandDenial, earlyTwoCardCombos, lateTwoCardCombos, and gameChangers, and EdhAnalysisPanel.tsx:88-90 has the bracket definitions. AIBuilder passes bracket through to the result panel (line 1123) but the builder's own configuration step never asks for a bracket and never validates against one.
+
+> **Fix:** Make bracket the primary target in the configuration step, validate the generated deck against the bracket's Game Changer and combo limits, and keep the 1-10 score as a secondary detail.
+
+### [MEDIUM] MTG rules knowledge baked into mtg-brain misstates the turn structure
+
+- **File:** `supabase/functions/mtg-brain/index.ts:54`
+- **Category:** mtg-domain
+
+MTG_KNOWLEDGE.GAME_RULES.turn_structure.phases (line 54) lists ['Untap','Upkeep','Draw','Main Phase 1','Combat','Main Phase 2','End Step','Cleanup'], conflating steps with phases. Magic has five phases — Beginning (untap, upkeep, draw steps), Precombat Main, Combat (five steps), Postcombat Main, and Ending (end step, cleanup step). This is injected into the system prompt and Brain's general-mode quick actions explicitly invite rules questions ('Explain how the stack works and priority in Magic', Brain.tsx:72). FORMAT_RULES (140-146) also omits Pioneer, Pauper, and Brawl, and describes Vintage's ~45-card restricted list as just 'Power 9 restricted to 1 copy'. The STAPLE_CARDS block (149-158) is a frozen hardcoded list that no sync updates.
+
+> **Fix:** Correct the phase/step hierarchy, complete the format list, and either drop the hardcoded staples in favour of a live query or date-stamp them so the model knows they may be outdated.
+
+### [MEDIUM] Brain hides Clear Conversation and Detailed Responses unless a deck is selected — which is never the default
+
+- **File:** `src/pages/Brain.tsx:431`
+- **Category:** layout
+
+Line 431 opens `{selectedDeck && (` and that block contains the Detailed Responses switch (472-479) and the Clear Conversation button (482-495). loadDecks deliberately does not auto-select ('Don't auto-select a deck - let user choose or ask general questions', line 163), so the default landing state for general MTG questions offers no way to clear the thread and no way to toggle response detail. Messages are also local component state only — wiped by refresh and reset on every deck change (handleDeckChange, lines 189, 196) — so there is no conversation history, no saved threads, and no way to return to a previous analysis. Only the last 6 messages are sent as context (line 225).
+
+> **Fix:** Move the settings and clear action out of the deck-conditional block, and persist conversations so a user can revisit an analysis.
+
+### [MEDIUM] Card recommendation display throws away every piece of card metadata it receives and offers no view options
+
+- **File:** `src/components/shared/CardRecommendationDisplay.tsx:73`
+- **Category:** layout
+
+mtg-brain hydrates mana_cost, type_line, oracle_text, power, toughness, cmc, colors, and rarity for every card (index.ts:711-727) and CardData declares all of them (lines 8-19), but the component renders only the image plus a name on hover (73-90). No mana cost, no type line, no CMC, no price, no rarity. It is a fixed `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5` with no grid/list toggle, no density control, and no sorting — exactly the 'not many options' complaint. It also leaks a page-specific brand colour into a supposedly shared component (`hover:border-spacecraft`, line 77) and has no aspect-ratio placeholder, so the grid reflows as images load.
+
+> **Fix:** Add a grid/table toggle with a density slider, surface mana cost + type line + price in the tile, and replace the hardcoded brand hover with a semantic token.
+
+### [MEDIUM] gemini-deck-coach is deployed and prompt-editable but no user-facing surface invokes it
+
+- **File:** `supabase/config.toml:15`
+- **Category:** architecture
+
+config.toml registers `[functions.gemini-deck-coach]` and the 1,360-line supabase/functions/gemini-deck-coach/index.ts is deployed, but grep for 'gemini-deck-coach' in src/ finds it only in admin surfaces: AIFunctionMapper.tsx:64,158, AISystemAdmin.tsx:59,78,325,336-337, and PromptEditor.tsx:175. The only component named for it, deck-builder/AIDeckCoach.tsx, calls mtg-brain instead (line 165) and is itself unreferenced. AIFunctionMapper.tsx:158 tells the owner that 'Critical functions (mtg-brain, ai-deck-builder-v2, gemini-deck-coach) account for 90%+ of AI credit usage' — for a function nothing calls. The admin PromptEditor also exposes prompts for ai-deck-builder-v2 stages that never execute (cardSelection and refinement in admin-config.ts:133,172 are unreferenced by index.ts, which only uses deckPlanning at line 489).
+
+> **Fix:** Either route the Deck Coach UI to gemini-deck-coach and revive AIDeckCoach, or undeploy the function and remove it from the admin tooling so the cost attribution stops being fiction.
+
+### [MEDIUM] CommanderFinder reports a truncated result count as the total and shows the wrong empty state
+
+- **File:** `src/components/ai-builder/CommanderFinder.tsx:142`
+- **Category:** filtering
+
+Results are truncated with `.slice(0, 20)` at line 142, then the header renders 'Found {finderResults.length} matching commanders' (line 328) — so any search with 20+ hits always reports exactly 20, and Scryfall's real total (returned as `total_cards` in the response) is discarded. There is no pagination or load-more. Separately, the empty state at lines 353-358 is conditioned on `finderResults.length === 0 && !searching && activeFiltersCount > 0` and reads 'Click "Find Commanders" to search with your filters' — so a search that genuinely returns zero commanders renders as an instruction to search rather than a no-results message. Results themselves are image-only with name and CMC on hover; there is no sort control (order is hardcoded `edhrec` at line 130) and no EDHREC rank displayed.
+
+> **Fix:** Show Scryfall's real total, paginate, distinguish 'not searched yet' from 'no results', and expose sort plus an EDHREC rank badge on each result.
+
+### [LOW] Quick-action tiles use twelve hardcoded Tailwind gradients instead of theme tokens
+
+- **File:** `src/pages/Brain.tsx:65`
+- **Category:** theming
+
+Both quick-action arrays hardcode a `gradient` string per tile — 'from-blue-500 to-cyan-500', 'from-amber-500 to-orange-500', 'from-red-500 to-pink-500', 'from-emerald-500 to-green-500', 'from-purple-500 to-violet-500', 'from-indigo-500 to-blue-500' — at lines 65, 73, 81, 89, 97, 105 and duplicated verbatim at 117, 125, 133, 141, 149, 157. The icons inside are `text-white` (line 534) rather than a foreground token, so they do not respond to theme. Line 436 uses `text-amber-500` for the commander crown while AIBuilder uses `text-primary` for the same icon. None of these six palettes exists anywhere in tailwind.config.ts's theme extension.
+
+> **Fix:** Replace with a small set of semantic accent tokens defined in index.css so quick actions read as one system across Brain and the Builder.
+
+### [LOW] Stale-state read makes validationPassed always report success
+
+- **File:** `src/pages/AIBuilder.tsx:411`
+- **Category:** architecture
+
+handleBuild calls `setValidationErrors(prev => [...prev, ...])` at lines 305, 344, and 361 for color-identity violations, EDH power shortfalls, and budget overruns, then builds the result object with `validationPassed: validationErrors.length === 0` at line 411. React state updates are asynchronous, so `validationErrors` inside this closure still holds the render-time value — which is `[]`, since line 285 clears it at the top of the same function. `validationPassed` is therefore true on every build regardless of how many rules were violated.
+
+> **Fix:** Accumulate violations in a local array within handleBuild and derive validationPassed from that, setting state once at the end.
+
+### [LOW] Popular commanders are hardcoded with paraphrased, factually incomplete oracle text
+
+- **File:** `src/pages/AIBuilder.tsx:52`
+- **Category:** mtg-domain
+
+POPULAR_COMMANDERS (lines 52-102) hardcodes six commanders with fixed Scryfall image URLs and hand-written oracle text, some of which is wrong. Yuriko's entry (line 80) stops at 'reveal the top card of your library', omitting the entire payoff clause about putting it into your hand and each opponent losing life equal to its mana value — the reason the card is played. Meren's entry (line 98) reads 'At the beginning of your end step, return target creature from graveyard', dropping the experience-counter comparison that determines whether it returns to the battlefield or to hand. This text is fed straight into CommanderIntelligence.detectArchetype and the mtg-brain analysis prompt (lines 187-200, 202) when a user clicks a popular commander before the Scryfall refetch at line 596 lands. The list is also frozen, so no commander from the last several sets can appear.
+
+> **Fix:** Fetch the popular-commander list from Scryfall by EDHREC rank rather than hardcoding it, and never hand-transcribe oracle text.
+
+---
+

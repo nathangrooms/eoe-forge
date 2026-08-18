@@ -292,7 +292,10 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
     }
     
     console.log(`🎉 Sync complete! Total: ${totalProcessed} cards`);
-    await updateSyncStatus('completed', totalProcessed, totalProcessed, 'complete', currentPage);
+    // Pass null (not undefined) so the stored resume state is CLEARED. Leaving it set
+    // marks the sync "completed" while it still holds a next_page_url, which makes a
+    // partial sync look finished and confuses the next resume attempt.
+    await updateSyncStatus('completed', totalProcessed, totalProcessed, 'complete', currentPage, null);
     return { success: true, processed: totalProcessed, needsResume: false };
     
   } catch (error) {

@@ -58,6 +58,24 @@ interface Finding {
   status: DevStatus;
 }
 
+interface AuditFinding {
+  id: string;
+  area: string;
+  title: string;
+  file: string | null;
+  severity: Severity;
+  category: string;
+  detail: string;
+  recommendation: string;
+}
+
+interface AuditData {
+  generated: string;
+  fullReport: string;
+  areas: { area: string; summary: string }[];
+  findings: AuditFinding[];
+}
+
 interface DevLog {
   id: string;
   level: LogLevel;
@@ -212,6 +230,10 @@ export function DevConsole() {
   const [tasks, setTasks] = useState<DevTask[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [logs, setLogs] = useState<DevLog[]>([]);
+  const [audit, setAudit] = useState<AuditData | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
+  const [areaFilter, setAreaFilter] = useState<string>('all');
 
   const load = async () => {
     setLoading(true);
@@ -238,6 +260,21 @@ export function DevConsole() {
 
   useEffect(() => { load(); }, []);
 
+  /* The audit backlog is ~330 KB, so it is code-split and fetched only when the
+     admin actually opens the Findings tab rather than on every admin page load. */
+  const loadAudit = async () => {
+    if (audit || auditLoading) return;
+    setAuditLoading(true);
+    try {
+      const mod = await import('@/data/auditFindings.json');
+      setAudit((mod.default ?? mod) as unknown as AuditData);
+    } catch {
+      /* backlog is optional — the console still works without it */
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   const tasksByWorkstream = useMemo(() => {
     const map = new Map<string, DevTask[]>();
     for (const t of tasks) {
@@ -251,8 +288,12 @@ export function DevConsole() {
 
   const stats = useMemo(() => {
     const doneTasks = tasks.filter(t => t.status === 'done').length;
-    const openFindings = findings.filter(f => f.status !== 'done' && f.status !== 'cancelled').length;
-    const criticalFindings = findings.filter(
+    const merged = [
+      ...findings.map(f => ({ severity: f.severity, status: f.status })),
+      ...(audit?.findings ?? []).map(f => ({ severity: f.severity, status: 'planned' as DevStatus })),
+    ];
+    const openFindings = merged.filter(f => f.status !== 'done' && f.status !== 'cancelled').length;
+    const criticalFindings = merged.filter(
       f => (f.severity === 'critical' || f.severity === 'high') && f.status !== 'done' && f.status !== 'cancelled'
     ).length;
     const activeWs = workstreams.filter(w => w.status === 'in_progress').length;
@@ -261,7 +302,42 @@ export function DevConsole() {
       doneTasks, totalTasks: tasks.length, openFindings, criticalFindings,
       activeWs, totalWs: workstreams.length,
     };
-  }, [tasks, findings, workstreams]);
+  }, [tasks, findings, workstreams, audit]);
+
+  /* Tracked findings (dev_findings, mutable status) merged with the static audit
+     backlog. Tracked rows win on identical title so a promoted finding does not
+     appear twice. */
+  type MergedFinding = {
+    id: string; area: string; title: string; file: string | null;
+    severity: Severity | null; category: string | null;
+    detail: string | null; recommendation: string | null;
+    tracked: boolean; status?: DevStatus;
+  };
+
+  const allFindings: MergedFinding[] = useMemo(() => {
+    const rank: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    const tracked: MergedFinding[] = findings.map(f => ({ ...f, tracked: true }));
+    const trackedTitles = new Set(tracked.map(f => f.title));
+    const backlog: MergedFinding[] = (audit?.findings ?? [])
+      .filter(f => !trackedTitles.has(f.title))
+      .map(f => ({ ...f, tracked: false }));
+    return [...tracked, ...backlog].sort(
+      (a, b) => rank[(a.severity ?? 'low')] - rank[(b.severity ?? 'low')]
+    );
+  }, [findings, audit]);
+
+  const auditAreas = useMemo(
+    () => [...new Set(allFindings.map(f => f.area))].sort(),
+    [allFindings]
+  );
+
+  const visibleFindings = useMemo(
+    () => allFindings.filter(
+      f => (severityFilter === 'all' || f.severity === severityFilter)
+        && (areaFilter === 'all' || f.area === areaFilter)
+    ),
+    [allFindings, severityFilter, areaFilter]
+  );
 
   const findingsBySeverity = useMemo(() => {
     const order: Severity[] = ['critical', 'high', 'medium', 'low'];
@@ -334,7 +410,7 @@ export function DevConsole() {
           icon={Search}
           label="Open findings"
           value={stats.openFindings}
-          sub={`${findings.length} total logged`}
+          sub={`${stats.totalFindings} total logged`}
         />
         <StatTile
           icon={AlertTriangle}
@@ -345,7 +421,7 @@ export function DevConsole() {
         />
       </div>
 
-      <Tabs defaultValue="plan">
+      <Tabs defaultValue="plan" onValueChange={v => { if (v === 'findings') loadAudit(); }}>
         <TabsList>
           <TabsTrigger value="plan" className="gap-2">
             <ClipboardList className="h-4 w-4" /> Plan
@@ -368,45 +444,93 @@ export function DevConsole() {
           )}
         </TabsContent>
 
-        <TabsContent value="findings" className="mt-4">
-          {findings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No findings logged yet. The audit populates this table.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {findingsBySeverity.map(f => (
-                <Card key={f.id}>
-                  <CardContent className="pt-5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {f.severity && (
-                        <Badge variant={SEVERITY_META[f.severity].variant}>
-                          {SEVERITY_META[f.severity].label}
-                        </Badge>
-                      )}
-                      <Badge variant="outline">{f.area}</Badge>
-                      {f.category && (
-                        <span className="text-xs text-muted-foreground">{f.category}</span>
-                      )}
-                      <span className="ml-auto"><StatusPill status={f.status} /></span>
-                    </div>
-                    <p className="font-medium mt-2">{f.title}</p>
-                    {f.file && (
-                      <p className="text-xs font-mono text-muted-foreground mt-1 break-all">{f.file}</p>
-                    )}
-                    {f.detail && <p className="text-sm text-muted-foreground mt-2">{f.detail}</p>}
-                    {f.recommendation && (
-                      <div className="mt-3 rounded-md bg-muted/50 p-3">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Recommendation</p>
-                        <p className="text-sm">{f.recommendation}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+        <TabsContent value="findings" className="mt-4 space-y-4">
+          {/* filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground mr-1">Severity</span>
+            {(['all', 'critical', 'high', 'medium', 'low'] as const).map(s => (
+              <Button
+                key={s}
+                size="sm"
+                variant={severityFilter === s ? 'default' : 'outline'}
+                onClick={() => setSeverityFilter(s as Severity | 'all')}
+              >
+                {s === 'all' ? 'All' : SEVERITY_META[s as Severity].label}
+                <span className="ml-1.5 text-xs opacity-70 tabular-nums">
+                  {s === 'all' ? allFindings.length : allFindings.filter(f => f.severity === s).length}
+                </span>
+              </Button>
+            ))}
+          </div>
+
+          {auditAreas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">Area</span>
+              <Button size="sm" variant={areaFilter === 'all' ? 'default' : 'outline'} onClick={() => setAreaFilter('all')}>
+                All
+              </Button>
+              {auditAreas.map(a => (
+                <Button key={a} size="sm" variant={areaFilter === a ? 'default' : 'outline'} onClick={() => setAreaFilter(a)}>
+                  {a}
+                  <span className="ml-1.5 text-xs opacity-70 tabular-nums">
+                    {allFindings.filter(f => f.area === a).length}
+                  </span>
+                </Button>
               ))}
             </div>
           )}
+
+          {auditLoading && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading audit backlog…
+            </p>
+          )}
+
+          {!auditLoading && visibleFindings.length === 0 && (
+            <p className="text-sm text-muted-foreground">No findings match this filter.</p>
+          )}
+
+          <div className="space-y-3">
+            {visibleFindings.map(f => (
+              <Card key={f.id}>
+                <CardContent className="pt-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {f.severity && (
+                      <Badge variant={SEVERITY_META[f.severity].variant}>
+                        {SEVERITY_META[f.severity].label}
+                      </Badge>
+                    )}
+                    <Badge variant="outline">{f.area}</Badge>
+                    {f.category && <span className="text-xs text-muted-foreground">{f.category}</span>}
+                    {f.tracked ? (
+                      <span className="ml-auto"><StatusPill status={f.status!} /></span>
+                    ) : (
+                      <span className="ml-auto text-xs text-muted-foreground">backlog</span>
+                    )}
+                  </div>
+                  <p className="font-medium mt-2">{f.title}</p>
+                  {f.file && (
+                    <p className="text-xs font-mono text-muted-foreground mt-1 break-all">{f.file}</p>
+                  )}
+                  {f.detail && <p className="text-sm text-muted-foreground mt-2">{f.detail}</p>}
+                  {f.recommendation && (
+                    <div className="mt-3 rounded-md bg-muted/50 p-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Recommendation</p>
+                      <p className="text-sm">{f.recommendation}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {audit && (
+            <p className="text-xs text-muted-foreground pt-2">
+              Audit generated {audit.generated}. Full untruncated report: <code>{audit.fullReport}</code>
+            </p>
+          )}
         </TabsContent>
+
 
         <TabsContent value="logs" className="mt-4">
           <Card>

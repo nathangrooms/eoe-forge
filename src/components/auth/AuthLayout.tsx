@@ -40,7 +40,13 @@ export function AuthLayout({
         />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/40"
+          className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-background/30"
+        />
+        {/* Dedicated ground for the tagline: the art is bright and high-chroma
+            down there, and thin white type was picking up colour from it. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background via-background/85 to-transparent"
         />
 
         <div className="relative flex h-full flex-col justify-between p-10">

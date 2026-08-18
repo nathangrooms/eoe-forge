@@ -56,9 +56,16 @@ function fanGeometry(count: number) {
   return { step: sweep / (count - 1), arc: Math.min(22, count * 2.4) };
 }
 
+/**
+ * How much each card hides the one before it.
+ *
+ * Capped at 42%: beyond that the art and the type line disappear behind the
+ * next card and the hand becomes a stack of edges. Shrink-to-fit handles a hand
+ * too wide for the screen, so overlap does not have to absorb it.
+ */
 function overlapFraction(count: number): number {
   if (count <= 1) return 0;
-  return Math.min(0.6, Math.max(0.24, 1 - 7 / count));
+  return Math.min(0.42, Math.max(0.18, 1 - 7 / count));
 }
 
 /** Smallest a hand card may shrink to before it stops being readable at all. */
@@ -147,7 +154,7 @@ export function ViewerHand({
   }
 
   return (
-    <div ref={fanRef} className={cn('flex items-end justify-center overflow-hidden', className)}>
+    <div ref={fanRef} className={cn('flex items-end justify-center', className)}>
       <AnimatePresence initial={false}>
         {cards.map((card, index) => {
           const fromCommand = index >= hand.length;

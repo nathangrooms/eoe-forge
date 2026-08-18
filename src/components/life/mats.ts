@@ -40,11 +40,14 @@ export function isMatColor(value: unknown): value is MatColor {
 /**
  * Seat colours for a fresh pod, in the order they are handed out.
  *
- * Not WUBRG order: adjacent seats sit next to each other on a table, so the
- * default rotation alternates light against dark (white, black, blue, red) to
- * keep neighbouring mats from reading as the same mat.
+ * Not WUBRG order, and not arbitrary either: the three strongly hued mats go
+ * out first, so a two-player game is blue against red rather than two mats that
+ * are both nearly neutral. White comes fourth and black last, because those two
+ * are the pair most easily confused with each other and with the table itself —
+ * a four-player pod therefore defaults to four unmistakable mats, and black is
+ * still one tap away for anyone who wants it.
  */
-export const DEFAULT_MAT_ORDER: readonly MatColor[] = ['W', 'B', 'U', 'R', 'G'] as const;
+export const DEFAULT_MAT_ORDER: readonly MatColor[] = ['U', 'R', 'G', 'W', 'B'] as const;
 
 /**
  * The next colour not already taken, so growing a pod never hands out a
@@ -221,6 +224,17 @@ interface ToneSpec {
   art: number;
   /** `filter` applied to the art. */
   artFilter: string;
+  /**
+   * Move the key light to the middle of the tile instead of where the mat's own
+   * lighting puts it.
+   *
+   * Only the swatch wants this, and it is not cosmetic. Two mats are lit from
+   * off-canvas — white's sun sits above the top edge — so a thumbnail of them
+   * shows the *outer* falloff and nothing else, which made white render darker
+   * than black in the picker even though its mat is much lighter. A swatch is a
+   * sample of the paint, not a miniature of the lighting.
+   */
+  flatten?: boolean;
 }
 
 const TONE: Record<MatTone, ToneSpec> = {
@@ -247,14 +261,20 @@ const TONE: Record<MatTone, ToneSpec> = {
     artFilter: 'saturate(0.78) brightness(0.6) contrast(1.06)',
   },
   swatch: {
-    // A 60px tile has almost no room for a gradient to develop, so it is given
-    // the colour flat out. This is the one place the mat is meant to shout.
-    gain: 1.5,
+    // A 70px tile shows the *inside* of a gradient, never its shape — and for
+    // the mats lit from off-canvas it would otherwise show only the dim outer
+    // stops. A gain this high drags every stop up to the colour's ceiling, so a
+    // swatch reads as a flat sample of the mat at its brightest. It still cannot
+    // exceed `peak`, which is what keeps white and black apart here too.
+    gain: 3,
     scrim: 0,
     center: 0,
-    vignette: 0.14,
-    art: 0.82,
-    artFilter: 'saturate(0.9) brightness(0.7) contrast(1.04)',
+    vignette: 0.1,
+    // And the art steps back: at thumbnail size an illustration is noise, and
+    // the swatch's job is to answer "which colour is this".
+    art: 0.5,
+    artFilter: 'saturate(0.9) brightness(0.75) contrast(1.04)',
+    flatten: true,
   },
 };
 
@@ -285,6 +305,7 @@ export function matSurfaceStyle(color: MatColor, tone: MatTone = 'seat'): CSSPro
   const def = matDefinition(color);
   const spec = TONE[tone];
   const g = spec.gain;
+  const light = spec.flatten ? '50% 34%' : def.light;
 
   const layers = [
     // Flat wash. The one layer that is pure contrast insurance.
@@ -312,7 +333,7 @@ export function matSurfaceStyle(color: MatColor, tone: MatTone = 'seat'): CSSPro
     // Key light. The layer that makes the mat that colour. Its outer stops fall
     // back to the accent where one is set, so white's warm core spreads out into
     // silver instead of flooding the whole mat with gold.
-    `radial-gradient(128% 104% at ${def.light}, ${wash(def, 1, g)} 0%, ${wash(def, 0.44, g, def.accent)} 42%, ${wash(def, 0.1, g, def.accent)} 82%)`,
+    `radial-gradient(128% 104% at ${light}, ${wash(def, 1, g)} 0%, ${wash(def, 0.44, g, def.accent)} 42%, ${wash(def, 0.1, g, def.accent)} 82%)`,
   ].filter(Boolean) as string[];
 
   return {

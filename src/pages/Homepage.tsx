@@ -4,12 +4,18 @@ import { HomeHero } from '@/components/marketing/HomeHero';
 import { HomeCollection, HomeCTA } from '@/components/marketing/HomeSections';
 import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { HomeNewSets } from '@/components/marketing/HomeNewSets';
-import { HomeFormats, HomeColors, HomeCatalogue } from '@/components/marketing/HomeStats';
+import { HomeColors, HomeCatalogue } from '@/components/marketing/HomeStats';
+import { HomeFormatPicker } from '@/components/marketing/HomeFormatPicker';
+import { HomeStorage } from '@/components/marketing/HomeStorage';
 import { HomeAppVisual } from '@/components/marketing/HomeAppVisual';
 import {
-  HomeSearch, HomeStorage, HomePortability, HomePower, HomeScanner, HomeBrain,
+  HomeSearch, HomePortability, HomePower, HomeScanner, HomeBrain,
 } from '@/components/marketing/HomeFeatureSections';
 import { HomePrecons } from '@/components/marketing/HomePrecons';
+import { HomeMarketplace } from '@/components/marketing/HomeMarketplace';
+import { HomePlayTable } from '@/components/marketing/HomePlayTable';
+import { HomeLifeCounter } from '@/components/marketing/HomeLifeCounter';
+import { HomeTournaments } from '@/components/marketing/HomeTournaments';
 import { FAQSection } from '@/components/marketing/FAQSection';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
@@ -35,12 +41,26 @@ import { supabase } from '@/integrations/supabase/client';
 function HomeFooter() {
   const groups = [
     {
-      heading: 'Product',
+      heading: 'Build',
       links: [
         { label: 'Deck builder', to: '/deck-builder' },
         { label: 'Collection', to: '/collection' },
+        { label: 'Storage', to: '/collection/storage' },
         { label: 'Card search', to: '/cards' },
+        { label: 'Precons', to: '/precons' },
         { label: 'Wishlist', to: '/wishlist' },
+      ],
+    },
+    /* These five ship today and were absent from the site map entirely — the
+       homepage sold a card catalogue rather than the platform. */
+    {
+      heading: 'Play',
+      links: [
+        { label: 'Marketplace', to: '/marketplace' },
+        { label: 'Tournaments', to: '/tournament' },
+        { label: 'Life counter', to: '/life' },
+        { label: 'Play a game', to: '/play' },
+        { label: 'Scan a card', to: '/scan' },
       ],
     },
     {
@@ -56,7 +76,7 @@ function HomeFooter() {
   return (
     <footer className="border-t bg-background py-12">
       <SectionInner>
-        <div className="grid gap-10 sm:grid-cols-3">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="font-semibold">DeckMatrix</p>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
@@ -140,12 +160,16 @@ export default function Homepage() {
       <HomeCatalogue />
       <HomeAppVisual />
       <HomeStorage />
+      <HomeMarketplace />
       <HomeSearch />
       <HomeNewSets />
       <HomePower />
       <HomeScanner />
+      <HomePlayTable />
+      <HomeLifeCounter />
+      <HomeTournaments />
       <HomeBrain />
-      <HomeFormats />
+      <HomeFormatPicker />
       <HomePrecons />
       <HomePortability />
       <HomeColors />

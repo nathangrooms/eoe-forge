@@ -32,6 +32,18 @@ const MISREAD = 'Lightnng Bolt';
 const TARGET = 'Lightning Bolt';
 
 /**
+ * Ravnica: Clue Edition — Christopher Moeller's original illustration.
+ *
+ * Pinned rather than picked by price. Sorting Lightning Bolt's printings by USD
+ * puts the Marvel crossover on top, and opening the scanner with a picture of
+ * Thor is the same mistake as letting Secret Lair oddities lead the card wall.
+ * Only the *choice of printing* is fixed here — the set, cost, type line and
+ * price all come off this row live, and if it ever disappears the query falls
+ * back to the cheapest printing that has art.
+ */
+const PINNED_PRINTING = '77c6fa74-5543-42ac-9ead-0e890b188e99';
+
+/**
  * Levenshtein distance, then similarity as a fraction of the longer string.
  *
  * Deliberately the same formula as `calculateSimilarity` in
@@ -138,13 +150,15 @@ export function HomeScanner() {
 
       if (cancelled) return;
 
-      /* Cheapest printing that actually has art — the same preference the
-         scanner's `prefer: 'cheapest'` mode applies to its candidates. */
-      const priced = ((data ?? []) as any[])
-        .filter(c => c?.image_uris?.large || c?.image_uris?.normal)
-        .sort((a, b) => Number(a.prices?.usd ?? Infinity) - Number(b.prices?.usd ?? Infinity));
+      const withArt = ((data ?? []) as any[]).filter(
+        c => c?.image_uris?.large || c?.image_uris?.normal
+      );
+      const pinned = withArt.find(c => c.id === PINNED_PRINTING);
+      const cheapest = [...withArt].sort(
+        (a, b) => Number(a.prices?.usd ?? Infinity) - Number(b.prices?.usd ?? Infinity)
+      )[0];
 
-      setCard((priced[0] as ScanCard) ?? null);
+      setCard(((pinned ?? cheapest) as ScanCard) ?? null);
     })();
     return () => {
       cancelled = true;
@@ -224,7 +238,7 @@ export function HomeScanner() {
 
               {/* the whole card, framed */}
               <div className="absolute inset-0 flex items-center justify-center px-10">
-                <div className="relative w-[62%]">
+                <div className="relative w-[68%]">
                   {card ? (
                     <CardImage card={card} fill />
                   ) : (
@@ -240,6 +254,10 @@ export function HomeScanner() {
                   />
                 </div>
               </div>
+
+              <p className="absolute inset-x-0 bottom-5 text-center text-[11px] text-white/50">
+                Captures on its own once the frame is sharp
+              </p>
             </div>
 
             {/* capture controls */}

@@ -35,6 +35,28 @@ export function cardHref(card: any): string {
 const CARD_COLUMNS =
   'id, oracle_id, name, mana_cost, type_line, cmc, color_identity, colors, rarity, set_code, collector_number, image_uris, prices, keywords, tags, layout';
 
+/** Same, minus the columns only the synergy groups need — `image_uris` is heavy. */
+const TILE_COLUMNS =
+  'id, oracle_id, name, mana_cost, type_line, cmc, color_identity, rarity, set_code, collector_number, image_uris, prices, layout';
+
+/**
+ * One retry, then give up.
+ *
+ * These queries all ride an index and return in ~100 ms warm, but a cold
+ * buffer cache under concurrent load can still trip Postgres' statement
+ * timeout (57014). That is transient, and losing a whole section of the page to
+ * it is a worse outcome than one extra round trip.
+ */
+async function retrying<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.warn(`${label} failed, retrying once:`, err);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return fn();
+  }
+}
+
 /** Tags that only restate the card's type — useless as a synergy signal. */
 const TYPE_TAGS = new Set([
   'creature',
@@ -307,7 +329,12 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           q = withinIdentity(q);
           if (oracleId) q = q.neq('oracle_id', oracleId);
 
-          const { data } = await q;
+          const { data, error } = await retrying(async () => {
+            const res = await q;
+            if (res.error) throw res.error;
+            return res;
+          }, 'Synergy (subtype)');
+          if (error) throw error;
           const ordered = dedupeByOracle(rank(data ?? [], () => 0), seen).slice(0, 14);
 
           if (ordered.length > 0) {
@@ -338,7 +365,12 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           q = withinIdentity(q);
           if (oracleId) q = q.neq('oracle_id', oracleId);
 
-          const { data } = await q;
+          const { data, error } = await retrying(async () => {
+            const res = await q;
+            if (res.error) throw res.error;
+            return res;
+          }, 'Synergy (keyword overlap)');
+          if (error) throw error;
           const sharedCount = (row: any) =>
             (row.keywords ?? []).filter((k: string) => keywords.includes(k)).length;
           const ordered = dedupeByOracle(rank(data ?? [], sharedCount), seen).slice(0, 14);
@@ -374,7 +406,12 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
           q = withinIdentity(q);
           if (oracleId) q = q.neq('oracle_id', oracleId);
 
-          const { data } = await q;
+          const { data, error } = await retrying(async () => {
+            const res = await q;
+            if (res.error) throw res.error;
+            return res;
+          }, 'Synergy (tag overlap)');
+          if (error) throw error;
           const sharedCount = (row: any) =>
             (row.tags ?? []).filter((t: string) => tags.includes(t)).length;
           const ordered = dedupeByOracle(rank(data ?? [], sharedCount), seen).slice(0, 14);
@@ -477,7 +514,7 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
       const fetchBatch = async (exact: boolean) => {
         let q = supabase
           .from('cards')
-          .select(CARD_COLUMNS)
+          .select(TILE_COLUMNS)
           // Trigram index on type_line — the only way to filter type without a seq scan.
           .ilike('type_line', `%${primary}%`)
           .gte('cmc', Math.max(0, cmc - 1))
@@ -514,7 +551,8 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
       // demonstrably had some.
       let exact: any[] = [];
       try {
-        exact = dedupeByOracle([...(await fetchBatch(true))].sort(byCloseness), seen);
+        const rows = await retrying(() => fetchBatch(true), 'Similar cards (exact identity)');
+        exact = dedupeByOracle([...rows].sort(byCloseness), seen);
       } catch (err) {
         console.error('Similar cards (exact identity) failed:', err);
       }
@@ -529,7 +567,8 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
       let didWiden = false;
       if (exact.length < 8 && colorIdentity.length > 0) {
         try {
-          const wider = dedupeByOracle([...(await fetchBatch(false))].sort(byCloseness), seen);
+          const rows = await retrying(() => fetchBatch(false), 'Similar cards (inside identity)');
+          const wider = dedupeByOracle([...rows].sort(byCloseness), seen);
           if (wider.length > 0) {
             list = [...exact, ...wider];
             didWiden = true;

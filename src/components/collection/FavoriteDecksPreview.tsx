@@ -254,15 +254,10 @@ export function FavoriteDecksPreview() {
                     cardCount={counts.total}
                     size="lg"
                     onClick={() => handleDeckClick(entry)}
-                  >
-                    <span
-                      title="Favourite deck"
-                      className="absolute left-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full bg-background/85 text-foreground shadow-lg shadow-black/40 backdrop-blur"
-                    >
-                      <Heart className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-                      <span className="sr-only">Favourite</span>
-                    </span>
-                  </CommanderHero>
+                  />
+                  {/* No badge over the art. Everything in this section is a
+                      favourite, and the one place a marker could sit is
+                      directly on top of the card's own name. */}
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-2.5">
@@ -285,7 +280,11 @@ export function FavoriteDecksPreview() {
                     <ColorIdentity colors={identity} size="sm" className="ml-auto gap-1" />
                   </div>
 
-                  {showPower && <PowerScore power={deck.power} variant="inline" />}
+                  {/* `compact`, not `inline`: the card is 320px tall and the
+                      column beside it was coming in 100px short, which left a
+                      hole above the progress bar. The bracket is worth the
+                      space anyway — it is the number players actually trade. */}
+                  {showPower && <PowerScore power={deck.power} variant="compact" />}
 
                   {entry.local ? (
                     <div className="grid grid-cols-3 gap-2">

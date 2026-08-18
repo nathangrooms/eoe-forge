@@ -133,7 +133,7 @@ const DONE = baseEvent({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3">
+    <section data-shot={title} className="space-y-3">
       <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
         {title}
       </h2>

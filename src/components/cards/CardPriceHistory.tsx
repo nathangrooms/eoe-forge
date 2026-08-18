@@ -59,14 +59,17 @@ function PriceCell({
   value,
   symbol,
   strong,
+  tint,
 }: {
   label: string;
   value: number | null;
   symbol: string;
   strong?: boolean;
+  /** One step lighter than whatever surface the panel is sitting on. */
+  tint: string;
 }) {
   return (
-    <div className="rounded-lg bg-muted/30 px-3 py-2">
+    <div className={cn('rounded-lg px-3 py-2', tint)}>
       <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p
         className={cn(
@@ -84,10 +87,20 @@ export interface CardPriceHistoryProps {
   /** The printing currently on screen — its `prices` blob is the "now" row. */
   card: any;
   oracleId?: string;
+  /**
+   * `card` is a standalone panel; `inset` sits inside one that already has the
+   * card surface, so it drops the shadow and tints one step further in.
+   */
+  surface?: 'card' | 'inset';
   className?: string;
 }
 
-export function CardPriceHistory({ card, oracleId, className }: CardPriceHistoryProps) {
+export function CardPriceHistory({
+  card,
+  oracleId,
+  surface = 'card',
+  className,
+}: CardPriceHistoryProps) {
   const [points, setPoints] = useState<Point[]>([]);
   const [basis, setBasis] = useState<Basis>(null);
   const [printingCount, setPrintingCount] = useState(0);
@@ -202,23 +215,30 @@ export function CardPriceHistory({ card, oracleId, className }: CardPriceHistory
 
   const prices = (card?.prices ?? {}) as Record<string, string | null>;
   const hasEur = visible.some(p => p.eur != null);
+  const tint = surface === 'inset' ? 'bg-muted/50' : 'bg-muted/30';
 
   return (
-    <section className={cn('min-w-0 rounded-xl bg-card p-4 shadow-lg shadow-black/20', className)}>
+    <section
+      className={cn(
+        'min-w-0 rounded-xl p-4',
+        surface === 'inset' ? 'bg-muted/20' : 'bg-card shadow-lg shadow-black/20',
+        className
+      )}
+    >
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
         Price
       </h2>
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-        <PriceCell label="USD" value={num(prices.usd)} symbol="$" strong />
-        <PriceCell label="EUR" value={num(prices.eur)} symbol="€" strong />
-        <PriceCell label="USD foil" value={num(prices.usd_foil)} symbol="$" />
-        <PriceCell label="EUR foil" value={num(prices.eur_foil)} symbol="€" />
+        <PriceCell label="USD" value={num(prices.usd)} symbol="$" strong tint={tint} />
+        <PriceCell label="EUR" value={num(prices.eur)} symbol="€" strong tint={tint} />
+        <PriceCell label="USD foil" value={num(prices.usd_foil)} symbol="$" tint={tint} />
+        <PriceCell label="EUR foil" value={num(prices.eur_foil)} symbol="€" tint={tint} />
         {num(prices.usd_etched) != null && (
-          <PriceCell label="USD etched" value={num(prices.usd_etched)} symbol="$" />
+          <PriceCell label="USD etched" value={num(prices.usd_etched)} symbol="$" tint={tint} />
         )}
         {num(prices.tix) != null && (
-          <PriceCell label="MTGO tix" value={num(prices.tix)} symbol="" />
+          <PriceCell label="MTGO tix" value={num(prices.tix)} symbol="" tint={tint} />
         )}
       </div>
 
@@ -268,7 +288,7 @@ export function CardPriceHistory({ card, oracleId, className }: CardPriceHistory
         {loading ? (
           <div className="h-[180px] animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none" />
         ) : visible.length < 2 ? (
-          <div className="rounded-lg bg-muted/20 px-4 py-6">
+          <div className={cn('rounded-lg px-4 py-6', tint)}>
             <p className="text-sm text-foreground">
               {points.length === 0
                 ? 'No price snapshots have been recorded for this card yet.'

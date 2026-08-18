@@ -287,7 +287,9 @@ export function PlayerPanel({
           role="group"
           aria-label={`${player.name}: ${player.life} life`}
           className={cn(
-            'absolute inset-1 overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_hsl(0_0%_0%/0.35)]',
+            // No `bg-card`: the mat is the surface now, and it paints its own
+            // floor. The shadow stays — it is what lifts the panel off the board.
+            'absolute inset-1 overflow-hidden rounded-2xl shadow-[0_1px_2px_hsl(0_0%_0%/0.35)]',
             'select-none',
           )}
           style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
@@ -398,14 +400,19 @@ export function PlayerPanel({
             )}
           </div>
 
-          {/* Eliminated: still on the table, still readable, no longer tappable. */}
+          {/*
+            Eliminated: still on the table, still readable, no longer tappable.
+            The wash is heavier than it used to be because it now has a lit mat
+            to put out — enough to read as extinguished, not so much that the
+            seat's colour is lost.
+          */}
           {dead && (
             <button
               type="button"
               onClick={onOpenDetail}
               aria-label={`${player.name} eliminated — open details`}
               className={cn(
-                'absolute inset-0 flex flex-col items-center justify-center gap-[0.4em] bg-background/65 text-center outline-none',
+                'absolute inset-0 flex flex-col items-center justify-center gap-[0.4em] bg-background/80 text-center outline-none',
                 !reducedMotion && 'transition-opacity duration-200 motion-reduce:transition-none',
               )}
               style={{ fontSize: nameSize, touchAction: 'none' }}

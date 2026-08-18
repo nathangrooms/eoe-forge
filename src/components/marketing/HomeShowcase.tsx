@@ -80,21 +80,26 @@ function ManaCurve({ cards }: { cards: ShowcaseCard[] }) {
     b => cards.filter(c => (b === 6 ? c.cmc >= 6 : Math.floor(c.cmc) === b)).length
   );
   const max = Math.max(1, ...counts);
+  const averageMv = cards.length
+    ? cards.reduce((sum, c) => sum + (Number(c.cmc) || 0), 0) / cards.length
+    : 0;
 
   return (
-    <div className="flex h-full flex-col">
+    /* Centred rather than stretched: letting the bars grow to fill the panel
+       turns the chart into a slab of solid white next to a text panel. A capped
+       height with the space split above and below reads as deliberate. */
+    <div className="flex h-full flex-col justify-center">
       {/* Each column is h-full with justify-end, so the bar's percentage height
           resolves against a definite box. Without that the columns size to their
-          content and every bar collapses to zero. `flex-1` lets the chart grow to
-          match the taller panel beside it rather than leaving dead space. */}
-      <div className="flex min-h-[10rem] flex-1 items-stretch gap-2">
+          content and every bar collapses to zero. */}
+      <div className="flex h-52 max-h-full items-stretch gap-2">
         {counts.map((n, i) => (
           <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
             <span className="text-[11px] leading-none tabular-nums text-muted-foreground">
               {n || ''}
             </span>
             <div
-              className="w-full rounded-t bg-foreground transition-all"
+              className="w-full rounded-t bg-foreground/85 transition-all"
               style={{ height: `${(Math.max(n, 0) / max) * 100}%`, minHeight: n > 0 ? 6 : 2 }}
             />
           </div>
@@ -110,6 +115,13 @@ function ManaCurve({ cards }: { cards: ShowcaseCard[] }) {
           </span>
         ))}
       </div>
+
+      {/* Both figures computed from the same rows the bars are drawn from. */}
+      <p className="mt-5 text-xs text-muted-foreground">
+        <span className="tabular-nums text-foreground">{cards.length}</span> cards ·{' '}
+        <span className="tabular-nums text-foreground">{averageMv.toFixed(1)}</span> average mana
+        value
+      </p>
     </div>
   );
 }

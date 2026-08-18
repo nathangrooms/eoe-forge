@@ -127,19 +127,28 @@ function DeckBox({ commander }: { commander: FiledCard | null }) {
   const template = getTemplateById('deckbox-simple');
 
   return (
-    <figure className="relative pb-14">
-      <div className="relative rounded-2xl bg-card p-4 pb-6 shadow-2xl shadow-black/60">
+    <figure className="relative">
+      <div className="relative rounded-2xl bg-card p-4 pb-5 shadow-2xl shadow-black/60">
         {/* Lid, hinged open behind the box */}
         <div
           aria-hidden="true"
           className="absolute inset-x-6 -top-3 h-6 rounded-t-xl bg-muted/60 shadow-lg shadow-black/40"
         />
-        {/* The deck, seen from above: sleeved card edges packed front to back */}
-        <div className="relative rounded-xl bg-background/80 p-3 shadow-[inset_0_3px_16px_rgba(0,0,0,0.6)]">
-          <div className="ml-auto w-full space-y-[3px]">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <CardEdge key={i} className={cn('h-1.5', i % 5 === 0 && 'bg-foreground/[0.16]')} />
+        {/* The deck seen from above: sleeved card edges packed front to back,
+            with the commander standing proud at the front of the box. */}
+        <div className="relative rounded-xl bg-background/80 p-3 pr-[7.5rem] shadow-[inset_0_3px_16px_rgba(0,0,0,0.6)] sm:pr-[8.5rem]">
+          <div className="space-y-[3px] py-1">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <CardEdge key={i} className={cn('h-1', i % 6 === 0 && 'bg-foreground/[0.18]')} />
             ))}
+          </div>
+
+          <div className="absolute -right-2 -top-6 w-28 rotate-3 drop-shadow-2xl sm:w-32">
+            {commander ? (
+              <CardImage card={commander} fill size="md" hideFlip />
+            ) : (
+              <CardImageSkeleton fill size="md" />
+            )}
           </div>
         </div>
 
@@ -147,15 +156,6 @@ function DeckBox({ commander }: { commander: FiledCard | null }) {
         <p className="pl-1 text-sm text-muted-foreground">
           Link it to a deck and the list knows where the cards physically are.
         </p>
-      </div>
-
-      {/* The commander stands at the front of the box — whole card, never cropped. */}
-      <div className="absolute -bottom-1 left-4 w-28 -rotate-3 drop-shadow-2xl sm:w-32">
-        {commander ? (
-          <CardImage card={commander} fill size="md" hideFlip />
-        ) : (
-          <CardImageSkeleton fill size="md" />
-        )}
       </div>
     </figure>
   );
@@ -188,14 +188,22 @@ function LongBox({ cards }: { cards: FiledCard[] | null }) {
                   {slot.name}
                 </span>
                 {Array.from({ length: 4 + ((i * 3) % 5) }).map((_, j) => (
-                  <CardEdge key={j} className="h-14 w-[5px] shrink-0 sm:h-20" />
+                  <CardEdge
+                    key={j}
+                    className={cn(
+                      'w-[5px] shrink-0',
+                      /* Cards do not sit at one exact height in a box. */
+                      (i + j) % 3 === 0 ? 'h-[3.1rem] sm:h-[4.6rem]' : 'h-14 sm:h-20',
+                      (i * 2 + j) % 5 === 0 && 'bg-foreground/[0.13]'
+                    )}
+                  />
                 ))}
               </Fragment>
             ))}
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 pl-1">
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 pl-1 sm:pr-56">
           <span className="text-sm font-medium">{template?.name}</span>
           <span className="text-sm text-muted-foreground">
             Twenty-six dividers, straight out of the template. Filing a card writes down its letter.
@@ -203,8 +211,8 @@ function LongBox({ cards }: { cards: FiledCard[] | null }) {
         </div>
       </div>
 
-      {/* Two cards pulled out of the box and leaning on the front of it. */}
-      <div className="pointer-events-none absolute -bottom-6 right-4 hidden items-end gap-3 sm:flex">
+      {/* Two cards lifted out of the box — whole cards, standing on its lip. */}
+      <div className="pointer-events-none absolute -top-7 right-6 hidden items-end gap-3 sm:flex">
         {(leaning.length ? leaning : [null, null]).map((c, i) => (
           <div
             key={c?.id ?? `leaning-${i}`}
@@ -287,7 +295,7 @@ export function HomeStorage() {
       const list = ((data ?? []) as unknown as FiledCard[])
         .filter(c => c.set_code !== 'sld' && Boolean(c.image_uris?.normal ?? c.image_uris?.large))
         .sort((a, b) => Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0))
-        .slice(0, 11);
+        .slice(0, 12);
 
       setCards(list.length ? list : []);
     })();

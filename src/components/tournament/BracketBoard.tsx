@@ -88,9 +88,10 @@ function BracketMatch({
 }) {
   return (
     <div
+      // Depth from surface tint and shadow. A ring here would be a hairline.
       className={cn(
         'w-56 space-y-1 rounded-xl bg-muted/30 p-1.5',
-        live && 'bg-muted ring-1 ring-foreground/20'
+        live && 'bg-muted shadow-md shadow-black/30'
       )}
     >
       <BracketSeat

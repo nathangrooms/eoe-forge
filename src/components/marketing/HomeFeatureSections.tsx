@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, Check } from 'lucide-react';
-import { ManaPip, ManaCost } from '@/components/ui/mana-cost';
-import { supabase } from '@/integrations/supabase/client';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
 
@@ -61,68 +57,11 @@ export function HomeSearch() {
   );
 }
 
-/* ------------------------------------------------------------------- storage */
-
-const CONTAINERS = [
-  { name: 'Commander binder', kind: 'Binder', slots: 360, used: 284 },
-  { name: 'Bulk box — blue', kind: 'Box', slots: 800, used: 612 },
-  { name: 'Atraxa deck box', kind: 'Deck box', slots: 100, used: 100 },
-  { name: 'Trade binder', kind: 'Binder', slots: 180, used: 96 },
-];
-
-export function HomeStorage() {
-  return (
-    <Section tint>
-      <div className="grid items-center gap-14 lg:grid-cols-2">
-        <SectionHeading
-          align="left"
-          eyebrow="Nobody else does this"
-          title="Know which box it is in"
-          lead="Moxfield and Archidekt know what you own. Neither knows where it is. Map your collection to real containers — binders, deck boxes, bulk boxes — down to the slot, so finding a card is a lookup instead of an afternoon."
-        >
-          <Button asChild size="lg" className="mt-8">
-            <Link to="/register">
-              Map your collection
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </SectionHeading>
-
-        {/* CSS mock of the storage view */}
-        <div className="overflow-hidden rounded-2xl bg-background p-5 shadow-2xl shadow-black/40">
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Containers
-          </p>
-          <div className="space-y-3">
-            {CONTAINERS.map(c => {
-              const pct = Math.round((c.used / c.slots) * 100);
-              return (
-                <div key={c.name} className="rounded-xl bg-muted/30 p-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm font-medium">{c.name}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {c.used}/{c.slots}
-                    </span>
-                  </div>
-                  <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-foreground/10">
-                    <div
-                      className="h-full rounded-full bg-foreground/70"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">{c.kind}</p>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-4 text-[11px] text-muted-foreground">
-            Illustrative layout — your own containers appear here once you add them.
-          </p>
-        </div>
-      </div>
-    </Section>
-  );
-}
+/* -------------------------------------------------------------------- storage
+ * `HomeStorage` moved to src/components/marketing/HomeStorage.tsx, where it is
+ * drawn as physical containers — a binder page, a deck box, an A-Z long box —
+ * instead of four progress bars over four invented containers.
+ */
 
 /* ------------------------------------------------------------- import/export */
 
@@ -215,89 +154,18 @@ export function HomePower() {
   );
 }
 
-/* -------------------------------------------------------------------- scanner */
+/* --------------------------------------------------- scanner / brain re-export */
 
-export function HomeScanner() {
-  return (
-    <Section>
-      <div className="grid items-center gap-14 lg:grid-cols-2">
-        <div className="order-2 lg:order-1 overflow-hidden rounded-2xl bg-card p-6 shadow-2xl shadow-black/40">
-          <div className="rounded-xl bg-muted/30 p-5">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Scanned
-            </p>
-            <p className="mt-2 font-mono text-sm text-muted-foreground line-through">
-              Lightnng Bolt
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <ManaPip symbol="R" size="lg" />
-              <div>
-                <p className="font-medium">Lightning Bolt</p>
-                <p className="text-xs text-muted-foreground">Matched from a misread</p>
-              </div>
-              <span className="ml-auto text-sm tabular-nums text-muted-foreground">$0.77</span>
-            </div>
-          </div>
-          <p className="mt-4 text-[11px] text-muted-foreground">
-            A real response from the card matcher — fuzzy matching corrects OCR slips.
-          </p>
-        </div>
-
-        <SectionHeading
-          align="left"
-          className="order-1 lg:order-2"
-          title="Point your phone at a card"
-          lead="The scanner waits until the frame is sharp and steady, reads the card, and adds it to your collection — bumping the quantity if you already own one. Typos from a blurry read get corrected by fuzzy matching against the catalogue."
-        >
-          <Button asChild size="lg" className="mt-8">
-            <Link to="/scan">
-              Try the scanner
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </SectionHeading>
-      </div>
-    </Section>
-  );
-}
-
-/* --------------------------------------------------------------------- brain */
-
-export function HomeBrain() {
-  return (
-    <Section tint>
-      <SectionHeading
-        title="Ask about the deck you actually built"
-        lead="The assistant loads your real decklist — composition, curve, mana sources, and what you already own — before it answers. It is not guessing at a generic list."
-      />
-
-      <div className="mt-14 space-y-4">
-        <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-foreground px-5 py-3 text-background">
-          <p className="text-sm">What should I cut for more interaction?</p>
-        </div>
-        <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-card px-5 py-4 shadow-lg shadow-black/20">
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Your curve is heavy at four and five, and you are running eleven pieces of
-            interaction against a recommended fifteen for this power band. The three highest
-            mana-value creatures that do not advance your commander plan are the safest cuts.
-          </p>
-          <p className="mt-3 text-[11px] text-muted-foreground/70">
-            Illustrative of the format of an answer, not a canned response.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-10 text-center">
-        <Button asChild size="lg" variant="outline">
-          <Link to="/brain">
-            Open the assistant
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
-    </Section>
-  );
-}
+/**
+ * Both of these outgrew this file.
+ *
+ * `HomeScanner` is now a CSS camera — body, viewfinder, focus brackets around a
+ * whole 5:7 card, shutter, and the fuzzy match resolving underneath.
+ * `HomeBrain` now loads a real 100-card precon and computes its answer from it.
+ * They live in their own modules; re-exported here so importers do not move.
+ */
+export { HomeScanner } from '@/components/marketing/HomeScanner';
+export { HomeBrain } from '@/components/marketing/HomeBrain';
 
 /* ------------------------------------------------------------------- precons */
 

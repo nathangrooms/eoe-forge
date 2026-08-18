@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { supabase } from '@/integrations/supabase/client';
-import { countCardsWhere, selectCardsWhere } from '@/lib/supabase/jsonPath';
+import { selectCardsWhere } from '@/lib/supabase/jsonPath';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /**
@@ -14,56 +14,11 @@ import { Section, SectionHeading } from '@/components/marketing/Section';
  * Every figure is a live COUNT against the cards table — nothing is typed in.
  * If the sync ever regresses, these numbers fall with it, which is the point:
  * the homepage should not be able to overstate the product.
+ *
+ * `HomeFormats` used to live here — six tiles of legal-card counts. It was
+ * replaced by `HomeFormatPicker`, which demonstrates legality with real cards
+ * instead of counting it. See src/components/marketing/HomeFormatPicker.tsx.
  */
-
-/* ------------------------------------------------------------ format support */
-
-const FORMATS: { key: string; label: string; blurb: string }[] = [
-  { key: 'commander', label: 'Commander', blurb: '100-card singleton, colour identity enforced' },
-  { key: 'modern', label: 'Modern', blurb: '8th Edition forward' },
-  { key: 'pioneer', label: 'Pioneer', blurb: 'Return to Ravnica forward' },
-  { key: 'standard', label: 'Standard', blurb: 'The current rotation' },
-  { key: 'pauper', label: 'Pauper', blurb: 'Commons only' },
-  { key: 'legacy', label: 'Legacy', blurb: 'Nearly the whole card pool' },
-];
-
-
-export function HomeFormats() {
-  const [counts, setCounts] = useState<Record<string, number> | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const entries = await Promise.all(
-        FORMATS.map(async f => {
-          const { count } = await countCardsWhere().eq(`legalities->>${f.key}`, 'legal');
-          return [f.key, count ?? 0] as const;
-        })
-      );
-      setCounts(Object.fromEntries(entries));
-    })();
-  }, []);
-
-  return (
-    <Section>
-      <SectionHeading
-        title="Every format, with real legality"
-        lead="Legality comes straight from the card data, not from a hand-maintained list — so bans and rotations are already reflected."
-      />
-
-      <div className="mt-14 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {FORMATS.map(f => (
-          <div key={f.key} className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
-            <div className="text-3xl font-semibold tabular-nums tracking-tight">
-              {counts ? counts[f.key].toLocaleString() : <Skeleton className="h-8 w-24" />}
-            </div>
-            <p className="mt-1.5 font-medium">{f.label}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{f.blurb}</p>
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
 
 /* ------------------------------------------------------ colour identity pool */
 

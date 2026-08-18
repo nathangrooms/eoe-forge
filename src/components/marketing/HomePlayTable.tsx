@@ -41,6 +41,7 @@ import {
  * commander's colours, and these creatures are castable off them.
  */
 const COMMANDER = "Trostani, Selesnya's Voice";
+const BOT_COMMANDER = 'Lazav, Dimir Mastermind';
 
 const YOUR_CREATURES: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Sigarda, Host of Herons' },
@@ -65,7 +66,7 @@ const BOT_CREATURES: Array<{ name: string; tapped?: boolean }> = [
 const BOT_LANDS: Array<{ name: string; tapped?: boolean }> = [
   { name: 'Watery Grave' },
   { name: 'Island' },
-  { name: 'Island', tapped: true },
+  { name: 'Swamp', tapped: true },
 ];
 
 const YOUR_HAND = [
@@ -79,6 +80,7 @@ const YOUR_HAND = [
 const ALL_NAMES = Array.from(
   new Set([
     COMMANDER,
+    BOT_COMMANDER,
     ...YOUR_CREATURES.map(c => c.name),
     ...YOUR_LANDS.map(c => c.name),
     ...BOT_CREATURES.map(c => c.name),
@@ -159,9 +161,14 @@ function PermanentRow({
   );
 }
 
-function ZoneLabel({ children }: { children: ReactNode }) {
+function ZoneLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+    <p
+      className={cn(
+        'mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
+        className
+      )}
+    >
       {children}
     </p>
   );

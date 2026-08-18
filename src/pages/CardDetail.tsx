@@ -735,6 +735,16 @@ export default function CardDetailPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Price rides in the hero rather than below it: with a
+                        380px card on the left, a short rules box left several
+                        hundred pixels of dead column, and price is the number
+                        a player wants without scrolling anyway. */}
+                    <CardPriceHistory
+                      card={card}
+                      oracleId={card.oracle_id ?? dbCard?.oracle_id}
+                      surface="inset"
+                    />
                   </div>
 
                 {/* ---- Facts ---- */}
@@ -792,18 +802,14 @@ export default function CardDetailPage() {
             onSelect={selectPrinting}
           />
 
-          {/* --------------------- Legality + price -------------------- */}
-          <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-            <section className="min-w-0 rounded-xl bg-card p-4 shadow-lg shadow-black/20">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                <Layers className="h-4 w-4" aria-hidden />
-                Format legality
-              </h2>
-              <CardLegalityGrid legalities={legalities} />
-            </section>
-
-            <CardPriceHistory card={card} oracleId={card.oracle_id ?? dbCard?.oracle_id} />
-          </div>
+          {/* ------------------------ Legality ------------------------ */}
+          <section className="mt-4 min-w-0 rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Layers className="h-4 w-4" aria-hidden />
+              Format legality
+            </h2>
+            <CardLegalityGrid legalities={legalities} />
+          </section>
 
           {/* ------------------------- Related ------------------------ */}
           <CardWorksWellWith className="mt-4" card={card} dbCard={dbCard} />

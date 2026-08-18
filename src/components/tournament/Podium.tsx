@@ -118,11 +118,11 @@ export function Podium({ standings, views, eventName, gameFormat, rounds }: Podi
                   <p className="text-xs tabular-nums text-muted-foreground">
                     {standing.wins}–{standing.losses}–{standing.draws} · {standing.points} pts
                   </p>
-                  {view.deck && (
-                    <p className="w-full truncate text-xs text-muted-foreground/80">
-                      {view.deck.deckName}
-                    </p>
-                  )}
+                  {/* Always rendered so every column's caption block is the same
+                      height and the three cards line up along their bottoms. */}
+                  <p className="w-full truncate text-xs text-muted-foreground/80">
+                    {view.deck ? view.deck.deckName : ' '}
+                  </p>
                 </div>
               </div>
             );

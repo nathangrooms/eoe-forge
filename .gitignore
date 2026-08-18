@@ -25,3 +25,11 @@ dist-ssr
 
 # local screenshot tooling
 .shots/
+
+# agent screenshot scaffolding
+shot.html
+tshot.html
+navcheck.html
+src/__shot.tsx
+src/__navcheck.tsx
+src/pages/__*.tsx

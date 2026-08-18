@@ -146,8 +146,9 @@ export function EventHeader({
         </div>
       </div>
 
-      {/* Counted facts */}
-      <div className="grid grid-cols-2 gap-px bg-muted/20 sm:grid-cols-4">
+      {/* Counted facts. Spaced panels, not divided cells — a 1px grid gap over a
+          tinted background is a hairline by another name. */}
+      <div className="grid grid-cols-2 gap-4 bg-muted/20 px-4 py-3 sm:grid-cols-4">
         <Stat label="Players" value={String(active)} hint={
           tournament.dropped.length > 0 ? `${tournament.dropped.length} dropped` : `${registered} decks registered`
         } />
@@ -265,7 +266,7 @@ function Stat({
   truncate?: boolean;
 }) {
   return (
-    <div className="bg-card px-4 py-3">
+    <div className="min-w-0">
       <p className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </p>

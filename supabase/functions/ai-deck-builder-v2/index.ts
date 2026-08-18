@@ -20,23 +20,38 @@ interface BuildRequest {
   archetype: string;
   powerLevel: number;
   budget?: number;
+  customPrompt?: string;
   useAIPlanning?: boolean;
 }
 
-// Basic lands - always valid
-const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+/**
+ * A Commander deck is 100 physical cards: the commander plus 99 others.
+ * Every count in this file is a count of PHYSICAL CARDS (sum of `quantity`),
+ * never a count of array entries. A 99-card deck legitimately occupies far
+ * fewer than 99 array slots because basics stack.
+ */
+const DECK_SLOTS = 99;
+
+// Basic lands are the only cards exempt from singleton. Wastes covers the
+// colourless case — the old code substituted Plains for colourless commanders,
+// which is not even a legal source of mana for them.
+const BASIC_LANDS = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 const COLOR_TO_BASIC: Record<string, string> = {
-  W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest'
+  W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest', C: 'Wastes'
 };
 
-// Basic land template (will get real ID from database)
-const BASIC_LAND_TEMPLATES: Record<string, any> = {
-  Plains: { name: 'Plains', type_line: 'Basic Land — Plains', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {W}.' },
-  Island: { name: 'Island', type_line: 'Basic Land — Island', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {U}.' },
-  Swamp: { name: 'Swamp', type_line: 'Basic Land — Swamp', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {B}.' },
-  Mountain: { name: 'Mountain', type_line: 'Basic Land — Mountain', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {R}.' },
-  Forest: { name: 'Forest', type_line: 'Basic Land — Forest', color_identity: [], prices: { usd: '0.10' }, cmc: 0, oracle_text: '{T}: Add {G}.' },
-};
+const isBasicLandName = (name: string) => BASIC_LANDS.includes(name);
+
+/** Physical card count. The ONLY legitimate way to size a deck. */
+const countCopies = (deck: any[]): number =>
+  deck.reduce((sum, c) => sum + (Number(c?.quantity) || 1), 0);
+
+/** A card id we can actually write to `deck_cards.card_id`. */
+const hasPersistableId = (c: any): boolean =>
+  typeof c?.id === 'string' &&
+  c.id.length > 0 &&
+  !c.id.startsWith('missing-basic-') &&
+  !c.id.includes('pad-');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -47,18 +62,22 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const buildRequest: BuildRequest = await req.json();
     const config = getAdminConfig();
-    
+
+    if (!buildRequest?.commander?.name) {
+      throw new Error('No commander supplied. Pick a commander and try again.');
+    }
+
     const commanderColors = new Set(buildRequest.commander.color_identity || []);
     const isColorless = commanderColors.size === 0;
     const targetBudget = buildRequest.budget || 500;
     const targetPower = buildRequest.powerLevel;
-    
+
     console.log('═'.repeat(60));
-    console.log('AI DECK BUILDER V2 - FIXED CARD GENERATION');
+    console.log('AI DECK BUILDER V2');
     console.log('═'.repeat(60));
     console.log(`Commander: ${buildRequest.commander.name}`);
     console.log(`Colors: [${[...commanderColors].join(', ') || 'Colorless'}]`);
@@ -67,7 +86,7 @@ serve(async (req) => {
     // ========== PHASE 1: AI PLANNING ==========
     console.log('\n📋 PHASE 1: AI Planning...');
     let deckPlan: any = null;
-    
+
     if (buildRequest.useAIPlanning !== false && lovableApiKey) {
       deckPlan = await generateDeckPlan(buildRequest, lovableApiKey, config);
       if (deckPlan) {
@@ -75,357 +94,457 @@ serve(async (req) => {
       }
     }
 
-    // ========== PHASE 2: FETCH CARD POOL (OPTIMIZED - SINGLE QUERY) ==========
-    console.log('\n📦 PHASE 2: Fetching cards (optimized)...');
-    
-    // Build color filter for efficient query - only fetch cards in commander's colors
-    const colorArray = [...commanderColors];
-    
-    // Fetch cards in a SINGLE query with color filter - much faster than pagination
-    // For colorless commanders, we fetch colorless cards only
-    // For colored commanders, we fetch cards that match the color identity
+    // ========== PHASE 2: FETCH CARD POOL ==========
+    console.log('\n📦 PHASE 2: Fetching cards...');
+
     let cardQuery = supabase
       .from('cards')
       .select('id, name, type_line, oracle_text, cmc, color_identity, colors, rarity, prices, mana_cost, keywords')
       .eq('legalities->>commander', 'legal');
-    
-    // Apply color filter at database level to reduce data transfer
+
     if (isColorless) {
       cardQuery = cardQuery.or('color_identity.eq.{},color_identity.is.null');
     }
-    
-    // Limit to 8000 cards to stay within CPU limits
+
     const { data: allCards, error: cardsError } = await cardQuery.limit(8000);
-    
+
     if (cardsError) throw new Error(`Failed to fetch cards: ${cardsError.message}`);
     console.log(`  Total cards fetched: ${allCards?.length || 0}`);
 
-    // Get basic lands from database - need REAL IDs
-    const basicLandMap: Record<string, any> = {};
-    const { data: basicLands } = await supabase
+    /*
+     * Basic lands, with their REAL database ids.
+     *
+     * This query used to carry `.limit(5)` on the assumption of one printing per
+     * basic. The cards table now holds several printings of each, and the index
+     * scan returns them in name-alphabetical order, so `.limit(5)` handed back
+     * five Forests and Islands and left Mountain/Plains/Swamp permanently
+     * unresolvable. Every short deck the builder has ever produced started here.
+     * Fetch them all, then keep one row per distinct name.
+     */
+    const { data: basicRows, error: basicError } = await supabase
       .from('cards')
-      .select('id, name, type_line, oracle_text, cmc, color_identity, colors, prices')
-      .in('name', BASIC_LANDS)
-      .limit(5);
-    
-    if (basicLands) {
-      for (const basic of basicLands) {
-        basicLandMap[basic.name] = basic;
-      }
+      .select('id, name, type_line, oracle_text, cmc, color_identity, colors, prices, mana_cost')
+      .in('name', BASIC_LANDS);
+
+    if (basicError) throw new Error(`Failed to fetch basic lands: ${basicError.message}`);
+
+    const basicLandMap: Record<string, any> = {};
+    for (const name of BASIC_LANDS) {
+      const matches = (basicRows || []).filter(r => r.name === name);
+      if (!matches.length) continue;
+      // Prefer a row that really is a basic land, in case something odd shares the name.
+      const chosen = matches.find(r => (r.type_line || '').startsWith('Basic Land')) || matches[0];
+      if (hasPersistableId(chosen)) basicLandMap[name] = chosen;
     }
-    console.log(`  Basic lands from DB: ${Object.keys(basicLandMap).length}`);
-    
-    // Filter by color identity (client-side for accuracy)
+    console.log(
+      `  Basic lands resolved: ${Object.keys(basicLandMap).join(', ') || 'NONE'} ` +
+      `(from ${basicRows?.length || 0} printings)`
+    );
+
+    // The basics this deck is allowed to run, in colour order.
+    const deckColors = [...commanderColors];
+    const wantedBasics = (deckColors.length ? deckColors : ['C'])
+      .map(c => COLOR_TO_BASIC[c])
+      .filter(Boolean);
+    const availableBasics = wantedBasics.filter(n => basicLandMap[n]);
+    const missingBasics = wantedBasics.filter(n => !basicLandMap[n]);
+    if (missingBasics.length) {
+      console.warn(`  ⚠ Basics missing from the card database: ${missingBasics.join(', ')}`);
+    }
+
+    // Colour-identity filter. The commander itself is removed from the pool so it
+    // can never be counted twice — once as the commander and once in the 99.
+    const commanderName = buildRequest.commander.name;
+    const commanderIdFromRequest = buildRequest.commander.id;
     const colorFilteredCards = (allCards || []).filter(card => {
-      if (BASIC_LANDS.includes(card.name)) return false;
+      if (isBasicLandName(card.name)) return false;
+      if (card.name === commanderName) return false;
+      if (commanderIdFromRequest && card.id === commanderIdFromRequest) return false;
+      if (!hasPersistableId(card)) return false;
       const cardIdentity = card.color_identity || [];
       if (isColorless) return cardIdentity.length === 0;
       return cardIdentity.every((c: string) => commanderColors.has(c));
     });
-    
+
     console.log(`  Color-filtered cards: ${colorFilteredCards.length}`);
 
-    // ========== PHASE 3: BUILD DECK (SINGLE PASS - NO ITERATIONS) ==========
+    if (colorFilteredCards.length < 40 && availableBasics.length === 0) {
+      throw new Error(
+        `The card database has too few legal cards for ${commanderName} ` +
+        `(${colorFilteredCards.length} in colour identity, no basic lands available). ` +
+        `Run a card sync before building.`
+      );
+    }
+
+    // ========== PHASE 3: BUILD DECK ==========
     console.log('\n🔄 PHASE 3: Building deck...');
-    
-    let bestDeck: any[] = [];
-    let bestValidation: any = { isValid: false, issues: [], totalCost: 0, landCount: 0 };
-    let bestEdhPower: number | null = null;
-    let bestEdhData: any = null;
-    
-    // Single pass - no iterations to save CPU time
-    {
-      console.log('\n--- Building deck (single pass) ---');
-      
-      const usedCardNames = new Set<string>();
-      const cardsToAvoid = new Set<string>(); // Cards AI says to avoid (can be populated from deckPlan if available)
-      const deck: any[] = [];
-      
-      // Helper: Add card
-      const addCard = (card: any): boolean => {
-        if (!card) return false;
-        const isBasic = BASIC_LANDS.includes(card.name);
-        if (!isBasic && usedCardNames.has(card.name)) return false;
-        if (cardsToAvoid.has(card.name)) return false;
-        
-        deck.push(card);
-        if (!isBasic) usedCardNames.add(card.name);
-        return true;
-      };
-      
-      // Score card
-      const scoreCard = (card: any, isKey: boolean = false): number => {
-        let score = 0;
-        const price = parseFloat(card.prices?.usd || '0');
-        const text = (card.oracle_text || '').toLowerCase();
-        
-        // Penalize expensive cards
-        if (price > 20) score -= (price - 20) * 0.5;
-        if (card.rarity === 'mythic') score += 4;
-        if (card.rarity === 'rare') score += 2;
-        score += Math.max(0, 5 - (card.cmc || 0));
-        
-        const cmdrText = (buildRequest.commander.oracle_text || '').toLowerCase();
-        for (const kw of ['token', 'counter', 'sacrifice', 'graveyard', 'draw']) {
-          if (cmdrText.includes(kw) && text.includes(kw)) score += 2;
-        }
-        
-        if (isKey) score += 25;
-        if (/sol ring|arcane signet|command tower/i.test(card.name)) score += 20;
-        
-        return score;
-      };
-      
-      // Role detection
-      const hasRole = (card: any, role: string): boolean => {
-        const text = (card.oracle_text || '').toLowerCase();
-        const type = (card.type_line || '').toLowerCase();
-        
-        switch (role) {
-          case 'ramp': return (text.includes('add') && /\{[wubrgc]\}/.test(text)) || 
-                              (text.includes('search') && text.includes('land'));
-          case 'draw': return text.includes('draw') && text.includes('card');
-          case 'removal': return text.includes('destroy target') || text.includes('exile target') || 
-                                 text.includes('destroy all');
-          case 'counter': return text.includes('counter target spell');
-          case 'land': return type.includes('land');
-          case 'creature': return type.includes('creature');
-          default: return false;
-        }
-      };
-      
-      // ===== BUILD DECK =====
-      
-      // Step 1: Staples
-      for (const name of ['Sol Ring', 'Arcane Signet', 'Command Tower']) {
-        const card = colorFilteredCards.find(c => c.name === name);
-        if (card) addCard(card);
+
+    const usedCardNames = new Set<string>();
+    const cardsToAvoid = new Set<string>(
+      (deckPlan?.mustAvoidCards || []).map((n: string) => String(n).toLowerCase())
+    );
+    /** Entries the trimmer is not allowed to touch. */
+    const protectedNames = new Set<string>();
+    const deck: any[] = [];
+
+    /** Every entry that lands in `deck` is a clone carrying an explicit quantity. */
+    const addCard = (card: any, opts: { protect?: boolean } = {}): boolean => {
+      if (!card || !hasPersistableId(card)) return false;
+      const isBasic = isBasicLandName(card.name);
+      if (!isBasic && usedCardNames.has(card.name)) return false;
+      if (cardsToAvoid.has(card.name.toLowerCase())) return false;
+
+      deck.push({ ...card, quantity: 1, isBasicLand: isBasic });
+      if (!isBasic) usedCardNames.add(card.name);
+      if (opts.protect) protectedNames.add(card.name);
+      return true;
+    };
+
+    const scoreCard = (card: any, isKey: boolean = false): number => {
+      let score = 0;
+      const price = parseFloat(card.prices?.usd || '0');
+      const text = (card.oracle_text || '').toLowerCase();
+
+      if (price > 20) score -= (price - 20) * 0.5;
+      if (card.rarity === 'mythic') score += 4;
+      if (card.rarity === 'rare') score += 2;
+      score += Math.max(0, 5 - (card.cmc || 0));
+
+      const cmdrText = (buildRequest.commander.oracle_text || '').toLowerCase();
+      for (const kw of ['token', 'counter', 'sacrifice', 'graveyard', 'draw']) {
+        if (cmdrText.includes(kw) && text.includes(kw)) score += 2;
       }
-      console.log(`  Staples: ${deck.length}`);
-      
-      // Step 2: AI key cards
-      if (deckPlan?.keyCards?.length) {
-        let keyAdded = 0;
-        for (const keyName of deckPlan.keyCards.slice(0, 20)) {
-          const keyLower = keyName.toLowerCase().trim();
-          let match = colorFilteredCards.find(c => 
-            c.name.toLowerCase() === keyLower && !usedCardNames.has(c.name)
+
+      if (isKey) score += 25;
+      if (/sol ring|arcane signet|command tower/i.test(card.name)) score += 20;
+
+      return score;
+    };
+
+    const hasRole = (card: any, role: string): boolean => {
+      const text = (card.oracle_text || '').toLowerCase();
+      const type = (card.type_line || '').toLowerCase();
+
+      switch (role) {
+        case 'ramp': return (text.includes('add') && /\{[wubrgc]\}/.test(text)) ||
+                            (text.includes('search') && text.includes('land'));
+        case 'draw': return text.includes('draw') && text.includes('card');
+        case 'removal': return text.includes('destroy target') || text.includes('exile target') ||
+                               text.includes('destroy all');
+        case 'counter': return text.includes('counter target spell');
+        case 'land': return type.includes('land');
+        case 'creature': return type.includes('creature');
+        default: return false;
+      }
+    };
+
+    const isLandEntry = (c: any) => (c.type_line || '').toLowerCase().includes('land');
+
+    // ----- Step 1: Staples -----
+    for (const name of ['Sol Ring', 'Arcane Signet', 'Command Tower']) {
+      const card = colorFilteredCards.find(c => c.name === name);
+      if (card) addCard(card, { protect: true });
+    }
+    console.log(`  Staples: ${countCopies(deck)}`);
+
+    // ----- Step 2: AI key cards -----
+    if (deckPlan?.keyCards?.length) {
+      let keyAdded = 0;
+      for (const keyName of deckPlan.keyCards.slice(0, 25)) {
+        const keyLower = String(keyName).toLowerCase().trim();
+        let match = colorFilteredCards.find(c =>
+          c.name.toLowerCase() === keyLower && !usedCardNames.has(c.name)
+        );
+        if (!match) {
+          match = colorFilteredCards.find(c =>
+            c.name.toLowerCase().includes(keyLower) && !usedCardNames.has(c.name)
           );
-          if (!match) {
-            match = colorFilteredCards.find(c => 
-              c.name.toLowerCase().includes(keyLower) && !usedCardNames.has(c.name)
-            );
-          }
-          if (match && addCard(match)) keyAdded++;
         }
-        console.log(`  Key cards: ${keyAdded}`);
+        if (match && addCard(match, { protect: true })) keyAdded++;
       }
-      
-      // Step 3: Cards by role
-      for (const { role, count, label } of [
-        { role: 'ramp', count: 10, label: 'Ramp' },
-        { role: 'draw', count: 10, label: 'Draw' },
-        { role: 'removal', count: 8, label: 'Removal' },
-        ...(commanderColors.has('U') ? [{ role: 'counter', count: 4, label: 'Counters' }] : [])
-      ]) {
-        const roleCards = colorFilteredCards
-          .filter(c => hasRole(c, role) && !usedCardNames.has(c.name) && !cardsToAvoid.has(c.name))
-          .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, count);
-        roleCards.forEach(c => addCard(c));
-        console.log(`  ${label}: ${roleCards.length}/${count}`);
-      }
-      
-      // Step 4: Creatures
-      let creaturesAdded = 0;
-      for (const { cmc, count } of [{ cmc: 1, count: 4 }, { cmc: 2, count: 8 }, { cmc: 3, count: 8 }, { cmc: 4, count: 5 }, { cmc: 5, count: 4 }, { cmc: 6, count: 2 }]) {
-        const creatures = colorFilteredCards
-          .filter(c => hasRole(c, 'creature') && !usedCardNames.has(c.name) && Math.floor(c.cmc || 0) === cmc)
-          .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, count);
-        creatures.forEach(c => addCard(c));
-        creaturesAdded += creatures.length;
-      }
-      console.log(`  Creatures: ${creaturesAdded}`);
-      
-      // Step 5: Utility lands first (target 15)
-      const utilityLands = colorFilteredCards
-        .filter(c => hasRole(c, 'land') && !BASIC_LANDS.includes(c.name) && !usedCardNames.has(c.name))
+      console.log(`  Key cards: ${keyAdded}`);
+    }
+
+    // ----- Step 3: Cards by role -----
+    for (const { role, count, label } of [
+      { role: 'ramp', count: config.minRampCount, label: 'Ramp' },
+      { role: 'draw', count: config.minDrawCount, label: 'Draw' },
+      { role: 'removal', count: config.minRemovalCount, label: 'Removal' },
+      ...(commanderColors.has('U') ? [{ role: 'counter', count: 4, label: 'Counters' }] : [])
+    ]) {
+      const roleCards = colorFilteredCards
+        .filter(c => hasRole(c, role) && !usedCardNames.has(c.name))
         .sort((a, b) => scoreCard(b) - scoreCard(a))
-        .slice(0, 15);
-      utilityLands.forEach(c => addCard(c));
-      console.log(`  Utility lands: ${utilityLands.length}`);
-      
-      // Step 6: Fill remaining non-land slots (target 63 non-lands = 99 - 36 lands)
-      const currentNonLands = deck.filter(c => !hasRole(c, 'land')).length;
-      const targetNonLands = 63;
-      const fillNeeded = targetNonLands - currentNonLands;
-      if (fillNeeded > 0) {
-        const fillers = colorFilteredCards
-          .filter(c => !hasRole(c, 'land') && !usedCardNames.has(c.name))
-          .sort((a, b) => scoreCard(b) - scoreCard(a))
-          .slice(0, fillNeeded);
-        fillers.forEach(c => addCard(c));
-        console.log(`  Fillers: ${fillers.length}`);
+        .slice(0, count);
+      roleCards.forEach(c => addCard(c, { protect: true }));
+      console.log(`  ${label}: ${roleCards.length}/${count}`);
+    }
+
+    // ----- Step 4: Creatures across the curve -----
+    let creaturesAdded = 0;
+    for (const { cmc, count } of [{ cmc: 1, count: 4 }, { cmc: 2, count: 8 }, { cmc: 3, count: 8 }, { cmc: 4, count: 5 }, { cmc: 5, count: 4 }, { cmc: 6, count: 2 }]) {
+      const creatures = colorFilteredCards
+        .filter(c => hasRole(c, 'creature') && !usedCardNames.has(c.name) && Math.floor(c.cmc || 0) === cmc)
+        .sort((a, b) => scoreCard(b) - scoreCard(a))
+        .slice(0, count);
+      creatures.forEach(c => addCard(c));
+      creaturesAdded += creatures.length;
+    }
+    console.log(`  Creatures: ${creaturesAdded}`);
+
+    // ----- Step 5: Utility lands -----
+    const targetLands = Math.min(
+      config.maxLandCount ?? 38,
+      Math.max(config.minLandCount ?? 35, 36)
+    );
+    const utilityLandTarget = availableBasics.length ? 15 : targetLands;
+    const utilityLands = colorFilteredCards
+      .filter(c => hasRole(c, 'land') && !usedCardNames.has(c.name))
+      .sort((a, b) => scoreCard(b) - scoreCard(a))
+      .slice(0, utilityLandTarget);
+    utilityLands.forEach(c => addCard(c, { protect: true }));
+    const utilityLandCount = countCopies(deck.filter(isLandEntry));
+    console.log(`  Utility lands: ${utilityLandCount}`);
+
+    // How many basic-land slots the manabase wants.
+    const reservedBasics = availableBasics.length
+      ? Math.max(0, targetLands - utilityLandCount)
+      : 0;
+    const coreTarget = DECK_SLOTS - reservedBasics;
+
+    // ----- Step 6: Fill the spell slots -----
+    let coreCopies = countCopies(deck);
+    if (coreCopies < coreTarget) {
+      const fillers = colorFilteredCards
+        .filter(c => !hasRole(c, 'land') && !usedCardNames.has(c.name))
+        .sort((a, b) => scoreCard(b) - scoreCard(a))
+        .slice(0, coreTarget - coreCopies);
+      fillers.forEach(c => addCard(c));
+      coreCopies = countCopies(deck);
+      console.log(`  Fillers: ${fillers.length}`);
+    }
+
+    /**
+     * Remove copies until the deck is at most `target` physical cards.
+     * Basics shrink first (a basic is the cheapest thing to lose), then the
+     * lowest-scoring unprotected spells, then unprotected lands. Returns how
+     * many copies it actually managed to remove.
+     */
+    const trimTo = (target: number): number => {
+      let removed = 0;
+      let total = countCopies(deck);
+      let guard = 0;
+      while (total > target && guard++ < 400) {
+        const over = total - target;
+
+        const basics = deck
+          .filter(c => c.isBasicLand && (c.quantity || 1) > 1)
+          .sort((a, b) => (b.quantity || 1) - (a.quantity || 1));
+        if (basics.length) {
+          const take = Math.min(over, (basics[0].quantity || 1) - 1);
+          basics[0].quantity -= take;
+          total -= take;
+          removed += take;
+          continue;
+        }
+
+        const candidates = deck
+          .filter(c => !protectedNames.has(c.name))
+          .sort((a, b) => {
+            const landDelta = Number(isLandEntry(a)) - Number(isLandEntry(b));
+            if (landDelta !== 0) return landDelta; // non-lands go first
+            return scoreCard(a) - scoreCard(b);
+          });
+        if (!candidates.length) break;
+
+        const worst = candidates[0];
+        const idx = deck.indexOf(worst);
+        if (idx === -1) break;
+        deck.splice(idx, 1);
+        usedCardNames.delete(worst.name);
+        total -= (worst.quantity || 1);
+        removed += (worst.quantity || 1);
       }
-      
-      // Step 7: CRITICAL - Fill remaining with basic lands (use REAL IDs from database)
-      const basicsNeeded = 99 - deck.length;
-      console.log(`  Basics needed: ${basicsNeeded}`);
-      
-      const colors = [...commanderColors];
-      if (colors.length === 0) colors.push('W');
-      
-      // Count how many of each basic we need
+      return removed;
+    };
+
+    const trimmed = trimTo(coreTarget);
+    if (trimmed) console.log(`  Trimmed ${trimmed} over-quota cards`);
+
+    // ----- Step 7: Basics complete the manabase -----
+    const basicsNeeded = DECK_SLOTS - countCopies(deck);
+    console.log(`  Basics needed: ${basicsNeeded}`);
+
+    if (basicsNeeded > 0 && availableBasics.length) {
       const basicCounts: Record<string, number> = {};
       for (let i = 0; i < basicsNeeded; i++) {
-        const color = colors[i % colors.length];
-        const basicName = COLOR_TO_BASIC[color] || 'Plains';
-        basicCounts[basicName] = (basicCounts[basicName] || 0) + 1;
+        const name = availableBasics[i % availableBasics.length];
+        basicCounts[name] = (basicCounts[name] || 0) + 1;
       }
-      
-      // Add each basic land with quantity
       for (const [basicName, count] of Object.entries(basicCounts)) {
-        const basicFromDb = basicLandMap[basicName];
-        if (basicFromDb) {
-          // Add as a single entry with quantity
-          deck.push({ 
-            ...basicFromDb, 
-            quantity: count,
-            isBasicLand: true
-          });
-        } else {
-          // Fallback: still add something but warn
-          console.log(`  ⚠ Could not find ${basicName} in database`);
-          deck.push({ 
-            ...BASIC_LAND_TEMPLATES[basicName], 
-            id: `missing-basic-${basicName}`,
-            quantity: count,
-            isBasicLand: true
-          });
-        }
+        // basicLandMap[basicName] is guaranteed present: availableBasics is
+        // derived from it. There is no synthetic-id fallback any more — a card
+        // this function cannot persist is never emitted.
+        deck.push({ ...basicLandMap[basicName], quantity: count, isBasicLand: true });
       }
-      
-      // Count including quantities
-      const countTotalCards = (d: any[]) => d.reduce((sum, c) => sum + (c.quantity || 1), 0);
-      const totalCardCount = countTotalCards(deck);
-      console.log(`  Total cards (with quantities): ${totalCardCount}`);
-      
-      // ===== VALIDATION =====
-      const validation = validateDeck(deck, buildRequest.commander, targetPower, targetBudget, config);
-      console.log(`  Validation: ${validation.isValid ? '✓ PASS' : '✗ FAIL'} - ${validation.issues.join(', ') || 'OK'}`);
-      
-      bestDeck = [...deck];
-      bestValidation = validation;
     }
 
-    // ========== FINAL FAILSAFE ==========
-    console.log('\n📊 Final check...');
-    
-    // Count total cards including quantities
-    const countTotalCards = (deck: any[]) => deck.reduce((sum, c) => sum + (c.quantity || 1), 0);
-    
-    // If bestDeck is still under 99 total cards, pad with basics
-    let currentTotal = countTotalCards(bestDeck);
-    if (currentTotal < 99) {
-      const needed = 99 - currentTotal;
-      const colors = [...commanderColors];
-      if (colors.length === 0) colors.push('W');
-      const basicName = COLOR_TO_BASIC[colors[0]] || 'Plains';
-      const basicFromDb = basicLandMap[basicName];
-      
-      if (basicFromDb) {
-        // Find existing basic land entry and add to quantity
-        const existingBasic = bestDeck.find(c => c.name === basicName && c.isBasicLand);
-        if (existingBasic) {
-          existingBasic.quantity = (existingBasic.quantity || 1) + needed;
-        } else {
-          bestDeck.push({ 
-            ...basicFromDb, 
-            quantity: needed,
-            isBasicLand: true
-          });
+    /**
+     * Deterministic top-up. Basics first (they fix the mana base), then the best
+     * remaining on-colour cards from the legal pool. Never invents an id.
+     */
+    const topUpTo = (target: number): number => {
+      let added = 0;
+      let total = countCopies(deck);
+
+      if (total < target && availableBasics.length) {
+        const need = target - total;
+        for (let i = 0; i < need; i++) {
+          const name = availableBasics[i % availableBasics.length];
+          const existing = deck.find(c => c.isBasicLand && c.name === name);
+          if (existing) existing.quantity = (existing.quantity || 1) + 1;
+          else deck.push({ ...basicLandMap[name], quantity: 1, isBasicLand: true });
         }
+        added += need;
+        total = countCopies(deck);
       }
+
+      if (total < target) {
+        // No basics available (e.g. a colourless commander with no Wastes synced).
+        // Fall back to on-colour staples so the deck is still exactly 99.
+        const spares = colorFilteredCards
+          .filter(c => !usedCardNames.has(c.name))
+          .sort((a, b) => scoreCard(b) - scoreCard(a))
+          .slice(0, target - total);
+        spares.forEach(c => { if (addCard(c)) added++; });
+        total = countCopies(deck);
+      }
+
+      return added;
+    };
+
+    const toppedUp = topUpTo(DECK_SLOTS);
+    if (toppedUp) console.log(`  Topped up ${toppedUp} cards`);
+
+    // ========== PHASE 4: REPAIR LOOP + HARD GATE ==========
+    console.log('\n📊 PHASE 4: Validation...');
+
+    // Repair, don't just report. Three passes is plenty: each pass moves the
+    // total strictly toward 99 and the pool only shrinks.
+    for (let pass = 0; pass < 3; pass++) {
+      const total = countCopies(deck);
+      if (total === DECK_SLOTS) break;
+      if (total > DECK_SLOTS) trimTo(DECK_SLOTS);
+      else topUpTo(DECK_SLOTS);
     }
-    
-    const finalTotal = countTotalCards(bestDeck);
-    console.log(`  Final deck: ${bestDeck.length} unique cards, ${finalTotal} total cards`);
+
+    const bestDeck = deck;
+    const finalTotal = countCopies(bestDeck);
+    const bestValidation = validateDeck(bestDeck, buildRequest.commander, targetBudget, config);
+
+    console.log(
+      `  Final deck: ${bestDeck.length} entries, ${finalTotal} cards, ` +
+      `${bestValidation.landCount} lands`
+    );
+    console.log(`  Validation: ${bestValidation.isValid ? '✓ PASS' : '✗ FAIL'} — ${bestValidation.issues.join('; ') || 'OK'}`);
+
+    // Refuse to hand back something that cannot be saved. A 200 with a short
+    // deck is what produced 67-, 79- and 86-card "Commander decks".
+    if (bestValidation.blocking.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Could not build a legal 100-card deck for ${commanderName}: ${bestValidation.blocking.join('; ')}`,
+          validation: bestValidation
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // ========== BUILD RESULT ==========
+    // Everything below counts copies, so a 99-card deck held in 84 entries
+    // reports 99 — the same number the client persists.
+    const qty = (c: any) => Number(c.quantity) || 1;
+    const sumBy = (pred: (c: any) => boolean) =>
+      bestDeck.filter(pred).reduce((s, c) => s + qty(c), 0);
+    const typeOf = (c: any) => (c.type_line || '').toLowerCase();
+
     const typeBreakdown = {
-      creatures: bestDeck.filter(c => c.type_line?.toLowerCase().includes('creature')).length,
-      lands: bestDeck.filter(c => c.type_line?.toLowerCase().includes('land')).length,
-      instants: bestDeck.filter(c => c.type_line?.toLowerCase().includes('instant')).length,
-      sorceries: bestDeck.filter(c => c.type_line?.toLowerCase().includes('sorcery')).length,
-      artifacts: bestDeck.filter(c => c.type_line?.toLowerCase().includes('artifact') && !c.type_line?.toLowerCase().includes('creature')).length,
-      enchantments: bestDeck.filter(c => c.type_line?.toLowerCase().includes('enchantment')).length,
-      planeswalkers: bestDeck.filter(c => c.type_line?.toLowerCase().includes('planeswalker')).length
+      creatures: sumBy(c => typeOf(c).includes('creature')),
+      lands: sumBy(c => typeOf(c).includes('land')),
+      instants: sumBy(c => typeOf(c).includes('instant')),
+      sorceries: sumBy(c => typeOf(c).includes('sorcery')),
+      artifacts: sumBy(c => typeOf(c).includes('artifact') && !typeOf(c).includes('creature')),
+      enchantments: sumBy(c => typeOf(c).includes('enchantment')),
+      planeswalkers: sumBy(c => typeOf(c).includes('planeswalker'))
     };
-    
-    const totalValue = bestDeck.reduce((sum, c) => sum + parseFloat(c.prices?.usd || '0'), 0);
-    
+
+    const totalValue = bestDeck.reduce(
+      (sum, c) => sum + parseFloat(c.prices?.usd || '0') * qty(c), 0
+    );
+
+    const nonLands = bestDeck.filter(c => !typeOf(c).includes('land'));
+    const nonLandCopies = nonLands.reduce((s, c) => s + qty(c), 0);
+
     const manaCurve: Record<string, number> = {};
-    bestDeck.filter(c => !c.type_line?.includes('Land')).forEach(c => {
+    nonLands.forEach(c => {
       const mv = Math.floor(c.cmc || 0);
       const key = mv >= 7 ? '7+' : mv.toString();
-      manaCurve[key] = (manaCurve[key] || 0) + 1;
+      manaCurve[key] = (manaCurve[key] || 0) + qty(c);
     });
 
-    const avgCmc = bestDeck.filter(c => !c.type_line?.includes('Land'))
-      .reduce((sum, c) => sum + (c.cmc || 0), 0) / 
-      Math.max(1, bestDeck.filter(c => !c.type_line?.includes('Land')).length);
+    const avgCmc = nonLandCopies > 0
+      ? nonLands.reduce((sum, c) => sum + (c.cmc || 0) * qty(c), 0) / nonLandCopies
+      : 0;
 
-    // Build EDH URL
-    let edhUrl = bestEdhData?.url || null;
-    if (!edhUrl && bestDeck.length > 0) {
-      let decklistParam = `1x+${encodeURIComponent(buildRequest.commander.name)}~`;
-      bestDeck.slice(0, 99).forEach(card => {
-        decklistParam += `1x+${encodeURIComponent(card.name)}~`;
-      });
-      edhUrl = `https://edhpowerlevel.com/?d=${decklistParam.slice(0, -1)}`;
-    }
+    // EDH URL — expand quantities so the manabase is represented honestly.
+    let decklistParam = `1x+${encodeURIComponent(commanderName)}~`;
+    bestDeck.forEach(card => {
+      decklistParam += `${qty(card)}x+${encodeURIComponent(card.name)}~`;
+    });
+    const edhUrl = `https://edhpowerlevel.com/?d=${decklistParam.slice(0, -1)}`;
 
-    console.log(`\n✓ Build complete: ${bestDeck.length} cards, $${totalValue.toFixed(2)}`);
+    console.log(`\n✓ Build complete: ${finalTotal} cards, $${totalValue.toFixed(2)}`);
 
     return new Response(
       JSON.stringify({
         status: 'complete',
         result: {
           deck: bestDeck,
+          totals: {
+            deckCards: finalTotal,
+            withCommander: finalTotal + 1,
+            entries: bestDeck.length,
+            lands: typeBreakdown.lands
+          },
           analysis: {
-            power: bestEdhPower || targetPower,
+            power: targetPower,
             typeBreakdown,
             manaCurve,
             avgCmc,
             totalValue,
             strategy: deckPlan?.strategy || null,
-            edhMetrics: bestEdhData?.metrics || null,
-            bracket: bestEdhData?.bracket || null,
-            cardAnalysis: bestEdhData?.cardAnalysis || null,
-            landAnalysis: bestEdhData?.landAnalysis || null
+            edhMetrics: null,
+            bracket: null,
+            cardAnalysis: null,
+            landAnalysis: null
           },
-        changeLog: [
-            `✓ ${bestDeck.length}/99 cards (+ commander = 100)`,
-            `✓ Colors: [${[...commanderColors].join(', ')}]`,
+          changeLog: [
+            `✓ ${finalTotal}/99 cards (+ commander = ${finalTotal + 1})`,
+            `✓ Colors: [${[...commanderColors].join(', ') || 'Colorless'}]`,
+            `✓ Lands: ${typeBreakdown.lands} (${sumBy(c => c.isBasicLand)} basic)`,
             `✓ Creatures: ${typeBreakdown.creatures}`,
-            `✓ Lands: ${typeBreakdown.lands}`,
             `✓ Value: $${totalValue.toFixed(2)}`,
-            `✓ Build: Single-pass`,
-            bestEdhPower ? `✓ EDH Power: ${bestEdhPower}` : '⏳ EDH Power: Pending'
+            missingBasics.length
+              ? `⚠ Basics not in card database: ${missingBasics.join(', ')}`
+              : `✓ Basics resolved: ${availableBasics.join(', ') || 'none needed'}`,
+            ...bestValidation.issues.map(i => `⚠ ${i}`)
           ],
           validation: bestValidation
         },
         plan: deckPlan,
-        edhPowerLevel: bestEdhPower,
+        edhPowerLevel: null,
         edhPowerUrl: edhUrl,
-        edhAnalysis: bestEdhData ? {
-          metrics: bestEdhData.metrics,
-          bracket: bestEdhData.bracket,
-          cardAnalysis: bestEdhData.cardAnalysis,
-          landAnalysis: bestEdhData.landAnalysis,
-          url: edhUrl
-        } : null,
+        edhAnalysis: null,
         iterations: 1
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -434,7 +553,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Build error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Unknown error' }),
+      JSON.stringify({ error: error?.message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -454,35 +573,94 @@ async function checkEdhPowerFull(supabaseUrl: string, supabaseKey: string, comma
   return null;
 }
 
-function validateDeck(deck: any[], commander: any, targetPower: number, targetBudget: number, config: any) {
-  const issues: string[] = [];
-  
-  if (deck.length !== 99) issues.push(`${deck.length}/99 cards`);
-  
-  const nonBasicNames = deck.filter(c => !BASIC_LANDS.includes(c.name)).map(c => c.name);
-  const seen = new Set<string>();
-  const duplicates: string[] = [];
-  for (const name of nonBasicNames) {
-    if (seen.has(name)) duplicates.push(name);
-    seen.add(name);
+export interface BuildValidation {
+  isValid: boolean;
+  /** Problems that make the deck impossible to save. Non-empty ⇒ do not return 200. */
+  blocking: string[];
+  /** Everything, blocking and advisory. */
+  issues: string[];
+  totalCards: number;
+  totalCost: number;
+  landCount: number;
+}
+
+/**
+ * Validates the deck the way Commander actually works: by physical card count.
+ * The previous version compared `deck.length` (array entries) to 99, which
+ * declared every correct deck invalid the moment basics started stacking, and
+ * declared a 79-card deck valid whenever it happened to occupy 99 slots.
+ */
+function validateDeck(
+  deck: any[],
+  commander: any,
+  targetBudget: number,
+  config: any
+): BuildValidation {
+  const blocking: string[] = [];
+  const advisory: string[] = [];
+  const qty = (c: any) => Number(c.quantity) || 1;
+
+  const totalCards = countCopies(deck);
+  if (totalCards !== DECK_SLOTS) {
+    blocking.push(`${totalCards} cards in the 99 (needs exactly ${DECK_SLOTS})`);
   }
-  if (duplicates.length > 0) issues.push(`Duplicates: ${duplicates.slice(0, 2).join(', ')}`);
-  
-  const commanderColors = new Set(commander.color_identity || []);
+
+  const unsaveable = deck.filter(c => !hasPersistableId(c));
+  if (unsaveable.length) {
+    blocking.push(
+      `${unsaveable.length} card(s) have no database id: ${unsaveable.slice(0, 3).map(c => c.name).join(', ')}`
+    );
+  }
+
+  // Singleton, counted in copies so a stacked non-basic is caught.
+  const copiesByName = new Map<string, number>();
+  for (const c of deck) {
+    if (isBasicLandName(c.name)) continue;
+    copiesByName.set(c.name, (copiesByName.get(c.name) || 0) + qty(c));
+  }
+  const duplicates = [...copiesByName.entries()].filter(([, n]) => n > 1).map(([n]) => n);
+  if (duplicates.length > 0) {
+    blocking.push(`Singleton broken: ${duplicates.slice(0, 3).join(', ')}`);
+  }
+
+  if (deck.some(c => c.name === commander?.name)) {
+    blocking.push(`The commander (${commander?.name}) also appears in the 99`);
+  }
+
+  const commanderColors = new Set<string>(commander?.color_identity || []);
   const violations = deck.filter(card => {
-    if (BASIC_LANDS.includes(card.name)) return false;
-    const cardColors = card.color_identity || [];
-    return cardColors.some((c: string) => !commanderColors.has(c));
+    const cardColors: string[] = card.color_identity || [];
+    return cardColors.some(c => !commanderColors.has(c));
   });
-  if (violations.length > 0) issues.push(`${violations.length} color violations`);
-  
-  const landCount = deck.filter(c => c.type_line?.toLowerCase().includes('land')).length;
-  if (landCount < 30) issues.push(`Only ${landCount} lands`);
-  
-  const totalCost = deck.reduce((sum, c) => sum + parseFloat(c.prices?.usd || '0'), 0);
-  if (totalCost > targetBudget * 1.3) issues.push(`$${totalCost.toFixed(0)} over budget`);
-  
-  return { isValid: issues.length === 0, issues, totalCost, landCount };
+  if (violations.length > 0) {
+    blocking.push(
+      `${violations.length} card(s) outside colour identity: ${violations.slice(0, 3).map(c => c.name).join(', ')}`
+    );
+  }
+
+  const landCount = deck
+    .filter(c => (c.type_line || '').toLowerCase().includes('land'))
+    .reduce((s, c) => s + qty(c), 0);
+  const minLands = config?.minLandCount ?? 35;
+  if (landCount < Math.min(30, minLands)) {
+    advisory.push(`Only ${landCount} lands`);
+  }
+
+  const totalCost = deck.reduce(
+    (sum, c) => sum + parseFloat(c.prices?.usd || '0') * qty(c), 0
+  );
+  if (totalCost > targetBudget * 1.3) {
+    advisory.push(`$${totalCost.toFixed(0)} over the $${targetBudget} budget`);
+  }
+
+  return {
+    isValid: blocking.length === 0 && advisory.length === 0,
+    blocking,
+    issues: [...blocking, ...advisory],
+    totalCards,
+    totalCost,
+    landCount
+  };
 }
 
 async function generateDeckPlan(buildRequest: any, apiKey: string, config: any): Promise<any> {
@@ -490,7 +668,8 @@ async function generateDeckPlan(buildRequest: any, apiKey: string, config: any):
     buildRequest.commander,
     buildRequest.archetype,
     buildRequest.powerLevel,
-    buildRequest.budget || 500
+    buildRequest.budget || 500,
+    buildRequest.customPrompt || ''
   );
 
   try {
@@ -500,24 +679,32 @@ async function generateDeckPlan(buildRequest: any, apiKey: string, config: any):
       body: JSON.stringify({
         model: config.aiValidationModel,
         messages: [
-          { role: 'system', content: 'You are an MTG Commander deck builder. Return valid JSON only.' },
+          { role: 'system', content: AI_PROMPTS.plannerSystem },
           { role: 'user', content: prompt }
         ],
       }),
     });
 
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     const text = data.choices[0].message.content;
-    
+
     let jsonStr = text.trim();
     const codeBlock = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (codeBlock) jsonStr = codeBlock[1];
     const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (jsonMatch) jsonStr = jsonMatch[0];
-    
-    return JSON.parse(jsonStr);
+
+    const plan = JSON.parse(jsonStr);
+
+    // The model returns suggestions, never counts we depend on. Normalise the
+    // only two fields the builder actually consumes.
+    return {
+      ...plan,
+      keyCards: Array.isArray(plan.keyCards) ? plan.keyCards.map((c: any) => String(c)) : [],
+      mustAvoidCards: Array.isArray(plan.mustAvoidCards) ? plan.mustAvoidCards.map((c: any) => String(c)) : []
+    };
   } catch (e) {
     console.error('AI planning error:', e);
     return null;

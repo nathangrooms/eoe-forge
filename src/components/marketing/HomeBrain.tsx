@@ -39,6 +39,20 @@ const GRID_SIZE = 12;
 /** How many of those the answer names. */
 const NAMED = 3;
 
+/**
+ * The six one-tap prompts the assistant ships with when a deck is selected —
+ * copied from `DECK_QUICK_ACTIONS` in `src/pages/Brain.tsx`, not invented for
+ * this page.
+ */
+const QUICK_ACTIONS = [
+  'Analyze deck',
+  'Suggest upgrades',
+  'Find combos',
+  'Meta analysis',
+  'What to cut',
+  'Strategy guide',
+];
+
 /* ------------------------------------------------------------------ loading */
 
 function useNearViewport<T extends HTMLElement>(rootMargin = '600px') {
@@ -164,7 +178,7 @@ function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div>
       <p className="text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
-      <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -177,18 +191,24 @@ function Curve({ curve, avgMv }: { curve: number[]; avgMv: number }) {
 
   return (
     <div>
-      <div className="flex h-24 items-end gap-1.5">
+      {/* Each column owns the full height and the bar is anchored to its floor,
+          so the percentage resolves against a real box rather than an auto one. */}
+      <div className="flex h-28 gap-1.5">
         {buckets.map(b => (
-          <div key={b.i} className="flex flex-1 flex-col items-center gap-1.5">
-            <span className="text-[10px] tabular-nums text-muted-foreground">{b.n}</span>
-            <div
-              className="w-full rounded-t-sm bg-foreground/65"
-              style={{ height: `${Math.max(2, (b.n / max) * 100)}%` }}
-            />
+          <div key={b.i} className="flex flex-1 flex-col gap-1.5">
+            <span className="text-center text-[10px] leading-none tabular-nums text-muted-foreground">
+              {b.n}
+            </span>
+            <div className="relative flex-1">
+              <div
+                className="absolute inset-x-0 bottom-0 rounded-t-sm bg-foreground/65"
+                style={{ height: `${Math.max(3, (b.n / max) * 100)}%` }}
+              />
+            </div>
           </div>
         ))}
       </div>
-      <div className="mt-1.5 flex gap-1.5">
+      <div className="mt-2 flex gap-1.5">
         {buckets.map(b => (
           <span
             key={b.i}
@@ -198,7 +218,7 @@ function Curve({ curve, avgMv }: { curve: number[]; avgMv: number }) {
           </span>
         ))}
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
+      <p className="mt-3.5 text-xs leading-relaxed text-muted-foreground">
         Mana curve across the nonland cards. Average mana value{' '}
         <span className="tabular-nums text-foreground">{avgMv.toFixed(2)}</span>.
       </p>
@@ -311,7 +331,7 @@ export function HomeBrain() {
                   <Stat value={String(stats.creatures)} label="Creatures" />
                   <Stat value={String(stats.dragons)} label="Dragons" />
                   <Stat value={String(stats.artifacts)} label="Artifacts" />
-                  <Stat value={String(stats.enchantments)} label="Enchant." />
+                  <Stat value={String(stats.enchantments)} label="Enchantments" />
                   <Stat value={String(stats.sorceries)} label="Sorceries" />
                   <Stat value={String(stats.instants)} label="Instants" />
                 </div>
@@ -396,12 +416,12 @@ export function HomeBrain() {
                     <span className="tabular-nums">{stats.instants}</span> instants.
                   </p>
                   <p>
-                    So there is nothing to cut <em>toward</em>: at{' '}
-                    <span className="tabular-nums">{stats.instants}</span> instants, this list cannot
-                    answer anything on an opponent&apos;s turn. The room is at the top of the curve —{' '}
-                    <span className="tabular-nums">{stats.heavy}</span> of the{' '}
-                    <span className="tabular-nums">{stats.nonland}</span> spells cost five or more.
-                    The heaviest that are not your commander:{' '}
+                    You are asking to cut <em>toward</em> something that is not in the list:{' '}
+                    <span className="tabular-nums">{stats.instants}</span> of the{' '}
+                    <span className="tabular-nums">{stats.nonland}</span> spells are instants, so
+                    interaction here has to be added rather than swapped in. The room is at the top
+                    of the curve — <span className="tabular-nums">{stats.heavy}</span> of those
+                    spells cost five or more. The heaviest that are not your commander:{' '}
                     {named.map((e, i) => (
                       <span key={e.scryfall_id}>
                         {i > 0 && (i === named.length - 1 ? ' and ' : ', ')}
@@ -431,11 +451,27 @@ export function HomeBrain() {
 
           <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
             {stats
-              ? `Every figure above is counted from the ${stats.total} cards on the left, in your browser — the three cards it names carry a white mana-value badge in that grid. In the app the same list is attached to your question before the assistant sees it.`
+              ? `Every figure above is counted from the ${stats.total} cards on the left — the three it names carry a white mana-value badge in that grid. In the app the same list is attached to your question before the assistant sees it.`
               : 'In the app your decklist is attached to the question before the assistant sees it.'}
           </p>
 
-          <div className="mt-auto pt-7">
+          <div className="mt-9">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Also one tap away
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {QUICK_ACTIONS.map(a => (
+                <span
+                  key={a}
+                  className="rounded-full bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
+                >
+                  {a}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-auto pt-9">
             <Link
               to="/brain"
               className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"

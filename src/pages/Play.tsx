@@ -92,15 +92,35 @@ import {
 
 const HUMAN_SEAT: PlayerId = 'p1';
 
-/**
- * How much of the board's bottom edge is reserved for the fanned hand. The
- * cards themselves are taller than this and deliberately overlap the viewer's
- * own mat, exactly as a hand held over the near edge of a table would.
- */
-const HAND_INSET = 96;
-
 /** Height of the floating HUD — the board is held off the top edge by this. */
 const HUD_INSET = 56;
+
+/** A real card is 63 × 88 mm: height = width ÷ this. */
+const CARD_RATIO = 0.7176;
+
+/**
+ * How the hand is sized against the screen it is being held over.
+ *
+ * `ViewerHand` treats its `cardWidth` as a ceiling and shrinks to fit the width
+ * available, which is the right rule for a wide screen and the wrong one for a
+ * short one: a laptop at 800px tall would otherwise hand you cards taller than
+ * a third of the table. So the page caps the ceiling by *height* and reserves a
+ * matching strip along the bottom edge.
+ *
+ * The reserved strip is deliberately smaller than a card. The fan overlaps the
+ * viewer's own mat, exactly as a hand held over the near edge of a table would;
+ * what the strip buys is that the seats above it are not crushed to make room.
+ */
+function handMetrics(viewportHeight: number): { cardWidth: number; inset: number } {
+  const height = Math.max(480, viewportHeight);
+  return {
+    // A hand about a quarter of the screen tall is the Arena proportion: big
+    // enough to read the rules text on the card you are about to commit to,
+    // small enough that the table is still the thing you are looking at.
+    cardWidth: Math.round(Math.min(260, Math.max(118, height * 0.26 * CARD_RATIO))),
+    inset: Math.round(Math.min(200, Math.max(96, height * 0.15))),
+  };
+}
 
 /**
  * Pace of the automatic walk between decisions.
@@ -150,6 +170,19 @@ export default function Play() {
   /** The turn number END TURN was pressed on. Null when nobody is ending one. */
   const [endingTurn, setEndingTurn] = useState<number | null>(null);
   const [zoneTarget, setZoneTarget] = useState<{ playerId: PlayerId; zone: Zone } | null>(null);
+
+  /** Viewport height, because the hand is sized against the screen it is on. */
+  const [viewportHeight, setViewportHeight] = useState(() =>
+    typeof window === 'undefined' ? 900 : window.innerHeight
+  );
+
+  useEffect(() => {
+    const onResize = () => setViewportHeight(window.innerHeight);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const hand = useMemo(() => handMetrics(viewportHeight), [viewportHeight]);
 
   /** The view combat interrupted, so it can be handed back afterwards. */
   const autoOpenedFrom = useRef<PlayViewId | null>(null);
@@ -571,7 +604,7 @@ export default function Play() {
                   viewerPlayerId={HUMAN_SEAT}
                   botPlayerIds={botPlayerIds}
                   variant={variant}
-                  bottomInset={HAND_INSET}
+                  bottomInset={hand.inset}
                   topInset={HUD_INSET}
                   onCardClick={handleCardClick}
                   onOpenZone={(playerId, zone) => setZoneTarget({ playerId, zone })}
@@ -589,6 +622,7 @@ export default function Play() {
                   state={state}
                   viewerPlayerId={HUMAN_SEAT}
                   freeCast={freeCast}
+                  cardWidth={hand.cardWidth}
                   onCast={handleCast}
                   onPlayLand={handlePlayLand}
                 />

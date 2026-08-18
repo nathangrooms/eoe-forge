@@ -20,6 +20,19 @@ Superseding direction for `/play`. This overrides the rotated-pinwheel seating t
 >
 > This applies everywhere in play mode, not just the hand. If only one thing from this document
 > gets built, it is this.
+>
+> ### NOT A MODAL
+>
+> Owner: *"Make sure no modals in play, it should be beautiful within the playmat system."*
+>
+> The preview is **part of the board**, not an overlay on top of it. No dimmed backdrop, no
+> focus trap, no centred dialog, no Sheet. Nothing may cover the table — a player must still be
+> able to see the game while reading a card.
+>
+> Build it into the mat itself: a dedicated inspector region on the board (the right edge is the
+> natural home, alongside the cast spotlight), with the card at readable size and its action
+> buttons beneath. It shares the mat's material — same surface tint, same shadow, no border —
+> so it reads as part of the table rather than a window floating over it.
 
 ## The core change: everything is readable
 

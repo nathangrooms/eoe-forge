@@ -215,10 +215,24 @@ test('replaying the whole action log reaches byte-identical state', () => {
   assert.equal(snapshot(replayed), snapshot(played));
   assert.ok(played.version > 0, 'the script must actually have done something');
 
-  // And replaying only what the log recorded reaches the same place — this is
-  // what a late-joining client does.
-  const fromLog = applyActions(start, played.log.map(event => event.action));
-  assert.equal(snapshot(fromLog), snapshot(played));
+  // Replay is driven by the *action stream*, not by `GameState.log`.
+  //
+  // `GameEvent` deliberately carries prose and a type, not the action that
+  // produced it: the log is the human-readable record shown in the feed, and
+  // duplicating every action into it would double the size of a state that
+  // already goes over a wire. The consequence is worth stating out loud, since
+  // "a game IS its action log" is easy to over-read — the replayable artefact
+  // is the ordered list of `GameAction`s the transport relayed, which a client
+  // must retain separately if it wants to reconstruct a game from scratch.
+  assert.ok(
+    played.log.every(event => !('action' in event)),
+    'if GameEvent grows an `action` field, state.log becomes self-sufficient for replay — ' +
+      'update the transport and this test together'
+  );
+
+  // Triggered follow-ups are logged as their own events, so the record explains
+  // the life change rather than leaving it unattributed.
+  assert.ok(played.log.length > script.length, 'triggers must appear in the log too');
 });
 
 test('the same seed and the same decks deal the identical table on every client', () => {
@@ -258,11 +272,37 @@ test('GameState survives a JSON round trip unchanged', () => {
   ]);
 
   const round = JSON.parse(JSON.stringify(played)) as GameState;
-  assert.deepEqual(round, played);
 
-  // structuredClone is stricter: it throws on functions and class instances
-  // that JSON would have silently dropped.
+  // Not `deepStrictEqual`: the state carries a handful of explicitly-undefined
+  // optional properties (`manualResolved`, `powerOverride`, …) which JSON drops
+  // and which `deepStrictEqual` therefore reports as a difference. That is
+  // cosmetic — reading a dropped key and reading an undefined one both give
+  // `undefined`. The guarantee that actually matters is that the serialised
+  // form is stable and that the state still reduces identically afterwards.
+  assert.equal(snapshot(round), snapshot(played), 'the wire form must be stable');
+
+  // structuredClone is stricter than JSON: it throws on functions and class
+  // instances rather than silently dropping them.
   assert.doesNotThrow(() => structuredClone(played));
+
+  // JSON and structuredClone both survive a Date, a Map or a Set — and all
+  // three would break replay. Walk the state and assert none are there.
+  const exotic: string[] = [];
+  const walk = (value: unknown, path: string, depth: number) => {
+    if (depth > 12 || value === null || typeof value !== 'object') {
+      if (typeof value === 'function') exotic.push(`${path}: function`);
+      return;
+    }
+    if (value instanceof Date) return void exotic.push(`${path}: Date`);
+    if (value instanceof Map) return void exotic.push(`${path}: Map`);
+    if (value instanceof Set) return void exotic.push(`${path}: Set`);
+    if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype) {
+      return void exotic.push(`${path}: ${value.constructor?.name ?? 'class instance'}`);
+    }
+    for (const [key, child] of Object.entries(value)) walk(child, `${path}.${key}`, depth + 1);
+  };
+  walk(played, 'state', 0);
+  assert.deepEqual(exotic, [], 'state must be plain JSON — no Date, Map, Set or class instances');
 
   // And a state that has been through the wire still reduces identically.
   assert.equal(

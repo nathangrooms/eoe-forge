@@ -234,6 +234,18 @@ export const ZONE_LABELS: Record<Zone, string> = {
 };
 
 /**
+ * Zones a player may drop a card into by hand — everything except the stack.
+ *
+ * The stack is a real zone in the type union, but `stack.ts` owns it: objects
+ * arrive by being cast or activated and leave by resolving or being countered,
+ * and each of those maintains bookkeeping (targets, controller, resolution
+ * order) that a bare `MOVE_ZONE` does not. Offering "move to stack" here would
+ * strand a card in a zone nothing knows how to take it out of — the same class
+ * of silent-nothing bug this module exists to prevent.
+ */
+export const MANUAL_ZONES: readonly Zone[] = ZONES.filter(zone => zone !== 'stack');
+
+/**
  * Move any card to any zone. No legality is asked: this is the "put it where it
  * actually is" escape hatch for every effect the engine does not implement, and
  * refusing it would defeat the point.
@@ -405,7 +417,7 @@ export function manualControlsFor(
     });
   }
 
-  for (const zone of ZONES) {
+  for (const zone of MANUAL_ZONES) {
     if (zone === card.zone) continue;
     controls.push({
       id: `zone:${zone}`,

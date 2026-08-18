@@ -1363,7 +1363,11 @@ export function parseTypeLine(typeLine: string | undefined): {
   if (!typeLine) return { cardTypes, supertypes, subtypes };
 
   for (const face of typeLine.split('//')) {
-    const [left, right] = face.split(/[—–-]/);
+    // Scryfall separates subtypes with a spaced em dash. Splitting on a bare
+    // hyphen would cut hyphenated subtypes in half, so the spaces are required.
+    const halves = face.split(/\s+[—–-]\s+/);
+    const left = halves[0];
+    const right = halves.slice(1).join(' ');
     for (const word of (left ?? '').trim().toLowerCase().split(/\s+/)) {
       if (!word) continue;
       if (SUPERTYPE_SET.has(word)) supertypes.push(word);

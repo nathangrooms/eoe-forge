@@ -46,13 +46,29 @@ import type {
   Phase,
   Player,
   PlayerId,
+  ReplacementEffect,
   RngState,
+  StackObject,
   Step,
   ValidationResult,
   Zone,
 } from './types.ts';
 import { toggleKeyword } from './keywords.ts';
 import { triggeredActionsFor } from './effects.ts';
+import {
+  castSpell,
+  clearStack,
+  counterStackObject,
+  describeStackObject,
+  passPriority,
+  popStack,
+  putAbilityOnStack,
+  resetPriority,
+  stackFollowUps,
+  stackObject,
+  stackOf,
+} from './stack.ts';
+import { addReplacement, removeReplacement, replaceAction } from './replacement.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Rules constants                                                            */
@@ -289,6 +305,10 @@ export function createGame(config: NewGameConfig): GameState {
     startingPlayerId,
     step: 'untap',
     combat: { attackers: [] },
+    stack: [],
+    passedPriority: [],
+    nextStackId: 0,
+    replacements: [],
     monarchId: null,
     initiativeId: null,
     winnerIds: [],
@@ -330,7 +350,7 @@ export function addCard(
     zone,
   };
 
-  const zones = { ...owner.zones, [zone]: [...owner.zones[zone], instance.instanceId] };
+  const zones = { ...owner.zones, [zone]: [...(owner.zones[zone] ?? []), instance.instanceId] };
   return {
     ...state,
     cards: { ...state.cards, [instance.instanceId]: instance },
@@ -416,7 +436,7 @@ export function commanderTax(state: GameState, commanderId: CommanderId): number
 export function cardsInZone(state: GameState, playerId: PlayerId, zone: Zone): CardInstance[] {
   const player = getPlayer(state, playerId);
   if (!player) return [];
-  return player.zones[zone].map(id => state.cards[id]).filter(Boolean);
+  return (player.zones[zone] ?? []).map(id => state.cards[id]).filter(Boolean);
 }
 
 export function isGameOver(state: GameState): boolean {
@@ -512,7 +532,10 @@ function removeFromZones(player: Player, instanceId: InstanceId): Player {
   let touched = false;
   const zones = {} as Record<Zone, InstanceId[]>;
   for (const zone of ZONES) {
-    const list = player.zones[zone];
+    // `?? []` because a game state persisted before a zone existed will not
+    // have an array for it. A live backend holds those; crashing on one is not
+    // an option.
+    const list = player.zones[zone] ?? [];
     if (list.includes(instanceId)) {
       zones[zone] = list.filter(id => id !== instanceId);
       touched = true;
@@ -543,7 +566,13 @@ function moveCard(
   state: GameState,
   instanceId: InstanceId,
   to: Zone,
-  options: { position?: 'top' | 'bottom' | number; tapped?: boolean; controllerId?: PlayerId } = {}
+  options: {
+    position?: 'top' | 'bottom' | number;
+    tapped?: boolean;
+    controllerId?: PlayerId;
+    /** CR 614.1c — counters the permanent *enters with*, set by replacement effects. */
+    counters?: Record<string, number>;
+  } = {}
 ): GameState {
   const card = state.cards[instanceId];
   if (!card) return state;
@@ -557,7 +586,11 @@ function moveCard(
   const players = state.players.map(player => {
     const stripped = removeFromZones(player, instanceId);
     if (tokenCeasesToExist || stripped.id !== card.ownerId) return stripped;
-    const list = to === 'library' ? insertInto(stripped.zones[to], instanceId, options.position ?? 'top') : [...stripped.zones[to], instanceId];
+    const current = stripped.zones[to] ?? [];
+    const list =
+      to === 'library'
+        ? insertInto(current, instanceId, options.position ?? 'top')
+        : [...current, instanceId];
     return { ...stripped, zones: { ...stripped.zones, [to]: list } };
   });
 
@@ -572,7 +605,13 @@ function moveCard(
     // including the player's own overrides and hand-flagged keywords, because
     // what comes back is a new object (CR 400.7).
     damage: to === 'battlefield' ? card.damage : 0,
-    counters: to === 'battlefield' ? card.counters : {},
+    // CR 614.1c — a permanent that enters with counters has them from the
+    // moment it arrives, so an ETB trigger reading them sees the right number.
+    counters: enteringBattlefield
+      ? { ...(options.counters ?? {}) }
+      : to === 'battlefield'
+        ? card.counters
+        : {},
     attachedTo: to === 'battlefield' ? card.attachedTo : undefined,
     summoningSick: enteringBattlefield ? true : to === 'battlefield' ? card.summoningSick : false,
     faceDown: to === 'battlefield' || to === 'exile' ? card.faceDown : false,
@@ -737,6 +776,7 @@ function passTurn(state: GameState, toPlayerId?: PlayerId): GameState {
     round: wrapped ? state.round + 1 : state.round,
     activePlayerId: upNext.id,
     priorityPlayerId: upNext.id,
+    passedPriority: [],
     step: 'untap',
     combat: { attackers: [] },
   };
@@ -755,7 +795,9 @@ function skipsFirstDraw(state: GameState): boolean {
 }
 
 function enterStep(state: GameState, step: Step): GameState {
-  let next: GameState = { ...state, step };
+  // CR 117.3a — the active player receives priority at the start of each step
+  // that has one, and the round of passes starts over.
+  let next: GameState = resetPriority({ ...state, step });
 
   switch (step) {
     case 'untap':
@@ -812,7 +854,7 @@ function removePlayerCards(state: GameState, playerId: PlayerId): GameState {
   if (!player) return state;
 
   const owned = Object.values(state.cards).filter(card => card.ownerId === playerId && !card.removedFromGame);
-  if (owned.length === 0 && ZONES.every(zone => player.zones[zone].length === 0)) return state;
+  if (owned.length === 0 && ZONES.every(zone => (player.zones[zone] ?? []).length === 0)) return state;
 
   const cards = { ...state.cards };
   for (const card of owned) {
@@ -825,8 +867,9 @@ function removePlayerCards(state: GameState, playerId: PlayerId): GameState {
     let touched = false;
     const zones = {} as Record<Zone, InstanceId[]>;
     for (const zone of ZONES) {
-      const filtered = p.zones[zone].filter(id => !ownedIds.has(id));
-      if (filtered.length !== p.zones[zone].length) touched = true;
+      const existing = p.zones[zone] ?? [];
+      const filtered = existing.filter(id => !ownedIds.has(id));
+      if (filtered.length !== existing.length) touched = true;
       zones[zone] = filtered;
     }
     return touched ? { ...p, zones } : p;
@@ -1164,7 +1207,10 @@ function reduce(state: GameState, action: GameAction): GameState {
       let next = moveCard(state, action.instanceId, to, {
         tapped: action.tapped,
         controllerId: action.controllerId ?? card.controllerId,
+        counters: action.counters,
       });
+      // Casting from the command zone counts the tax at announcement, so a
+      // spell that went via the stack has already been counted.
       if (card.zone === 'command' && card.isCommander) {
         next = incrementCommanderCast(next, action.instanceId);
       }

@@ -235,6 +235,16 @@ export interface CardInstance {
   typeLine?: string;
   power?: string;
   toughness?: string;
+  /**
+   * Printed starting loyalty, exactly as Scryfall prints it. Planeswalkers only.
+   *
+   * It seeds the `loyalty` counter when the card enters the battlefield, and it
+   * is also the gate on CR 704.5i: a planeswalker whose printed loyalty was
+   * never loaded is never destroyed by that state-based action, because putting
+   * a permanent into a graveyard on a number we do not have is exactly the
+   * silent corruption this engine refuses to commit.
+   */
+  loyalty?: string;
   colorIdentity?: ManaColor[];
   imageUrl?: string;
   /**
@@ -546,6 +556,138 @@ export interface ReplacementEffect {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Triggered abilities                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * When an ability triggers. Read off oracle text by `effects.ts`; matched
+ * against real game events by `triggers.ts`.
+ *
+ * Deliberately a closed set. A timing that is not in this list is not detected,
+ * which lands the ability in `manualNotes` — the honest answer.
+ */
+export type TriggerTiming =
+  | 'etb'
+  | 'attack'
+  | 'blocks'
+  | 'deals-damage'
+  | 'upkeep'
+  | 'death'
+  | 'end-step'
+  | 'cast'
+  | 'draw';
+
+/** The effect kinds `effects.ts` can turn into real `GameAction`s. */
+export type EffectKind =
+  | 'gain-life'
+  | 'lose-life'
+  | 'each-opponent-loses-life'
+  | 'draw'
+  | 'create-token'
+  | 'counter-on-self'
+  | 'damage-each-opponent';
+
+export interface DetectedEffect {
+  kind: EffectKind;
+  /** Always a concrete number — a variable amount is never emitted as an effect. */
+  amount: number;
+  /** The fragment of oracle text this came from, for the log line. */
+  text: string;
+  token?: TokenSpec;
+  /** Token creation only: "create a tapped … token". */
+  tapped?: boolean;
+}
+
+/**
+ * CR 603.4 — the "if" clause between a trigger's event and its effect.
+ *
+ * An intervening "if" is checked twice: once when the ability would go on the
+ * stack, and again as it resolves. Only a small, closed set of conditions can
+ * be evaluated from our state; anything else is `unknown`, which stops the
+ * trigger being automated at all rather than guessing at it.
+ */
+export type InterveningCondition =
+  /** "if you control a creature" / "if you control three or more artifacts" */
+  | { kind: 'controls'; typeWord: string; atLeast: number }
+  /** "if you have 25 or more life" */
+  | { kind: 'life-at-least'; amount: number }
+  /** "if you have 5 or less life" */
+  | { kind: 'life-at-most'; amount: number }
+  /** "if it's your turn" */
+  | { kind: 'your-turn' }
+  /** Anything the engine will not evaluate. Carries the text so a human can. */
+  | { kind: 'unknown'; text: string };
+
+export interface DetectedTrigger {
+  timing: TriggerTiming;
+  /** The trigger's own text, normalised. Shown when the player must resolve it. */
+  clause: string;
+  effects: DetectedEffect[];
+  /** True when at least one effect will be applied by the engine. */
+  automated: boolean;
+  /**
+   * Text inside an otherwise-automated trigger that the engine did not handle.
+   * Surfaced as a manual note so a half-resolved trigger never passes for a
+   * whole one.
+   */
+  residual?: string;
+  /** CR 603.4, when the clause opened with an "if" the engine could classify. */
+  intervening?: InterveningCondition;
+}
+
+/** What actually happened in the game, as triggered abilities see it. */
+export type TriggerEventKind =
+  | 'enters'
+  | 'dies'
+  | 'attacks'
+  | 'blocks'
+  | 'deals-damage'
+  | 'upkeep'
+  | 'end-step'
+  | 'cast'
+  | 'draw';
+
+/**
+ * One game event, derived by diffing the state before and after an action.
+ *
+ * Deriving events from a diff rather than from the action alone is what lets a
+ * death caused by a state-based action trigger a "dies" ability: nothing in the
+ * action says a creature died, but the two states differ.
+ */
+export interface TriggerEvent {
+  kind: TriggerEventKind;
+  /** The permanent the event happened to, or that acted. */
+  instanceId?: InstanceId;
+  /** The player the event concerns: whose upkeep, who drew, who attacked. */
+  playerId?: PlayerId;
+  /** 'deals-damage': what was damaged. */
+  targetInstanceId?: InstanceId;
+  targetPlayerId?: PlayerId;
+  amount?: number;
+  fromZone?: Zone;
+  toZone?: Zone;
+  combat?: boolean;
+}
+
+/**
+ * A triggered ability waiting on the stack.
+ *
+ * Serialisable in full — the ability itself is embedded rather than recomputed,
+ * so a client that replays the log resolves exactly the ability that was put on
+ * the stack, even if the source has since changed zone.
+ */
+export interface PendingTrigger {
+  /** Deterministic within the batch that produced it. Stable across clients. */
+  id: string;
+  sourceInstanceId: InstanceId;
+  /** Copied so the log reads correctly after a token source ceases to exist. */
+  sourceName: string;
+  controllerId: PlayerId;
+  event: TriggerEvent;
+  ability: DetectedTrigger;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Game state                                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -571,7 +713,14 @@ export interface GameEvent {
   turn: number;
   round: number;
   step: Step;
-  type: GameActionType | 'PLAYER_LOST' | 'GAME_OVER';
+  type:
+    | GameActionType
+    | 'PLAYER_LOST'
+    | 'GAME_OVER'
+    /** A CR 704 state-based action applied. Carries which rule, in the message. */
+    | 'STATE_BASED_ACTION'
+    /** A triggered ability was put on the stack or resolved. */
+    | 'TRIGGER';
   actorId?: PlayerId;
   /** Plain prose for the game log. Never contains raw mana-cost strings. */
   message: string;

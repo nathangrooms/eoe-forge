@@ -218,3 +218,106 @@ should ever be rotated.
 The life counter defaults 4 players to the same 2x2 grid (`defaultVariantFor` in
 `src/components/life/session.ts`). The pinwheel gave the left and right seats a tall thin strip;
 two rows of two keeps every panel the same shape and much larger.
+
+---
+
+# Round 2 feedback — playtable, effects, and the rules question
+
+## Playmat layout — follow a real playmat
+
+> "not sure i like the layout of items. - lands should always be bottom, creatures top - 2 main
+> rows, enchanements/artifacts etc should have its own square right side or something. Doesn't
+> follow normal playmat setups at all."
+
+Supersedes the earlier three-band diagram. From the VIEWER's perspective:
+
+```
+┌──────────────────────────────────────────────┬───────────────┐
+│  CREATURES            (top row, they attack) │  ARTIFACTS    │
+│                                              │  ENCHANTMENTS │
+├──────────────────────────────────────────────┤  PLANESWALKERS│
+│  LANDS                (bottom row, mana)     │  (own block)  │
+└──────────────────────────────────────────────┴───────────────┘
+```
+
+Two main rows only — creatures top, lands bottom. Non-creature permanents get their own block on
+the right rather than a third full-width band.
+
+## Tapping
+
+> "I dont like that tap/untap is in left menu - tapping should be easy on card."
+
+Tap must be available ON the card — a direct affordance, not a menu round-trip. The inspector still
+offers it, but a player tapping five lands should not open five panels.
+
+## Castability
+
+> "I liked when cards were greyed out if you couldnt cast them."
+
+This was softened to a "gentle step-back" and the owner wants it back. A card you cannot pay for
+should be clearly, immediately distinguishable in hand.
+
+## Size
+
+> "cards are tiny on screen overall"
+
+Still too small after the last pass. The board should feel like cards on a table, not icons.
+
+## Starting a game
+
+> "doesnt let you start online game, or bot game etc"
+
+The lobby must offer real choices: solo goldfish, versus bot(s) with a chosen count and difficulty,
+and online (even if online is "coming soon", it must be visible and honest). Opponent DECKS must be
+selectable.
+
+## Card effects and the rules question
+
+> "why do card effects not do anything or work, are we able to get logic working or allow manual
+> intervention like marking cards which fly, have lifesteal, trample, also if they have +1 counters,
+> need easy way to add these. Had a card that is +1 life when it gets played, but nothing happened.
+> Are we able to apply every single MTG rule for all card types?"
+
+**Be honest about this.** A complete MTG rules engine is one of the largest projects in games —
+Forge and XMage each represent many years of work and thousands of individually-scripted cards,
+because Magic's rules are Turing-complete and every card can rewrite them. We are not going to
+implement all of it, and pretending otherwise would waste the effort.
+
+The realistic split, and what to build:
+
+1. **AUTOMATE the keyword abilities**, which are a closed set and cover most combat maths:
+   flying, reach, trample, deathtouch, first strike, double strike, lifelink, vigilance, menace,
+   defender, indestructible, hexproof, protection, haste. These are already parseable from
+   `keywords` on our own rows. Combat should respect them.
+2. **AUTOMATE the common, mechanical triggers** we can detect reliably from oracle text — ETB life
+   gain, ETB draw, ETB token creation, "whenever this attacks", upkeep triggers. The tagger already
+   classifies these; reuse it rather than writing a second parser.
+3. **MANUAL INTERVENTION for everything else, made genuinely fast.** This is the part that makes
+   the mode usable today:
+   - +1/+1 and −1/−1 counters directly on the card, with a visible badge
+   - loyalty, charge and generic counters
+   - set/adjust power and toughness
+   - manually flag any keyword on any permanent
+   - free life adjustment per player
+   - create a token
+   - move any card between any zones
+   All reachable in one or two taps, on the card, not buried.
+4. **NEVER SILENTLY DO NOTHING.** If a card has text the engine does not implement, say so on the
+   card — a small "manual" marker — so the player knows to resolve it themselves rather than
+   assuming the app handled it. Silence is the actual bug being reported.
+
+## Playtest
+
+> "Playtest - this seems completely broken from what we had before which was an auto game player?
+> Playtest is supposed to play live infront of you verse bots and you should be able to select your
+> opponents decks."
+
+/simulate must play a real game against bots, live, with selectable opponent decks — not a
+goldfish-only solitaire.
+
+## Life counter framing
+
+> "Life counter UI is terrible on desktop and goes full screen and is confusing - should be within
+> our normal frame/nav etc until you press start"
+
+Setup stays inside the normal app shell with the nav visible. Only the RUNNING game goes immersive.

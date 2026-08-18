@@ -256,8 +256,12 @@ export default function Scan() {
                 <h2 className="text-lg font-semibold text-foreground">
                   Last added to your collection
                 </h2>
+                {/* The heading names what is on screen, so this line has to say
+                    why those particular cards are on screen. On its own it read
+                    as a flat contradiction of the six cards underneath it. */}
                 <p className="text-sm text-muted-foreground">
-                  Nothing scanned in this browser yet — scanned cards land here.
+                  Nothing scanned in this browser yet, so these are the cards you added most
+                  recently. Scanned cards land here.
                 </p>
               </div>
               <Button asChild variant="ghost" size="sm">

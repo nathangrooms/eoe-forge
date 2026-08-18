@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useDeckStore } from '@/stores/deckStore';
 import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
+import { bandForScore, bandLabel, powerTextClass, scoreDeckById } from '@/lib/deck/power';
 import { 
   Sparkles, 
   Crown, 
@@ -73,9 +74,16 @@ export default function AIBuilder() {
   const [analyzingCommander, setAnalyzingCommander] = useState(false);
   
   // Build configuration
+  /**
+   * `targetPower` is what the player is *aiming for*, not a measurement of
+   * anything. It used to be called `powerLevel`, the same identifier the app
+   * used for three other things, and the slider's value was written straight
+   * into `user_decks.power_level` — so a build target ended up displayed as the
+   * finished deck's power level.
+   */
   const [buildData, setBuildData] = useState({
     archetype: '',
-    powerLevel: 6,
+    targetPower: 6,
     maxBudget: 500,
     customPrompt: '',
     includeLands: true,
@@ -287,7 +295,7 @@ export default function AIBuilder() {
             colors: commander.colors || []
           },
           archetype: buildData.archetype,
-          powerLevel: buildData.powerLevel,
+          powerLevel: buildData.targetPower,
           budget: buildData.maxBudget,
           customPrompt: buildData.customPrompt,
           useAIPlanning: true,
@@ -330,8 +338,8 @@ export default function AIBuilder() {
       const edhPowerLevel = powerCheckData?.powerLevel;
       
       // Check if power level meets requirements (can be higher but not significantly lower)
-      if (edhPowerLevel && edhPowerLevel < buildData.powerLevel - 1) {
-        setValidationErrors(prev => [...prev, `EDH power ${edhPowerLevel} is below target ${buildData.powerLevel}`]);
+      if (edhPowerLevel && edhPowerLevel < buildData.targetPower - 1) {
+        setValidationErrors(prev => [...prev, `EDH power ${edhPowerLevel} is below target ${buildData.targetPower}`]);
       }
       
       // Phase 5: Budget check
@@ -374,7 +382,7 @@ export default function AIBuilder() {
         deckName: `${commander?.name || 'New'} ${buildData.archetype} Deck`,
         cards: deckCards,
         deckId: data.deckId,
-        power: data.result?.analysis?.power || data.power || buildData.powerLevel,
+        power: data.result?.analysis?.power || data.power || buildData.targetPower,
         edhPowerLevel: edhPowerLevel ?? null,
         edhPowerUrl: powerCheckData?.url || fallbackEdhUrl,
         totalValue: totalValue,
@@ -410,7 +418,11 @@ export default function AIBuilder() {
           format: 'commander',
           colors: commanderColors,
           description: `AI-generated ${buildData.archetype} deck with ${commander.name}.`,
-          power_level: Math.round(buildResult.power || 6),
+          // power_level is not written here. It used to receive
+          // `Math.round(buildResult.power || 6)`, which was the server's own
+          // edhpowerlevel.com scrape or — when that failed — the user's target
+          // slider, saved as if it were a measurement. The real score is
+          // computed from the saved list below.
           is_public: false
         })
         .select()
@@ -501,6 +513,15 @@ export default function AIBuilder() {
         }
       }
 
+      /*
+       * Score the deck the moment it exists, from the rows that were just
+       * written. The AI builder used to display 6.28 and save 6 — the /decks
+       * tile then showed a third number. All three are now this one.
+       */
+      if (deckRecord) {
+        await scoreDeckById(deckRecord.id, 'commander');
+      }
+
       navigate('/decks');
     } catch (error) {
       console.error('Error saving deck:', error);
@@ -556,7 +577,7 @@ export default function AIBuilder() {
     setValidationErrors([]);
     setBuildData({
       archetype: '',
-      powerLevel: 6,
+      targetPower: 6,
       maxBudget: 500,
       customPrompt: '',
       includeLands: true,
@@ -584,12 +605,10 @@ export default function AIBuilder() {
     analyzeCommander(cmdr);
   };
 
+  /** The one band table, so the slider speaks the same language as the score. */
   const getPowerLevelLabel = (level: number) => {
-    if (level <= 3) return { label: 'Casual', color: 'text-power-1' };
-    if (level <= 5) return { label: 'Focused', color: 'text-power-4' };
-    if (level <= 7) return { label: 'Optimized', color: 'text-power-7' };
-    if (level <= 9) return { label: 'High Power', color: 'text-power-7' };
-    return { label: 'cEDH', color: 'text-power-10' };
+    const band = bandForScore(level);
+    return { label: bandLabel(band), color: powerTextClass(band) };
   };
 
   const getBudgetLabel = (budget: number) => {
@@ -848,7 +867,7 @@ export default function AIBuilder() {
                         onClick={() => setBuildData(prev => ({ 
                           ...prev, 
                           archetype: archetype.value,
-                          powerLevel: archetype.powerLevel || prev.powerLevel 
+                          targetPower: archetype.powerLevel || prev.targetPower 
                         }))}
                       >
                         <div className="flex items-start justify-between mb-2">
@@ -881,13 +900,13 @@ export default function AIBuilder() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-semibold">Power Level</Label>
-                      <span className={`font-bold ${getPowerLevelLabel(buildData.powerLevel).color}`}>
-                        {buildData.powerLevel}/10 - {getPowerLevelLabel(buildData.powerLevel).label}
+                      <span className={`font-bold ${getPowerLevelLabel(buildData.targetPower).color}`}>
+                        {buildData.targetPower}/10 - {getPowerLevelLabel(buildData.targetPower).label}
                       </span>
                     </div>
                     <Slider
-                      value={[buildData.powerLevel]}
-                      onValueChange={(value) => setBuildData(prev => ({ ...prev, powerLevel: value[0] }))}
+                      value={[buildData.targetPower]}
+                      onValueChange={(value) => setBuildData(prev => ({ ...prev, targetPower: value[0] }))}
                       min={1}
                       max={10}
                       step={1}
@@ -981,7 +1000,7 @@ export default function AIBuilder() {
                       </div>
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground uppercase">Power</p>
-                        <p className="font-bold">{buildData.powerLevel}/10</p>
+                        <p className="font-bold">{buildData.targetPower}/10</p>
                       </div>
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground uppercase">Budget</p>
@@ -1019,7 +1038,7 @@ export default function AIBuilder() {
                         Building {commander?.name ? `a deck for ${commander.name}` : 'your deck'}
                       </h2>
                       <p className="text-muted-foreground text-sm">
-                        Target {buildData.powerLevel}/10 power, under ${buildData.maxBudget}.
+                        Target {buildData.targetPower}/10 power, under ${buildData.maxBudget}.
                       </p>
                     </div>
 

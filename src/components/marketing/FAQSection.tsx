@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/accordion';
 import { HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Section } from '@/components/marketing/Section';
 
 /* Answers must describe what the product actually does. The previous set
    asserted "bank-level encryption", "95%+ accuracy validated by the community",
@@ -65,65 +66,62 @@ const faqs = [
 
 export function FAQSection() {
   return (
-    <section id="faq" className="py-24 relative overflow-hidden bg-gradient-to-b from-background to-card/20">
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <motion.div 
-          className="text-center max-w-3xl mx-auto mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
-        >
-          <Badge variant="outline" className="mb-4">
-            <HelpCircle className="h-3 w-3 mr-2" />
-            Got Questions?
-          </Badge>
-          <h2 className="text-4xl md:text-6xl font-bold mb-6">
-            Frequently Asked Questions
-          </h2>
-          <p className="text-xl text-muted-foreground">
-            Everything you need to know about DeckMatrix
-          </p>
-        </motion.div>
+    <Section id="faq">
+      {/* Header */}
+      <motion.div
+        className="text-center max-w-3xl mx-auto mb-16"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
+      >
+        <Badge variant="outline" className="mb-4">
+          <HelpCircle className="h-3 w-3 mr-2" />
+          Got Questions?
+        </Badge>
+        <h2 className="text-4xl md:text-6xl font-bold mb-6">
+          Frequently Asked Questions
+        </h2>
+        <p className="text-xl text-muted-foreground">
+          Everything you need to know about DeckMatrix
+        </p>
+      </motion.div>
 
-        {/* FAQ Accordion */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
-          className="max-w-4xl mx-auto"
-        >
-          <Card className="p-6 md:p-8 bg-card/50 backdrop-blur-sm border-border/50">
-            <Accordion type="single" collapsible className="w-full">
-              {faqs.map((faq, index) => (
-                <AccordionItem key={index} value={`item-${index}`} className="border-border/50">
-                  <AccordionTrigger className="text-left hover:text-primary transition-colors">
-                    <span className="font-semibold">{faq.question}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground leading-relaxed">
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </Card>
-        </motion.div>
+      {/* FAQ Accordion */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
+      >
+        <Card className="p-6 md:p-8 bg-card/50 backdrop-blur-sm border-border/50">
+          <Accordion type="single" collapsible className="w-full">
+            {faqs.map((faq, index) => (
+              <AccordionItem key={index} value={`item-${index}`} className="border-border/50">
+                <AccordionTrigger className="text-left hover:text-primary transition-colors">
+                  <span className="font-semibold">{faq.question}</span>
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground leading-relaxed">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Card>
+      </motion.div>
 
-        {/* Contact CTA */}
-        <motion.div
-          className="text-center mt-12"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
-        >
-          <p className="text-muted-foreground mb-4">
-            Still have questions?
-          </p>
-          <a href="mailto:support@deckmatrix.com" className="text-primary hover:underline font-medium">
-            Contact our support team →
-          </a>
-        </motion.div>
-      </div>
-    </section>
+      {/* Contact CTA */}
+      <motion.div
+        className="text-center mt-12"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
+      >
+        <p className="text-muted-foreground mb-4">
+          Still have questions?
+        </p>
+        <a href="mailto:support@deckmatrix.com" className="text-primary hover:underline font-medium">
+          Contact our support team →
+        </a>
+      </motion.div>
+    </Section>
   );
 }

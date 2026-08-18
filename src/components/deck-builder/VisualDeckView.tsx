@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,9 +28,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
-import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { CommanderDialog } from './CommanderDialog';
 import { ManaCurve } from './ManaCurve';
 import {
   categorizeCard,
@@ -132,9 +132,22 @@ export function VisualDeckView({
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showCommanderDialog, setShowCommanderDialog] = useState(false);
   const [detailCard, setDetailCard] = useState<DeckCard | null>(null);
   const { prefs, update } = useDeckViewPrefs();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  /**
+   * The commander picker is a route now, not an overlay.
+   *
+   * `CommanderDialog` covered the deck you were choosing a commander for, which
+   * is the one thing you need to see while choosing. `from` carries the exact
+   * surface we left so the picker's back control returns here.
+   */
+  const openCommanderPicker = () =>
+    navigate('/deck-builder/commander', {
+      state: { from: `${location.pathname}${location.search}` },
+    });
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -507,16 +520,10 @@ export function VisualDeckView({
                     <Crown className="h-4 w-4 text-type-commander" />
                     Commander
                   </span>
-                  <CommanderDialog
-                    open={showCommanderDialog}
-                    onOpenChange={setShowCommanderDialog}
-                    currentCommander={commander}
-                  >
-                    <Button variant="outline" size="sm">
-                      <Edit className="mr-2 h-4 w-4" />
-                      Change
-                    </Button>
-                  </CommanderDialog>
+                  <Button variant="secondary" size="sm" onClick={openCommanderPicker}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Change
+                  </Button>
                 </div>
                 <h3 className="text-xl font-semibold">{commander.name}</h3>
                 <p className="mb-3 text-sm text-muted-foreground">{commander.type_line}</p>
@@ -548,16 +555,10 @@ export function VisualDeckView({
               <p className="mb-4 text-sm text-muted-foreground">
                 A Commander deck needs a legal commander in the command zone.
               </p>
-              <CommanderDialog
-                open={showCommanderDialog}
-                onOpenChange={setShowCommanderDialog}
-                currentCommander={commander}
-              >
-                <Button>
-                  <Crown className="mr-2 h-4 w-4" />
-                  Select commander
-                </Button>
-              </CommanderDialog>
+              <Button onClick={openCommanderPicker}>
+                <Crown className="mr-2 h-4 w-4" />
+                Select commander
+              </Button>
             </div>
           )}
         </Card>
@@ -677,55 +678,51 @@ export function VisualDeckView({
         </p>
       )}
 
-      {/* Body */}
-      {cards.length === 0 ? (
-        <div className="py-16 text-center">
-          <Sparkles className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-          <p className="text-base font-medium">No cards in this deck yet</p>
-          <p className="text-sm text-muted-foreground">Use the Add Cards tab to search for cards.</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-base font-medium">No cards match that filter</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearchTerm('')}>
-            Clear filter
-          </Button>
-        </div>
-      ) : prefs.mode === 'text' ? (
-        <div className="space-y-2">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={copyDecklist}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy decklist
+      {/* Body — grid left, card detail docked right. In the builder you are
+          comparing a card against the pile, so covering the pile was exactly
+          the wrong behaviour. */}
+      <CardDetailSplit
+        pane={detailCard ? <CardDetailPane card={detailCard} onClose={() => setDetailCard(null)} /> : null}
+      >
+        {cards.length === 0 ? (
+          <div className="py-16 text-center">
+            <Sparkles className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+            <p className="text-base font-medium">No cards in this deck yet</p>
+            <p className="text-sm text-muted-foreground">Use the Add Cards tab to search for cards.</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-base font-medium">No cards match that filter</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearchTerm('')}>
+              Clear filter
             </Button>
           </div>
-          <Textarea
-            readOnly
-            value={decklistText}
-            className="min-h-[420px] font-mono text-xs"
-            aria-label="Plain-text decklist"
-          />
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {groups.map(group => (
-            <div key={group.key}>
-              {prefs.groupBy !== 'none' && renderGroupHeader(group)}
-              {!collapsed.has(group.key) && (prefs.mode === 'grid' ? renderGrid(group) : renderTable(group))}
+        ) : prefs.mode === 'text' ? (
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={copyDecklist}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy decklist
+              </Button>
             </div>
-          ))}
-        </div>
-      )}
-
-      <UniversalCardModal
-        card={detailCard}
-        open={!!detailCard}
-        onOpenChange={open => {
-          if (!open) setDetailCard(null);
-        }}
-        showAddButton={false}
-        showWishlistButton={false}
-      />
+            <Textarea
+              readOnly
+              value={decklistText}
+              className="min-h-[420px] font-mono text-xs"
+              aria-label="Plain-text decklist"
+            />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {groups.map(group => (
+              <div key={group.key}>
+                {prefs.groupBy !== 'none' && renderGroupHeader(group)}
+                {!collapsed.has(group.key) && (prefs.mode === 'grid' ? renderGrid(group) : renderTable(group))}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardDetailSplit>
     </div>
   );
 }

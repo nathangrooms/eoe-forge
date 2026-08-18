@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,7 +53,8 @@ const TILE_WIDTH = 300;
  * Tiles rendered per page. Each one carries two images (the art band and the
  * commander's card), so mounting all 184 at once queues ~370 requests on first
  * paint — `loading="lazy"` alone does not save you when the whole grid is in
- * the document. A sentinel appends the next page as it comes into view.
+ * the document. The next page loads as the end of the list comes into view, or
+ * on a click.
  */
 const PAGE_SIZE = 36;
 
@@ -89,6 +97,7 @@ export default function Precons() {
   const [saving, setSaving] = useState(false);
 
   const browseScroll = useRef(0);
+  const pendingScroll = useRef<number | null>(null);
 
   /* -------------------------------------------------- catalogue ------- */
 
@@ -169,9 +178,8 @@ export default function Precons() {
   );
 
   const closePrecon = useCallback(() => {
+    pendingScroll.current = browseScroll.current;
     setSearchParams({});
-    const y = browseScroll.current;
-    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
   }, [setSearchParams]);
 
   /* -------------------------------------------------- filtering ------- */
@@ -237,6 +245,12 @@ export default function Precons() {
 
   const activeFilters = (query ? 1 : 0) + colors.length + (set !== 'all' ? 1 : 0);
 
+  const toggleColor = useCallback((color: string) => {
+    setColors(current =>
+      current.includes(color) ? current.filter(c => c !== color) : [...current, color]
+    );
+  }, []);
+
   const resetFilters = useCallback(() => {
     setQuery('');
     setColors([]);
@@ -272,6 +286,30 @@ export default function Precons() {
 
   const page = useMemo(() => visible.slice(0, limit), [visible, limit]);
 
+  /**
+   * Put the reader back where they were when they opened a precon.
+   *
+   * `useLayoutEffect`, not `useEffect` + `requestAnimationFrame`: the grid is in
+   * the DOM and laid out by the time this runs, so the document is already tall
+   * enough to honour the offset — where a plain effect scrolls against a
+   * document that is still only as tall as the detail view it just replaced and
+   * gets clamped to 0. A single deferred repeat covers anything that settles a
+   * tick later.
+   */
+  useLayoutEffect(() => {
+    if (selectedId || pendingScroll.current == null) return;
+
+    const target = pendingScroll.current;
+    pendingScroll.current = null;
+    window.scrollTo({ top: target, behavior: 'auto' });
+
+    const retry = window.setTimeout(
+      () => window.scrollTo({ top: target, behavior: 'auto' }),
+      0
+    );
+    return () => window.clearTimeout(retry);
+  }, [selectedId]);
+
   /* -------------------------------------------------- saving ---------- */
 
   const savePrecon = useCallback(async () => {
@@ -297,7 +335,9 @@ export default function Precons() {
           name: `${deck?.name ?? selected.name} (Precon)`,
           format: 'commander',
           colors: identity.length > 0 ? identity : selected.ci,
-          power_level: 5,
+          // power_level is written only by `persistDeckPower` from the
+          // canonical score. A literal 5 here made every imported precon read
+          // "Power 5/10" for the rest of its life.
           description: `Official precon deck from ${selected.set}`,
         })
         .select()
@@ -376,7 +416,7 @@ export default function Precons() {
           query={query}
           onQueryChange={setQuery}
           colors={colors}
-          onColorsChange={setColors}
+          onToggleColor={toggleColor}
           set={set}
           sets={sets}
           onSetChange={setSet}
@@ -393,11 +433,14 @@ export default function Precons() {
             <>
               <span className="font-medium tabular-nums text-foreground">{visible.length}</span>{' '}
               {visible.length === 1 ? 'precon' : 'precons'}
-              {activeFilters > 0 && summaries.length > 0 && (
+              {activeFilters > 0 && summaries.length > 0 ? (
                 <span className="tabular-nums"> of {summaries.length}</span>
-              )}
-              {sets.length > 0 && set === 'all' && (
-                <span className="tabular-nums"> across {sets.length} sets</span>
+              ) : (
+                // Only meaningful unfiltered — with a filter on it counts sets
+                // in the catalogue, not sets in the result.
+                sets.length > 0 && (
+                  <span className="tabular-nums"> across {sets.length} sets</span>
+                )
               )}
             </>
           )}
@@ -437,18 +480,23 @@ export default function Precons() {
                   precon={precon}
                   cards={commanderCards}
                   onSelect={openPrecon}
-                  eager={index < 4}
+                  eager={index < 6}
                 />
               ))}
             </CardGrid>
 
             {limit < visible.length && (
-              <div ref={sentinel} className="pt-2">
-                <CardGrid width={TILE_WIDTH}>
-                  {Array.from({ length: Math.min(3, visible.length - limit) }, (_, i) => (
-                    <PreconTileSkeleton key={i} />
-                  ))}
-                </CardGrid>
+              // Doubles as the observer target and a real control. The next
+              // page is already in memory — this is a render limit, not a
+              // fetch — so a click expands instantly, and the button covers
+              // the cases where the observer is throttled or never fires.
+              <div ref={sentinel} className="flex justify-center pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setLimit(current => current + PAGE_SIZE)}
+                >
+                  Show {Math.min(PAGE_SIZE, visible.length - limit)} more
+                </Button>
               </div>
             )}
           </>

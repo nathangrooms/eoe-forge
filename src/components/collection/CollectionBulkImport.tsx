@@ -1,12 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
@@ -21,11 +14,15 @@ import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { scryfallAPI } from '@/lib/api/scryfall';
 
-interface CollectionBulkImportProps {
-  onImportComplete?: () => void;
-  /** Controlled mode, so other surfaces (e.g. the empty state) can open it. */
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+export interface ImportOutcome {
+  added: number;
+  failures: string[];
+}
+
+interface CollectionImportPanelProps {
+  /** Fires after a run that added at least one entry. */
+  onImported?: (outcome: ImportOutcome) => void;
+  onCancel?: () => void;
 }
 
 interface ParsedLine {
@@ -92,19 +89,12 @@ export function parseImportLine(raw: string, format: string): ParsedLine | null 
   return { quantity, name, set, foil, raw: trimmed };
 }
 
-export function CollectionBulkImport({
-  onImportComplete,
-  open: controlledOpen,
-  onOpenChange,
-}: CollectionBulkImportProps) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const isControlled = controlledOpen !== undefined;
-  const open = isControlled ? controlledOpen : uncontrolledOpen;
-  const setOpen = (value: boolean) => {
-    if (isControlled) onOpenChange?.(value);
-    else setUncontrolledOpen(value);
-  };
-
+/**
+ * The importer body. It used to be a dialog; a paste-review-commit flow with a
+ * failure table underneath it is a page (`/collection/import`), so this is now
+ * a plain section the route renders.
+ */
+export function CollectionImportPanel({ onImported, onCancel }: CollectionImportPanelProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [importText, setImportText] = useState('');
@@ -201,14 +191,10 @@ export function CollectionBulkImport({
             errors.length ? `, ${errors.length} unresolved` : ''
           }`
         );
-        onImportComplete?.();
+        if (errors.length === 0) setImportText('');
+        onImported?.({ added, failures: errors });
       } else {
         showError('Import failed', 'No lines could be matched to a card');
-      }
-
-      if (errors.length === 0) {
-        setImportText('');
-        setOpen(false);
       }
     } catch (err) {
       console.error('Import error:', err);
@@ -222,98 +208,81 @@ export function CollectionBulkImport({
   const lineCount = importText.split('\n').filter(l => l.trim()).length;
 
   return (
-    <>
-      <Button variant="secondary" size="sm" className="gap-2" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline">Import</span>
-      </Button>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="import-format">Format</Label>
+        <Select
+          value={importFormat}
+          onValueChange={value => setImportFormat(value as typeof importFormat)}
+        >
+          <SelectTrigger id="import-format" className="border-0 bg-muted/40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="arena">Arena / MTGO</SelectItem>
+            <SelectItem value="txt">Plain text</SelectItem>
+            <SelectItem value="csv">CSV (name, qty, set, foil)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Import cards</DialogTitle>
-            <DialogDescription>
-              Paste a list from Arena, MTGO, Moxfield or a CSV. Set codes, collector numbers
-              and <code className="font-mono">*F*</code> foil markers are understood.
-            </DialogDescription>
-          </DialogHeader>
+      <div className="space-y-2">
+        <Label htmlFor="import-text">Card list</Label>
+        <Textarea
+          id="import-text"
+          value={importText}
+          onChange={e => setImportText(e.target.value)}
+          placeholder={
+            importFormat === 'csv'
+              ? 'Lightning Bolt, 4, m11\nBlack Lotus, 1\nCounterspell, 2, mh2, foil'
+              : '4 Lightning Bolt (2X2) 117\n1 Black Lotus\n2 Counterspell (MH2) 45 *F*'
+          }
+          className="min-h-[320px] border-0 bg-muted/40 font-mono text-sm"
+        />
+      </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="import-format">Format</Label>
-              <Select
-                value={importFormat}
-                onValueChange={value => setImportFormat(value as typeof importFormat)}
-              >
-                <SelectTrigger id="import-format">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="arena">Arena / MTGO</SelectItem>
-                  <SelectItem value="txt">Plain text</SelectItem>
-                  <SelectItem value="csv">CSV (name, qty, set, foil)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {failures.length > 0 && (
+        <div className="space-y-2 rounded-lg bg-destructive/10 p-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-destructive">
+            <AlertCircle className="h-4 w-4" aria-hidden="true" />
+            {failures.length} line{failures.length === 1 ? '' : 's'} could not be matched
+          </p>
+          <ul className="max-h-56 space-y-1 overflow-y-auto font-mono text-xs text-muted-foreground">
+            {failures.map((failure, i) => (
+              <li key={i}>{failure}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-            <div className="space-y-2">
-              <Label htmlFor="import-text">Card list</Label>
-              <Textarea
-                id="import-text"
-                value={importText}
-                onChange={e => setImportText(e.target.value)}
-                placeholder={
-                  importFormat === 'csv'
-                    ? 'Lightning Bolt, 4, m11\nBlack Lotus, 1\nCounterspell, 2, mh2, foil'
-                    : '4 Lightning Bolt (2X2) 117\n1 Black Lotus\n2 Counterspell (MH2) 45 *F*'
-                }
-                className="min-h-[260px] font-mono text-sm"
-              />
-            </div>
-
-            {failures.length > 0 && (
-              <div className="space-y-2 rounded-lg bg-destructive/5 p-3">
-                <p className="flex items-center gap-2 text-sm font-medium text-destructive">
-                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
-                  {failures.length} line{failures.length === 1 ? '' : 's'} could not be matched
-                </p>
-                <ul className="max-h-40 space-y-1 overflow-y-auto font-mono text-xs text-muted-foreground">
-                  {failures.map((failure, i) => (
-                    <li key={i}>{failure}</li>
-                  ))}
-                </ul>
-              </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="text-sm text-muted-foreground">
+          <FileText className="mr-2 inline h-4 w-4" aria-hidden="true" />
+          {importing && progress.total > 0
+            ? `${progress.done} / ${progress.total} processed`
+            : `${lineCount} line${lineCount === 1 ? '' : 's'}`}
+        </div>
+        <div className="flex gap-2">
+          {onCancel && (
+            <Button variant="ghost" onClick={onCancel} disabled={importing}>
+              Cancel
+            </Button>
+          )}
+          <Button onClick={handleImport} disabled={importing || !importText.trim()}>
+            {importing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                Import cards
+              </>
             )}
-
-            <div className="flex items-center justify-between pt-4">
-              <div className="text-sm text-muted-foreground">
-                <FileText className="mr-2 inline h-4 w-4" aria-hidden="true" />
-                {importing && progress.total > 0
-                  ? `${progress.done} / ${progress.total} processed`
-                  : `${lineCount} line${lineCount === 1 ? '' : 's'}`}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setOpen(false)} disabled={importing}>
-                  Cancel
-                </Button>
-                <Button onClick={handleImport} disabled={importing || !importText.trim()}>
-                  {importing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                      Importing…
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Import cards
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

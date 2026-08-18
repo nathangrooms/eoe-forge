@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import { deckListHash, deckPowerFromStored, type DeckPower } from '@/lib/deck/power';
 
 // The dashboard is the first screen a signed-in player sees, so everything it
 // renders has to come from a real row. There is deliberately no seeded/demo
@@ -155,7 +156,13 @@ export interface DeckSummary {
   name: string;
   format: string;
   colors: string[];
-  powerLevel: number;
+  /**
+   * The canonical EDH power score, or `null` when this deck has not been scored
+   * against its current list. Previously this was `num(row.power_level)` — the
+   * legacy integer column — so the dashboard stamped "5.0" on the art of a deck
+   * the /decks tile was showing as 6.3 in the same session.
+   */
+  power: DeckPower | null;
   updatedAt: string;
   cardCount: number;
   commanderName: string | null;
@@ -180,7 +187,7 @@ interface DeckRow {
   name: string;
   format: string;
   colors: string[] | null;
-  power_level: number | null;
+  edh_analysis: unknown;
   updated_at: string;
 }
 
@@ -209,7 +216,7 @@ export function useRecentDecks(limit = 6) {
       const [{ data: deckRows, error: deckError }, { data: favoriteRows }] = await Promise.all([
         supabase
           .from('user_decks')
-          .select('id, name, format, colors, power_level, updated_at')
+          .select('id, name, format, colors, edh_analysis, updated_at')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(limit),
@@ -224,6 +231,8 @@ export function useRecentDecks(limit = 6) {
       const cardCounts: Record<string, number> = {};
       const commanders: Record<string, { id: string | null; name: string }> = {};
       const faces: Record<string, string> = {};
+      /** Per-deck lists, so the stored score can be checked against the real deck. */
+      const lists: Record<string, Array<{ name: string; quantity: number }>> = {};
 
       if (rows.length > 0) {
         const { data: cardRows } = await supabase
@@ -234,6 +243,10 @@ export function useRecentDecks(limit = 6) {
         for (const card of cardRows ?? []) {
           if (!card.is_sideboard) {
             cardCounts[card.deck_id] = (cardCounts[card.deck_id] ?? 0) + num(card.quantity, 1);
+            (lists[card.deck_id] ??= []).push({
+              name: card.card_name,
+              quantity: num(card.quantity, 1),
+            });
           }
           if (card.is_commander && !commanders[card.deck_id]) {
             commanders[card.deck_id] = { id: card.card_id ?? null, name: card.card_name };
@@ -250,7 +263,13 @@ export function useRecentDecks(limit = 6) {
           name: row.name,
           format: row.format,
           colors: Array.isArray(row.colors) ? row.colors : [],
-          powerLevel: num(row.power_level),
+          // Staleness is decided against the list we just loaded, so a deck
+          // edited since it was scored is reported as outdated rather than
+          // rendered as current.
+          power: deckPowerFromStored(
+            (row.edh_analysis as { deckmatrix?: unknown } | null)?.deckmatrix,
+            deckListHash(lists[row.id] ?? [])
+          ),
           updatedAt: row.updated_at,
           cardCount: cardCounts[row.id] ?? 0,
           commanderName: commanders[row.id]?.name ?? null,

@@ -19,14 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -89,7 +81,8 @@ const appSectionConfig: Record<AppSection, { label: string; color: string }> = {
 export function TaskManagement() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const formRef = React.useRef<HTMLDivElement>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showCompleted, setShowCompleted] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -727,7 +720,7 @@ export function TaskManagement() {
         showSuccess('Task created successfully');
       }
 
-      setDialogOpen(false);
+      setFormOpen(false);
       resetForm();
       fetchTasks();
     } catch (error: any) {
@@ -767,13 +760,30 @@ export function TaskManagement() {
     }
   };
 
-  const openCreateDialog = () => {
-    resetForm();
-    setEditingTask(null);
-    setDialogOpen(true);
+  /** The composer sits above the list, so bring it into view when it opens. */
+  const revealForm = () => {
+    window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   };
 
-  const openEditDialog = (task: Task) => {
+  const closeForm = () => {
+    setFormOpen(false);
+    resetForm();
+  };
+
+  const openCreateForm = () => {
+    if (formOpen && !editingTask) {
+      closeForm();
+      return;
+    }
+    resetForm();
+    setEditingTask(null);
+    setFormOpen(true);
+    revealForm();
+  };
+
+  const openEditForm = (task: Task) => {
     setFormData({
       title: task.title,
       description: task.description || '',
@@ -783,7 +793,8 @@ export function TaskManagement() {
       app_section: task.app_section,
     });
     setEditingTask(task);
-    setDialogOpen(true);
+    setFormOpen(true);
+    revealForm();
   };
 
   const resetForm = () => {
@@ -835,11 +846,161 @@ export function TaskManagement() {
             Organize and track your development tasks
           </p>
         </div>
-        <Button onClick={openCreateDialog} size="lg" className="w-full sm:w-auto">
+        <Button onClick={openCreateForm} size="lg" className="w-full sm:w-auto">
           <Plus className="mr-2 h-5 w-5" />
-          New Task
+          {formOpen && !editingTask ? 'Close' : 'New Task'}
         </Button>
       </div>
+
+      {/* Create and edit happen in this panel, not over the list. Admin task
+          lists are worked in bulk; an overlay per edit is the slowest shape. */}
+      {formOpen && (
+        <Card ref={formRef}>
+          <CardHeader>
+            <CardTitle className="text-xl">
+              {editingTask ? 'Edit task' : 'New task'}
+            </CardTitle>
+            <CardDescription>
+              {editingTask
+                ? 'Update the task details below'
+                : 'Add a new task to track your development work'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={handleSubmit}
+              onKeyDown={(e) => { if (e.key === 'Escape') closeForm(); }}
+              className="space-y-5"
+            >
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              placeholder="Enter task title"
+              required
+              className="h-11"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder="Describe the task in detail (optional)"
+              rows={4}
+              className="resize-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="app_section" className="text-sm font-medium">App Section *</Label>
+            <Select
+              value={formData.app_section}
+              onValueChange={(value: AppSection) =>
+                setFormData({ ...formData, app_section: value })
+              }
+            >
+              <SelectTrigger id="app_section" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dashboard">Dashboard</SelectItem>
+                <SelectItem value="collection">Collection</SelectItem>
+                <SelectItem value="deck_builder">Deck Builder</SelectItem>
+                <SelectItem value="marketplace">Marketplace</SelectItem>
+                <SelectItem value="wishlist">Wishlist</SelectItem>
+                <SelectItem value="brain">Brain</SelectItem>
+                <SelectItem value="scan">Scan</SelectItem>
+                <SelectItem value="storage">Storage</SelectItem>
+                <SelectItem value="templates">Templates</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="settings">Settings</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value: TaskCategory) =>
+                  setFormData({ ...formData, category: value })
+                }
+              >
+                <SelectTrigger id="category" className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="feature">Feature</SelectItem>
+                  <SelectItem value="bug">Bug</SelectItem>
+                  <SelectItem value="improvement">Improvement</SelectItem>
+                  <SelectItem value="core_functionality">Core Functionality</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value: TaskPriority) =>
+                  setFormData({ ...formData, priority: value })
+                }
+              >
+                <SelectTrigger id="priority" className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status" className="text-sm font-medium">Status *</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value: TaskStatus) =>
+                setFormData({ ...formData, status: value })
+              }
+            >
+              <SelectTrigger id="status" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="blocked">Blocked</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit">
+                  {editingTask ? 'Update task' : 'Create task'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={closeForm}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -957,7 +1118,7 @@ export function TaskManagement() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => openEditDialog(task)}
+                          onClick={() => openEditForm(task)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -1064,7 +1225,7 @@ export function TaskManagement() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEditDialog(task)}
+                        onClick={() => openEditForm(task)}
                       >
                         <Pencil className="h-4 w-4 mr-1" />
                         Edit
@@ -1087,154 +1248,6 @@ export function TaskManagement() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle className="text-2xl">
-                {editingTask ? 'Edit Task' : 'Create New Task'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingTask
-                  ? 'Update the task details below'
-                  : 'Add a new task to track your development work'}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-5 py-6">
-              <div className="space-y-2">
-                <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  placeholder="Enter task title"
-                  required
-                  className="h-11"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-medium">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Describe the task in detail (optional)"
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="app_section" className="text-sm font-medium">App Section *</Label>
-                <Select
-                  value={formData.app_section}
-                  onValueChange={(value: AppSection) =>
-                    setFormData({ ...formData, app_section: value })
-                  }
-                >
-                  <SelectTrigger id="app_section" className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dashboard">Dashboard</SelectItem>
-                    <SelectItem value="collection">Collection</SelectItem>
-                    <SelectItem value="deck_builder">Deck Builder</SelectItem>
-                    <SelectItem value="marketplace">Marketplace</SelectItem>
-                    <SelectItem value="wishlist">Wishlist</SelectItem>
-                    <SelectItem value="brain">Brain</SelectItem>
-                    <SelectItem value="scan">Scan</SelectItem>
-                    <SelectItem value="storage">Storage</SelectItem>
-                    <SelectItem value="templates">Templates</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="settings">Settings</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value: TaskCategory) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger id="category" className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="feature">Feature</SelectItem>
-                      <SelectItem value="bug">Bug</SelectItem>
-                      <SelectItem value="improvement">Improvement</SelectItem>
-                      <SelectItem value="core_functionality">Core Functionality</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value: TaskPriority) =>
-                      setFormData({ ...formData, priority: value })
-                    }
-                  >
-                    <SelectTrigger id="priority" className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status" className="text-sm font-medium">Status *</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: TaskStatus) =>
-                    setFormData({ ...formData, status: value })
-                  }
-                >
-                  <SelectTrigger id="status" className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="blocked">Blocked</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">
-                {editingTask ? 'Update Task' : 'Create Task'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

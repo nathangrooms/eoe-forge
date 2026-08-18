@@ -4,6 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bandForScore, bandShortLabel, powerTextClass } from '@/lib/deck/power';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CATEGORY_CONFIG, CATEGORY_ORDER, type CardCategory } from './deck-categories';
 
@@ -36,13 +37,15 @@ export interface DeckQuickStatsProps {
   ownershipLoading?: boolean;
 }
 
-/** Power bands use the --power-* tokens rather than raw palette colours. */
+/**
+ * Bands come from the one threshold table. This file used to carry its own
+ * cuts (3/6/8) while the scoring engine used 3.4/6.6/8.5, so a deck at 6.5 was
+ * "High" in this tile and "mid" everywhere else.
+ */
 function powerBand(level: number | null | undefined) {
   if (level === null || level === undefined) return { color: 'text-muted-foreground', label: '' };
-  if (level <= 3) return { color: 'text-power-1', label: 'Casual' };
-  if (level <= 6) return { color: 'text-power-4', label: 'Mid' };
-  if (level <= 8) return { color: 'text-power-7', label: 'High' };
-  return { color: 'text-power-10', label: 'cEDH' };
+  const band = bandForScore(level);
+  return { color: powerTextClass(band), label: bandShortLabel(band) };
 }
 
 function StatTile({
@@ -106,9 +109,11 @@ export function DeckQuickStats({
           <Progress value={completionPct} className="mt-2 h-1" />
         </StatTile>
 
-        {/* EDH power level */}
+        {/* edhpowerlevel.com — a labelled second opinion. The deck's own EDH
+            power score is rendered by `PowerScore` above this strip; the two
+            are never presented as the same field. */}
         <StatTile
-          label="Power level"
+          label="edhpowerlevel.com"
           action={
             isCommander && onCheckEdhPower ? (
               <Button
@@ -129,13 +134,15 @@ export function DeckQuickStats({
           }
         >
           <div className={cn('text-2xl font-semibold tabular-nums', band.color)}>
-            {edhPowerLevel !== null && edhPowerLevel !== undefined ? edhPowerLevel.toFixed(2) : '—'}
+            {edhPowerLevel !== null && edhPowerLevel !== undefined
+              ? edhPowerLevel.toFixed(1)
+              : '—'}
             {edhPowerLevel !== null && edhPowerLevel !== undefined && (
               <span className="text-sm font-normal text-muted-foreground">/10</span>
             )}
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            {band.label || 'Not calculated'}
+            {band.label || 'Not checked'}
             {edhNeedsRefresh && edhPowerLevel !== null && edhPowerLevel !== undefined && (
               <span className="text-destructive">outdated</span>
             )}

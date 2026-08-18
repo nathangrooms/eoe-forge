@@ -380,36 +380,30 @@ export default function Marketplace() {
         <div className="flex gap-2">
           {listing.status !== 'sold' && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1"
-                onClick={() => handleShowEditModal(listing)}
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Edit
+              <Button size="sm" variant="secondary" className="flex-1" asChild>
+                <Link to={`/marketplace/listing/${listing.id}/edit`}>
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
+                </Link>
+              </Button>
+              <Button size="sm" variant="secondary" className="flex-1 relative" asChild>
+                <Link to={`/marketplace/messages/${listing.id}`}>
+                  <MessageCircle className="h-3 w-3 mr-1" />
+                  Msg
+                  <MessageNotificationBadge
+                    listingId={listing.id}
+                    className="absolute -top-1 -right-1"
+                  />
+                </Link>
               </Button>
               <Button
                 size="sm"
-                variant="outline"
-                className="flex-1 relative"
-                onClick={() => {
-                  setSelectedListing(listing);
-                  setShowMessagingDrawer(true);
-                }}
-              >
-                <MessageCircle className="h-3 w-3 mr-1" />
-                Msg
-                <MessageNotificationBadge
-                  listingId={listing.id}
-                  className="absolute -top-1 -right-1"
-                />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
+                variant="secondary"
                 className="flex-1"
-                onClick={() => handleShowSoldModal(listing)}
+                onClick={() =>
+                  setSellingListingId(sellingListingId === listing.id ? null : listing.id)
+                }
+                aria-expanded={sellingListingId === listing.id}
               >
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Sold
@@ -425,6 +419,16 @@ export default function Marketplace() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Recording the sale happens in the card itself, with the asking price
+            and condition still on screen. */}
+        {sellingListingId === listing.id && (
+          <MarkAsSoldInline
+            listing={listing}
+            onCancel={() => setSellingListingId(null)}
+            onMarkAsSold={handleMarkAsSold}
+          />
+        )}
       </CardContent>
     </Card>
   );
@@ -601,39 +605,6 @@ export default function Marketplace() {
           </TabsContent>
         </Tabs>
 
-        {/* Modals */}
-        <MarkAsSoldModal
-          isOpen={showSoldModal}
-          onClose={() => {
-            setShowSoldModal(false);
-            setSelectedListing(null);
-          }}
-          listing={selectedListing}
-          onMarkAsSold={handleMarkAsSold}
-        />
-
-        <EditListingModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedListing(null);
-          }}
-          listing={selectedListing}
-          onSave={handleUpdateListing}
-        />
-
-        {selectedListing && (
-          <MessagingDrawer
-            open={showMessagingDrawer}
-            onClose={() => {
-              setShowMessagingDrawer(false);
-              setSelectedListing(null);
-            }}
-            listingId={selectedListing.id}
-            sellerId={selectedListing.user_id}
-            cardName={selectedListing.cards?.name || selectedListing.card_id}
-          />
-        )}
       </div>
     </StandardPageLayout>
   );

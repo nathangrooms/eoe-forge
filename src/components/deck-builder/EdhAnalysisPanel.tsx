@@ -26,6 +26,7 @@ import {
   Droplets
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bandForScore, powerTextClass } from '@/lib/deck/power';
 import {
   Tooltip,
   TooltipContent,
@@ -92,13 +93,11 @@ const bracketDescriptions: Record<number, { name: string; description: string; c
   5: { name: 'cEDH', description: 'Competitive - No Restrictions', color: 'text-power-10' },
 };
 
-// Power reads on the --power-* scale; it is an MTG measure, so it keeps colour.
-const getPowerColor = (level: number) => {
-  if (level <= 3) return 'text-power-1';
-  if (level <= 6) return 'text-power-4';
-  if (level <= 8) return 'text-power-7';
-  return 'text-power-10';
-};
+/**
+ * Power reads on the --power-* scale; it is an MTG measure, so it keeps colour.
+ * The cuts come from the one threshold table, not from a fourth private copy.
+ */
+const getPowerColor = (level: number) => powerTextClass(bandForScore(level));
 
 export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: EdhAnalysisPanelProps) {
   if (!data && !isLoading) {
@@ -218,9 +217,13 @@ export function EdhAnalysisPanel({ data, isLoading, needsRefresh, onRefresh }: E
           <div className="flex items-center justify-center py-4">
             <div className="text-center">
               <div className={cn("text-5xl font-bold", getPowerColor(metrics?.powerLevel || 0))}>
-                {metrics?.powerLevel?.toFixed(2) || '--'}
+                {metrics?.powerLevel?.toFixed(1) || '--'}
               </div>
-              <div className="text-sm text-muted-foreground">/ 10 Power Level</div>
+              {/* Named for its source. This used to render at two decimals as
+                  "Power Level", which made it look like a more precise version
+                  of the deck's own score rather than a different opinion from a
+                  different site. */}
+              <div className="text-sm text-muted-foreground">/ 10 · edhpowerlevel.com</div>
             </div>
           </div>
 

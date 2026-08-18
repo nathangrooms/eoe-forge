@@ -65,9 +65,9 @@ export type MatTone = 'seat' | 'active' | 'viewer' | 'board';
  * every seat is pushed furthest down of all.
  */
 const TONE: Record<MatTone, { filter: string; opacity: number; scrim: number }> = {
-  seat: { filter: 'saturate(0.28) brightness(0.42) contrast(1.06)', opacity: 1, scrim: 0.46 },
-  active: { filter: 'saturate(0.4) brightness(0.52) contrast(1.06)', opacity: 1, scrim: 0.38 },
-  viewer: { filter: 'saturate(0.34) brightness(0.48) contrast(1.05)', opacity: 1, scrim: 0.4 },
+  seat: { filter: 'saturate(0.26) brightness(0.4) contrast(1.06)', opacity: 1, scrim: 0.48 },
+  active: { filter: 'saturate(0.36) brightness(0.48) contrast(1.06)', opacity: 1, scrim: 0.42 },
+  viewer: { filter: 'saturate(0.3) brightness(0.42) contrast(1.05)', opacity: 1, scrim: 0.46 },
   board: { filter: 'saturate(0.16) brightness(0.3) contrast(1.1)', opacity: 0.85, scrim: 0.62 },
 };
 

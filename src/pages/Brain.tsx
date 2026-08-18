@@ -26,12 +26,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { PowerScoreBadge } from '@/components/deck/PowerScore';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
-import { UniversalCardModal as UniversalCardViewModal } from '@/components/universal/UniversalCardModal';
+import { CardDetailPane } from '@/components/cards/CardDetailPane';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
-import { AddCardDialog, type AddableCard } from '@/components/brain/AddCardDialog';
+import { AddCardPanel, type AddableCard } from '@/components/brain/AddCardPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -164,7 +165,8 @@ export default function Brain() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  /* The selected card is the whole state - a card is either docked in the
+     detail column or it is not. There is nothing to "open". */
   const [modalCard, setModalCard] = useState<any>(null);
   const [addCard, setAddCard] = useState<AddableCard | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -284,7 +286,9 @@ export default function Brain() {
       } catch {}
 
       const counts = (selectedDeck as any)?.counts;
-      const power = (selectedDeck as any)?.power?.score;
+      const power = selectedDeck?.power && !selectedDeck.power.stale
+        ? selectedDeck.power.score
+        : null;
       const fallbackText = `I'm currently unable to connect to the AI service. Here's what I can tell you from local data:\n\n${
         counts
           ? `**Deck Composition:**\n- Total: ${counts.total} cards\n- Lands: ${counts.lands}\n- Creatures: ${counts.creatures}\n- Instants: ${counts.instants}\n- Sorceries: ${counts.sorceries}`
@@ -435,11 +439,11 @@ export default function Brain() {
                   </div>
                   <div className="text-xs text-muted-foreground">Cards</div>
                 </div>
-                <div className="rounded-md bg-muted p-2 text-center">
-                  <div className="text-lg font-semibold tabular-nums">
-                    {selectedDeck.power?.score ?? 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Power</div>
+                {/* The same score object the tile and the deck page render.
+                    This tile used to print `score ?? 0`, so an unscored deck
+                    told the Brain the deck was a 0. */}
+                <div className="col-span-2 flex items-center justify-center rounded-md bg-muted p-2">
+                  <PowerScoreBadge power={selectedDeck.power} />
                 </div>
               </div>
 
@@ -574,7 +578,6 @@ export default function Brain() {
                                     (card.image_uri ? { normal: card.image_uri } : undefined),
                                 };
                                 setModalCard(normalized);
-                                setModalOpen(true);
                               }}
                               onAddCard={openAddDialog}
                               compact={false}
@@ -653,6 +656,24 @@ export default function Brain() {
           </div>
         </ScrollArea>
 
+        {/* Add-to-destination flow for a recommended card — an inline panel in
+            the results column, directly above the composer. */}
+        {addOpen && addCard && (
+          <div className="px-4 pt-4">
+            <div className="mx-auto max-w-4xl">
+              <AddCardPanel
+                card={addCard}
+                decks={availableDecks}
+                onClose={() => {
+                  setAddOpen(false);
+                  setAddCard(null);
+                }}
+                defaultDeckId={selectedDeck?.id ?? null}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="border-t border-border bg-background p-4">
           <div className="mx-auto max-w-4xl">
@@ -688,25 +709,14 @@ export default function Brain() {
         </div>
       </div>
 
-      {/* Card detail modal */}
-      {modalOpen && (
-        <UniversalCardViewModal
-          card={modalCard}
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          showAddButton={false}
-          showWishlistButton={false}
-        />
+      {/* Card detail — a third column beside the conversation, so the answer
+          that recommended the card stays readable while the card is open. */}
+      {modalCard && (
+        <aside className="w-full shrink-0 overflow-y-auto bg-background p-4 lg:h-full lg:w-[24rem] lg:p-6">
+          <CardDetailPane card={modalCard} onClose={() => setModalCard(null)} />
+        </aside>
       )}
 
-      {/* Add-to-destination flow for recommended cards */}
-      <AddCardDialog
-        card={addCard}
-        decks={availableDecks}
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        defaultDeckId={selectedDeck?.id ?? null}
-      />
     </div>
   );
 }

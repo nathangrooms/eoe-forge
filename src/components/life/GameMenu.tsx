@@ -5,9 +5,13 @@
  * of the board, because the middle is the one place all four players can reach
  * and the one place no panel wants to own.
  *
- * This dialog is the only surface that is *not* rotated to a seat: it is
+ * This panel is the only surface that is *not* rotated to a seat: it is
  * operated by whoever owns the device, so it reads in the device's own
  * orientation like the rest of the app.
+ *
+ * It is a positioned region inside the /life layout, not a Dialog: nothing
+ * dims, nothing traps focus, and it carries its own Close control because this
+ * route is deliberately chrome-free.
  */
 
 import { useState } from 'react';
@@ -24,7 +28,6 @@ import {
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { seatingVariants, type GameState, type SeatingVariant } from '@/lib/game';
 
 import type { LifeOptions } from './session';
@@ -39,7 +42,8 @@ export interface GameMenuProps {
   wakeLock: WakeLockStatus;
   canUndo: boolean;
   onUndo: () => void;
-  onRequestReset: () => void;
+  /** Performs the reset. The panel asks for confirmation in place first. */
+  onReset: () => void;
   onRequestNewGame: () => void;
   onSetVariant: (variant: SeatingVariant) => void;
   onExit: () => void;
@@ -54,12 +58,13 @@ export function GameMenu({
   wakeLock,
   canUndo,
   onUndo,
-  onRequestReset,
+  onReset,
   onRequestNewGame,
   onSetVariant,
   onExit,
 }: GameMenuProps) {
   const [firstPlayer, setFirstPlayer] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const variants = seatingVariants(state.players.length);
   const recent = state.log.slice(-6).reverse();
@@ -72,17 +77,28 @@ export function GameMenu({
     setFirstPlayer(picked?.name ?? null);
   };
 
+  if (!open) return null;
+
+  const close = () => {
+    setConfirmingReset(false);
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-h-[85dvh] overflow-y-auto rounded-2xl border-0 bg-popover p-4 motion-reduce:animate-none sm:rounded-2xl"
+    <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-center p-3 sm:items-center">
+      <div
+        role="group"
+        aria-label="Game menu"
+        className="pointer-events-auto flex max-h-[85dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-2xl bg-popover p-4 shadow-2xl"
       >
-        <DialogTitle className="text-base font-semibold">
-          {state.rules.label} · {state.players.length} players
-        </DialogTitle>
-        <DialogDescription className="sr-only">
-          Undo, reset, seating and screen options for the running game.
-        </DialogDescription>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">
+            {state.rules.label} · {state.players.length} players
+          </h2>
+          <Button variant="ghost" size="icon" onClick={close} aria-label="Close menu">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <Button
@@ -91,17 +107,48 @@ export function GameMenu({
             disabled={!canUndo}
             onClick={() => {
               onUndo();
-              onOpenChange(false);
+              close();
             }}
           >
             <Undo2 className="h-4 w-4" />
             Undo
           </Button>
 
-          <Button variant="secondary" className="h-12 justify-start" onClick={onRequestReset}>
-            <RotateCcw className="h-4 w-4" />
-            Reset life
-          </Button>
+          {confirmingReset ? (
+            <div className="col-span-2 flex flex-col gap-2 rounded-xl bg-muted/50 p-3">
+              <p className="text-sm">
+                Reset all life totals? Undo still works afterwards.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  className="h-11 flex-1"
+                  onClick={() => {
+                    onReset();
+                    close();
+                  }}
+                >
+                  Confirm reset
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="h-11"
+                  onClick={() => setConfirmingReset(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="secondary"
+              className="h-12 justify-start"
+              onClick={() => setConfirmingReset(true)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset life
+            </Button>
+          )}
 
           <Button variant="secondary" className="h-12 justify-start" onClick={rollFirstPlayer}>
             <Dices className="h-4 w-4" />
@@ -183,7 +230,7 @@ export function GameMenu({
               ? 'Screen wake lock is unavailable right now.'
               : 'This browser cannot keep the screen awake.'}
         </p>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

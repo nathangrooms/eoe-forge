@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { Trophy, Target, TrendingUp, Calendar, Plus, BarChart3 } from 'lucide-react';
@@ -29,7 +28,7 @@ interface EnhancedMatchTrackerProps {
 export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerProps) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState({
     result: 'win',
     opponent_commander: '',
@@ -80,7 +79,7 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
       if (error) throw error;
 
       showSuccess('Match recorded successfully');
-      setDialogOpen(false);
+      setFormOpen(false);
       setFormData({
         result: 'win',
         opponent_commander: '',
@@ -118,84 +117,94 @@ export function EnhancedMatchTracker({ deckId, deckName }: EnhancedMatchTrackerP
               <CardTitle>Match History</CardTitle>
               <CardDescription>{deckName}</CardDescription>
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Record Match
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Record Match Result</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Result</Label>
-                    <Select
-                      value={formData.result}
-                      onValueChange={(value) => setFormData({ ...formData, result: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="win">Win</SelectItem>
-                        <SelectItem value="loss">Loss</SelectItem>
-                        <SelectItem value="draw">Draw</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Opponent's Commander (Optional)</Label>
-                    <Input
-                      value={formData.opponent_commander}
-                      onChange={(e) => setFormData({ ...formData, opponent_commander: e.target.value })}
-                      placeholder="e.g., Atraxa, Praetors' Voice"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Opponent's Deck Name (Optional)</Label>
-                    <Input
-                      value={formData.opponent_deck_name}
-                      onChange={(e) => setFormData({ ...formData, opponent_deck_name: e.target.value })}
-                      placeholder="e.g., Superfriends, Voltron"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input
-                      type="date"
-                      value={formData.played_at}
-                      onChange={(e) => setFormData({ ...formData, played_at: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Notes (Optional)</Label>
-                    <Textarea
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Key plays, what worked, what didn't..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Save Match</Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" onClick={() => setFormOpen(open => !open)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Record match
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
+          {/**
+           * The form expands where the history is, rather than covering it.
+           *
+           * You are recording a result relative to the run of games listed
+           * directly below — a dialog put those out of sight at exactly the
+           * moment you were typing about them.
+           */}
+          {formOpen && (
+            <form
+              onSubmit={handleSubmit}
+              className="mb-6 space-y-4 rounded-xl bg-muted/40 p-4"
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="match-result">Result</Label>
+                  <Select
+                    value={formData.result}
+                    onValueChange={(value) => setFormData({ ...formData, result: value })}
+                  >
+                    <SelectTrigger id="match-result">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="win">Win</SelectItem>
+                      <SelectItem value="loss">Loss</SelectItem>
+                      <SelectItem value="draw">Draw</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="match-date">Date</Label>
+                  <Input
+                    id="match-date"
+                    type="date"
+                    value={formData.played_at}
+                    onChange={(e) => setFormData({ ...formData, played_at: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="match-opponent-commander">Opponent's commander (optional)</Label>
+                  <Input
+                    id="match-opponent-commander"
+                    value={formData.opponent_commander}
+                    onChange={(e) => setFormData({ ...formData, opponent_commander: e.target.value })}
+                    placeholder="e.g., Atraxa, Praetors' Voice"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="match-opponent-deck">Opponent's deck name (optional)</Label>
+                  <Input
+                    id="match-opponent-deck"
+                    value={formData.opponent_deck_name}
+                    onChange={(e) => setFormData({ ...formData, opponent_deck_name: e.target.value })}
+                    placeholder="e.g., Superfriends, Voltron"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="match-notes">Notes (optional)</Label>
+                <Textarea
+                  id="match-notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Key plays, what worked, what didn't..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Save match</Button>
+              </div>
+            </form>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-4 mb-6">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <BarChart3 className="h-5 w-5 text-muted-foreground" />

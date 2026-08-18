@@ -8,7 +8,9 @@ import { DeckQuickStats } from '@/components/deck-builder/DeckQuickStats';
 import { EdhAnalysisPanel, EdhAnalysisData } from '@/components/deck-builder/EdhAnalysisPanel';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
-import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
+import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
+import { PowerScore } from '@/components/deck/PowerScore';
+import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
@@ -78,6 +80,16 @@ export function AIGeneratedDeckList({
       oracle_text: card.oracle_text
     }));
   }, [cards]);
+
+  /** The generated list, scored by the canonical engine. */
+  const generatedPower = useMemo(
+    () =>
+      computeDeckPower(
+        entriesFromStoreCards(transformedCards as any, commander as any),
+        { format: 'commander' }
+      ),
+    [transformedCards, commander]
+  );
 
   // Stats use the shared classifier and count copies, not distinct entries.
   const stats = useMemo(() => {
@@ -294,19 +306,12 @@ export function AIGeneratedDeckList({
             commander={commander}
           />
 
-          {/*
-            CommanderPowerDisplay was fed sub-scores derived as
-            powerLevel * 0.9 / 1.1 / 0.8 / 1.2 — invented numbers labelled
-            speed, interaction, resilience and combo potential. Removed; the
-            real per-axis figures come from EdhAnalysisPanel above.
-          */}
+          {/* The generated list scored by the same engine that scores every
+              saved deck, so the number the builder shows is the number the deck
+              will have the moment it is saved. */}
+          <PowerScore power={generatedPower} variant="expanded" />
 
-          {/* Power Level Consistency */}
-          <PowerLevelConsistency 
-            deckCards={transformedCards as any}
-            commander={commander}
-            format="commander"
-          />
+          <CommanderPowerDisplay power={generatedPower} commanderName={commander?.name} />
 
           {/* Archetype Detection */}
           <ArchetypeDetection 

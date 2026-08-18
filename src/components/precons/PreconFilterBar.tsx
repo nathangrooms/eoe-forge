@@ -30,7 +30,13 @@ export interface PreconFilterBarProps {
   query: string;
   onQueryChange: (value: string) => void;
   colors: string[];
-  onColorsChange: (colors: string[]) => void;
+  /**
+   * Toggles one colour. Deliberately not `onColorsChange(next: string[])`:
+   * computing `next` here closes over the `colors` prop, so two pips clicked in
+   * the same frame both compute from the pre-click value and the second one
+   * silently discards the first.
+   */
+  onToggleColor: (color: string) => void;
   set: string;
   sets: Array<{ name: string; count: number }>;
   onSetChange: (set: string) => void;
@@ -44,7 +50,7 @@ export function PreconFilterBar({
   query,
   onQueryChange,
   colors,
-  onColorsChange,
+  onToggleColor,
   set,
   sets,
   onSetChange,
@@ -53,11 +59,6 @@ export function PreconFilterBar({
   activeCount,
   onReset,
 }: PreconFilterBarProps) {
-  const toggleColor = (color: string) =>
-    onColorsChange(
-      colors.includes(color) ? colors.filter(c => c !== color) : [...colors, color]
-    );
-
   return (
     <div className="rounded-xl bg-card p-3 shadow-lg shadow-black/20">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -86,7 +87,7 @@ export function PreconFilterBar({
               <button
                 key={color}
                 type="button"
-                onClick={() => toggleColor(color)}
+                onClick={() => onToggleColor(color)}
                 aria-pressed={on}
                 aria-label={`Colour ${color}`}
                 className={cn(

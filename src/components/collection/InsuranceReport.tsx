@@ -1,17 +1,8 @@
-import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { FileText, Download, Printer } from 'lucide-react';
+import { ExternalLink, Download, Printer } from 'lucide-react';
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { conditionLabel, formatPrice, normalizeCondition } from '@/components/collection/browser/types';
 
@@ -29,6 +20,8 @@ interface InsuranceReportProps {
   collectionValue: number;
   cardCount: number;
   topCards?: InsuranceLineItem[];
+  /** The routed copy at /collection/insurance hides its own link to itself. */
+  showOpenLink?: boolean;
 }
 
 /**
@@ -40,9 +33,8 @@ export function InsuranceReport({
   collectionValue = 0,
   cardCount = 0,
   topCards = [],
+  showOpenLink = true,
 }: InsuranceReportProps) {
-  const [open, setOpen] = useState(false);
-
   const items = topCards
     .filter(card => card && card.name)
     .map(card => ({
@@ -101,82 +93,76 @@ export function InsuranceReport({
     URL.revokeObjectURL(url);
 
     showSuccess('Report downloaded', 'Insurance report saved');
-    setOpen(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary">
-          <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-          Insurance report
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Collection insurance report</DialogTitle>
-          <DialogDescription>
-            A plain-text valuation document you can send to an insurer
-          </DialogDescription>
-        </DialogHeader>
+    <Card className="border-0 shadow-lg shadow-black/20">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle className="text-lg">Collection insurance report</CardTitle>
+          <CardDescription>
+            A plain-text valuation document you can send to an insurer. Foil copies are valued at
+            foil market price.
+          </CardDescription>
+        </div>
+        {showOpenLink && (
+          <Button asChild variant="secondary" size="sm" className="gap-2">
+            <Link to="/collection/insurance">
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Open full page
+            </Link>
+          </Button>
+        )}
+      </CardHeader>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Summary</CardTitle>
-            <CardDescription>Foil copies valued at foil market price</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Total cards</p>
-                <p className="text-2xl font-bold tabular-nums">{cardCount.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total value</p>
-                <p className="text-2xl font-bold tabular-nums">{formatPrice(collectionValue)}</p>
-              </div>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Total cards</p>
+            <p className="text-2xl font-bold tabular-nums">{cardCount.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Total value</p>
+            <p className="text-2xl font-bold tabular-nums">{formatPrice(collectionValue)}</p>
+          </div>
+        </div>
+
+        {items.length > 0 ? (
+          <div>
+            <p className="mb-2 text-sm font-medium">Most valuable entries</p>
+            <div className="max-h-[320px] space-y-1 overflow-y-auto">
+              {items.map((card, i) => {
+                const copies = card.quantity + card.foil;
+                return (
+                  <div
+                    key={`${card.name}-${i}`}
+                    className="flex items-center justify-between gap-3 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      {i + 1}. {card.name}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      {card.setCode && <span className="font-mono uppercase">{card.setCode}</span>}
+                      <Badge variant="secondary" className="h-5 px-1 text-[10px] font-normal">
+                        {normalizeCondition(card.condition)}
+                      </Badge>
+                      <span className="tabular-nums">x{copies}</span>
+                    </span>
+                    <span className="w-20 shrink-0 text-right font-medium tabular-nums">
+                      {formatPrice(card.value)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No cards in the collection yet - add cards to generate a report.
+          </p>
+        )}
 
-            {items.length > 0 ? (
-              <div>
-                <p className="mb-2 text-sm font-medium">Most valuable entries</p>
-                <div className="max-h-[220px] space-y-1 overflow-y-auto">
-                  {items.map((card, i) => {
-                    const copies = card.quantity + card.foil;
-                    return (
-                      <div
-                        key={`${card.name}-${i}`}
-                        className="flex items-center justify-between gap-3 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                      >
-                        <span className="min-w-0 flex-1 truncate">
-                          {i + 1}. {card.name}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                          {card.setCode && (
-                            <span className="font-mono uppercase">{card.setCode}</span>
-                          )}
-                          <Badge variant="secondary" className="h-5 px-1 text-[10px] font-normal">
-                            {normalizeCondition(card.condition)}
-                          </Badge>
-                          <span className="tabular-nums">×{copies}</span>
-                        </span>
-                        <span className="w-20 shrink-0 text-right font-medium tabular-nums">
-                          {formatPrice(card.value)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No cards in the collection yet — add cards to generate a report.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <DialogFooter>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
             Print
@@ -185,8 +171,8 @@ export function InsuranceReport({
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Download report
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

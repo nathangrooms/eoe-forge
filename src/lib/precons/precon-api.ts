@@ -5,7 +5,6 @@ import {
   type PreconCommanderRef,
 } from '@/data/precon-index';
 import {
-  fetchCardsByIds,
   scryfallImageUrl,
   type DeckCardDetail,
   type DeckCardRow,
@@ -98,12 +97,6 @@ export function summarizePrecons(items: PreconListItem[]): PreconSummary[] {
     };
   });
 }
-
-/**
- * The catalogue as the index knows it, for the empty-state stat line before the
- * edge function answers. Never rendered as the real list.
- */
-export const INDEXED_PRECON_COUNT = PRECON_INDEX.length;
 
 /* ------------------------------------------------------------------ *
  * Commander card lookup
@@ -226,8 +219,28 @@ export function commanderArt(card: any, fallbackId?: string): string | null {
  * Decklist resolution
  * ------------------------------------------------------------------ */
 
+/**
+ * Deliberately not `fetchCardsByIds` from `lib/deck/deckCards`: its projection
+ * omits `faces` and `layout`, so every double-faced card in a precon would lose
+ * its back face and its flip control. This asks for both.
+ */
 const DECK_COLUMNS =
   'id, name, type_line, mana_cost, cmc, colors, color_identity, image_uris, faces, layout, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords';
+
+async function selectDeckCards(column: 'id' | 'name', values: string[]): Promise<any[]> {
+  const rows: any[] = [];
+  const unique = Array.from(new Set(values.filter(Boolean)));
+  const CHUNK = 80;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from('cards')
+      .select(DECK_COLUMNS)
+      .in(column, unique.slice(i, i + CHUNK));
+    if (error) throw error;
+    rows.push(...((data ?? []) as any[]));
+  }
+  return rows;
+}
 
 function toDetail(raw: any): DeckCardDetail & { faces?: any; layout?: string; id?: string } {
   return {
@@ -274,28 +287,21 @@ export async function resolvePreconRows(cards: PreconCard[]): Promise<DeckCardRo
     card: null,
   }));
 
-  let byId = new Map<string, DeckCardDetail>();
+  const byId = new Map<string, any>();
   try {
-    byId = await fetchCardsByIds(base.map(row => row.card_id));
+    for (const raw of await selectDeckCards('id', base.map(row => row.card_id))) {
+      byId.set(raw.id, raw);
+    }
   } catch (error) {
     console.error('[precons] printing lookup failed', error);
   }
 
-  const unresolved = base.filter(row => !byId.has(row.card_id));
   const byName = new Map<string, any>();
+  const unresolved = base.filter(row => !byId.has(row.card_id));
   if (unresolved.length > 0) {
     try {
-      const names = Array.from(new Set(unresolved.map(row => row.card_name).filter(Boolean)));
-      const CHUNK = 80;
-      for (let i = 0; i < names.length; i += CHUNK) {
-        const { data, error } = await supabase
-          .from('cards')
-          .select(DECK_COLUMNS)
-          .in('name', names.slice(i, i + CHUNK));
-        if (error) throw error;
-        for (const raw of (data ?? []) as any[]) {
-          byName.set((raw.name ?? '').toLowerCase(), raw);
-        }
+      for (const raw of await selectDeckCards('name', unresolved.map(row => row.card_name))) {
+        byName.set((raw.name ?? '').toLowerCase(), raw);
       }
     } catch (error) {
       console.error('[precons] name lookup failed', error);
@@ -304,7 +310,7 @@ export async function resolvePreconRows(cards: PreconCard[]): Promise<DeckCardRo
 
   return base.map(row => {
     const direct = byId.get(row.card_id);
-    if (direct) return { ...row, card: direct };
+    if (direct) return { ...row, card: toDetail(direct) };
 
     const named = byName.get(row.card_name.toLowerCase());
     if (named) return { ...row, card_id: named.id ?? row.card_id, card: toDetail(named) };

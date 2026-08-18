@@ -5,10 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { Bell, Plus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { Bell, Plus, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
 
 interface PriceAlert {
   id: string;
@@ -24,7 +23,9 @@ interface PriceAlert {
 export function EnhancedPriceAlerts() {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  /** The composer expands at the top of the list - no overlay. */
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [newAlert, setNewAlert] = useState({
     cardName: '',
     targetPrice: '',
@@ -88,7 +89,7 @@ export function EnhancedPriceAlerts() {
       if (error) throw error;
 
       showSuccess('Alert created', `You'll be notified when ${cards[0].name} goes ${newAlert.alertType} $${newAlert.targetPrice}`);
-      setDialogOpen(false);
+      setComposerOpen(false);
       setNewAlert({ cardName: '', targetPrice: '', alertType: 'below' });
       loadAlerts();
     } catch (error: any) {
@@ -116,8 +117,6 @@ export function EnhancedPriceAlerts() {
   };
 
   const deleteAlert = async (alertId: string) => {
-    if (!confirm('Delete this price alert?')) return;
-
     try {
       const { error } = await supabase
         .from('price_alerts')
@@ -127,6 +126,7 @@ export function EnhancedPriceAlerts() {
       if (error) throw error;
 
       showSuccess('Alert deleted', 'Price alert removed');
+      setConfirmingDelete(null);
       loadAlerts();
     } catch (error: any) {
       showError('Failed to delete alert', error.message);
@@ -142,76 +142,96 @@ export function EnhancedPriceAlerts() {
             Price Alerts
             <Badge variant="secondary">{alerts.filter(a => a.is_active).length} active</Badge>
           </CardTitle>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                New Alert
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Price Alert</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Card Name</label>
-                  <Input
-                    placeholder="e.g., Black Lotus"
-                    value={newAlert.cardName}
-                    onChange={(e) => setNewAlert({ ...newAlert, cardName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Alert Type</label>
-                  <Select
-                    value={newAlert.alertType}
-                    onValueChange={(value: any) => setNewAlert({ ...newAlert, alertType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="below">
-                        <div className="flex items-center gap-2">
-                          <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                          <span>Alert when price drops below</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="above">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                          <span>Alert when price rises above</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Target Price (USD)</label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0"
-                    value={newAlert.targetPrice}
-                    onChange={(e) => setNewAlert({ ...newAlert, targetPrice: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={createAlert}>
-                    Create Alert
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button
+            size="sm"
+            onClick={() => setComposerOpen(open => !open)}
+            aria-expanded={composerOpen}
+          >
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+            New alert
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {composerOpen && (
+          <div className="space-y-4 rounded-lg bg-muted/40 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <h4 className="text-sm font-medium">New price alert</h4>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label="Close"
+                onClick={() => setComposerOpen(false)}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="alert-card">
+                  Card name
+                </label>
+                <Input
+                  id="alert-card"
+                  placeholder="e.g., Black Lotus"
+                  value={newAlert.cardName}
+                  onChange={(e) => setNewAlert({ ...newAlert, cardName: e.target.value })}
+                  className="border-0 bg-background/60"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Alert type</label>
+                <Select
+                  value={newAlert.alertType}
+                  onValueChange={(value: any) => setNewAlert({ ...newAlert, alertType: value })}
+                >
+                  <SelectTrigger className="border-0 bg-background/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="below">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        <span>Drops below</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="above">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                        <span>Rises above</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="alert-price">
+                  Target price (USD)
+                </label>
+                <Input
+                  id="alert-price"
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={newAlert.targetPrice}
+                  onChange={(e) => setNewAlert({ ...newAlert, targetPrice: e.target.value })}
+                  className="border-0 bg-background/60"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={createAlert}>Create alert</Button>
+              <Button variant="ghost" onClick={() => setComposerOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
@@ -229,7 +249,7 @@ export function EnhancedPriceAlerts() {
             {alerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`p-3 rounded-lg border ${alert.is_active ? 'bg-card' : 'bg-muted/50 opacity-60'}`}
+                className={`rounded-lg p-3 ${alert.is_active ? 'bg-card shadow-lg shadow-black/20' : 'bg-muted/40 opacity-60'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -255,13 +275,33 @@ export function EnhancedPriceAlerts() {
                       checked={alert.is_active}
                       onCheckedChange={() => toggleAlert(alert.id, alert.is_active)}
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteAlert(alert.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {confirmingDelete === alert.id ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteAlert(alert.id)}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmingDelete(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Delete alert for ${alert.card_name}`}
+                        onClick={() => setConfirmingDelete(alert.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

@@ -48,8 +48,14 @@ import {
 
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 const CARD_RATIO = 0.7176;
-/** Vertical space the identity strip needs, per life-badge size. */
-const STRIP_HEIGHT: Record<LifeBadgeSize, number> = { sm: 64, md: 84, lg: 108 };
+/**
+ * Vertical space the identity strip needs, per life-badge size.
+ *
+ * Measured against the tallest thing in that strip — which is the library
+ * stack, not the life badge — plus its padding. Under-stating this is what
+ * silently squeezes the battlefield.
+ */
+const STRIP_HEIGHT: Record<LifeBadgeSize, number> = { sm: 76, md: 92, lg: 112 };
 
 export interface TableViewProps {
   state: GameState;

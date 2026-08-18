@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Card as DeckCard } from '@/stores/deckStore';
-import { EDHPowerScore } from '@/lib/deckbuilder/score/edh-power-calculator';
+import type { DeckPower } from '@/lib/deck/power';
 
 interface Message {
   id: string;
@@ -23,7 +23,13 @@ interface Message {
 interface BrainAnalysisProps {
   deck: DeckCard[];
   commander?: DeckCard;
-  powerScore: EDHPowerScore;
+  /**
+   * The canonical score. Every panel that briefs the model now sends this same
+   * object — previously this one sent the engine result while AIAnalysisPanel
+   * sent the scraped summary score and AIOptimizerPanel sent the stale integer,
+   * so the coaching contradicted itself between tabs.
+   */
+  powerScore: DeckPower;
   deckId?: string;
   format: string;
 }
@@ -64,9 +70,9 @@ Average CMC: ${data.avgCMC}
 Mana Score: ${data.subscores?.mana || 0}/100
 
 **Playability Metrics:**
-- Keepable 7-card hands: ${data.playability?.keepable7_pct || 0}%
-- T1 color hit: ${data.playability?.t1_color_hit_pct || 0}%
-- Untapped lands: ${data.playability?.untapped_land_ratio || 0}%
+- Keepable 7-card hands: ${data.playability?.keepable7Pct ?? 0}%
+- T1 color hit: ${data.playability?.t1ColorPct ?? 0}%
+- Untapped lands: ${data.playability?.untappedLandPct ?? 0}%
 
 Is my curve optimized? Should I adjust land count? Suggest 2-3 mana rocks or lands to improve consistency.`
   },
@@ -227,7 +233,7 @@ export function BrainAnalysis({ deck, commander, powerScore, deckId, format }: B
         type: 'assistant',
         content: `## 🧠 DeckMatrix AI Analysis Engine
 
-**ANALYZING**: ${commander?.name || 'Deck'} | **POWER**: ${powerScore.power.toFixed(1)}/10 (${powerScore.band})
+**ANALYZING**: ${commander?.name || 'Deck'} | **POWER**: ${powerScore.score.toFixed(1)}/10 (${powerScore.band})
 
 I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Select an analysis option below or ask me anything about your deck's strategy, optimization, or card choices.
 
@@ -252,13 +258,14 @@ I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Sel
         sorceries: deck.filter(c => c.type_line?.includes('Sorcery')).length,
         artifacts: deck.filter(c => c.type_line?.includes('Artifact')).length,
         enchantments: deck.filter(c => c.type_line?.includes('Enchantment')).length,
-        avgCMC: powerScore.playability.avg_cmc,
+        avgCMC: powerScore.simulation.avgManaValue,
         colors: commander?.colors || [],
         topCards: deck.slice(0, 20).map(c => c.name),
-        power: powerScore.power,
+        power: powerScore.score,
         band: powerScore.band,
+        bracket: powerScore.bracket,
         subscores: powerScore.subscores,
-        playability: powerScore.playability,
+        playability: powerScore.simulation,
         drivers: powerScore.drivers,
         drags: powerScore.drags,
         archetype: 'Unknown' // Would be loaded from deck if available
@@ -321,12 +328,13 @@ I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Sel
       sorceries: deck.filter(c => c.type_line?.includes('Sorcery')).length,
       artifacts: deck.filter(c => c.type_line?.includes('Artifact')).length,
       enchantments: deck.filter(c => c.type_line?.includes('Enchantment')).length,
-      avgCMC: powerScore.playability.avg_cmc,
+      avgCMC: powerScore.simulation.avgManaValue,
       topCards: deck.slice(0, 20).map(c => c.name),
-      power: powerScore.power,
+      power: powerScore.score,
       band: powerScore.band,
+      bracket: powerScore.bracket,
       subscores: powerScore.subscores,
-      playability: powerScore.playability,
+      playability: powerScore.simulation,
       drivers: powerScore.drivers,
       drags: powerScore.drags,
       archetype: 'Unknown'

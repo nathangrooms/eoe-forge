@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, Boxes, Search, TrendingUp } from 'lucide-react';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
 import { supabase } from '@/integrations/supabase/client';
+import { Section, SectionInner, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
 
 /**
@@ -172,34 +173,30 @@ export function HomeShowcase() {
   const list = cards ?? [];
 
   return (
-    <section className="py-24">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
-            Real cards. Real costs. Real prices.
-          </h2>
-          <p className="mt-4 text-muted-foreground text-pretty">
-            Everything below is live data from the card catalogue — the same data the builder uses.
-          </p>
-        </div>
-      </div>
+    <Section bleed>
+      <SectionInner>
+        <SectionHeading
+          title="Real cards. Real costs. Real prices."
+          lead="Everything below is live data from the card catalogue — the same data the builder uses."
+        />
+      </SectionInner>
 
       {/* full-bleed marquee */}
       <div className="mt-12">
         {loading ? (
-          <div className="container mx-auto flex gap-3 overflow-hidden px-4">
+          <SectionInner containerClassName="flex gap-3 overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="aspect-[5/7] w-40 shrink-0 rounded-xl sm:w-52 lg:w-56" />
             ))}
-          </div>
+          </SectionInner>
         ) : (
           <CardMarquee cards={list} />
         )}
       </div>
 
       {/* bento */}
-      <div className="container mx-auto mt-16 px-4">
-        <div className="mx-auto grid max-w-[1500px] gap-4 lg:grid-cols-3">
+      <SectionInner className="mt-16">
+        <div className="grid gap-4 lg:grid-cols-3">
           <BentoTile
             icon={Search}
             title="Search the whole card pool"
@@ -257,8 +254,8 @@ export function HomeShowcase() {
             </Link>
           </Button>
         </div>
-      </div>
-    </section>
+      </SectionInner>
+    </Section>
   );
 }
 

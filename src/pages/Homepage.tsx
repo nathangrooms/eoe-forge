@@ -12,6 +12,7 @@ import {
 import { FAQSection } from '@/components/marketing/FAQSection';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
+import { SectionInner } from '@/components/marketing/Section';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -53,7 +54,7 @@ function HomeFooter() {
 
   return (
     <footer className="border-t bg-background py-12">
-      <div className="container mx-auto px-4">
+      <SectionInner>
         <div className="grid gap-10 sm:grid-cols-3">
           <div>
             <p className="font-semibold">DeckMatrix</p>
@@ -97,7 +98,7 @@ function HomeFooter() {
             Wizards of the Coast. ©Wizards of the Coast LLC.
           </p>
         </div>
-      </div>
+      </SectionInner>
     </footer>
   );
 }

@@ -301,9 +301,13 @@ export function SeatPanel({
               </div>
             )}
 
+            {/* Capped, not proportional: a library drawn as tall as a card
+                would set the height of the whole identity strip and steal the
+                room the battlefield needs. */}
             <LibraryStack
               count={player.zones.library.length}
-              width={Math.max(28, Math.round(width * 0.7))}
+              width={Math.max(26, Math.min(40, Math.round(width * 0.6)))}
+              maxLayers={4}
               onClick={isViewer && onOpenZone ? () => onOpenZone(player.id, 'library') : undefined}
               className="shrink-0"
             />

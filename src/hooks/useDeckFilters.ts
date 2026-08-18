@@ -28,7 +28,7 @@ export interface DeckItem {
   format: string;
   colors?: string[];
   identity?: string[];
-  power?: { score?: number | null } | null;
+  power?: { score: number; stale: boolean } | null;
 }
 
 export const COLOR_MATCH_LABELS: Record<ColorMatchMode, string> = {
@@ -92,10 +92,12 @@ export const useDeckFilters = <T extends DeckItem>(decks: T[]) => {
       }
 
       if (powerNarrowed) {
-        const score = deck.power?.score;
-        // A deck with no computed score is never silently hidden.
-        if (typeof score === 'number') {
-          if (score < filters.minPower || score > filters.maxPower) return false;
+        // A deck with no current score is never silently hidden: filtering on a
+        // stale number would drop decks out of the list on the strength of a
+        // score that no longer describes them.
+        const power = deck.power;
+        if (power && !power.stale) {
+          if (power.score < filters.minPower || power.score > filters.maxPower) return false;
         }
       }
 

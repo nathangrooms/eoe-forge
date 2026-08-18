@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart3, Edit, Loader2 } from 'lucide-react';
 import { DeckSummary } from '@/lib/api/deckAPI';
-import { fetchDeckCards, toEngineCards, type DeckCardRow } from '@/lib/deck/deckCards';
+import { fetchDeckCards, type DeckCardRow } from '@/lib/deck/deckCards';
+import { PowerScore, PowerScoreBadge } from '@/components/deck/PowerScore';
+import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
+import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
 import {
-  EDHPowerCalculator,
-  type EDHPowerScore,
-} from '@/lib/deckbuilder/score/edh-power-calculator';
+  computeDeckPower,
+  entriesFromDeckRows,
+  persistDeckPower,
+  type DeckPower,
+} from '@/lib/deck/power';
 import { CATEGORY_BG_CLASS, CATEGORY_LABEL, type DeckCategory } from '@/lib/deck/cardCategories';
 import { averageManaValue, normalizeCurve } from '@/lib/deck/curve';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
@@ -22,18 +26,6 @@ interface DeckAnalysisViewProps {
   /** Hide the deck name / format strip when the host page already prints it. */
   showHeader?: boolean;
 }
-
-const SUBSCORE_LABELS: Record<keyof EDHPowerScore['subscores'], string> = {
-  speed: 'Speed',
-  interaction: 'Interaction',
-  tutors: 'Tutors',
-  resilience: 'Resilience',
-  card_advantage: 'Card advantage',
-  mana: 'Mana base',
-  consistency: 'Consistency',
-  stax_pressure: 'Stax pressure',
-  synergy: 'Synergy',
-};
 
 const TYPE_ROWS: Array<{ category: DeckCategory; key: keyof DeckSummary['counts'] }> = [
   { category: 'lands', key: 'lands' },
@@ -96,26 +88,28 @@ export function DeckAnalysisView({
     };
   }, [deckSummary?.id]);
 
-  const powerScore = useMemo<EDHPowerScore | null>(() => {
-    if (rows.length === 0) return null;
-    // toEngineCards drops the sideboard, so index against the same subset.
-    const mainRows = rows.filter(row => !row.is_sideboard);
-    const engineCards = toEngineCards(rows);
-    if (engineCards.length === 0) return null;
-    const commanderIndex = mainRows.findIndex(row => row.is_commander);
-    const commander = commanderIndex >= 0 ? engineCards[commanderIndex] : undefined;
-    try {
-      return EDHPowerCalculator.calculatePower(
-        engineCards,
-        deckSummary.format,
-        42,
-        commander
-      );
-    } catch (error) {
-      console.error('Power calculation failed:', error);
-      return null;
-    }
-  }, [rows, deckSummary.format]);
+  /**
+   * One number, computed once.
+   *
+   * This view used to print two: `deckSummary.power.score` in the header strip
+   * (an edhpowerlevel.com scrape, or the legacy integer column when no scrape
+   * existed) and a separate `EDHPowerCalculator` result in the body, about
+   * 200px apart and both labelled "/10". For an unscored deck that read
+   * "Power 5/10 · mid" above "6.6 /10 HIGH". Both now come from the same
+   * `DeckPower`.
+   */
+  const entries = useMemo(() => entriesFromDeckRows(rows), [rows]);
+
+  const power = useMemo<DeckPower | null>(
+    () => computeDeckPower(entries, { format: deckSummary.format }),
+    [entries, deckSummary.format]
+  );
+
+  // Scoring here is the deck list's chance to catch up: persist it so the tile,
+  // the dashboard and the builder all show this same number next time.
+  useEffect(() => {
+    if (power && deckSummary?.id) void persistDeckPower(deckSummary.id, power);
+  }, [power, deckSummary?.id]);
 
   const curve = normalizeCurve(deckSummary.curve?.bins);
   const maxCurveCount = Math.max(...curve.map(entry => entry.count), 1);
@@ -144,11 +138,7 @@ export function DeckAnalysisView({
             <h2 className="text-2xl font-semibold">{deckSummary.name}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{formatLabel(deckSummary.format)}</Badge>
-              {showPower && (
-                <Badge variant="secondary">
-                  Power {deckSummary.power?.score ?? 0}/10 · {deckSummary.power?.band}
-                </Badge>
-              )}
+              {showPower && <PowerScoreBadge power={power ?? deckSummary.power} />}
               <span className="text-sm text-muted-foreground">
                 {deckSummary.counts.total} cards · avg MV {avgMv.toFixed(2)}
               </span>
@@ -164,8 +154,9 @@ export function DeckAnalysisView({
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="power">Power</TabsTrigger>
+          <TabsTrigger value="coaching">Coaching</TabsTrigger>
           <TabsTrigger value="curve">Mana curve</TabsTrigger>
           <TabsTrigger value="types">Types</TabsTrigger>
           <TabsTrigger value="mana">Mana base</TabsTrigger>
@@ -179,89 +170,38 @@ export function DeckAnalysisView({
             </div>
           ) : loadError ? (
             <p className="py-10 text-center text-sm text-destructive">{loadError}</p>
-          ) : !powerScore ? (
+          ) : !showPower ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              This deck has no cards to score yet.
+              Power level is a Commander concept — {formatLabel(deckSummary.format)} decks are not
+              scored on it.
+            </p>
+          ) : (
+            <PowerScore power={power} variant="expanded" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="coaching" className="space-y-4">
+          {loading ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading decklist…
+            </div>
+          ) : !power ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Add cards to this deck to get coaching on it.
             </p>
           ) : (
             <>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-baseline gap-2 text-lg">
-                    <span className="text-3xl font-bold tabular-nums">
-                      {powerScore.power.toFixed(1)}
-                    </span>
-                    <span className="text-muted-foreground">/10</span>
-                    <Badge variant="secondary" className="ml-2 uppercase">
-                      {powerScore.band}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  Computed from this decklist by the EDH power engine.
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {(
-                  Object.keys(SUBSCORE_LABELS) as Array<keyof EDHPowerScore['subscores']>
-                ).map(key => {
-                  const raw = powerScore.subscores[key];
-                  const outOfTen = Math.round((raw / 10) * 10) / 10;
-                  return (
-                    <Card key={key}>
-                      <CardContent className="p-4">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="font-medium">{SUBSCORE_LABELS[key]}</span>
-                          <span className="text-sm tabular-nums text-muted-foreground">
-                            {outOfTen.toFixed(1)}/10
-                          </span>
-                        </div>
-                        <Progress value={Math.min(Math.max(raw, 0), 100)} />
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Power drivers</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {powerScore.drivers.length > 0 ? (
-                      <ul className="space-y-1 text-sm">
-                        {powerScore.drivers.map((driver, i) => (
-                          <li key={i}>• {driver}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Nothing in this list stands out as a power driver.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Power drags</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {powerScore.drags.length > 0 ? (
-                      <ul className="space-y-1 text-sm">
-                        {powerScore.drags.map((drag, i) => (
-                          <li key={i}>• {drag}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No significant weaknesses detected.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+              <PowerSliderCoaching
+                power={power}
+                entries={entries}
+                format={deckSummary.format}
+              />
+              <LandEnhancerUX
+                entries={entries}
+                power={power}
+                identity={deckSummary.identity ?? deckSummary.colors}
+              />
             </>
           )}
         </TabsContent>

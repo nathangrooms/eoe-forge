@@ -10,6 +10,9 @@ import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckStore } from '@/stores/deckStore';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards';
+import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 
 interface FavoriteDeck {
   deck_id: string;
@@ -38,7 +41,7 @@ export function FavoriteDecksPreview() {
       // First get all local decks from the store
       const { useDeckManagementStore } = await import('@/stores/deckManagementStore');
       const localDecks = useDeckManagementStore.getState().decks;
-      
+
       // Convert local decks to summary format and filter favorites
       const localSummaries: DeckSummary[] = localDecks
         .filter(deck => deck.favorite)
@@ -50,7 +53,11 @@ export function FavoriteDecksPreview() {
           identity: deck.colors,
           commander: deck.commander ? {
             name: deck.commander.name,
-            image: deck.commander.image_uris?.normal || '/placeholder.svg'
+            image:
+              deck.commander.image_uris?.large ||
+              deck.commander.image_uris?.normal ||
+              deck.commander.image_uris?.small ||
+              ''
           } : undefined,
           counts: {
             total: deck.totalCards,
@@ -67,7 +74,13 @@ export function FavoriteDecksPreview() {
           curve: { bins: { '0-1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6-7': 0, '8-9': 0, '10+': 0 } },
           mana: { sources: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, untappedPctByTurn: { t1: 0, t2: 0, t3: 0 } },
           legality: { ok: true, issues: [] },
-          power: { score: deck.powerLevel, band: 'mid' as const, drivers: [], drags: [] },
+          // A local deck has no database row to store a score in, so it is
+          // scored here from the list the store already holds — by the same
+          // engine, so a local deck and a saved deck in this one list are
+          // measured the same way rather than one being labelled 'mid'.
+          power: computeDeckPower(entriesFromStoreCards(deck.cards as any), {
+            format: deck.format,
+          }),
           economy: { priceUSD: 0, ownedPct: 100, missing: 0 },
           tags: [],
           updatedAt: deck.updatedAt instanceof Date ? deck.updatedAt.toISOString() : new Date().toISOString(),
@@ -158,35 +171,54 @@ export function FavoriteDecksPreview() {
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {favoriteDecks.map((deck) => {
           return (
-            <Card 
-              key={deck.id} 
-              className="cursor-pointer transition-all hover:shadow-md"
+            <Card
+              key={deck.id}
+              className="cursor-pointer transition-all hover:shadow-xl hover:shadow-black/30"
               onClick={() => handleDeckClick(deck)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium truncate text-sm">{deck.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs">
-                        {deck.format}
-                      </Badge>
-                      {deck.format === 'commander' && (
-                        <Crown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                      )}
+              <CardContent className="flex gap-3 p-3">
+                {/* A deck is recognised by its commander long before its name. */}
+                <CardImage
+                  card={{
+                    name: deck.commander?.name ?? deck.name,
+                    image_uris: deck.commander?.image
+                      ? { large: deck.commander.image }
+                      : undefined,
+                  }}
+                  width={54}
+                  hideFlip
+                  interactive={false}
+                />
+
+                <div className="flex min-w-0 flex-1 flex-col justify-between">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-sm font-medium">{deck.name}</h4>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {deck.format}
+                        </Badge>
+                        {deck.format === 'commander' && (
+                          <Crown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                        )}
+                      </div>
                     </div>
+                    <Heart
+                      className="h-4 w-4 shrink-0 fill-current text-foreground"
+                      aria-hidden="true"
+                    />
                   </div>
-                  <Heart className="h-4 w-4 fill-current text-foreground" aria-hidden="true" />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  {deck.colors.length > 0 && getColorIndicator(deck.colors)}
-                  <div className="text-xs text-muted-foreground">
-                    Power {deck.power.score}
+
+                  <div className="mt-2 flex items-center justify-between">
+                    {(deck.colors?.length ?? 0) > 0 && getColorIndicator(deck.colors)}
+                    {/* One renderer, so a favourite shows the same figure here
+                        as it does on its own tile. A deck that has never been
+                        scored simply says so rather than borrowing a band. */}
+                    {deck.power && <PowerScoreBadge power={deck.power} />}
                   </div>
                 </div>
               </CardContent>

@@ -20,7 +20,7 @@ import {
 import { showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
 import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } from '@/components/cards';
-import { ActiveFilterChips, CardFilterSheet, useCardFilterState } from '@/components/filters';
+import { ActiveFilterChips, CardFilterPanel, useCardFilterState } from '@/components/filters';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
 
@@ -204,6 +204,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
   const storedPrefs = getStoredPreferences();
 
   const filters = useCardFilterState();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cardWidth, setCardWidth] = useCardSize('marketplace', 200);
 
   const [loading, setLoading] = useState(false);
@@ -391,22 +392,20 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
             loading={loading}
           />
 
-          <CardFilterSheet
-            controller={filters}
-            showSort={false}
-            showChips={false}
-            trigger={
-              <Button variant="secondary" className="shrink-0 gap-2">
-                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                Filters
-                {filters.activeCount > 0 && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
-                    {filters.activeCount}
-                  </span>
-                )}
-              </Button>
-            }
-          />
+          <Button
+            variant="secondary"
+            className="shrink-0 gap-2"
+            onClick={() => setFiltersOpen(open => !open)}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            Filters
+            {filters.activeCount > 0 && (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-primary-foreground">
+                {filters.activeCount}
+              </span>
+            )}
+          </Button>
 
           <div className="flex shrink-0 items-center gap-2">
             <Switch id="foil-toggle" checked={showFoil} onCheckedChange={setShowFoil} />
@@ -415,6 +414,28 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
             </Label>
           </div>
         </div>
+
+        {/* Filters expand in place under the search row — no Sheet sliding over
+            the results they are filtering. */}
+        {filtersOpen && (
+          <div className="rounded-lg bg-muted/30 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Filters
+              </h3>
+              {filters.activeCount > 0 && (
+                <button
+                  type="button"
+                  onClick={filters.reset}
+                  className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <CardFilterPanel controller={filters} showSort={false} showChips={false} />
+          </div>
+        )}
 
         {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
 

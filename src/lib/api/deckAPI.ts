@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { EDHPowerCalculator } from '@/lib/deckbuilder/score/edh-power-calculator';
+import { deckPowerFromSummary, type DeckPower } from '@/lib/deck/power';
 import { auditLogger } from '@/lib/audit/auditLogger';
 
 export interface DeckSummary {
@@ -36,12 +36,14 @@ export interface DeckSummary {
     ok: boolean;
     issues: string[];
   };
-  power: {
-    score: number;
-    band: "casual"|"mid"|"high"|"cEDH";
-    drivers: string[];
-    drags: string[];
-  };
+  /**
+   * The canonical EDH power score, or `null` when this deck has never been
+   * scored. Filled in by {@link deckPowerFromSummary} — the RPC's own
+   * `power.score` (an edhpowerlevel.com scrape falling back to the legacy
+   * integer column) is deliberately discarded, because it is a different
+   * number on a different scale from the one every other surface shows.
+   */
+  power: DeckPower | null;
   economy: {
     priceUSD: number;
     ownedPct: number;
@@ -105,7 +107,12 @@ export class DeckAPI {
         throw error;
       }
 
-      return summaryData as unknown as DeckSummary;
+      if (!summaryData) return null;
+
+      // One normalisation point. Every consumer of DeckSummary.power gets the
+      // canonical shape, so no screen can render a second definition of power.
+      const summary = summaryData as unknown as DeckSummary;
+      return { ...summary, power: deckPowerFromSummary(summaryData) };
     } catch (error) {
       console.error('Error fetching deck summary:', error);
       throw error;
@@ -188,6 +195,11 @@ export class DeckAPI {
           format: originalDeck.format,
           colors: originalDeck.colors,
           power_level: originalDeck.power_level,
+          // The copy has an identical decklist, so the score it inherits is
+          // current by definition — carrying the analysis across avoids
+          // showing a duplicate as unscored until someone opens it.
+          edh_analysis: originalDeck.edh_analysis,
+          edh_cards_hash: originalDeck.edh_cards_hash,
           description: originalDeck.description,
           is_public: false
         })

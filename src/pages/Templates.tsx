@@ -164,7 +164,8 @@ export default function Templates() {
           user_id: user.id,
           name: template.name,
           format,
-          power_level: 5,
+          // See Precons: the power column mirrors the canonical score and is
+          // never seeded with a constant.
           colors: template.colors ?? [],
           description: `Built from the ${template.name} archetype template.`,
         })

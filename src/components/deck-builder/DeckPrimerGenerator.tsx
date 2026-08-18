@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { BookOpen, Download } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeckPrimerGeneratorProps {
@@ -14,6 +12,14 @@ interface DeckPrimerGeneratorProps {
   cardCount: number;
 }
 
+/**
+ * Deck primer, written in the builder rather than over it.
+ *
+ * This was a `max-w-3xl max-h-[90vh]` dialog holding four long-form textareas —
+ * so writing about a deck meant covering the deck. The button now expands the
+ * form in place, inside the panel it already lives in. The public API is
+ * unchanged, so no call site needed editing.
+ */
 export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }: DeckPrimerGeneratorProps) {
   const [open, setOpen] = useState(false);
   const [overview, setOverview] = useState("");
@@ -23,30 +29,30 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
 
   const generatePrimer = () => {
     let primer = `# ${deckName} - Deck Primer\n\n`;
-    
+
     if (commander) {
       primer += `**Commander:** ${commander}\n\n`;
     }
-    
+
     if (strategy) {
       primer += `**Strategy:** ${strategy}\n\n`;
     }
 
     primer += `**Deck Size:** ${cardCount} cards\n\n`;
     primer += `---\n\n`;
-    
+
     if (overview) {
       primer += `## Overview\n\n${overview}\n\n`;
     }
-    
+
     if (winConditions) {
       primer += `## Win Conditions\n\n${winConditions}\n\n`;
     }
-    
+
     if (keyCards) {
       primer += `## Key Cards\n\n${keyCards}\n\n`;
     }
-    
+
     if (gameplan) {
       primer += `## Gameplan\n\n${gameplan}\n\n`;
     }
@@ -65,24 +71,35 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <BookOpen className="mr-2 h-4 w-4" />
-          Generate Primer
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Deck Primer Generator</DialogTitle>
-          <DialogDescription>
-            Create a comprehensive guide for your deck
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-3">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setOpen(value => !value)}
+        aria-expanded={open}
+        aria-controls="deck-primer-form"
+      >
+        <BookOpen className="mr-2 h-4 w-4" />
+        {open ? "Hide primer" : "Write a primer"}
+        {open ? (
+          <ChevronUp className="ml-2 h-4 w-4" />
+        ) : (
+          <ChevronDown className="ml-2 h-4 w-4" />
+        )}
+      </Button>
 
-        <div className="space-y-4">
+      {open && (
+        <div id="deck-primer-form" className="space-y-4 rounded-xl bg-card p-4 shadow-sm">
           <div>
-            <Label htmlFor="overview">Deck Overview</Label>
+            <h3 className="font-medium">Deck primer</h3>
+            <p className="text-sm text-muted-foreground">
+              A written guide to “{deckName}”. Every section you fill in becomes part of the
+              downloaded markdown file.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="overview">Deck overview</Label>
             <Textarea
               id="overview"
               value={overview}
@@ -92,8 +109,8 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
             />
           </div>
 
-          <div>
-            <Label htmlFor="wincons">Win Conditions</Label>
+          <div className="space-y-2">
+            <Label htmlFor="wincons">Win conditions</Label>
             <Textarea
               id="wincons"
               value={winConditions}
@@ -103,8 +120,8 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
             />
           </div>
 
-          <div>
-            <Label htmlFor="keycards">Key Cards</Label>
+          <div className="space-y-2">
+            <Label htmlFor="keycards">Key cards</Label>
             <Textarea
               id="keycards"
               value={keyCards}
@@ -114,7 +131,7 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="gameplan">Gameplan</Label>
             <Textarea
               id="gameplan"
@@ -124,16 +141,20 @@ export function DeckPrimerGenerator({ deckName, commander, strategy, cardCount }
               className="min-h-[100px]"
             />
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={generatePrimer}>
-            <Download className="mr-2 h-4 w-4" />
-            Download Primer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={generatePrimer}>
+              <Download className="mr-2 h-4 w-4" />
+              Download primer
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default DeckPrimerGenerator;

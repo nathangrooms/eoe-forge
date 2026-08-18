@@ -6,9 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
+import { PowerScore } from '@/components/deck/PowerScore';
+import { computeDeckPower, entriesFromDeckRows, type DeckPower } from '@/lib/deck/power';
 import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
 import { DeckCardTable } from '@/components/deck/DeckCardTable';
-import { DeckExportDialog } from '@/components/deck/DeckExportDialog';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +40,6 @@ interface DeckRecord {
   name: string;
   format: string;
   colors: string[];
-  power_level: number;
   description?: string | null;
 }
 
@@ -54,7 +54,6 @@ export default function DeckInterface() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [showExport, setShowExport] = useState(false);
 
   const loadDeck = useCallback(async () => {
     if (!id || !user) return;
@@ -64,7 +63,7 @@ export default function DeckInterface() {
     try {
       const { data: deckData, error: deckError } = await supabase
         .from('user_decks')
-        .select('id, name, format, colors, power_level, description')
+        .select('id, name, format, colors, description')
         .eq('id', id)
         .maybeSingle();
 
@@ -152,6 +151,18 @@ export default function DeckInterface() {
     [analyticsDeck]
   );
 
+  /**
+   * The deck's power, computed from the decklist on this page rather than read
+   * off `user_decks.power_level`. The stat tile used to print that column — an
+   * integer that was 5 for every hand-built deck — while the Analysis tab one
+   * click away recomputed and printed 6.6. One tab click changed the deck's
+   * power level; now both read this.
+   */
+  const power = useMemo<DeckPower | null>(
+    () => computeDeckPower(entriesFromDeckRows(cards), { format: deck?.format ?? 'commander' }),
+    [cards, deck?.format]
+  );
+
   const toggleFavorite = async () => {
     if (!user || !deck) return;
 
@@ -235,9 +246,7 @@ export default function DeckInterface() {
     { label: 'Cards', value: stats.totalCards.toString(), hint: undefined as string | undefined },
     { label: 'Avg MV', value: stats.avgManaValue.toFixed(2), hint: 'Lands excluded' },
     { label: 'Est. value', value: `$${stats.totalValueUSD.toFixed(2)}`, hint: undefined },
-    showPower
-      ? { label: 'Power level', value: `${deck.power_level ?? 0}/10`, hint: undefined }
-      : { label: 'Unique cards', value: stats.uniqueCards.toString(), hint: undefined },
+    { label: 'Unique cards', value: stats.uniqueCards.toString(), hint: undefined },
   ];
 
   return (
@@ -250,7 +259,7 @@ export default function DeckInterface() {
             <Heart className={`mr-2 h-4 w-4 ${isFavorited ? 'fill-current' : ''}`} />
             {isFavorited ? 'Favorited' : 'Favorite'}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowExport(true)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/deck/${deck.id}/export`)}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -324,6 +333,15 @@ export default function DeckInterface() {
         </div>
       )}
 
+      {/* The power score gets a block of its own — the owner calls it the
+          primary number for any deck, and it is the same number the tile, the
+          builder and the dashboard show. */}
+      {showPower && (
+        <div className="mb-6">
+          <PowerScore power={power} variant="compact" />
+        </div>
+      )}
+
       {/* Stats */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {statTiles.map(tile => (
@@ -349,59 +367,52 @@ export default function DeckInterface() {
           selectedCard ? <CardDetailPane card={selectedCard} onClose={closeCard} /> : null
         }
       >
-      <Tabs defaultValue="visual" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="visual">
-            <Eye className="mr-2 h-4 w-4" />
-            Visual
-          </TabsTrigger>
-          <TabsTrigger value="list">
-            <FileText className="mr-2 h-4 w-4" />
-            List
-          </TabsTrigger>
-          <TabsTrigger value="analysis">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Analysis
-          </TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="visual" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="visual">
+              <Eye className="mr-2 h-4 w-4" />
+              Visual
+            </TabsTrigger>
+            <TabsTrigger value="list">
+              <FileText className="mr-2 h-4 w-4" />
+              List
+            </TabsTrigger>
+            <TabsTrigger value="analysis">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Analysis
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="visual" className="mt-4">
-          <DeckCardGrid rows={cards} onCardClick={openCard} collapsedByDefault={['lands']} />
-        </TabsContent>
+          <TabsContent value="visual" className="mt-4">
+            <DeckCardGrid rows={cards} onCardClick={openCard} collapsedByDefault={['lands']} />
+          </TabsContent>
 
-        <TabsContent value="list" className="mt-4">
-          <Card>
-            <CardContent className="p-0">
-              <DeckCardTable rows={cards} onCardClick={openCard} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analysis" className="mt-4">
-          {analyticsDeck.length > 0 ? (
-            <ComprehensiveAnalytics
-              deck={analyticsDeck}
-              format={deck.format}
-              commander={analyticsCommander}
-              deckId={deck.id}
-            />
-          ) : (
+          <TabsContent value="list" className="mt-4">
             <Card>
-              <CardContent className="p-10 text-center text-muted-foreground">
-                Add cards to this deck to see its analysis.
+              <CardContent className="p-0">
+                <DeckCardTable rows={cards} onCardClick={openCard} />
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-      </CardDetailSplit>
+          </TabsContent>
 
-      <DeckExportDialog
-        open={showExport}
-        onOpenChange={setShowExport}
-        deckId={deck.id}
-        deckName={deck.name}
-      />
+          <TabsContent value="analysis" className="mt-4">
+            {analyticsDeck.length > 0 ? (
+              <ComprehensiveAnalytics
+                deck={analyticsDeck}
+                format={deck.format}
+                commander={analyticsCommander}
+                deckId={deck.id}
+              />
+            ) : (
+              <Card>
+                <CardContent className="p-10 text-center text-muted-foreground">
+                  Add cards to this deck to see its analysis.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </CardDetailSplit>
     </StandardPageLayout>
   );
 }

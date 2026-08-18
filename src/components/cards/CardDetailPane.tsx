@@ -53,11 +53,18 @@ export function CardDetailPane({
   const cardId = card?.id ?? card?.name ?? null;
 
   // Escape closes the pane. This is the one modal habit worth keeping — it
-  // costs nothing and it does not block anything while the pane is open.
+  // costs nothing and it blocks nothing while the pane is open. Escape inside a
+  // text field belongs to the field, though: on the search surfaces Escape
+  // clears the query, and closing the card as well would be two undos for one
+  // keypress.
   useEffect(() => {
     if (!onClose) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      const el = document.activeElement as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return;
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

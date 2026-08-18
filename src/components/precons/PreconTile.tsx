@@ -120,9 +120,9 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
 
       <div className="flex items-baseline justify-between gap-2 px-3 pb-3 text-[0.7rem] text-muted-foreground">
         <span className="truncate">{precon.set}</span>
-        <span className="shrink-0 tabular-nums">
-          {precon.total != null ? `${precon.total} cards` : 'Commander'}
-        </span>
+        {precon.total != null && (
+          <span className="shrink-0 tabular-nums">{precon.total} cards</span>
+        )}
       </div>
     </button>
   );

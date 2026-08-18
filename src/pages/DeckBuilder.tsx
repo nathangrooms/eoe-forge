@@ -11,7 +11,11 @@ import { QuickDeckTester } from '@/components/deck-builder/QuickDeckTester';
 import { DeckPrimerGenerator } from '@/components/deck-builder/DeckPrimerGenerator';
 import { DeckValidationPanel } from '@/components/deck-builder/DeckValidationPanel';
 import { DeckCompatibilityChecker } from '@/components/deck-builder/DeckCompatibilityChecker';
-import { PowerLevelConsistency } from '@/components/deck-builder/PowerLevelConsistency';
+import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerDisplay';
+import { PowerSliderCoaching } from '@/components/deck-builder/PowerSliderCoaching';
+import { LandEnhancerUX } from '@/components/deck-builder/LandEnhancerUX';
+import { MatchAnalytics } from '@/components/deck-builder/MatchAnalytics';
+import { PowerScore } from '@/components/deck/PowerScore';
 import { EnhancedMatchTracker } from '@/components/deck-builder/EnhancedMatchTracker';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
@@ -39,6 +43,12 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { ExternalLink, RefreshCw, Pencil, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  computeDeckPower,
+  entriesFromStoreCards,
+  persistDeckPower,
+  type DeckPower,
+} from '@/lib/deck/power';
 
 interface Deck {
   id: string;
@@ -612,6 +622,39 @@ const DeckBuilder = () => {
     user?.id
   );
 
+  /**
+   * The canonical EDH power score for the open deck.
+   *
+   * This is the number the tile, the deck page, the dashboard and the analysis
+   * view all show. The edhpowerlevel.com figure below is kept, but as a clearly
+   * labelled second opinion — it is a screen-scrape through a third-party
+   * renderer that can fail, and it was never a field the rest of the app could
+   * agree with.
+   */
+  const powerEntries = useMemo(
+    () => entriesFromStoreCards(deck.cards as any[], deck.commander as any),
+    [deck.cards, deck.commander]
+  );
+
+  const power = useMemo<DeckPower | null>(
+    () => computeDeckPower(powerEntries, { format: deck.format || 'commander' }),
+    [powerEntries, deck.format]
+  );
+
+  // Persisted on a delay so a burst of card adds writes once, not once per card.
+  const powerPersistRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const deckId = selectedDeckId || deck.currentDeckId;
+    if (!power || !deckId) return;
+    if (powerPersistRef.current) clearTimeout(powerPersistRef.current);
+    powerPersistRef.current = setTimeout(() => {
+      void persistDeckPower(deckId, power);
+    }, 1500);
+    return () => {
+      if (powerPersistRef.current) clearTimeout(powerPersistRef.current);
+    };
+  }, [power, selectedDeckId, deck.currentDeckId]);
+
   const deckStats = useMemo(() => {
     const cards = deck.cards as any[];
     const typeCounts: Partial<Record<CardCategory, number>> = {};
@@ -722,22 +765,31 @@ const DeckBuilder = () => {
             <DeckQuickStats {...deckStats} />
           </div>
 
-          {/* EDH Power Level Banner - Commander only */}
+          {/* The deck's power score. One number, recomputed from the list as
+              it is edited, so it can never lag behind what is on screen. */}
           {deck.format === 'commander' && (
-            <div className="px-4 md:px-6 py-3 border-b border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="px-4 md:px-6 py-3">
+              <PowerScore power={power} variant="compact" />
+            </div>
+          )}
+
+          {/* edhpowerlevel.com — a labelled second opinion, never the same
+              field as the score above. */}
+          {deck.format === 'commander' && (
+            <div className="px-4 md:px-6 py-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-muted/30 p-3 shadow-sm">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm font-medium whitespace-nowrap">EDH power level</p>
+                  <p className="text-sm font-medium whitespace-nowrap">edhpowerlevel.com says</p>
                   {loadingEdhPower ? (
                     <p className="text-lg font-semibold text-muted-foreground">…</p>
                   ) : edhPowerLevel !== null ? (
-                    <p className="text-lg font-semibold tabular-nums">{edhPowerLevel.toFixed(2)}/10</p>
+                    <p className="text-lg font-semibold tabular-nums">{edhPowerLevel.toFixed(1)}/10</p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Not calculated</p>
+                    <p className="text-xs text-muted-foreground">Not checked</p>
                   )}
                   {edhNeedsRefresh && (
-                    <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">
-                      Cards changed since last check
+                    <Badge variant="secondary" className="text-[10px]">
+                      Cards changed since this check
                     </Badge>
                   )}
                 </div>
@@ -871,7 +923,34 @@ const DeckBuilder = () => {
             {/* Analysis */}
             {activeTab === 'analysis' && deck.cards.length > 0 && (
               <div className="space-y-6">
-                {/* EDH Power Level Analysis Panel - At Top */}
+                {/* The canonical score first, with its explanation. Everything
+                    below is either a different question (legality, budget) or a
+                    clearly labelled second opinion. */}
+                {deck.format === 'commander' && (
+                  <PowerScore power={power} variant="expanded" />
+                )}
+
+                {deck.format === 'commander' && power && (
+                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                    <CommanderPowerDisplay
+                      power={power}
+                      commanderName={deck.commander?.name}
+                    />
+                    <PowerSliderCoaching
+                      power={power}
+                      entries={powerEntries}
+                      format={deck.format || 'commander'}
+                    />
+                  </div>
+                )}
+
+                <LandEnhancerUX
+                  entries={powerEntries}
+                  power={power}
+                  identity={(deck.commander as any)?.color_identity ?? deck.colors}
+                />
+
+                {/* Second opinion, kept and labelled as such. */}
                 {deck.format === 'commander' && (
                   <EdhAnalysisPanel 
                     data={edhAnalysisData}
@@ -900,18 +979,6 @@ const DeckBuilder = () => {
                   format={deck.format || 'standard'}
                   commander={deck.commander}
                 />
-                {/*
-                  CommanderPowerDisplay used to sit here, fed sub-scores derived
-                  as powerLevel * 0.9 / 1.1 / 0.8 / 1.2 — four invented numbers
-                  presented as speed, interaction, resilience and combo
-                  potential. Removed rather than restyled; the real per-axis
-                  metrics come from edhpowerlevel.com in EdhAnalysisPanel above.
-                */}
-                <PowerLevelConsistency
-                  deckCards={deck.cards as any}
-                  commander={deck.commander}
-                  format={deck.format || 'standard'}
-                />
                 <ArchetypeDetection 
                   deckCards={deck.cards as any}
                   commander={deck.commander}
@@ -933,14 +1000,12 @@ const DeckBuilder = () => {
                 {deck.currentDeckId && (
                   <div className="space-y-6 border-t border-border pt-6">
                     <EnhancedMatchTracker deckId={deck.currentDeckId} deckName={deck.name} />
+                    {/* The tracker records games; this reads them back. Same
+                        rows, two different jobs. */}
+                    <MatchAnalytics deckId={deck.currentDeckId} deckName={deck.name} />
                     <DeckNotesPanel deckId={deck.currentDeckId} />
                   </div>
                 )}
-                {/*
-                  MatchAnalytics was rendered here as a second match panel over
-                  the same deck_matches rows as EnhancedMatchTracker. Dropped as
-                  a duplicate.
-                */}
               </div>
             )}
 
@@ -961,7 +1026,7 @@ const DeckBuilder = () => {
                   deckName={deck.name}
                   format={deck.format || 'commander'}
                   commander={deck.commander}
-                  powerLevel={edhPowerLevel ?? deck.powerLevel}
+                  power={power}
                   edhAnalysis={edhAnalysisData}
                   onApplyReplacements={async (replacements) => {
                     for (const { remove, add } of replacements) {

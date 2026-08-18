@@ -13,12 +13,19 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
   const totalDecks = decks.length;
   const favoriteCount = decks.filter(d => d.favorite).length;
 
-  // Power level is a Commander concept. Averaging it across Standard and
-  // Modern decks produced a number that means nothing.
-  const powerDecks = decks.filter(d => usesPowerLevel(d.format) && typeof d.power?.score === 'number');
+  /*
+   * Power level is a Commander concept, and a stale score is not a score.
+   *
+   * The dashboard's own average reads the same population through
+   * `useCachedDeckStats`, so the two headers can no longer disagree about the
+   * same collection.
+   */
+  const powerDecks = decks.filter(
+    d => usesPowerLevel(d.format) && d.power && !d.power.stale
+  );
   const avgPowerLevel =
     powerDecks.length > 0
-      ? powerDecks.reduce((sum, d) => sum + (d.power?.score || 0), 0) / powerDecks.length
+      ? powerDecks.reduce((sum, d) => sum + (d.power?.score ?? 0), 0) / powerDecks.length
       : null;
 
   const totalValue = decks.reduce((sum, d) => sum + (d.economy?.priceUSD || 0), 0);
@@ -40,8 +47,8 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
       suffix: avgPowerLevel === null ? undefined : '/10',
       subtext:
         avgPowerLevel === null
-          ? 'No Commander decks'
-          : `${powerDecks.length} Commander deck${powerDecks.length === 1 ? '' : 's'}`,
+          ? 'No scored Commander decks'
+          : `${powerDecks.length} scored Commander deck${powerDecks.length === 1 ? '' : 's'}`,
       icon: Target,
     },
     {

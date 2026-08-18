@@ -1,20 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Layers, ShoppingCart, Trash2 } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Layers, ShoppingCart } from 'lucide-react';
 import { BulkActionsToolbar } from '@/components/collection/BulkActionsToolbar';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
 import {
-  formatPrice,
   normalizeCondition,
   toColors,
   toNumber,
@@ -88,7 +77,6 @@ export function CollectionCardDisplay({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,7 +140,6 @@ export function CollectionCardDisplay({
       const result = await CollectionAPI.bulkDelete(selectedList.map(item => item.id));
       if (result.error) throw new Error(result.error);
       showSuccess('Deleted', `Deleted ${selectedList.length} entr${selectedList.length === 1 ? 'y' : 'ies'}`);
-      setConfirmDelete(false);
       clearSelection();
       onBulkUpdate?.();
     } catch {
@@ -211,65 +198,40 @@ export function CollectionCardDisplay({
   const selectedCopies = selectedList.reduce((n, i) => n + i.quantity + i.foil, 0);
 
   return (
-    <>
-      <CollectionBrowser
-        cards={browserCards}
-        storageKey="deckmatrix.collection.view"
-        onCardClick={card => {
-          const item = itemsById.get(card.rowId);
-          if (item) onCardClick(item);
-        }}
-        actions={actions}
-        onQuantityChange={adjustQuantity}
-        selectionMode={selectionMode}
-        onToggleSelectionMode={() => {
-          if (selectionMode) setSelectedItems(new Set());
-          setSelectionMode(mode => !mode);
-        }}
-        selectedIds={selectedItems}
-        onToggleSelect={toggleSelect}
-        onSelectVisible={rowIds => setSelectedItems(new Set(rowIds))}
-        onClearSelection={() => setSelectedItems(new Set())}
-        emptyTitle="No cards match these filters"
-        emptyDescription="Adjust the filters, or add more cards to your collection."
-        toolbarSlot={
-          selectionMode && selectedItems.size > 0 ? (
-            <BulkActionsToolbar
-              selectedCount={selectedItems.size}
-              selectedValue={selectedValue}
-              onClearSelection={clearSelection}
-              onBulkUpdateQuantity={handleBulkUpdateQuantity}
-              onBulkAssignStorage={handleBulkAssignStorage}
-              onBulkDelete={() => setConfirmDelete(true)}
-              storageContainers={storageContainers}
-            />
-          ) : null
-        }
-      />
-
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-destructive" />
-              Delete {selectedItems.size} entr{selectedItems.size === 1 ? 'y' : 'ies'}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes {selectedCopies} card{selectedCopies === 1 ? '' : 's'} worth{' '}
-              {formatPrice(selectedValue)} from your collection. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBulkDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <CollectionBrowser
+      cards={browserCards}
+      storageKey="deckmatrix.collection.view"
+      onCardClick={card => {
+        const item = itemsById.get(card.rowId);
+        if (item) onCardClick(item);
+      }}
+      actions={actions}
+      onQuantityChange={adjustQuantity}
+      selectionMode={selectionMode}
+      onToggleSelectionMode={() => {
+        if (selectionMode) setSelectedItems(new Set());
+        setSelectionMode(mode => !mode);
+      }}
+      selectedIds={selectedItems}
+      onToggleSelect={toggleSelect}
+      onSelectVisible={rowIds => setSelectedItems(new Set(rowIds))}
+      onClearSelection={() => setSelectedItems(new Set())}
+      emptyTitle="No cards match these filters"
+      emptyDescription="Adjust the filters, or add more cards to your collection."
+      toolbarSlot={
+        selectionMode && selectedItems.size > 0 ? (
+          <BulkActionsToolbar
+            selectedCount={selectedItems.size}
+            selectedValue={selectedValue}
+            selectedCopies={selectedCopies}
+            onClearSelection={clearSelection}
+            onBulkUpdateQuantity={handleBulkUpdateQuantity}
+            onBulkAssignStorage={handleBulkAssignStorage}
+            onBulkDelete={handleBulkDelete}
+            storageContainers={storageContainers}
+          />
+        ) : null
+      }
+    />
   );
 }

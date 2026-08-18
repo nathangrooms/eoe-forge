@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { StorageContainer, StorageItemWithCard } from '@/types/storage';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
 import {
@@ -85,7 +85,6 @@ export function StorageContainerView({
   const [items, setItems] = useState<StorageItemWithCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<BrowserCard | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
   /** In-place rename — the header title becomes the field, no overlay. */
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(initialContainer.name);
@@ -463,30 +462,30 @@ export function StorageContainerView({
             </div>
           </div>
         ) : (
-          <CollectionBrowser
-            cards={browserCards}
-            storageKey="deckmatrix.storage.view"
-            showOwnershipFilters={false}
-            onCardClick={card => {
-              setSelectedCard(card);
-              setShowCardModal(true);
-            }}
-            actions={actions}
-            onQuantityChange={handleQuantityChange}
-            emptyTitle="This container is empty"
-            emptyDescription="Add cards from your collection, or scan them in."
-            emptyAction={{ label: 'Add cards', onClick: () => navigate(quickAddPath) }}
-          />
+          <CardDetailSplit
+            pane={
+              selectedCard ? (
+                <CardDetailPane
+                  card={{ ...selectedCard, id: selectedCard.cardId, set_code: selectedCard.setCode }}
+                  onClose={() => setSelectedCard(null)}
+                />
+              ) : null
+            }
+          >
+            <CollectionBrowser
+              cards={browserCards}
+              storageKey="deckmatrix.storage.view"
+              showOwnershipFilters={false}
+              onCardClick={card => setSelectedCard(card)}
+              actions={actions}
+              onQuantityChange={handleQuantityChange}
+              emptyTitle="This container is empty"
+              emptyDescription="Add cards from your collection, or scan them in."
+              emptyAction={{ label: 'Add cards', onClick: () => navigate(quickAddPath) }}
+            />
+          </CardDetailSplit>
         )}
       </div>
-
-      <UniversalCardModal
-        card={selectedCard ? { ...selectedCard, id: selectedCard.cardId, set_code: selectedCard.setCode } : null}
-        open={showCardModal}
-        onOpenChange={setShowCardModal}
-        showWishlistButton={false}
-      />
-
     </div>
   );
 }

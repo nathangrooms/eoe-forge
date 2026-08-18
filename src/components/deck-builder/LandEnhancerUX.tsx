@@ -1,262 +1,286 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Map, 
-  Target, 
-  TrendingUp, 
-  ArrowRight, 
-  Zap,
-  CheckCircle,
-  AlertTriangle
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import { Map } from 'lucide-react';
+import { ManaPip } from '@/components/ui/mana-cost';
+import type { DeckPower, PowerDeckEntry } from '@/lib/deck/power';
 
-interface ColorHitTarget {
-  turn: number;
-  requirement: string;
-  current: number;
-  target: number;
-  status: 'good' | 'warning' | 'poor';
+/**
+ * Manabase analysis.
+ *
+ * Restored and rewritten. The previous version was entirely fabricated: three
+ * hardcoded "colour hit" percentages, three hardcoded land-swap suggestions
+ * naming Hallowed Fountain and Flooded Strand whatever deck was open, and an
+ * "Apply" button that called `alert()`.
+ *
+ * Everything here is now measured off the actual decklist and off the canonical
+ * seeded simulation in `DeckPower` — the same 10,000-draw figures the power
+ * score itself is reported with, so the manabase verdict and the power verdict
+ * cannot disagree.
+ */
+
+interface LandEnhancerUXProps {
+  entries: PowerDeckEntry[];
+  power: DeckPower | null;
+  /** Commander colour identity, when there is one. */
+  identity?: string[];
+  className?: string;
 }
 
-interface LandSuggestion {
-  id: string;
-  description: string;
-  changes: Array<{ from: string; to: string; count: number }>;
-  expectedGain: number;
-  cost: 'budget' | 'premium';
+const COLOR_NAME: Record<string, string> = {
+  W: 'White',
+  U: 'Blue',
+  B: 'Black',
+  R: 'Red',
+  G: 'Green',
+};
+
+const BASIC_BY_COLOR: Record<string, string> = {
+  W: 'plains',
+  U: 'island',
+  B: 'swamp',
+  R: 'mountain',
+  G: 'forest',
+};
+
+interface LandStats {
+  landCount: number;
+  totalCards: number;
+  tappedLands: Array<{ name: string; quantity: number }>;
+  anyColorSources: number;
+  sourcesByColor: Record<string, number>;
+  pipsByColor: Record<string, number>;
+  basicsByColor: Record<string, number>;
 }
 
-export const LandEnhancerUX = () => {
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
+function analyseLands(entries: PowerDeckEntry[], identity: string[]): LandStats {
+  const sourcesByColor: Record<string, number> = {};
+  const pipsByColor: Record<string, number> = {};
+  const basicsByColor: Record<string, number> = {};
+  const tapped: Array<{ name: string; quantity: number }> = [];
 
-  // Mock data for color hit analysis
-  const colorHitTargets: ColorHitTarget[] = [
-    {
-      turn: 1,
-      requirement: '1 white source',
-      current: 78,
-      target: 85,
-      status: 'warning'
-    },
-    {
-      turn: 2,
-      requirement: '1W + 1U',
-      current: 82,
-      target: 80,
-      status: 'good'
-    },
-    {
-      turn: 3,
-      requirement: 'WWU or UUW',
-      current: 65,
-      target: 75,
-      status: 'poor'
+  let landCount = 0;
+  let totalCards = 0;
+  let anyColorSources = 0;
+
+  for (const color of identity) {
+    sourcesByColor[color] = 0;
+    pipsByColor[color] = 0;
+    basicsByColor[color] = 0;
+  }
+
+  for (const entry of entries) {
+    const qty = Math.max(1, entry.quantity);
+    totalCards += qty;
+
+    const type = (entry.card.type_line || '').toLowerCase();
+    const text = (entry.card.oracle_text || '').toLowerCase();
+    const name = entry.card.name;
+
+    // Coloured pips in the mana costs the manabase has to support.
+    const cost = entry.card.mana_cost || '';
+    for (const color of identity) {
+      const pips = (cost.match(new RegExp(`\\{${color}\\}`, 'g')) || []).length;
+      if (pips > 0) pipsByColor[color] = (pipsByColor[color] ?? 0) + pips * qty;
     }
-  ];
 
-  const landSuggestions: LandSuggestion[] = [
-    {
-      id: '1',
-      description: 'Upgrade to untapped duals',
-      changes: [
-        { from: 'Temple of Enlightenment', to: 'Hallowed Fountain', count: 2 },
-        { from: 'Azorius Chancery', to: 'Flooded Strand', count: 2 }
-      ],
-      expectedGain: 8.5,
-      cost: 'premium'
-    },
-    {
-      id: '2',
-      description: 'Add more white sources',
-      changes: [
-        { from: 'Island', to: 'Plains', count: 1 },
-        { from: 'Lonely Sandbar', to: 'Secluded Steppe', count: 1 }
-      ],
-      expectedGain: 6.2,
-      cost: 'budget'
-    },
-    {
-      id: '3',
-      description: 'Optimize for early plays',
-      changes: [
-        { from: 'Temple of Enlightenment', to: 'Glacial Fortress', count: 3 },
-        { from: 'Tranquil Cove', to: 'Port Town', count: 2 }
-      ],
-      expectedGain: 5.8,
-      cost: 'budget'
+    if (!type.includes('land')) continue;
+    landCount += qty;
+
+    if (text.includes('enters the battlefield tapped') || text.includes('enters tapped')) {
+      tapped.push({ name, quantity: qty });
     }
-  ];
 
-  const applySuggestion = (suggestionId: string) => {
-    const suggestion = landSuggestions.find(s => s.id === suggestionId);
-    if (!suggestion) return;
+    const producesAny =
+      text.includes('any color') || text.includes('mana of any colour');
+    if (producesAny) {
+      anyColorSources += qty;
+      for (const color of identity) sourcesByColor[color] = (sourcesByColor[color] ?? 0) + qty;
+      continue;
+    }
 
-    // Here you would apply the land changes to the deck
-    console.log('Applying suggestion:', suggestion);
-    
-    // Show success message
-    alert(`Applied suggestion: ${suggestion.description}\nExpected improvement: +${suggestion.expectedGain}%`);
+    for (const color of identity) {
+      const basic = BASIC_BY_COLOR[color];
+      const isBasicType = basic ? type.includes(basic) : false;
+      const addsColor = text.includes(`add {${color.toLowerCase()}}`) || text.includes(`{${color}}`);
+      if (isBasicType || addsColor) {
+        sourcesByColor[color] = (sourcesByColor[color] ?? 0) + qty;
+        if (isBasicType && type.includes('basic')) {
+          basicsByColor[color] = (basicsByColor[color] ?? 0) + qty;
+        }
+      }
+    }
+  }
+
+  return {
+    landCount,
+    totalCards,
+    tappedLands: tapped.sort((a, b) => b.quantity - a.quantity),
+    anyColorSources,
+    sourcesByColor,
+    pipsByColor,
+    basicsByColor,
   };
+}
 
-  const getStatusColor = (status: ColorHitTarget['status']) => {
-    switch (status) {
-      case 'good': return 'text-green-500';
-      case 'warning': return 'text-yellow-500';
-      case 'poor': return 'text-red-500';
-    }
-  };
-
-  const getStatusIcon = (status: ColorHitTarget['status']) => {
-    switch (status) {
-      case 'good': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'poor': return <AlertTriangle className="h-4 w-4 text-red-500" />;
-    }
-  };
-
+function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="space-y-6">
-      {/* Color Hit Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Target className="h-5 w-5 mr-2" />
-            Color Requirements Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {colorHitTargets.map((target, index) => (
-            <div key={index} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {getStatusIcon(target.status)}
-                  <span className="text-sm font-medium">Turn {target.turn}</span>
-                  <span className="text-sm text-muted-foreground">{target.requirement}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`text-sm font-medium ${getStatusColor(target.status)}`}>
-                    {target.current}%
-                  </span>
-                  <span className="text-xs text-muted-foreground">/ {target.target}%</span>
-                </div>
-              </div>
-              <Progress 
-                value={(target.current / target.target) * 100} 
-                className="h-2"
-              />
-              {target.current < target.target && (
-                <div className="text-xs text-muted-foreground">
-                  Need {(target.target - target.current).toFixed(1)}% improvement
-                </div>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Land Suggestions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Map className="h-5 w-5 mr-2" />
-            Manabase Suggestions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {landSuggestions.map((suggestion) => (
-            <div key={suggestion.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="font-medium">{suggestion.description}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={suggestion.cost === 'premium' ? 'default' : 'secondary'}>
-                    {suggestion.cost}
-                  </Badge>
-                  <Badge variant="outline" className="text-green-600">
-                    +{suggestion.expectedGain}%
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Changes Detail */}
-              <div className="space-y-2">
-                {suggestion.changes.map((change, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm bg-muted/30 p-2 rounded">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-muted-foreground">{change.count}x</span>
-                      <span>{change.from}</span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                      <span className="font-medium">{change.to}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => setSelectedSuggestion(
-                    selectedSuggestion === suggestion.id ? null : suggestion.id
-                  )}
-                  variant="outline"
-                >
-                  {selectedSuggestion === suggestion.id ? 'Hide Details' : 'View Details'}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => applySuggestion(suggestion.id)}
-                >
-                  Apply Suggestion
-                </Button>
-              </div>
-
-              {/* Detailed Analysis */}
-              {selectedSuggestion === suggestion.id && (
-                <Alert>
-                  <Zap className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-2">
-                      <div className="font-medium">Expected Impact:</div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>T1 white source: +{(suggestion.expectedGain * 0.4).toFixed(1)}%</div>
-                        <div>T2 two-color: +{(suggestion.expectedGain * 0.6).toFixed(1)}%</div>
-                        <div>T3 intensive: +{(suggestion.expectedGain * 0.8).toFixed(1)}%</div>
-                        <div>Average speed: +0.2 turns</div>
-                      </div>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Overall Manabase Score */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Manabase Quality Score</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Current Score</span>
-              <Badge variant="default" className="bg-primary">7.2/10</Badge>
-            </div>
-            <Progress value={72} className="h-2" />
-            <div className="text-xs text-muted-foreground">
-              Good manabase with room for optimization. Focus on early game consistency.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="rounded-lg bg-muted/40 p-3 shadow-sm">
+      <p className="text-xl font-bold leading-none tabular-nums">{value}</p>
+      <p className="mt-1.5 text-[0.7rem] font-medium leading-none text-muted-foreground">{label}</p>
+      {hint && <p className="mt-1 text-[0.62rem] leading-tight text-muted-foreground">{hint}</p>}
     </div>
   );
-};
+}
+
+export function LandEnhancerUX({ entries, power, identity, className }: LandEnhancerUXProps) {
+  const colors = useMemo(() => {
+    if (identity?.length) return identity.filter(c => COLOR_NAME[c]);
+    const set = new Set<string>();
+    entries.forEach(e => e.card.color_identity?.forEach(c => set.add(c)));
+    return Array.from(set).filter(c => COLOR_NAME[c]);
+  }, [entries, identity]);
+
+  const stats = useMemo(() => analyseLands(entries, colors), [entries, colors]);
+
+  if (stats.landCount === 0) {
+    return (
+      <div className={cn('rounded-xl bg-muted/30 p-4 shadow-sm', className)}>
+        <h3 className="flex items-center gap-2 text-sm font-bold">
+          <Map className="h-4 w-4" />
+          Manabase
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          No lands in this list yet, so there is nothing to measure.
+        </p>
+      </div>
+    );
+  }
+
+  const tappedCount = stats.tappedLands.reduce((sum, l) => sum + l.quantity, 0);
+  const landPct = (stats.landCount / Math.max(1, stats.totalCards)) * 100;
+  const sim = power?.simulation;
+
+  /**
+   * The community rule of thumb for a Commander manabase: roughly 13–14 sources
+   * of a colour for a single pip on curve. Reported as a shortfall, not as a
+   * grade — the deck's own pip demand decides what "enough" means.
+   */
+  const colorRows = colors.map(color => {
+    const sources = stats.sourcesByColor[color] ?? 0;
+    const pips = stats.pipsByColor[color] ?? 0;
+    const wanted = pips === 0 ? 0 : Math.min(20, 10 + Math.round(pips / 4));
+    return { color, sources, pips, wanted, short: Math.max(0, wanted - sources) };
+  });
+
+  return (
+    <div className={cn('space-y-4 rounded-xl bg-muted/30 p-4 shadow-sm', className)}>
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-bold">
+          <Map className="h-4 w-4" />
+          Manabase
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Measured from this decklist and the same seeded simulation the power score uses.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Tile
+          label="Lands"
+          value={String(stats.landCount)}
+          hint={`${landPct.toFixed(0)}% of the deck`}
+        />
+        <Tile
+          label="Enter tapped"
+          value={String(tappedCount)}
+          hint={
+            stats.landCount > 0
+              ? `${((tappedCount / stats.landCount) * 100).toFixed(0)}% of lands`
+              : undefined
+          }
+        />
+        <Tile
+          label="Keepable sevens"
+          value={sim ? `${sim.keepable7Pct.toFixed(0)}%` : '—'}
+          hint="10,000 seeded draws"
+        />
+        <Tile
+          label="Turn-one colour"
+          value={sim ? `${sim.t1ColorPct.toFixed(0)}%` : '—'}
+          hint={sim ? `Two colours by T2: ${sim.t2TwoColorsPct.toFixed(0)}%` : undefined}
+        />
+      </div>
+
+      {colorRows.length > 0 && (
+        <div className="rounded-lg bg-background/60 p-3 shadow-sm">
+          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Sources per colour
+          </p>
+          <div className="mt-2 space-y-2.5">
+            {colorRows.map(row => (
+              <div key={row.color}>
+                <div className="flex items-center gap-2 text-xs">
+                  <ManaPip symbol={row.color} size="sm" />
+                  <span className="font-medium">{COLOR_NAME[row.color]}</span>
+                  <span className="ml-auto tabular-nums text-muted-foreground">
+                    {row.sources} source{row.sources === 1 ? '' : 's'} · {row.pips} pip
+                    {row.pips === 1 ? '' : 's'} to support
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-foreground/10">
+                  <div
+                    className="h-full rounded-full bg-foreground/60"
+                    style={{
+                      width: `${Math.min(100, row.wanted > 0 ? (row.sources / row.wanted) * 100 : 100)}%`,
+                    }}
+                  />
+                </div>
+                {row.short > 0 && (
+                  <p className="mt-1 text-[0.65rem] text-muted-foreground">
+                    About {row.short} more {COLOR_NAME[row.color].toLowerCase()} source
+                    {row.short === 1 ? '' : 's'} would match this deck's pip demand.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          {stats.anyColorSources > 0 && (
+            <p className="mt-3 text-[0.65rem] text-muted-foreground">
+              {stats.anyColorSources} land{stats.anyColorSources === 1 ? '' : 's'} produce any
+              colour and are counted for every colour above.
+            </p>
+          )}
+        </div>
+      )}
+
+      {stats.tappedLands.length > 0 && (
+        <div className="rounded-lg bg-background/60 p-3 shadow-sm">
+          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Lands that cost you a turn
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            These enter tapped. Replacing the ones you play early is the cheapest way to move
+            turn-one colour access, which feeds the speed and mana subscores.
+          </p>
+          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-0.5 text-xs sm:grid-cols-2">
+            {stats.tappedLands.slice(0, 12).map(land => (
+              <li key={land.name} className="flex justify-between gap-2">
+                <span className="truncate">{land.name}</span>
+                {land.quantity > 1 && (
+                  <span className="tabular-nums text-muted-foreground">×{land.quantity}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {stats.tappedLands.length > 12 && (
+            <p className="mt-2 text-[0.65rem] text-muted-foreground">
+              …and {stats.tappedLands.length - 12} more.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default LandEnhancerUX;

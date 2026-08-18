@@ -269,8 +269,9 @@ export function PriceHistoryChart({ collectionCards }: PriceHistoryChartProps) {
                 contentStyle={{
                   backgroundColor: 'hsl(var(--popover))',
                   color: 'hsl(var(--popover-foreground))',
-                  border: '1px solid hsl(var(--border))',
+                  border: 'none',
                   borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px hsl(0 0% 0% / 0.5)',
                 }}
                 formatter={(value: number) => [formatPrice(value), 'Value']}
               />

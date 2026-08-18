@@ -123,7 +123,7 @@ export function PriceTrendCard() {
           </Button>
         </div>
 
-        <div className="mt-2 inline-flex rounded-md p-0.5">
+        <div className="mt-2 inline-flex rounded-md bg-muted/40 p-0.5">
           <Button
             variant={activeTab === 'gainers' ? 'secondary' : 'ghost'}
             size="sm"
@@ -167,9 +167,12 @@ export function PriceTrendCard() {
         ) : error ? (
           <div className="py-8 text-center text-sm text-muted-foreground">{error}</div>
         ) : activeCards.length > 0 ? (
-          <ul className="divide-y divide-border">
+          <ul>
             {activeCards.map((card) => (
-              <li key={card.cardId} className="flex items-center gap-3 py-2">
+              <li
+                key={card.cardId}
+                className="flex items-center gap-3 rounded px-2 py-2 odd:bg-muted/20"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{card.name}</p>
                   <p className="text-xs tabular-nums text-muted-foreground">

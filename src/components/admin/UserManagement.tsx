@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Users, Search, Shield, Mail } from 'lucide-react';
-import { UserDetailsModal } from './UserDetailsModal';
 
 interface Profile {
   id: string;
@@ -22,7 +22,7 @@ export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<{ id: string; username: string | null } | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadProfiles();
@@ -75,7 +75,7 @@ export function UserManagement() {
             User Management
           </CardTitle>
           <CardDescription>
-            View and manage user accounts and permissions. Click a row to view detailed stats.
+            View and manage user accounts and permissions. Click a row to open that user's page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -115,7 +115,7 @@ export function UserManagement() {
                       <TableRow 
                         key={profile.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedUser({ id: profile.id, username: profile.username })}
+                        onClick={() => navigate(`/admin/users/${profile.id}`)}
                       >
                         <TableCell className="font-medium">
                           {profile.username || 'No username'}
@@ -162,13 +162,6 @@ export function UserManagement() {
           </div>
         </CardContent>
       </Card>
-
-      <UserDetailsModal
-        open={!!selectedUser}
-        onOpenChange={(open) => !open && setSelectedUser(null)}
-        userId={selectedUser?.id || ''}
-        username={selectedUser?.username || null}
-      />
     </>
   );
 }

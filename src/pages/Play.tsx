@@ -467,7 +467,7 @@ export default function Play() {
                     state={state}
                     feed={feed}
                     limit={20}
-                    className="absolute right-2 top-2 z-30 hidden max-h-[40%] w-56 bg-background/70 backdrop-blur-md sm:flex xl:hidden"
+                    className="absolute right-2 top-2 z-30 hidden max-h-[34%] w-52 bg-background/65 backdrop-blur-md sm:flex xl:hidden"
                   />
                 </div>
               )}

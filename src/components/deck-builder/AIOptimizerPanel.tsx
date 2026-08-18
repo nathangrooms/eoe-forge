@@ -4,17 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
+import {
   Brain, 
   Sparkles, 
   Target, 
@@ -34,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { scryfallAPI } from '@/lib/api/scryfall';
 import { EdhAnalysisData } from './EdhAnalysisPanel';
+import type { DeckPower } from '@/lib/deck/power';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { OptimizerProgress } from './optimizer/OptimizerProgress';
@@ -75,7 +66,13 @@ interface AIOptimizerPanelProps {
   }>;
   format?: string;
   commander?: { name: string };
-  powerLevel?: number;
+  /**
+   * The canonical score. This used to be `edhPowerLevel ?? deck.powerLevel` —
+   * a third-party scrape or, failing that, a stale integer — so the model was
+   * briefed with a different power level here than in the Brain panel one tab
+   * across, and the coaching contradicted itself.
+   */
+  power?: DeckPower | null;
   edhAnalysis?: EdhAnalysisData | null;
   onApplyReplacements: (replacements: Array<{ remove: string; add: string }>) => void;
   onAddCard?: (cardName: string) => void;
@@ -88,7 +85,7 @@ export function AIOptimizerPanel({
   deckCards = [],
   format,
   commander,
-  powerLevel,
+  power,
   edhAnalysis,
   onApplyReplacements,
   onAddCard,
@@ -135,10 +132,13 @@ export function AIOptimizerPanel({
   const hasResults = analysis || additionSuggestions.length > 0 || removalSuggestions.length > 0 || swapSuggestions.length > 0 || landRecommendations.length > 0;
   const hasLandIssues = Math.abs(landCount - idealLandCount) > 2;
 
-  // Calculate projected power level change
-  const projectedPowerChange = analysis?.projectedPowerLevel && analysis?.currentPowerLevel
-    ? analysis.projectedPowerLevel - analysis.currentPowerLevel
-    : null;
+  /*
+   * The optimiser used to compute `projectedPowerChange` from two numbers the
+   * model invented for itself and then never render it. Both the LLM's
+   * `currentPowerLevel` and its `projectedPowerLevel` are dropped: the current
+   * score is a measurement this app already owns, and a model-guessed
+   * projection is a sixth power number nobody asked for.
+   */
 
   const generateOptimizations = async (fromCollection = false) => {
     setLoading(true);
@@ -180,7 +180,14 @@ export function AIOptimizerPanel({
               cmc: c.cmc,
               quantity: c.quantity || 1
             })),
-            power: { score: powerLevel }
+            power: power
+              ? {
+                  score: power.score,
+                  band: power.band,
+                  bracket: power.bracket,
+                  subscores: power.subscores,
+                }
+              : null,
           },
           edhAnalysis: edhAnalysis ? {
             metrics: edhAnalysis.metrics,
@@ -544,7 +551,14 @@ export function AIOptimizerPanel({
               cmc: c.cmc,
               quantity: c.quantity || 1
             })),
-            power: { score: powerLevel }
+            power: power
+              ? {
+                  score: power.score,
+                  band: power.band,
+                  bracket: power.bracket,
+                  subscores: power.subscores,
+                }
+              : null,
           },
           edhAnalysis: edhAnalysis ? {
             metrics: edhAnalysis.metrics,
@@ -953,16 +967,61 @@ export function AIOptimizerPanel({
                   </CardContent>
                 </Card>
               ) : (
-                <SwapsSection
-                  suggestions={swapSuggestions}
-                  onToggle={toggleSwapSuggestion}
-                  onApplySingle={applySingleSwap}
-                  onApplySelected={() => setShowConfirmSwaps(true)}
-                  onFindMoreSwaps={findMoreSwaps}
-                  isApplying={isApplying}
-                  isLoadingMore={isLoadingMoreSwaps}
-                  useCollection={useCollection}
-                />
+                <>
+                  <SwapsSection
+                    suggestions={swapSuggestions}
+                    onToggle={toggleSwapSuggestion}
+                    onApplySingle={applySingleSwap}
+                    onApplySelected={() => setShowConfirmSwaps(true)}
+                    onFindMoreSwaps={findMoreSwaps}
+                    isApplying={isApplying}
+                    isLoadingMore={isLoadingMoreSwaps}
+                    useCollection={useCollection}
+                  />
+
+                  {/**
+                   * Confirmation in the panel's own footer, not over it.
+                   *
+                   * An AlertDialog here hid the very thing you need to check
+                   * before saying yes — the list of ticked swaps sitting
+                   * directly above this row.
+                   */}
+                  {showConfirmSwaps && (
+                    <div className="mt-3 rounded-xl bg-muted/40 p-3">
+                      <p className="text-sm">
+                        Apply {swapSuggestions.filter(s => s.selected).length} swap
+                        {swapSuggestions.filter(s => s.selected).length === 1 ? '' : 's'} to the
+                        deck? The cards listed above are replaced.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            await applySelectedSwaps();
+                          }}
+                          disabled={isApplying}
+                        >
+                          {isApplying ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Applying…
+                            </>
+                          ) : (
+                            'Confirm swaps'
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowConfirmSwaps(false)}
+                          disabled={isApplying}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
 
@@ -981,23 +1040,6 @@ export function AIOptimizerPanel({
         </motion.div>
       )}
 
-      {/* Confirm Swaps Dialog */}
-      <AlertDialog open={showConfirmSwaps} onOpenChange={setShowConfirmSwaps}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Apply Selected Swaps?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will replace {swapSuggestions.filter(s => s.selected).length} cards in your deck.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={applySelectedSwaps}>
-              Apply Swaps
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

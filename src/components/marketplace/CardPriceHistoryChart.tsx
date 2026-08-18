@@ -175,8 +175,9 @@ export function CardPriceHistoryChart({
                   labelFormatter={(label) => label}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
+                    border: 'none',
                     borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px hsl(0 0% 0% / 0.5)',
                     fontSize: '12px'
                   }}
                 />

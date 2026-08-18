@@ -1,435 +1,303 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Search, 
-  Wand2, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle,
-  Crown,
-  Zap,
-  Shield,
-  Target,
-  Book
-} from 'lucide-react';
-import { getTemplatesForFormat, getFormatRules } from '@/lib/deckbuilder';
+import { Button } from '@/components/ui/button';
+import { ColorIdentity } from '@/components/ui/mana-cost';
+import { Search, Wand2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  DECK_BRACKETS,
+  bandForScore,
+  bandLabel,
+  bracketIdForScore,
+  formatPowerScore,
+  powerTextClass,
+} from '@/lib/deck/power';
 
-interface ArchetypeTemplate {
+/**
+ * Archetype catalogue.
+ *
+ * Restored and rewritten. The previous version rendered a `satisfied: true`
+ * flag on every requirement — hardcoded, with no deck in scope to satisfy
+ * anything — so it drew green ticks and red crosses that meant nothing, and it
+ * described each shell with a bare `powerLevel: {min, max}` on an unexplained
+ * scale.
+ *
+ * An archetype is a *target*, not a measurement: it says where a well-built
+ * version of the shell lands. That target is now expressed in the same
+ * vocabulary as every real score in the app — the canonical band and Commander
+ * bracket from `@/lib/deck/power` — so "Aristocrats 6–8" reads as "Mid to High
+ * power, brackets 3–4" and lines up with the number the deck will show once it
+ * exists.
+ */
+
+export interface DeckArchetype {
   id: string;
   name: string;
   description: string;
   formats: string[];
   colors: string[];
-  powerLevel: { min: number; max: number };
-  requirements: Array<{
-    name: string;
-    count: number;
-    satisfied: boolean;
-    examples: string[];
-  }>;
-  recommendations: Array<{
-    name: string;
-    count: number;
-    satisfied: boolean;
-    examples: string[];
-  }>;
-  packages: Array<{
-    name: string;
-    description: string;
-    cards: string[];
-  }>;
+  /** Where a well-built version of this shell scores. A target, not a score. */
+  targetPower: { min: number; max: number };
+  /** The pieces the shell is actually made of. */
+  packages: Array<{ name: string; blurb: string; cards: string[] }>;
 }
+
+export const DECK_ARCHETYPES: DeckArchetype[] = [
+  {
+    id: 'aristocrats',
+    name: 'Aristocrats',
+    description: 'Sacrifice creatures for value and drain the table a point at a time.',
+    formats: ['commander', 'brawl'],
+    colors: ['B', 'R'],
+    targetPower: { min: 6, max: 8 },
+    packages: [
+      {
+        name: 'Sacrifice outlets',
+        blurb: 'Free, repeatable outlets are what make the shell a deck rather than a pile.',
+        cards: ['Viscera Seer', 'Carrion Feeder', 'Goblin Bombardment', 'Altar of Dementia'],
+      },
+      {
+        name: 'Death payoffs',
+        blurb: 'Each death has to cost the table life, or the sacrifices are free for them.',
+        cards: ['Blood Artist', 'Zulaport Cutthroat', 'Mayhem Devil', 'Bastion of Remembrance'],
+      },
+      {
+        name: 'Fodder',
+        blurb: 'Tokens keep the engine fed without spending real cards.',
+        cards: ['Bitterblossom', 'Ophiomancer', 'Grave Titan', 'Pitiless Plunderer'],
+      },
+    ],
+  },
+  {
+    id: 'control',
+    name: 'Control',
+    description: 'Answer everything, resolve one threat, and close the game on your terms.',
+    formats: ['commander', 'brawl'],
+    colors: ['U', 'W'],
+    targetPower: { min: 7, max: 9 },
+    packages: [
+      {
+        name: 'Counterspells',
+        blurb: 'Cheap, unconditional answers held up across a whole turn cycle.',
+        cards: ['Counterspell', 'Swan Song', 'Force of Will', 'Mana Drain'],
+      },
+      {
+        name: 'Sweepers',
+        blurb: 'One-sided or asymmetric wipes, so resetting the board is not a reset for you.',
+        cards: ['Cyclonic Rift', 'Toxic Deluge', 'Supreme Verdict', 'Farewell'],
+      },
+      {
+        name: 'Draw engines',
+        blurb: 'Control loses to running out of answers before it loses to threats.',
+        cards: ['Rhystic Study', 'Mystic Remora', 'Consecrated Sphinx', 'Fact or Fiction'],
+      },
+    ],
+  },
+  {
+    id: 'big-mana',
+    name: 'Big mana',
+    description: 'Accelerate hard, then land threats the table cannot answer profitably.',
+    formats: ['commander', 'brawl'],
+    colors: ['G'],
+    targetPower: { min: 5, max: 7 },
+    packages: [
+      {
+        name: 'Acceleration',
+        blurb: 'Land-based ramp is harder to punish than rocks in a green deck.',
+        cards: ['Nature’s Lore', 'Three Visits', 'Cultivate', 'Sylvan Scrying'],
+      },
+      {
+        name: 'Payoffs',
+        blurb: 'The mana has to buy something the table cannot ignore.',
+        cards: ['Craterhoof Behemoth', 'Vorinclex', 'Avenger of Zendikar', 'Genesis Wave'],
+      },
+      {
+        name: 'Protection',
+        blurb: 'One removal spell should not undo four turns of ramp.',
+        cards: ['Heroic Intervention', 'Veil of Summer', 'Tyvar’s Stand'],
+      },
+    ],
+  },
+  {
+    id: 'compact-combo',
+    name: 'Two-card combo',
+    description: 'Assemble a compact loop and win from an empty board.',
+    formats: ['commander'],
+    colors: ['U', 'B'],
+    targetPower: { min: 8, max: 10 },
+    packages: [
+      {
+        name: 'The combo',
+        blurb: 'Two cards, both individually castable, both individually useful.',
+        cards: ['Thassa’s Oracle', 'Demonic Consultation', 'Underworld Breach', 'Brain Freeze'],
+      },
+      {
+        name: 'Tutors',
+        blurb: 'Compact combos live or die on how reliably you can find the halves.',
+        cards: ['Demonic Tutor', 'Vampiric Tutor', 'Imperial Seal', 'Grim Tutor'],
+      },
+      {
+        name: 'Protection',
+        blurb: 'Winning through one open blue mana is the whole game.',
+        cards: ['Silence', 'Grand Abolisher', 'Pact of Negation', 'Veil of Summer'],
+      },
+    ],
+  },
+  {
+    id: 'aggro',
+    name: 'Aggro',
+    description: 'Cheap threats and reach — end the game before the table stabilises.',
+    formats: ['standard', 'pioneer', 'modern'],
+    colors: ['R'],
+    targetPower: { min: 4, max: 6 },
+    packages: [
+      {
+        name: 'One-drops',
+        blurb: 'Curve out from turn one or the plan does not work.',
+        cards: ['Monastery Swiftspear', 'Goblin Guide', 'Kird Ape'],
+      },
+      {
+        name: 'Burn',
+        blurb: 'Reach for the last few points once the board stalls.',
+        cards: ['Lightning Bolt', 'Lava Spike', 'Rift Bolt', 'Skewer the Critics'],
+      },
+    ],
+  },
+];
 
 interface ArchetypeLibraryProps {
   currentFormat: string;
-  currentDeck: any[];
-  onApplyTemplate: (template: ArchetypeTemplate) => void;
+  /** Start a new build from this shell. */
+  onStartFromTemplate?: (template: DeckArchetype) => void;
+  className?: string;
 }
 
-export const ArchetypeLibrary = ({ currentFormat, currentDeck, onApplyTemplate }: ArchetypeLibraryProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState(currentFormat);
-  const [selectedTemplate, setSelectedTemplate] = useState<ArchetypeTemplate | null>(null);
-
-  // Get templates from the deck builder system
-  const availableTemplates = getTemplatesForFormat(selectedFormat);
-
-  // Mock extended template data with validation
-  const mockTemplates: ArchetypeTemplate[] = [
-    {
-      id: 'commander-aristocrats',
-      name: 'Aristocrats',
-      description: 'Sacrifice creatures for value and drain opponents',
-      formats: ['commander'],
-      colors: ['B', 'R'],
-      powerLevel: { min: 6, max: 8 },
-      requirements: [
-        {
-          name: 'Sacrifice Outlets',
-          count: 6,
-          satisfied: false,
-          examples: ['Viscera Seer', 'Altar of Dementia', 'Goblin Bombardment']
-        },
-        {
-          name: 'Death Triggers',
-          count: 8,
-          satisfied: true,
-          examples: ['Blood Artist', 'Zulaport Cutthroat', 'Mayhem Devil']
-        },
-        {
-          name: 'Token Generators',
-          count: 10,
-          satisfied: false,
-          examples: ['Bitterblossom', 'Ophiomancer', 'Grave Titan']
-        }
-      ],
-      recommendations: [
-        {
-          name: 'Recursion',
-          count: 6,
-          satisfied: true,
-          examples: ['Reanimate', 'Animate Dead', 'Recurring Nightmare']
-        },
-        {
-          name: 'Card Draw',
-          count: 8,
-          satisfied: false,
-          examples: ['Phyrexian Arena', 'Necropotence', 'Dark Prophecy']
-        }
-      ],
-      packages: [
-        {
-          name: 'Core Aristocrats',
-          description: 'Essential sacrifice and drain effects',
-          cards: ['Blood Artist', 'Zulaport Cutthroat', 'Viscera Seer', 'Carrion Feeder']
-        },
-        {
-          name: 'Token Engine',
-          description: 'Generate fodder for sacrificing',
-          cards: ['Bitterblossom', 'Ophiomancer', 'Grave Titan', 'Endrek Sahr']
-        }
-      ]
-    },
-    {
-      id: 'standard-aggro',
-      name: 'Red Deck Wins',
-      description: 'Fast aggressive strategy with burn spells',
-      formats: ['standard', 'pioneer'],
-      colors: ['R'],
-      powerLevel: { min: 5, max: 7 },
-      requirements: [
-        {
-          name: '1-Drop Creatures',
-          count: 8,
-          satisfied: true,
-          examples: ['Monastery Swiftspear', 'Goblin Guide', 'Champion of the Flame']
-        },
-        {
-          name: 'Burn Spells',
-          count: 12,
-          satisfied: false,
-          examples: ['Lightning Bolt', 'Lava Spike', 'Chain Lightning']
-        }
-      ],
-      recommendations: [
-        {
-          name: 'Haste Creatures',
-          count: 16,
-          satisfied: true,
-          examples: ['Hazoret the Fervent', 'Earthshaker Khenra']
-        }
-      ],
-      packages: [
-        {
-          name: 'Burn Package',
-          description: 'Direct damage spells',
-          cards: ['Lightning Bolt', 'Lava Spike', 'Chain Lightning', 'Rift Bolt']
-        }
-      ]
-    },
-    {
-      id: 'commander-control',
-      name: 'Control',
-      description: 'Counter spells and board wipes to control the game',
-      formats: ['commander'],
-      colors: ['U', 'W'],
-      powerLevel: { min: 7, max: 9 },
-      requirements: [
-        {
-          name: 'Counterspells',
-          count: 12,
-          satisfied: false,
-          examples: ['Counterspell', 'Force of Will', 'Mana Drain']
-        },
-        {
-          name: 'Board Wipes',
-          count: 6,
-          satisfied: true,
-          examples: ['Wrath of God', 'Supreme Verdict', 'Cyclonic Rift']
-        }
-      ],
-      recommendations: [
-        {
-          name: 'Card Draw',
-          count: 10,
-          satisfied: false,
-          examples: ['Rhystic Study', 'Mystic Remora', 'Consecrated Sphinx']
-        }
-      ],
-      packages: [
-        {
-          name: 'Counter Package',
-          description: 'Essential counterspells',
-          cards: ['Counterspell', 'Swan Song', 'Negate', 'Dovin\'s Veto']
-        }
-      ]
-    }
-  ];
-
-  // Filter templates based on search and format
-  const filteredTemplates = mockTemplates.filter(template => 
-    template.formats.includes(selectedFormat) &&
-    (template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     template.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const getRequirementStatus = (satisfied: boolean) => {
-    return satisfied ? (
-      <CheckCircle className="h-4 w-4 text-green-500" />
-    ) : (
-      <XCircle className="h-4 w-4 text-red-500" />
-    );
-  };
-
-  const getTemplateScore = (template: ArchetypeTemplate) => {
-    const total = template.requirements.length + template.recommendations.length;
-    const satisfied = [...template.requirements, ...template.recommendations].filter(r => r.satisfied).length;
-    return Math.round((satisfied / total) * 100);
-  };
-
-  const applyTemplate = (template: ArchetypeTemplate) => {
-    onApplyTemplate(template);
-    setSelectedTemplate(null);
-  };
+function TargetPower({ range }: { range: { min: number; max: number } }) {
+  const midpoint = (range.min + range.max) / 2;
+  const band = bandForScore(midpoint);
+  const lowBracket = bracketIdForScore(range.min);
+  const highBracket = bracketIdForScore(range.max);
+  const bracketText =
+    lowBracket === highBracket
+      ? `Bracket ${lowBracket} · ${DECK_BRACKETS[highBracket].name}`
+      : `Brackets ${lowBracket}–${highBracket}`;
 
   return (
-    <div className="space-y-6">
-      {/* Header and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Book className="h-5 w-5 mr-2" />
-            Archetype Library
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search archetypes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">Standard</SelectItem>
-                <SelectItem value="commander">Commander</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
-                <SelectItem value="pioneer">Pioneer</SelectItem>
-                <SelectItem value="legacy">Legacy</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="rounded-lg bg-muted/40 p-3 shadow-sm">
+      <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        Target power
+      </p>
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <span className={cn('text-2xl font-bold leading-none tabular-nums', powerTextClass(band))}>
+          {formatPowerScore(range.min)}–{formatPowerScore(range.max)}
+        </span>
+        <span className="text-xs text-muted-foreground">/ 10</span>
+      </p>
+      <p className={cn('mt-1.5 text-xs font-semibold', powerTextClass(band))}>{bandLabel(band)}</p>
+      <p className="mt-0.5 text-[0.65rem] text-muted-foreground">{bracketText}</p>
+    </div>
+  );
+}
 
-      {/* Template Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredTemplates.map((template) => (
-          <Card key={template.id} className="group hover:shadow-lg transition-all">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center">
-                    {template.formats.includes('commander') && (
-                      <Crown className="h-4 w-4 mr-2 text-yellow-500" />
-                    )}
-                    {template.name}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
-                </div>
-                <Badge 
-                  variant={getTemplateScore(template) >= 80 ? 'default' : getTemplateScore(template) >= 50 ? 'secondary' : 'outline'}
-                >
-                  {getTemplateScore(template)}% match
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Colors and Power Level */}
-              <div className="flex items-center justify-between">
-                <div className="flex space-x-1">
-                  {template.colors.map(color => (
-                    <div
-                      key={color}
-                      className="w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center"
-                      style={{
-                        backgroundColor: {
-                          W: '#FFFBD5', U: '#0E68AB', B: '#150B00', R: '#D3202A', G: '#00733E'
-                        }[color],
-                        color: color === 'W' ? '#000' : '#fff'
-                      }}
-                    >
-                      {color}
-                    </div>
-                  ))}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Power: {template.powerLevel.min}-{template.powerLevel.max}
-                </div>
-              </div>
+export function ArchetypeLibrary({
+  currentFormat,
+  onStartFromTemplate,
+  className,
+}: ArchetypeLibraryProps) {
+  const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
 
-              {/* Requirements Status */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Requirements:</div>
-                {template.requirements.slice(0, 3).map((req, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
-                      {getRequirementStatus(req.satisfied)}
-                      <span>{req.name}</span>
+  const results = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return DECK_ARCHETYPES.filter(a => a.formats.includes(currentFormat)).filter(
+      a =>
+        !needle ||
+        a.name.toLowerCase().includes(needle) ||
+        a.description.toLowerCase().includes(needle) ||
+        a.packages.some(p => p.cards.some(c => c.toLowerCase().includes(needle)))
+    );
+  }, [currentFormat, query]);
+
+  return (
+    <div className={cn('space-y-4', className)}>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search archetypes and key cards…"
+          className="pl-9"
+        />
+      </div>
+
+      {results.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          No archetype matches that in {currentFormat}.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {results.map(archetype => {
+            const open = openId === archetype.id;
+            return (
+              <div key={archetype.id} className="rounded-xl bg-muted/30 p-4 shadow-sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-bold">{archetype.name}</h3>
+                      <ColorIdentity colors={archetype.colors} size="xs" className="gap-1" />
                     </div>
-                    <Badge variant="outline">{req.count}</Badge>
+                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                      {archetype.description}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setOpenId(open ? null : archetype.id)}
+                      >
+                        {open ? 'Hide the shell' : 'What goes in it'}
+                      </Button>
+                      {onStartFromTemplate && (
+                        <Button size="sm" onClick={() => onStartFromTemplate(archetype)}>
+                          <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                          Build this
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                ))}
-                {template.requirements.length > 3 && (
-                  <div className="text-xs text-muted-foreground">
-                    +{template.requirements.length - 3} more requirements
+
+                  <div className="w-full sm:w-40 sm:flex-shrink-0">
+                    <TargetPower range={archetype.targetPower} />
+                  </div>
+                </div>
+
+                {open && (
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {archetype.packages.map(pkg => (
+                      <div key={pkg.name} className="rounded-lg bg-background/60 p-3 shadow-sm">
+                        <p className="text-sm font-semibold">{pkg.name}</p>
+                        <p className="mt-1 text-[0.7rem] leading-snug text-muted-foreground">
+                          {pkg.blurb}
+                        </p>
+                        <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                          {pkg.cards.map(card => (
+                            <li key={card} className="truncate">
+                              {card}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedTemplate(
-                    selectedTemplate?.id === template.id ? null : template
-                  )}
-                  className="flex-1"
-                >
-                  {selectedTemplate?.id === template.id ? 'Hide Details' : 'View Details'}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => applyTemplate(template)}
-                  disabled={getTemplateScore(template) < 30}
-                >
-                  <Wand2 className="h-4 w-4 mr-1" />
-                  Apply
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Template Details Modal */}
-      {selectedTemplate && (
-        <Card className="border-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{selectedTemplate.name} - Detailed Analysis</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSelectedTemplate(null)}
-              >
-                ×
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Requirements */}
-            <div>
-              <h4 className="font-medium mb-3 flex items-center">
-                <Target className="h-4 w-4 mr-2" />
-                Requirements
-              </h4>
-              <div className="space-y-3">
-                {selectedTemplate.requirements.map((req, index) => (
-                  <div key={index} className="border rounded p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {getRequirementStatus(req.satisfied)}
-                        <span className="font-medium">{req.name}</span>
-                      </div>
-                      <Badge variant="outline">{req.count} needed</Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Examples: {req.examples.join(', ')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Packages */}
-            <div>
-              <h4 className="font-medium mb-3 flex items-center">
-                <Zap className="h-4 w-4 mr-2" />
-                Starter Packages
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {selectedTemplate.packages.map((pkg, index) => (
-                  <div key={index} className="border rounded p-3 space-y-2">
-                    <div className="font-medium">{pkg.name}</div>
-                    <div className="text-sm text-muted-foreground">{pkg.description}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {pkg.cards.join(', ')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Apply Template */}
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Applying this template will guide card selection and provide package suggestions. 
-                Your current deck has a {getTemplateScore(selectedTemplate)}% compatibility match.
-              </AlertDescription>
-            </Alert>
-
-            <Button onClick={() => applyTemplate(selectedTemplate)} className="w-full">
-              <Wand2 className="h-4 w-4 mr-2" />
-              Apply {selectedTemplate.name} Template
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty State */}
-      {filteredTemplates.length === 0 && (
-        <Card className="p-12 text-center">
-          <Search className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <h3 className="text-xl font-medium mb-2">No Templates Found</h3>
-          <p className="text-muted-foreground">
-            Try adjusting your search terms or selecting a different format.
-          </p>
-        </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
-};
+}
+
+export default ArchetypeLibrary;

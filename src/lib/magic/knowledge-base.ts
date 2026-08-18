@@ -1,3 +1,4 @@
+import { deckPowerFromStored } from '@/lib/deck/power';
 /**
  * MTG SUPER BRAIN - The ultimate comprehensive AI knowledge system for Magic: The Gathering
  * 
@@ -1153,9 +1154,20 @@ function calculateWinRate(decks: any[]): number {
   return totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
 }
 
-function calculateAvgPowerLevel(decks: any[]): number {
-  const total = decks.reduce((sum, deck) => sum + (deck.power_level || 6), 0);
-  return decks.length > 0 ? total / decks.length : 6;
+/**
+ * Averaged over decks that actually have a canonical score.
+ *
+ * This used to read `deck.power_level || 6` across every deck, so an unscored
+ * collection averaged to exactly 6.0 and the knowledge base told the model a
+ * number nobody had measured. Decks without a score are now excluded, and an
+ * unscored collection returns `null` rather than a plausible-looking constant.
+ */
+function calculateAvgPowerLevel(decks: any[]): number | null {
+  const scored = decks
+    .map(deck => deckPowerFromStored(deck?.edh_analysis?.deckmatrix, null))
+    .filter((power): power is NonNullable<typeof power> => power !== null);
+  if (scored.length === 0) return null;
+  return scored.reduce((sum, power) => sum + power.score, 0) / scored.length;
 }
 
 function calculateTrend(decks: any[], timeframe: number): 'rising' | 'stable' | 'falling' {

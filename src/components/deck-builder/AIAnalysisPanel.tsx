@@ -89,7 +89,11 @@ export function AIAnalysisPanel({
         content: `## 🚀 DeckMatrix AI Analysis Engine Activated
 
 **TARGET DECK**: ${deckName}  
-**FORMAT**: ${deckFormat} | **POWER LEVEL**: ${deckSummary?.power?.score || 'TBD'}/10
+**FORMAT**: ${deckFormat} | **POWER**: ${
+  deckSummary?.power && !deckSummary.power.stale
+    ? `${deckSummary.power.score.toFixed(1)}/10 (${deckSummary.power.band}, bracket ${deckSummary.power.bracket})`
+    : 'not scored yet'
+}
 
 ### Ready for Deep Strategic Analysis
 I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's strategy, card interactions, or optimization opportunities!`,
@@ -167,7 +171,11 @@ I'm your dedicated DeckMatrix AI analyst. Ask me anything about your deck's stra
       } catch {}
 
       const counts = (deckSummary as any)?.counts;
-      const power = (deckSummary as any)?.power?.score;
+      // Same source as the Brain and optimiser panels, so the coaching cannot
+      // contradict itself between tabs.
+      const power = deckSummary?.power && !deckSummary.power.stale
+        ? deckSummary.power.score
+        : null;
       const fallbackText = `### AI temporarily unavailable\n\nHere are local insights computed from your deck data:${
         counts ? `\n\n- Total cards: ${counts.total} (Lands: ${counts.lands}, Creatures: ${counts.creatures}, Instants: ${counts.instants}, Sorceries: ${counts.sorceries})` : ''
       }${ power ? `\n- Current power score: ${power}/10` : '' }\n\nYou can retry in a moment or add AI credits to continue full analysis.`;

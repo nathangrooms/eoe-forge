@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { supabase } from '@/integrations/supabase/client';
 import { countCardsWhere, selectCardsWhere } from '@/lib/supabase/jsonPath';
-import { cn } from '@/lib/utils';
+import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /**
  * Catalogue sections.
@@ -44,31 +44,24 @@ export function HomeFormats() {
   }, []);
 
   return (
-    <section className="py-24">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
-            Every format, with real legality
-          </h2>
-          <p className="mt-4 text-muted-foreground text-pretty">
-            Legality comes straight from the card data, not from a hand-maintained list —
-            so bans and rotations are already reflected.
-          </p>
-        </div>
+    <Section>
+      <SectionHeading
+        title="Every format, with real legality"
+        lead="Legality comes straight from the card data, not from a hand-maintained list — so bans and rotations are already reflected."
+      />
 
-        <div className="mx-auto mt-14 grid max-w-[1200px] gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FORMATS.map(f => (
-            <div key={f.key} className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
-              <div className="text-3xl font-semibold tabular-nums tracking-tight">
-                {counts ? counts[f.key].toLocaleString() : <Skeleton className="h-8 w-24" />}
-              </div>
-              <p className="mt-1.5 font-medium">{f.label}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{f.blurb}</p>
+      <div className="mt-14 grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {FORMATS.map(f => (
+          <div key={f.key} className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
+            <div className="text-3xl font-semibold tabular-nums tracking-tight">
+              {counts ? counts[f.key].toLocaleString() : <Skeleton className="h-8 w-24" />}
             </div>
-          ))}
-        </div>
+            <p className="mt-1.5 font-medium">{f.label}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{f.blurb}</p>
+          </div>
+        ))}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -103,45 +96,38 @@ export function HomeColors() {
   const max = counts ? Math.max(...Object.values(counts)) : 1;
 
   return (
-    <section className="bg-card/40 py-24">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
-            Colour identity, counted properly
-          </h2>
-          <p className="mt-4 text-muted-foreground text-pretty">
-            Read from each card's identity rather than its mana cost, so hybrid, phyrexian
-            and rules-text pips count the way Commander counts them.
-          </p>
-        </div>
+    <Section tint>
+      <SectionHeading
+        title="Colour identity, counted properly"
+        lead="Read from each card's identity rather than its mana cost, so hybrid, phyrexian and rules-text pips count the way Commander counts them."
+      />
 
-        <div className="mx-auto mt-14 max-w-3xl space-y-3">
-          {COLORS.map(({ c, name, blurb }) => {
-            const n = counts?.[c] ?? 0;
-            return (
-              <div key={c} className="flex items-center gap-4">
-                <ManaPip symbol={c} size="lg" />
-                <div className="w-24 shrink-0">
-                  <p className="text-sm font-medium">{name}</p>
-                </div>
-                <div className="relative h-8 flex-1 overflow-hidden rounded bg-muted">
-                  <div
-                    className="h-full rounded bg-foreground/85 transition-all duration-700"
-                    style={{ width: counts ? `${(n / max) * 100}%` : '0%' }}
-                  />
-                </div>
-                <span className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                  {counts ? n.toLocaleString() : '—'}
-                </span>
-                <span className="hidden w-56 shrink-0 text-xs text-muted-foreground lg:block">
-                  {blurb}
-                </span>
+      <div className="mt-14 space-y-3">
+        {COLORS.map(({ c, name, blurb }) => {
+          const n = counts?.[c] ?? 0;
+          return (
+            <div key={c} className="flex items-center gap-4">
+              <ManaPip symbol={c} size="lg" />
+              <div className="w-24 shrink-0">
+                <p className="text-sm font-medium">{name}</p>
               </div>
-            );
-          })}
-        </div>
+              <div className="relative h-8 flex-1 overflow-hidden rounded bg-muted">
+                <div
+                  className="h-full rounded bg-foreground/85 transition-all duration-700"
+                  style={{ width: counts ? `${(n / max) * 100}%` : '0%' }}
+                />
+              </div>
+              <span className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                {counts ? n.toLocaleString() : '—'}
+              </span>
+              <span className="hidden w-56 shrink-0 text-xs text-muted-foreground lg:block">
+                {blurb}
+              </span>
+            </div>
+          );
+        })}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -175,21 +161,19 @@ export function HomeCatalogue() {
   ];
 
   return (
-    <section className="py-20">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto grid max-w-[1200px] gap-8 sm:grid-cols-3">
-          {tiles.map(t => (
-            <div key={t.label} className="text-center">
-              <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
-                {t.value != null ? t.value.toLocaleString() : '—'}
-              </p>
-              <p className="mt-2 font-medium">{t.label}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
-            </div>
-          ))}
-        </div>
+    <Section size="compact">
+      <div className="grid gap-8 sm:grid-cols-3">
+        {tiles.map(t => (
+          <div key={t.label} className="text-center">
+            <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
+              {t.value != null ? t.value.toLocaleString() : '—'}
+            </p>
+            <p className="mt-2 font-medium">{t.label}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
+          </div>
+        ))}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -246,72 +230,65 @@ export function HomeBuilderPreview() {
   }
 
   return (
-    <section className="bg-card/40 py-24">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-balance">
-            A builder that groups itself
-          </h2>
-          <p className="mt-4 text-muted-foreground text-pretty">
-            Cards sort into type categories as you add them, with a running total of what the
-            list costs to finish.
-          </p>
+    <Section tint>
+      <SectionHeading
+        title="A builder that groups itself"
+        lead="Cards sort into type categories as you add them, with a running total of what the list costs to finish."
+      />
+
+      <div className="mt-14 overflow-hidden rounded-xl bg-background shadow-2xl shadow-black/40">
+        {/* toolbar */}
+        <div className="flex flex-wrap items-center gap-3 bg-muted/40 px-4 py-3">
+          <span className="text-sm font-medium">Untitled Commander deck</span>
+          <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+            Commander
+          </span>
+          <span className="ml-auto text-sm tabular-nums text-muted-foreground">
+            {cards ? `${grouped.reduce((n, g) => n + g.cards.length, 0)} cards · $${total.toFixed(2)}` : '—'}
+          </span>
         </div>
 
-        <div className="mx-auto mt-14 max-w-[1200px] overflow-hidden rounded-xl bg-background shadow-2xl shadow-black/40">
-          {/* toolbar */}
-          <div className="flex flex-wrap items-center gap-3 bg-muted/40 px-4 py-3">
-            <span className="text-sm font-medium">Untitled Commander deck</span>
-            <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              Commander
-            </span>
-            <span className="ml-auto text-sm tabular-nums text-muted-foreground">
-              {cards ? `${grouped.reduce((n, g) => n + g.cards.length, 0)} cards · $${total.toFixed(2)}` : '—'}
-            </span>
-          </div>
-
-          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {grouped.map(g => (
-              <div key={g.label} className="rounded-lg bg-muted/25 p-4">
-                <div className="mb-3 flex items-baseline justify-between">
-                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {g.label}
-                  </p>
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {g.cards.length}
-                  </span>
-                </div>
-                <ul className="space-y-1.5">
-                  {cards === null
-                    ? Array.from({ length: 4 }).map((_, i) => (
-                        <li key={i}><Skeleton className="h-4 w-full" /></li>
-                      ))
-                    : g.cards.slice(0, 6).map(c => (
-                        <li key={c.id} className="flex items-center gap-2 text-sm">
-                          <span className="truncate">{c.name}</span>
-                          <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-                            {c.cmc}
-                          </span>
-                        </li>
-                      ))}
-                  {cards !== null && g.cards.length === 0 && (
-                    <li className="text-xs italic text-muted-foreground">Nothing here yet</li>
-                  )}
-                </ul>
+        <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          {grouped.map(g => (
+            <div key={g.label} className="rounded-lg bg-muted/25 p-4">
+              <div className="mb-3 flex items-baseline justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {g.label}
+                </p>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {g.cards.length}
+                </span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-10 text-center">
-          <Button asChild size="lg">
-            <Link to="/deck-builder">
-              Open the builder
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+              <ul className="space-y-1.5">
+                {cards === null
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <li key={i}><Skeleton className="h-4 w-full" /></li>
+                    ))
+                  : g.cards.slice(0, 6).map(c => (
+                      <li key={c.id} className="flex items-center gap-2 text-sm">
+                        <span className="truncate">{c.name}</span>
+                        <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {c.cmc}
+                        </span>
+                      </li>
+                    ))}
+                {cards !== null && g.cards.length === 0 && (
+                  <li className="text-xs italic text-muted-foreground">Nothing here yet</li>
+                )}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
-    </section>
+
+      <div className="mt-10 text-center">
+        <Button asChild size="lg">
+          <Link to="/deck-builder">
+            Open the builder
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    </Section>
   );
 }

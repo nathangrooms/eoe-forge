@@ -1,128 +1,119 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Zap, TrendingUp, Shield, Swords, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Crown } from 'lucide-react';
+import { PowerScore } from '@/components/deck/PowerScore';
+import { SUBSCORE_LABELS, type DeckPower, type SubscoreKey } from '@/lib/deck/power';
 
-interface PowerMetrics {
-  overall: number;
-  speed: number;
-  interaction: number;
-  resilience: number;
-  comboPotential: number;
-}
+/**
+ * The commander-facing power readout.
+ *
+ * Restored and rewritten. The old version took a bare `powerLevel: number` and
+ * an optional `metrics` object that every caller built by multiplying that one
+ * number — `powerLevel * 0.9`, `* 1.1`, `* 0.8`, `* 1.2` — and labelled the
+ * results Speed, Interaction, Resilience and Combo Potential. Four invented
+ * figures presented as measurements. It also coloured itself with raw
+ * `text-red-600` / `orange` / `yellow` / `green`, which the monochrome palette
+ * does not allow.
+ *
+ * It now takes the canonical {@link DeckPower} and shows the four axes a
+ * commander player actually asks about, straight from the engine's subscores,
+ * plus the two diagnostics that drive the engine's own penalties: tutor count
+ * and game changers.
+ */
 
 interface CommanderPowerDisplayProps {
-  powerLevel: number;
-  metrics?: PowerMetrics;
+  power: DeckPower | null;
+  commanderName?: string;
+  onRescore?: () => void;
+  rescoring?: boolean;
+  className?: string;
 }
 
-export function CommanderPowerDisplay({ powerLevel, metrics }: CommanderPowerDisplayProps) {
-  const getPowerColor = (level: number) => {
-    if (level >= 8) return 'text-red-600 dark:text-red-400';
-    if (level >= 6) return 'text-orange-600 dark:text-orange-400';
-    if (level >= 4) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-green-600 dark:text-green-400';
-  };
+/** The axes that decide how a commander deck plays out at a four-player table. */
+const COMMANDER_AXES: SubscoreKey[] = ['speed', 'interaction', 'resilience', 'synergy'];
 
-  const getPowerLabel = (level: number) => {
-    if (level >= 9) return 'cEDH';
-    if (level >= 8) return 'High Power';
-    if (level >= 6) return 'Optimized';
-    if (level >= 4) return 'Focused';
-    if (level >= 2) return 'Casual';
-    return 'Precon';
-  };
-
+function Axis({ k, value, muted }: { k: SubscoreKey; value: number; muted: boolean }) {
+  const pct = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Zap className="h-5 w-5" />
-          Power Level Analysis
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Overall Power */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Overall Power</p>
-            <div className="flex items-center gap-2">
-              <span className={`text-3xl font-bold ${getPowerColor(powerLevel)}`}>
-                {powerLevel.toFixed(1)}
-              </span>
-              <Badge variant="outline" className={getPowerColor(powerLevel)}>
-                {getPowerLabel(powerLevel)}
-              </Badge>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Scale: 1-10</p>
-            <Progress value={powerLevel * 10} className="w-24 h-2 mt-1" />
-          </div>
-        </div>
-
-        {/* Detailed Metrics */}
-        {metrics && (
-          <div className="space-y-3 pt-4 border-t">
-            <MetricRow 
-              icon={Clock}
-              label="Speed"
-              value={metrics.speed}
-              color="text-blue-600 dark:text-blue-400"
-            />
-            <MetricRow 
-              icon={Shield}
-              label="Interaction"
-              value={metrics.interaction}
-              color="text-purple-600 dark:text-purple-400"
-            />
-            <MetricRow 
-              icon={Swords}
-              label="Resilience"
-              value={metrics.resilience}
-              color="text-emerald-600 dark:text-emerald-400"
-            />
-            <MetricRow 
-              icon={TrendingUp}
-              label="Combo Potential"
-              value={metrics.comboPotential}
-              color="text-red-600 dark:text-red-400"
-            />
-          </div>
-        )}
-
-        {/* Power Level Description */}
-        <div className="pt-4 border-t">
-          <p className="text-xs text-muted-foreground">
-            {powerLevel >= 8 && "This deck is highly competitive with fast mana, tutors, and game-winning combos."}
-            {powerLevel >= 6 && powerLevel < 8 && "This deck is well-tuned with strong synergies and efficient answers."}
-            {powerLevel >= 4 && powerLevel < 6 && "This deck has a clear strategy with some interaction and win conditions."}
-            {powerLevel < 4 && "This deck is casual-focused with room for optimization and power upgrades."}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MetricRow({ icon: Icon, label, value, color }: { 
-  icon: any; 
-  label: string; 
-  value: number; 
-  color: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${color}`} />
-        <span className="text-sm">{label}</span>
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="font-medium">{SUBSCORE_LABELS[k]}</span>
+        <span className="tabular-nums text-muted-foreground">{Math.round(pct)}/100</span>
       </div>
-      <div className="flex items-center gap-2">
-        <Progress value={value * 10} className="w-20 h-1.5" />
-        <span className={`text-sm font-medium ${color} w-8 text-right`}>
-          {value.toFixed(1)}
-        </span>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-foreground/10">
+        <div
+          className={cn('h-full rounded-full', muted ? 'bg-foreground/30' : 'bg-foreground/70')}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
 }
+
+function Diagnostic({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="rounded-lg bg-background/60 p-3 shadow-sm">
+      <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
+      <p className="mt-1.5 text-[0.7rem] font-medium leading-none text-muted-foreground">{label}</p>
+      <p className="mt-1 text-[0.62rem] leading-tight text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+export function CommanderPowerDisplay({
+  power,
+  commanderName,
+  onRescore,
+  rescoring,
+  className,
+}: CommanderPowerDisplayProps) {
+  return (
+    <div className={cn('space-y-3 rounded-xl bg-muted/30 p-4 shadow-sm', className)}>
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-bold">
+          <Crown className="h-4 w-4" />
+          Power at the table
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {commanderName
+            ? `How ${commanderName} scores against the rest of a four-player pod.`
+            : 'How this deck scores against the rest of a four-player pod.'}
+        </p>
+      </div>
+
+      <PowerScore power={power} variant="compact" onRescore={onRescore} rescoring={rescoring} />
+
+      {power && (
+        <>
+          <div className="space-y-2.5">
+            {COMMANDER_AXES.map(key => (
+              <Axis key={key} k={key} value={power.subscores?.[key] ?? 0} muted={power.stale} />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Diagnostic
+              label="Tutors"
+              value={String(power.diagnostics?.tutorCount ?? 0)}
+              note={
+                power.diagnostics?.noTutors
+                  ? 'Too few for this power band — the engine applies a penalty'
+                  : 'Enough to make the game plan repeatable'
+              }
+            />
+            <Diagnostic
+              label="Game changers"
+              value={String(power.diagnostics?.gameChangerCount ?? 0)}
+              note={
+                power.diagnostics?.noGameChangers
+                  ? 'No standout finishers — the engine applies a penalty'
+                  : 'Cards that can end a game on their own'
+              }
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default CommanderPowerDisplay;

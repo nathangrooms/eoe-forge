@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,14 +11,13 @@ import {
   Download,
   Layers,
   RefreshCw,
+  Upload,
 } from 'lucide-react';
 import { useCollectionStore } from '@/features/collection/store';
 import { CollectionCardDisplay } from '@/components/collection/CollectionCardDisplay';
-import { CollectionBulkImport } from '@/components/collection/CollectionBulkImport';
-import { SellCardModal } from '@/components/collection/SellCardModal';
-import { AddToDeckDialog } from '@/components/collection/AddToDeckDialog';
+import { AddToDeckPanel } from '@/components/collection/AddToDeckPanel';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
@@ -29,8 +28,6 @@ import { useDeckManagementStore, type DeckCard } from '@/stores/deckManagementSt
 import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import type { CollectionStats, CollectionCard } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
-import { supabase } from '@/integrations/supabase/client';
-import { ListingFormData } from '@/types/listing';
 import { priceUSD } from '@/features/collection/value';
 import { formatPrice } from '@/components/collection/browser/types';
 
@@ -85,16 +82,21 @@ export default function Collection() {
   const navigate = useNavigate();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [currentTab, setCurrentTab] = useState(() => searchParams.get('tab') || 'collection');
+  const location = useLocation();
+  /**
+   * Storage is the one tab with a route of its own (`/collection/storage`, and
+   * `/collection/storage/:containerId` for a container), because a container is
+   * a destination people link to. Everything else stays a `?tab=` value.
+   */
+  const onStorageRoute = location.pathname.startsWith('/collection/storage');
+  const [currentTab, setCurrentTab] = useState(() =>
+    location.pathname.startsWith('/collection/storage')
+      ? 'storage'
+      : searchParams.get('tab') || 'collection'
+  );
 
   const [selectedCard, setSelectedCard] = useState<CollectionCard['card'] | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
-  const [showSellModal, setShowSellModal] = useState(false);
-  const [sellCard, setSellCard] = useState<CollectionCard | null>(null);
   const [deckTarget, setDeckTarget] = useState<CollectionCard | null>(null);
-  // Hoisted so the empty state's "Import list" card can open the real dialog —
-  // it previously clicked a `[data-import-trigger]` element that never existed.
-  const [showImport, setShowImport] = useState(false);
 
   const [deckAdditionConfig, setDeckAdditionConfig] = useState({
     selectedDeckId: '',
@@ -111,11 +113,15 @@ export default function Collection() {
   }, []);
 
   useEffect(() => {
+    if (onStorageRoute) {
+      setCurrentTab('storage');
+      return;
+    }
     const tabFromUrl = searchParams.get('tab') || 'collection';
     if ((TABS as readonly string[]).includes(tabFromUrl)) {
       setCurrentTab(tabFromUrl);
     }
-  }, [searchParams]);
+  }, [searchParams, onStorageRoute]);
 
   /**
    * Only the `tab` key is touched. The collection browser mirrors its filter
@@ -124,6 +130,17 @@ export default function Collection() {
    */
   const setActiveTab = (tab: string) => {
     setCurrentTab(tab);
+
+    if (tab === 'storage') {
+      navigate('/collection/storage');
+      return;
+    }
+
+    if (onStorageRoute) {
+      navigate(tab === 'collection' ? '/collection' : `/collection?tab=${tab}`);
+      return;
+    }
+
     setSearchParams(
       prev => {
         const next = new URLSearchParams(prev);
@@ -208,29 +225,6 @@ export default function Collection() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return cards.filter(item => new Date(item.created_at) > sevenDaysAgo).length;
   }, [cards]);
-
-  const handleSellSubmit = async (data: ListingFormData) => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        showError('Authentication error', 'Please sign in to create a listing');
-        return;
-      }
-
-      const { error: insertError } = await supabase
-        .from('listings')
-        .insert({ ...data, user_id: sessionData.session.user.id });
-
-      if (insertError) throw insertError;
-
-      showSuccess('Listing created', `${sellCard?.card_name} listed for sale`);
-      setShowSellModal(false);
-      setSellCard(null);
-    } catch (err) {
-      console.error('Error creating listing:', err);
-      showError('Error', 'Failed to create listing');
-    }
-  };
 
   const handleExportBackup = () => {
     if (!snapshot) {
@@ -364,14 +358,15 @@ export default function Collection() {
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <CollectionBulkImport
-              open={showImport}
-              onOpenChange={setShowImport}
-              onImportComplete={() => {
-                refresh();
-                showSuccess('Collection updated', 'Import completed');
-              }}
-            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/collection/import')}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleExportBackup} className="gap-2">
               <Download className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Backup</span>
@@ -425,7 +420,7 @@ export default function Collection() {
             ) : cards.length === 0 ? (
               <CollectionEmptyState
                 onAddCards={() => setActiveTab('add-cards')}
-                onImport={() => setShowImport(true)}
+                onImport={() => navigate('/collection/import')}
                 onScan={() => navigate('/scan')}
               />
             ) : (
@@ -445,19 +440,40 @@ export default function Collection() {
 
                 <FavoriteDecksPreview />
 
-                <CollectionCardDisplay
-                  items={cards}
-                  onCardClick={item => {
-                    setSelectedCard(item.card ?? null);
-                    setShowCardModal(true);
-                  }}
-                  onMarkForSale={item => {
-                    setSellCard(item);
-                    setShowSellModal(true);
-                  }}
-                  onAddToDeck={item => setDeckTarget(item)}
-                  onBulkUpdate={refresh}
-                />
+                {/* Picking a destination deck for a card already on screen is
+                    not a place you travel to — it expands here instead. */}
+                {deckTarget && (
+                  <AddToDeckPanel
+                    key={deckTarget.id}
+                    item={deckTarget}
+                    onClose={() => setDeckTarget(null)}
+                  />
+                )}
+
+                {/* Grid left, card detail docked right. The grid stays live
+                    while a card is open — that is the whole point of moving it
+                    out of a dialog. */}
+                <CardDetailSplit
+                  pane={
+                    selectedCard ? (
+                      <CardDetailPane
+                        card={selectedCard}
+                        onClose={() => setSelectedCard(null)}
+                        onAddToCollection={card =>
+                          addToCollection({ name: card.name, set: card.set_code ?? card.set })
+                        }
+                      />
+                    ) : null
+                  }
+                >
+                  <CollectionCardDisplay
+                    items={cards}
+                    onCardClick={item => setSelectedCard(item.card ?? null)}
+                    onMarkForSale={item => navigate(`/marketplace/list/${item.id}`)}
+                    onAddToDeck={item => setDeckTarget(item)}
+                    onBulkUpdate={refresh}
+                  />
+                </CardDetailSplit>
               </div>
             )}
           </TabsContent>
@@ -549,39 +565,6 @@ export default function Collection() {
         </Tabs>
       </div>
 
-      {/* Modals */}
-      <UniversalCardModal
-        card={selectedCard}
-        isOpen={showCardModal}
-        onClose={() => {
-          setShowCardModal(false);
-          setSelectedCard(null);
-        }}
-        onAddToCollection={() => {
-          if (selectedCard) addToCollection({ name: selectedCard.name, set: selectedCard.set_code });
-        }}
-      />
-
-      <SellCardModal
-        isOpen={showSellModal}
-        onClose={() => {
-          setShowSellModal(false);
-          setSellCard(null);
-        }}
-        card={sellCard}
-        ownedQuantity={sellCard?.quantity || 0}
-        ownedFoil={sellCard?.foil || 0}
-        defaultPrice={sellCard?.card ? priceUSD(sellCard.card, false) : 0}
-        onSubmit={handleSellSubmit}
-      />
-
-      <AddToDeckDialog
-        item={deckTarget}
-        open={deckTarget !== null}
-        onOpenChange={open => {
-          if (!open) setDeckTarget(null);
-        }}
-      />
     </div>
   );
 }

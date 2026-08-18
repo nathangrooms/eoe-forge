@@ -36,7 +36,7 @@ import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { formatLabel, usesPowerLevel } from '@/lib/deck/formats';
 import { CommanderHero } from './CommanderHero';
-import { DeckPowerInline, DeckPowerMeter } from './DeckPowerMeter';
+import { PowerScore } from './PowerScore';
 
 /**
  * The single deck tile.
@@ -90,6 +90,9 @@ interface DeckTileProps {
   onExport?: () => void;
   onFavoriteChange?: () => void;
   onShare?: () => void;
+  /** Recompute this deck's power score from its current decklist. */
+  onRescore?: () => void;
+  rescoring?: boolean;
   className?: string;
 }
 
@@ -175,6 +178,8 @@ export function DeckTile({
   onExport,
   onFavoriteChange,
   onShare,
+  onRescore,
+  rescoring,
   className,
 }: DeckTileProps) {
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
@@ -402,9 +407,9 @@ export function DeckTile({
               so these secondary columns start two steps later than they look
               like they should. At `md` there is no room for either. */}
           {showPower && (
-            <DeckPowerInline
-              score={deckSummary.power?.score}
-              band={deckSummary.power?.band}
+            <PowerScore
+              power={deckSummary.power}
+              variant="inline"
               className="hidden w-28 shrink-0 2xl:block"
             />
           )}
@@ -528,7 +533,12 @@ export function DeckTile({
           </div>
 
           {showPower && (
-            <DeckPowerMeter score={deckSummary.power?.score} band={deckSummary.power?.band} />
+            <PowerScore
+              power={deckSummary.power}
+              variant="compact"
+              onRescore={onRescore}
+              rescoring={rescoring}
+            />
           )}
 
           <div className="grid grid-cols-3 gap-2">

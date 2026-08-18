@@ -8,14 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -559,46 +551,165 @@ export default function Settings() {
             </CardTitle>
             <CardDescription>Sign-in credentials and account protection</CardDescription>
           </CardHeader>
+          {/* Settings is a list of rows, so the row you tapped is where the
+              form belongs. Each one expands in place — nothing dims, nothing
+              covers the rows around it. */}
           <CardContent className="divide-y divide-border">
-            <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Email address</p>
-                  <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+            <div className="py-3 first:pt-0">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Email address</p>
+                    <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+                  </div>
                 </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-expanded={changeEmailOpen}
+                  onClick={() => setChangeEmailOpen(!changeEmailOpen)}
+                >
+                  {changeEmailOpen ? 'Close' : 'Change'}
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setChangeEmailOpen(true)}>
-                Change
-              </Button>
-            </div>
 
-            <div className="flex items-center justify-between gap-4 py-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Password</p>
-                  <p className="text-sm text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setChangePasswordOpen(true)}>
-                Change
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Two-factor authentication</p>
+              {changeEmailOpen && (
+                <div
+                  className="mt-3 space-y-4 rounded-lg bg-muted/30 p-4"
+                  onKeyDown={(e) => { if (e.key === 'Escape') setChangeEmailOpen(false); }}
+                >
                   <p className="text-sm text-muted-foreground">
-                    Require a code from an authenticator app at sign-in.
+                    A verification link will be sent to your new address. The change takes effect
+                    once you follow it.
                   </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-new-email">New email</Label>
+                    <Input
+                      id="settings-new-email"
+                      type="email"
+                      autoComplete="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={handleChangeEmail} disabled={savingEmail}>
+                      {savingEmail ? 'Sending…' : 'Send verification'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setChangeEmailOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            <div className="py-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Password</p>
+                    <p className="text-sm text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-expanded={changePasswordOpen}
+                  onClick={() => setChangePasswordOpen(!changePasswordOpen)}
+                >
+                  {changePasswordOpen ? 'Close' : 'Change'}
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setTwoFactorOpen(true)}>
-                Manage
-              </Button>
+
+              {changePasswordOpen && (
+                <div
+                  className="mt-3 space-y-4 rounded-lg bg-muted/30 p-4"
+                  onKeyDown={(e) => { if (e.key === 'Escape') setChangePasswordOpen(false); }}
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Confirm your current password, then choose a new one.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-current-password">Current password</Label>
+                    <Input
+                      id="settings-current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-new-password">New password</Label>
+                    <Input
+                      id="settings-new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={PASSWORD_MIN_LENGTH}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                    />
+                    <p className="text-xs text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-confirm-password">Confirm new password</Label>
+                    <Input
+                      id="settings-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={PASSWORD_MIN_LENGTH}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={handleChangePassword} disabled={savingPassword}>
+                      {savingPassword ? 'Saving…' : 'Update password'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setChangePasswordOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="py-3 last:pb-0">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Two-factor authentication</p>
+                    <p className="text-sm text-muted-foreground">
+                      Require a code from an authenticator app at sign-in.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-expanded={twoFactorOpen}
+                  onClick={() => setTwoFactorOpen(!twoFactorOpen)}
+                >
+                  {twoFactorOpen ? 'Close' : 'Manage'}
+                </Button>
+              </div>
+
+              {twoFactorOpen && (
+                <div className="mt-3 space-y-4 rounded-lg bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Use an authenticator app such as 1Password, Authy or Google Authenticator.
+                  </p>
+                  <TwoFactorSetup />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -663,114 +774,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Change password */}
-        <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Change password</DialogTitle>
-              <DialogDescription>
-                Confirm your current password, then choose a new one.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="settings-current-password">Current password</Label>
-                <Input
-                  id="settings-current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="settings-new-password">New password</Label>
-                <Input
-                  id="settings-new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
-                <p className="text-xs text-muted-foreground">{PASSWORD_RULE_TEXT}</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="settings-confirm-password">Confirm new password</Label>
-                <Input
-                  id="settings-confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleChangePassword} disabled={savingPassword}>
-                {savingPassword ? 'Saving…' : 'Update password'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Change email */}
-        <Dialog open={changeEmailOpen} onOpenChange={setChangeEmailOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Change email address</DialogTitle>
-              <DialogDescription>
-                A verification link will be sent to your new address. The change takes effect once
-                you follow it.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="settings-current-email">Current email</Label>
-                <Input id="settings-current-email" value={user?.email || ''} disabled />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="settings-new-email">New email</Label>
-                <Input
-                  id="settings-new-email"
-                  type="email"
-                  autoComplete="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setChangeEmailOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleChangeEmail} disabled={savingEmail}>
-                {savingEmail ? 'Sending…' : 'Send verification'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Two-factor */}
-        <Dialog open={twoFactorOpen} onOpenChange={setTwoFactorOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Two-factor authentication</DialogTitle>
-              <DialogDescription>
-                Use an authenticator app such as 1Password, Authy or Google Authenticator.
-              </DialogDescription>
-            </DialogHeader>
-            <TwoFactorSetup />
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

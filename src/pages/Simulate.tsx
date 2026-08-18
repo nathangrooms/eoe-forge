@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { AlertTriangle, Loader2, Swords, PanelRightOpen } from 'lucide-react';
 import { toast } from 'sonner';
@@ -45,6 +44,8 @@ export default function Simulate() {
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
   const [speed, setSpeed] = useState(1); // 1x speed for good viewing
   const [showTurnOverview, setShowTurnOverview] = useState(false);
+  /** Below lg the controls/log column collapses into a region under the board. */
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [turnDamage, setTurnDamage] = useState({ toPlayer1: 0, toPlayer2: 0, player1Commander: 0, player2Commander: 0 });
   const [cinematicMode, setCinematicMode] = useState<
     | null
@@ -876,27 +877,27 @@ export default function Simulate() {
             )}
             <AbilityTriggerPopup triggers={triggers} />
 
-            {/* Below lg the log and transport controls move into a sheet — the
-                fixed 384px panel exceeded a phone viewport entirely. */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="absolute bottom-3 right-3 z-20 shadow-md lg:hidden"
-                >
-                  <PanelRightOpen className="mr-2 h-4 w-4" />
-                  Controls & log
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-                <SheetTitle className="sr-only">Simulation controls and game log</SheetTitle>
-                {sidebar}
-              </SheetContent>
-            </Sheet>
+            {/* Below lg the same node becomes a region under the board rather
+                than a Sheet over it: one sidebar, two inline placements. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="absolute bottom-3 right-3 z-20 shadow-md lg:hidden"
+              onClick={() => setControlsOpen(open => !open)}
+              aria-expanded={controlsOpen}
+            >
+              <PanelRightOpen className="mr-2 h-4 w-4" />
+              {controlsOpen ? 'Hide controls & log' : 'Controls & log'}
+            </Button>
           </div>
 
-          <div className="hidden w-full flex-col border-l border-border bg-card lg:flex lg:w-96">
+          {controlsOpen && (
+            <div className="flex max-h-[45vh] w-full flex-col overflow-y-auto bg-card lg:hidden">
+              {sidebar}
+            </div>
+          )}
+
+          <div className="hidden w-full flex-col bg-card lg:flex lg:w-96">
             {sidebar}
           </div>
         </div>

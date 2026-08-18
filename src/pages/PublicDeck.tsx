@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { getPublicDeck, trackShareEvent, type PublicDeckData } from '@/lib/api/shareAPI';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
+import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { computeDeckPower, entriesFromDeckRows, type DeckPower } from '@/lib/deck/power';
 import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
 import { DeckCardTable } from '@/components/deck/DeckCardTable';
 import { Card, CardContent } from '@/components/ui/card';
@@ -156,6 +158,12 @@ export default function PublicDeck() {
 
   const stats = useMemo(() => computeDeckStats(rows), [rows]);
 
+  const selectedCard = useMemo(() => {
+    if (!selectedCardId) return null;
+    const row = rows.find(r => r.card_id === selectedCardId);
+    return row ? toCardObject(row) : null;
+  }, [rows, selectedCardId]);
+
   const analyticsDeck = useMemo<StoreCard[]>(
     () =>
       rows
@@ -181,6 +189,17 @@ export default function PublicDeck() {
   const analyticsCommander = useMemo(
     () => analyticsDeck.find(card => card.category === 'commanders'),
     [analyticsDeck]
+  );
+
+  /**
+   * Scored from the shared decklist, not from the summary's stored number. A
+   * public page has no write access, so it can never refresh a stale stored
+   * score — computing it here is the only way the visitor sees the same figure
+   * the owner sees.
+   */
+  const power = useMemo<DeckPower | null>(
+    () => computeDeckPower(entriesFromDeckRows(rows), { format: data?.deck?.format ?? 'commander' }),
+    [rows, data?.deck?.format]
   );
 
   const handleCopyList = async () => {
@@ -285,7 +304,7 @@ export default function PublicDeck() {
                   {usesPowerLevel(deck.format) && (
                     <>
                       <span aria-hidden>·</span>
-                      <span>Power {deck.power?.score ?? 0}/10</span>
+                      <PowerScoreBadge power={power} />
                     </>
                   )}
                   <span aria-hidden>·</span>
@@ -352,11 +371,14 @@ export default function PublicDeck() {
                   </CardContent>
                 </Card>
 
+                {/* Read-only: the visitor is not the owner, so nothing is
+                    persisted from this page. */}
                 <ComprehensiveAnalytics
                   deck={analyticsDeck}
                   format={deck.format}
                   commander={analyticsCommander}
                   deckId={deck.id}
+                  persist={false}
                 />
               </aside>
 

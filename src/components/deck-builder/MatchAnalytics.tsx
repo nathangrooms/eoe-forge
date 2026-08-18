@@ -98,11 +98,14 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
     };
   }, [matches]);
 
-  const getWinRateColor = (rate: number) => {
-    if (rate >= 60) return 'text-green-500';
-    if (rate >= 40) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+  /*
+   * No colour.
+   *
+   * The palette is monochrome charcoal and reserves colour for MTG semantics —
+   * mana, rarity and power level. A win rate is not one of those, and painting
+   * it red/amber/green also implied a verdict on a three-game sample. The
+   * number and the bar carry the meaning.
+   */
 
   return (
     <Card>
@@ -134,15 +137,15 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
             <TabsContent value="overview" className="space-y-6">
               {/* Key Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-lg border bg-card">
+                <div className="rounded-lg bg-muted/40 p-4 shadow-sm">
                   <div className="text-sm text-muted-foreground mb-1">Win Rate</div>
-                  <div className={`text-3xl font-bold ${getWinRateColor(analytics.winRate)}`}>
+                  <div className="text-3xl font-bold tabular-nums">
                     {analytics.winRate.toFixed(0)}%
                   </div>
                   <Progress value={analytics.winRate} className="h-1 mt-2" />
                 </div>
 
-                <div className="p-4 rounded-lg border bg-card">
+                <div className="rounded-lg bg-muted/40 p-4 shadow-sm">
                   <div className="text-sm text-muted-foreground mb-1">Total Matches</div>
                   <div className="text-3xl font-bold">{analytics.total}</div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -150,17 +153,17 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-lg border bg-card">
+                <div className="rounded-lg bg-muted/40 p-4 shadow-sm">
                   <div className="text-sm text-muted-foreground mb-1">Recent Form</div>
-                  <div className={`text-3xl font-bold ${getWinRateColor(analytics.recentWinRate)}`}>
+                  <div className="text-3xl font-bold tabular-nums">
                     {analytics.recentWinRate.toFixed(0)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">Last 10 games</div>
                 </div>
 
-                <div className="p-4 rounded-lg border bg-card">
+                <div className="rounded-lg bg-muted/40 p-4 shadow-sm">
                   <div className="text-sm text-muted-foreground mb-1">This Month</div>
-                  <div className={`text-3xl font-bold ${getWinRateColor(analytics.monthWinRate)}`}>
+                  <div className="text-3xl font-bold tabular-nums">
                     {analytics.monthWinRate.toFixed(0)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -185,7 +188,7 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                     <div className="flex items-center gap-2">
                       <Progress 
                         value={(analytics.losses / analytics.total) * 100} 
-                        className="w-32 h-2 [&>div]:bg-red-500" 
+                        className="h-2 w-32" 
                       />
                       <Badge variant="secondary">{analytics.losses}</Badge>
                     </div>
@@ -196,7 +199,7 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                       <div className="flex items-center gap-2">
                         <Progress 
                           value={(analytics.draws / analytics.total) * 100} 
-                          className="w-32 h-2 [&>div]:bg-yellow-500" 
+                          className="h-2 w-32" 
                         />
                         <Badge variant="outline">{analytics.draws}</Badge>
                       </div>
@@ -215,7 +218,7 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
               ) : (
                 <div className="space-y-3">
                   {analytics.opponentStats.map((stat) => (
-                    <div key={stat.commander} className="p-3 rounded-lg border bg-card">
+                    <div key={stat.commander} className="rounded-lg bg-muted/40 p-3 shadow-sm">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <div className="font-medium">{stat.commander}</div>
@@ -223,7 +226,7 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                             {stat.total} matches • {stat.wins}W / {stat.losses}L
                           </div>
                         </div>
-                        <Badge className={getWinRateColor(stat.winRate)}>
+                        <Badge className="tabular-nums">
                           {stat.winRate.toFixed(0)}%
                         </Badge>
                       </div>
@@ -239,8 +242,8 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
               
               <div className="space-y-3">
                 {analytics.recentWinRate > analytics.winRate && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <TrendingUp className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 rounded-lg bg-muted/40 p-3 shadow-sm">
+                    <TrendingUp className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted-foreground" />
                     <div className="text-sm">
                       <div className="font-medium mb-1">Improving Form</div>
                       <div className="text-muted-foreground">
@@ -251,8 +254,8 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                 )}
 
                 {analytics.monthMatches >= 5 && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <Zap className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 rounded-lg bg-muted/40 p-3 shadow-sm">
+                    <Zap className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted-foreground" />
                     <div className="text-sm">
                       <div className="font-medium mb-1">Active Month</div>
                       <div className="text-muted-foreground">
@@ -263,8 +266,8 @@ export function MatchAnalytics({ deckId, deckName }: MatchAnalyticsProps) {
                 )}
 
                 {analytics.opponentStats.length > 0 && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                    <Target className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 rounded-lg bg-muted/40 p-3 shadow-sm">
+                    <Target className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted-foreground" />
                     <div className="text-sm">
                       <div className="font-medium mb-1">Best Matchup</div>
                       <div className="text-muted-foreground">

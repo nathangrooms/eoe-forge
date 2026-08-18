@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ColorIdentity } from '@/components/ui/mana-cost';
+import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { deckPowerFromStored, type DeckPower } from '@/lib/deck/power';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -14,7 +16,7 @@ interface DeckRecommendation {
   name: string;
   format: string;
   colors: string[];
-  powerLevel: number;
+  power: DeckPower | null;
   totalCards: number;
   ownedCards: number;
   missingCards: number;
@@ -44,7 +46,7 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
       // Get all user's decks
       const { data: decks, error: decksError } = await supabase
         .from('user_decks')
-        .select('id, name, format, colors, power_level')
+        .select('id, name, format, colors, edh_analysis')
         .eq('user_id', user.id);
 
       if (decksError) throw decksError;
@@ -101,7 +103,13 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
             name: deck.name,
             format: deck.format,
             colors: deck.colors || [],
-            powerLevel: deck.power_level || 5,
+            // The canonical score, or null. This used to read
+            // `deck.power_level || 5`, so every recommendation claimed
+            // "Power 5/10" whatever the deck actually was.
+            power: deckPowerFromStored(
+              (deck.edh_analysis as { deckmatrix?: unknown } | null)?.deckmatrix,
+              null
+            ),
             totalCards: totalCount,
             ownedCards: ownedCount,
             missingCards: totalCount - ownedCount,
@@ -177,8 +185,12 @@ export function CollectionDeckRecommendations({ collectionCards }: CollectionDec
                       {rec.colors.length > 0 && (
                         <ColorIdentity colors={rec.colors} size="xs" />
                       )}
-                      <span>•</span>
-                      <span>Power {rec.powerLevel}/10</span>
+                      {rec.power && (
+                        <>
+                          <span>•</span>
+                          <PowerScoreBadge power={rec.power} />
+                        </>
+                      )}
                     </div>
                   </div>
                   <Button

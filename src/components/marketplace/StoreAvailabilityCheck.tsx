@@ -160,7 +160,7 @@ export function StoreAvailabilityCheck({ cardName, cardId }: StoreAvailabilityCh
               href={row.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between gap-3 rounded-lg p-3 transition-colors hover:bg-accent"
+              className="flex items-center justify-between gap-3 rounded-lg bg-muted/25 p-3 transition-colors hover:bg-muted/60"
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-foreground">{row.store}</div>

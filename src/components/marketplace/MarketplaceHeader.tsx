@@ -19,7 +19,7 @@ const MARKETPLACES = [
  */
 export function MarketplaceHeader({ totalWatchlist = 0 }: MarketplaceHeaderProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-lg shadow-black/20 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Store className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="mr-1 text-xs text-muted-foreground">Price sources</span>

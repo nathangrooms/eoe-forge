@@ -47,7 +47,6 @@ interface DeckState {
   // Deck metadata
   name: string;
   format: 'standard' | 'commander' | 'custom';
-  powerLevel: number;
   colors: string[];
   colorIdentity: string[];
   
@@ -65,7 +64,6 @@ interface DeckState {
   // Actions
   setDeckName: (name: string) => void;
   setFormat: (format: 'standard' | 'commander' | 'custom') => void;
-  setPowerLevel: (level: number) => void;
   addCard: (card: Card) => void;
   removeCard: (cardId: string) => void;
   updateCardQuantity: (cardId: string, quantity: number) => void;
@@ -99,7 +97,6 @@ export const useDeckStore = create<DeckState>()(
       // Initial state
       name: '',
       format: 'commander',
-      powerLevel: 5,
       colors: [],
       colorIdentity: [],
       cards: [],
@@ -112,8 +109,6 @@ export const useDeckStore = create<DeckState>()(
       setDeckName: (name) => set({ name }),
       
       setFormat: (format) => set({ format }),
-      
-      setPowerLevel: (powerLevel) => set({ powerLevel }),
       
       addCard: (card) => set((state) => {
         const existingCard = state.cards.find(c => c.id === card.id);
@@ -359,7 +354,10 @@ export const useDeckStore = create<DeckState>()(
             name: state.name,
             format: state.format,
             colors: state.colors,
-            power_level: state.powerLevel,
+            // power_level is NOT written here. It is a mirror of the canonical
+            // EDH score and is owned by `persistDeckPower` in
+            // `@/lib/deck/power`. Writing a store field with no setter used to
+            // stamp every new deck with the previously-opened deck's number.
             description: `${state.format} deck with ${state.totalCards} cards`,
             user_id: user.id
           };
@@ -609,7 +607,6 @@ export const useDeckStore = create<DeckState>()(
           set({
             name: deckData.name,
             format: deckData.format as any,
-            powerLevel: deckData.power_level,
             colors: deckData.colors,
             cards: deduplicatedCards,
             commander,
@@ -649,7 +646,7 @@ export const useDeckStore = create<DeckState>()(
               name: state.name,
               format: state.format,
               colors: state.colors,
-              power_level: state.powerLevel,
+              // See saveDeck: power_level is never written from the store.
               description: `${state.format} deck with ${state.totalCards} cards`,
             })
             .eq('id', deckId)
@@ -750,7 +747,6 @@ export const useDeckStore = create<DeckState>()(
       partialize: (state) => ({
         name: state.name,
         format: state.format,
-        powerLevel: state.powerLevel,
         cards: state.cards,
         commander: state.commander,
         currentDeckId: state.currentDeckId,

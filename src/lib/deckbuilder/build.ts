@@ -90,7 +90,7 @@ export class UniversalDeckBuilder {
     
     // 6. Validate and return
     const deck = picks.map(p => p.card);
-    const analysis = UniversalScorer.scoreDeck(deck, context);
+    const analysis = UniversalScorer.scoreDeck(deck, context, commander);
     const validation = this.validateDeck(deck, commander, rules, context);
     
     return {
@@ -401,7 +401,7 @@ export class UniversalDeckBuilder {
     
     for (let iteration = 0; iteration < 8; iteration++) {
       const currentDeck = picks.map(p => p.card);
-      const analysis = UniversalScorer.scoreDeck(currentDeck, context);
+      const analysis = UniversalScorer.scoreDeck(currentDeck, context, commander);
       
       const powerDiff = analysis.power - context.powerTarget;
       

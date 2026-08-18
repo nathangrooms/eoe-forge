@@ -1,12 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -30,70 +27,22 @@ import {
 import { cn } from '@/lib/utils';
 
 import {
-  GAME_FORMATS,
   computeStandings,
   generateEliminationBracket,
   generatePairings,
   previousOpponents,
   recommendedSwissRounds,
-  type GameFormat,
   type Match,
   type MatchResult,
   type Round,
-  type RoundTimer,
   type Standing,
-  type Structure,
   type Tournament,
 } from './scoring';
-
-const STORAGE_KEY = 'tournaments';
-
-/* ------------------------------------------------------------------ *
- * Persistence
- * ------------------------------------------------------------------ */
-
-function makeTimer(minutes: number): RoundTimer {
-  return { remainingMs: minutes * 60_000, endsAt: null, running: false };
-}
-
-/** Fill in fields added after a tournament was first written to storage. */
-function migrate(raw: any): Tournament {
-  const roundLengthMinutes = raw.roundLengthMinutes ?? 50;
-  const players: string[] = raw.players ?? [];
-  const rounds: Round[] = (raw.rounds ?? []).map((round: any) => ({
-    ...round,
-    matches: (round.matches ?? []).map((m: any) => ({
-      ...m,
-      result:
-        m.result ??
-        (m.status === 'completed'
-          ? m.winner === m.player1
-            ? 'p1'
-            : m.winner === m.player2
-              ? 'p2'
-              : undefined
-          : undefined),
-    })),
-  }));
-
-  return {
-    id: raw.id,
-    name: raw.name,
-    format: raw.format === 'single-elimination' ? 'single-elimination' : 'swiss',
-    gameFormat: (GAME_FORMATS as readonly string[]).includes(raw.gameFormat)
-      ? raw.gameFormat
-      : 'Commander',
-    status: raw.status ?? 'setup',
-    players,
-    dropped: raw.dropped ?? [],
-    rounds,
-    currentRound: raw.currentRound ?? 0,
-    roundLengthMinutes,
-    timer: raw.timer ?? makeTimer(roundLengthMinutes),
-    createdAt: raw.createdAt ?? new Date().toISOString(),
-    winner: raw.winner,
-  };
-}
+import {
+  loadTournaments,
+  makeTimer,
+  saveTournaments,
+} from './storage';
 
 function formatClock(ms: number): string {
   const clamped = Math.max(0, ms);
@@ -110,27 +59,26 @@ function formatClock(ms: number): string {
 export function TournamentManager() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [newTournament, setNewTournament] = useState({
-    name: '',
-    format: 'swiss' as Structure,
-    gameFormat: 'Commander' as GameFormat,
-    roundLengthMinutes: 50,
-    players: '',
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const loaded = (JSON.parse(saved) as any[]).map(migrate);
-        setTournaments(loaded);
-        if (loaded.length > 0) setSelectedId(loaded[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load tournaments:', error);
+    const loaded = loadTournaments();
+    setTournaments(loaded);
+    if (loaded.length === 0) return;
+
+    // /tournament?event=<id> is how the create route hands control back.
+    const requested = searchParams.get('event');
+    const match = requested ? loaded.find(t => t.id === requested) : null;
+    setSelectedId((match ?? loaded[0]).id);
+
+    if (requested) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('event');
+      setSearchParams(next, { replace: true });
     }
+    // Reading storage is a mount-time concern; the params dance runs with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Drives the round clock display.
@@ -141,9 +89,7 @@ export function TournamentManager() {
 
   const save = useCallback((updated: Tournament[]) => {
     setTournaments(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {
+    if (!saveTournaments(updated)) {
       showError('Failed to save', 'Could not save tournament data');
     }
   }, []);
@@ -164,54 +110,6 @@ export function TournamentManager() {
   );
 
   /* ---------------- actions ---------------- */
-
-  const handleCreateTournament = () => {
-    if (!newTournament.name.trim()) {
-      showError('Name required', 'Please enter a tournament name');
-      return;
-    }
-
-    const playerList = Array.from(
-      new Set(
-        newTournament.players
-          .split('\n')
-          .map(p => p.trim())
-          .filter(p => p.length > 0)
-      )
-    );
-
-    if (playerList.length < 2) {
-      showError('Not enough players', 'Need at least 2 uniquely named players');
-      return;
-    }
-
-    const tournament: Tournament = {
-      id: Date.now().toString(),
-      name: newTournament.name.trim(),
-      format: newTournament.format,
-      gameFormat: newTournament.gameFormat,
-      status: 'setup',
-      players: playerList,
-      dropped: [],
-      rounds: [],
-      currentRound: 0,
-      roundLengthMinutes: newTournament.roundLengthMinutes,
-      timer: makeTimer(newTournament.roundLengthMinutes),
-      createdAt: new Date().toISOString(),
-    };
-
-    save([tournament, ...tournaments]);
-    setSelectedId(tournament.id);
-    showSuccess('Tournament created', tournament.name);
-    setDialogOpen(false);
-    setNewTournament({
-      name: '',
-      format: 'swiss',
-      gameFormat: 'Commander',
-      roundLengthMinutes: 50,
-      players: '',
-    });
-  };
 
   const startTournament = () => {
     if (!selected) return;
@@ -419,115 +317,12 @@ export function TournamentManager() {
           </Select>
         )}
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="ml-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              New tournament
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create tournament</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="t-name">Tournament name</Label>
-                <Input
-                  id="t-name"
-                  value={newTournament.name}
-                  onChange={e => setNewTournament({ ...newTournament, name: e.target.value })}
-                  placeholder="Friday Night Magic"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="t-gameformat">Magic format</Label>
-                <Select
-                  value={newTournament.gameFormat}
-                  onValueChange={(value: GameFormat) =>
-                    setNewTournament({ ...newTournament, gameFormat: value })
-                  }
-                >
-                  <SelectTrigger id="t-gameformat">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GAME_FORMATS.map(f => (
-                      <SelectItem key={f} value={f}>
-                        {f}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="t-structure">Pairing structure</Label>
-                <Select
-                  value={newTournament.format}
-                  onValueChange={(value: Structure) =>
-                    setNewTournament({ ...newTournament, format: value })
-                  }
-                >
-                  <SelectTrigger id="t-structure">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="swiss">Swiss</SelectItem>
-                    <SelectItem value="single-elimination">Single elimination</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {newTournament.format === 'swiss'
-                    ? 'Everyone plays every round, paired on record. Rematches are avoided.'
-                    : 'Win or go home. Draws are not available in a bracket.'}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="t-round-length">Round length (minutes)</Label>
-                <Input
-                  id="t-round-length"
-                  type="number"
-                  min={5}
-                  max={180}
-                  value={newTournament.roundLengthMinutes}
-                  onChange={e =>
-                    setNewTournament({
-                      ...newTournament,
-                      roundLengthMinutes: Math.max(5, Number(e.target.value) || 50),
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="t-players">Players (one per line)</Label>
-                <Textarea
-                  id="t-players"
-                  className="min-h-[150px] resize-none"
-                  value={newTournament.players}
-                  onChange={e => setNewTournament({ ...newTournament, players: e.target.value })}
-                  placeholder={'Alice\nBob\nCharlie\nDiana'}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {newTournament.players.split('\n').filter(p => p.trim()).length} players entered ·{' '}
-                  {recommendedSwissRounds(
-                    Math.max(2, newTournament.players.split('\n').filter(p => p.trim()).length)
-                  )}{' '}
-                  Swiss rounds recommended
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateTournament}>Create</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button asChild className="ml-auto">
+          <Link to="/tournament/new">
+            <Plus className="mr-2 h-4 w-4" />
+            New tournament
+          </Link>
+        </Button>
       </div>
 
       {/* Empty state */}
@@ -539,9 +334,11 @@ export function TournamentManager() {
             <p className="mb-4 text-sm text-muted-foreground">
               Create your first tournament to get started. Events are stored in this browser only.
             </p>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create tournament
+            <Button asChild>
+              <Link to="/tournament/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Create tournament
+              </Link>
             </Button>
           </CardContent>
         </Card>

@@ -121,7 +121,9 @@ export function Battlefield({
   if (cards.length === 0) {
     return (
       <div className={cn('flex items-center justify-center', className)}>
-        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+        {/* On a bright stretch of commander art a muted label disappears, so
+            this one carries its own shadow rather than a plate behind it. */}
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-foreground/45 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
           {emptyLabel}
         </p>
       </div>

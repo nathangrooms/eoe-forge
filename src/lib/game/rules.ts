@@ -151,7 +151,7 @@ export function phaseOf(step: Step): Phase {
 
 /** mulberry32 — small, fast, and reproducible across every client. */
 function nextRandom(rng: RngState): { value: number; rng: RngState } {
-  let t = (rng.seed + 0x6d2b79f5) | 0;
+  const t = (rng.seed + 0x6d2b79f5) | 0;
   let r = t;
   r = Math.imul(r ^ (r >>> 15), r | 1);
   r ^= r + Math.imul(r ^ (r >>> 7), r | 61);

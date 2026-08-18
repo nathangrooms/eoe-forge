@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CardGrid, CardImage, CardImageSkeleton, useCardSize, CardSizeSlider } from '@/components/cards';
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
-import { UniversalCardModal } from '@/components/universal/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import {
   CATEGORY_BG_CLASS,
   CATEGORY_TEXT_CLASS,
@@ -184,9 +184,11 @@ export function PreconDeckView({
 
           <div className="min-w-0 flex-1 space-y-3">
             <div>
-              <h1 className="text-2xl font-bold leading-tight tracking-tight md:text-3xl">
+              {/* h2, not h1: the page layout already owns the document's one
+                  h1 ("Precons"), and two h1s is a broken outline. */}
+              <h2 className="text-2xl font-bold leading-tight tracking-tight md:text-3xl">
                 {deck?.name ?? precon.name}
-              </h1>
+              </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {precon.set}
                 {year ? ` · ${year}` : ''}
@@ -325,71 +327,72 @@ export function PreconDeckView({
           />
         </div>
 
-        {loading ? (
-          <CardGrid width={cardWidth}>
-            {Array.from({ length: 20 }, (_, i) => (
-              <CardImageSkeleton key={i} width={cardWidth} fill />
-            ))}
-          </CardGrid>
-        ) : groups.length === 0 ? (
-          <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
-            <p className="font-medium">This decklist could not be loaded</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Precon lists are fetched live from a public repository. Try again shortly.
-            </p>
-          </div>
-        ) : (
-          groups.map(group => {
-            const count = group.items.reduce((n, row) => n + row.quantity, 0);
-            return (
-              <div key={group.category} className="space-y-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide">
-                  <span
-                    className={cn(
-                      'h-3 w-1 rounded-full',
-                      CATEGORY_BG_CLASS[group.category]
-                    )}
-                    aria-hidden
-                  />
-                  <span className={CATEGORY_TEXT_CLASS[group.category]}>{group.label}</span>
-                  <span className="text-xs font-normal tabular-nums text-muted-foreground">
-                    {count}
-                  </span>
-                </h3>
-
-                <CardGrid width={cardWidth}>
-                  {group.items.map(row => (
-                    <CardImage
-                      key={row.id}
-                      card={rowCard(row)}
-                      width={cardWidth}
-                      fill
-                      onClick={() => setOpenCard(row)}
-                    >
-                      {row.quantity > 1 && (
-                        <span className="absolute left-1.5 top-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums text-foreground backdrop-blur-sm">
-                          {row.quantity}
-                        </span>
-                      )}
-                    </CardImage>
-                  ))}
-                </CardGrid>
+        <CardDetailSplit
+          pane={
+            openCard ? (
+              <CardDetailPane card={toCardObject(openCard)} onClose={() => setOpenCard(null)} />
+            ) : null
+          }
+        >
+          {/* The split puts the list in a plain column, so the rhythm between
+              type sections has to live here rather than on the section. */}
+          <div className="space-y-4">
+            {loading ? (
+              <CardGrid width={cardWidth}>
+                {Array.from({ length: 20 }, (_, i) => (
+                  <CardImageSkeleton key={i} width={cardWidth} fill />
+                ))}
+              </CardGrid>
+            ) : groups.length === 0 ? (
+              <div className="rounded-xl bg-card p-10 text-center shadow-lg shadow-black/20">
+                <p className="font-medium">This decklist could not be loaded</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Precon lists are fetched live from a public repository. Try again shortly.
+                </p>
               </div>
-            );
-          })
-        )}
-      </section>
+            ) : (
+              groups.map(group => {
+                const count = group.items.reduce((n, row) => n + row.quantity, 0);
+                return (
+                  <div key={group.category} className="space-y-2">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide">
+                      <span
+                        className={cn(
+                          'h-3 w-1 rounded-full',
+                          CATEGORY_BG_CLASS[group.category]
+                        )}
+                        aria-hidden
+                      />
+                      <span className={CATEGORY_TEXT_CLASS[group.category]}>{group.label}</span>
+                      <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                        {count}
+                      </span>
+                    </h3>
 
-      {openCard && (
-        <UniversalCardModal
-          card={toCardObject(openCard)}
-          open
-          onOpenChange={open => {
-            if (!open) setOpenCard(null);
-          }}
-          showAddButton={false}
-        />
-      )}
+                    <CardGrid width={cardWidth}>
+                      {group.items.map(row => (
+                        <CardImage
+                          key={row.id}
+                          card={rowCard(row)}
+                          width={cardWidth}
+                          fill
+                          onClick={() => setOpenCard(row)}
+                        >
+                          {row.quantity > 1 && (
+                            <span className="absolute left-1.5 top-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums text-foreground backdrop-blur-sm">
+                              {row.quantity}
+                            </span>
+                          )}
+                        </CardImage>
+                      ))}
+                    </CardGrid>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardDetailSplit>
+      </section>
     </div>
   );
 }

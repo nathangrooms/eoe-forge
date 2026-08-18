@@ -14,17 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Crown, Plus, Trash2 } from 'lucide-react';
+import { Crown, Library, Plus, Trash2 } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
 import { DeckSearchFilters } from '@/components/deck-builder/DeckSearchFilters';
-import { DeckAnalysisModal } from '@/components/deck-builder/DeckAnalysisModal';
-import { MissingCardsDrawer } from '@/components/deck-builder/MissingCardsDrawer';
-import { ShareDrawer } from '@/components/deck-builder/ShareDrawer';
 import { FirstDeckOnboarding } from '@/components/deck-builder/FirstDeckOnboarding';
 import { DeckTile, DECK_HERO_COLUMN } from '@/components/deck/DeckTile';
-import { DeckExportDialog } from '@/components/deck/DeckExportDialog';
 import {
   DeckViewControls,
   useDeckViewPrefs,
@@ -33,6 +29,16 @@ import {
 import { CardImageSkeleton } from '@/components/cards';
 import { DeckAPI, type DeckSummary } from '@/lib/api/deckAPI';
 import { useDeckFilters } from '@/hooks/useDeckFilters';
+import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
+import type { DeckPower } from '@/lib/deck/power';
+import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 /**
  * Two tiles per row on desktop, and never more.
@@ -116,24 +122,14 @@ export default function Decks() {
   const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
 
   const [deckToDelete, setDeckToDelete] = useState<DeckSummary | null>(null);
-  const [selectedDeckSummary, setSelectedDeckSummary] = useState<DeckSummary | null>(null);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [showArchetypes, setShowArchetypes] = useState(false);
 
-  const [showMissingDrawer, setShowMissingDrawer] = useState(false);
-  const [missingDeck, setMissingDeck] = useState<{ id: string; name: string }>({
-    id: '',
-    name: '',
-  });
-
-  const [showShareDrawer, setShowShareDrawer] = useState(false);
-  const [shareDeck, setShareDeck] = useState<{
-    id: string;
-    name: string;
-    slug: string | null;
-    isPublic: boolean;
-  }>({ id: '', name: '', slug: null, isPublic: false });
-
-  const [exportDeck, setExportDeck] = useState<{ id: string; name: string } | null>(null);
+  /**
+   * Analysis, missing cards, share and export used to be four overlays launched
+   * off this one list — two dialogs and two drawers, each with its own open
+   * flag and its own copy of the deck's id and name. They are routes now, so
+   * the tile just navigates and this page keeps no state for them at all.
+   */
 
   const { prefs, update: updatePrefs } = useDeckViewPrefs();
 
@@ -169,6 +165,17 @@ export default function Decks() {
     loadDeckSummaries();
   }, [loadDeckSummaries]);
 
+  /**
+   * Any deck whose stored score is missing or no longer matches its decklist is
+   * rescored in the background, so the number on the tile is the same number
+   * the deck page and the builder will show.
+   */
+  const applyScore = useCallback((deckId: string, power: DeckPower) => {
+    setDeckSummaries(prev => prev.map(deck => (deck.id === deckId ? { ...deck, power } : deck)));
+  }, []);
+
+  const { scoring, rescore } = useDeckPowerBackfill(deckSummaries, applyScore);
+
   const sortedDecks = useMemo(() => {
     const copy = [...filteredDecks];
     copy.sort((a, b) => {
@@ -193,7 +200,9 @@ export default function Decks() {
           user_id: user.id,
           name,
           format,
-          power_level: 5,
+          // power_level is a mirror of the canonical EDH score, written only by
+          // `persistDeckPower`. Seeding it with a literal 5 is what made every
+          // hand-built deck read "Power 5/10" forever.
           colors: [],
           description: '',
         })
@@ -267,39 +276,6 @@ export default function Decks() {
     }
   };
 
-  /** Re-read share state so the drawer reflects what the database now says. */
-  const refreshShareState = useCallback(async () => {
-    if (!shareDeck.id) return;
-    const { data } = await supabase
-      .from('user_decks')
-      .select('public_enabled, public_slug')
-      .eq('id', shareDeck.id)
-      .maybeSingle();
-
-    setShareDeck(prev => ({
-      ...prev,
-      slug: data?.public_slug ?? null,
-      isPublic: Boolean(data?.public_enabled),
-    }));
-    await loadDeckSummaries();
-  }, [shareDeck.id, loadDeckSummaries]);
-
-  const openShareDrawer = async (deckSummary: DeckSummary) => {
-    const { data } = await supabase
-      .from('user_decks')
-      .select('public_enabled, public_slug')
-      .eq('id', deckSummary.id)
-      .maybeSingle();
-
-    setShareDeck({
-      id: deckSummary.id,
-      name: deckSummary.name,
-      slug: data?.public_slug ?? null,
-      isPublic: Boolean(data?.public_enabled),
-    });
-    setShowShareDrawer(true);
-  };
-
   const showOnboarding = !loading && (deckSummaries.length === 0 || showOnboardingFlow);
 
   return (
@@ -308,10 +284,16 @@ export default function Decks() {
       description="Create, analyse and optimise your Magic: The Gathering decks"
       action={
         showOnboarding ? null : (
-          <Button onClick={() => setShowOnboardingFlow(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New deck
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setShowArchetypes(true)}>
+              <Library className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Archetypes</span>
+            </Button>
+            <Button onClick={() => setShowOnboardingFlow(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New deck
+            </Button>
+          </div>
         )
       }
     >
@@ -396,18 +378,10 @@ export default function Decks() {
                     onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
                     onDuplicate={() => duplicateDeck(deckSummary)}
                     onDelete={() => setDeckToDelete(deckSummary)}
-                    onAnalysis={() => {
-                      setSelectedDeckSummary(deckSummary);
-                      setShowAnalysisModal(true);
-                    }}
-                    onMissingCards={() => {
-                      setMissingDeck({ id: deckSummary.id, name: deckSummary.name });
-                      setShowMissingDrawer(true);
-                    }}
-                    onShare={() => openShareDrawer(deckSummary)}
-                    onExport={() =>
-                      setExportDeck({ id: deckSummary.id, name: deckSummary.name })
-                    }
+                    onAnalysis={() => navigate(`/deck/${deckSummary.id}/analysis`)}
+                    onMissingCards={() => navigate(`/deck/${deckSummary.id}/missing`)}
+                    onShare={() => navigate(`/deck/${deckSummary.id}/share`)}
+                    onExport={() => navigate(`/deck/${deckSummary.id}/export`)}
                     onFavoriteChange={loadDeckSummaries}
                   />
                 </div>
@@ -443,48 +417,26 @@ export default function Decks() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedDeckSummary && (
-        <DeckAnalysisModal
-          isOpen={showAnalysisModal}
-          onClose={() => {
-            setShowAnalysisModal(false);
-            setSelectedDeckSummary(null);
-          }}
-          deckSummary={selectedDeckSummary}
-          onOpenBuilder={() => {
-            setShowAnalysisModal(false);
-            navigate(`/deck-builder?deck=${selectedDeckSummary.id}`);
-          }}
-        />
-      )}
-
-      <MissingCardsDrawer
-        isOpen={showMissingDrawer}
-        onClose={() => setShowMissingDrawer(false)}
-        deckId={missingDeck.id}
-        deckName={missingDeck.name}
-      />
-
-      <ShareDrawer
-        open={showShareDrawer}
-        onOpenChange={setShowShareDrawer}
-        deckId={shareDeck.id}
-        deckName={shareDeck.name}
-        currentSlug={shareDeck.slug}
-        isPublic={shareDeck.isPublic}
-        onShareToggle={refreshShareState}
-      />
-
-      {exportDeck && (
-        <DeckExportDialog
-          open={Boolean(exportDeck)}
-          onOpenChange={open => {
-            if (!open) setExportDeck(null);
-          }}
-          deckId={exportDeck.id}
-          deckName={exportDeck.name}
-        />
-      )}
+      <Dialog open={showArchetypes} onOpenChange={setShowArchetypes}>
+        <DialogContent className="max-h-[85vh] max-w-4xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Archetype library</DialogTitle>
+            <DialogDescription>
+              Proven shells, each with the power band and Commander bracket a well-built version
+              lands in — the same scale every deck on this page is scored against.
+            </DialogDescription>
+          </DialogHeader>
+          <ArchetypeLibrary
+            currentFormat="commander"
+            onStartFromTemplate={template => {
+              setShowArchetypes(false);
+              navigate(
+                `/smart-builder?archetype=${encodeURIComponent(template.id)}&power=${template.targetPower.max}`
+              );
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </StandardPageLayout>
   );
 }

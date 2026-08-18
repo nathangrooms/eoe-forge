@@ -46,6 +46,7 @@ import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { MiniManaCurve } from './MiniManaCurve';
 import { LegalityBadge } from './LegalityBadge';
+import { PowerScoreBadge } from '@/components/deck/PowerScore';
 import { useNavigate } from 'react-router-dom';
 
 interface ModernDeckTileProps {
@@ -61,13 +62,6 @@ interface ModernDeckTileProps {
   onShare?: () => void;
   className?: string;
 }
-
-const powerBandConfig: Record<string, { bg: string; text: string; label: string }> = {
-  casual: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Casual' },
-  mid: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Mid' },
-  high: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'High' },
-  cEDH: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'cEDH' }
-};
 
 const formatConfig: Record<string, { bg: string; text: string; label: string }> = {
   standard: { bg: 'bg-blue-500/15', text: 'text-blue-400', label: 'Standard' },
@@ -208,9 +202,6 @@ export function ModernDeckTile({
   const missingCount = deckSummary.economy?.missing || 0;
   const isComplete = missingCount === 0;
 
-  // Get power band styling
-  const powerBand = deckSummary.power?.band || 'casual';
-  const powerStyle = powerBandConfig[powerBand] || powerBandConfig.casual;
   
   // Format styling
   const formatStyle = formatConfig[deckSummary.format] || formatConfig.custom;
@@ -345,10 +336,10 @@ export function ModernDeckTile({
                   <Badge variant="outline" className={cn("text-[10px] uppercase font-semibold", formatStyle.bg, formatStyle.text)}>
                     {formatStyle.label}
                   </Badge>
-                  <Badge variant="outline" className={cn("text-[10px] font-semibold", powerStyle.bg, powerStyle.text)}>
-                    <Target className="h-2.5 w-2.5 mr-1" />
-                    {deckSummary.power?.score || 0}/10 {powerStyle.label}
-                  </Badge>
+                  {/* One renderer for power, everywhere. This tile used to
+                      carry its own band palette and print `score || 0`, so an
+                      unscored deck read "0/10 Casual". */}
+                  <PowerScoreBadge power={deckSummary.power} />
                   <LegalityBadge 
                     isLegal={deckSummary.legality?.ok ?? true}
                     issues={deckSummary.legality?.issues || []}

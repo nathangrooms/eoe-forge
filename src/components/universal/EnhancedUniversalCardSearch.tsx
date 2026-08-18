@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,7 +15,7 @@ import {
   type CardSortKey,
   type CardViewMode,
 } from './UniversalCardDisplay';
-import { UniversalCardModal } from '@/components/enhanced/UniversalCardModal';
+import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import {
   ActiveFilterChips,
   CardFilterSheet,
@@ -59,6 +60,12 @@ import {
 interface EnhancedUniversalCardSearchProps {
   onCardAdd?: (card: any) => void;
   onCardSelect?: (card: any) => void;
+  /**
+   * Keep the selection inside this component instead of navigating to the card
+   * page. Set by embedded pickers (add-to-deck, commander choice) where leaving
+   * the page would abandon what the user is doing.
+   */
+  suppressNavigate?: boolean;
   /** Called when the query text settles, so a page can mirror it elsewhere. */
   onQueryChange?: (query: string) => void;
   placeholder?: string;
@@ -169,6 +176,7 @@ function Key({ children }: { children: React.ReactNode }) {
 export function EnhancedUniversalCardSearch({
   onCardAdd,
   onCardSelect,
+  suppressNavigate = false,
   onQueryChange,
   placeholder = 'Search Magic cards — name, or Scryfall syntax like t:creature mv<=3',
   showFilters = true,
@@ -181,6 +189,7 @@ export function EnhancedUniversalCardSearch({
   urlSync = false,
   sizeKey = 'search',
 }: EnhancedUniversalCardSearchProps) {
+  const navigate = useNavigate();
   // One filter state, shared with every other card surface. `initialState` is
   // seeded once and only into an untouched URL, so "clear all" really clears.
   const filters = useCardFilterState({
@@ -190,7 +199,6 @@ export function EnhancedUniversalCardSearch({
   const { state: searchState, patch, reset: resetFilters } = filters;
 
   const [selectedCard, setSelectedCard] = useState<any>(null);
-  const [showModal, setShowModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [cardWidth, setCardWidth] = useCardSize(sizeKey, DEFAULT_CARD_WIDTH);
@@ -322,9 +330,20 @@ export function EnhancedUniversalCardSearch({
   );
 
   const handleCardClick = (card: any) => {
-    setSelectedCard(card);
-    setShowModal(true);
+    /* Clicking a search result opens the full card page, every time. A docked
+       pane was tried here and rejected: on a browsing surface the expectation
+       is to go TO the card, not to preview it beside the grid.
+
+       onCardSelect still fires first, so embedded consumers that use this
+       search as a picker (add-to-deck, commander choice) keep their behaviour
+       and opt out of navigation by passing suppressNavigate. */
     onCardSelect?.(card);
+    if (suppressNavigate) {
+      setSelectedCard(card);
+      return;
+    }
+    const id = card?.id ?? card?.scryfall_id;
+    if (id) navigate(`/cards/${id}`);
   };
 
   const handleReset = useCallback(() => {
@@ -598,103 +617,105 @@ export function EnhancedUniversalCardSearch({
       </div>
 
       {/* ------------------------------ Results ----------------------------- */}
-      <div className="space-y-4">
-        {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={18} />}
-
-        {error && (
-          <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
-            <p className="mb-1 text-sm font-medium text-destructive">
-              Scryfall could not run that search
-            </p>
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <Button variant="secondary" size="sm" onClick={handleReset} className="mt-3">
-              Clear search
-            </Button>
-          </div>
-        )}
-
-        {results.length > 0 && (
-          <>
-            <UniversalCardDisplay
-              cards={results}
-              viewMode={viewMode}
-              cardWidth={cardWidth}
-              sort={tableSort}
-              onSortChange={handleSortKey}
-              onCardClick={handleCardClick}
-              onCardAdd={showAddButton ? onCardAdd : undefined}
-              onCardWishlist={showWishlistButton ? onCardWishlist : undefined}
-              showWishlistButton={showWishlistButton}
+      {/* Results left, card detail docked right. Nothing covers the grid you
+          are searching through. */}
+      <CardDetailSplit
+        pane={
+          selectedCard ? (
+            <CardDetailPane
+              card={selectedCard}
+              onClose={() => setSelectedCard(null)}
+              onAddToCollection={showAddButton ? onCardAdd : undefined}
+              onAddToWishlist={showWishlistButton ? onCardWishlist : undefined}
             />
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={18} />}
 
-            <div ref={sentinelRef} className="h-px" aria-hidden />
-
-            {hasMore && (
-              <div className="flex justify-center">
-                <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
-                  {loadingMore ? 'Loading…' : 'Load more cards'}
-                </Button>
-              </div>
-            )}
-
-            {!hasMore && (
-              <p className="text-center text-xs text-muted-foreground">
-                End of results — {totalResults.toLocaleString()} cards matched.
+          {error && (
+            <div className="rounded-xl bg-card p-6 shadow-lg shadow-black/20">
+              <p className="mb-1 text-sm font-medium text-destructive">
+                Scryfall could not run that search
               </p>
-            )}
-          </>
-        )}
-
-        {!loading && !error && results.length === 0 && hasCriteria && (
-          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
-            <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
-            <h3 className="mb-1 text-base font-medium text-foreground">No cards matched</h3>
-            <p className="mx-auto mb-4 max-w-md text-sm text-muted-foreground">
-              Scryfall parsed the query but nothing matched. Loosen a filter, or check the syntax
-              reference in the help menu.
-            </p>
-            <Button variant="secondary" onClick={handleReset}>
-              Clear search
-            </Button>
-          </div>
-        )}
-
-        {!loading && !error && results.length === 0 && !hasCriteria && (
-          <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
-            <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
-            <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>
-            <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground">
-              Type a card name, or use Scryfall syntax. Press <Key>/</Key> from anywhere to jump to
-              the search box.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {presetButtons.map(preset => (
-                <Button
-                  key={preset.name}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => commitNow(preset.query)}
-                >
-                  {preset.name}
-                </Button>
-              ))}
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button variant="secondary" size="sm" onClick={handleReset} className="mt-3">
+                Clear search
+              </Button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {selectedCard && (
-        <UniversalCardModal
-          card={selectedCard}
-          isOpen={showModal}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedCard(null);
-          }}
-          onAddToCollection={showAddButton ? onCardAdd : undefined}
-          onAddToWishlist={showWishlistButton ? onCardWishlist : undefined}
-        />
-      )}
+          {results.length > 0 && (
+            <>
+              <UniversalCardDisplay
+                cards={results}
+                viewMode={viewMode}
+                cardWidth={cardWidth}
+                sort={tableSort}
+                onSortChange={handleSortKey}
+                onCardClick={handleCardClick}
+                onCardAdd={showAddButton ? onCardAdd : undefined}
+                onCardWishlist={showWishlistButton ? onCardWishlist : undefined}
+                showWishlistButton={showWishlistButton}
+              />
+
+              <div ref={sentinelRef} className="h-px" aria-hidden />
+
+              {hasMore && (
+                <div className="flex justify-center">
+                  <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? 'Loading…' : 'Load more cards'}
+                  </Button>
+                </div>
+              )}
+
+              {!hasMore && (
+                <p className="text-center text-xs text-muted-foreground">
+                  End of results — {totalResults.toLocaleString()} cards matched.
+                </p>
+              )}
+            </>
+          )}
+
+          {!loading && !error && results.length === 0 && hasCriteria && (
+            <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
+              <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+              <h3 className="mb-1 text-base font-medium text-foreground">No cards matched</h3>
+              <p className="mx-auto mb-4 max-w-md text-sm text-muted-foreground">
+                Scryfall parsed the query but nothing matched. Loosen a filter, or check the syntax
+                reference in the help menu.
+              </p>
+              <Button variant="secondary" onClick={handleReset}>
+                Clear search
+              </Button>
+            </div>
+          )}
+
+          {!loading && !error && results.length === 0 && !hasCriteria && (
+            <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
+              <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+              <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>
+              <p className="mx-auto mb-5 max-w-md text-sm text-muted-foreground">
+                Type a card name, or use Scryfall syntax. Press <Key>/</Key> from anywhere to jump to
+                the search box.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {presetButtons.map(preset => (
+                  <Button
+                    key={preset.name}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => commitNow(preset.query)}
+                  >
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardDetailSplit>
     </div>
   );
 }

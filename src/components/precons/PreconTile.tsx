@@ -17,12 +17,20 @@ import {
  * plays — so the tile leads with the commander's artwork and hangs the
  * commander's actual card over it.
  *
- * **The art is never sliced.** It used to sit in a fixed 96px band, which at
- * tile width is roughly 3:1 — Scryfall's art crop is 626 × 457, so better than
- * half of every illustration was thrown away and what survived was a letterbox
- * through the middle. The band now carries the crop's own aspect ratio, so the
- * whole illustration is on screen at the size the artist drew it for, and the
- * tile is sized around the art rather than the other way round.
+ * **The art band carries the art's own shape.** It used to sit in a fixed 96px
+ * band, which at tile width is roughly 3:1 — Scryfall's art crop is usually
+ * 626 × 457, so better than half of every illustration was thrown away and what
+ * survived was a letterbox through the middle. The band now carries that ratio,
+ * so the whole illustration is on screen at the size the artist drew it for.
+ *
+ * "Usually" is doing real work in that sentence and the previous version of
+ * this comment claimed otherwise. A few printings ship a wider crop —
+ * *Quintorius, History Chaser* (SOC) is 745 × 390, aspect 1.91 against the
+ * usual 1.37 — and `cover` does slice those, by about a quarter of their width.
+ * The alternative, `contain`, would letterbox the wide ones but also open a
+ * hairline of muted ground down the sides of every 616 × 452 printing, which
+ * costs far more cards than it saves. The full commander card below is the one
+ * that must never be cropped, and it never is.
  *
  * The small full card stays — the owner likes it — and is drawn a good deal
  * larger, overlapping the foot of the art the way a commander sits in front of
@@ -46,6 +54,16 @@ const CARD_COLUMN = 'w-[30%] min-w-[92px] max-w-[200px]';
 const PARTNER_COLUMN = 'w-[40%] min-w-[124px] max-w-[268px]';
 
 /**
+ * Compact gives the card a larger *share* of a smaller tile.
+ *
+ * A flat 30% of a 272px tile is a 74px card — the thumbnail this component
+ * exists to avoid. At 38% it holds ~92px, which still reads as a card, and the
+ * type block loses a step of size instead.
+ */
+const CARD_COLUMN_COMPACT = 'w-[38%] min-w-[84px] max-w-[140px]';
+const PARTNER_COLUMN_COMPACT = 'w-[52%] min-w-[110px] max-w-[190px]';
+
+/**
  * How far the card climbs into the artwork.
  *
  * Percentage margins resolve against the containing block's *width*, so this
@@ -62,14 +80,30 @@ export interface PreconTileProps {
   onSelect: (precon: PreconSummary) => void;
   /** Skip lazy-loading for the first row. */
   eager?: boolean;
+  /** Four-across density — smaller type, proportionally larger commander card. */
+  compact?: boolean;
   className?: string;
 }
 
-function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTileProps) {
+function PreconTileBase({
+  precon,
+  cards,
+  onSelect,
+  eager,
+  compact = false,
+  className,
+}: PreconTileProps) {
   const leads = precon.commanders.slice(0, 2);
   const cardObjects = leads.map(ref => commanderCard(ref, cards));
   const art = cardObjects[0] ? commanderArt(cardObjects[0], leads[0]?.scryfallId) : null;
   const year = precon.released ? precon.released.slice(0, 4) : null;
+  const cardColumn = compact
+    ? leads.length > 1
+      ? PARTNER_COLUMN_COMPACT
+      : CARD_COLUMN_COMPACT
+    : leads.length > 1
+      ? PARTNER_COLUMN
+      : CARD_COLUMN;
 
   return (
     <button
@@ -123,15 +157,9 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
       </div>
 
       {/* Commander card, hung over the foot of the art. */}
-      <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
-        <div className="flex gap-4">
-          <div
-            className={cn(
-              'relative z-10 flex shrink-0',
-              leads.length > 1 ? PARTNER_COLUMN : CARD_COLUMN,
-              OVERLAP
-            )}
-          >
+      <div className={cn('flex flex-1 flex-col', compact ? 'px-3 pb-3 pt-2.5' : 'px-4 pb-4 pt-3')}>
+        <div className={cn('flex', compact ? 'gap-2.5' : 'gap-4')}>
+          <div className={cn('relative z-10 flex shrink-0', cardColumn, OVERLAP)}>
             {cardObjects.length > 0 ? (
               cardObjects.map((card, i) => (
                 <div
@@ -148,10 +176,14 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
                 >
                   <CardImage
                     card={card}
-                    // `md` and above draw the 672px `large` scan and skip the
-                    // blur-up under-layer, so a page of tiles is one request
-                    // per image however wide the column lands.
                     size="md"
+                    // The inset lands between 84px and 200px wide. `md` would
+                    // fetch the 672px `large` scan for it — four times the
+                    // pixels the column can show, on a page that mounts two
+                    // images per tile. `normal` (488px) still over-samples the
+                    // widest case and skips the blur-up under-layer, so a page
+                    // of tiles stays one request per image.
+                    quality="normal"
                     fill
                     hideFlip
                     eager={eager}
@@ -172,22 +204,44 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
           </div>
 
           <div className="min-w-0 flex-1 pt-1">
-            <h3 className="line-clamp-2 text-lg font-bold leading-snug tracking-tight">
+            <h3
+              className={cn(
+                'line-clamp-2 font-bold leading-snug tracking-tight',
+                compact ? 'text-sm' : 'text-lg'
+              )}
+            >
               {precon.name}
             </h3>
             {leads.length > 0 && (
-              <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
-                <Crown className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <p
+                className={cn(
+                  'mt-1 flex items-start gap-1.5 text-muted-foreground',
+                  compact ? 'text-xs' : 'text-sm'
+                )}
+              >
+                <Crown
+                  className={cn('mt-0.5 shrink-0', compact ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+                  aria-hidden="true"
+                />
                 <span className="line-clamp-2">{leads.map(c => c.name).join(' + ')}</span>
               </p>
             )}
             {leads.length === 1 && leads[0].cost && (
-              <ManaCost cost={leads[0].cost} size="sm" className="mt-2 gap-1" />
+              <ManaCost
+                cost={leads[0].cost}
+                size={compact ? 'xs' : 'sm'}
+                className={cn('gap-1', compact ? 'mt-1.5' : 'mt-2')}
+              />
             )}
           </div>
         </div>
 
-        <div className="mt-auto flex items-baseline justify-between gap-3 pt-3 text-xs text-muted-foreground">
+        <div
+          className={cn(
+            'mt-auto flex items-baseline justify-between gap-3 text-muted-foreground',
+            compact ? 'pt-2 text-[0.7rem]' : 'pt-3 text-xs'
+          )}
+        >
           <span className="truncate">{precon.set}</span>
           {precon.total != null && (
             <span className="shrink-0 tabular-nums">{precon.total} cards</span>
@@ -201,7 +255,7 @@ function PreconTileBase({ precon, cards, onSelect, eager, className }: PreconTil
 export const PreconTile = memo(PreconTileBase);
 
 /** Same footprint as a tile, for the first paint of the catalogue. */
-export function PreconTileSkeleton() {
+export function PreconTileSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className="flex h-full flex-col overflow-hidden rounded-2xl bg-card shadow-lg shadow-black/25"
@@ -211,11 +265,11 @@ export function PreconTileSkeleton() {
         className="w-full animate-pulse bg-muted motion-reduce:animate-none"
         style={{ aspectRatio: ART_ASPECT }}
       />
-      <div className="flex gap-4 px-4 pb-4 pt-3">
+      <div className={cn('flex', compact ? 'gap-2.5 px-3 pb-3 pt-2.5' : 'gap-4 px-4 pb-4 pt-3')}>
         <div
           className={cn(
             'shrink-0 animate-pulse rounded-lg bg-muted motion-reduce:animate-none',
-            CARD_COLUMN,
+            compact ? CARD_COLUMN_COMPACT : CARD_COLUMN,
             OVERLAP
           )}
           style={{ aspectRatio: '488 / 680' }}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ownedValueUSD } from '@/features/collection/value';
 import {
   Layers,
   Library,
@@ -57,7 +58,10 @@ export function UserDetails({ userId }: UserDetailsProps) {
           favoritesResult,
           subscriptionResult
         ] = await Promise.all([
-          supabase.from('user_collections').select('quantity, price_usd').eq('user_id', userId),
+          // Live card prices, not the stale denormalised `price_usd` snapshot —
+          // see `ownedValueUSD`. Reading that column here reported the same
+          // collection 31.5% below what /collection showed for it.
+          supabase.from('user_collections').select('quantity, foil, cards(prices)').eq('user_id', userId),
           supabase.from('storage_containers').select('id').eq('user_id', userId),
           supabase.from('user_decks').select('id, is_public, format').eq('user_id', userId),
           supabase.from('build_logs').select('id').eq('user_id', userId),
@@ -74,12 +78,22 @@ export function UserDetails({ userId }: UserDetailsProps) {
 
         if (cancelled) return;
 
-        const collectionData = collectionResult.data || [];
+        const collectionData = (collectionResult.data || []) as Array<{
+          quantity: number | null;
+          foil: number | null;
+          cards: { prices: unknown } | null;
+        }>;
         const decksData = decksResult.data || [];
 
         setStats({
-          collectionCards: collectionData.reduce((sum, item) => sum + (item.quantity || 0), 0),
-          collectionValue: collectionData.reduce((sum, item) => sum + ((item.price_usd || 0) * (item.quantity || 1)), 0),
+          collectionCards: collectionData.reduce(
+            (sum, item) => sum + (item.quantity || 0) + (item.foil || 0),
+            0
+          ),
+          collectionValue: collectionData.reduce(
+            (sum, item) => sum + ownedValueUSD(item.cards?.prices, item.quantity || 0, item.foil || 0),
+            0
+          ),
           uniqueCards: collectionData.length,
           storageContainers: storageResult.data?.length || 0,
           totalDecks: decksData.length,

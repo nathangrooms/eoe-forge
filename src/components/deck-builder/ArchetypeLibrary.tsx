@@ -222,11 +222,14 @@ export function ArchetypeLibrary({
     <div className={cn('space-y-4', className)}>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {/* Borderless, muted ground — the field skin the rest of the product
+            uses. The `Input` default carries `border-input`, a hairline the
+            owner has ruled out. */}
         <Input
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Search archetypes and key cards…"
-          className="pl-9"
+          className="border-0 bg-muted/50 pl-9 shadow-none focus-visible:ring-1 focus-visible:ring-offset-0"
         />
       </div>
 

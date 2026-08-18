@@ -19,7 +19,7 @@ export const StackViewer = ({ stack }: StackViewerProps) => {
         {[...stack].reverse().map((obj, index) => (
           <div
             key={obj.id}
-            className="rounded-lg border border-border p-2 text-xs"
+            className="rounded-lg bg-muted/30 p-2 text-xs"
           >
             <div className="font-semibold text-popover-foreground">{obj.card.name}</div>
             <div className="text-muted-foreground text-xs mt-1">

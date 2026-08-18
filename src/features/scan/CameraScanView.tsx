@@ -25,6 +25,21 @@ import { useScanStore, type ScannedCard } from './store';
 import { scryfallFuzzySearch, type CardCandidate } from './cardRecognition';
 import { logActivity } from '@/features/dashboard/hooks';
 import { useAutoCapture } from './useAutoCapture';
+import { CardImage } from '@/components/cards';
+
+/**
+ * A scan candidate carries one image URL, not a Scryfall image set. This wraps
+ * it in the shape `CardImage` reads, so the scanner draws its cards through the
+ * one card component — at the real 488:680 aspect, never `object-cover` in a
+ * box of some other ratio.
+ */
+function cardShapeOf(candidate: { name: string; imageUrl?: string }) {
+  const url = candidate.imageUrl || '';
+  return {
+    name: candidate.name,
+    image_uris: url ? { small: url, normal: url, large: url } : {},
+  };
+}
 
 interface CameraScanViewProps {
   onCardAdded?: (card: any) => void;
@@ -56,7 +71,20 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
   const [manualSearch, setManualSearch] = useState('');
   const [lastRecognized, setLastRecognized] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<'idle' | 'capturing' | 'analyzing' | 'matching' | 'success' | 'error'>('idle');
-  const [autoScanEnabled, setAutoScanEnabled] = useState(true);
+  /**
+   * Auto-capture reads the persisted setting.
+   *
+   * This was `useState(true)` — a local flag that ignored `settings.autoCapture`
+   * entirely, which is why the Auto-capture switch on /scan was a dead control:
+   * it wrote to the store and nothing in the app ever read it back. The flag now
+   * seeds from the store and writes through, so the toggle on /scan and the
+   * pause button in here are the same switch.
+   */
+  const autoScanEnabled = settings.autoCapture;
+  const setAutoScanEnabled = useCallback(
+    (next: boolean) => updateSettings({ autoCapture: next }),
+    [updateSettings]
+  );
   const [cameraReady, setCameraReady] = useState(false);
   const [lastAddedCard, setLastAddedCard] = useState<ScannedCard | null>(null);
   const [decks, setDecks] = useState<Array<{ id: string; name: string }>>([]);
@@ -313,7 +341,8 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
     (imageData) => captureAndAnalyze(imageData),
     {
       enabled: autoScanEnabled && cameraReady && !processing && candidates.length === 0,
-      sharpnessThreshold: 120, // Very low threshold for instant detection
+      // The stored threshold, not a constant beside an unread setting.
+      sharpnessThreshold: settings.sharpnessThreshold,
       stabilityDelay: 100, // Ultra-quick 100ms stability check
       cooldownDelay: 800 // 0.8s between scans for rapid-fire scanning
     }
@@ -386,13 +415,17 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
     }
   };
 
+  /**
+   * Scanner state is carried by the icon and the label, not by a hue. Green for
+   * success / amber for busy / red for error is generic-web-app colour on a
+   * surface where colour means mana.
+   */
   const getStatusColor = () => {
     switch (scanStatus) {
-      case 'success': return 'bg-emerald-600';
-      case 'error': return 'bg-red-600';
+      case 'error': return 'bg-muted text-muted-foreground';
       case 'analyzing':
-      case 'matching': return 'bg-amber-500';
-      default: return 'bg-primary';
+      case 'matching': return 'bg-secondary text-secondary-foreground';
+      default: return 'bg-primary text-primary-foreground';
     }
   };
 
@@ -406,7 +439,7 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
             {lastRecognized ?? 'Card scanner'}
           </span>
           {processing && (
-            <Badge variant="secondary" className="bg-amber-500/20 text-amber-300">
+            <Badge variant="secondary">
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
               Processing
             </Badge>
@@ -516,7 +549,7 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
         {cameraError ? (
           <div className="flex items-center justify-center h-full p-4">
             <div className="text-center">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-white/70" />
               <p className="text-white mb-4">{cameraError}</p>
               <Button onClick={startCamera} variant="secondary">
                 <RotateCcw className="h-4 w-4 mr-2" />
@@ -542,7 +575,7 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
                   processing ? 'animate-pulse' : ''
                 }`}
                 style={{
-                  boxShadow: `0 0 0 3px ${processing ? '#f59e0b' : 'hsl(var(--primary))'}`,
+                  boxShadow: `0 0 0 3px ${processing ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary))'}`,
                 }}
               >
                 <div className="absolute inset-3 rounded-lg bg-white/5" />
@@ -550,7 +583,7 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
 
               <div className="absolute top-[6%] left-0 right-0 text-center">
                 <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                  processing ? 'bg-amber-500/20 text-amber-300' : 'bg-primary/20 text-primary'
+                  processing ? 'bg-white/15 text-white' : 'bg-primary/20 text-primary'
                 }`}>
                   {processing ? 'Scanning...' : 'Align card within frame'}
                 </span>
@@ -564,7 +597,9 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
                   onClick={() => setAutoScanEnabled(!autoScanEnabled)}
                   variant="ghost"
                   size="sm"
-                  className={`rounded-full w-14 h-14 ${autoScanEnabled ? 'bg-emerald-500/25 text-emerald-300' : 'bg-black/50 text-white/60'}`}
+                  aria-pressed={autoScanEnabled}
+                  aria-label={autoScanEnabled ? 'Pause auto-capture' : 'Resume auto-capture'}
+                  className={`rounded-full w-14 h-14 ${autoScanEnabled ? 'bg-white/20 text-white' : 'bg-black/50 text-white/60'}`}
                 >
                   {autoScanEnabled ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 </Button>
@@ -604,13 +639,13 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
                   onClick={() => addCardToCollection(candidate)}
                   className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
                 >
-                  {candidate.imageUrl && (
-                    <img
-                      src={candidate.imageUrl}
-                      alt={candidate.name}
-                      className="w-10 h-14 object-cover rounded"
-                    />
-                  )}
+                  <CardImage
+                    card={cardShapeOf(candidate)}
+                    size="xs"
+                    hideFlip
+                    interactive={false}
+                    className="shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate text-white">{candidate.name}</p>
                     <p className="text-xs text-white/50 uppercase">{candidate.setCode}</p>
@@ -651,14 +686,16 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
         {/* Last Added Card with Undo */}
         {lastAddedCard && (
           <div className="px-4 pb-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10">
-              <img
-                src={lastAddedCard.imageUrl}
-                alt={lastAddedCard.name}
-                className="w-12 h-16 object-cover rounded"
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-white/10">
+              <CardImage
+                card={cardShapeOf(lastAddedCard)}
+                size="xs"
+                hideFlip
+                interactive={false}
+                className="shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-emerald-400 flex items-center gap-1">
+                <p className="text-xs text-white/70 flex items-center gap-1">
                   <Check className="h-3 w-3" /> Added to collection
                 </p>
                 <p className="font-medium text-white truncate">{lastAddedCard.name}</p>
@@ -668,7 +705,7 @@ export function CameraScanView({ onCardAdded }: CameraScanViewProps) {
                 variant="ghost"
                 size="sm"
                 onClick={undoLastAdd}
-                className="text-white/60 hover:text-red-400 hover:bg-red-500/10"
+                className="text-white/60 hover:text-white hover:bg-white/10"
               >
                 <Undo2 className="h-4 w-4 mr-1" />
                 Undo

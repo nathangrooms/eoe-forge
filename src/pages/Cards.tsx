@@ -1,10 +1,56 @@
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import {
+  EnhancedUniversalCardSearch,
+  type BrowseView,
+} from '@/components/universal/EnhancedUniversalCardSearch';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { getSetCode } from '@/lib/scryfall/card-utils';
+
+/**
+ * What the grid shows before anyone types.
+ *
+ * This page used to open on an empty box in front of a 34,000-card database,
+ * which is a form, not a browse surface — Scryfall itself never shows a blank
+ * slate. Each view below is one real Scryfall query with an explicit ordering,
+ * and the caption on screen names both, so nothing here is an unexplained
+ * ranking: `edhrec` is Scryfall's own EDHREC play-rank, `usd` its own price
+ * field, `released` its own print date.
+ */
+const BROWSE_VIEWS: BrowseView[] = [
+  {
+    id: 'staples',
+    label: 'Commander staples',
+    caption: 'Commander-legal nonland cards in EDHREC play order',
+    state: { text: 'f:commander -t:land', order: 'edhrec', dir: 'asc', unique: 'cards' },
+  },
+  {
+    id: 'commanders',
+    label: 'Commanders',
+    caption: 'Every card that can head a Commander deck, in EDHREC play order',
+    state: { text: 'is:commander', order: 'edhrec', dir: 'asc', unique: 'cards' },
+  },
+  {
+    id: 'new',
+    label: 'Just printed',
+    caption: 'Paper printings from Scryfall, newest release first',
+    state: { text: 'game:paper -t:basic', order: 'released', dir: 'desc', unique: 'prints' },
+  },
+  {
+    id: 'value',
+    label: 'Most valuable',
+    caption: 'Paper cards by Scryfall’s USD price, highest first',
+    state: { text: 'game:paper -t:basic usd>=1', order: 'usd', dir: 'desc', unique: 'prints' },
+  },
+  {
+    id: 'reserved',
+    label: 'Reserved list',
+    caption: 'Cards Wizards has promised never to reprint, priciest first',
+    state: { text: 'is:reserved', order: 'usd', dir: 'desc', unique: 'cards' },
+  },
+];
 
 export default function Cards() {
   const collection = useCollectionStore();
@@ -133,6 +179,7 @@ export default function Cards() {
       <EnhancedUniversalCardSearch
         onCardAdd={addToCollection}
         onCardWishlist={addToWishlist}
+        browseViews={BROWSE_VIEWS}
         placeholder="Search by name, or use Scryfall syntax — t:creature id:wu mv<=3"
         showFilters
         showAddButton

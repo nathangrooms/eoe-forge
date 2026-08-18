@@ -56,7 +56,8 @@ export async function matchCardName(request: MatchRequest): Promise<MatchRespons
           name: card.name,
           setCode: card.set_code,
           cardId: card.id,
-          imageUrl: (card.image_uris as any)?.small || '',
+          imageUrl:
+            (card.image_uris as any)?.normal || (card.image_uris as any)?.small || '',
           priceUsd: (card.prices as any)?.usd ? parseFloat((card.prices as any).usd) : undefined
         };
       })
@@ -109,7 +110,7 @@ async function searchScryfall(text: string, prefer: string): Promise<MatchRespon
         name: card.name,
         setCode: card.set,
         cardId: card.id,
-        imageUrl: card.image_uris?.small || '',
+        imageUrl: card.image_uris?.normal || card.image_uris?.small || '',
         priceUsd: card.prices?.usd ? parseFloat(card.prices.usd) : undefined
       }));
 

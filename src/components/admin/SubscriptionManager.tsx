@@ -104,13 +104,18 @@ export function SubscriptionManager() {
     return icons[tier];
   };
 
-  const getTierColor = (tier: SubscriptionTier) => {
-    const colors = {
-      free: 'from-emerald-500 to-emerald-600',
-      pro: 'from-blue-500 to-blue-600',
-      unlimited: 'from-purple-500 to-purple-600',
+  /**
+   * Tiers escalate in surface weight, not in hue. Emerald/blue/purple gradients
+   * carried no meaning a reader could decode and broke the monochrome rule; the
+   * ladder from muted to solid foreground reads as a ladder on its own.
+   */
+  const getTierSurface = (tier: SubscriptionTier) => {
+    const surfaces = {
+      free: 'bg-muted text-muted-foreground',
+      pro: 'bg-foreground/15 text-foreground',
+      unlimited: 'bg-foreground text-background',
     };
-    return colors[tier];
+    return surfaces[tier];
   };
 
   const formatLimit = (value: number) => {
@@ -126,15 +131,14 @@ export function SubscriptionManager() {
           const Icon = getTierIcon(tier);
           return (
             <Card key={tier} className="relative overflow-hidden">
-              <div className={`absolute inset-0 bg-gradient-to-br ${getTierColor(tier)} opacity-5`} />
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground capitalize">{tier} Users</p>
-                    <p className="text-3xl font-bold">{count}</p>
+                    <p className="text-sm capitalize text-muted-foreground">{tier} users</p>
+                    <p className="text-3xl font-semibold tabular-nums">{count}</p>
                   </div>
-                  <div className={`p-3 rounded-lg bg-gradient-to-br ${getTierColor(tier)}`}>
-                    <Icon className="h-6 w-6 text-white" />
+                  <div className={`rounded-lg p-3 ${getTierSurface(tier)}`}>
+                    <Icon className="h-6 w-6" />
                   </div>
                 </div>
               </CardContent>
@@ -169,19 +173,19 @@ export function SubscriptionManager() {
                 <TableHead>Feature</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
                     Free
                   </div>
                 </TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <Zap className="h-4 w-4 text-blue-500" />
+                    <Zap className="h-4 w-4 text-muted-foreground" />
                     Pro
                   </div>
                 </TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
-                    <Crown className="h-4 w-4 text-purple-500" />
+                    <Crown className="h-4 w-4 text-foreground" />
                     Unlimited
                   </div>
                 </TableHead>
@@ -227,11 +231,10 @@ export function SubscriptionManager() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Free Tier */}
-            <div className="p-6 border rounded-lg relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-emerald-600/5" />
+            <div className="relative overflow-hidden rounded-lg bg-muted/30 p-6">
               <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-emerald-500" />
+                <div className="mb-2 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-semibold">Free</h3>
                 </div>
                 <p className="text-3xl font-bold mb-1">$0</p>
@@ -246,12 +249,11 @@ export function SubscriptionManager() {
             </div>
 
             {/* Pro Tier */}
-            <div className="p-6 border rounded-lg relative overflow-hidden border-blue-500/30">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-blue-600/5" />
-              <Badge className="absolute top-2 right-2 bg-blue-500">Popular</Badge>
+            <div className="relative overflow-hidden rounded-lg bg-muted/60 p-6">
+              <Badge variant="secondary" className="absolute right-2 top-2">Popular</Badge>
               <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-5 w-5 text-blue-500" />
+                <div className="mb-2 flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-foreground" />
                   <h3 className="font-semibold">Pro</h3>
                 </div>
                 <p className="text-3xl font-bold mb-1">$9.99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
@@ -268,11 +270,10 @@ export function SubscriptionManager() {
             </div>
 
             {/* Unlimited Tier */}
-            <div className="p-6 border rounded-lg relative overflow-hidden border-purple-500/30">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-purple-600/5" />
+            <div className="relative overflow-hidden rounded-lg bg-accent p-6">
               <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <Crown className="h-5 w-5 text-purple-500" />
+                <div className="mb-2 flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-foreground" />
                   <h3 className="font-semibold">Unlimited</h3>
                 </div>
                 <p className="text-3xl font-bold mb-1">$24.99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>

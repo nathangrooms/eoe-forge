@@ -55,12 +55,12 @@ export const GameLog = ({ events }: GameLogProps) => {
             <div
               key={`${event.timestamp}-${idx}`}
               className={cn(
-                'flex items-start gap-3 rounded-lg border p-2.5 text-xs leading-relaxed',
+                'flex items-start gap-3 rounded-lg p-2.5 text-xs leading-relaxed',
                 event.type === 'damage'
-                  ? 'border-destructive/40 bg-destructive/10'
+                  ? 'bg-destructive/15'
                   : event.type === 'game_over'
-                    ? 'border-foreground bg-accent font-semibold'
-                    : 'border-border'
+                    ? 'bg-accent font-semibold'
+                    : 'bg-muted/30'
               )}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

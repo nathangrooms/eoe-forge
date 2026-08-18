@@ -51,7 +51,7 @@ export const TurnOverview = ({ show, state, damageDealt }: TurnOverviewProps) =>
           transition={{ duration: 0.2 }}
           className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl shadow-black/40">
             <div className="mb-4 text-center">
               <div className="text-2xl font-bold text-foreground">Turn {state.turn}</div>
               <div className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -63,7 +63,7 @@ export const TurnOverview = ({ show, state, damageDealt }: TurnOverviewProps) =>
               {sides.map(side => (
                 <div
                   key={side.key}
-                  className="flex flex-col items-center rounded-lg border border-border p-4"
+                  className="flex flex-col items-center rounded-lg bg-muted/30 p-4"
                 >
                   <div className="mb-1 max-w-full truncate text-xs text-muted-foreground">
                     {side.name}

@@ -140,7 +140,10 @@ export async function localCardSearch(query: string): Promise<MatchResult> {
           name: card.name,
           setCode: card.set_code,
           cardId: card.id,
-          imageUrl: imageUris?.small || imageUris?.normal || '',
+          // `normal` first: a candidate is shown as a real card the user has to
+          // recognise before confirming, and `small` is 146px — soft the moment
+          // it is drawn any larger than a favicon.
+          imageUrl: imageUris?.normal || imageUris?.large || imageUris?.small || '',
           priceUsd: prices?.usd ? parseFloat(prices.usd) : undefined
         };
       })
@@ -185,8 +188,9 @@ function formatScryfallCard(card: any, score: number): CardCandidate {
     name: card.name,
     setCode: card.set,
     cardId: card.id,
-    imageUrl: card.image_uris?.small || card.image_uris?.normal || 
-              (card.card_faces?.[0]?.image_uris?.small) || '',
+    imageUrl: card.image_uris?.normal || card.image_uris?.large ||
+              card.card_faces?.[0]?.image_uris?.normal ||
+              card.image_uris?.small || '',
     priceUsd: card.prices?.usd ? parseFloat(card.prices.usd) : undefined
   };
 }

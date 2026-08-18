@@ -64,23 +64,18 @@ export function CollectionCardTile({
           selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
         )}
       >
-        {/* Copies owned — over card art, so a solid ink plate is the honest ground. */}
-        {copies > 0 && (
-          <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm">
-            ×{copies}
-          </span>
-        )}
-        {card.foil > 0 && (
-          <span
-            className="pointer-events-none absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm"
-            title={`${card.foil} foil ${card.foil === 1 ? 'copy' : 'copies'}`}
-          >
-            <Sparkles className="h-3 w-3" aria-hidden="true" />
-            {card.foil}
-          </span>
-        )}
-
-        {selectionMode && (
+        {/*
+         * NOTHING SITS ON THE TOP EDGE OF THE ART.
+         *
+         * The copies pill was pinned `left-1.5 top-1.5` and the foil count
+         * `right-1.5 top-1.5` — precisely over a Magic card's title bar and its
+         * mana cost, the two most identifying lines on the frame. At grid size
+         * "Acererak the Archlich" read as "cererak the Archlich". Copies and
+         * foil now live in the meta strip below the card; at thumbnail sizes,
+         * where there is no strip, they ride the bottom edge over the collector
+         * line, which nobody reads at 120px anyway.
+         */}
+        {selectionMode ? (
           <span
             className={cn(
               'pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-full transition-colors',
@@ -90,6 +85,14 @@ export function CollectionCardTile({
           >
             <Check className="h-3.5 w-3.5" />
           </span>
+        ) : (
+          !showMeta &&
+          copies > 0 && (
+            <span className="pointer-events-none absolute bottom-1.5 left-1.5 inline-flex items-center gap-0.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+              ×{copies}
+              {card.foil > 0 && <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />}
+            </span>
+          )
         )}
 
         {/* Price rides the art at thumbnail sizes, where there is no meta strip. */}
@@ -145,11 +148,32 @@ export function CollectionCardTile({
             <ManaCost cost={card.manaCost} size="xs" className="shrink-0" />
           </div>
 
+          {/* Copies and foil read here now, next to the printing they describe,
+              instead of over the card's own name. */}
           <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
-            <span className="truncate font-mono uppercase" title={card.typeLine}>
-              {card.setCode || '—'}
-              {card.collectorNumber ? ` · ${card.collectorNumber}` : ''}
-              {showCondition ? ` · ${card.condition}` : ''}
+            <span className="flex min-w-0 items-center gap-1">
+              {copies > 0 && (
+                <span
+                  className="shrink-0 rounded bg-muted px-1 font-semibold tabular-nums text-foreground"
+                  title={`${copies} ${copies === 1 ? 'copy' : 'copies'} owned`}
+                >
+                  ×{copies}
+                </span>
+              )}
+              {card.foil > 0 && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded bg-muted px-1 font-semibold tabular-nums text-foreground"
+                  title={`${card.foil} foil ${card.foil === 1 ? 'copy' : 'copies'}`}
+                >
+                  <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                  {card.foil}
+                </span>
+              )}
+              <span className="truncate font-mono uppercase" title={card.typeLine}>
+                {card.setCode || '—'}
+                {card.collectorNumber ? ` · ${card.collectorNumber}` : ''}
+                {showCondition ? ` · ${card.condition}` : ''}
+              </span>
             </span>
             <span className="shrink-0 tabular-nums text-foreground">
               {formatPrice(valueOf(card))}

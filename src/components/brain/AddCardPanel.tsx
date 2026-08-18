@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ManaCost } from '@/components/ui/mana-cost';
+import { CardImage } from '@/components/cards';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -234,11 +235,13 @@ export function AddCardPanel({
 
       <div className="space-y-4">
         <div className="flex items-start gap-3">
+          {/* Through the shared `CardImage`, so the card keeps its real 488×680
+              geometry instead of being squeezed into a fixed 80×112 box. */}
           {card.image_uri && (
-            <img
-              src={card.image_uri}
-              alt=""
-              className="h-28 w-20 shrink-0 rounded-md object-cover"
+            <CardImage
+              card={{ name: card.name, image_uris: { normal: card.image_uri } }}
+              size="sm"
+              hideFlip
             />
           )}
           <div className="min-w-0 space-y-1">

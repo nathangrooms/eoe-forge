@@ -181,7 +181,7 @@ export function AISystemAdmin() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
                 <div>
                   <p className="font-medium">System Prompt Condensed (83% reduction)</p>
                   <p className="text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ export function AISystemAdmin() {
               </div>
               
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
                 <div>
                   <p className="font-medium">Response Caching Enabled (5-min TTL)</p>
                   <p className="text-sm text-muted-foreground">
@@ -201,7 +201,7 @@ export function AISystemAdmin() {
               </div>
               
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
                 <div>
                   <p className="font-medium">Smart Context Filtering</p>
                   <p className="text-sm text-muted-foreground">
@@ -211,7 +211,7 @@ export function AISystemAdmin() {
               </div>
               
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
                 <div>
                   <p className="font-medium">Token Limits Optimized</p>
                   <p className="text-sm text-muted-foreground">

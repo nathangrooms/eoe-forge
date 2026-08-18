@@ -4,17 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Crown, Library, Plus, Trash2 } from 'lucide-react';
+import { Crown, Library, Plus } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
@@ -33,12 +23,12 @@ import { useDeckPowerBackfill } from '@/hooks/useDeckPowerBackfill';
 import type { DeckPower } from '@/lib/deck/power';
 import { ArchetypeLibrary } from '@/components/deck-builder/ArchetypeLibrary';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 /**
  * Two tiles per row on desktop, and never more.
@@ -121,7 +111,6 @@ export default function Decks() {
   const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
   const [creatingFirstDeck, setCreatingFirstDeck] = useState(false);
 
-  const [deckToDelete, setDeckToDelete] = useState<DeckSummary | null>(null);
   const [showArchetypes, setShowArchetypes] = useState(false);
 
   /**
@@ -248,20 +237,21 @@ export default function Decks() {
     }
   };
 
-  const confirmDeleteDeck = async () => {
-    if (!deckToDelete) return;
-
+  /**
+   * The tile's menu already confirmed in place — design law 3 keeps a
+   * confirmation inside the control that started it — so by the time this runs
+   * the answer is yes and there is nothing left to dim the page for.
+   */
+  const deleteDeck = async (deckSummary: DeckSummary) => {
     try {
-      const { error } = await supabase.from('user_decks').delete().eq('id', deckToDelete.id);
+      const { error } = await supabase.from('user_decks').delete().eq('id', deckSummary.id);
       if (error) throw error;
 
-      showSuccess('Deck deleted', `"${deckToDelete.name}" has been deleted`);
+      showSuccess('Deck deleted', `"${deckSummary.name}" has been deleted`);
       await loadDeckSummaries();
     } catch (error) {
       console.error('Error deleting deck:', error);
       showError('Delete failed', 'Failed to delete deck. Please try again.');
-    } finally {
-      setDeckToDelete(null);
     }
   };
 
@@ -374,10 +364,15 @@ export default function Decks() {
                     variant={prefs.mode}
                     priority={index < 2}
                     className="h-full"
+                    // The backfill hook was computed and then never handed to
+                    // the tile, so the "Score deck" control on an unscored deck
+                    // did not exist and its spinner never span.
+                    rescoring={scoring.has(deckSummary.id)}
+                    onRescore={() => rescore(deckSummary.id, deckSummary.format)}
                     onOpen={() => navigate(`/deck/${deckSummary.id}`)}
                     onEdit={() => navigate(`/deck-builder?deck=${deckSummary.id}`)}
                     onDuplicate={() => duplicateDeck(deckSummary)}
-                    onDelete={() => setDeckToDelete(deckSummary)}
+                    onDelete={() => deleteDeck(deckSummary)}
                     onAnalysis={() => navigate(`/deck/${deckSummary.id}/analysis`)}
                     onMissingCards={() => navigate(`/deck/${deckSummary.id}/missing`)}
                     onShare={() => navigate(`/deck/${deckSummary.id}/share`)}
@@ -391,52 +386,34 @@ export default function Decks() {
         </div>
       )}
 
-      <AlertDialog
-        open={Boolean(deckToDelete)}
-        onOpenChange={open => {
-          if (!open) setDeckToDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete deck</AlertDialogTitle>
-            <AlertDialogDescription>
-              Delete “{deckToDelete?.name}”? This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteDeck}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete deck
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={showArchetypes} onOpenChange={setShowArchetypes}>
-        <DialogContent className="max-h-[85vh] max-w-4xl overflow-auto">
-          <DialogHeader>
-            <DialogTitle>Archetype library</DialogTitle>
-            <DialogDescription>
+      {/* Design law 3: browsing archetypes without leaving My Decks is a
+          right-hand slide-out, never a centred dialog that dims the grid and
+          traps focus. The deck list stays visible and keeps its scroll. */}
+      <Sheet open={showArchetypes} onOpenChange={setShowArchetypes}>
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto border-0 sm:max-w-xl lg:max-w-2xl"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle>Archetype library</SheetTitle>
+            <SheetDescription>
               Proven shells, each with the power band and Commander bracket a well-built version
               lands in — the same scale every deck on this page is scored against.
-            </DialogDescription>
-          </DialogHeader>
-          <ArchetypeLibrary
-            currentFormat="commander"
-            onStartFromTemplate={template => {
-              setShowArchetypes(false);
-              navigate(
-                `/smart-builder?archetype=${encodeURIComponent(template.id)}&power=${template.targetPower.max}`
-              );
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            <ArchetypeLibrary
+              currentFormat="commander"
+              onStartFromTemplate={template => {
+                setShowArchetypes(false);
+                navigate(
+                  `/smart-builder?archetype=${encodeURIComponent(template.id)}&power=${template.targetPower.max}`
+                );
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </StandardPageLayout>
   );
 }

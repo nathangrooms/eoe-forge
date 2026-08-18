@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { deckListHash, deckPowerFromStored, type DeckPower } from '@/lib/deck/power';
+import { ownedValueUSD } from '@/features/collection/value';
 
 // The dashboard is the first screen a signed-in player sees, so everything it
 // renders has to come from a real row. There is deliberately no seeded/demo
@@ -39,6 +40,16 @@ function num(value: unknown, fallback = 0): number {
   return typeof value === 'number' && isFinite(value) ? value : fallback;
 }
 
+/**
+ * Supabase types the embedded `cards(prices)` relation loosely, so the shape the
+ * valuation actually needs is stated here rather than cast at every use.
+ */
+interface CollectionValueRow {
+  quantity: number | null;
+  foil: number | null;
+  cards: { prices: unknown } | null;
+}
+
 function parseUsdPrice(prices: unknown): number {
   try {
     const parsed = typeof prices === 'string' ? JSON.parse(prices) : prices;
@@ -73,7 +84,13 @@ export function useDashboardSummary() {
         { count: favoriteCount },
       ] = await Promise.all([
         supabase.from('profiles').select('username').eq('id', user.id).maybeSingle(),
-        supabase.from('user_collections').select('quantity, foil, price_usd').eq('user_id', user.id),
+        // The join to `cards` is the point. Valuation reads live Scryfall prices
+        // off the card row, never the denormalised `user_collections.price_usd`
+        // snapshot — see `ownedValueUSD` for why.
+        supabase
+          .from('user_collections')
+          .select('quantity, foil, cards(prices)')
+          .eq('user_id', user.id),
         supabase.from('wishlist').select('quantity, card_id').eq('user_id', user.id),
         supabase.from('user_decks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('favorite_decks').select('deck_id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -81,15 +98,14 @@ export function useDashboardSummary() {
 
       let collectionValue = 0;
       let totalCards = 0;
-      for (const row of collectionRows ?? []) {
+      for (const row of (collectionRows ?? []) as CollectionValueRow[]) {
         if (!row) continue;
         const quantity = num(row.quantity);
         const foil = num(row.foil);
-        // price_usd is the non-foil price, so foils are counted in the card
-        // total but not in the valuation — same rule the collection page uses.
-        collectionValue += quantity * num(row.price_usd);
+        collectionValue += ownedValueUSD(row.cards?.prices, quantity, foil);
         totalCards += quantity + foil;
       }
+      collectionValue = Math.round(collectionValue * 100) / 100;
 
       // Wishlist rows only store a card id, so prices come from the card table.
       const wishlistCardIds = Array.from(
@@ -151,6 +167,27 @@ export function useDashboardSummary() {
   return { data, loading, error, refetch: fetchSummary };
 }
 
+/**
+ * How well a card would stand in as a deck's face, for the decks that have no
+ * commander to do it.
+ *
+ * The first version took whichever row `deck_cards` returned first, which gave
+ * the "Lyra Dawnbringer angel-tribal" deck a banner of Phoenix Down. Price alone
+ * is not much better: it made the same deck a Polluted Delta, because a fetch
+ * land is the most expensive card in a budget angel list. What a player means by
+ * "the card this deck is about" is almost always its best legendary creature —
+ * the card it would run as a commander — so that ranks first, any creature
+ * second, everything else last, and price breaks ties inside each band.
+ */
+function faceRank(typeLine: string | null, isLegendary: boolean | null): number {
+  const line = (typeLine ?? '').toLowerCase();
+  const creature = line.includes('creature');
+  if (creature && isLegendary) return 3;
+  if (creature) return 2;
+  if (line.includes('planeswalker')) return 2;
+  return 1;
+}
+
 export interface DeckSummary {
   id: string;
   name: string;
@@ -174,9 +211,10 @@ export interface DeckSummary {
   commanderCardId: string | null;
   /**
    * The card whose art represents the deck: the commander, or failing that the
-   * first card in the list. A deck without a commander (60-card formats, or an
-   * EDH list still missing its helm) is still a pile of Magic cards, and one of
-   * them is a better banner than an empty rectangle.
+   * card `faceRank` picks out of the list. A deck without a commander (60-card
+   * formats, or an EDH list still missing its helm) is still a pile of Magic
+   * cards, and its centrepiece is a far better banner than an empty rectangle —
+   * or than whichever row `deck_cards` happened to return first.
    */
   faceCardId: string | null;
   isFavorite: boolean;
@@ -233,6 +271,8 @@ export function useRecentDecks(limit = 6) {
       const faces: Record<string, string> = {};
       /** Per-deck lists, so the stored score can be checked against the real deck. */
       const lists: Record<string, Array<{ name: string; quantity: number }>> = {};
+      /** Candidate face cards for decks with no commander, in list order. */
+      const candidates: Record<string, string[]> = {};
 
       if (rows.length > 0) {
         const { data: cardRows } = await supabase
@@ -247,12 +287,48 @@ export function useRecentDecks(limit = 6) {
               name: card.card_name,
               quantity: num(card.quantity, 1),
             });
+            if (card.card_id) (candidates[card.deck_id] ??= []).push(card.card_id);
           }
           if (card.is_commander && !commanders[card.deck_id]) {
             commanders[card.deck_id] = { id: card.card_id ?? null, name: card.card_name };
           }
-          if (!card.is_sideboard && !faces[card.deck_id] && card.card_id) {
-            faces[card.deck_id] = card.card_id;
+        }
+
+        const needFace = rows.filter(row => !commanders[row.id]).map(row => row.id);
+        const faceIds = Array.from(
+          new Set(needFace.flatMap(deckId => (candidates[deckId] ?? []).slice(0, 120)))
+        );
+
+        if (faceIds.length > 0) {
+          const { data: faceRows } = await supabase
+            .from('cards')
+            .select('id, prices, type_line, is_legendary')
+            .in('id', faceIds);
+
+          const scoreById = new Map<string, { rank: number; price: number }>();
+          for (const card of faceRows ?? []) {
+            scoreById.set(card.id, {
+              rank: faceRank(card.type_line, card.is_legendary),
+              price: parseUsdPrice(card.prices),
+            });
+          }
+
+          for (const deckId of needFace) {
+            let best: string | null = null;
+            let bestRank = -1;
+            let bestPrice = -1;
+            for (const cardId of candidates[deckId] ?? []) {
+              const score = scoreById.get(cardId);
+              if (!score) continue;
+              if (score.rank > bestRank || (score.rank === bestRank && score.price > bestPrice)) {
+                bestRank = score.rank;
+                bestPrice = score.price;
+                best = cardId;
+              }
+            }
+            // Every candidate unknown (a deck of unsynced cards) still gets a face.
+            if (!best) best = candidates[deckId]?.[0] ?? null;
+            if (best) faces[deckId] = best;
           }
         }
       }

@@ -20,7 +20,7 @@ export const AbilityTriggerPopup = ({ triggers }: { triggers: Trigger[] }) => {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.8 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="rounded-lg border border-border bg-popover px-4 py-3 shadow-md"
+            className="rounded-lg bg-popover px-4 py-3 shadow-lg shadow-black/40"
           >
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               <Zap className="h-3 w-3" aria-hidden />

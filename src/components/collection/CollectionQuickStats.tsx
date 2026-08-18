@@ -1,5 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, Package, Sparkles, TrendingUp } from 'lucide-react';
 import { formatPrice, formatPriceCompact } from '@/components/collection/browser/types';
 
 interface CollectionQuickStatsProps {
@@ -11,6 +9,16 @@ interface CollectionQuickStatsProps {
   loading?: boolean;
 }
 
+/**
+ * The five collection facts, on one line, in the page header.
+ *
+ * This used to be four full-height stat cards stacked under the header — and
+ * three of those four figures were already printed in the header's own subtitle
+ * directly above them. Between that row and the favourites block, 640px of the
+ * first screen went to chrome and roughly 180px was left for the card grid, so
+ * the collection was the last thing visible on the collection page. The figures
+ * are worth keeping; the boxes were not.
+ */
 export function CollectionQuickStats({
   totalValue,
   totalCards,
@@ -19,68 +27,27 @@ export function CollectionQuickStats({
   recentlyAddedCount = 0,
   loading = false,
 }: CollectionQuickStatsProps) {
-  const stats = [
-    {
-      icon: DollarSign,
-      label: 'Total value',
-      value: formatPriceCompact(totalValue),
-      sublabel: 'USD market price',
-    },
-    {
-      icon: Package,
-      label: 'Total cards',
-      value: totalCards.toLocaleString(),
-      sublabel: `${uniqueCards.toLocaleString()} unique`,
-    },
-    {
-      icon: TrendingUp,
-      label: 'Average value',
-      value: formatPrice(avgCardValue),
-      sublabel: 'per card',
-    },
-    {
-      icon: Sparkles,
-      label: 'Recently added',
-      value: recentlyAddedCount.toLocaleString(),
-      sublabel: 'last 7 days',
-    },
-  ];
-
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="h-16 animate-pulse rounded bg-muted" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <div className="mt-1.5 h-5 w-72 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
     );
   }
 
+  const stats: { value: string; label: string }[] = [
+    { value: totalCards.toLocaleString(), label: 'cards' },
+    { value: uniqueCards.toLocaleString(), label: 'unique' },
+    { value: formatPriceCompact(totalValue), label: 'market value' },
+    { value: formatPrice(avgCardValue), label: 'average' },
+    { value: recentlyAddedCount.toLocaleString(), label: 'added this week' },
+  ];
+
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
       {stats.map(stat => (
-        <Card key={stat.label}>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {stat.label}
-                </p>
-                <p className="truncate text-xl font-bold tabular-nums text-card-foreground sm:text-2xl">
-                  {stat.value}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">{stat.sublabel}</p>
-              </div>
-              <div className="shrink-0 rounded-lg bg-muted p-2">
-                <stat.icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <span key={stat.label} className="inline-flex items-baseline gap-1.5">
+          <span className="font-semibold tabular-nums text-foreground">{stat.value}</span>
+          <span className="text-muted-foreground">{stat.label}</span>
+        </span>
       ))}
     </div>
   );

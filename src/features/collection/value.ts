@@ -1,5 +1,48 @@
 import { Card, CollectionCard } from '@/types/collection';
 
+/**
+ * THE valuation rule for an owned stack, and the only one allowed to ship.
+ *
+ * Non-foil copies are priced at `cards.prices->>'usd'`, foil copies at
+ * `usd_foil` falling back to `usd`. It takes the raw `prices` jsonb rather than
+ * a typed `Card` so every caller can use it — the dashboard selects
+ * `user_collections(quantity, foil, cards(prices))`, the collection page holds
+ * whole `Card` objects, the admin user detail holds neither.
+ *
+ * It exists because the same 51 rows were reported as $345.90 on /collection and
+ * $237.01 on the dashboard. The dashboard was summing the denormalised
+ * `user_collections.price_usd` snapshot, which is null on most rows and stale on
+ * the rest; `Collection.tsx` states outright that that column "is never read for
+ * display". The front page therefore understated the owner's collection by
+ * $108.89 — 31.5%. One accessor, one rule, no second opinion.
+ */
+export function ownedValueUSD(prices: unknown, quantity: number, foil: number): number {
+  const parsed = (typeof prices === 'string' ? safeParse(prices) : prices) as
+    | { usd?: string | null; usd_foil?: string | null }
+    | null
+    | undefined;
+  const nonFoil = toNumber(parsed?.usd);
+  const foilPrice = toNumber(parsed?.usd_foil) || nonFoil;
+  return toCount(quantity) * nonFoil + toCount(foil) * foilPrice;
+}
+
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function toNumber(value: unknown): number {
+  const parsed = parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
 // Price calculation utilities
 export function priceUSD(card: Card, preferFoil = false): number {
   if (!card.prices) return 0;

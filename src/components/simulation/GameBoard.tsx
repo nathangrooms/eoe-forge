@@ -90,7 +90,7 @@ export const GameBoard = ({ state, onRegisterCard, damages }: GameBoardProps) =>
   return (
     <div className="relative flex w-full flex-1 flex-col bg-background">
       {/* Top status bar: both players + turn */}
-      <div className="flex min-h-14 shrink-0 items-stretch gap-3 border-b border-border bg-card px-3 py-2 text-[11px]">
+      <div className="flex min-h-14 shrink-0 items-stretch gap-3 bg-card px-3 py-2 text-[11px]">
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:min-w-[200px] sm:flex-none">
           <Badge
             variant="outline"
@@ -107,11 +107,11 @@ export const GameBoard = ({ state, onRegisterCard, damages }: GameBoardProps) =>
         </div>
 
         <div className="pointer-events-none hidden flex-1 items-center justify-center md:flex">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1">
+          <div className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-3 py-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
               Turn {state.turn}
             </span>
-            <span className="h-4 w-px bg-border" />
+            <span className="h-3 w-1 rounded-full bg-muted-foreground/40" />
             <span className="text-[10px] font-medium text-muted-foreground">
               {state.phase.replace(/_/g, ' ').toUpperCase()}
             </span>

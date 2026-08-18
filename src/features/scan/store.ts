@@ -57,7 +57,11 @@ export const useScanStore = create<ScanState>()(
         autoCapture: true,
         autoAdd: false,
         preferPrinting: 'newest',
-        sharpnessThreshold: 50,
+        // Laplacian variance a frame must clear before auto-capture fires. This
+        // read 50 while `CameraScanView` passed a hardcoded 120 straight to the
+        // hook, so the stored value was never used; 120 is the number the
+        // scanner has actually been running on, and it is now the one in force.
+        sharpnessThreshold: 120,
         addToCollection: true,
         addToDeck: false,
         selectedDeckId: '',
@@ -123,6 +127,25 @@ export const useScanStore = create<ScanState>()(
     }),
     {
       name: 'scan-store',
+      /**
+       * v1 lifts the persisted sharpness threshold off the old unused default.
+       *
+       * `settings` is persisted whole, so anyone who has opened the scanner
+       * already carries `sharpnessThreshold: 50` in localStorage. Now that the
+       * camera actually reads the setting, leaving 50 in place would quietly
+       * make auto-capture fire on blurrier frames than it ever has. The
+       * migration only touches the stale value.
+       */
+      version: 1,
+      migrate: (persisted: any, version: number) => {
+        if (version < 1 && persisted?.settings?.sharpnessThreshold === 50) {
+          return {
+            ...persisted,
+            settings: { ...persisted.settings, sharpnessThreshold: 120 }
+          };
+        }
+        return persisted;
+      },
       partialize: (state) => ({
         settings: state.settings,
         recentScans: state.recentScans

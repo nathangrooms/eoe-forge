@@ -18,6 +18,14 @@ interface Profile {
   updated_at: string;
 }
 
+/** A missing or unparseable timestamp shows an em dash, not "Invalid Date". */
+function formatJoined(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+}
+
+
 export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +100,7 @@ export function UserManagement() {
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Loading users...</div>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-hidden rounded-md bg-muted/20">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -134,7 +142,9 @@ export function UserManagement() {
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {new Date(profile.created_at).toLocaleDateString()}
+                          {/* A missing or malformed timestamp rendered the
+                              literal string "Invalid Date" in the table. */}
+                          {formatJoined(profile.created_at)}
                         </TableCell>
                         <TableCell>
                           <Button

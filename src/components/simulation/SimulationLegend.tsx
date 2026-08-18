@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Info } from 'lucide-react';
+import { Hourglass, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 
@@ -28,7 +28,7 @@ export const SimulationLegend = () => {
           <h4 className="mb-2 text-sm font-bold text-foreground">Card states</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">
-              <span className="h-4 w-4 shrink-0 rounded border border-dashed border-foreground" />
+              <Hourglass className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
               Summoning sick — cannot attack or tap
             </li>
             <li className="flex items-center gap-2">
@@ -47,7 +47,9 @@ export const SimulationLegend = () => {
               </span>
               Damage marked this turn
             </li>
-            <li>Card border colour is the card&apos;s colour identity.</li>
+            {/* The cue moved from a border to a ring so the card image is not
+                cropped by it; the legend has to say what is actually drawn. */}
+            <li>The outline around a card is its colour identity.</li>
           </ul>
         </section>
 

@@ -43,39 +43,55 @@ interface Task {
   updated_at: string;
 }
 
+/**
+ * Chip surfaces, monochrome.
+ *
+ * This file carried eleven different hues — violet, cyan, orange, green, pink,
+ * indigo, teal, slate, fuchsia, rose, grey — one per app section, plus five
+ * more across status, category and priority. None of them are Magic colours, so
+ * none of them are allowed: hue in this product means mana. Rank now reads
+ * through surface weight (muted &rarr; foreground/15 &rarr; solid foreground)
+ * and the section chips, which are labels rather than a scale, all share one
+ * neutral surface and are told apart by their text. Borders are gone with them.
+ */
+const CHIP_QUIET = 'bg-muted text-muted-foreground';
+const CHIP_MID = 'bg-foreground/15 text-foreground';
+const CHIP_LOUD = 'bg-foreground text-background';
+
 const statusConfig: Record<TaskStatus, { color: string; label: string; icon: any }> = {
-  pending: { color: 'bg-muted/80 text-muted-foreground border-border', label: 'Pending', icon: Clock },
-  in_progress: { color: 'bg-primary/10 text-primary border-primary/20', label: 'In Progress', icon: ListTodo },
-  blocked: { color: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Blocked', icon: AlertCircle },
-  done: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', label: 'Done', icon: CheckCircle },
+  pending: { color: CHIP_QUIET, label: 'Pending', icon: Clock },
+  in_progress: { color: 'bg-primary/15 text-primary', label: 'In Progress', icon: ListTodo },
+  blocked: { color: 'bg-destructive/15 text-destructive', label: 'Blocked', icon: AlertCircle },
+  done: { color: CHIP_LOUD, label: 'Done', icon: CheckCircle },
 };
 
 const categoryConfig: Record<TaskCategory, { color: string; label: string }> = {
-  feature: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Feature' },
-  bug: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Bug' },
-  improvement: { color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', label: 'Improvement' },
-  core_functionality: { color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', label: 'Core' },
+  feature: { color: CHIP_MID, label: 'Feature' },
+  // A bug is the one genuinely alarming category, and destructive is a token.
+  bug: { color: 'bg-destructive/15 text-destructive', label: 'Bug' },
+  improvement: { color: CHIP_QUIET, label: 'Improvement' },
+  core_functionality: { color: CHIP_LOUD, label: 'Core' },
 };
 
 const priorityConfig: Record<TaskPriority, { color: string; label: string }> = {
-  high: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30', label: 'High' },
-  medium: { color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30', label: 'Medium' },
-  low: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30', label: 'Low' },
+  high: { color: CHIP_LOUD, label: 'High' },
+  medium: { color: CHIP_MID, label: 'Medium' },
+  low: { color: CHIP_QUIET, label: 'Low' },
 };
 
 const appSectionConfig: Record<AppSection, { label: string; color: string }> = {
-  dashboard: { label: 'Dashboard', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20' },
-  collection: { label: 'Collection', color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
-  deck_builder: { label: 'Deck Builder', color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' },
-  marketplace: { label: 'Marketplace', color: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' },
-  wishlist: { label: 'Wishlist', color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20' },
-  brain: { label: 'Brain', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
-  scan: { label: 'Scan', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
-  storage: { label: 'Storage', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-border' },
-  templates: { label: 'Templates', color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20' },
-  admin: { label: 'Admin', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  settings: { label: 'Settings', color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-border' },
-  general: { label: 'General', color: 'bg-muted/80 text-muted-foreground border-border' },
+  dashboard: { label: 'Dashboard', color: CHIP_QUIET },
+  collection: { label: 'Collection', color: CHIP_QUIET },
+  deck_builder: { label: 'Deck Builder', color: CHIP_QUIET },
+  marketplace: { label: 'Marketplace', color: CHIP_QUIET },
+  wishlist: { label: 'Wishlist', color: CHIP_QUIET },
+  brain: { label: 'Brain', color: CHIP_QUIET },
+  scan: { label: 'Scan', color: CHIP_QUIET },
+  storage: { label: 'Storage', color: CHIP_QUIET },
+  templates: { label: 'Templates', color: CHIP_QUIET },
+  admin: { label: 'Admin', color: CHIP_QUIET },
+  settings: { label: 'Settings', color: CHIP_QUIET },
+  general: { label: 'General', color: CHIP_QUIET },
 };
 
 export function TaskManagement() {
@@ -1034,10 +1050,10 @@ export function TaskManagement() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
+            <div className="text-2xl font-semibold tabular-nums text-foreground">{completedCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -1054,7 +1070,7 @@ export function TaskManagement() {
               className="pl-10"
             />
           </div>
-          <div className="flex items-center gap-3 pt-2 border-t">
+          <div className="mt-2 flex items-center gap-3 pt-3">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Label htmlFor="show-completed" className="text-sm font-medium cursor-pointer flex-1">
               Show completed tasks
@@ -1070,7 +1086,7 @@ export function TaskManagement() {
 
       {/* Desktop Table View */}
       <Card className="hidden md:block">
-        <div className="divide-y divide-border">
+        <div className="space-y-2">
           {loading ? (
             <div className="text-center text-muted-foreground py-12">
               Loading tasks...
@@ -1112,7 +1128,7 @@ export function TaskManagement() {
                             onClick={() => handleComplete(task.id)}
                             title="Mark as complete"
                           >
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle2 className="h-4 w-4 text-foreground" />
                           </Button>
                         )}
                         <Button
@@ -1191,7 +1207,7 @@ export function TaskManagement() {
                         onClick={() => handleComplete(task.id)}
                         className="shrink-0"
                       >
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                        <CheckCircle2 className="h-5 w-5 text-foreground" />
                       </Button>
                     )}
                   </div>
@@ -1217,7 +1233,7 @@ export function TaskManagement() {
                       {priorityConfig[task.priority].label}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="mt-2 flex items-center justify-between pt-3">
                     <span className="text-xs text-muted-foreground">
                       {new Date(task.created_at).toLocaleDateString()}
                     </span>

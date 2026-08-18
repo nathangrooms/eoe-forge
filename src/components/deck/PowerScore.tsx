@@ -47,10 +47,34 @@ interface PowerScoreProps {
   /** Offered when the score is missing or stale. */
   onRescore?: () => void;
   rescoring?: boolean;
+  /**
+   * Why there is no score, when the caller knows. "Add cards to score this
+   * deck" is a useful sentence; "the score is computed by the EDH engine" is
+   * a description of a machine the reader cannot act on.
+   */
+  unscoredReason?: string;
   className?: string;
 }
 
 const SEGMENTS = 10;
+
+/** Shared geometry, so a filled bar and an empty one occupy identical space. */
+function segmentRowClass(size: 'sm' | 'md') {
+  return cn('flex', size === 'sm' ? 'mt-1.5 gap-[2px]' : 'mt-2.5 gap-[3px]');
+}
+const segmentClass = (size: 'sm' | 'md') =>
+  cn('flex-1 rounded-[2px]', size === 'sm' ? 'h-1' : 'h-1.5');
+
+/** The bar an unscored deck still draws, so its tile is the same height. */
+function EmptySegments({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  return (
+    <div className={segmentRowClass(size)} role="img" aria-label="Power level not scored">
+      {Array.from({ length: SEGMENTS }, (_, i) => (
+        <span key={i} className={cn(segmentClass(size), 'bg-foreground/10')} />
+      ))}
+    </div>
+  );
+}
 
 /** Ten flat segments — a count you can read from across a grid, not a gradient bar. */
 function Segments({
@@ -68,7 +92,7 @@ function Segments({
   const fill = muted ? 'bg-foreground/25' : powerFillClass(band);
   return (
     <div
-      className={cn('flex', size === 'sm' ? 'mt-1.5 gap-[2px]' : 'mt-2.5 gap-[3px]')}
+      className={segmentRowClass(size)}
       role="img"
       aria-label={`Power level ${formatPowerScore(score)} out of 10`}
     >
@@ -76,8 +100,8 @@ function Segments({
         <span
           key={i}
           className={cn(
-            'flex-1 rounded-[2px] transition-colors duration-500 motion-reduce:transition-none',
-            size === 'sm' ? 'h-1' : 'h-1.5',
+            segmentClass(size),
+            'transition-colors duration-500 motion-reduce:transition-none',
             i < filled ? fill : 'bg-foreground/10'
           )}
           style={{ transitionDelay: `${i * 25}ms` }}
@@ -123,41 +147,82 @@ function RescoreButton({
  * Empty / stale-only states
  * ------------------------------------------------------------------ */
 
+/**
+ * No score — but the *same block*.
+ *
+ * This used to replace the whole readout with a paragraph, so a nine-deck grid
+ * rendered two different tile anatomies side by side: six tiles with a number,
+ * a bracket and a ten-segment bar, three with a wall of explanatory prose where
+ * that block should be. The eye cannot compare down a column when the columns
+ * are not the same shape.
+ *
+ * The frame is now identical to {@link CompactPower} — same eyebrow, same
+ * baseline for the figure, same bracket column, same bar — with an em-dash
+ * where the number goes and every segment empty. A missing score reads as a
+ * missing score, at a glance, in the position the score always occupies.
+ */
 function UnscoredBlock({
   variant,
   onRescore,
   rescoring,
+  unscoredReason,
   className,
 }: {
   variant: PowerScoreVariant;
   onRescore?: () => void;
   rescoring?: boolean;
+  unscoredReason?: string;
   className?: string;
 }) {
   if (variant === 'inline') {
     return (
       <div className={cn('min-w-0', className)}>
-        <p className="text-sm font-semibold leading-none text-muted-foreground">Not scored</p>
-        <p className="mt-1 text-[0.65rem] leading-none text-muted-foreground">
-          Open the deck to score it
-        </p>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-bold leading-none tabular-nums text-muted-foreground">
+            —
+          </span>
+          <span className="truncate text-[0.7rem] font-semibold leading-none text-muted-foreground">
+            Not scored
+          </span>
+        </div>
+        <EmptySegments size="sm" />
       </div>
     );
   }
 
   return (
     <div className={cn('rounded-lg bg-muted/40 p-3 shadow-sm', className)}>
-      <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        EDH power score
-      </p>
-      <p className="mt-1.5 text-sm font-semibold text-muted-foreground">Not scored yet</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {rescoring
-          ? 'Scoring this decklist…'
-          : 'The score is computed from the decklist by the DeckMatrix EDH engine.'}
-      </p>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            EDH power
+          </p>
+          <p className="mt-1 flex items-baseline gap-1">
+            <span className="text-3xl font-bold leading-none tabular-nums text-muted-foreground">
+              —
+            </span>
+            <span className="text-xs text-muted-foreground">/ 10</span>
+          </p>
+        </div>
+
+        {/* Mirrors the scored block's right column exactly: label, value,
+            qualifier. The value is absent, so it is an em-dash, not the word
+            "unscored" repeated twice down the column. */}
+        <div className="min-w-0 text-right">
+          <p className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Bracket
+          </p>
+          <p className="mt-1 truncate text-sm font-bold leading-none text-muted-foreground">—</p>
+          <p className="mt-1 truncate text-[0.65rem] leading-none text-muted-foreground">
+            {rescoring ? 'Scoring…' : (unscoredReason ?? 'Not scored yet')}
+          </p>
+        </div>
+      </div>
+
+      <EmptySegments />
+
       {onRescore && (
-        <div className="mt-3">
+        <div className="mt-2.5 flex justify-end">
           <RescoreButton onRescore={onRescore} rescoring={rescoring} label="Score deck" />
         </div>
       )}
@@ -494,6 +559,7 @@ export function PowerScore({
   variant = 'compact',
   onRescore,
   rescoring,
+  unscoredReason,
   className,
 }: PowerScoreProps) {
   if (!power) {
@@ -502,6 +568,7 @@ export function PowerScore({
         variant={variant}
         onRescore={onRescore}
         rescoring={rescoring}
+        unscoredReason={unscoredReason}
         className={className}
       />
     );

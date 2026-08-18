@@ -15,10 +15,9 @@ import { PriceSearchPanel } from '@/components/marketplace/PriceSearchPanel';
 import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
 import { ShoppingList } from '@/components/marketplace/ShoppingList';
-import { QuickPriceStats } from '@/components/marketplace/QuickPriceStats';
+import { CardImage } from '@/components/cards';
 import {
   Package,
-  DollarSign,
   Edit,
   Trash2,
   CheckCircle,
@@ -316,34 +315,31 @@ export default function Marketplace() {
     sum + (listing.price_usd * listing.qty), 0
   );
 
-  const getCardImage = (listing: Listing) => {
-    return listing.cards?.image_uris?.normal || listing.cards?.image_uris?.small;
-  };
-
   const renderListingCard = (listing: Listing) => (
     <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="relative">
-        {getCardImage(listing) ? (
-          <img
-            src={getCardImage(listing)}
-            alt={listing.cards?.name || listing.card_id}
-            className="w-full h-64 object-contain bg-background"
-          />
-        ) : (
-          <div className="w-full h-64 bg-muted flex items-center justify-center">
-            <Package className="h-12 w-12 text-muted-foreground" />
-          </div>
-        )}
-        {listing.foil && (
-          <Badge className="absolute top-2 right-2" variant="outline">
-            Foil
-          </Badge>
-        )}
-        {listing.status === 'draft' && (
-          <Badge className="absolute top-2 left-2" variant="secondary">
-            Draft
-          </Badge>
-        )}
+      {/* The listing card goes through the shared `CardImage`, which keeps the
+          real 488×680 geometry and picks the Scryfall resolution for the
+          rendered size. This was a hand-rolled <img> in a fixed 256px-tall box. */}
+      <div className="p-3 pb-0">
+        <CardImage
+          card={{
+            name: listing.cards?.name ?? listing.card_id,
+            image_uris: listing.cards?.image_uris,
+          }}
+          fill
+          title={listing.cards?.name ?? listing.card_id}
+        >
+          {listing.foil && (
+            <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+              Foil
+            </span>
+          )}
+          {listing.status === 'draft' && (
+            <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+              Draft
+            </span>
+          )}
+        </CardImage>
       </div>
 
       <CardContent className="p-4">
@@ -459,11 +455,8 @@ export default function Marketplace() {
       description="Compare prices across platforms and find the best deals"
     >
       <div className="space-y-6">
-        {/* Header */}
-        <MarketplaceHeader totalWatchlist={watchlist.length} />
-
-        {/* Quick Stats */}
-        <QuickPriceStats
+        {/* Price sources and the four live counters, in one strip. */}
+        <MarketplaceHeader
           watchlistCount={watchlist.length}
           myListingsCount={myListings.length}
           totalListingValue={totalListingValue}
@@ -531,28 +524,10 @@ export default function Marketplace() {
 
           {/* My Listings Tab */}
           <TabsContent value="listings" className="mt-6 space-y-6">
-            {/* Listing Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { label: 'Active listings', value: myListings.length, icon: Package },
-                { label: 'Sold items', value: soldListings.length, icon: CheckCircle },
-                { label: 'Total value', value: `$${totalListingValue.toFixed(2)}`, icon: DollarSign },
-              ].map((stat) => (
-                <Card key={stat.label}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
-                        <stat.icon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm text-muted-foreground">{stat.label}</p>
-                        <p className="text-2xl font-semibold tabular-nums text-foreground">{stat.value}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {/* No stat tiles here: "Active listings", "Sold items" and "Total
+                value" repeated the header strip's Listings/Listing value and the
+                sub-tab counts below, so on an empty account the tab opened with
+                three more zeroes and pushed the listings themselves down. */}
 
             {/* Listings Sub-tabs */}
             <Tabs defaultValue="for-sale" className="w-full">

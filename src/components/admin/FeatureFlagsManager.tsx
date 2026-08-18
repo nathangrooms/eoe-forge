@@ -42,9 +42,11 @@ export function FeatureFlagsManager() {
   const getTierBadge = (tier: SubscriptionTier | null | undefined) => {
     const safeTier = tier || 'free';
     const config = {
-      free: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', icon: Sparkles },
-      pro: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', icon: Zap },
-      unlimited: { color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20', icon: Crown },
+      // Tiers are distinguished by weight and icon, not hue. Emerald/blue/purple
+      // said nothing a reader could decode and broke the monochrome rule.
+      free: { color: 'bg-muted text-muted-foreground', icon: Sparkles },
+      pro: { color: 'bg-foreground/15 text-foreground', icon: Zap },
+      unlimited: { color: 'bg-foreground text-background', icon: Crown },
     };
     const tierConfig = config[safeTier] || config.free;
     const { color, icon: Icon } = tierConfig;
@@ -108,7 +110,7 @@ export function FeatureFlagsManager() {
         ) : flags.map((flag) => (
           <div
             key={flag.id}
-            className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+            className="flex items-start justify-between rounded-lg bg-muted/30 p-4 transition-colors hover:bg-muted/60"
           >
             <div className="flex-1 mr-4">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -117,7 +119,7 @@ export function FeatureFlagsManager() {
                 </Label>
                 {getTierBadge(flag.requires_tier)}
                 {flag.is_experimental === true && (
-                  <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 flex items-center gap-1">
+                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                     <FlaskConical className="h-3 w-3" />
                     Experimental
                   </Badge>
@@ -160,7 +162,7 @@ export function FeatureFlagsManager() {
                 checked={flag.enabled}
                 onCheckedChange={(checked) => handleToggle(flag.id, checked)}
               />
-              <span className={`text-xs ${flag.enabled ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+              <span className={`text-xs ${flag.enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
                 {flag.enabled ? 'Enabled' : 'Disabled'}
               </span>
             </div>

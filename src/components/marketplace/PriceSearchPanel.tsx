@@ -23,6 +23,7 @@ import { CardGrid, CardGridSkeleton, CardImage, CardSizeSlider, useCardSize } fr
 import { ActiveFilterChips, CardFilterPanel, useCardFilterState } from '@/components/filters';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { CardPriceDetail } from './CardPriceDetail';
+import { useMarketplaceSeed } from './useMarketplaceSeed';
 
 interface PriceResult {
   marketplace: string;
@@ -205,7 +206,13 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
 
   const filters = useCardFilterState();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [cardWidth, setCardWidth] = useCardSize('marketplace', 200);
+  const [cardWidth, setCardWidth] = useCardSize('marketplace', 190);
+
+  /* Real cards to show before a query exists — the user's own wishlist and
+     collection, priced. See `useMarketplaceSeed`. */
+  const { seeds, loading: seedLoading } = useMarketplaceSeed();
+  const [seedId, setSeedId] = useState<string | null>(null);
+  const activeSeed = seeds.find(s => s.id === seedId) ?? seeds[0] ?? null;
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -319,8 +326,21 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     setSelectedCard(card);
   };
 
+  /**
+   * The grid's source. A query owns the grid the moment there is one; until
+   * then the seed does, so the page arrives full of the user's own cards rather
+   * than as an empty form.
+   */
+  const activeResults = useMemo(
+    () =>
+      searchUrl
+        ? results
+        : (activeSeed?.cards ?? []).map(c => toCardPriceData(c, showFoil)),
+    [searchUrl, results, activeSeed, showFoil]
+  );
+
   const filteredAndSortedResults = useMemo(() => {
-    let filtered = [...results];
+    let filtered = [...activeResults];
 
     if (hideNoPrice) {
       filtered = filtered.filter(card => {
@@ -354,11 +374,11 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
     });
 
     return filtered;
-  }, [results, filterBy, sortBy, showFoil, hideNoPrice]);
+  }, [activeResults, filterBy, sortBy, showFoil, hideNoPrice]);
 
-  const standardCount = results.filter(c => !c.isArtVariant).length;
-  const artVariantCount = results.filter(c => c.isArtVariant).length;
-  const noPriceCount = results.filter(c => {
+  const standardCount = activeResults.filter(c => !c.isArtVariant).length;
+  const artVariantCount = activeResults.filter(c => c.isArtVariant).length;
+  const noPriceCount = activeResults.filter(c => {
     const price = showFoil ? c.tcgplayerFoilPrice : c.tcgplayerPrice;
     const cmPrice = showFoil ? c.cardmarketFoilPrice : c.cardmarketPrice;
     return !((price && price > 0) || (cmPrice && cmPrice > 0) || (c.tixPrice && c.tixPrice > 0));
@@ -439,8 +459,31 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
 
         {filters.activeCount > 0 && <ActiveFilterChips controller={filters} />}
 
+        {/* Which real list is filling the grid, while there is no query. More
+            than one only when the user has both a wishlist and a collection. */}
+        {!searchUrl && seeds.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {seeds.map(seed => (
+              <Button
+                key={seed.id}
+                variant={seed.id === activeSeed?.id ? 'default' : 'secondary'}
+                size="sm"
+                className="h-8"
+                onClick={() => setSeedId(seed.id)}
+                aria-pressed={seed.id === activeSeed?.id}
+              >
+                {seed.label}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {!searchUrl && activeSeed && (
+          <p className="text-sm text-muted-foreground">{activeSeed.caption}</p>
+        )}
+
         {/* Listing-level controls — printings, sort, density, view. */}
-        {results.length > 0 && (
+        {activeResults.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -449,7 +492,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
                   <SelectValue placeholder="Filter versions" />
                 </SelectTrigger>
                 <SelectContent className="border-0">
-                  <SelectItem value="all">All versions ({results.length})</SelectItem>
+                  <SelectItem value="all">All versions ({activeResults.length})</SelectItem>
                   <SelectItem value="standard">Standard ({standardCount})</SelectItem>
                   <SelectItem value="art-variants">Alt art ({artVariantCount})</SelectItem>
                 </SelectContent>
@@ -512,8 +555,8 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
             </div>
 
             <div className="w-full text-xs text-muted-foreground sm:w-auto">
-              Showing {filteredAndSortedResults.length} of {results.length} loaded
-              {totalCards > results.length && ` · ${totalCards} printings match`}
+              Showing {filteredAndSortedResults.length} of {activeResults.length} loaded
+              {searchUrl && totalCards > results.length && ` · ${totalCards} printings match`}
             </div>
           </div>
         )}
@@ -531,7 +574,9 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
         />
       )}
 
-      {loading && results.length === 0 && <CardGridSkeleton width={cardWidth} count={12} />}
+      {(loading || (!searchUrl && seedLoading)) && activeResults.length === 0 && (
+        <CardGridSkeleton width={cardWidth} count={12} />
+      )}
 
       {/* Results — grid */}
       {!loading && filteredAndSortedResults.length > 0 && viewMode === 'grid' && (
@@ -711,7 +756,7 @@ export function PriceSearchPanel({ onAddToWatchlist, onAddToShoppingList }: Pric
         </div>
       )}
 
-      {!loading && results.length > 0 && filteredAndSortedResults.length === 0 && (
+      {!loading && activeResults.length > 0 && filteredAndSortedResults.length === 0 && (
         <div className="rounded-lg bg-muted/30 p-12 text-center">
           <h3 className="mb-2 text-lg font-medium text-foreground">
             Every result is filtered out

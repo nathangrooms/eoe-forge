@@ -25,6 +25,10 @@ interface DeckAdditionPanelProps {
   addToDeck?: boolean;
   addToBox?: boolean;
   collapsed?: boolean;
+  /** Heading for the panel. Defaults to the generic "Add Cards To". */
+  title?: string;
+  /** Classes for the panel's own Card, e.g. to drop the default bottom margin. */
+  className?: string;
   onSelectionChange?: (config: {
     selectedDeckId: string;
     selectedBoxId: string;
@@ -41,6 +45,8 @@ export function DeckAdditionPanel({
   addToDeck: initialAddToDeck = false,
   addToBox: initialAddToBox = false,
   collapsed: initialCollapsed = false,
+  title = 'Add Cards To',
+  className = 'mb-6',
   onSelectionChange 
 }: DeckAdditionPanelProps) {
   const [decks, setDecks] = useState<DeckOption[]>([]);
@@ -145,13 +151,13 @@ export function DeckAdditionPanel({
 
   return (
     <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
-      <Card className="mb-6">
+      <Card className={className}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
-                <CardTitle>Add Cards To</CardTitle>
+                <CardTitle className="text-base md:text-lg">{title}</CardTitle>
               </div>
               <div className="flex items-center gap-2">
                 {isCollapsed && (
@@ -319,8 +325,8 @@ export function DeckAdditionPanel({
         </div>
 
         {/* Summary */}
-        <div className="bg-primary/5 p-3 rounded-lg">
-          <p className="text-sm font-medium text-primary">
+        <div className="bg-muted/50 p-3 rounded-lg">
+          <p className="text-sm font-medium text-foreground">
             Cards will be added to: {' '}
             {[
               addToCollection && 'Collection',

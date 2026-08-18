@@ -1,7 +1,15 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { CardImage, CardGrid, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
+import {
+  CardImage,
+  CardGrid,
+  CardGridSkeleton,
+  CardSizeSlider,
+  cardSizeForWidth,
+  useCardSize,
+} from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { Loader2, Search, SlidersHorizontal, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,6 +55,19 @@ const SOURCE_LABEL: Record<CommanderSource, string> = {
   finder: 'Commander finder',
 };
 
+/**
+ * Cards drawn per window.
+ *
+ * Scryfall answers with 175 cards a page and every one of them was mounted at
+ * once: 11,397px of grid, 175 `<img>` elements and — because the browser
+ * pre-loads well ahead of the viewport — several megabytes of art for a screen
+ * that shows ten cards. The rows are revealed as the reader reaches them, and
+ * only when the window has caught up with everything already fetched does the
+ * next Scryfall page get asked for. Two "load more" affordances collapse into
+ * one continuous list.
+ */
+const WINDOW_SIZE = 30;
+
 export function CommanderStage({
   cards,
   loading,
@@ -68,6 +89,57 @@ export function CommanderStage({
   const [cardWidth, setCardWidth] = useCardSize('ai-builder-commanders', 190);
   const activeFilters = countActiveFilters(filters);
   const filterSummary = describeFilters(filters);
+
+  /**
+   * `large` is a 672px scan. At the sizes this grid actually renders — 190px by
+   * default, 218px once `1fr` stretches the track — that is four times the
+   * pixels a 2× display can resolve, paid once per commander across a wall of
+   * them. `normal` (488px) still over-samples every size below `xl`, which is
+   * the only token this drops through to the default ladder for.
+   */
+  const imageQuality = cardSizeForWidth(cardWidth) === 'xl' ? undefined : ('normal' as const);
+
+  /* ------------------------------------------------------------ windowing */
+
+  const [windowSize, setWindowSize] = useState(WINDOW_SIZE);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * A fresh result set starts the window over. Keyed on `loading` rather than
+   * on the array itself: `loadMore` appends, producing a new array on every
+   * page, and resetting there would make the list unable to grow past one
+   * window. Only a new *run* raises `loading`.
+   */
+  useEffect(() => {
+    setWindowSize(WINDOW_SIZE);
+  }, [source, searchValue, loading]);
+
+  const shown = useMemo(() => cards.slice(0, windowSize), [cards, windowSize]);
+  const moreToReveal = windowSize < cards.length;
+  /** Something left to show, whether it is already in memory or still at Scryfall. */
+  const canExtend = moreToReveal || hasMore;
+
+  const extendRef = useRef<() => void>(() => {});
+  extendRef.current = () => {
+    if (moreToReveal) setWindowSize(current => current + WINDOW_SIZE);
+    else if (hasMore && !loadingMore) onLoadMore?.();
+  };
+
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || !canExtend) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) extendRef.current();
+      },
+      // 400px, not the 800 the precon grid uses. A commander row is ~265px
+      // tall, so a wider margin trips twice on first paint and the window
+      // settles at 60 cards before the reader has scrolled at all.
+      { rootMargin: '400px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canExtend, windowSize, cards.length]);
 
   /**
    * The analysing state is the chosen commander at full size and nothing else.
@@ -158,8 +230,10 @@ export function CommanderStage({
           </Badge>
         )}
         {total !== null && total > 0 && (
+          // "30 of 3,411" alone reads as "only 30 matched". The grid is
+          // windowed now, so it has to say which of the two numbers is which.
           <span className="text-xs tabular-nums text-muted-foreground">
-            {cards.length} of {total.toLocaleString()}
+            Showing {shown.length} of {total.toLocaleString()}
           </span>
         )}
         {source === 'finder' && (
@@ -186,7 +260,7 @@ export function CommanderStage({
         </div>
       ) : (
         <CardGrid width={cardWidth}>
-          {cards.map((card: any, i: number) => (
+          {shown.map((card: any, i: number) => (
             <button
               key={card.id ?? card.name}
               type="button"
@@ -197,7 +271,15 @@ export function CommanderStage({
               )}
               title={`Build a deck for ${card.name}`}
             >
-              <CardImage card={card} width={cardWidth} fill interactive eager={i < 12} hideFlip>
+              <CardImage
+                card={card}
+                width={cardWidth}
+                quality={imageQuality}
+                fill
+                interactive
+                eager={i < 12}
+                hideFlip
+              >
                 {/* Sits on card art, so light-on-dark is correct here. */}
                 <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 to-transparent p-2 pt-8 opacity-0 transition-opacity duration-200 group-hover/pick:opacity-100 group-focus-visible/pick:opacity-100">
                   <span className="min-w-0">
@@ -218,14 +300,22 @@ export function CommanderStage({
         </CardGrid>
       )}
 
-      {hasMore && onLoadMore && (
-        <div className="flex justify-center pt-2">
-          <Button variant="secondary" onClick={onLoadMore} disabled={loadingMore}>
+      {!loading && cards.length > 0 && canExtend && (
+        // Doubles as the observer target and a real control, so the list still
+        // grows where the observer is throttled or never fires.
+        <div ref={sentinel} className="flex justify-center pt-2">
+          <Button
+            variant="secondary"
+            onClick={() => extendRef.current()}
+            disabled={loadingMore}
+          >
             {loadingMore ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading…
               </>
+            ) : moreToReveal ? (
+              `Show ${Math.min(WINDOW_SIZE, cards.length - windowSize)} more`
             ) : (
               'Load more commanders'
             )}

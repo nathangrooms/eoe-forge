@@ -1421,6 +1421,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_platform_stats: { Args: never; Returns: Json }
       check_feature_access: {
         Args: { _feature_key: string; _user_id: string }
         Returns: Json

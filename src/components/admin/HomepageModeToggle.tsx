@@ -91,10 +91,12 @@ export function HomepageModeToggle() {
           />
         </div>
         
+        {/* Surface tint, no hue and no border: this is an app-state warning,
+            not a Magic colour, and hairline borders are banned. */}
         {enabled && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+          <div className="flex items-start gap-2 rounded-lg bg-muted/60 p-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
+            <p className="text-sm text-muted-foreground">
               The full homepage is currently hidden. Visitors will only see the testing banner.
             </p>
           </div>

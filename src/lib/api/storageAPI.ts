@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { ownedValueUSD } from "@/features/collection/value";
 import { 
   StorageContainer, 
   StorageSlot, 
@@ -22,12 +23,27 @@ export class StorageAPI {
 
     if (containersError) throw containersError;
 
-    // Get collection totals for unassigned calculation
+    /**
+     * Collection rows for the unassigned calculation, priced from the live card
+     * record.
+     *
+     * This selected `price_usd` — the denormalised snapshot on
+     * `user_collections` that is null on most rows and stale on the rest, and
+     * which `Collection.tsx` says outright "is never read for display". The
+     * result was the Storage tab reporting the owner's 159 unassigned cards as
+     * $237.01 directly underneath the same page's own header reading $345.90.
+     * Same 51 rows, same screen, two answers. It now goes through
+     * `ownedValueUSD`, the one accessor.
+     */
     const { data: collectionItems, error: collectionError } = await supabase
       .from('user_collections')
-      .select('card_id, quantity, foil, price_usd');
+      .select('card_id, quantity, foil, cards(prices)');
 
     if (collectionError) throw collectionError;
+
+    const pricesByCard = new Map<string, unknown>(
+      (collectionItems ?? []).map((item: any) => [item.card_id, item.cards?.prices])
+    );
 
     // Calculate assigned quantities by card
     const assignedQuantities = new Map<string, { normal: number; foil: number }>();
@@ -50,7 +66,7 @@ export class StorageAPI {
     let unassignedValue = 0;
     const unassignedCards = new Set<string>();
 
-    collectionItems?.forEach(item => {
+    collectionItems?.forEach((item: any) => {
       const assigned = assignedQuantities.get(item.card_id) || { normal: 0, foil: 0 };
       const unassignedNormal = Math.max(0, item.quantity - assigned.normal);
       const unassignedFoil = Math.max(0, item.foil - assigned.foil);
@@ -58,7 +74,7 @@ export class StorageAPI {
       if (unassignedNormal > 0 || unassignedFoil > 0) {
         unassignedCards.add(item.card_id);
         unassignedCount += unassignedNormal + unassignedFoil;
-        unassignedValue += (item.price_usd || 0) * (unassignedNormal + unassignedFoil);
+        unassignedValue += ownedValueUSD(item.cards?.prices, unassignedNormal, unassignedFoil);
       }
     });
 
@@ -71,11 +87,14 @@ export class StorageAPI {
       container.storage_items?.forEach((item: any) => {
         itemCount += item.qty;
         uniqueCards.add(item.card_id);
-        // Note: We'd need to join with cards table for accurate pricing
-        // For now, estimating based on collection data
-        const collectionItem = collectionItems?.find(c => c.card_id === item.card_id);
-        if (collectionItem?.price_usd) {
-          valueUSD += collectionItem.price_usd * item.qty;
+        // Priced off the card record the collection row points at, foil copies
+        // at `usd_foil`. The previous version multiplied the stale
+        // `price_usd` snapshot and did a linear `find` per stored item.
+        const prices = pricesByCard.get(item.card_id);
+        if (prices) {
+          valueUSD += item.foil
+            ? ownedValueUSD(prices, 0, item.qty)
+            : ownedValueUSD(prices, item.qty, 0);
         }
       });
 

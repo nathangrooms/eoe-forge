@@ -30,8 +30,21 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
 
   const totalValue = decks.reduce((sum, d) => sum + (d.economy?.priceUSD || 0), 0);
   const totalCards = decks.reduce((sum, d) => sum + (d.counts?.total || 0), 0);
-  const completeDecks = decks.filter(d => (d.economy?.missing || 0) === 0).length;
-  const completionRate = totalDecks > 0 ? Math.round((completeDecks / totalDecks) * 100) : 0;
+
+  /*
+   * "Complete" means you own every card in the deck. An empty deck does not
+   * satisfy that — it just has nothing to be missing.
+   *
+   * Filtering on `missing === 0` alone reported this library as 22% complete
+   * (2 of 9) when both of those decks held zero cards and not one real deck was
+   * finished. Complete now requires a decklist, and the denominator is the
+   * decks that have one, so empty shells neither inflate the numerator nor
+   * quietly pad the bottom of the ratio.
+   */
+  const builtDecks = decks.filter(d => (d.counts?.total || 0) > 0);
+  const completeDecks = builtDecks.filter(d => (d.economy?.missing || 0) === 0).length;
+  const completionRate =
+    builtDecks.length > 0 ? Math.round((completeDecks / builtDecks.length) * 100) : 0;
 
   const stats: Array<{
     label: string;
@@ -60,8 +73,11 @@ export function DecksSummaryStats({ decks, className }: DecksSummaryStatsProps) 
     { label: 'Total cards', value: totalCards.toLocaleString(), icon: Package },
     {
       label: 'Complete',
-      value: `${completionRate}%`,
-      subtext: `${completeDecks}/${totalDecks}`,
+      value: builtDecks.length > 0 ? `${completionRate}%` : '—',
+      subtext:
+        builtDecks.length > 0
+          ? `${completeDecks} of ${builtDecks.length} built deck${builtDecks.length === 1 ? '' : 's'}`
+          : 'No deck has cards yet',
       icon: TrendingUp,
     },
   ];

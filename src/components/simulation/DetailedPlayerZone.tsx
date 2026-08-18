@@ -62,7 +62,7 @@ function ZoneRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="w-full rounded border border-border bg-card/40 p-2">
+    <div className="w-full rounded-lg bg-muted/25 p-2">
       <div className={cn('mb-1.5 text-[10px] font-bold uppercase tracking-wide', accent)}>
         {label} ({count})
       </div>
@@ -162,10 +162,12 @@ export const DetailedPlayerZone = ({
   return (
     <div
       className={cn(
-        'flex h-full flex-col rounded-lg border transition-colors',
+        'flex h-full flex-col rounded-lg transition-colors',
         // Priority is the single most important piece of state in a Magic game
-        // view, so it gets the strongest treatment.
-        hasPriority ? 'border-foreground' : isActive ? 'border-border bg-accent/40' : 'border-transparent'
+        // view, so it gets the strongest treatment — a ring rather than a
+        // border, because a border is the hairline the design law bans and it
+        // also shifts the layout the moment priority changes hands.
+        hasPriority ? 'ring-2 ring-foreground' : isActive ? 'bg-accent/40' : ''
       )}
     >
       <div

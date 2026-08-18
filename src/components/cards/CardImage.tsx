@@ -83,6 +83,17 @@ export interface CardImageProps {
   interactive?: boolean;
   /** Ask for `png` (transparent rounded corners) rather than `large`. */
   transparent?: boolean;
+  /**
+   * Override the Scryfall resolution the size token would otherwise pick.
+   *
+   * For surfaces that render *many* cards well below the token's nominal width
+   * — a 175-card commander wall at 218px, a precon tile's 158px inset — where
+   * `large` (672px) is roughly four times the pixels the display can show and
+   * the cost is paid once per card. The ladder in {@link CARD_IMAGE_SIZES} is
+   * deliberately generous for focal cards; this is the escape hatch for grids
+   * where the count, not the card, is the expense. Ignored when `transparent`.
+   */
+  quality?: ScryfallImageSize;
   /** Which face to show initially. Controlled when paired with `onFaceChange`. */
   faceIndex?: number;
   onFaceChange?: (index: number) => void;
@@ -106,6 +117,7 @@ export function CardImage({
   onClick,
   interactive,
   transparent = false,
+  quality: qualityOverride,
   faceIndex,
   onFaceChange,
   hideFlip = false,
@@ -125,7 +137,7 @@ export function CardImage({
 
   const quality: ScryfallImageSize = transparent
     ? 'png'
-    : CARD_IMAGE_SIZES[resolved].quality;
+    : (qualityOverride ?? CARD_IMAGE_SIZES[resolved].quality);
 
   const src = useMemo(
     () => getBestCardImage(card, quality, face),
@@ -139,13 +151,19 @@ export function CardImage({
    * a card is a focal element and the lists are short, so the blur-up is worth
    * one extra 15 kB fetch; at grid sizes the fade up from the muted surface is
    * enough on its own.
+   *
+   * A caller that has dropped to `small`/`normal` via `quality` is by
+   * definition drawing a long grid, so it opts out of the second request too —
+   * otherwise the override would trade transferred bytes for request count and
+   * win nothing.
    */
+  const dense = quality === 'small' || quality === 'normal';
   const placeholder = useMemo(
     () =>
-      resolved === 'lg' || resolved === 'xl'
+      !dense && (resolved === 'lg' || resolved === 'xl')
         ? getBestCardImage(card, 'small', face)
         : undefined,
-    [card, resolved, face]
+    [card, dense, resolved, face]
   );
 
   /**

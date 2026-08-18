@@ -86,6 +86,25 @@ const PRIORITY_FILTERS: { value: PriorityFilter; label: string }[] = [
   { value: 'low', label: 'Low' },
 ];
 
+/** Every column the shared card filter can interrogate, plus `faces` to flip. */
+const CARD_COLUMNS =
+  'id, name, set_code, collector_number, type_line, oracle_text, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris, legalities, keywords, layout, faces, power, toughness, loyalty, is_reserved';
+
+/**
+ * Which printing to show when a wishlist row has to be matched by name.
+ *
+ * Cheapest priced printing with an image wins; a printing with no price at all
+ * loses to any that has one, so the total never falls back to zero when a
+ * priced alternative exists. Deterministic, so the same card does not change
+ * face between loads.
+ */
+function printingRank(card: any): number {
+  const usd = toNumber(card?.prices?.usd);
+  const hasImage = Boolean(card?.image_uris?.normal || card?.image_uris?.large);
+  if (usd <= 0) return Number.MAX_SAFE_INTEGER - (hasImage ? 1 : 0);
+  return hasImage ? usd : usd + 1_000_000;
+}
+
 export default function Wishlist() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -136,16 +155,53 @@ export default function Wishlist() {
         .from('cards')
         // Every column the shared filter can ask about — oracle text, legality,
         // keywords, P/T — plus `faces` so double-faced cards can flip.
-        .select(
-          'id, name, set_code, collector_number, type_line, oracle_text, colors, color_identity, rarity, cmc, mana_cost, prices, image_uris, legalities, keywords, layout, faces, power, toughness, loyalty, is_reserved'
-        )
+        .select(CARD_COLUMNS)
         .in('id', cardIds);
 
       const cardsMap = new Map((cardsData ?? []).map(c => [c.id, c]));
 
+      /**
+       * Second pass: rows whose `card_id` is not in `cards`, matched by name.
+       *
+       * Eleven of the owner's 94 wishlist rows point at a Scryfall printing id
+       * that this database does not hold — card sync has been stalled since
+       * January, and one legacy row stores the slug `sol-ring` rather than a
+       * uuid at all. Every one of them is a real card with exactly one other
+       * printing already in `cards`: Underground Sea, Volcanic Island, Tundra,
+       * Plateau, Scrubland, Lion's Eye Diamond, Lotus Petal, Mox Diamond,
+       * Demonic Consultation, Intuition and Sol Ring.
+       *
+       * They used to render as blank grey tiles priced $0.00, and — worse —
+       * the page's headline total counted them as nothing, understating a
+       * $4,676 wishlist as $2,318. Falling back to the name shows the real
+       * card, the real art and a real price. The printing chosen is the
+       * cheapest one carrying a USD price, which is the honest answer to the
+       * question a wishlist actually asks: what would this cost me to buy.
+       */
+      const unresolvedNames = [
+        ...new Set(
+          wishlistData.filter(i => !cardsMap.has(i.card_id)).map(i => i.card_name).filter(Boolean)
+        ),
+      ];
+
+      const byName = new Map<string, any>();
+      if (unresolvedNames.length > 0) {
+        const { data: namedCards } = await supabase
+          .from('cards')
+          .select(CARD_COLUMNS)
+          .in('name', unresolvedNames);
+
+        for (const row of namedCards ?? []) {
+          const key = String(row.name).toLowerCase();
+          const existing = byName.get(key);
+          if (!existing || printingRank(row) < printingRank(existing)) byName.set(key, row);
+        }
+      }
+
       setWishlistItems(
         wishlistData.map(item => {
-          const cardData = cardsMap.get(item.card_id);
+          const cardData =
+            cardsMap.get(item.card_id) ?? byName.get((item.card_name ?? '').toLowerCase());
           return {
             ...item,
             // The row is passed through whole; nothing is dropped on the way in,

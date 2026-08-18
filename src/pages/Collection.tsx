@@ -29,7 +29,6 @@ import { CollectionAnalytics } from '@/features/collection/CollectionAnalytics';
 import type { CollectionStats, CollectionCard } from '@/types/collection';
 import { CollectionAPI } from '@/server/routes/collection';
 import { priceUSD } from '@/features/collection/value';
-import { formatPrice } from '@/components/collection/browser/types';
 
 import { TCGPlayerPriceSync } from '@/components/collection/TCGPlayerPriceSync';
 import { CollectionExport } from '@/components/collection/CollectionExport';
@@ -341,17 +340,36 @@ export default function Collection() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    /**
+     * The window owns the scroll.
+     *
+     * This page used to be `h-screen` with `overflow-hidden` wrapped around an
+     * `overflow-auto` tab panel, which made it the only route in the nav whose
+     * scroll lived in an inner box: the document never grew past the viewport,
+     * the scrollbar vanished, scroll restoration broke, and the sticky card
+     * detail pane anchored to the wrong container. Nothing on this page needs a
+     * fixed viewport, so nothing on it claims one.
+     */
+    <div className="min-h-screen bg-background">
       {/* Header — carries state, not marketing copy */}
       <div className="bg-card px-3 py-3 shadow-lg shadow-black/20 md:px-6 md:py-4">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-foreground md:text-2xl">Collection</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {collectionStats.totalCards.toLocaleString()} cards ·{' '}
-              {collectionStats.uniqueCards.toLocaleString()} unique ·{' '}
-              {formatPrice(collectionStats.totalValue)}
-            </p>
+            {/* One line, five facts. The four stat cards that used to sit under
+                the tab strip repeated three of them word for word. */}
+            <CollectionQuickStats
+              totalValue={collectionStats.totalValue}
+              totalCards={collectionStats.totalCards}
+              uniqueCards={collectionStats.uniqueCards}
+              avgCardValue={
+                collectionStats.totalCards > 0
+                  ? collectionStats.totalValue / collectionStats.totalCards
+                  : 0
+              }
+              recentlyAddedCount={recentlyAddedCount}
+              loading={loading}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => refresh()} className="gap-2">
@@ -408,12 +426,12 @@ export default function Collection() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full">
+      <div>
+        <Tabs value={currentTab} onValueChange={setActiveTab}>
           {/* Collection */}
           <TabsContent
             value="collection"
-            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+            className="m-0 px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           >
             {loading ? (
               <CollectionLoadingSkeleton />
@@ -425,19 +443,6 @@ export default function Collection() {
               />
             ) : (
               <div className="space-y-6">
-                <CollectionQuickStats
-                  totalValue={collectionStats.totalValue}
-                  totalCards={collectionStats.totalCards}
-                  uniqueCards={collectionStats.uniqueCards}
-                  avgCardValue={
-                    collectionStats.totalCards > 0
-                      ? collectionStats.totalValue / collectionStats.totalCards
-                      : 0
-                  }
-                  recentlyAddedCount={recentlyAddedCount}
-                  loading={loading}
-                />
-
                 <FavoriteDecksPreview />
 
                 {/* Picking a destination deck for a card already on screen is
@@ -481,7 +486,7 @@ export default function Collection() {
           {/* Analytics */}
           <TabsContent
             value="analytics"
-            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+            className="m-0 px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           >
             <div className="space-y-6">
               <AnalyticsHeader
@@ -528,7 +533,7 @@ export default function Collection() {
           {/* Add cards */}
           <TabsContent
             value="add-cards"
-            className="m-0 h-full overflow-auto px-3 py-4 sm:px-4 sm:py-6 md:px-6"
+            className="m-0 px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           >
             <div className="space-y-6">
               <AddCardsHeader
@@ -559,7 +564,7 @@ export default function Collection() {
           </TabsContent>
 
           {/* Storage */}
-          <TabsContent value="storage" className="m-0 h-full">
+          <TabsContent value="storage" className="m-0">
             <StorageTab />
           </TabsContent>
         </Tabs>

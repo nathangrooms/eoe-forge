@@ -58,18 +58,24 @@ export const DeckSearchFilters = ({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="relative w-full flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {/* Borderless, muted ground — the field skin every other card surface
+            uses (`PreconFilterBar`, the commander wall). The shared `Input`
+            default carries `border-input`, which at rgb(41,42,46) on a
+            rgb(9,10,11) page is a plainly visible hairline: the one thing the
+            owner has ruled out outright. */}
         <Input
           placeholder="Search decks…"
           value={filters.searchQuery}
           onChange={e => onUpdateFilters({ searchQuery: e.target.value })}
-          className="pl-10"
+          className="border-0 bg-muted/50 pl-10 shadow-none focus-visible:ring-1 focus-visible:ring-offset-0"
           aria-label="Search decks by name"
         />
       </div>
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="gap-2">
+          {/* `outline` is literally a border variant. */}
+          <Button variant="secondary" className="gap-2">
             <Filter className="h-4 w-4" />
             Filters
             {hasActiveFilters && (
@@ -79,7 +85,7 @@ export const DeckSearchFilters = ({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80" align="end">
+        <PopoverContent className="w-80 border-0 shadow-xl shadow-black/40" align="end">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold">Filters</h4>

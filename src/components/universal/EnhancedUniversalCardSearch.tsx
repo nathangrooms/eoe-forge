@@ -57,9 +57,30 @@ import {
  *   They are surfaces and shadows now.
  */
 
+/**
+ * A named starting view for the grid, shown when no filter is set.
+ *
+ * Each one is a real Scryfall query and the caption names it, so an arriving
+ * user can see what the grid is showing rather than being handed an unexplained
+ * pile of cards. Typing into the box replaces the browse view with the search.
+ */
+export interface BrowseView {
+  id: string;
+  label: string;
+  /** One line naming the source and the ordering. Rendered above the grid. */
+  caption: string;
+  state: CardSearchState;
+}
+
 interface EnhancedUniversalCardSearchProps {
   onCardAdd?: (card: any) => void;
   onCardSelect?: (card: any) => void;
+  /**
+   * Starting views for an untouched filter. Given these, the surface arrives
+   * full of real cards instead of an empty box; without them it keeps the
+   * blank slate, which is what embedded pickers want.
+   */
+  browseViews?: BrowseView[];
   /**
    * Keep the selection inside this component instead of navigating to the card
    * page. Set by embedded pickers (add-to-deck, commander choice) where leaving
@@ -89,9 +110,16 @@ interface EnhancedUniversalCardSearchProps {
 }
 
 const VIEW_STORAGE_KEY = 'dm.cardSearch.view';
+const BROWSE_STORAGE_KEY = 'dm.cardSearch.browse';
 
-/** Cards default to LARGE — `lg` in `CARD_IMAGE_SIZES`, drawn from Scryfall `large`. */
-const DEFAULT_CARD_WIDTH = 250;
+/**
+ * 190px puts six cards across the 1136px content band, and sits in `CardImage`'s
+ * `md` band — which is the point. `lg` adds a blur-up placeholder request per
+ * card, and this grid now arrives pre-filled with a full Scryfall page, so that
+ * would be ~350 requests on first paint instead of ~175 for no visible gain.
+ * The size slider still reaches `lg`/`xl` for anyone who wants bigger cards.
+ */
+const DEFAULT_CARD_WIDTH = 190;
 
 /** Borderless field skin. `Input`/`SelectTrigger` ship with `border border-input`. */
 const FIELD = 'border-0 bg-muted/50 focus:ring-1 focus:ring-ring focus:ring-offset-0 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0';
@@ -176,6 +204,7 @@ function Key({ children }: { children: React.ReactNode }) {
 export function EnhancedUniversalCardSearch({
   onCardAdd,
   onCardSelect,
+  browseViews,
   suppressNavigate = false,
   onQueryChange,
   placeholder = 'Search Magic cards — name, or Scryfall syntax like t:creature mv<=3',
@@ -200,6 +229,16 @@ export function EnhancedUniversalCardSearch({
 
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  /* --------------------------- Browse views --------------------------- */
+  const [browseId, setBrowseId] = useState<string>(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(BROWSE_STORAGE_KEY) : null;
+    return stored && browseViews?.some(v => v.id === stored) ? stored : browseViews?.[0]?.id ?? '';
+  });
+  const browseView = useMemo(
+    () => browseViews?.find(v => v.id === browseId) ?? browseViews?.[0] ?? null,
+    [browseViews, browseId]
+  );
 
   const [cardWidth, setCardWidth] = useCardSize(sizeKey, DEFAULT_CARD_WIDTH);
 
@@ -296,12 +335,47 @@ export function EnhancedUniversalCardSearch({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const hasCriteria = filters.query !== '*';
+
+  /**
+   * What is actually sent to Scryfall.
+   *
+   * With no criteria this is the active browse view rather than nothing, so the
+   * page arrives full. The result options the user drives — sort field,
+   * direction, uniqueness — are layered on top of the view, because those
+   * controls belong to the grid whichever query filled it.
+   */
+  const effectiveState = useMemo<CardSearchState | null>(() => {
+    if (hasCriteria) return searchState;
+    if (!browseView) return null;
+    return {
+      ...browseView.state,
+      unique: searchState.unique ?? browseView.state.unique,
+      order: searchState.order ?? browseView.state.order,
+      dir: searchState.dir ?? browseView.state.dir,
+    };
+  }, [hasCriteria, searchState, browseView]);
+
+  /** Sort/uniqueness the toolbar should display — the browse view's, until overridden. */
+  const shownOrder = effectiveState?.order ?? 'name';
+  const shownDir = effectiveState?.dir ?? 'asc';
+  const shownUnique = effectiveState?.unique ?? 'cards';
+
   // The whole filter state participates: the hook keys its cache on the full
   // request URL, not on the query token alone, so sort and uniqueness count.
   useEffect(() => {
-    if (filters.query !== '*') searchWithState(searchState);
+    if (effectiveState) searchWithState(effectiveState);
     else clearResults();
-  }, [searchState, filters.query, searchWithState, clearResults]);
+  }, [effectiveState, searchWithState, clearResults]);
+
+  const selectBrowse = useCallback((id: string) => {
+    setBrowseId(id);
+    try {
+      localStorage.setItem(BROWSE_STORAGE_KEY, id);
+    } catch {
+      /* private mode — the view just does not persist */
+    }
+  }, []);
 
   // Infinite scroll.
   useEffect(() => {
@@ -321,12 +395,12 @@ export function EnhancedUniversalCardSearch({
   const handleSortKey = useCallback(
     (key: CardSortKey) => {
       patch(
-        searchState.order === key
-          ? { dir: searchState.dir === 'asc' ? 'desc' : 'asc' }
+        shownOrder === key
+          ? { dir: shownDir === 'asc' ? 'desc' : 'asc' }
           : { order: key as CardSearchState['order'], dir: 'asc' }
       );
     },
-    [patch, searchState.order, searchState.dir]
+    [patch, shownOrder, shownDir]
   );
 
   const handleCardClick = (card: any) => {
@@ -354,16 +428,16 @@ export function EnhancedUniversalCardSearch({
     clearResults();
   }, [resetFilters, clearResults]);
 
-  const hasCriteria = filters.query !== '*';
   /** Active facets excluding the free-text box, which has its own input. */
   const facetCount = filters.activeCount - (committedText.trim() ? 1 : 0);
 
-  const tableSort = useMemo(() => {
-    const key = searchState.order ?? 'name';
-    return TABLE_SORT_KEYS.has(key)
-      ? { key: key as CardSortKey, dir: searchState.dir ?? 'asc' }
-      : undefined;
-  }, [searchState.order, searchState.dir]);
+  const tableSort = useMemo(
+    () =>
+      TABLE_SORT_KEYS.has(shownOrder)
+        ? { key: shownOrder as CardSortKey, dir: shownDir }
+        : undefined,
+    [shownOrder, shownDir]
+  );
 
   const presetButtons = useMemo(() => PRESET_QUERIES.slice(0, 4), []);
 
@@ -527,13 +601,39 @@ export function EnhancedUniversalCardSearch({
         */}
         {facetCount > 0 && <ActiveFilterChips controller={filters} />}
 
+        {/* ------------------------- Browse views -------------------------- */}
+        {/* Only while the filter is untouched: the moment there is a query, the
+            query is the subject of the page and a competing set of "views"
+            beside it would be lying about what the grid contains. */}
+        {browseViews && browseViews.length > 0 && !hasCriteria && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Browse
+            </span>
+            {browseViews.map(view => (
+              <Button
+                key={view.id}
+                variant={view.id === browseView?.id ? 'default' : 'secondary'}
+                size="sm"
+                className="h-8"
+                onClick={() => selectBrowse(view.id)}
+                aria-pressed={view.id === browseView?.id}
+              >
+                {view.label}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* ------------------------ Results toolbar ------------------------ */}
         {(results.length > 0 || loading) && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {loading
                 ? 'Searching…'
-                : `Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()} cards`}
+                : !hasCriteria && browseView
+                  ? `${browseView.caption} — showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()}`
+                  : `Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()} cards`}
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -565,11 +665,11 @@ export function EnhancedUniversalCardSearch({
               )}
 
               <Select
-                value={searchState.unique ?? 'cards'}
+                value={shownUnique}
                 onValueChange={(unique: 'cards' | 'prints' | 'art') => patch({ unique })}
               >
                 <SelectTrigger
-                  className={cn(FIELD, 'h-8 w-[104px]')}
+                  className={cn(FIELD, 'h-8 w-[132px]')}
                   aria-label="Result uniqueness"
                 >
                   <SelectValue />
@@ -582,7 +682,7 @@ export function EnhancedUniversalCardSearch({
               </Select>
 
               <Select
-                value={searchState.order ?? 'name'}
+                value={shownOrder}
                 onValueChange={(order: SortField) => patch({ order })}
               >
                 <SelectTrigger className={cn(FIELD, 'h-8 w-[140px]')} aria-label="Sort results by">
@@ -600,12 +700,12 @@ export function EnhancedUniversalCardSearch({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => patch({ dir: searchState.dir === 'asc' ? 'desc' : 'asc' })}
+                onClick={() => patch({ dir: shownDir === 'asc' ? 'desc' : 'asc' })}
                 className="h-8 bg-muted/40 px-2"
-                title={searchState.dir === 'desc' ? 'Sort ascending' : 'Sort descending'}
-                aria-label={searchState.dir === 'desc' ? 'Sort ascending' : 'Sort descending'}
+                title={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
+                aria-label={shownDir === 'desc' ? 'Sort ascending' : 'Sort descending'}
               >
-                {searchState.dir === 'desc' ? (
+                {shownDir === 'desc' ? (
                   <ArrowDown className="h-4 w-4" />
                 ) : (
                   <ArrowUp className="h-4 w-4" />
@@ -692,7 +792,9 @@ export function EnhancedUniversalCardSearch({
             </div>
           )}
 
-          {!loading && !error && results.length === 0 && !hasCriteria && (
+          {/* The blank slate survives only where there is nothing else to show:
+              an embedded picker with no browse views configured. */}
+          {!loading && !error && results.length === 0 && !hasCriteria && !browseView && (
             <div className="rounded-xl bg-card p-8 text-center shadow-lg shadow-black/20">
               <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
               <h3 className="mb-1 text-base font-medium text-foreground">Search every Magic card</h3>

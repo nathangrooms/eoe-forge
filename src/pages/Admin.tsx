@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
+import {
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
-  Download, Database, Loader2, AlertCircle,
-  Activity, CreditCard, Settings, Rocket
+  Download, Loader2, AlertCircle, CreditCard, Rocket
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 
-// Import proper admin components
+import { AdminOverview } from '@/components/admin/AdminOverview';
 import { FeatureFlagsManager } from '@/components/admin/FeatureFlagsManager';
 import { SubscriptionManager } from '@/components/admin/SubscriptionManager';
 import { UserManagement } from '@/components/admin/UserManagement';
@@ -20,222 +17,106 @@ import { HomepageModeToggle } from '@/components/admin/HomepageModeToggle';
 import SyncDashboard from '@/components/SyncDashboard';
 import { DevConsole } from '@/components/admin/DevConsole';
 
-// ============= Overview Section =============
-function OverviewSection() {
-  const [cardCount, setCardCount] = useState(0);
-  const [userCount, setUserCount] = useState(0);
-  const [deckCount, setDeckCount] = useState(0);
-  const [collectionCount, setCollectionCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+const TABS = [
+  { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { value: 'features', label: 'Features', icon: Flag },
+  { value: 'subscriptions', label: 'Subs', icon: CreditCard },
+  { value: 'users', label: 'Users', icon: Users },
+  { value: 'tasks', label: 'Tasks', icon: ClipboardList },
+  { value: 'ai', label: 'AI', icon: Brain },
+  { value: 'sync', label: 'Sync', icon: Download },
+  { value: 'dev', label: 'Dev', icon: Rocket },
+] as const;
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      const cardsRes = await supabase.from('cards').select('id', { count: 'exact', head: true });
-      const profilesRes = await supabase.from('profiles').select('id', { count: 'exact', head: true });
-      const decksRes = await supabase.from('user_decks').select('id', { count: 'exact', head: true });
-      const collectionsRes = await supabase.from('user_collections').select('id', { count: 'exact', head: true });
-
-      setCardCount(cardsRes.count || 0);
-      setUserCount(profilesRes.count || 0);
-      setDeckCount(decksRes.count || 0);
-      setCollectionCount(collectionsRes.count || 0);
-    } catch (e) {
-      console.error('Failed to load admin data:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Database className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Cards</p>
-                <p className="text-2xl font-bold">{loading ? '...' : cardCount.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <Users className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Users</p>
-                <p className="text-2xl font-bold">{loading ? '...' : userCount.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-500/10">
-                <ClipboardList className="h-5 w-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Decks</p>
-                <p className="text-2xl font-bold">{loading ? '...' : deckCount.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <Activity className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Collection Items</p>
-                <p className="text-2xl font-bold">{loading ? '...' : collectionCount.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <SyncDashboard />
-    </div>
-  );
-}
-
-// ============= Main Admin Page =============
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const { user, loading, isAdmin } = useAuth();
 
-  // Loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading…</p>
         </div>
       </div>
     );
   }
 
-  // Not logged in or not admin
   if (!user || !isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="max-w-md">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center gap-4 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive" />
-              <h2 className="text-xl font-semibold">Access Denied</h2>
-              <p className="text-muted-foreground">
-                {!user ? 'Please log in to access the admin panel.' : "You don't have permission to access the admin panel."}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <StandardPageLayout title="Admin" description="Restricted area">
+        <div className="mx-auto max-w-md rounded-xl bg-card p-6 text-center shadow-lg shadow-black/20">
+          <AlertCircle className="mx-auto h-10 w-10 text-destructive" aria-hidden="true" />
+          <h2 className="mt-4 text-xl font-semibold">Access denied</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {!user
+              ? 'Please log in to access the admin panel.'
+              : "This account doesn't have permission to access the admin panel."}
+          </p>
+        </div>
+      </StandardPageLayout>
     );
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your application settings and data</p>
-        </div>
-        <Badge variant="default" className="flex items-center gap-1">
-          <Settings className="h-3 w-3" />
-          Admin Mode
-        </Badge>
-      </div>
-
+    /* Admin went through a bare `container mx-auto py-6`, which gave it a 32px
+       content gutter while all eleven StandardPageLayout routes use 24px — an
+       8px disagreement with every neighbour, plus no HistoryNav and no
+       breadcrumb. It goes through the same layout as everything else now. */
+    <StandardPageLayout title="Admin" description="Platform data, users, features and sync">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-max sm:grid sm:w-full sm:grid-cols-8 h-auto">
-            <TabsTrigger value="overview" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="features" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <Flag className="h-4 w-4" />
-              <span className="hidden sm:inline">Features</span>
-            </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Subs</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Users</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">Tasks</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline">AI</span>
-            </TabsTrigger>
-            <TabsTrigger value="sync" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Sync</span>
-            </TabsTrigger>
-            <TabsTrigger value="dev" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
-              <Rocket className="h-4 w-4" />
-              <span className="hidden sm:inline">Dev</span>
-            </TabsTrigger>
+        <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex h-auto w-max sm:grid sm:w-full sm:grid-cols-8">
+            {TABS.map(({ value, label, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="flex items-center gap-2 whitespace-nowrap px-3 py-2.5"
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
         </div>
 
-        <TabsContent value="overview" className="mt-6">
-          <div className="space-y-6">
-            <HomepageModeToggle />
-            <OverviewSection />
-          </div>
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <AdminOverview onOpenSync={() => setActiveTab('sync')} />
+          <HomepageModeToggle />
         </TabsContent>
 
-        <TabsContent value="features" className="mt-6">
+        <TabsContent value="features" className="mt-4">
           <FeatureFlagsManager />
         </TabsContent>
 
-        <TabsContent value="subscriptions" className="mt-6">
+        <TabsContent value="subscriptions" className="mt-4">
           <SubscriptionManager />
         </TabsContent>
 
-        <TabsContent value="users" className="mt-6">
+        <TabsContent value="users" className="mt-4">
           <UserManagement />
         </TabsContent>
 
-        <TabsContent value="tasks" className="mt-6">
+        <TabsContent value="tasks" className="mt-4">
           <TaskManagement />
         </TabsContent>
 
-        <TabsContent value="ai" className="mt-6">
+        <TabsContent value="ai" className="mt-4">
           <AISystemAdmin />
         </TabsContent>
 
-        <TabsContent value="sync" className="mt-6">
+        {/* The full sync dashboard lives here and only here. It used to be
+            rendered twice — once inside Overview and once under this tab — so
+            "Manual Actions" and "Start Full Sync" appeared in two places. */}
+        <TabsContent value="sync" className="mt-4">
           <SyncDashboard />
         </TabsContent>
 
-        <TabsContent value="dev" className="mt-6">
+        <TabsContent value="dev" className="mt-4">
           <DevConsole />
         </TabsContent>
       </Tabs>
-    </div>
+    </StandardPageLayout>
   );
 }

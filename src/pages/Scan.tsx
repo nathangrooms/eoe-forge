@@ -1,272 +1,302 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Camera, Zap, Settings, BarChart3, Plus, Target } from 'lucide-react';
+import { Camera, Settings, Trash2 } from 'lucide-react';
 import { useScanStore } from '@/features/scan/store';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { ScanInsightsHelper } from '@/components/scan/ScanInsightsHelper';
+import { CardGrid, CardImage } from '@/components/cards';
+import { formatPrice } from '@/components/collection/browser/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
+/** Rendered width of a card in either grid on this page. */
+const CARD_WIDTH = 168;
+
+interface RecentCollectionCard {
+  id: string;
+  name: string;
+  quantity: number;
+  card: any;
+}
+
+/**
+ * A scanned card holds one image URL, not a Scryfall image set; this is the
+ * shape `CardImage` reads. These used to be drawn through a hand-rolled
+ * `<img className="object-cover">` at 40×56 — which CLAUDE.md forbids, and
+ * which cropped the card besides.
+ */
+function cardShapeOf(scan: { name: string; imageUrl?: string }) {
+  const url = scan.imageUrl || '';
+  return {
+    name: scan.name,
+    image_uris: url ? { small: url, normal: url, large: url } : {},
+  };
+}
+
+/**
+ * The scanner, as a tool.
+ *
+ * What stood here was a brochure: a "Smart Recognition — Fast Detection / Any
+ * Angle / All Languages / Instant Add" claim card, a second full-width "Ready
+ * to Scan?" hero pointing at the same route as the header button, and a
+ * three-step "How Scanning Works" explainer. 1,488px of page, aimed at a user
+ * who has already signed up, pushing the one real control a thousand pixels
+ * down — and none of the capability claims was backed by anything ("All
+ * Languages" least of all: recognition is English OCR matched against the local
+ * `cards` table). All of it is gone.
+ *
+ * What remains is the two things this page actually decides — where scanned
+ * cards go, and how the camera behaves — and then cards: the last things
+ * scanned, or, before any scan exists, the last cards that arrived in the
+ * collection, which is the destination the page is configuring.
+ */
 export default function Scan() {
   const [selectedDeckId, setSelectedDeckId] = useState<string>('');
   const [addToCollection, setAddToCollection] = useState(true);
   const [addToDeck, setAddToDeck] = useState(false);
 
-  const { recentScans, settings, updateSettings } = useScanStore();
+  const { recentScans, settings, updateSettings, clearRecentScans } = useScanStore();
+  const { user } = useAuth();
 
-  const recentScanStats = {
-    totalScanned: recentScans.length,
-    totalCards: recentScans.reduce((sum, scan) => sum + scan.quantity, 0),
-    avgConfidence: recentScans.length > 0 
-      ? recentScans.reduce((sum, scan) => sum + scan.confidence, 0) / recentScans.length 
-      : 0
-  };
+  const [recentCollection, setRecentCollection] = useState<RecentCollectionCard[]>([]);
+
+  /**
+   * The most recent arrivals in the collection — six rows, read live, nothing
+   * aggregated. This is the same table the scanner writes into, so it is the
+   * honest answer to "where do these end up".
+   */
+  const loadRecentCollection = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('user_collections')
+      .select('id, card_name, quantity, foil, created_at, cards(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    if (error) {
+      console.error('Failed to load recent collection cards:', error);
+      return;
+    }
+
+    setRecentCollection(
+      (data ?? []).map((row: any) => ({
+        id: row.id,
+        name: row.card_name ?? row.cards?.name ?? 'Unknown card',
+        quantity: (row.quantity ?? 0) + (row.foil ?? 0),
+        card: row.cards ?? { name: row.card_name },
+      }))
+    );
+  }, [user]);
+
+  useEffect(() => {
+    loadRecentCollection();
+  }, [loadRecentCollection]);
+
+  const scannedCopies = recentScans.reduce((sum, scan) => sum + scan.quantity, 0);
+  const avgConfidence =
+    recentScans.length > 0
+      ? recentScans.reduce((sum, scan) => sum + scan.confidence, 0) / recentScans.length
+      : 0;
 
   return (
     <StandardPageLayout
       title="Card Scanner"
-      description="Camera scanning for instant card recognition"
+      description="Point the camera at a card, confirm the match, and it lands wherever you send it."
       action={
-        <Button asChild size="lg" className="gap-2 touch-target">
+        <Button asChild size="lg" className="touch-target gap-2">
           <Link to="/scan/camera">
-            <Camera className="h-5 w-5" />
-            <span className="hidden sm:inline">Start Scanning</span>
+            <Camera className="h-5 w-5" aria-hidden="true" />
+            <span className="hidden sm:inline">Start scanning</span>
             <span className="sm:hidden">Scan</span>
           </Link>
         </Button>
       }
     >
-      <div className="space-y-4 md:space-y-6 pb-safe">
-        {/* Scan Insights Helper */}
-        {recentScans.length > 0 && (
-          <ScanInsightsHelper recentScans={recentScans} />
-        )}
+      <div className="space-y-6 pb-safe">
+        {/*
+         * Where the cards land. Full width because the panel lays its three
+         * destinations out in a row of its own — squeezed into a two-thirds
+         * column every label wrapped onto three lines. It carries its own Card,
+         * so it is not wrapped in a second one.
+         */}
+        <DeckAdditionPanel
+          title="Where scanned cards go"
+          className=""
+          selectedDeckId={selectedDeckId}
+          addToCollection={addToCollection}
+          addToDeck={addToDeck}
+          onSelectionChange={config => {
+            setSelectedDeckId(config.selectedDeckId);
+            setAddToCollection(config.addToCollection);
+            setAddToDeck(config.addToDeck);
+          }}
+        />
 
-        {/* Quick Stats - 2 columns on mobile, 3 on desktop */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-          <Card className="touch-friendly">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6 md:pb-2">
-              <CardTitle className="text-xs md:text-sm font-medium">Recent Scans</CardTitle>
-              <Camera className="h-4 w-4 text-muted-foreground hidden sm:block" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-              <div className="text-xl md:text-2xl font-bold">{recentScanStats.totalScanned}</div>
-              <p className="text-xs text-muted-foreground">
-                {recentScanStats.totalCards} cards
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="touch-friendly">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6 md:pb-2">
-              <CardTitle className="text-xs md:text-sm font-medium">Recognition</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground hidden sm:block" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-              <div className="text-xl md:text-2xl font-bold">
-                {(recentScanStats.avgConfidence * 100).toFixed(0)}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Accuracy
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="touch-friendly col-span-2 sm:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6 md:pb-2">
-              <CardTitle className="text-xs md:text-sm font-medium">Auto Features</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground hidden sm:block" />
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="scan-auto-capture" className="text-xs font-normal text-muted-foreground">
-                  Auto capture
-                </Label>
-                <Switch
-                  id="scan-auto-capture"
-                  checked={settings.autoCapture}
-                  onCheckedChange={(checked) => updateSettings({ autoCapture: checked })}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="scan-auto-add" className="text-xs font-normal text-muted-foreground">
-                  Auto add
-                </Label>
-                <Switch
-                  id="scan-auto-add"
-                  checked={settings.autoAdd}
-                  onCheckedChange={(checked) => updateSettings({ autoAdd: checked })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Feature Highlight - compact for mobile */}
         <Card>
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center gap-3 mb-3 md:mb-4">
-              <div className="p-2 md:p-3 bg-muted rounded-md">
-                <Target className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
-              </div>
-              <div>
-                <h3 className="text-base md:text-lg font-semibold">Smart Recognition</h3>
-                <p className="text-muted-foreground text-xs md:text-sm">Instant card detection from camera</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 text-xs md:text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
-                <span>Fast Detection</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
-                <span>Any Angle</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
-                <span>All Languages</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-foreground rounded-full flex-shrink-0" />
-                <span>Instant Add</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Destination Settings */}
-        <Card>
-          <CardHeader className="p-3 md:p-6">
+          <CardHeader className="p-4 pb-3 md:px-6 md:pb-3 md:pt-5">
             <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Settings className="h-4 w-4 md:h-5 md:w-5" />
-              Scan Destination
+              <Settings className="h-4 w-4 md:h-5 md:w-5" aria-hidden="true" />
+              Camera behaviour
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-            <DeckAdditionPanel
-              selectedDeckId={selectedDeckId}
-              addToCollection={addToCollection}
-              addToDeck={addToDeck}
-              onSelectionChange={(config) => {
-                setSelectedDeckId(config.selectedDeckId);
-                setAddToCollection(config.addToCollection);
-                setAddToDeck(config.addToDeck);
-              }}
-            />
-          </CardContent>
-        </Card>
+          <CardContent className="grid gap-4 p-4 pt-0 md:grid-cols-2 md:gap-8 md:px-6 md:pb-5 md:pt-0">
+            {/*
+             * Auto capture is wired now. It used to write `settings.autoCapture`
+             * into a store nothing read back — `CameraScanView` kept its own
+             * `useState(true)` — so this switch changed nothing anywhere in the
+             * app. It is now the same switch as the pause control on the camera.
+             */}
+            <div className="flex items-start justify-between gap-4">
+              <Label
+                htmlFor="scan-auto-capture"
+                className="flex-1 cursor-pointer text-sm font-medium"
+              >
+                Auto capture
+                <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                  Fires as soon as the frame holds still and sharp. Off means every shot is
+                  a deliberate tap.
+                </span>
+              </Label>
+              <Switch
+                id="scan-auto-capture"
+                checked={settings.autoCapture}
+                onCheckedChange={checked => updateSettings({ autoCapture: checked })}
+              />
+            </div>
 
-        {/* Main Scan Button - more compact on mobile */}
-        <Card className="text-center p-4 md:p-8">
-          <Camera className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-4 md:mb-6 text-muted-foreground" />
-          <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-4">Ready to Scan?</h2>
-          <p className="text-muted-foreground mb-4 md:mb-8 max-w-md mx-auto text-sm md:text-base">
-            Point your camera at any Magic: The Gathering card for instant recognition.
-          </p>
-          <Button
-            asChild
-            size="lg"
-            className="gap-2 px-6 md:px-8 py-3 md:py-4 text-base md:text-lg touch-target w-full sm:w-auto"
-          >
-            <Link to="/scan/camera">
-              <Camera className="h-5 w-5 md:h-6 md:w-6" />
-              Start Camera Scan
-            </Link>
-          </Button>
-        </Card>
-
-        {/* Recent Scans - 2 columns on mobile */}
-        {recentScans.length > 0 && (
-          <Card>
-            <CardHeader className="p-3 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                Recent Scans
-                <Badge variant="secondary">{recentScans.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                {recentScans.slice(0, 6).map((scan) => (
-                  <Card key={scan.id} className="bg-muted/50 touch-friendly">
-                    <CardContent className="p-3 md:p-4">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <img
-                          src={scan.imageUrl}
-                          alt={scan.name}
-                          className="w-10 h-14 md:w-12 md:h-16 object-cover rounded"
-                          loading="lazy"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-sm md:text-base">{scan.name}</p>
-                          <p className="text-xs text-muted-foreground">{scan.setCode.toUpperCase()}</p>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <Badge variant="outline" className="text-xs px-1">x{scan.quantity}</Badge>
-                            {scan.priceUsd && (
-                              <Badge variant="outline" className="text-xs px-1">${scan.priceUsd}</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              
-              {recentScans.length > 6 && (
-                <div className="text-center mt-4">
-                  <Button asChild variant="outline" className="touch-target">
-                    <Link to="/scan/camera">View All Scans</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* How It Works - 2 columns on mobile, 3 on desktop */}
-        <Card>
-          <CardHeader className="p-3 md:p-6">
-            <CardTitle className="text-base md:text-lg">How Scanning Works</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-              <div className="text-center">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Camera className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
-                </div>
-                <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">1. Point</h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Position the card in frame
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Target className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
-                </div>
-                <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">2. Detect</h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Card identified instantly
-                </p>
-              </div>
-              
-              <div className="text-center col-span-2 md:col-span-1">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-md flex items-center justify-center mx-auto mb-2 md:mb-4">
-                  <Plus className="h-5 w-5 md:h-6 md:w-6 text-foreground" />
-                </div>
-                <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">3. Add</h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Added to your collection
-                </p>
-              </div>
+            <div className="flex items-start justify-between gap-4">
+              <Label htmlFor="scan-auto-add" className="flex-1 cursor-pointer text-sm font-medium">
+                Auto add
+                <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                  Skips the confirm list when the match scores 0.9 or better.
+                </span>
+              </Label>
+              <Switch
+                id="scan-auto-add"
+                checked={settings.autoAdd}
+                onCheckedChange={checked => updateSettings({ autoAdd: checked })}
+              />
             </div>
           </CardContent>
         </Card>
+
+        {/* Cards. A page about recognising Magic cards had none on it. */}
+        {recentScans.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 className="text-lg font-semibold text-foreground">Recent scans</h2>
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {recentScans.length}
+                  </span>{' '}
+                  cards ·{' '}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {scannedCopies}
+                  </span>{' '}
+                  copies ·{' '}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {(avgConfidence * 100).toFixed(0)}%
+                  </span>{' '}
+                  mean match confidence
+                </p>
+                <Button variant="ghost" size="sm" onClick={clearRecentScans} className="gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <CardGrid width={CARD_WIDTH}>
+              {recentScans.map(scan => (
+                <div key={scan.id} className="flex flex-col gap-1.5">
+                  <CardImage
+                    card={cardShapeOf(scan)}
+                    width={CARD_WIDTH}
+                    fill
+                    hideFlip
+                    interactive={false}
+                    title={scan.name}
+                  >
+                    {scan.quantity > 1 && (
+                      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+                        ×{scan.quantity}
+                      </span>
+                    )}
+                  </CardImage>
+                  <div className="flex flex-col gap-0.5 px-0.5">
+                    <p className="truncate text-xs font-medium text-foreground" title={scan.name}>
+                      {scan.name}
+                    </p>
+                    <div className="flex items-center justify-between gap-1 text-[11px]">
+                      <span className="truncate font-mono uppercase text-muted-foreground">
+                        {scan.setCode || '—'}
+                      </span>
+                      {scan.priceUsd ? (
+                        <span className="shrink-0 font-semibold tabular-nums text-foreground">
+                          {formatPrice(scan.priceUsd)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardGrid>
+          </section>
+        ) : recentCollection.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Last added to your collection
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Nothing scanned in this browser yet — scanned cards land here.
+                </p>
+              </div>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/collection">Open collection</Link>
+              </Button>
+            </div>
+
+            <CardGrid width={CARD_WIDTH}>
+              {recentCollection.map(entry => (
+                <div key={entry.id} className="flex flex-col gap-1.5">
+                  <CardImage
+                    card={entry.card}
+                    width={CARD_WIDTH}
+                    fill
+                    hideFlip
+                    interactive={false}
+                    title={entry.name}
+                  >
+                    {entry.quantity > 1 && (
+                      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+                        ×{entry.quantity}
+                      </span>
+                    )}
+                  </CardImage>
+                  <div className="flex flex-col gap-0.5 px-0.5">
+                    <p className="truncate text-xs font-medium text-foreground" title={entry.name}>
+                      {entry.name}
+                    </p>
+                    <span className="truncate font-mono text-[11px] uppercase text-muted-foreground">
+                      {entry.card?.set_code || '—'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </CardGrid>
+          </section>
+        ) : null}
+
+        {recentScans.length > 0 && <ScanInsightsHelper recentScans={recentScans} />}
       </div>
     </StandardPageLayout>
   );

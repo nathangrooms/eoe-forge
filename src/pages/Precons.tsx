@@ -17,6 +17,7 @@ import { PreconTile, PreconTileSkeleton } from '@/components/precons/PreconTile'
 import { PreconDeckView } from '@/components/precons/PreconDeckView';
 import {
   PreconFilterBar,
+  type PreconDensity,
   type PreconSort,
 } from '@/components/precons/PreconFilterBar';
 import { preconIndexEntry } from '@/data/precon-index';
@@ -48,24 +49,41 @@ import {
  */
 
 /**
- * Minimum tile width.
+ * Minimum tile width, per density.
  *
- * Widened from 300 so the commander's artwork is presented at something like
- * the size it was painted for rather than as a strip — the tile now carries the
- * whole 626 × 457 crop plus a 132px card over it, and at 300 the art was too
- * small for either to land.
+ * `large` was widened from 300 so the commander's artwork is presented at
+ * something like the size it was painted for rather than as a strip — the tile
+ * carries the whole 626 × 457 crop plus a card over it, and at 300 the art was
+ * too small for either to land. On a 1440px screen that is two columns, which
+ * is a beautiful way to look at six precons and a punishing way to look at 184:
+ * the catalogue runs to roughly fifty-five thousand pixels of scroll.
+ *
+ * `compact` is the answer to the volume rather than to the art — four columns
+ * inside the same 1136px band, the whole crop still uncropped, the commander
+ * still a readable card, about a quarter of the scroll.
  */
-const TILE_WIDTH = 380;
+const TILE_WIDTH: Record<PreconDensity, number> = { large: 380, compact: 260 };
 
 /**
  * Tiles rendered per page. Each one carries two images (the artwork and the
  * commander's card), so mounting all 184 at once queues ~370 requests on first
  * paint — `loading="lazy"` alone does not save you when the whole grid is in
- * the document. Trimmed alongside the wider tile: the images are bigger now, so
- * a page costs more. The next page loads as the end of the list comes into
- * view, or on a click.
+ * the document. Compact tiles are cheaper and four fit across, so a page is a
+ * round number of rows either way. The next page loads as the end of the list
+ * comes into view, or on a click.
  */
-const PAGE_SIZE = 24;
+const PAGE_SIZE: Record<PreconDensity, number> = { large: 24, compact: 40 };
+
+const DENSITY_KEY = 'deckmatrix.precons.density';
+
+function readDensity(): PreconDensity {
+  if (typeof window === 'undefined') return 'large';
+  try {
+    return window.localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'large';
+  } catch {
+    return 'large';
+  }
+}
 
 /** A precon opened by deep link, before the catalogue has answered. */
 function summaryFromIndex(id: string): PreconSummary | null {
@@ -99,6 +117,16 @@ export default function Precons() {
   const [colors, setColors] = useState<string[]>([]);
   const [set, setSet] = useState('all');
   const [sort, setSort] = useState<PreconSort>('newest');
+  const [density, setDensity] = useState<PreconDensity>(readDensity);
+
+  const changeDensity = useCallback((next: PreconDensity) => {
+    setDensity(next);
+    try {
+      window.localStorage.setItem(DENSITY_KEY, next);
+    } catch {
+      /* storage unavailable — the choice just does not persist */
+    }
+  }, []);
 
   const [deck, setDeck] = useState<PreconDeck | null>(null);
   const [rows, setRows] = useState<DeckCardRow[]>([]);
@@ -268,14 +296,15 @@ export default function Precons() {
 
   /* -------------------------------------------------- paging ---------- */
 
-  const [limit, setLimit] = useState(PAGE_SIZE);
+  const pageSize = PAGE_SIZE[density];
+  const [limit, setLimit] = useState(pageSize);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   // Any change to the result set starts the page count over, or a narrow
   // search would inherit a limit large enough to render everything anyway.
   useEffect(() => {
-    setLimit(PAGE_SIZE);
-  }, [query, colors, set, sort]);
+    setLimit(PAGE_SIZE[density]);
+  }, [query, colors, set, sort, density]);
 
   useEffect(() => {
     const node = sentinel.current;
@@ -284,14 +313,14 @@ export default function Precons() {
     const observer = new IntersectionObserver(
       entries => {
         if (entries.some(entry => entry.isIntersecting)) {
-          setLimit(current => current + PAGE_SIZE);
+          setLimit(current => current + pageSize);
         }
       },
       { rootMargin: '600px' }
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [limit, visible.length]);
+  }, [limit, visible.length, pageSize]);
 
   const page = useMemo(() => visible.slice(0, limit), [visible, limit]);
 
@@ -433,6 +462,8 @@ export default function Precons() {
           onSortChange={setSort}
           activeCount={activeFilters}
           onReset={resetFilters}
+          density={density}
+          onDensityChange={changeDensity}
         />
 
         <p className="text-sm text-muted-foreground">
@@ -463,9 +494,9 @@ export default function Precons() {
             </p>
           </div>
         ) : loadingList ? (
-          <CardGrid width={TILE_WIDTH}>
-            {Array.from({ length: 12 }, (_, i) => (
-              <PreconTileSkeleton key={i} />
+          <CardGrid width={TILE_WIDTH[density]}>
+            {Array.from({ length: density === 'compact' ? 16 : 12 }, (_, i) => (
+              <PreconTileSkeleton key={i} compact={density === 'compact'} />
             ))}
           </CardGrid>
         ) : visible.length === 0 ? (
@@ -482,14 +513,15 @@ export default function Precons() {
           </div>
         ) : (
           <>
-            <CardGrid width={TILE_WIDTH}>
+            <CardGrid width={TILE_WIDTH[density]}>
               {page.map((precon, index) => (
                 <PreconTile
                   key={precon.id}
                   precon={precon}
                   cards={commanderCards}
                   onSelect={openPrecon}
-                  eager={index < 6}
+                  compact={density === 'compact'}
+                  eager={index < (density === 'compact' ? 8 : 6)}
                 />
               ))}
             </CardGrid>
@@ -502,9 +534,9 @@ export default function Precons() {
               <div ref={sentinel} className="flex justify-center pt-2">
                 <Button
                   variant="secondary"
-                  onClick={() => setLimit(current => current + PAGE_SIZE)}
+                  onClick={() => setLimit(current => current + pageSize)}
                 >
-                  Show {Math.min(PAGE_SIZE, visible.length - limit)} more
+                  Show {Math.min(pageSize, visible.length - limit)} more
                 </Button>
               </div>
             )}

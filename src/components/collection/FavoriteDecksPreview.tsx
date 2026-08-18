@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Calendar, Check, ChevronRight, Crown, Heart, Layers, Package, Plus } from 'lucide-react';
+import { Calendar, Check, ChevronRight, Crown, Heart, Layers, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
@@ -183,36 +183,34 @@ export function FavoriteDecksPreview() {
     }
   };
 
+  /**
+   * Nothing to show costs one line, not a panel.
+   *
+   * Both the loading and the empty branch used to reserve the full section —
+   * three 288px skeletons, or a 236px centred card explaining a feature nobody
+   * had used yet — directly above the card grid on the collection page. An
+   * absent thing should not push the present thing off the screen.
+   */
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Favourite decks</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {[1, 2, 3].map(i => (
-            <div
-              key={i}
-              className="h-72 animate-pulse rounded-xl bg-muted motion-reduce:animate-none"
-            />
-          ))}
-        </div>
-      </div>
+      <div className="h-6 w-56 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
     );
   }
 
   if (favorites.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <Heart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" />
-        <h3 className="font-medium">No favourite decks yet</h3>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-          Star a deck and it sits here with its commander, so you can see what your
-          collection is feeding at a glance.
-        </p>
-        <Button variant="secondary" onClick={() => navigate('/decks')} className="mt-4">
-          <Plus className="mr-2 h-4 w-4" />
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+        <Heart className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>No favourite decks yet — star a deck and its commander sits here.</span>
+        <Button
+          variant="link"
+          size="sm"
+          onClick={() => navigate('/decks')}
+          className="h-auto p-0 text-sm"
+        >
           Browse decks
         </Button>
-      </Card>
+      </div>
     );
   }
 

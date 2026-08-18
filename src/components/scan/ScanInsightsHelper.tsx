@@ -107,7 +107,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
         )}
 
         {error && (
-          <div className="flex items-center gap-2 p-3 md:p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+          <div className="flex items-center gap-2 p-3 md:p-4 rounded-lg bg-destructive/10">
             <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-destructive flex-shrink-0" />
             <span className="text-xs md:text-sm text-destructive">{error}</span>
           </div>
@@ -115,7 +115,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
         {suggestions && (
           <div className="space-y-3 md:space-y-4">
-            <div className="rounded-lg border border-border p-3 md:p-4">
+            <div className="rounded-lg bg-muted/30 p-3 md:p-4">
               <div className="mb-2 flex items-center gap-2 md:mb-3">
                 <Lightbulb className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-bold uppercase text-muted-foreground">Insights</span>
@@ -127,7 +127,7 @@ Keep it concise and actionable. End with: Referenced Cards: [list cards mentione
 
             <Button
               onClick={generateSuggestions}
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="w-full"
             >

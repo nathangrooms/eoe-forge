@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { 
   RefreshCw, 
@@ -293,29 +291,35 @@ const SyncDashboard = () => {
     return () => clearInterval(interval);
   }, [syncStatus?.status]); // Only depend on status change, not the whole object
 
+  /**
+   * Status reads through weight and surface, not hue. This panel used raw
+   * green/blue/red/grey palette classes for the four states and a saturated
+   * blue status pill; in this product a colour means a Magic colour, and sync
+   * state is not one. The single exception is failure, which is exactly what
+   * the destructive token exists for.
+   */
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-foreground" />;
       case 'running':
-        return <Activity className="h-5 w-5 text-blue-500 animate-pulse" />;
+        return <Activity className="h-5 w-5 animate-pulse text-foreground motion-reduce:animate-none" />;
       case 'failed':
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
+        return <AlertTriangle className="h-5 w-5 text-destructive" />;
       default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
+        return <Clock className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusPill = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-500';
-      case 'running':
-        return 'bg-blue-500';
       case 'failed':
-        return 'bg-red-500';
+        return 'bg-destructive/15 text-destructive';
+      case 'completed':
+      case 'running':
+        return 'bg-foreground text-background';
       default:
-        return 'bg-gray-500';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -380,19 +384,19 @@ const SyncDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Card Sync Dashboard</h2>
-          <p className="text-muted-foreground">
-            Monitor and manage Magic: The Gathering card database synchronization
+          <h2 className="text-xl font-semibold tracking-tight">Card sync</h2>
+          <p className="text-sm text-muted-foreground">
+            Scryfall &rarr; <code className="font-mono">cards</code>. Status, progress and manual controls.
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={loadSyncStatus}
             disabled={isLoading}
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
           <Button
@@ -416,10 +420,10 @@ const SyncDashboard = () => {
            {(syncStatus?.status === 'running' || syncStatus?.status === 'failed') && (
             <Button
               onClick={resetSyncStatus}
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={isTriggering}
-              className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
             >
               {isTriggering ? (
                 <>
@@ -447,9 +451,11 @@ const SyncDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">
               {syncStatus ? (
-                <Badge variant="outline" className={getStatusColor(syncStatus.status)}>
-                  {syncStatus.status.toUpperCase()}
-                </Badge>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${getStatusPill(syncStatus.status)}`}
+                >
+                  {syncStatus.status}
+                </span>
               ) : (
                 'Unknown'
               )}
@@ -497,7 +503,7 @@ const SyncDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Activity className="h-5 w-5 mr-2 text-blue-500" />
+              <Activity className="mr-2 h-5 w-5 text-muted-foreground" />
               Sync Process Steps
             </CardTitle>
             <CardDescription>
@@ -508,10 +514,10 @@ const SyncDashboard = () => {
             <div className="space-y-4">
               {getSyncSteps().map((step, index) => (
                 <div key={step.id} className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step.status === 'completed' ? 'bg-green-100 text-green-600' :
-                    step.status === 'current' ? 'bg-blue-100 text-blue-600' :
-                    'bg-gray-100 text-gray-400'
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    step.status === 'completed' ? 'bg-foreground text-background' :
+                    step.status === 'current' ? 'bg-foreground/15 text-foreground' :
+                    'bg-muted text-muted-foreground'
                   }`}>
                     {step.status === 'completed' ? (
                       <CheckCircle className="h-4 w-4" />
@@ -522,7 +528,7 @@ const SyncDashboard = () => {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className={`font-medium ${step.status === 'current' ? 'text-blue-600' : ''}`}>
+                    <p className={`font-medium ${step.status === 'current' ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {step.name}
                     </p>
                     {step.status === 'current' && step.id === 'download' && syncStatus.total_records > 0 && (
@@ -535,9 +541,11 @@ const SyncDashboard = () => {
                       </div>
                     )}
                   </div>
-                  {index < getSyncSteps().length - 1 && (
-                    <div className={`w-px h-8 ${step.status === 'completed' ? 'bg-green-200' : 'bg-gray-200'}`} />
-                  )}
+                  {/* The 1px connector that used to sit here rendered as a
+                      stray hairline floating at the right edge of the row — it
+                      connected nothing, because the steps are a column and it
+                      was laid out at the end of each row. The numbered circles
+                      carry the sequence on their own. */}
                 </div>
               ))}
             </div>
@@ -550,7 +558,7 @@ const SyncDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Activity className="h-5 w-5 mr-2 text-blue-500 animate-pulse" />
+              <Activity className="mr-2 h-5 w-5 animate-pulse text-muted-foreground motion-reduce:animate-none" />
               Sync in Progress
             </CardTitle>
             <CardDescription>
@@ -593,39 +601,46 @@ const SyncDashboard = () => {
         </Card>
       )}
 
-      {/* Error Alert */}
+      {/* Failure and stall notices.
+          Not `<Alert>`: that primitive puts `border` in its base class and the
+          destructive variant draws a hard red outline, which the no-hairlines
+          rule forbids. A destructive surface tint carries the same urgency. */}
       {syncStatus?.status === 'failed' && syncStatus.error_message && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Sync Failed:</strong> {syncStatus.error_message}
-            <div className="mt-2">
-              <Button variant="outline" size="sm" onClick={resetSyncStatus}>
-                Reset Status
-              </Button>
+        <div role="alert" className="rounded-lg bg-destructive/15 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+            <div className="min-w-0 flex-1 text-sm text-destructive">
+              <strong className="font-semibold">Sync failed:</strong> {syncStatus.error_message}
+              <div className="mt-3">
+                <Button variant="secondary" size="sm" onClick={resetSyncStatus}>
+                  Reset status
+                </Button>
+              </div>
             </div>
-          </AlertDescription>
-        </Alert>
+          </div>
+        </div>
       )}
 
-      {/* Stuck Sync Alert */}
-      {syncStatus?.status === 'running' && syncStatus.last_sync && 
+      {syncStatus?.status === 'running' && syncStatus.last_sync &&
        new Date().getTime() - new Date(syncStatus.last_sync).getTime() > 3600000 && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Sync appears stuck:</strong> The sync has been running for over an hour without progress.
-            This may indicate a connection issue or edge function timeout.
-            <div className="mt-2 space-x-2">
-              <Button variant="outline" size="sm" onClick={resetSyncStatus}>
-                Reset Status
-              </Button>
-              <Button variant="outline" size="sm" onClick={triggerSync}>
-                Restart Sync
-              </Button>
+        <div role="alert" className="rounded-lg bg-destructive/15 p-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+            <div className="min-w-0 flex-1 text-sm text-destructive">
+              <strong className="font-semibold">Sync appears stuck:</strong> it has been running for
+              over an hour without progress, which usually means a dropped connection or an edge
+              function timeout.
+              <div className="mt-3 flex gap-2">
+                <Button variant="secondary" size="sm" onClick={resetSyncStatus}>
+                  Reset status
+                </Button>
+                <Button variant="secondary" size="sm" onClick={triggerSync}>
+                  Restart sync
+                </Button>
+              </div>
             </div>
-          </AlertDescription>
-        </Alert>
+          </div>
+        </div>
       )}
 
       {/* Detailed Status */}
@@ -683,9 +698,9 @@ const SyncDashboard = () => {
             <>
               <Separator className="my-4" />
               <div>
-                <h4 className="font-semibold mb-2 text-red-600">Error Details</h4>
-                <div className="bg-red-50 dark:bg-red-950 p-3 rounded-md">
-                  <code className="text-sm">{syncStatus.error_message}</code>
+                <h4 className="mb-2 font-semibold text-destructive">Error details</h4>
+                <div className="overflow-x-auto rounded-md bg-muted/50 p-3">
+                  <code className="text-xs leading-relaxed">{syncStatus.error_message}</code>
                 </div>
               </div>
             </>
@@ -724,7 +739,7 @@ const SyncDashboard = () => {
             <Button
               onClick={testSimpleSync}
               disabled={isTriggering || syncStatus?.status === 'running'}
-              variant="outline"
+              variant="secondary"
               className="w-full"
             >
               {isTriggering ? (
@@ -772,7 +787,7 @@ const SyncDashboard = () => {
             
             <Button
               onClick={loadSyncStatus}
-              variant="outline"
+              variant="secondary"
               className="w-full"
             >
               <Database className="h-4 w-4 mr-2" />

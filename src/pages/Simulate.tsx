@@ -14,20 +14,35 @@ import { CombatArrows } from '@/components/simulation/CombatArrows';
 import { useGameAnimations } from '@/hooks/useGameAnimations';
 import { clearTriggerTracking } from '@/lib/simulation/triggerSystem';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
-import { AlertTriangle, Loader2, Swords, PanelRightOpen } from 'lucide-react';
+import { Loader2, PanelRightOpen } from 'lucide-react';
+import { SimulationSetup, type SimDeckOption } from '@/components/simulation/SimulationSetup';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
 import { SimulationCinematicOverlay } from '@/components/simulation/SimulationCinematicOverlay';
 import { TurnOverview } from '@/components/simulation/TurnOverview';
 
-interface DeckOption {
-  id: string;
-  name: string;
-  format: string;
+type DeckOption = SimDeckOption;
+
+function usdPrice(prices: unknown): number {
+  const parsed = (typeof prices === 'string' ? JSON.parse(prices) : prices) as
+    | { usd?: string | null }
+    | null;
+  const usd = parseFloat(parsed?.usd ?? '');
+  return Number.isFinite(usd) ? usd : 0;
+}
+
+/**
+ * Which card stands in for a deck that has no commander. Same rule the dashboard
+ * uses: the best legendary creature, then any creature, then anything, with
+ * price breaking ties. Price alone picks the fetch land out of a budget list.
+ */
+function faceRank(typeLine: string | null, isLegendary: boolean | null): number {
+  const line = (typeLine ?? '').toLowerCase();
+  const creature = line.includes('creature');
+  if (creature && isLegendary) return 3;
+  if (creature || line.includes('planeswalker')) return 2;
+  return 1;
 }
 
 export default function Simulate() {
@@ -84,16 +99,92 @@ export default function Simulate() {
 
       const { data, error } = await supabase
         .from('user_decks')
-        .select('id, name, format')
+        .select('id, name, format, colors')
         .eq('user_id', user.id)
         .order('name');
 
       if (error) throw error;
 
-      setDecks(data || []);
-      if (data && data.length >= 2) {
-        setDeck1Id(data[0].id);
-        setDeck2Id(data[1].id);
+      const deckRows = data ?? [];
+
+      /* The picker shows each deck as a card, so it needs the commander (or,
+         for a deck without one, the most valuable card in the list) and the
+         real card count. Two extra queries, once, on a page that is about to
+         load two whole decks anyway. */
+      const counts: Record<string, number> = {};
+      const commanders: Record<string, { id: string | null; name: string }> = {};
+      const candidates: Record<string, string[]> = {};
+
+      if (deckRows.length > 0) {
+        const { data: deckCards } = await supabase
+          .from('deck_cards')
+          .select('deck_id, quantity, is_commander, is_sideboard, card_name, card_id')
+          .in('deck_id', deckRows.map(row => row.id));
+
+        for (const entry of deckCards ?? []) {
+          if (!entry.is_sideboard) {
+            counts[entry.deck_id] = (counts[entry.deck_id] ?? 0) + (entry.quantity ?? 1);
+            if (entry.card_id) (candidates[entry.deck_id] ??= []).push(entry.card_id);
+          }
+          if (entry.is_commander && !commanders[entry.deck_id]) {
+            commanders[entry.deck_id] = { id: entry.card_id ?? null, name: entry.card_name };
+          }
+        }
+      }
+
+      const faces: Record<string, string> = {};
+      const needFace = deckRows.filter(row => !commanders[row.id]).map(row => row.id);
+      const faceIds = Array.from(
+        new Set(needFace.flatMap(deckId => (candidates[deckId] ?? []).slice(0, 120)))
+      );
+
+      if (faceIds.length > 0) {
+        const { data: faceRows } = await supabase
+          .from('cards')
+          .select('id, prices, type_line, is_legendary')
+          .in('id', faceIds);
+
+        const scoreById = new Map<string, { rank: number; price: number }>();
+        for (const card of faceRows ?? []) {
+          scoreById.set(card.id, {
+            rank: faceRank(card.type_line, card.is_legendary),
+            price: usdPrice(card.prices),
+          });
+        }
+
+        for (const deckId of needFace) {
+          let best: string | null = null;
+          let bestRank = -1;
+          let bestPrice = -1;
+          for (const cardId of candidates[deckId] ?? []) {
+            const score = scoreById.get(cardId);
+            if (!score) continue;
+            if (score.rank > bestRank || (score.rank === bestRank && score.price > bestPrice)) {
+              bestRank = score.rank;
+              bestPrice = score.price;
+              best = cardId;
+            }
+          }
+          if (!best) best = candidates[deckId]?.[0] ?? null;
+          if (best) faces[deckId] = best;
+        }
+      }
+
+      const options: DeckOption[] = deckRows.map(row => ({
+        id: row.id,
+        name: row.name,
+        format: row.format,
+        cardCount: counts[row.id] ?? 0,
+        colors: Array.isArray(row.colors) ? (row.colors as string[]) : [],
+        commanderName: commanders[row.id]?.name ?? null,
+        commanderCardId: commanders[row.id]?.id ?? null,
+        faceCardId: commanders[row.id]?.id ?? faces[row.id] ?? null,
+      }));
+
+      setDecks(options);
+      if (options.length >= 2) {
+        setDeck1Id(options[0].id);
+        setDeck2Id(options[1].id);
       }
     } catch (error) {
       console.error('Error loading decks:', error);
@@ -640,7 +731,10 @@ export default function Simulate() {
 
   if (loading) {
     return (
-      <StandardPageLayout title="Deck Simulation" description="Watch two of your decks play each other">
+      <StandardPageLayout
+        title="Playtest"
+        description="Watch two of your decks play each other, step by step"
+      >
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -650,7 +744,7 @@ export default function Simulate() {
 
   const sidebar = gameState && (
     <>
-      <div className="shrink-0 border-b border-border p-3">
+      <div className="shrink-0 bg-muted/20 p-3">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-foreground">Game log</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">Turn {gameState.turn}</p>
@@ -680,7 +774,7 @@ export default function Simulate() {
       <div className="min-h-0 flex-1 overflow-auto">
         <GameLog events={gameState.log} />
       </div>
-      <div className="shrink-0 border-t border-border p-3 text-center text-xs text-muted-foreground">
+      <div className="shrink-0 bg-muted/20 p-3 text-center text-xs text-muted-foreground">
         {gameState.log.length} events logged
       </div>
     </>
@@ -770,107 +864,22 @@ export default function Simulate() {
 
       {!gameState ? (
         <StandardPageLayout
-          title="Deck Simulation"
-          description="Watch two of your decks play each other"
+          title="Playtest"
+          description="Watch two of your decks play each other, step by step"
         >
-          <Card className="mx-auto w-full max-w-2xl space-y-6 p-6 md:p-8">
-            <div className="space-y-2 text-center">
-              <Swords className="mx-auto h-12 w-12 text-muted-foreground" />
-              <Badge variant="outline" className="gap-1.5">
-                <AlertTriangle className="h-3 w-3" />
-                Alpha — an early, partial rules engine
-              </Badge>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                Two of your decks play each other step by step. Card abilities are resolved by the
-                built-in engine and every action is written to the game log.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium" htmlFor="sim-deck-1">Deck 1</label>
-                <Select value={deck1Id} onValueChange={setDeck1Id}>
-                  <SelectTrigger id="sim-deck-1">
-                    <SelectValue placeholder="Select first deck" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {decks.map((deck) => (
-                      <SelectItem key={deck.id} value={deck.id}>
-                        {deck.name} ({deck.format})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                versus
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium" htmlFor="sim-deck-2">Deck 2</label>
-                <Select value={deck2Id} onValueChange={setDeck2Id}>
-                  <SelectTrigger id="sim-deck-2">
-                    <SelectValue placeholder="Select second deck" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {decks.map((deck) => (
-                      <SelectItem key={deck.id} value={deck.id}>
-                        {deck.name} ({deck.format})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={startSimulation}
-                disabled={!deck1Id || !deck2Id || loading}
-                className="w-full"
-                size="lg"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Swords className="h-4 w-4 mr-2" />
-                    Start Simulation
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {decks.length < 2 && (
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">You need at least 2 decks to run a simulation.</p>
-                <p className="text-xs text-muted-foreground mt-1">Go to Deck Builder to create decks first.</p>
-              </div>
-            )}
-
-            {decks.length >= 2 && (
-              <div className="space-y-2 rounded-lg border border-border p-4 text-sm">
-                <div className="font-semibold text-foreground">What the engine covers</div>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>Lands, creatures, spells and a combat step</li>
-                  <li>Power and toughness tracked as the board changes</li>
-                  <li>Battlefield, hand, graveyard, exile and command zones</li>
-                  <li>A game log recording every action</li>
-                  <li>Playback speeds from 0.25x to 4x</li>
-                </ul>
-                <p className="pt-1 text-xs text-muted-foreground">
-                  Rules coverage is partial — this is not a complete implementation of the
-                  comprehensive rules.
-                </p>
-              </div>
-            )}
-          </Card>
+          <SimulationSetup
+            decks={decks}
+            deck1Id={deck1Id}
+            deck2Id={deck2Id}
+            onDeck1Change={setDeck1Id}
+            onDeck2Change={setDeck2Id}
+            onStart={startSimulation}
+            starting={loading}
+          />
         </StandardPageLayout>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0 lg:border-r lg:border-border">
+          <div className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0">
             <GameBoard state={gameState} onRegisterCard={registerCard} damages={damages} />
             {gameState?.combat.isActive && (
               <CombatArrows attackers={gameState.combat.attackers} blockers={gameState.combat.blockers} />

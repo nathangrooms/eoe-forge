@@ -219,7 +219,7 @@ export const SimulationCinematicOverlay = ({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="bg-accent/20 border border-accent/40 rounded-lg px-6 py-3 max-w-md"
+                    className="max-w-md rounded-lg bg-accent/30 px-6 py-3"
                   >
                     <div className="text-sm font-medium italic text-foreground">&ldquo;{abilityDescription}&rdquo;</div>
                   </motion.div>
@@ -271,7 +271,7 @@ export const SimulationCinematicOverlay = ({
             transition={{ delay: 0.4 }}
             className="mt-8 text-center max-w-2xl mx-auto"
           >
-            <div className="rounded-lg border border-border bg-card px-6 py-4">
+            <div className="rounded-lg bg-card px-6 py-4 shadow-xl shadow-black/40">
               <p className="text-base font-medium text-foreground">
                 {config.subtitle}
               </p>

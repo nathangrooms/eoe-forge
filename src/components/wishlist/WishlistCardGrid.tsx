@@ -172,27 +172,20 @@ export function WishlistCardGrid({
                 belowTarget && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
               )}
             >
-              {/* Badges sit over card art, so an ink plate is the honest ground. */}
-              <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                {PRIORITY_LABEL[item.priority] ?? 'Med'}
-              </span>
+              {/*
+               * NOTHING SITS ON THE TOP EDGE OF THE ART.
+               *
+               * Priority was pinned `left-1.5 top-1.5` and the deal/alert badge
+               * `right-1.5 top-1.5` — straight across a Magic card's title bar
+               * and its mana cost. At grid size "Tezzeret, Betrayer of Flesh"
+               * read as "ret, Betrayer of Flesh". Priority, deal and alert are
+               * facts about the wishlist *entry* rather than about the printing,
+               * so they belong in the strip underneath. The only thing left on
+               * the art is the copy count, along the bottom edge.
+               */}
               {item.quantity > 1 && (
                 <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
                   ×{item.quantity}
-                </span>
-              )}
-              {belowTarget && (
-                <span className="pointer-events-none absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                  <TrendingDown className="h-3 w-3" aria-hidden="true" />
-                  Deal
-                </span>
-              )}
-              {item.alert_enabled && item.target_price_usd && !belowTarget && (
-                <span
-                  className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/75 p-1 text-white backdrop-blur-sm"
-                  title={`Alert at ${formatPrice(item.target_price_usd)}`}
-                >
-                  <Bell className="h-3 w-3" aria-hidden="true" />
                 </span>
               )}
 
@@ -227,8 +220,31 @@ export function WishlistCardGrid({
                 {item.card_name}
               </button>
               <div className="flex items-center justify-between gap-1 text-[11px]">
-                <span className="truncate font-mono uppercase text-muted-foreground">
-                  {item.card?.set_code || '—'}
+                <span className="flex min-w-0 items-center gap-1">
+                  <span
+                    className="shrink-0 rounded bg-muted px-1 font-semibold text-foreground"
+                    title={`${PRIORITY_LABEL[item.priority] ?? 'Med'} priority`}
+                  >
+                    {PRIORITY_LABEL[item.priority] ?? 'Med'}
+                  </span>
+                  {belowTarget && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded bg-primary px-1 font-semibold text-primary-foreground"
+                      title={`At or below your ${formatPrice(item.target_price_usd ?? 0)} target`}
+                    >
+                      <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+                      Deal
+                    </span>
+                  )}
+                  {item.alert_enabled && item.target_price_usd && !belowTarget && (
+                    <Bell
+                      className="h-3 w-3 shrink-0 text-muted-foreground"
+                      aria-label={`Alert at ${formatPrice(item.target_price_usd)}`}
+                    />
+                  )}
+                  <span className="truncate font-mono uppercase text-muted-foreground">
+                    {item.card?.set_code || '—'}
+                  </span>
                 </span>
                 <span className="shrink-0 font-semibold tabular-nums text-foreground">
                   {formatPrice(currentPrice)}

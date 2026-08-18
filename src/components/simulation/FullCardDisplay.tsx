@@ -1,4 +1,5 @@
 import { GameCard } from '@/lib/simulation/types';
+import { CARD_ASPECT } from '@/components/cards';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -38,25 +39,32 @@ function counterTitle(type: string, count: number): string {
 }
 
 /**
- * Colour identity drives the card border so the board reads at a glance, using
- * the app's own --mana-* tokens rather than raw palette classes.
+ * Colour identity outlines the card so the board reads at a glance, using the
+ * app's own --mana-* tokens rather than raw palette classes.
+ *
+ * A `ring`, not a `border`. Two reasons, and both matter. A border is a real
+ * hairline, which the design law forbids outright; and a 2px border sits inside
+ * the box, so with the card's aspect ratio on that box the `<img>` inside was
+ * left at 76 x 107.47 against a 0.7176 source — a 1.5% crop off every permanent
+ * on the table. A ring is painted outside layout, so the image box is exactly
+ * the card's own ratio and nothing is cut.
  */
-function identityBorder(card: GameCard): string {
+function identityRing(card: GameCard): string {
   const colors = card.color_identity?.length ? card.color_identity : (card.colors ?? []);
-  if (colors.length > 1) return 'border-mana-multicolor';
+  if (colors.length > 1) return 'ring-mana-multicolor';
   switch (colors[0]) {
     case 'W':
-      return 'border-mana-white';
+      return 'ring-mana-white';
     case 'U':
-      return 'border-mana-blue';
+      return 'ring-mana-blue';
     case 'B':
-      return 'border-mana-black';
+      return 'ring-mana-black';
     case 'R':
-      return 'border-mana-red';
+      return 'ring-mana-red';
     case 'G':
-      return 'border-mana-green';
+      return 'ring-mana-green';
     default:
-      return 'border-mana-colorless';
+      return 'ring-mana-colorless';
   }
 }
 
@@ -75,9 +83,10 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
         <div
           ref={ref}
           className={cn(
-            'relative flex items-center justify-center rounded-md border border-border bg-muted',
-            compact ? 'h-28 w-20' : 'h-44 w-32'
+            'relative flex items-center justify-center rounded-md bg-muted',
+            compact ? 'w-20' : 'w-32'
           )}
+          style={{ aspectRatio: CARD_ASPECT }}
         >
           <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Face down
@@ -86,8 +95,11 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
       );
     }
 
+    /* Width drives height at the real card ratio (488 x 680). The box used to
+       be w-32/h-44 and w-20/h-28 — 0.727 and 0.714 against the card's 0.718 —
+       so `object-cover` shaved a sliver off every permanent on the board. The
+       aspect box makes the crop exactly zero. */
     const cardWidth = compact ? 'w-20' : 'w-32';
-    const cardHeight = compact ? 'h-28' : 'h-44';
 
     return (
       <TooltipProvider>
@@ -96,19 +108,20 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
             <div
               ref={ref}
               className={cn(
-                'group relative flex-shrink-0 cursor-pointer rounded-md border-2 transition-transform duration-300',
+                'group relative flex-shrink-0 cursor-pointer rounded-md ring-2 transition-transform duration-300',
                 cardWidth,
-                cardHeight,
-                identityBorder(card),
+                identityRing(card),
                 // Composed into the class list rather than an inline style — an
                 // inline `transform` overrode Tailwind's transform utility, so
                 // the hover zoom never fired on any card, tapped or untapped.
                 card.isTapped ? 'rotate-90 opacity-75' : 'rotate-0',
                 'origin-center hover:z-30 hover:scale-[1.15]',
-                card.summoningSick && !card.isTapped && 'border-dashed',
+                // Summoning sickness already shows as an hourglass badge below;
+                // it does not need a second dashed outline.
                 isAttacking && 'ring-2 ring-destructive ring-offset-2 ring-offset-background',
                 isBlocking && 'ring-2 ring-ring ring-offset-2 ring-offset-background'
               )}
+              style={{ aspectRatio: CARD_ASPECT }}
             >
               {card.image_uris?.normal ? (
                 <img
@@ -164,10 +177,10 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
               {isCreature && (
                 <div
                   className={cn(
-                    'absolute bottom-1 right-1 rounded border px-2 py-1 text-sm font-bold tabular-nums',
+                    'absolute bottom-1 right-1 rounded px-2 py-1 text-sm font-bold tabular-nums',
                     isModified
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border bg-background/95 text-foreground'
+                      ? 'bg-foreground text-background'
+                      : 'bg-background/95 text-foreground'
                   )}
                 >
                   {currentPower}/{currentToughness}
@@ -205,22 +218,22 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
             </div>
           </TooltipTrigger>
 
-          <TooltipContent side="right" className="max-w-md border-border bg-popover p-4">
+          <TooltipContent side="right" className="max-w-md bg-popover p-4">
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="text-base font-bold text-popover-foreground">{card.name}</div>
                 {card.mana_cost && <ManaCost cost={card.mana_cost} size="sm" />}
               </div>
-              <div className="border-t border-border pt-2 text-sm font-semibold">
+              <div className="mt-2 pt-2 text-sm font-semibold">
                 {card.type_line}
               </div>
               {card.oracle_text && (
-                <div className="max-h-40 overflow-y-auto border-t border-border pt-2 text-sm leading-relaxed">
+                <div className="max-h-40 overflow-y-auto pt-2 text-sm leading-relaxed">
                   {card.oracle_text}
                 </div>
               )}
               {isCreature && (
-                <div className="space-y-1 border-t border-border pt-2 text-sm font-semibold">
+                <div className="space-y-1 pt-2 text-sm font-semibold">
                   <div>
                     <span className="text-muted-foreground">Power / toughness:</span>{' '}
                     <span className="font-bold tabular-nums">
@@ -245,7 +258,7 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
                 </div>
               )}
               {card.keywords && card.keywords.length > 0 && (
-                <div className="flex flex-wrap gap-1 border-t border-border pt-2">
+                <div className="flex flex-wrap gap-1 pt-2">
                   {card.keywords.map(kw => (
                     <Badge key={kw} variant="secondary" className="text-xs">
                       {kw}
@@ -254,7 +267,7 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
                 </div>
               )}
               {Object.entries(card.counters).length > 0 && (
-                <div className="border-t border-border pt-2">
+                <div className="pt-2">
                   <div className="mb-1 text-xs text-muted-foreground">Counters</div>
                   <div className="flex flex-wrap gap-1">
                     {Object.entries(card.counters).map(([type, count]) => (

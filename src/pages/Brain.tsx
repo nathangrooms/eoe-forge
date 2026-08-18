@@ -11,7 +11,6 @@ import {
   Bot,
   User,
   Crown,
-  Brain as BrainIcon,
   Loader2,
   Copy,
   Check,
@@ -19,14 +18,13 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { PowerScoreBadge } from '@/components/deck/PowerScore';
+import { CommanderHero } from '@/components/deck/CommanderHero';
+import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { CardDetailPane } from '@/components/cards/CardDetailPane';
@@ -373,120 +371,153 @@ export default function Brain() {
   };
 
   return (
-    <div className="-mt-2 flex h-[calc(100vh-6.5rem)] flex-col overflow-hidden bg-background md:-mt-4 md:h-[calc(100vh-5rem)] lg:flex-row">
-      {/* Sidebar — deck context and chat settings */}
-      <div className="w-full shrink-0 border-b border-border bg-card p-4 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-6">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
-              <BrainIcon className="h-5 w-5 text-foreground" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold tracking-tight">MTG Brain</h1>
-              <p className="text-xs text-muted-foreground">Rules, strategy and deck analysis</p>
-            </div>
-          </div>
+    <StandardPageLayout
+      title="MTG Brain"
+      description="Rules, strategy and deck analysis, with any of your decks as context"
+    >
+    {/* 13.5rem is the page chrome above and below this block — top bar, the
+        StandardPageLayout header and its padding — so the chat fills the
+        viewport exactly and the document itself never scrolls. */}
+    <div className="flex h-[calc(100vh-13.5rem)] min-h-[32rem] flex-col gap-4 overflow-hidden lg:flex-row">
+      {/*
+        Deck context rail.
 
-          <Separator />
+        This was a 320px column holding four controls and then ~490px of nothing,
+        on a page about Magic cards that rendered no card images at all. The
+        `Select` is gone: a deck is identified by its commander, so the picker IS
+        the commander art. Every image here is the deck's real commander, read
+        through `compute_deck_summary` and drawn by the shared `CommanderHero`
+        (uncropped, `normal` resolution at this thumbnail size).
+      */}
+      <aside className="flex w-full shrink-0 flex-col overflow-hidden rounded-xl bg-card p-4 shadow-lg shadow-black/20 lg:h-full lg:w-80">
+        {/* Only the deck list scrolls; the two settings stay reachable. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+        <div className="space-y-3">
+          <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Deck context
+          </h2>
 
-          {/* Deck selector */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Deck context
-            </Label>
-            <Select value={selectedDeck?.id || 'none'} onValueChange={handleDeckChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={loadingDecks ? 'Loading…' : 'No deck selected'} />
-              </SelectTrigger>
-              <SelectContent className="z-50 max-w-[280px]">
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">No deck — general questions</span>
-                </SelectItem>
-                {availableDecks.map(deck => (
-                  <SelectItem key={deck.id} value={deck.id}>
-                    <div className="flex max-w-[240px] items-center gap-2">
-                      <span className="flex-1 truncate">{deck.name}</span>
-                      <Badge variant="outline" className="shrink-0 text-xs">
-                        {deck.format}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {availableDecks.length === 0 && !loadingDecks
-                ? 'You have no decks yet — general questions still work.'
-                : 'Select a deck for specific analysis, or ask general Magic questions.'}
-            </p>
-          </div>
+          {selectedDeck ? (
+            <div className="space-y-3">
+              <CommanderHero
+                commander={(selectedDeck as any).commander}
+                deckName={selectedDeck.name}
+                format={selectedDeck.format}
+                identity={selectedDeck.identity ?? selectedDeck.colors ?? []}
+                cardCount={selectedDeck.counts?.total ?? 0}
+                size="md"
+              />
+              <div>
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {selectedDeck.name}
+                </p>
+                {getCommanderInfo() && (
+                  <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                    <Crown className="h-3 w-3 shrink-0 text-type-commander" aria-hidden="true" />
+                    {getCommanderInfo()}
+                  </p>
+                )}
+              </div>
 
-          {/* Deck summary */}
-          {selectedDeck && (
-            <div className="space-y-3 rounded-lg border border-border p-4">
-              {getCommanderInfo() && (
-                <div className="flex items-center gap-2">
-                  <Crown className="h-4 w-4 shrink-0 text-type-commander" />
-                  <span className="truncate text-sm font-medium">{getCommanderInfo()}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-md bg-muted p-2 text-center">
-                  <div className="text-lg font-semibold tabular-nums">
-                    {selectedDeck.counts?.total ?? 0}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Cards</div>
-                </div>
-                {/* The same score object the tile and the deck page render.
-                    This tile used to print `score ?? 0`, so an unscored deck
-                    told the Brain the deck was a 0. */}
-                <div className="col-span-2 flex items-center justify-center rounded-md bg-muted p-2">
-                  <PowerScoreBadge power={selectedDeck.power} />
-                </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                <span className="text-xs text-muted-foreground">
+                  {selectedDeck.counts?.total ?? 0} cards
+                </span>
+                {/* The same score object the tile and the deck page render. */}
+                <PowerScoreBadge power={selectedDeck.power} />
               </div>
 
               {selectedDeck.colors && selectedDeck.colors.length > 0 && (
                 <ColorIdentity colors={selectedDeck.colors} size="md" />
               )}
+
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={() => handleDeckChange('none')}
+              >
+                Ask general questions instead
+              </Button>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {loadingDecks
+                ? 'Loading your decks…'
+                : availableDecks.length === 0
+                  ? 'You have no decks yet — general questions still work.'
+                  : 'Pick a deck and every answer is about that list. Or just ask.'}
+            </p>
           )}
-
-          {/* Chat settings — available with or without a deck selected */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="detailed-toggle" className="text-sm font-normal">
-                Detailed responses
-              </Label>
-              <Switch
-                id="detailed-toggle"
-                checked={detailedResponses}
-                onCheckedChange={setDetailedResponses}
-              />
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={handleClearConversation}
-              disabled={messages.length === 0}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear conversation
-            </Button>
-          </div>
         </div>
-      </div>
+
+        {availableDecks.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {selectedDeck ? 'Switch deck' : `Your decks (${availableDecks.length})`}
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {availableDecks
+                .filter(deck => deck.id !== selectedDeck?.id)
+                .map(deck => (
+                  <button
+                    key={deck.id}
+                    type="button"
+                    onClick={() => handleDeckChange(deck.id)}
+                    className="group rounded-lg p-1 text-left transition-colors hover:bg-accent"
+                    title={`Use ${deck.name} as context`}
+                  >
+                    <CommanderHero
+                      commander={(deck as any).commander}
+                      deckName={deck.name}
+                      format={deck.format}
+                      identity={deck.identity ?? deck.colors ?? []}
+                      cardCount={deck.counts?.total ?? 0}
+                      size="sm"
+                    />
+                    <span className="mt-1 block truncate text-[0.7rem] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                      {deck.name}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Chat settings — pinned, so they survive a long deck list. */}
+        <div className="shrink-0 space-y-3 pt-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="detailed-toggle" className="text-sm font-normal">
+              Detailed responses
+            </Label>
+            <Switch
+              id="detailed-toggle"
+              checked={detailedResponses}
+              onCheckedChange={setDetailedResponses}
+            />
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={handleClearConversation}
+            disabled={messages.length === 0}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Clear conversation
+          </Button>
+        </div>
+      </aside>
 
       {/* Main chat area */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card/40 shadow-lg shadow-black/20">
         <ScrollArea className="flex-1 p-4 lg:p-6">
           <div className="mx-auto max-w-4xl space-y-6">
             {messages.length === 0 ? (
               /* Empty state with quick actions */
-              <div className="space-y-8 py-8">
+              <div className="space-y-6 py-4">
                 <div className="space-y-3 text-center">
                   <h2 className="text-2xl font-semibold tracking-tight">
                     {selectedDeck ? `Analysing ${selectedDeck.name}` : 'Ask anything about Magic'}
@@ -504,7 +535,7 @@ export default function Brain() {
                     <button
                       key={action.id}
                       onClick={() => handleQuickAction(action)}
-                      className="group rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent"
+                      className="group rounded-lg bg-muted/40 p-4 text-left shadow-md shadow-black/20 transition-colors hover:bg-accent"
                     >
                       <action.icon className="mb-3 h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                       <div className="text-sm font-medium">{action.label}</div>
@@ -522,7 +553,7 @@ export default function Brain() {
                         <button
                           key={i}
                           onClick={() => handleSendMessage(prompt)}
-                          className="rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          className="rounded-full bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                         >
                           {prompt}
                         </button>
@@ -546,7 +577,7 @@ export default function Brain() {
                     )}
                   >
                     {message.type === 'assistant' && (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
                         <Bot className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
@@ -556,7 +587,7 @@ export default function Brain() {
                         'max-w-[85%] rounded-lg px-4 py-3',
                         message.type === 'user'
                           ? 'bg-primary text-primary-foreground'
-                          : 'border border-border bg-card'
+                          : 'bg-card shadow-md shadow-black/20'
                       )}
                     >
                       {message.type === 'assistant' ? (
@@ -584,7 +615,7 @@ export default function Brain() {
                             />
                           )}
 
-                          <div className="flex items-center gap-2 border-t border-border pt-2">
+                          <div className="flex items-center gap-2 pt-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -639,10 +670,10 @@ export default function Brain() {
                     animate={{ opacity: 1, y: 0 }}
                     className="flex gap-3"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
                       <Bot className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="rounded-lg bg-card px-4 py-3 shadow-md shadow-black/20">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Thinking…</span>
@@ -675,7 +706,7 @@ export default function Brain() {
         )}
 
         {/* Input */}
-        <div className="border-t border-border bg-background p-4">
+        <div className="bg-muted/20 p-4">
           <div className="mx-auto max-w-4xl">
             <div className="relative">
               <Textarea
@@ -712,11 +743,12 @@ export default function Brain() {
       {/* Card detail — a third column beside the conversation, so the answer
           that recommended the card stays readable while the card is open. */}
       {modalCard && (
-        <aside className="w-full shrink-0 overflow-y-auto bg-background p-4 lg:h-full lg:w-[24rem] lg:p-6">
+        <aside className="w-full shrink-0 overflow-y-auto rounded-xl bg-card p-4 shadow-lg shadow-black/20 lg:h-full lg:w-[24rem]">
           <CardDetailPane card={modalCard} onClose={() => setModalCard(null)} />
         </aside>
       )}
 
     </div>
+    </StandardPageLayout>
   );
 }

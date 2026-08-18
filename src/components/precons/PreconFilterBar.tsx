@@ -1,4 +1,4 @@
-import { Search, X } from 'lucide-react';
+import { Grid2x2, Grid3x3, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,16 @@ export const PRECON_SORTS: { value: PreconSort; label: string }[] = [
 
 const WUBRG = ['W', 'U', 'B', 'R', 'G'];
 
+/**
+ * Tile density.
+ *
+ * At `large` the catalogue is two tiles across on a 1440px screen, so browsing
+ * 184 precons is sixty-odd screens of dragging. `compact` puts four across —
+ * the artwork is still whole and the commander's card is still a card, just
+ * smaller — which is roughly a quarter of the scroll for the same content.
+ */
+export type PreconDensity = 'large' | 'compact';
+
 export interface PreconFilterBarProps {
   query: string;
   onQueryChange: (value: string) => void;
@@ -44,6 +54,8 @@ export interface PreconFilterBarProps {
   onSortChange: (sort: PreconSort) => void;
   activeCount: number;
   onReset: () => void;
+  density: PreconDensity;
+  onDensityChange: (density: PreconDensity) => void;
 }
 
 export function PreconFilterBar({
@@ -58,6 +70,8 @@ export function PreconFilterBar({
   onSortChange,
   activeCount,
   onReset,
+  density,
+  onDensityChange,
 }: PreconFilterBarProps) {
   return (
     <div className="rounded-xl bg-card p-3 shadow-lg shadow-black/20">
@@ -131,6 +145,37 @@ export function PreconFilterBar({
               ))}
             </SelectContent>
           </Select>
+
+          {/* Selected inverts — `secondary` sits one lightness step from
+              `muted` and the pressed state was invisible against it. */}
+          <div
+            className="flex shrink-0 items-center rounded-md bg-muted p-0.5"
+            role="group"
+            aria-label="Tile density"
+          >
+            <Button
+              variant={density === 'large' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              aria-pressed={density === 'large'}
+              aria-label="Large tiles"
+              title="Large tiles — two across"
+              onClick={() => onDensityChange('large')}
+            >
+              <Grid2x2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={density === 'compact' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              aria-pressed={density === 'compact'}
+              aria-label="Compact tiles"
+              title="Compact tiles — four across"
+              onClick={() => onDensityChange('compact')}
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+          </div>
 
           {activeCount > 0 && (
             <Button

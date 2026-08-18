@@ -33,9 +33,11 @@ import { Reveal } from './Reveal';
  * deck that was touched — at the real card aspect ratio, so the column scans as
  * a strip of Magic cards instead of a list of sentences.
  *
- * Thumbnails are 56 px wide, which is the one case the brief reserves for
- * `small`: `CardImage` resolves that width to Scryfall's 146 px asset, well
- * above the 112 device pixels a 2× display needs.
+ * The two-column grid draws each card at roughly 130 px, so the size token is
+ * pinned to `sm`. Left to default the component resolves `fill` to `md`, which
+ * asks Scryfall for the 672 px `large` asset — thirteen of them on first paint,
+ * about five times the pixels a 130 px box can show. `sm` requests `normal`
+ * (488 px), still comfortably over the 260 device pixels a 2x display needs.
  */
 
 const THUMB_WIDTH = 120;
@@ -73,7 +75,7 @@ function FallbackThumb({ entry }: { entry: ActivityEntry }) {
 }
 
 export function RecentActivity() {
-  const { entries, loading, error } = useActivityFeed(8);
+  const { entries, loading, error } = useActivityFeed(6);
 
   /* One batched join back to `cards` for the whole feed — the added card for a
      collection entry, the commander for a deck entry. */
@@ -126,7 +128,7 @@ export function RecentActivity() {
                       subject of the entry, so it leads. */}
                   <div className="relative w-full">
                     {card ? (
-                      <CardImage card={card} fill hideFlip>
+                      <CardImage card={card} size="sm" fill hideFlip eager={index < 4}>
                         {entry.quantity && entry.quantity > 1 ? (
                           <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground backdrop-blur">
                             &times;{entry.quantity}

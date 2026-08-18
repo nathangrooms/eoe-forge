@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Star,
   Trash2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ColorIdentity } from '@/components/ui/mana-cost';
@@ -185,12 +186,30 @@ export function DeckTile({
   const [isFavorite, setIsFavorite] = useState(deckSummary.favorite);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const navigate = useNavigate();
 
   const counts = deckSummary.counts;
   const missingCount = deckSummary.economy?.missing ?? 0;
-  const isComplete = missingCount === 0;
+  /**
+   * A deck with no cards is not complete, it is empty.
+   *
+   * `missing === 0` alone put a tick and the word COMPLETE on two zero-card
+   * shells, next to a 100-card deck reading "100 MISSING" — the two states a
+   * player most needs to tell apart wearing the same badge.
+   */
+  const isEmpty = counts.total === 0;
+  const isComplete = !isEmpty && missingCount === 0;
+  const nothingToWishlist = missingCount === 0;
   const ownedCount = Math.max(counts.total - missingCount, 0);
+  /**
+   * The engine scores the ninety-nine, not the command zone: it drops the
+   * commander before it shuffles, so a deck holding nothing but its commander
+   * computes to `null` exactly like an empty one. Offering "Score deck" there
+   * gives you a button that spins and then changes nothing.
+   */
+  const scoreableCards = counts.total - (deckSummary.commander ? 1 : 0);
+  const canScore = scoreableCards > 0;
   const ownershipPct = counts.total > 0 ? Math.round((ownedCount / counts.total) * 100) : 0;
   const showPower = usesPowerLevel(deckSummary.format);
   const identity = deckSummary.identity?.length ? deckSummary.identity : deckSummary.colors;
@@ -280,8 +299,19 @@ export function DeckTile({
     navigate(`/simulate?deck=${deckSummary.id}`);
   };
 
+  /**
+   * Deleting confirms in place.
+   *
+   * Design law 3 puts confirmations in the control that started them rather
+   * than in a centred dialog that dims the grid — so the Delete row swaps into
+   * Confirm/Cancel and the menu stays open while it does.
+   */
   const actionsMenu = (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={open => {
+        if (!open) setConfirmingDelete(false);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
@@ -314,9 +344,41 @@ export function DeckTile({
           <Download className="mr-2 h-4 w-4" /> Export
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-          <Trash2 className="mr-2 h-4 w-4" /> Delete
-        </DropdownMenuItem>
+        {confirmingDelete ? (
+          <>
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              Delete “{deckSummary.name}”? This cannot be undone.
+            </div>
+            <DropdownMenuItem
+              onClick={() => {
+                setConfirmingDelete(false);
+                onDelete?.();
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Confirm delete
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={e => {
+                e.preventDefault();
+                setConfirmingDelete(false);
+              }}
+            >
+              <X className="mr-2 h-4 w-4" /> Cancel
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem
+            onSelect={e => {
+              // Keep the menu open — the confirmation replaces this row.
+              e.preventDefault();
+              setConfirmingDelete(true);
+            }}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -536,8 +598,11 @@ export function DeckTile({
             <PowerScore
               power={deckSummary.power}
               variant="compact"
-              onRescore={onRescore}
+              // A deck the engine cannot score is not offered a button that
+              // would fail; it is told what it needs instead.
+              onRescore={canScore ? onRescore : undefined}
               rescoring={rescoring}
+              unscoredReason={canScore ? 'Not scored yet' : 'Add cards to score'}
             />
           )}
 
@@ -554,14 +619,16 @@ export function DeckTile({
               hint="Sum of USD market prices for every card in the deck"
             />
             <Stat
-              value={isComplete ? <Check className="h-5 w-5" /> : missingCount}
-              label={isComplete ? 'Complete' : 'Missing'}
+              value={isEmpty ? '—' : isComplete ? <Check className="h-5 w-5" /> : missingCount}
+              label={isEmpty ? 'Missing' : isComplete ? 'Complete' : 'Missing'}
               hint={
-                isComplete
-                  ? 'You own every card in this deck'
-                  : `${missingCount} cards you do not own yet`
+                isEmpty
+                  ? 'This deck has no cards yet'
+                  : isComplete
+                    ? 'You own every card in this deck'
+                    : `${missingCount} cards you do not own yet`
               }
-              onClick={onMissingCards}
+              onClick={isEmpty ? undefined : onMissingCards}
             />
           </div>
 
@@ -597,11 +664,13 @@ export function DeckTile({
               variant="secondary"
               size="sm"
               onClick={handleAddMissingToWishlist}
-              disabled={addingToWishlist || isComplete}
+              disabled={addingToWishlist || nothingToWishlist}
               title={
-                isComplete
-                  ? 'You already own every card in this deck'
-                  : `Add ${missingCount} missing cards to your wishlist`
+                isEmpty
+                  ? 'This deck has no cards yet'
+                  : nothingToWishlist
+                    ? 'You already own every card in this deck'
+                    : `Add ${missingCount} missing cards to your wishlist`
               }
               className={CTA_CLASS}
             >

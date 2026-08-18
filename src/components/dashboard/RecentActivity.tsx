@@ -90,7 +90,7 @@ export function RecentActivity() {
 
       <CardContent className="pt-0">
         {loading ? (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-5">
             {[0, 1, 2, 3, 4].map(i => (
               <li key={i} className="flex items-center gap-3 px-2 py-2">
                 <Skeleton
@@ -116,17 +116,19 @@ export function RecentActivity() {
             </p>
           </div>
         ) : (
-          <ul className="space-y-1">
+          <ul className="grid grid-cols-2 gap-5">
             {entries.map((entry, index) => {
               const card = lookup.resolve(entry.artCardId, entry.artCardName);
 
               const body = (
                 <>
-                  <div className="relative shrink-0" style={{ width: THUMB_WIDTH }}>
+                  {/* Card on top at size, details beneath — the card is the
+                      subject of the entry, so it leads. */}
+                  <div className="relative w-full">
                     {card ? (
-                      <CardImage card={card} width={THUMB_WIDTH} fill hideFlip>
+                      <CardImage card={card} fill hideFlip>
                         {entry.quantity && entry.quantity > 1 ? (
-                          <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1 py-px text-[10px] font-semibold tabular-nums text-foreground backdrop-blur">
+                          <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground backdrop-blur">
                             &times;{entry.quantity}
                           </span>
                         ) : null}
@@ -136,7 +138,7 @@ export function RecentActivity() {
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
+                  <div className="mt-2.5 min-w-0 w-full">
                     <p className="truncate text-sm font-medium text-foreground">{entry.title}</p>
                     {entry.detail && (
                       <p className="truncate text-xs text-muted-foreground">{entry.detail}</p>
@@ -148,16 +150,20 @@ export function RecentActivity() {
                 </>
               );
 
+              /* Clicking a card always goes to that card's page. Only fall back
+                 to the entry's own destination when there is no card to open. */
+              const href = card ? `/cards/${card.id}` : entry.href;
+
               const rowClass = cn(
-                'flex items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-200',
+                'flex h-full flex-col items-start rounded-xl p-2 transition-colors duration-200',
                 'motion-reduce:transition-none'
               );
 
               return (
                 <Reveal as="li" key={entry.id} index={index} delay={index * 45}>
-                  {entry.href ? (
+                  {href ? (
                     <Link
-                      to={entry.href}
+                      to={href}
                       className={cn(
                         rowClass,
                         'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'

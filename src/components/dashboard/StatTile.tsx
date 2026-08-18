@@ -42,23 +42,12 @@ export function StatTile({
         className
       )}
     >
-      {/* The tile's icon at scale, sunk into the surface so the box has a
-          subject rather than four equal edges. Tint only — no glow, no fill. */}
-      <Icon
-        className={cn(
-          'pointer-events-none absolute -bottom-5 -right-4 -z-10 h-24 w-24 text-foreground/[0.045]',
-          'transition-transform duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-105',
-          'motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:scale-100'
-        )}
-        aria-hidden="true"
-        strokeWidth={1.25}
-      />
 
       <div className="flex items-start justify-between gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </span>
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
       </div>
 
       <div className="mt-3 truncate text-2xl font-semibold tabular-nums tracking-tight text-foreground">
@@ -74,7 +63,7 @@ export function StatTileSkeleton() {
     <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
       <div className="flex items-start justify-between gap-2">
         <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-5 w-5 rounded" />
       </div>
       <Skeleton className="mt-3 h-8 w-20" />
       <Skeleton className="mt-2 h-3 w-28" />

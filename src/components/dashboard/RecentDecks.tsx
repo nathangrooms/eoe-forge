@@ -103,10 +103,10 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
 
       <CardContent className="pt-0">
         {loading ? (
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {[0, 1, 2, 3, 4, 5].map(i => (
               <li key={i} className="overflow-hidden rounded-xl bg-muted/30">
-                <Skeleton className="aspect-[4/3] w-full" />
+                <Skeleton className="aspect-[4/5] w-full" />
                 <div className="space-y-2 p-3">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -135,7 +135,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
             </Button>
           </div>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {visible.map((deck, index) => {
               const commander = lookup.resolve(deck.faceCardId, deck.commanderName);
               const banner = bannerFor(commander);
@@ -151,7 +151,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                       tile is one target, leaving the star independently
                       focusable above it. */}
                   <div className="group relative flex h-full flex-col overflow-hidden rounded-xl bg-muted/30 shadow-lg shadow-black/20 transition-colors duration-200 hover:bg-accent focus-within:bg-accent motion-reduce:transition-none">
-                    <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-muted/40 p-3">
+                    <div className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden bg-muted/40 p-4">
                       {banner ? (
                         <img
                           src={banner.src}

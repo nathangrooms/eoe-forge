@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
+import { HistoryNav } from './HistoryNav';
 
 /**
  * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
@@ -139,6 +140,8 @@ export function TopNavigation() {
               New deck
             </Link>
           </Button>
+
+          <HistoryNav className="mr-0.5" />
 
           <AccountMenu />
         </div>

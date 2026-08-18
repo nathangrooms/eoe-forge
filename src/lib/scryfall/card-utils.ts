@@ -279,18 +279,23 @@ export const LEGALITY_LABEL: Record<string, string> = {
 /**
  * Four visually distinct states. Only `banned` earns colour — it is the one
  * that changes what a player can do, so it uses the destructive signal.
+ *
+ * Weight and tone only. Each state used to carry a `border-*` colour as well,
+ * which painted nothing (the helper lands on a `<span>` of text, and preflight
+ * zeroes border-width) while reading as four more hairlines to anyone
+ * grepping the tree.
  */
 export function legalityClass(state: string): string {
   switch (state) {
     case 'legal':
-      return 'border-foreground/40 text-foreground';
+      return 'font-semibold text-foreground';
     case 'banned':
-      return 'border-destructive/50 text-destructive';
+      return 'font-semibold text-destructive';
     case 'restricted':
-      return 'border-foreground/25 text-foreground/80';
+      return 'text-foreground/80';
     case 'not_legal':
     default:
-      return 'border-border text-muted-foreground/70';
+      return 'text-muted-foreground/70';
   }
 }
 

@@ -48,7 +48,7 @@ export function PasswordResetFlow() {
   if (sent) {
     return (
       <div className="space-y-5">
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-4">
+        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
           <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="space-y-1">
             <p className="text-sm font-medium">Check your email</p>

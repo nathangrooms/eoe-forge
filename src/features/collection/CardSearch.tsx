@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { Card as CardType } from '@/types/collection';
 import { useCardSearch } from '@/hooks/useCardSearch';
+import { CardImage } from '@/components/cards';
+import { rarityClass } from '@/lib/scryfall/card-utils';
+import { cn } from '@/lib/utils';
 
 // Transform hook card to our CardType
 const transformCard = (card: any): CardType => ({
@@ -148,29 +151,13 @@ export function CardSearch({ onCardSelect }: CardSearchProps) {
                 >
                   <CardContent className="p-0">
                     {/* Card Image */}
-                    <div className="aspect-[5/7] bg-muted relative overflow-hidden">
-                      {card.image_uris?.normal ? (
-                        <img
-                          src={card.image_uris.normal}
-                          alt={card.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          loading="lazy"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            img.style.display = 'none';
-                            img.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                      ) : null}
-                      
-                      {/* Fallback for missing images */}
-                      <div className={`absolute inset-0 flex items-center justify-center bg-muted ${card.image_uris?.normal ? 'hidden' : ''}`}>
-                        <div className="text-center p-4">
-                          <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-xs font-medium text-center">{card.name}</p>
-                          <p className="text-xs text-muted-foreground">{(card.set || 'UNK').toUpperCase()}</p>
-                        </div>
-                      </div>
+                    {/* CardImage, not a hand-rolled `<img>`: `object-cover` in
+                        an `aspect-[5/7]` box (0.7143) is a crop of a 0.7176
+                        card, and the hand-rolled version also bypassed the
+                        resolution table, the double-faced flip and the
+                        name-only fallback it had to reimplement below. */}
+                    <div className="relative">
+                      <CardImage card={card} size="lg" fill hideFlip interactive={false} />
 
                       {/* Overlay Actions */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
@@ -199,14 +186,11 @@ export function CardSearch({ onCardSelect }: CardSearchProps) {
 
                       {/* Rarity Indicator */}
                       <div className="absolute top-2 right-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            card.rarity === 'mythic' ? 'bg-orange-500/20 text-orange-600 border-orange-500' :
-                            card.rarity === 'rare' ? 'bg-yellow-500/20 text-yellow-600 border-yellow-500' :
-                            card.rarity === 'uncommon' ? 'bg-gray-400/20 text-gray-600 border-border' :
-                            'bg-gray-300/20 text-gray-500 border-border'
-                          }`}
+                        {/* A tinted pill, not an outlined one: rarity is
+                            weight in this product, per `rarityClass`. */}
+                        <Badge
+                          variant="secondary"
+                          className={cn('text-xs bg-background/85 backdrop-blur-sm', rarityClass(card.rarity))}
                         >
                           {card.rarity.charAt(0).toUpperCase()}
                         </Badge>

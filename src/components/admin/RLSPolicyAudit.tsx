@@ -309,7 +309,7 @@ export function RLSPolicyAudit() {
 
         <TabsContent value="critical" className="space-y-4">
           {criticalIssues.map((issue, index) => (
-            <Card key={index} className="border-destructive">
+            <Card key={index} className="bg-destructive/10">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">

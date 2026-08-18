@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { deriveCardTags } from '@/lib/cards/tagger';
 
 export interface Card {
   id: string;
@@ -32,6 +33,15 @@ export interface Card {
   quantity: number;
   category: 'commanders' | 'creatures' | 'lands' | 'instants' | 'sorceries' | 'artifacts' | 'enchantments' | 'planeswalkers' | 'battles' | 'other';
   mechanics?: string[];
+  /**
+   * Role tags, the same vocabulary `cards.tags` holds.
+   *
+   * `ArchetypeDetection` reads these and nothing else — it counts cards
+   * tagged `aristocrats`, `storm`, `landfall` and so on. The field did not
+   * exist, so every deck it was handed reported zero of every tag and only
+   * the three type-line detectors could ever fire.
+   */
+  tags?: string[];
   replacements?: Card[];
 }
 
@@ -435,52 +445,111 @@ export const useDeckStore = create<DeckState>()(
             return { success: false, error: deckError.message };
           }
 
-          // Load deck cards
-          const { data: deckCards, error: cardsError } = await supabase
-            .from('deck_cards')
-            .select('*')
-            .eq('deck_id', deckId);
+          /*
+           * Cards come from the local `cards` table, joined in one indexed
+           * query by `fetchDeckCards`.
+           *
+           * This used to issue one `api.scryfall.com/cards/named?exact=` per
+           * unique card name — 85+ requests to open a commander deck, and 250+
+           * once the page's other consumers piled on. Scryfall rate-limits at
+           * ~10 req/s, so a large deck reliably collected 429s, and every
+           * refused card fell into the "not found" branch below: mana value 0,
+           * empty type line, no art, no price. The builder then showed
+           * "Est. value $0", "Avg mana value 0.00", "Colourless", a mana curve
+           * with everything stacked on 0 — and, worst of all, computed an EDH
+           * power score from that wreckage and persisted it to `user_decks`,
+           * so the wrong number followed the deck onto the tile and the deck
+           * page. Opening the builder could silently corrupt the deck's score.
+           *
+           * `named?exact=` also returned an arbitrary printing, so the store
+           * replaced the deck's real `card_id` with a different one and
+           * collection ownership was matched on ids the deck did not hold.
+           */
+          const { fetchDeckCards, scryfallImageUrl } = await import('@/lib/deck/deckCards');
 
-          if (cardsError) {
+          let deckRows;
+          try {
+            deckRows = await fetchDeckCards(deckId);
+          } catch (cardsError) {
             console.error('Error loading deck cards:', cardsError);
-            return { success: false, error: cardsError.message };
+            const message =
+              cardsError instanceof Error ? cardsError.message : 'Failed to load deck cards';
+            return { success: false, error: message };
           }
+
+          // Only printings genuinely absent from the local table go to
+          // Scryfall — normally none, and never more than a handful.
+          const missing = deckRows.filter(row => !row.card);
+          const fallback = new Map<string, any>();
+          if (missing.length > 0) {
+            const names = Array.from(new Set<string>(missing.map(row => row.card_name)));
+            await Promise.all(
+              names.map(async cardName => {
+                try {
+                  const response = await fetch(
+                    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
+                  );
+                  fallback.set(cardName, response.ok ? await response.json() : null);
+                } catch (error) {
+                  console.error(`Error fetching ${cardName}:`, error);
+                  fallback.set(cardName, null);
+                }
+              })
+            );
+          }
+
+          const deckCards = deckRows.map(row => {
+            const local = row.card;
+            const api = local ? null : fallback.get(row.card_name);
+            return {
+              card_id: row.card_id,
+              card_name: row.card_name,
+              quantity: row.quantity,
+              is_commander: row.is_commander,
+              is_sideboard: row.is_sideboard,
+              // Shaped like the Scryfall payload the mapping below already
+              // expects, so the two sources stay interchangeable.
+              resolved: local
+                ? {
+                    id: row.card_id,
+                    name: local.name,
+                    cmc: local.cmc,
+                    type_line: local.type_line,
+                    colors: local.colors,
+                    color_identity: local.color_identity,
+                    oracle_text: local.oracle_text,
+                    power: local.power,
+                    toughness: local.toughness,
+                    image_uris: local.image_uris ?? {
+                      small: scryfallImageUrl(row.card_id, 'small') ?? undefined,
+                      normal: scryfallImageUrl(row.card_id, 'normal') ?? undefined,
+                      large: scryfallImageUrl(row.card_id, 'large') ?? undefined,
+                      art_crop: scryfallImageUrl(row.card_id, 'art_crop') ?? undefined,
+                    },
+                    prices: local.prices,
+                    set: local.set_code,
+                    set_name: local.set_code,
+                    rarity: local.rarity,
+                    keywords: local.keywords,
+                    legalities: local.legalities,
+                    layout: 'normal',
+                    mana_cost: local.mana_cost,
+                    // Authoritative: derived by the database from every face.
+                    tags: local.tags,
+                  }
+                : api,
+            };
+          });
 
           // Transform and set deck data
           const cards: Card[] = [];
           let commander: Card | undefined;
 
-          if (deckCards) {
-            // Create a cache for API responses to avoid duplicate calls
-            const cardCache = new Map<string, any>();
-            
-            // Group cards by name to avoid duplicate API calls
-            const uniqueCardNames = [...new Set(deckCards.map(card => card.card_name))];
-            
-            // Fetch all unique cards in parallel
-            const cardPromises = uniqueCardNames.map(async (cardName) => {
-              try {
-                const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
-                if (response.ok) {
-                  const apiCard = await response.json();
-                  cardCache.set(cardName, apiCard);
-                } else {
-                  cardCache.set(cardName, null);
-                }
-              } catch (error) {
-                console.error(`Error fetching ${cardName}:`, error);
-                cardCache.set(cardName, null);
-              }
-            });
-
-            // Wait for all API calls to complete
-            await Promise.all(cardPromises);
-
-            // Process each deck card using the cached data
+          {
             for (const dbCard of deckCards) {
               try {
-                const apiCard = cardCache.get(dbCard.card_name);
-                
+                const apiCard = dbCard.resolved;
+
                 if (apiCard) {
                   // Determine category based on type line and commander status
                   let category: Card['category'] = 'other';
@@ -507,7 +576,10 @@ export const useDeckStore = create<DeckState>()(
                   }
                   
                   const cardData: Card = {
-                    id: apiCard.id,
+                    // The deck's own printing id, never the arbitrary one a
+                    // name lookup returns — collection ownership, card removal
+                    // and replacement all key on it.
+                    id: dbCard.card_id || apiCard.id,
                     name: apiCard.name,
                     quantity: dbCard.quantity,
                     cmc: apiCard.cmc || 0,
@@ -528,7 +600,15 @@ export const useDeckStore = create<DeckState>()(
                     layout: apiCard.layout || 'normal',
                     mana_cost: apiCard.mana_cost || '',
                     category,
-                    mechanics: apiCard.keywords || []
+                    mechanics: apiCard.keywords || [],
+                    /*
+                     * Derived here rather than fetched: this path already has
+                     * the full Scryfall payload, and `deriveCardTags` is the
+                     * same rule set compiled into `public.derive_card_tags`,
+                     * so the result matches the row in our own table without a
+                     * second round trip. `card_faces` is read for us.
+                     */
+                    tags: apiCard.tags?.length ? apiCard.tags : deriveCardTags(apiCard)
                   };
 
                   if (dbCard.is_commander) {

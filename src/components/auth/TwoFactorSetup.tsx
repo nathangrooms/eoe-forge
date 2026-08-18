@@ -145,7 +145,7 @@ export function TwoFactorSetup() {
   if (enabledFactorId) {
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-4">
+        <div className="flex items-start gap-3 rounded-lg bg-muted p-4">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium text-foreground">Two-factor is on</p>
@@ -164,7 +164,7 @@ export function TwoFactorSetup() {
   if (qrCode) {
     return (
       <form onSubmit={verifyAndEnable} className="space-y-4">
-        <div className="flex justify-center rounded-lg border border-border bg-card p-4">
+        <div className="flex justify-center rounded-lg bg-card p-4 shadow-md shadow-black/20">
           {/* The QR is an SVG data URI from Supabase; it needs a light ground
               to stay scannable in dark mode, hence the explicit white here. */}
           <img

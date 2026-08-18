@@ -96,6 +96,14 @@ export interface CategorizeOptions {
  * Precedence matters: a "Legendary Artifact Creature" is a creature, an
  * "Artifact Land" is a land, and anything that fails every test lands in
  * `other` rather than disappearing.
+ *
+ * Only the **front face** counts. Testing the whole type line filed every
+ * modal double-faced spell with a land on the back under Lands — "Aclazotz,
+ * Deepest Betrayal // Temple of the Dead" is a five-mana Legendary Creature,
+ * and calling it a land both hid it from the creature section of the visual
+ * decklist and dropped it out of the average mana value, so the deck page and
+ * the builder printed different curves for the same deck. The builder's
+ * categoriser has always read the front face; this one now agrees with it.
  */
 export function categorizeCard(
   typeLine: string | null | undefined,
@@ -104,8 +112,9 @@ export function categorizeCard(
   if (options.isSideboard) return 'sideboard';
   if (options.isCommander) return 'commanders';
 
-  const t = (typeLine || '').toLowerCase();
-  if (!t) return 'other';
+  const full = (typeLine || '').toLowerCase();
+  if (!full) return 'other';
+  const t = full.split('//')[0];
 
   if (t.includes('land')) return 'lands';
   if (t.includes('battle')) return 'battles';

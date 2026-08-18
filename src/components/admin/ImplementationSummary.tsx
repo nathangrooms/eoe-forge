@@ -195,7 +195,7 @@ export function ImplementationSummary() {
             </div>
           ))}
           
-          <div className="pt-4 border-t">
+          <div className="pt-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Total Features Implemented:</span>
               <Badge className="text-lg px-4 py-1">

@@ -1,5 +1,5 @@
 import { GameCard } from '@/lib/simulation/types';
-import { CARD_ASPECT } from '@/components/cards';
+import { CARD_ASPECT, CardImage } from '@/components/cards';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -123,19 +123,19 @@ export const FullCardDisplay = forwardRef<HTMLDivElement, FullCardDisplayProps>(
               )}
               style={{ aspectRatio: CARD_ASPECT }}
             >
-              {card.image_uris?.normal ? (
-                <img
-                  src={card.image_uris.normal}
-                  alt={card.name}
-                  className="absolute inset-0 h-full w-full rounded-md object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center rounded-md bg-muted p-2">
-                  <div className="line-clamp-5 text-center text-xs font-bold text-foreground">
-                    {card.name}
-                  </div>
-                </div>
-              )}
+              {/* CardImage, not a hand-rolled <img>. The box is already the
+                  card's own ratio, so `fill` lands it exactly — and the one
+                  card component brings the resolution table, the fade-in and
+                  the name-only fallback for a permanent with no scan, all of
+                  which this had to reimplement. */}
+              <CardImage
+                card={card}
+                size="sm"
+                fill
+                hideFlip
+                interactive={false}
+                imageClassName="rounded-md"
+              />
 
               {card.layout === 'token' && (
                 <div className="absolute -left-0.5 -top-0.5 z-10 rounded-br-lg rounded-tl-md bg-foreground px-2 py-0.5 text-[9px] font-black text-background">

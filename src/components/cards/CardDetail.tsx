@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardCost } from '@/components/cards/CardCost';
+import { CardImage } from './CardImage';
 import { CardPrintingComparison } from '@/components/cards/CardPrintingComparison';
 import { cn } from '@/lib/utils';
 import {
@@ -12,7 +13,6 @@ import {
   canBeCommander,
   edhrecUrl,
   gathererUrl,
-  getCardImage,
   getColorIdentity,
   getLoyalty,
   getOracleText,
@@ -26,7 +26,7 @@ import {
   scryfallUrl,
   tcgplayerUrl,
 } from '@/lib/scryfall/card-utils';
-import { ExternalLink, Heart, ImageOff, Plus, RefreshCw } from 'lucide-react';
+import { ExternalLink, Heart, Plus, RefreshCw } from 'lucide-react';
 
 /**
  * The card-detail surface, with no container of its own.
@@ -158,7 +158,6 @@ export function CardDetail({
   if (!card) return null;
 
   const flippable = hasBackFace(card);
-  const imageSrc = getCardImage(card, 'normal', face);
   const activeFace = flippable ? face : undefined;
   const setCode = getSetCode(card).toUpperCase();
   const setName = getSetName(card);
@@ -179,22 +178,24 @@ export function CardDetail({
         {/* ------------------------- Card art ------------------------- */}
         <div className="min-w-0 space-y-4">
           <div className="relative mx-auto w-full max-w-[300px]">
-            <div className="aspect-[63/88] w-full overflow-hidden rounded-lg bg-muted shadow-lg shadow-black/20">
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt={card.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <ImageOff className="h-6 w-6" aria-hidden />
-                  <span className="text-sm">No image available</span>
-                </div>
-              )}
-            </div>
+            {/* CardImage, not a hand-rolled <img>. This is the largest a card
+                is ever drawn in the product (300px), and the hand-rolled
+                version asked for `normal` — a 488px scan stretched over 600
+                device pixels. It also boxed the card at 63/88 (0.7159) and
+                let `object-contain` letterbox it, because the actual scan is
+                488/680 (0.7176); CardImage carries the scan's own ratio, so
+                the art meets the frame on all four sides.
+                `hideFlip` because the labelled Flip button below owns the
+                face — it swaps the oracle text with the art. */}
+            <CardImage
+              card={card}
+              size="xl"
+              fill
+              hideFlip
+              interactive={false}
+              faceIndex={flippable ? face : 0}
+              imageClassName="shadow-lg shadow-black/20"
+            />
 
             {flippable && (
               <Button

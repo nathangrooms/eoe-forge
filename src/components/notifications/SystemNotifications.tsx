@@ -142,7 +142,7 @@ export function SystemNotifications() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between bg-muted/30 p-4">
           <h4 className="font-semibold">Notifications</h4>
           {unreadCount > 0 && (
             <Button
@@ -166,7 +166,7 @@ export function SystemNotifications() {
               No notifications
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="[&>*:nth-child(even)]:bg-muted/30">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}

@@ -164,7 +164,7 @@ function WorkstreamRow({ ws, tasks }: { ws: Workstream; tasks: DevTask[] }) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg bg-card shadow-md shadow-black/20">
         <CollapsibleTrigger className="w-full text-left p-4 hover:bg-muted/50 transition-colors rounded-lg">
           <div className="flex items-start gap-3">
             <ChevronRight className={cn('h-4 w-4 mt-1 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
@@ -358,7 +358,7 @@ export function DevConsole() {
 
   if (error) {
     return (
-      <Card className="border-destructive/50">
+      <Card className="bg-destructive/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
@@ -537,7 +537,7 @@ export function DevConsole() {
           <Card>
             <CardContent className="p-0">
               <ScrollArea className="h-[520px]">
-                <ul className="divide-y">
+                <ul className="[&>*:nth-child(even)]:bg-muted/30">
                   {logs.length === 0 && (
                     <li className="p-4 text-sm text-muted-foreground">No log entries yet.</li>
                   )}

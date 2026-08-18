@@ -205,7 +205,7 @@ export function HomeBuilderPreview() {
         {/* toolbar */}
         <div className="flex flex-wrap items-center gap-3 bg-muted/40 px-4 py-3">
           <span className="text-sm font-medium">Untitled Commander deck</span>
-          <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
             Commander
           </span>
           <span className="ml-auto text-sm tabular-nums text-muted-foreground">

@@ -118,9 +118,9 @@ export function FeatureFlags() {
 
   const getCategoryBadge = (category: FeatureFlag['category']) => {
     const config = {
-      experimental: { color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20', label: 'Experimental' },
-      beta: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', label: 'Beta' },
-      maintenance: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', label: 'Maintenance' },
+      experimental: { color: 'bg-muted text-foreground', label: 'Experimental' },
+      beta: { color: 'bg-muted text-muted-foreground', label: 'Beta' },
+      maintenance: { color: 'bg-destructive/15 text-destructive', label: 'Maintenance' },
     };
     return config[category];
   };
@@ -160,7 +160,7 @@ export function FeatureFlags() {
           return (
             <div
               key={flag.id}
-              className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="flex items-start justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
             >
               <div className="flex-1 mr-4">
                 <div className="flex items-center gap-2 mb-1">

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Card as EngineCard } from '@/lib/deckbuilder/types';
+import { categorizeCard } from './cardCategories';
 
 /**
  * Deck card loading with real card metadata.
@@ -31,6 +32,8 @@ export interface DeckCardDetail {
   legalities: Record<string, string> | null;
   is_legendary: boolean;
   keywords: string[];
+  /** Role tags from `public.derive_card_tags`. Read by archetype detection. */
+  tags: string[];
 }
 
 export interface DeckCardRow {
@@ -45,7 +48,7 @@ export interface DeckCardRow {
 }
 
 const CARD_COLUMNS =
-  'name, type_line, mana_cost, cmc, colors, color_identity, image_uris, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords';
+  'name, type_line, mana_cost, cmc, colors, color_identity, image_uris, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords, tags';
 
 /**
  * Scryfall serves images at a deterministic path keyed on the card id, so a
@@ -91,6 +94,7 @@ function normalizeDetail(raw: any): DeckCardDetail | null {
     legalities: raw.legalities ?? null,
     is_legendary: Boolean(raw.is_legendary),
     keywords: raw.keywords ?? [],
+    tags: raw.tags ?? [],
   };
 }
 
@@ -171,7 +175,11 @@ export function computeDeckStats(rows: DeckCardRow[]): DeckStats {
       continue;
     }
 
-    const isLand = row.card.type_line.toLowerCase().includes('land');
+    // Front face only, through the one categoriser. A plain
+    // `.includes('land')` counted every modal double-faced spell with a land
+    // on the back as a land, which is what made this page's average mana
+    // value disagree with the builder's for the same deck.
+    const isLand = categorizeCard(row.card.type_line) === 'lands';
     if (!isLand) {
       nonLandCards += row.quantity;
       manaValueTotal += row.card.cmc * row.quantity;
@@ -222,7 +230,10 @@ export function toEngineCards(rows: DeckCardRow[]): EngineCard[] {
       is_legendary:
         row.card?.is_legendary ??
         (row.card?.type_line || '').toLowerCase().includes('legendary'),
-      tags: new Set<string>(),
+      // The authoritative role tags, straight from the row. This was an empty
+      // set, so every engine consumer that branches on `tags` — the commander
+      // synergy score, every template quota — saw a deck of untagged cards.
+      tags: new Set<string>(row.card?.tags ?? []),
       derived: {
         mv: row.card?.cmc ?? 0,
         colorPips: {},

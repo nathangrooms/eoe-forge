@@ -26,6 +26,7 @@ import { CollectionAPI } from '@/server/routes/collection';
 import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { useCollectionStore } from '@/features/collection/store';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
+import { CardImage } from '@/components/cards';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
 
@@ -367,14 +368,19 @@ export function StorageQuickAddPanel({ containerId, onAdded }: StorageQuickAddPa
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center gap-3">
-                      <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                        {item.card?.image_uris?.small && (
-                          <img
-                            src={item.card.image_uris.small}
-                            alt={item.card_name}
-                            className="h-full w-full object-cover"
-                          />
-                        )}
+                      {/* The whole card. This was a 40 x 40 square with
+                          `object-cover`, i.e. a 1:1 crop through the middle of
+                          a 0.718 card — the name, the cost and the type line
+                          all cut away, on the one control whose job is to let
+                          you recognise which printing you are filing. It is a
+                          real card at the card's own ratio now. */}
+                      <CardImage
+                        card={item.card ?? { name: item.card_name }}
+                        width={56}
+                        hideFlip
+                        interactive={false}
+                        title={item.card_name}
+                      >
                         {isSelected && (
                           <div className="absolute inset-0 flex items-center justify-center bg-primary/80">
                             <Check
@@ -383,7 +389,7 @@ export function StorageQuickAddPanel({ containerId, onAdded }: StorageQuickAddPa
                             />
                           </div>
                         )}
-                      </div>
+                      </CardImage>
                       <div className="min-w-0 flex-1">
                         <h4 className="truncate text-sm font-medium">{item.card_name}</h4>
                         <div className="mt-0.5 flex items-center gap-2">

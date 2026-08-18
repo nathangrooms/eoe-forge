@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { CardImage } from '@/components/cards';
 
 /**
  * Homepage hero.
@@ -126,12 +127,19 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
                   transformOrigin: 'bottom center',
                 }}
               >
-                <img
-                  src={c.image_uris!.normal}
-                  alt={c.name}
-                  loading={i < 3 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  className="w-full rounded-xl shadow-2xl shadow-black/60"
+                {/* CardImage, not a hand-rolled <img>. The fan is drawn at up
+                    to 208px and the hand-rolled version asked Scryfall for
+                    `normal` (488px) — already under-sampled on the 2× displays
+                    most visitors arrive on, for the first seven cards they
+                    ever see. */}
+                <CardImage
+                  card={c}
+                  size="lg"
+                  fill
+                  hideFlip
+                  interactive={false}
+                  eager={i < 3}
+                  imageClassName="shadow-2xl shadow-black/60"
                 />
               </figure>
             );

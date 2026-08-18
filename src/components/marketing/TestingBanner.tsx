@@ -76,7 +76,7 @@ export function TestingBanner() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-8 backdrop-blur-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/15 mb-8 backdrop-blur-sm"
         >
           <motion.div
             animate={{ rotate: [0, 15, -15, 0] }}
@@ -128,7 +128,7 @@ export function TestingBanner() {
             size="lg" 
             variant="outline"
             onClick={() => navigate('/login')}
-            className="px-8 py-6 text-lg border-border/50 hover:bg-card/50"
+            className="px-8 py-6 text-lg border-0 bg-card/40 hover:bg-card/70"
           >
             Sign In
           </Button>

@@ -101,8 +101,14 @@ export interface TagRule {
   /**
    * Legacy tag names emitted alongside the canonical one. The deck builder's
    * templates and `ArchetypeDetection` already query `removal-spot`,
-   * `sac_outlet`, `lands-matter` and friends; dropping those names would
+   * `sac-outlet`, `lands-matter` and friends; dropping those names would
    * silently empty existing quotas, so the canonical rule emits both.
+   *
+   * An alias is a second name for one idea, so ranking code must not count it
+   * twice — `@/lib/cards/tag-signal` derives the alias set from this field and
+   * strips it before scoring. Spell an alias exactly one way: `sac_outlet`
+   * alongside `sac-outlet` bought nothing and cost every sacrifice outlet a
+   * quadruple score in "works well with".
    */
   also?: string[];
   /** Why this rule exists / what it deliberately excludes. */
@@ -485,14 +491,28 @@ export const TAG_RULES: TagRule[] = [
   /* ---- Sacrifice / aristocrats ---- */
   {
     tag: 'sacrifice-outlet',
-    also: ['sac-outlet', 'sac_outlet', 'sacrifice'],
+    /**
+     * `sac_outlet` used to be emitted here as well, because two readers spelled
+     * it with an underscore while the templates, `ArchetypeDetection` and
+     * `CommanderIntelligence` all spelled it with a hyphen. Those two readers
+     * now use the hyphen, so the underscore spelling has left the vocabulary:
+     * one idea, one name.
+     */
+    also: ['sac-outlet', 'sacrifice'],
     note:
       'The sacrifice must sit in an activated-ability COST — left of a colon on ' +
       'its own line. "Sacrifice a creature. If you do..." is a one-shot effect, ' +
-      'not an outlet, and has no colon.',
+      'not an outlet, and has no colon. It must also sacrifice something OTHER ' +
+      'than the card itself: an outlet is a repeatable way to convert your other ' +
+      'permanents into value, which is not what "Sacrifice this land:" offers.',
     when: any(
-      t('(^|\\n)[^\\n:]{0,70}sacrifice (a|an|another|one|two|three|x|\\d+|this|it|any number of)[^\\n:]{0,60}:'),
-      t('(^|\\n)[^\\n:]{0,70}sacrifice (a|an|another)[^\\n:]{0,60}:'),
+      // An indefinite object — "sacrifice a creature:", "sacrifice two artifacts:".
+      t('(^|\\n)[^\\n:]{0,70}sacrifice (a|an|another|one|two|three|x|\\d+|any number of)[^\\n:]{0,60}:'),
+      // "Sacrifice this creature and any number of other non-Eldrazi creatures:"
+      // — Emrakul's Evangel really is an outlet, and the object is not adjacent
+      // to the verb. `[^\n:]` cannot cross the colon, so this still only reads
+      // the activation cost.
+      t('(^|\\n)[^\\n:]{0,70}sacrifice [^\\n:]{0,50}(another|other) [^\\n:]{0,40}:'),
     ),
   },
   {

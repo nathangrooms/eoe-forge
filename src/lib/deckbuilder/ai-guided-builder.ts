@@ -168,7 +168,7 @@ export class AIGuidedBuilder {
       } else if (commanderText.includes('token')) {
         synergyCount = deck.filter(c => c.tags.has('tokens')).length;
       } else if (commanderText.includes('sacrifice')) {
-        synergyCount = deck.filter(c => c.tags.has('sac_outlet') || c.tags.has('aristocrats')).length;
+        synergyCount = deck.filter(c => c.tags.has('sac-outlet') || c.tags.has('aristocrats')).length;
       }
       
       if (synergyCount < 10) {

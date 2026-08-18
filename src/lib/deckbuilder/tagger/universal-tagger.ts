@@ -1,8 +1,26 @@
 import { Card } from '../types';
 
-// Universal card tagger - deterministic tagging for all MTG cards
+/**
+ * In-memory fallback tagger for a card pool that arrives without `cards.tags`.
+ *
+ * The authoritative role vocabulary is `src/lib/cards/tagger.ts`, compiled into
+ * `public.derive_card_tags` and stored on every one of the 34,088 rows. This
+ * class only runs when a pool reaches the builder untagged, and it exists to
+ * keep the quota machinery working in that case.
+ *
+ * ⚠️ THE KEYS OF `PATTERNS` ARE THE EMITTED TAG NAMES.
+ *
+ * They were `removal_spot`, `removal_sweeper`, `tutors_broad`, `tutors_narrow`,
+ * `sac_outlet`, `artifacts_matter`, `enchantments_matter`, `lands_matter` and
+ * `tribal` — underscores, and two of them pluralised. Every template in
+ * `templates/base-templates.ts` asks for the hyphenated spelling
+ * (`removal-spot`, `tutor-broad`, `sac-outlet`, …), so those quotas could never
+ * be satisfied from a pool this tagger had classified: `fillInteraction` looked
+ * for `removal-spot`, found zero cards carrying it, and gave up. They are now
+ * spelled exactly as the database spells them.
+ */
 export class UniversalTagger {
-  private static readonly PATTERNS = {
+  private static readonly PATTERNS: Record<string, RegExp[]> = {
     // Role patterns
     ramp: [
       /add [\{\w\}]+ to your mana pool/i,
@@ -17,13 +35,13 @@ export class UniversalTagger {
       /whenever a land enters.*add/i
     ],
     
-    tutors_broad: [
+    'tutor-broad': [
       /search your library for a card/i,
       /search your library.*card.*hand/i,
       /tutor/i
     ],
     
-    tutors_narrow: [
+    'tutor-narrow': [
       /search your library for a.*creature card/i,
       /search your library for.*creature/i,
       /search your library for a.*instant.*sorcery/i,
@@ -35,7 +53,7 @@ export class UniversalTagger {
       /search your library for.*land/i
     ],
     
-    removal_spot: [
+    'removal-spot': [
       /(destroy|exile) target (creature|artifact|enchantment|permanent)/i,
       /(destroy|exile).*target/i,
       /target.*gets -\d+\/-\d+ until end of turn/i,
@@ -45,7 +63,7 @@ export class UniversalTagger {
       /target.*owner.*hand/i
     ],
     
-    removal_sweeper: [
+    'removal-sweeper': [
       /(destroy|exile) all (creatures|artifacts|enchantments)/i,
       /all creatures get -\d+\/-\d+/i,
       /damage to each creature/i,
@@ -101,7 +119,7 @@ export class UniversalTagger {
       /sacrifice.*creature/i
     ],
     
-    sac_outlet: [
+    'sac-outlet': [
       /sacrifice.*:/i,
       /sacrifice another/i,
       /sacrifice a creature/i
@@ -155,25 +173,25 @@ export class UniversalTagger {
       /each counter/i
     ],
     
-    artifacts_matter: [
+    'artifacts-matter': [
       /artifact.*you control/i,
       /whenever.*artifact.*enters/i,
       /affinity for artifacts/i
     ],
     
-    enchantments_matter: [
+    'enchantments-matter': [
       /enchantment.*you control/i,
       /whenever.*enchantment.*enters/i,
       /constellation/i
     ],
     
-    lands_matter: [
+    'lands-matter': [
       /landfall/i,
       /whenever a land enters/i,
       /land.*you control/i
     ],
     
-    tribal: [
+    'tribal-payoff': [
       /creature type/i,
       /creatures you control get/i,
       /creatures of the chosen type/i
@@ -197,21 +215,24 @@ export class UniversalTagger {
     ]
   };
 
-  public static tagCard(card: Card): Set<string> {
+  /**
+   * Everything derivable from a card's *shape* rather than its rules text:
+   * card type, curve bucket, colour identity, printed keywords.
+   *
+   * `public.derive_card_tags` deliberately emits none of these beyond the card
+   * types — a curve bucket is a property of the deck slot, not of the card's
+   * role — but `fillCurve` fills `creatures_curve` by asking for
+   * `creature-3mv`, and `tunePowerLevel` reads `low-mv`. So a pool that arrives
+   * already carrying database tags still needs these merged in, which is what
+   * `UniversalDeckBuilder.filterPool` does. They are cheap, deterministic, and
+   * cannot contradict a database tag because the two vocabularies are disjoint
+   * apart from the card types, which agree by construction.
+   */
+  public static structuralTags(card: Card): Set<string> {
     const tags = new Set<string>();
     const text = (card.oracle_text || '').toLowerCase();
     const typeLine = card.type_line.toLowerCase();
-    
-    // Tag based on patterns
-    for (const [tag, patterns] of Object.entries(this.PATTERNS)) {
-      for (const pattern of patterns) {
-        if (pattern.test(text) || pattern.test(typeLine)) {
-          tags.add(tag);
-          break;
-        }
-      }
-    }
-    
+
     // Type-based tags
     if (typeLine.includes('creature')) tags.add('creature');
     if (typeLine.includes('instant')) tags.add('instant');
@@ -223,17 +244,7 @@ export class UniversalTagger {
     
     // Basic land types
     if (typeLine.includes('basic')) tags.add('basic-land');
-    
-    // Fast mana detection
-    if (card.cmc === 0 && text.includes('add') && text.includes('mana')) {
-      tags.add('fast-mana');
-    }
-    
-    // Mana rocks and dorks (1-2 CMC ramp)
-    if ((card.cmc === 1 || card.cmc === 2) && text.includes('add') && text.includes('mana')) {
-      tags.add('ramp');
-    }
-    
+
     // ETB tapped detection
     if (text.includes('enters the battlefield tapped') || text.includes('enters tapped')) {
       tags.add('etb-tapped');
@@ -266,7 +277,43 @@ export class UniversalTagger {
     if (card.cmc <= 2) tags.add('low-mv');
     else if (card.cmc <= 4) tags.add('mid-mv');
     else tags.add('high-mv');
-    
+
+    return tags;
+  }
+
+  /**
+   * Full classification for a card the database has not tagged.
+   *
+   * Roles from `PATTERNS`, plus two mana heuristics, plus everything
+   * `structuralTags` derives. The two heuristics live here and not in
+   * `structuralTags` on purpose: "cmc ≤ 2 and the text says add and mana" calls
+   * Chromatic Sphere ramp and would over-tag a card the database has already
+   * classified precisely.
+   */
+  public static tagCard(card: Card): Set<string> {
+    const text = (card.oracle_text || '').toLowerCase();
+    const typeLine = card.type_line.toLowerCase();
+    const tags = this.structuralTags(card);
+
+    for (const [tag, patterns] of Object.entries(this.PATTERNS)) {
+      for (const pattern of patterns) {
+        if (pattern.test(text) || pattern.test(typeLine)) {
+          tags.add(tag);
+          break;
+        }
+      }
+    }
+
+    // Fast mana detection
+    if (card.cmc === 0 && text.includes('add') && text.includes('mana')) {
+      tags.add('fast-mana');
+    }
+
+    // Mana rocks and dorks (1-2 CMC ramp)
+    if ((card.cmc === 1 || card.cmc === 2) && text.includes('add') && text.includes('mana')) {
+      tags.add('ramp');
+    }
+
     return tags;
   }
 

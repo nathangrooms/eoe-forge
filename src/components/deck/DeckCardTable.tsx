@@ -197,7 +197,9 @@ export function DeckCardTable({ rows, onCardClick, className }: DeckCardTablePro
               </TableRow>
             );
           })}
-          <TableRow className="border-t-2 border-border font-medium hover:bg-transparent">
+          {/* Separated by surface tint, not a rule — design law 2 rules out
+              hairlines, `border-t-2` included. */}
+          <TableRow className="bg-muted/60 font-medium hover:bg-muted/60">
             <TableCell className="text-right tabular-nums">{totalCards}</TableCell>
             <TableCell>Total</TableCell>
             <TableCell />

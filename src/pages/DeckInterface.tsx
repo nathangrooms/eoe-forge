@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { OracleText } from '@/components/cards/OracleText';
 import { ComprehensiveAnalytics } from '@/components/deck-builder/ComprehensiveAnalytics';
 import { PowerScore } from '@/components/deck/PowerScore';
 import { computeDeckPower, entriesFromDeckRows, type DeckPower } from '@/lib/deck/power';
 import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
 import { DeckCardTable } from '@/components/deck/DeckCardTable';
-import { ColorIdentity } from '@/components/ui/mana-cost';
+import { CommanderHero } from '@/components/deck/CommanderHero';
+import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -240,7 +242,20 @@ export default function DeckInterface() {
   }
 
   const showPower = usesPowerLevel(deck.format);
-  const heroArt = commander ? cardImage(commander, 'art_crop') : null;
+
+  /**
+   * The commander shaped for the shared `CommanderHero`, which draws the whole
+   * card through `CardImage`. This page used to draw `art_crop` into a 1136×208
+   * letterbox — the one card that represents the deck, cropped to a strip, from
+   * a hand-rolled `<img>`. Both are ruled out.
+   */
+  const heroCommander = commander
+    ? {
+        name: commander.card?.name || commander.card_name,
+        image: cardImage(commander, 'large') ?? undefined,
+        image_uris: commander.card?.image_uris ?? undefined,
+      }
+    : null;
 
   const statTiles = [
     { label: 'Cards', value: stats.totalCards.toString(), hint: undefined as string | undefined },
@@ -270,55 +285,87 @@ export default function DeckInterface() {
         </div>
       }
     >
-      {/* Commander banner */}
-      {commander && (
-        <Card className="mb-6 overflow-hidden">
-          <div className="relative">
-            {heroArt && (
-              <img
-                src={heroArt}
-                alt=""
-                className="h-40 w-full object-cover object-center md:h-52"
-                loading="lazy"
-              />
-            )}
-            <div
-              className={
-                heroArt
-                  ? 'absolute inset-0 flex items-end bg-black/55 p-5'
-                  : 'flex items-end bg-muted p-5'
+      {/* The deck header: the commander drawn whole beside the numbers that
+          describe the deck. One row, full width, no cropped art and no
+          hand-rolled <img>. */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="flex flex-col gap-5 p-4 sm:flex-row sm:gap-6 sm:p-6">
+          <div className="mx-auto w-[62%] min-w-0 max-w-[270px] shrink-0 sm:mx-0 sm:w-[30%] sm:max-w-[300px] sm:self-start">
+            <CommanderHero
+              commander={heroCommander}
+              deckName={deck.name}
+              format={deck.format}
+              identity={identity}
+              cardCount={stats.totalCards}
+              size="xl"
+              eager
+              onClick={
+                commander ? () => openCard(commander) : () => navigate(`/deck-builder?deck=${deck.id}`)
               }
-            >
-              <div>
-                <p
-                  className={`flex items-center gap-1.5 text-[11px] uppercase tracking-wider ${
-                    heroArt ? 'text-white/80' : 'text-muted-foreground'
-                  }`}
-                >
-                  <Crown className="h-3.5 w-3.5" />
-                  Commander
-                </p>
-                <h2
-                  className={`mt-1 text-xl font-bold md:text-2xl ${
-                    heroArt ? 'text-white' : 'text-foreground'
-                  }`}
-                >
-                  {commander.card?.name || commander.card_name}
+            />
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <Crown className="h-3.5 w-3.5" />
+                {commander ? 'Commander' : 'No commander'}
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="text-xl font-bold md:text-2xl">
+                  {commander
+                    ? commander.card?.name || commander.card_name
+                    : 'Choose one in the builder'}
                 </h2>
-                {commander.card?.type_line && (
-                  <p className={`text-sm ${heroArt ? 'text-white/80' : 'text-muted-foreground'}`}>
-                    {commander.card.type_line}
-                  </p>
-                )}
+                {commander?.card?.mana_cost ? (
+                  <ManaCost cost={commander.card.mana_cost} size="sm" />
+                ) : null}
               </div>
+              {commander?.card?.type_line && (
+                <p className="text-sm text-muted-foreground">{commander.card.type_line}</p>
+              )}
+              {commander?.card?.oracle_text && (
+                <OracleText
+                  text={commander.card.oracle_text}
+                  size="xs"
+                  className="mt-2 max-w-prose text-xs leading-relaxed"
+                />
+              )}
+              {deck.description && (
+                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                  {deck.description}
+                </p>
+              )}
+              {identity.length > 0 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                    Colour identity
+                  </span>
+                  <ColorIdentity colors={identity} size="md" />
+                </div>
+              )}
+            </div>
+
+            {/* The owner's primary number, in the header rather than below it. */}
+            {showPower && <PowerScore power={power} variant="compact" />}
+
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {statTiles.map(tile => (
+                <div key={tile.label} className="rounded-lg bg-muted/40 p-3 text-center">
+                  <p className="text-2xl font-bold tabular-nums">{tile.value}</p>
+                  <p className="text-sm text-muted-foreground">{tile.label}</p>
+                  {tile.hint && <p className="text-[10px] text-muted-foreground">{tile.hint}</p>}
+                </div>
+              ))}
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
 
-      {/* Say so honestly when the local card table is missing printings */}
+      {/* Say so honestly when the local card table is missing printings.
+          Surface tint, no hairline — design law 2. */}
       {stats.missingMetadata > 0 && (
-        <div className="mb-6 flex items-start gap-3 rounded-md border border-border bg-muted p-4">
+        <div className="mb-6 flex items-start gap-3 rounded-lg bg-muted p-4 shadow-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
           <div className="text-sm">
             <p className="font-medium">
@@ -326,39 +373,10 @@ export default function DeckInterface() {
               data
             </p>
             <p className="text-muted-foreground">
-              Their mana value and price are excluded from the totals below. Run a card sync from
+              Their mana value and price are excluded from the totals above. Run a card sync from
               the admin panel to fill them in.
             </p>
           </div>
-        </div>
-      )}
-
-      {/* The power score gets a block of its own — the owner calls it the
-          primary number for any deck, and it is the same number the tile, the
-          builder and the dashboard show. */}
-      {showPower && (
-        <div className="mb-6">
-          <PowerScore power={power} variant="compact" />
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {statTiles.map(tile => (
-          <Card key={tile.label}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold tabular-nums">{tile.value}</p>
-              <p className="text-sm text-muted-foreground">{tile.label}</p>
-              {tile.hint && <p className="text-[10px] text-muted-foreground">{tile.hint}</p>}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {identity.length > 0 && (
-        <div className="mb-6 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Colour identity</span>
-          <ColorIdentity colors={identity} size="md" />
         </div>
       )}
 

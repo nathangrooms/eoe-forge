@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { CardImage, CardImageSkeleton } from './CardImage';
 import { CardCost } from './CardCost';
 import { getUsdPrice, formatUsd } from '@/lib/scryfall/card-utils';
+import { sharedTagScore, sharedTags, signalTags } from '@/lib/cards/tag-signal';
 import { Layers3, Sparkles } from 'lucide-react';
 
 /**
@@ -15,6 +16,13 @@ import { Layers3, Sparkles } from 'lucide-react';
  * the same decks in `deck_cards`, cards that share a creature type, cards that
  * share a keyword, cards that carry the same tag. A player can disagree with a
  * suggestion, but they can always see *why* it was made.
+ *
+ * The role-tag group ranks by how *rare* the shared tags are, not how many
+ * there are — see `@/lib/cards/tag-signal`. Counting raw overlap gave Sol Ring
+ * a list containing Flooded Strand, Soldevi Excavations and Elvish Harbinger,
+ * with Mana Crypt and Mana Vault absent altogether: every one of the 2,140
+ * cards tagged `ramp` was as good a match as another fast rock. It now leads
+ * with Mana Vault, Mana Crypt and Sol Talisman.
  *
  * Every filter here rides an existing index — `cards_type_line_trgm_idx`,
  * `cards_keywords_idx`, `idx_cards_tags`, `cards_color_identity_idx`,
@@ -57,17 +65,19 @@ async function retrying<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
-/** Tags that only restate the card's type — useless as a synergy signal. */
-const TYPE_TAGS = new Set([
-  'creature',
-  'instant',
-  'sorcery',
-  'artifact',
-  'enchantment',
-  'land',
-  'planeswalker',
-  'battle',
-]);
+/**
+ * How many of a card's role tags we query on.
+ *
+ * `signalTags` returns them rarest first and each one costs an indexed lookup,
+ * so the budget is spent on the rarest — the only ones that pick out a related
+ * card rather than a tenth of the table. Sol Ring has three (`fast-mana`,
+ * `mana-rock`, `ramp`), Craterhoof Behemoth two (`mass-pump`, `finisher`), and
+ * nothing in the catalogue needs more than four to be identified.
+ */
+const TAG_PROBES = 4;
+
+/** Rows pulled per probe tag before ranking. */
+const PER_TAG_LIMIT = 60;
 
 /** Races generic enough that "shares the Human type" tells a player nothing. */
 const GENERIC_SUBTYPES = new Set(['Human']);
@@ -127,12 +137,23 @@ function rank(rows: any[], shared: (row: any) => number): any[] {
   });
 }
 
+/**
+ * One tile per card, across every group on the page.
+ *
+ * Keyed on the oracle id *and* the name. Oracle id alone is not enough: our
+ * `cards` table holds two distinct oracle ids named "Black Lotus" (three prints
+ * between them), so an oracle-only guard rendered the same card twice in one
+ * row, which reads as a broken query.
+ */
 function dedupeByOracle(rows: any[], seen: Set<string>): any[] {
   const out: any[] = [];
   for (const row of rows) {
-    const key = row.oracle_id || row.name;
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
+    const oracle = row.oracle_id ? `id:${row.oracle_id}` : '';
+    const named = row.name ? `name:${row.name}` : '';
+    if (!oracle && !named) continue;
+    if ((oracle && seen.has(oracle)) || (named && seen.has(named))) continue;
+    if (oracle) seen.add(oracle);
+    if (named) seen.add(named);
     out.push(row);
   }
   return out;
@@ -217,10 +238,12 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
     () => (card?.keywords ?? dbCard?.keywords ?? []).filter(Boolean),
     [card?.keywords, dbCard?.keywords]
   );
-  const tags: string[] = useMemo(
-    () => (dbCard?.tags ?? []).filter((t: string) => !TYPE_TAGS.has(t)),
-    [dbCard?.tags]
-  );
+  /**
+   * The card's role tags reduced to the ones that distinguish it, rarest
+   * first. Type tags, `etb`, `evasion` and every legacy alias are gone — see
+   * `@/lib/cards/tag-signal` for why each is dropped.
+   */
+  const tags: string[] = useMemo(() => signalTags(dbCard?.tags), [dbCard?.tags]);
 
   const ciKey = colorIdentity.join('');
   const kwKey = keywords.join('|');
@@ -239,7 +262,8 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
 
     const run = async () => {
       const seen = new Set<string>();
-      if (oracleId) seen.add(oracleId);
+      if (oracleId) seen.add(`id:${oracleId}`);
+      if (name) seen.add(`name:${name}`);
       const built: RelatedGroup[] = [];
 
       /* --- 1. Real decks. The only group that is evidence, not similarity. --- */
@@ -395,35 +419,60 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
         console.error('Synergy group "keywords" failed:', err);
       }
 
-      /* --- 4. Shares a role tag (GIN overlap on tags). --- */
+      /* --- 4. Shares a role tag, weighted by how rare that tag is. ---
+       *
+       * One indexed `tags @> {tag}` per probe tag instead of a single
+       * `tags && {everything}`. The single overlap query was the real problem:
+       * Postgres applies `limit 40` before anything can rank, so Sol Ring's
+       * list was 40 arbitrary rows out of the 2,140 cards tagged `ramp` — one
+       * of them a fetchland — and `fast-mana`, which only 38 cards in the whole
+       * catalogue carry, never got a look in. Probing the rarest tags
+       * separately guarantees the rare ones are represented, and the merged set
+       * is then ranked by summed tag rarity.
+       */
       try {
-        if (tags.length > 0) {
-          let q = supabase
-            .from('cards')
-            .select(CARD_COLUMNS)
-            .overlaps('tags', tags)
-            .limit(40);
-          q = withinIdentity(q);
-          if (oracleId) q = q.neq('oracle_id', oracleId);
+        const probes = tags.slice(0, TAG_PROBES);
+        if (probes.length > 0) {
+          const batches = await Promise.all(
+            probes.map(tag =>
+              retrying(async () => {
+                let q = supabase
+                  .from('cards')
+                  .select(CARD_COLUMNS)
+                  .contains('tags', [tag])
+                  .limit(PER_TAG_LIMIT);
+                q = withinIdentity(q);
+                if (oracleId) q = q.neq('oracle_id', oracleId);
+                const res = await q;
+                if (res.error) throw res.error;
+                return res.data ?? [];
+              }, `Synergy (tag ${tag})`).catch(err => {
+                /* One dead probe should not cost the other three. */
+                console.error(`Synergy probe "${tag}" failed:`, err);
+                return [] as any[];
+              })
+            )
+          );
 
-          const { data, error } = await retrying(async () => {
-            const res = await q;
-            if (res.error) throw res.error;
-            return res;
-          }, 'Synergy (tag overlap)');
-          if (error) throw error;
-          const sharedCount = (row: any) =>
-            (row.tags ?? []).filter((t: string) => tags.includes(t)).length;
-          const ordered = dedupeByOracle(rank(data ?? [], sharedCount), seen).slice(0, 14);
+          const byId = new Map<string, any>();
+          for (const rows of batches) for (const row of rows) byId.set(row.id, row);
+
+          const score = (row: any) => sharedTagScore(tags, row.tags);
+          const ordered = dedupeByOracle(rank(Array.from(byId.values()), score), seen).slice(0, 14);
 
           if (ordered.length > 0) {
             built.push({
               key: 'tags',
-              label: `Also tagged ${tags.slice(0, 2).join(', ')}`,
-              basis: `Our card table tags this ${tags.join(', ')}; these carry the same tag${
-                tags.length === 1 ? '' : 's'
-              }. Ranked by tags in common, then market price.`,
-              entries: ordered.map(card => ({ card })),
+              label: `Also tagged ${probes.slice(0, 2).join(', ')}`,
+              basis: `Our card table tags this ${tags.join(', ')}. Searched on the ${
+                probes.length === 1 ? 'rarest of those' : `${probes.length} rarest of those`
+              }, then ranked by how rare the shared tags are — a card matching ${
+                probes[0]
+              } counts for more than one matching a tag half the catalogue carries.`,
+              entries: ordered.map(card => {
+                const hits = sharedTags(tags, card.tags);
+                return { card, note: hits.length > 0 ? hits.slice(0, 3).join(', ') : undefined };
+              }),
             });
           }
         }
@@ -486,8 +535,8 @@ export function CardWorksWellWith({ card, dbCard, className }: CardRelatedProps)
             <li>
               Role tags —{' '}
               {tags.length > 0
-                ? tags.join(', ')
-                : 'our card table records only its card type, which says nothing about how it plays'}
+                ? `${tags.join(', ')}, with no matches inside its colour identity`
+                : 'our card table records only its card type and the traits half the catalogue shares, neither of which says anything about how it plays'}
               .
             </li>
           </ul>
@@ -517,6 +566,7 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
   const [loading, setLoading] = useState(true);
 
   const oracleId: string | undefined = card?.oracle_id ?? dbCard?.oracle_id;
+  const name: string = card?.name ?? dbCard?.name ?? '';
   const typeLine: string = card?.type_line ?? dbCard?.type_line ?? '';
   const cmc: number = Number(card?.cmc ?? dbCard?.cmc ?? 0);
   const colorIdentity: string[] = useMemo(
@@ -571,7 +621,8 @@ export function CardSimilar({ card, dbCard, className }: CardRelatedProps) {
       };
 
       const seen = new Set<string>();
-      if (oracleId) seen.add(oracleId);
+      if (oracleId) seen.add(`id:${oracleId}`);
+      if (name) seen.add(`name:${name}`);
 
       // Each pass fails on its own. Wrapping both in one try meant a transient
       // 500 on the widening query threw away the exact matches that had already

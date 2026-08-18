@@ -463,7 +463,7 @@ export default function Settings() {
               <div
                 role="radiogroup"
                 aria-label="Theme"
-                className="flex shrink-0 items-center gap-1 rounded-lg border border-border p-1"
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-muted/50 p-1"
               >
                 {([
                   { value: 'light', label: 'Light', icon: Sun },
@@ -501,7 +501,7 @@ export default function Settings() {
             <CardDescription>Your current plan and what it allows</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium capitalize text-foreground">{tier}</span>
@@ -521,7 +521,7 @@ export default function Settings() {
                 <Skeleton className="h-4 w-2/3" />
               </div>
             ) : tierLimits.length > 0 ? (
-              <dl className="divide-y divide-border">
+              <dl className="[&>*:nth-child(even)]:bg-muted/30 [&>*]:rounded [&>*]:px-2">
                 {tierLimits.map(limit => (
                   <div key={limit.id} className="flex items-center justify-between gap-4 py-2">
                     <dt className="text-sm text-foreground">
@@ -554,7 +554,7 @@ export default function Settings() {
           {/* Settings is a list of rows, so the row you tapped is where the
               form belongs. Each one expands in place — nothing dims, nothing
               covers the rows around it. */}
-          <CardContent className="divide-y divide-border">
+          <CardContent className="[&>*:nth-child(even)]:bg-muted/25 [&>*]:rounded-lg [&>*]:px-3">
             <div className="py-3 first:pt-0">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">

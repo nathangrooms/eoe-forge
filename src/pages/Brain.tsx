@@ -655,7 +655,7 @@ export default function Brain() {
                     >
                       {message.type === 'assistant' ? (
                         <div className="space-y-4">
-                          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-3 prose-p:leading-relaxed prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-foreground prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:rounded-lg prose-blockquote:border-l-border prose-blockquote:pl-4">
+                          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-3 prose-p:leading-relaxed prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-strong:text-foreground prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:rounded-lg prose-blockquote:border-0 prose-blockquote:bg-muted/40 prose-blockquote:rounded-lg prose-blockquote:py-2 prose-blockquote:pl-4">
                             <ReactMarkdown>{message.content}</ReactMarkdown>
                           </div>
 

@@ -20,6 +20,7 @@ import {
   Download,
   Heart
 } from 'lucide-react';
+import { CardImage } from '@/components/cards';
 import { useCollectionStore } from '@/features/collection/store';
 import { formatPrice } from '@/features/collection/value';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -165,7 +166,7 @@ export function CollectionInventory({ viewMode, onViewModeChange }: CollectionIn
             </div>
             <div className="flex items-center space-x-2">
               {/* View Mode Toggle */}
-              <div className="flex border rounded-md">
+              <div className="flex rounded-md bg-muted/40 p-0.5">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="sm"
@@ -298,19 +299,19 @@ export function CollectionInventory({ viewMode, onViewModeChange }: CollectionIn
               }`}
               onClick={() => toggleCardSelection(item.card_id)}
             >
-              <div className="aspect-[5/7] bg-muted relative overflow-hidden">
-                {item.card?.image_uris?.normal ? (
-                  <img 
-                    src={item.card.image_uris.normal}
-                    alt={item.card.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-center p-2 text-muted-foreground">
-                    {item.card_name}
-                  </div>
-                )}
+              {/* CardImage, not a hand-rolled `<img>`: `object-cover` inside
+                  `aspect-[5/7]` (0.7143) crops a 0.7176 card, and the
+                  hand-rolled version drew a 488px `normal` scan at grid width
+                  on a 2x display. */}
+              <div className="relative">
+                <CardImage
+                  card={item.card ?? { name: item.card_name }}
+                  size="lg"
+                  fill
+                  hideFlip
+                  interactive={false}
+                  title={item.card_name}
+                />
 
                 {/* Quantity badge */}
                 <Badge className="absolute top-2 right-2">
@@ -363,7 +364,7 @@ export function CollectionInventory({ viewMode, onViewModeChange }: CollectionIn
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="border-b">
+                <thead className="bg-muted/40">
                   <tr className="text-left">
                     <th className="p-4 font-medium">Card</th>
                     <th className="p-4 font-medium">Set</th>
@@ -378,22 +379,21 @@ export function CollectionInventory({ viewMode, onViewModeChange }: CollectionIn
                   {sortedCards.map((item) => (
                     <tr 
                       key={item.card_id} 
-                      className={`border-b hover:bg-muted/50 ${
+                      className={`shadow-[inset_0_-1px_0_hsl(var(--foreground)/0.06)] hover:bg-muted/50 ${
                         selectedCards.includes(item.card_id) ? 'bg-muted' : ''
                       }`}
                     >
                       <td className="p-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-12 h-16 bg-muted rounded flex-shrink-0">
-                            {item.card?.image_uris?.normal && (
-                              <img 
-                                src={item.card.image_uris.normal}
-                                alt={item.card.name}
-                                className="w-full h-full object-cover rounded"
-                                loading="lazy"
-                              />
-                            )}
-                          </div>
+                          {/* A whole card, not a 48 x 64 `object-cover` crop
+                              (0.75 against the card's 0.718). */}
+                          <CardImage
+                            card={item.card ?? { name: item.card_name }}
+                            width={52}
+                            hideFlip
+                            interactive={false}
+                            title={item.card_name}
+                          />
                           <div>
                             <div className="font-medium">{item.card_name}</div>
                             <div className="text-sm text-muted-foreground">{item.card?.type_line}</div>
@@ -493,23 +493,19 @@ export function CollectionInventory({ viewMode, onViewModeChange }: CollectionIn
           {sortedCards.map((item) => (
             <div 
               key={item.card_id}
-              className={`aspect-[5/7] relative cursor-pointer group ${
-                selectedCards.includes(item.card_id) ? 'ring-2 ring-primary' : ''
+              className={`relative cursor-pointer group ${
+                selectedCards.includes(item.card_id) ? 'ring-2 ring-primary rounded' : ''
               }`}
               onClick={() => toggleCardSelection(item.card_id)}
             >
-              {item.card?.image_uris?.normal ? (
-                <img 
-                  src={item.card.image_uris.normal}
-                  alt={item.card.name}
-                  className="w-full h-full object-cover rounded group-hover:scale-105 transition-transform duration-200"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-full h-full bg-muted rounded flex items-center justify-center text-xs text-center p-1">
-                  {item.card_name}
-                </div>
-              )}
+              <CardImage
+                card={item.card ?? { name: item.card_name }}
+                size="md"
+                fill
+                hideFlip
+                interactive={false}
+                title={item.card_name}
+              />
               
               <Badge className="absolute top-1 right-1 text-xs">
                 {item.quantity + item.foil}

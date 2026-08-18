@@ -316,7 +316,7 @@ Be HONEST. If bad, say why.`,
           ))}
         </Tabs>
 
-        <div className="border-t pt-4 space-y-4">
+        <div className="pt-4 space-y-4">
           <h4 className="font-semibold">Advanced Configuration</h4>
           
           <div className="grid gap-4 md:grid-cols-2">

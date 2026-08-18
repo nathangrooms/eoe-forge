@@ -168,12 +168,12 @@ export function EnhancedCollectionAnalytics({ stats, loading }: EnhancedCollecti
 
   const getRarityColor = (rarity: string) => {
     const colors = {
-      'Common': 'bg-gray-500/10 text-gray-700 border-border',
-      'Uncommon': 'bg-blue-500/10 text-blue-700 border-blue-500/30',
-      'Rare': 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30',
-      'Mythic': 'bg-orange-500/10 text-orange-700 border-orange-500/30'
+      'Common': 'bg-muted text-muted-foreground',
+      'Uncommon': 'bg-muted text-foreground/80',
+      'Rare': 'bg-muted text-foreground font-medium',
+      'Mythic': 'bg-muted text-foreground font-semibold'
     };
-    return colors[rarity as keyof typeof colors] || 'bg-gray-500/10 text-gray-700 border-border';
+    return colors[rarity as keyof typeof colors] || 'bg-muted text-muted-foreground';
   };
 
   if (loading) {
@@ -364,7 +364,7 @@ export function EnhancedCollectionAnalytics({ stats, loading }: EnhancedCollecti
               <CardContent>
                 <div className="space-y-3">
                   {detailedStats.topValueCards.map((card, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-white font-bold text-sm">
                           #{index + 1}

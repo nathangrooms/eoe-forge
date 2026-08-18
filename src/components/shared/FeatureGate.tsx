@@ -38,7 +38,7 @@ export function FeatureGate({
     if (softLimit && access?.remaining !== undefined && access.remaining > 0 && access.remaining <= 3 && access.limit !== -1) {
       return (
         <div className="space-y-4">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-center gap-3">
+          <div className="bg-muted rounded-lg p-3 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-600 dark:text-amber-400">
               You have <span className="font-semibold">{access.remaining}</span> uses remaining this period. 
@@ -80,7 +80,7 @@ export function FeatureGate({
   const isLimitReached = access?.reason !== 'tier_required' && access?.remaining === 0;
 
   return (
-    <Card className="border-dashed">
+    <Card className="border-0 bg-muted/30">
       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
         <div className={`p-4 rounded-full ${tierInfo.bg} mb-4`}>
           {isLimitReached ? (

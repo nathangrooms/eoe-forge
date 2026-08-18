@@ -68,7 +68,7 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
   };
 
   return (
-    <Card className="border-primary/20">
+    <Card>
       <CardContent className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-gradient-cosmic flex items-center justify-center shadow-cosmic-glow">
@@ -104,7 +104,7 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
         )}
 
         {error && (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10">
             <AlertCircle className="h-5 w-5 text-destructive" />
             <span className="text-sm text-destructive">{error}</span>
           </div>
@@ -112,7 +112,7 @@ Focus on variety and strategic diversity. End with: Referenced Cards: [list comm
 
         {recommendations && (
           <div className="space-y-4">
-            <div className="border-l-4 border-spacecraft/50 pl-4 bg-spacecraft/5 rounded-r-lg p-4">
+            <div className="rounded-lg bg-spacecraft/10 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded bg-gradient-cosmic flex items-center justify-center">
                   <span className="text-xs font-bold text-primary-foreground">AI</span>

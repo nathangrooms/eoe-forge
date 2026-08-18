@@ -4,6 +4,15 @@ import { Card } from './types';
  * Commander Intelligence - Analyzes commanders to suggest optimal archetypes
  * and card priorities based on their abilities and characteristics
  */
+/**
+ * NOTE ON THE TAG NAMES BELOW.
+ *
+ * `keyTags` and `avoidTags` are looked up against `cards.tags`, so a name that
+ * the catalogue does not use is silently inert rather than an error. Three were:
+ * `tribal` (the catalogue says `tribal-payoff`), `combo-piece` and `aggro`
+ * (nothing emits either). They now name tags that exist — check any new one
+ * against `ALL_TAGS` in `src/lib/cards/tagger.ts` before adding it.
+ */
 export class CommanderIntelligence {
   /**
    * Detect the optimal archetype for a commander based on their abilities
@@ -34,7 +43,7 @@ export class CommanderIntelligence {
         primary: 'commander-tokens',
         secondary: ['commander-aristocrats'],
         keyTags: ['tokens', 'aristocrats', 'sac-outlet', 'draw', 'ramp'],
-        avoidTags: ['storm', 'combo-piece']
+        avoidTags: ['storm', 'fast-mana']
       };
     }
     
@@ -55,7 +64,7 @@ export class CommanderIntelligence {
         primary: 'commander-spellslinger',
         secondary: ['commander-control'],
         keyTags: ['instant', 'sorcery', 'draw', 'counterspell', 'spellslinger'],
-        avoidTags: ['creature', 'tribal']
+        avoidTags: ['creature', 'tribal-payoff']
       };
     }
     
@@ -66,7 +75,7 @@ export class CommanderIntelligence {
         primary: 'commander-control',
         secondary: ['commander-spellslinger'],
         keyTags: ['counterspell', 'draw', 'removal-spot', 'removal-sweeper', 'protection'],
-        avoidTags: ['aggro', 'tokens']
+        avoidTags: ['mass-pump', 'tokens']
       };
     }
     

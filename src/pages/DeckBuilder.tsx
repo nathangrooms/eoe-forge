@@ -37,12 +37,13 @@ import { useDeckManagementStore } from '@/stores/deckManagementStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { ExternalLink, RefreshCw, Pencil, ArrowLeft } from 'lucide-react';
+import { formatLabel } from '@/lib/deck/formats';
+import { Check, ExternalLink, RefreshCw, Pencil, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { deriveCardTags } from '@/lib/cards/tagger';
 import {
   computeDeckPower,
   entriesFromStoreCards,
@@ -353,6 +354,9 @@ const DeckBuilder = () => {
       quantity: 1,
       category: categorizeCard(card),
       mechanics: card.keywords || [],
+      // Search rows carry `tags`; a Scryfall-shaped card does not, and the
+      // tagger derives the identical set from the oracle text.
+      tags: card.tags?.length ? card.tags : deriveCardTags(card),
       image_uris: card.image_uris,
       prices: card.prices,
     });
@@ -656,7 +660,18 @@ const DeckBuilder = () => {
   }, [power, selectedDeckId, deck.currentDeckId]);
 
   const deckStats = useMemo(() => {
-    const cards = deck.cards as any[];
+    /*
+     * The commander counts. It is held in its own store field, so this used to
+     * average and price the ninety-nine only — the deck page, which reads every
+     * non-sideboard row, therefore printed a different "Avg MV" and a different
+     * "Est. value" for the same deck one click away.
+     */
+    const cards = [
+      ...(deck.cards as any[]),
+      ...(deck.commander
+        ? [{ ...(deck.commander as any), quantity: 1, is_commander: true }]
+        : []),
+    ];
     const typeCounts: Partial<Record<CardCategory, number>> = {};
     let totalCmc = 0;
     let nonLandCount = 0;
@@ -681,12 +696,6 @@ const DeckBuilder = () => {
       typeCounts,
       avgCmc: nonLandCount > 0 ? totalCmc / nonLandCount : 0,
       totalValue,
-      edhPowerLevel,
-      edhMetrics,
-      edhPowerUrl,
-      loadingEdhPower,
-      edhNeedsRefresh,
-      onCheckEdhPower: () => checkEdhPowerLevel(selectedDeckId || deck.currentDeckId, true),
       format: deck.format || 'commander',
       commanderName: deck.commander?.name,
       colors: (deck.commander as any)?.color_identity || deck.colors || [],
@@ -694,7 +703,17 @@ const DeckBuilder = () => {
       missingCards: ownership ? ownership.missingCopies : null,
       ownershipLoading,
     };
-  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, edhPowerLevel, edhMetrics, edhPowerUrl, loadingEdhPower, edhNeedsRefresh, selectedDeckId, deck.currentDeckId, ownership, ownershipLoading]);
+  }, [deck.cards, deck.totalCards, deck.format, deck.commander, deck.colors, ownership, ownershipLoading]);
+
+  /**
+   * The count every readout on this page uses.
+   *
+   * `deck.totalCards` counts the ninety-nine — the commander is held in its own
+   * store field — so the page header printed "99 cards" directly above a stat
+   * tile reading "100 / 100".
+   */
+  const displayedCardCount =
+    deck.format === 'commander' && deck.commander ? deck.totalCards + 1 : deck.totalCards;
 
   // If loading or no deck loaded yet, show loading state
   if (loading || !deck.name) {
@@ -716,41 +735,55 @@ const DeckBuilder = () => {
   return (
     <StandardPageLayout
       title={
-        <div className="flex items-center gap-2">
-          <span className="text-2xl md:text-3xl font-bold">{deck.name}</span>
-          <Dialog open={showRenameDialog} onOpenChange={(open) => {
-            setShowRenameDialog(open);
-            if (open) setRenameDeckName(deck.name);
-          }}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Rename Deck</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="rename-deck">New Name</Label>
-                  <Input
-                    id="rename-deck"
-                    value={renameDeckName}
-                    onChange={(e) => setRenameDeckName(e.target.value)}
-                    placeholder="Enter new deck name..."
-                    onKeyDown={(e) => e.key === 'Enter' && renameDeck()}
-                  />
-                </div>
-                <Button onClick={renameDeck} className="w-full" disabled={!renameDeckName.trim()}>
-                  Rename Deck
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        /* Renaming happens in place. Design law 3 rules out the centred dialog
+           that used to dim the whole builder to edit one text field. */
+        showRenameDialog ? (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="rename-deck" className="sr-only">
+              Deck name
+            </Label>
+            <Input
+              id="rename-deck"
+              autoFocus
+              value={renameDeckName}
+              onChange={(e) => setRenameDeckName(e.target.value)}
+              placeholder="Deck name…"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') renameDeck();
+                if (e.key === 'Escape') setShowRenameDialog(false);
+              }}
+              className="h-11 max-w-md border-0 bg-muted/50 text-xl font-bold shadow-none focus-visible:ring-1 focus-visible:ring-offset-0 md:text-2xl"
+            />
+            <Button size="sm" onClick={renameDeck} disabled={!renameDeckName.trim()}>
+              <Check className="h-4 w-4" />
+              <span className="ml-1 hidden sm:inline">Save</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowRenameDialog(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-2xl md:text-3xl font-bold">{deck.name}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              aria-label="Rename deck"
+              onClick={() => {
+                setRenameDeckName(deck.name);
+                setShowRenameDialog(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
+        )
       }
-      description={`${deck.format} • ${deck.totalCards} cards`}
+      // The same count the strip below prints. This read `deck.totalCards`,
+      // which excludes the commander, so the header said "99 cards" forty
+      // pixels above a tile reading "100 / 100".
+      description={`${formatLabel(deck.format)} • ${displayedCardCount} cards`}
       action={
         <Button variant="outline" onClick={() => navigate('/decks')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -760,58 +793,86 @@ const DeckBuilder = () => {
       }
     >
       <div className="h-full flex flex-col">
-          {/* Quick Stats */}
-          <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
-            <DeckQuickStats {...deckStats} />
-          </div>
-
-          {/* The deck's power score. One number, recomputed from the list as
-              it is edited, so it can never lag behind what is on screen. */}
+          {/* The deck's power score, first. It is the owner's primary number,
+              recomputed from the list as it is edited, and it now sits above
+              the stat strip rather than below a scraped third-party figure. */}
           {deck.format === 'commander' && (
-            <div className="px-4 md:px-6 py-3">
+            <div className="px-4 md:px-6 pt-4">
               <PowerScore power={power} variant="compact" />
             </div>
           )}
 
+          {/* Quick Stats. Surface tint separates it, not a rule — `border-b`
+              drew exactly the hairline design law 2 rules out. */}
+          <div className="px-4 md:px-6 py-4">
+            <DeckQuickStats {...deckStats} />
+          </div>
+
           {/* edhpowerlevel.com — a labelled second opinion, never the same
-              field as the score above. */}
+              field as the score above, and never in the power colour. Its
+              sub-metrics belong to it and are read on its own scales. */}
           {deck.format === 'commander' && (
-            <div className="px-4 md:px-6 py-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg bg-muted/30 p-3 shadow-sm">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm font-medium whitespace-nowrap">edhpowerlevel.com says</p>
-                  {loadingEdhPower ? (
-                    <p className="text-lg font-semibold text-muted-foreground">…</p>
-                  ) : edhPowerLevel !== null ? (
-                    <p className="text-lg font-semibold tabular-nums">{edhPowerLevel.toFixed(1)}/10</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Not checked</p>
-                  )}
-                  {edhNeedsRefresh && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Cards changed since this check
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button
-                    variant={edhNeedsRefresh ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => checkEdhPowerLevel(undefined, true)}
-                    disabled={loadingEdhPower}
-                  >
-                    <RefreshCw className={cn('h-4 w-4 mr-1', loadingEdhPower && 'animate-spin')} />
-                    <span className="hidden xs:inline">{edhNeedsRefresh ? 'Refresh' : 'Calculate'}</span>
-                  </Button>
-                  {edhPowerUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                        <span className="hidden xs:inline ml-1">Details</span>
-                      </a>
+            <div className="px-4 md:px-6 pb-3">
+              <div className="rounded-lg bg-muted/30 p-3 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-sm font-medium whitespace-nowrap">edhpowerlevel.com says</p>
+                    {loadingEdhPower ? (
+                      <p className="text-lg font-semibold text-muted-foreground">…</p>
+                    ) : edhPowerLevel !== null ? (
+                      <p className="text-lg font-semibold tabular-nums">{edhPowerLevel.toFixed(1)}/10</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Not checked</p>
+                    )}
+                    {edhNeedsRefresh && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Cards changed since this check
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant={edhNeedsRefresh ? 'default' : 'secondary'}
+                      size="sm"
+                      onClick={() => checkEdhPowerLevel(undefined, true)}
+                      disabled={loadingEdhPower}
+                    >
+                      <RefreshCw className={cn('h-4 w-4 mr-1', loadingEdhPower && 'animate-spin')} />
+                      <span className="hidden xs:inline">{edhNeedsRefresh ? 'Refresh' : 'Calculate'}</span>
                     </Button>
-                  )}
+                    {edhPowerUrl && (
+                      <Button variant="secondary" size="sm" asChild>
+                        <a href={edhPowerUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                          <span className="hidden xs:inline ml-1">Details</span>
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
+                {edhMetrics && (
+                  <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+                    {(
+                      [
+                        ['Tipping point', edhMetrics.tippingPoint, (v: number) => String(v)],
+                        ['Efficiency', edhMetrics.efficiency, (v: number) => `${v.toFixed(1)}/10`],
+                        ['Impact', edhMetrics.impact, (v: number) => v.toFixed(0)],
+                        ['Score', edhMetrics.score, (v: number) => `${v}/1000`],
+                        ['Playability', edhMetrics.playability, (v: number) => `${v}%`],
+                      ] as Array<[string, number | null, (v: number) => string]>
+                    ).map(([label, value, fmt]) => (
+                      <div key={label}>
+                        <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {label}
+                        </dt>
+                        <dd className="text-sm font-semibold tabular-nums">
+                          {value !== null && value !== undefined ? fmt(value) : '—'}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </div>
             </div>
           )}
@@ -996,9 +1057,10 @@ const DeckBuilder = () => {
                   deckName={deck.name}
                 />
 
-                {/* Match history and notes are records, not analysis. */}
+                {/* Match history and notes are records, not analysis.
+                    Separated by space, not a rule — design law 2. */}
                 {deck.currentDeckId && (
-                  <div className="space-y-6 border-t border-border pt-6">
+                  <div className="space-y-6 pt-4">
                     <EnhancedMatchTracker deckId={deck.currentDeckId} deckName={deck.name} />
                     {/* The tracker records games; this reads them back. Same
                         rows, two different jobs. */}

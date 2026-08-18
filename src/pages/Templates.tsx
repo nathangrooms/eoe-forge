@@ -352,7 +352,7 @@ export default function Templates() {
                   <h3 className="mb-2 text-sm font-semibold">Role quotas</h3>
                   <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                     {Object.entries(previewTemplate.quotas.counts).map(([tag, quota]) => (
-                      <li key={tag} className="flex justify-between border-b border-border py-1">
+                      <li key={tag} className="flex justify-between rounded px-2 py-1 odd:bg-muted/30">
                         <span className="text-muted-foreground">{roleLabel(tag)}</span>
                         <span className="tabular-nums">
                           {quota.min}–{quota.max}
@@ -366,7 +366,7 @@ export default function Templates() {
                   <h3 className="mb-2 text-sm font-semibold">Creature curve targets</h3>
                   <ul className="grid grid-cols-4 gap-2 text-sm">
                     {Object.entries(previewTemplate.quotas.creatures_curve).map(([mv, range]) => (
-                      <li key={mv} className="rounded border border-border p-2 text-center">
+                      <li key={mv} className="rounded bg-muted/40 p-2 text-center">
                         <span className="block text-xs text-muted-foreground">MV {mv}</span>
                         <span className="font-medium tabular-nums">{range}</span>
                       </li>
@@ -379,7 +379,7 @@ export default function Templates() {
                     <h3 className="mb-2 text-sm font-semibold">Required packages</h3>
                     <ul className="space-y-2 text-sm">
                       {previewTemplate.packages.map(pkg => (
-                        <li key={pkg.name} className="rounded border border-border p-3">
+                        <li key={pkg.name} className="rounded bg-muted/40 p-3">
                           <p className="font-medium">{roleLabel(pkg.name)}</p>
                           <p className="text-muted-foreground">
                             {pkg.require

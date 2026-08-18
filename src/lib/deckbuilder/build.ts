@@ -116,9 +116,24 @@ export class UniversalDeckBuilder {
       // Check ban list
       if (rules.banList.includes(card.name)) return false;
       
-      // Tag the card if not already tagged
+      /*
+       * Roles come from the database when the pool carries them; curve and
+       * identity buckets never do.
+       *
+       * `cards.tags` now holds a real role vocabulary — 4.39 tags a card across
+       * 34,067 rows — so `card.tags.size === 0` is false for any pool loaded
+       * from our own table, and this used to skip the tagger outright. That
+       * silently removed `creature-1mv`…`creature-10plus`, which is the only
+       * thing `fillCurve` looks for: every `creatures_curve` slot in every
+       * template found zero candidates and the deck came back with whatever the
+       * interaction and advantage passes happened to leave. Structural tags are
+       * therefore merged in unconditionally, and the crude pattern roles run
+       * only when there is nothing better.
+       */
       if (!card.tags || card.tags.size === 0) {
         card.tags = UniversalTagger.tagCard(card);
+      } else {
+        for (const tag of UniversalTagger.structuralTags(card)) card.tags.add(tag);
       }
       
       // Filter out low-quality cards
@@ -544,7 +559,7 @@ export class UniversalDeckBuilder {
     }
     
     if (commanderText.includes('sacrifice')) {
-      if (cardTags.has('sac_outlet') || cardTags.has('aristocrats') || cardTags.has('tokens')) synergy += 3;
+      if (cardTags.has('sac-outlet') || cardTags.has('aristocrats') || cardTags.has('tokens')) synergy += 3;
     }
     
     if (commanderText.includes('token')) {
@@ -560,11 +575,11 @@ export class UniversalDeckBuilder {
     }
     
     if (commanderText.includes('artifact')) {
-      if (cardTags.has('artifact') || cardTags.has('artifacts_matter')) synergy += 2;
+      if (cardTags.has('artifact') || cardTags.has('artifacts-matter')) synergy += 2;
     }
     
     if (commanderText.includes('enchantment')) {
-      if (cardTags.has('enchantment') || cardTags.has('enchantments_matter')) synergy += 2;
+      if (cardTags.has('enchantment') || cardTags.has('enchantments-matter')) synergy += 2;
     }
     
     return synergy;

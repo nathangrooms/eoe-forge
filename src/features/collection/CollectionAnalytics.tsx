@@ -68,7 +68,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
     <div className="space-y-6">
       {/* Key Performance Indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden border-green-500/20 group hover:shadow-lg transition-all duration-300">
+        <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between relative">
@@ -86,7 +86,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-blue-500/20 group hover:shadow-lg transition-all duration-300">
+        <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between relative">
@@ -106,7 +106,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-purple-500/20 group hover:shadow-lg transition-all duration-300">
+        <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between relative">
@@ -124,7 +124,7 @@ export function CollectionAnalytics({ stats, loading }: CollectionAnalyticsProps
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-amber-500/20 group hover:shadow-lg transition-all duration-300">
+        <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform" />
           <CardContent className="p-5">
             <div className="flex items-center justify-between relative">

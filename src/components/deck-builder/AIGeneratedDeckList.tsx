@@ -14,6 +14,7 @@ import { CommanderPowerDisplay } from '@/components/deck-builder/CommanderPowerD
 import { PowerScore } from '@/components/deck/PowerScore';
 import { computeDeckPower, entriesFromStoreCards } from '@/lib/deck/power';
 import { ArchetypeDetection } from '@/components/deck-builder/ArchetypeDetection';
+import { deriveCardTags } from '@/lib/cards/tagger';
 import { DeckBudgetTracker } from '@/components/deck-builder/DeckBudgetTracker';
 import { EnhancedDeckAnalysisPanel } from '@/components/deck-builder/EnhancedDeckAnalysis';
 import {
@@ -94,6 +95,10 @@ export function AIGeneratedDeckList({
       image_uris: card.image_uris,
       prices: card.prices,
       oracle_text: card.oracle_text,
+      // `ArchetypeDetection` below counts role tags. Generated cards arrive
+      // without them, so they are derived from the same rules the database
+      // uses; dropping the field made every tag-keyed detector report zero.
+      tags: card.tags?.length ? card.tags : deriveCardTags(card),
     }));
   }, [cards]);
 
@@ -273,14 +278,25 @@ export function AIGeneratedDeckList({
         </div>
       </div>
 
+      {/* edhpowerlevel.com — attributed, on its own line, never inside the
+          deck's own stat strip and never in the canonical power colour. */}
+      {edhPowerLevel !== null && edhPowerLevel !== undefined && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted/30 p-3 text-sm shadow-sm">
+          <span className="font-medium">edhpowerlevel.com says</span>
+          <span className="text-lg font-semibold tabular-nums">
+            {edhPowerLevel.toFixed(1)}/10
+          </span>
+          <span className="text-xs text-muted-foreground">
+            a second opinion — the score above is DeckMatrix&apos;s own
+          </span>
+        </div>
+      )}
+
       <DeckQuickStats
         totalCards={stats.totalCards}
         typeCounts={stats.typeCounts}
         avgCmc={stats.avgCmc}
         totalValue={stats.totalValue}
-        edhPowerLevel={edhPowerLevel}
-        edhMetrics={analysis?.edhMetrics || null}
-        edhPowerUrl={edhUrl}
         format="commander"
         commanderName={commander?.name}
         colors={commanderColors}

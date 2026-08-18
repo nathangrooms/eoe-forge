@@ -129,20 +129,36 @@ export interface BuildResult {
 
 export type Role = 'land' | 'creature' | 'instant' | 'sorcery' | 'enchantment' | 'artifact' | 'planeswalker' | 'battle' | 'commander';
 
-// Tag categories for the universal tagger
+/**
+ * Tag categories, as the catalogue actually spells them.
+ *
+ * These lists described an aspiration, not the data: `fixing`, `artifact-hate`,
+ * `enchant-hate`, `combo-piece`, `domain`, `gates`, `devotion`, `energy`,
+ * `snow`, `transform` and `adventure` are carried by no card, and `tribal` is
+ * spelled `tribal-payoff`. A quota or weight keyed to one of those names could
+ * never match anything.
+ *
+ * The authority is `ALL_TAGS` in `src/lib/cards/tagger.ts`, which is derived
+ * from the rules themselves; these are the subset the deck builder reasons
+ * about, split into "what a card does for the deck" and "what a card does with
+ * the rest of the deck".
+ */
 export const ROLE_TAGS = [
-  'ramp', 'fixing', 'removal-spot', 'removal-sweeper', 'counterspell', 
-  'discard', 'draw', 'tutor-broad', 'tutor-narrow', 'protection', 
-  'recursion', 'graveyard-hate', 'artifact-hate', 'enchant-hate', 
-  'wincon', 'combo-piece', 'fast-mana'
+  'ramp', 'mana-rock', 'mana-dork', 'fast-mana', 'cost-reduction',
+  'removal-spot', 'removal-sweeper', 'counterspell', 'bounce', 'protection',
+  'card-draw', 'draw', 'discard', 'tutor-broad', 'tutor-narrow',
+  'recursion', 'reanimator', 'graveyard-hate', 'land-destruction', 'stax',
+  'wincon', 'finisher', 'lifegain',
 ] as const;
 
 export const SYNERGY_TAGS = [
-  'tribal', 'tokens', 'aristocrats', 'sac-outlet', 'blink', 'etb',
-  'spellslinger', 'prowess', 'counters', 'auras', 'equipment',
+  'tribal-payoff', 'tokens', 'aristocrats', 'sac-outlet', 'blink', 'etb',
+  'spellslinger', 'prowess', 'storm', 'counters', 'proliferate', 'infect',
+  'auras', 'aura', 'equipment', 'voltron', 'vehicle', 'clone',
   'artifacts-matter', 'enchantments-matter', 'lands-matter', 'landfall',
-  'domain', 'gates', 'treasure', 'devotion', 'storm', 'reanimator',
-  'stax', 'vehicle', 'energy', 'snow', 'transform', 'adventure'
+  'treasure', 'mill', 'self-mill', 'group-hug', 'evasion', 'flash',
+  'cascade', 'extra-turn', 'extra-combat', 'untapper', 'haste-enabler',
+  'mass-pump', 'x-spell',
 ] as const;
 
 export type RoleTag = typeof ROLE_TAGS[number];

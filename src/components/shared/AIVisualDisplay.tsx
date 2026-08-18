@@ -49,7 +49,7 @@ export function AIVisualDisplay({ data, compact = false }: AIVisualDisplayProps)
     <div className="space-y-4 mt-4">
       {/* Charts */}
       {data.charts?.map((chart, idx) => (
-        <Card key={`chart-${idx}`} className="border-spacecraft/20">
+        <Card key={`chart-${idx}`}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               {chart.type === 'bar' && <BarChart3 className="h-4 w-4 text-spacecraft" />}
@@ -144,7 +144,7 @@ export function AIVisualDisplay({ data, compact = false }: AIVisualDisplayProps)
 
       {/* Tables */}
       {data.tables?.map((table, idx) => (
-        <Card key={`table-${idx}`} className="border-spacecraft/20">
+        <Card key={`table-${idx}`}>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Table2 className="h-4 w-4 text-spacecraft" />

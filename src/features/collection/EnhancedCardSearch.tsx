@@ -20,6 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Card as CardType } from '@/types/collection';
 import { formatPrice } from '@/features/collection/value';
+import { CardImage } from '@/components/cards';
 import { useCollectionStore } from '@/features/collection/store';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { AdvancedSearchFilters } from '@/components/deck-builder/AdvancedSearchFilters';
@@ -300,22 +301,19 @@ export function EnhancedCardSearch({ onCardSelect }: EnhancedCardSearchProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {searchResults.map((card) => (
                 <Card key={card.id} className="group hover:shadow-lg transition-all duration-200 overflow-hidden">
-                  <div className="aspect-[5/7] bg-muted relative overflow-hidden">
-                    {card.image_uris?.normal ? (
-                      <img 
-                        src={card.image_uris.normal}
-                        alt={card.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-center p-2 text-muted-foreground bg-muted">
-                        <div>
-                          <Image className="h-8 w-8 mx-auto mb-2" />
-                          <p className="font-medium">{card.name}</p>
-                        </div>
-                      </div>
-                    )}
+                  {/* CardImage, not a hand-rolled `<img>`: `object-cover`
+                      inside `aspect-[5/7]` crops the card, and the one card
+                      component already owns the resolution ladder, the flip
+                      and the name-only fallback. */}
+                  <div className="relative">
+                    <CardImage
+                      card={card}
+                      size="md"
+                      fill
+                      hideFlip
+                      interactive={false}
+                      title={card.name}
+                    />
                     
                     {/* Price overlay */}
                     {card.prices?.usd && (

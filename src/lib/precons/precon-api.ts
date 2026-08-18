@@ -225,7 +225,7 @@ export function commanderArt(card: any, fallbackId?: string): string | null {
  * its back face and its flip control. This asks for both.
  */
 const DECK_COLUMNS =
-  'id, name, type_line, mana_cost, cmc, colors, color_identity, image_uris, faces, layout, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords';
+  'id, name, type_line, mana_cost, cmc, colors, color_identity, image_uris, faces, layout, prices, oracle_text, power, toughness, rarity, set_code, legalities, is_legendary, keywords, tags';
 
 async function selectDeckCards(column: 'id' | 'name', values: string[]): Promise<any[]> {
   const rows: any[] = [];
@@ -260,6 +260,7 @@ function toDetail(raw: any): DeckCardDetail & { faces?: any; layout?: string; id
     legalities: raw.legalities ?? null,
     is_legendary: Boolean(raw.is_legendary),
     keywords: raw.keywords ?? [],
+    tags: raw.tags ?? [],
     faces: raw.faces ?? null,
     layout: raw.layout ?? null,
     id: raw.id,

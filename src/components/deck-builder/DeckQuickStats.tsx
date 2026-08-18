@@ -1,33 +1,28 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { bandForScore, bandShortLabel, powerTextClass } from '@/lib/deck/power';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CATEGORY_CONFIG, CATEGORY_ORDER, type CardCategory } from './deck-categories';
 
-interface EdhMetrics {
-  tippingPoint: number | null;
-  efficiency: number | null;
-  impact: number | null;
-  score: number | null;
-  playability: number | null;
-}
-
+/**
+ * The deck's own numbers, and only its own numbers.
+ *
+ * This strip used to carry an `edhpowerlevel.com` tile in slot two — a scraped
+ * third-party figure, on a different scale, painted in `text-power-*`, the
+ * colour language reserved for the canonical EDH score. It read as *the*
+ * power number, sat above the real one, and the same deck therefore showed
+ * 7.6 here and 5.1 forty pixels below. It also duplicated the labelled
+ * second-opinion row the builder already renders. The scraped figure and its
+ * sub-metrics now live in that row alone, clearly attributed.
+ */
 export interface DeckQuickStatsProps {
   totalCards: number;
   /** Copies per card category, keyed by the shared CardCategory vocabulary. */
   typeCounts: Partial<Record<CardCategory, number>>;
   avgCmc: number;
   totalValue: number;
-  edhPowerLevel?: number | null;
-  edhMetrics?: EdhMetrics | null;
-  edhPowerUrl?: string | null;
-  loadingEdhPower?: boolean;
-  edhNeedsRefresh?: boolean;
-  onCheckEdhPower?: () => void;
   format: string;
   commanderName?: string;
   colors: string[];
@@ -35,17 +30,6 @@ export interface DeckQuickStatsProps {
   ownedPct?: number | null;
   missingCards?: number | null;
   ownershipLoading?: boolean;
-}
-
-/**
- * Bands come from the one threshold table. This file used to carry its own
- * cuts (3/6/8) while the scoring engine used 3.4/6.6/8.5, so a deck at 6.5 was
- * "High" in this tile and "mid" everywhere else.
- */
-function powerBand(level: number | null | undefined) {
-  if (level === null || level === undefined) return { color: 'text-muted-foreground', label: '' };
-  const band = bandForScore(level);
-  return { color: powerTextClass(band), label: bandShortLabel(band) };
 }
 
 function StatTile({
@@ -75,12 +59,6 @@ export function DeckQuickStats({
   typeCounts,
   avgCmc,
   totalValue,
-  edhPowerLevel,
-  edhMetrics,
-  edhPowerUrl,
-  loadingEdhPower,
-  edhNeedsRefresh,
-  onCheckEdhPower,
   format,
   commanderName,
   colors,
@@ -88,8 +66,6 @@ export function DeckQuickStats({
   missingCards,
   ownershipLoading,
 }: DeckQuickStatsProps) {
-  const band = powerBand(edhPowerLevel);
-
   const isCommander = format === 'commander' || format === 'edh';
   const targetCards = isCommander ? 100 : 60;
   const displayCards = isCommander && commanderName ? totalCards + 1 : totalCards;
@@ -99,7 +75,7 @@ export function DeckQuickStats({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {/* Cards */}
         <StatTile label="Cards" action={<Badge variant="outline" className="text-[10px]">{format}</Badge>}>
           <div className="text-2xl font-semibold tabular-nums">
@@ -107,57 +83,6 @@ export function DeckQuickStats({
             <span className="text-sm font-normal text-muted-foreground"> / {targetCards}</span>
           </div>
           <Progress value={completionPct} className="mt-2 h-1" />
-        </StatTile>
-
-        {/* edhpowerlevel.com — a labelled second opinion. The deck's own EDH
-            power score is rendered by `PowerScore` above this strip; the two
-            are never presented as the same field. */}
-        <StatTile
-          label="edhpowerlevel.com"
-          action={
-            isCommander && onCheckEdhPower ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="-mr-1 -mt-1 h-6 w-6"
-                onClick={onCheckEdhPower}
-                disabled={loadingEdhPower}
-                title={edhNeedsRefresh ? 'Cards changed — recalculate' : 'Recalculate'}
-              >
-                {loadingEdhPower ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3" />
-                )}
-              </Button>
-            ) : undefined
-          }
-        >
-          <div className={cn('text-2xl font-semibold tabular-nums', band.color)}>
-            {edhPowerLevel !== null && edhPowerLevel !== undefined
-              ? edhPowerLevel.toFixed(1)
-              : '—'}
-            {edhPowerLevel !== null && edhPowerLevel !== undefined && (
-              <span className="text-sm font-normal text-muted-foreground">/10</span>
-            )}
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            {band.label || 'Not checked'}
-            {edhNeedsRefresh && edhPowerLevel !== null && edhPowerLevel !== undefined && (
-              <span className="text-destructive">outdated</span>
-            )}
-            {edhPowerUrl && (
-              <a
-                href={edhPowerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-foreground hover:underline"
-                title="Open on edhpowerlevel.com"
-              >
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </div>
         </StatTile>
 
         {/* Value */}
@@ -208,28 +133,6 @@ export function DeckQuickStats({
           )}
         </div>
       </Card>
-
-      {/* EDH sub-metrics, only when edhpowerlevel.com actually returned them */}
-      {isCommander && edhMetrics && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {(
-            [
-              ['Tipping point', edhMetrics.tippingPoint, (v: number) => String(v)],
-              ['Efficiency', edhMetrics.efficiency, (v: number) => `${v.toFixed(1)}/10`],
-              ['Impact', edhMetrics.impact, (v: number) => v.toFixed(0)],
-              ['Score', edhMetrics.score, (v: number) => `${v}/1000`],
-              ['Playability', edhMetrics.playability, (v: number) => `${v}%`],
-            ] as Array<[string, number | null, (v: number) => string]>
-          ).map(([label, value, fmt]) => (
-            <Card key={label} className="p-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-              <div className="mt-1 text-lg font-semibold tabular-nums">
-                {value !== null && value !== undefined ? fmt(value) : '—'}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
 
       {/* Type breakdown */}
       <Card className="p-3">

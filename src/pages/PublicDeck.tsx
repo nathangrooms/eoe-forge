@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ColorIdentity } from '@/components/ui/mana-cost';
-import { Copy, Download, ExternalLink, Eye } from 'lucide-react';
+import { Copy, Download, ExternalLink, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
 import {
@@ -60,6 +60,9 @@ function normalizeRpcCards(rpcCards: any[]): DeckCardRow[] {
           legalities: null,
           is_legendary: false,
           keywords: [],
+          // The shared-deck RPC does not carry role tags; the top-up pass from
+          // the public `cards` table below fills them in where it can.
+          tags: data.tags ?? [],
         }
       : null;
 
@@ -230,7 +233,7 @@ export default function PublicDeck() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full  border-t-foreground" />
+          <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">Loading deck…</p>
         </div>
       </div>
@@ -286,7 +289,7 @@ export default function PublicDeck() {
       </Helmet>
 
       <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-10 border-b border-border bg-card">
+        <header className="sticky top-0 z-10 bg-card shadow-lg shadow-black/25">
           <div className="w-full max-w-full px-3 py-3 md:px-6 md:py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">

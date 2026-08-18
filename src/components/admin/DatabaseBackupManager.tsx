@@ -94,7 +94,7 @@ export function DatabaseBackupManager() {
           {tables.map((table) => (
             <div
               key={table.name}
-              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export function DatabaseBackupManager() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-4 border-t">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-4">
           <Calendar className="h-3 w-3" />
           <span>Last backup: Never (manual only)</span>
         </div>

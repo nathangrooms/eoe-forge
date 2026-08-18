@@ -145,11 +145,13 @@ function Chip({
       aria-pressed={selected}
       title={title}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors',
+        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        // Selection is a filled surface, not an outlined one — a wall of
+        // outlined chips is a wall of hairlines.
         selected
-          ? 'border-foreground bg-primary text-primary-foreground'
-          : 'border-border bg-background text-foreground hover:bg-accent',
+          ? 'bg-primary text-primary-foreground shadow-sm shadow-black/20'
+          : 'bg-muted/60 text-foreground hover:bg-muted',
         className
       )}
     >
@@ -565,7 +567,7 @@ export function AdvancedFilterPanel({
                             : undefined
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent"
                     >
                       <span className="font-mono uppercase">{code}</span>
                       {meta && <span className="max-w-[160px] truncate">{meta.name}</span>}

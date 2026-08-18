@@ -67,6 +67,57 @@ const CASES: Case[] = [
     hasNot: ['mana-rock'],
   },
   {
+    // A fetchland sacrifices only itself. Tagging it a sacrifice outlet put
+    // Flooded Strand, Scalding Tarn and Evolving Wilds at the top of Ashnod's
+    // Altar's "works well with", where they are useless: an outlet is a
+    // repeatable way to convert your OTHER permanents into value.
+    name: 'Bloodstained Mire',
+    type_line: 'Land',
+    oracle_text:
+      '{T}, Pay 1 life, Sacrifice Bloodstained Mire: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.',
+    cmc: 0,
+    // Not `ramp` either: it fetches "a Swamp or Mountain card", and the ramp
+    // rule wants the literal word "land". That is the existing rule's call, not
+    // this one's.
+    has: ['land'],
+    hasNot: ['sacrifice-outlet', 'sac-outlet', 'sacrifice'],
+  },
+  {
+    name: 'Nihil Spellbomb',
+    type_line: 'Artifact',
+    oracle_text:
+      "{T}, Sacrifice this artifact: Exile target player's graveyard.\n{B}, Sacrifice this artifact: Draw a card.",
+    cmc: 1,
+    has: ['artifact', 'graveyard-hate'],
+    hasNot: ['sacrifice-outlet', 'sac-outlet'],
+  },
+  {
+    name: 'Basal Thrull',
+    type_line: 'Creature — Thrull',
+    oracle_text: '{T}, Sacrifice this creature: Add {B}{B}.',
+    cmc: 4,
+    has: ['creature'],
+    hasNot: ['sacrifice-outlet', 'sac-outlet', 'mana-dork'],
+  },
+  {
+    // Sacrifices itself AND others, so it is a real outlet even though the
+    // object is not adjacent to the verb.
+    name: "Emrakul's Evangel",
+    type_line: 'Creature — Human Wizard',
+    oracle_text:
+      '{T}, Sacrifice this creature and any number of other non-Eldrazi creatures: Create a 3/2 colorless Eldrazi Horror creature token for each creature sacrificed this way.',
+    cmc: 4,
+    has: ['sacrifice-outlet', 'sac-outlet', 'token-maker'],
+  },
+  {
+    name: 'Carrion Feeder',
+    type_line: 'Creature — Zombie',
+    oracle_text:
+      "This creature can't block.\nSacrifice another creature: Put a +1/+1 counter on this creature.",
+    cmc: 1,
+    has: ['sacrifice-outlet', 'sac-outlet', 'counters'],
+  },
+  {
     name: 'Rhystic Study',
     type_line: 'Enchantment',
     oracle_text: 'Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.',

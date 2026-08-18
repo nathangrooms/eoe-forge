@@ -195,7 +195,7 @@ export function AdminPanel() {
 
         <div className="space-y-4">
           {syncStatus?.map((status) => (
-            <div key={status.id} className="border rounded-lg p-4">
+            <div key={status.id} className="rounded-lg bg-muted/40 p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   {getStatusIcon(status.status)}

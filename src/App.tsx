@@ -7,16 +7,13 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { LeftNavigation } from "@/components/navigation/LeftNavigation";
-import { MobileNavigation } from "@/components/navigation/MobileNavigation";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import Collection from "./pages/Collection";
-import Index from "./pages/Index";
 import Homepage from "./pages/Homepage";
 import Dashboard from "./pages/Dashboard";
 import Scan from "./pages/Scan";
 import DeckBuilder from "./pages/DeckBuilder";
 import Decks from "./pages/Decks";
-import Builder from "./pages/Builder";
 import Templates from "./pages/Templates";
 import Cards from "./pages/Cards";
 
@@ -97,12 +94,12 @@ function AppContent() {
         </div>
         
         {/* Main Content Area - Offset by left nav width on desktop */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-64 overflow-x-hidden py-1 md:py-4">
+        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] overflow-x-hidden py-1 md:py-4 transition-[margin] duration-200">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/landing" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
             <Route path="/homepage" element={<Navigate to="/" replace />} />
             <Route path="/collection" element={<ProtectedRoute><Collection /></ProtectedRoute>} />
             <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
@@ -111,7 +108,9 @@ function AppContent() {
             <Route path="/precons" element={<ProtectedRoute><Precons /></ProtectedRoute>} />
             <Route path="/deck-builder" element={<ProtectedRoute><DeckBuilder /></ProtectedRoute>} />
             <Route path="/deck/:id" element={<ProtectedRoute><DeckInterface /></ProtectedRoute>} />
-            <Route path="/builder" element={<ProtectedRoute><Builder /></ProtectedRoute>} />
+            {/* /builder was a static mockup (hardcoded zeroes, dead buttons) and the
+                third deck-builder surface. Redirected to the one that works. */}
+            <Route path="/builder" element={<Navigate to="/deck-builder" replace />} />
             <Route path="/smart-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
             <Route path="/brain" element={<ProtectedRoute><Brain /></ProtectedRoute>} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />

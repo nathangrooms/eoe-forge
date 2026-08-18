@@ -27,7 +27,11 @@ const TWO_SIDED_LAYOUTS = new Set([
 ]);
 
 export function getCardFaces(card: any): any[] {
-  return Array.isArray(card?.card_faces) ? card.card_faces : [];
+  if (Array.isArray(card?.card_faces)) return card.card_faces;
+  // The Supabase `cards` table stores the same per-face payload in a `faces`
+  // jsonb column, so a row read straight from Postgres has no `card_faces`.
+  if (Array.isArray(card?.faces)) return card.faces;
+  return [];
 }
 
 /**
@@ -50,6 +54,50 @@ export function getCardImage(
   }
 
   return card.image_uris?.[size] ?? card.image_uris?.normal ?? card.image_url ?? undefined;
+}
+
+/**
+ * Resolutions in descending quality. `art_crop` is deliberately absent: it is a
+ * crop, not a card, so it is never an acceptable substitute for one.
+ */
+const QUALITY_LADDER: ScryfallImageSize[] = ['png', 'large', 'border_crop', 'normal', 'small'];
+
+/** Raw lookup with no fallbacks — face first, then the card's own `image_uris`. */
+function rawImage(card: any, size: ScryfallImageSize, faceIndex: number): string | undefined {
+  const faces = getCardFaces(card);
+  if (faces.length > 0) {
+    const face = faces[Math.min(faceIndex, faces.length - 1)];
+    const url = face?.image_uris?.[size];
+    if (typeof url === 'string' && url) return url;
+  }
+  const url = card?.image_uris?.[size];
+  return typeof url === 'string' && url ? url : undefined;
+}
+
+/**
+ * The best available image at or below the requested resolution.
+ *
+ * Cards used to render from `small` (146px wide) at 200px+ on screen, which is
+ * why they looked soft everywhere. Callers ask for the resolution the card is
+ * actually being *drawn* at and this walks down the ladder only if the printing
+ * genuinely lacks it.
+ */
+export function getBestCardImage(
+  card: any,
+  preferred: ScryfallImageSize = 'large',
+  faceIndex = 0
+): string | undefined {
+  if (!card) return undefined;
+
+  const order: ScryfallImageSize[] = [
+    preferred,
+    ...QUALITY_LADDER.filter(s => s !== preferred),
+  ];
+  for (const size of order) {
+    const url = rawImage(card, size, faceIndex);
+    if (url) return url;
+  }
+  return typeof card.image_url === 'string' && card.image_url ? card.image_url : undefined;
 }
 
 /** True when the card has a real, separately-illustrated back face. */

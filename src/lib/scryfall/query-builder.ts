@@ -9,14 +9,25 @@ export type Format =
 
 export type LegalState = "legal" | "banned" | "restricted";
 
+/**
+ * How a set of colours is matched.
+ *  - `any`     → `:`  (on `c:` "includes any of these"; on `id:` Scryfall already reads it as "at most")
+ *  - `exact`   → `=`
+ *  - `atleast` → `>=` "including" — the card has these and may have more
+ *  - `atmost`  → `<=` the Commander question: "may my deck run this?"
+ */
+export type ColorMatchMode = "any" | "exact" | "atleast" | "atmost";
+
 export interface CardSearchState {
   text?: string;                 // raw Scryfall syntax / free text — passed through verbatim
   oracle?: string;               // o:"..."
   types?: string[];              // ['creature','artifact', ...]
   supertypes?: string[];         // ['legendary','basic', ...]
   subtypes?: string[];           // ['elf','warrior', ...]
-  colors?: { mode: "any" | "exact" | "atleast"; value: ColorOption[] }; // c:, c=, c>=
+  colors?: { mode: ColorMatchMode; value: ColorOption[] }; // c:, c=, c>=, c<=
   identity?: ColorOption[];      // id:...
+  /** Match mode for `identity`. Omitted behaves as `any`, which Scryfall reads as "at most". */
+  identityMode?: ColorMatchMode;
   mv?: { min?: number; max?: number };
   pow?: { min?: number; max?: number };
   tou?: { min?: number; max?: number };
@@ -63,14 +74,21 @@ const range = (key: string, r?: { min?: number; max?: number }) =>
 
 const WUBRG = new Set<string>(["W", "U", "B", "R", "G"]);
 
+const COLOR_OPS: Record<ColorMatchMode, string> = {
+  any: ":",
+  exact: "=",
+  atleast: ">=",
+  atmost: "<=",
+};
+
 function colorTokens(
   key: "c" | "id",
-  mode: "any" | "exact" | "atleast",
+  mode: ColorMatchMode,
   value: ColorOption[]
 ): string[] {
   const tokens: string[] = [];
   const letters = value.filter(v => WUBRG.has(v));
-  const op = mode === "exact" ? "=" : mode === "atleast" ? ">=" : ":";
+  const op = COLOR_OPS[mode] ?? ":";
 
   if (letters.length) tokens.push(`${key}${op}${letters.join("").toLowerCase()}`);
   if (value.includes("C")) tokens.push(`${key}:c`);
@@ -99,7 +117,7 @@ export function buildScryfallQuery(s: CardSearchState): { q: string; params: Rec
     tokens.push(...colorTokens("c", s.colors.mode, s.colors.value));
   }
   if (s.identity?.length) {
-    tokens.push(...colorTokens("id", "any", s.identity));
+    tokens.push(...colorTokens("id", s.identityMode ?? "any", s.identity));
   }
 
   tokens.push(...range("mv", s.mv));
@@ -253,6 +271,23 @@ export const COLOR_SYMBOLS: Record<ColorOption, { symbol: string; name: string }
 export const COLOR_ORDER: ColorOption[] = ["W", "U", "B", "R", "G", "C", "M"];
 /** Colour identity has no "multicolour" operator, so M is excluded. */
 export const IDENTITY_ORDER: ColorOption[] = ["W", "U", "B", "R", "G", "C"];
+
+export type SortField = NonNullable<CardSearchState["order"]>;
+
+/** The sort axes the filter UI offers, in the order a Magic player reaches for them. */
+export const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "released", label: "Release date" },
+  { value: "cmc", label: "Mana value" },
+  { value: "color", label: "Color" },
+  { value: "rarity", label: "Rarity" },
+  { value: "usd", label: "Price (USD)" },
+  { value: "edhrec", label: "EDHREC rank" },
+  { value: "power", label: "Power" },
+  { value: "toughness", label: "Toughness" },
+  { value: "set", label: "Set" },
+  { value: "tix", label: "Price (MTGO tix)" },
+];
 
 export const RARITY_INFO: Record<Rarity, { name: string; code: string }> = {
   c: { name: "Common", code: "C" },

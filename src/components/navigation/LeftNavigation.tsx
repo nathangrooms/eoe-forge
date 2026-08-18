@@ -22,11 +22,6 @@ const STORAGE_KEY = 'dm.nav.collapsed';
  * shell is later rebuilt to own the offset itself, the rule simply stops
  * matching and does nothing.
  */
-const RAIL_WIDTH_BRIDGE = `
-@media (min-width: 768px) {
-  main.md\\:ml-64 { transition: margin-left 150ms ease; }
-  html[data-nav-rail="collapsed"] main.md\\:ml-64 { margin-left: 4rem; }
-}`;
 
 function readStoredCollapsed(): boolean {
   if (typeof window === 'undefined') return false;
@@ -110,7 +105,6 @@ export function LeftNavigation() {
 
   return (
     <>
-      <style>{RAIL_WIDTH_BRIDGE}</style>
       <div
         className={cn(
           'flex h-full flex-col border-r border-border bg-background transition-[width] duration-150',

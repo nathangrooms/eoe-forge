@@ -11,6 +11,8 @@ import {
   groupByCategory,
 } from '@/lib/deck/cardCategories';
 import { cardImage, type DeckCardRow } from '@/lib/deck/deckCards';
+import type { CardPlayability, ManaProfile } from '@/lib/deck/playability';
+import { PlayabilityFlag, PlayabilityMeter } from './PlayabilityMeter';
 
 /**
  * Visual decklist, grouped by canonical card type.
@@ -26,6 +28,15 @@ interface DeckCardGridProps {
   onCardClick?: (row: DeckCardRow) => void;
   /** Sections collapsed on first render. Everything else starts open. */
   collapsedByDefault?: string[];
+  /**
+   * Castability per row, from the memoised engine. Omit both this and
+   * `manaProfile` and the tiles render exactly as before — the public deck
+   * page has no mana profile to hand.
+   */
+  playabilityFor?: (row: DeckCardRow) => CardPlayability | null;
+  manaProfile?: ManaProfile;
+  /** Shown in place of the sections when `rows` is empty. */
+  empty?: { title: string; body: string };
   className?: string;
 }
 
@@ -33,6 +44,9 @@ export function DeckCardGrid({
   rows,
   onCardClick,
   collapsedByDefault = [],
+  playabilityFor,
+  manaProfile,
+  empty,
   className,
 }: DeckCardGridProps) {
   const groups = useMemo(
@@ -60,9 +74,11 @@ export function DeckCardGrid({
     return (
       <Card className={className}>
         <CardContent className="p-10 text-center">
-          <p className="font-medium">No cards in this deck yet</p>
+          <p className="text-base font-medium">
+            {empty?.title ?? 'No cards in this deck yet'}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add cards in the deck builder and they will appear here.
+            {empty?.body ?? 'Add cards in the deck builder and they will appear here.'}
           </p>
         </CardContent>
       </Card>
@@ -82,7 +98,7 @@ export function DeckCardGrid({
                 type="button"
                 onClick={() => toggle(group.category)}
                 aria-expanded={isOpen}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
+                className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-muted"
               >
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -93,10 +109,10 @@ export function DeckCardGrid({
                   className={cn('h-3 w-1 rounded-full', CATEGORY_BG_CLASS[group.category])}
                   aria-hidden
                 />
-                <h3 className={cn('text-base font-semibold', CATEGORY_TEXT_CLASS[group.category])}>
+                <h3 className={cn('text-lg font-semibold', CATEGORY_TEXT_CLASS[group.category])}>
                   {group.label}
                 </h3>
-                <Badge variant="secondary" className="tabular-nums">
+                <Badge variant="secondary" className="text-sm tabular-nums">
                   {count}
                 </Badge>
               </button>
@@ -133,21 +149,38 @@ export function DeckCardGrid({
                             {row.quantity}x
                           </span>
                         )}
+                        {/* Only the two problem bands stamp the art. The meter
+                            under the tile carries the figure for every card, so
+                            marking all ninety-nine would bury the signal. */}
+                        <PlayabilityFlag card={playabilityFor?.(row) ?? null} />
                       </CardImage>
 
-                      <div className="mt-1.5 flex items-start justify-between gap-1">
-                        <span className="line-clamp-1 text-xs font-medium">
+                      {/* 13px, not 10px. The caption under a card is the one
+                          place a player reads a name at a glance and the old
+                          size was unreadable at arm's length. */}
+                      <div className="mt-2 flex items-start justify-between gap-1.5">
+                        <span className="line-clamp-1 text-sm font-medium">
                           {row.card?.name || row.card_name}
                         </span>
                         {row.card?.mana_cost ? (
-                          <ManaCost cost={row.card.mana_cost} size="xs" className="shrink-0" />
+                          <ManaCost cost={row.card.mana_cost} size="sm" className="shrink-0" />
                         ) : null}
                       </div>
-                      {row.card?.prices?.usd && (
-                        <span className="text-[10px] tabular-nums text-muted-foreground">
-                          ${parseFloat(row.card.prices.usd).toFixed(2)}
-                        </span>
-                      )}
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        {manaProfile ? (
+                          <PlayabilityMeter
+                            card={playabilityFor?.(row) ?? null}
+                            profile={manaProfile}
+                          />
+                        ) : (
+                          <span />
+                        )}
+                        {row.card?.prices?.usd && (
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            ${parseFloat(row.card.prices.usd).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

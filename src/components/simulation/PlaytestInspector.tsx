@@ -15,7 +15,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardImage } from '@/components/cards/CardImage';
 import { ManaCost } from '@/components/ui/mana-cost';
-import { statLine, type CardInstance, type GameState } from '@/lib/game';
+import { statLineIn, type CardInstance, type GameState } from '@/lib/game';
 
 const ZONE_LABEL: Record<string, string> = {
   library: 'Library',
@@ -38,7 +38,8 @@ export function PlaytestInspector({
   className?: string;
 }) {
   const controller = state.players.find(player => player.id === card.controllerId);
-  const stats = statLine(card);
+  // Layered, so this panel agrees with the board it is inspecting.
+  const stats = statLineIn(state, card);
   const counters = Object.entries(card.counters ?? {}).filter(([, count]) => count !== 0);
 
   return (

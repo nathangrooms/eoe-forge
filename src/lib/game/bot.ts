@@ -25,12 +25,18 @@ import {
   canBlock,
   eligibleAttackers,
   eligibleBlockers,
-  powerOf,
-  toughnessOf,
   validateBlockGroup,
 } from './combat.ts';
-import { hasKeyword } from './keywords.ts';
-import { isCreature, isLand, isPermanent, manaSourcesFor } from './mana.ts';
+// The bot reads the same layered characteristics the board draws. If it read
+// printed values it would decline attacks the player can see are good, and the
+// disagreement would look like a bot bug rather than a missing anthem.
+import {
+  combatPowerIn,
+  combatToughnessIn,
+  hasKeywordIn,
+  isCreatureIn,
+} from './characteristics.ts';
+import { isLand, isPermanent, manaSourcesFor } from './mana.ts';
 import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
 import type { CardInstance, GameAction, GameState, PlayerId } from './types.ts';
 
@@ -70,9 +76,12 @@ function handCards(state: GameState, playerId: PlayerId): CardInstance[] {
 }
 
 /** Rough "is this worth casting" score: bodies first, then anything permanent. */
-function castScore(card: CardInstance): number {
+function castScore(state: GameState, card: CardInstance): number {
   const cmc = card.cmc ?? 0;
-  if (isCreature(card)) return 100 + powerOf(card) * 3 + toughnessOf(card) + cmc;
+  // A card in hand has no layered entry; `characteristics.ts` falls back to its
+  // printed values, which is right — an anthem does not pump a card in hand.
+  if (isCreatureIn(state, card))
+    return 100 + combatPowerIn(state, card) * 3 + combatToughnessIn(state, card) + cmc;
   if (isPermanent(card)) return 50 + cmc;
   return 10 + cmc;
 }
@@ -134,7 +143,7 @@ function chooseSpell(
 
   const ranked = candidates
     .filter(card => isPermanent(card))
-    .sort((a, b) => castScore(b) - castScore(a));
+    .sort((a, b) => castScore(state, b) - castScore(state, a));
 
   for (const card of ranked) {
     const plan = planCastFromHand(state, playerId, card.instanceId, { at });
@@ -154,7 +163,7 @@ function chooseSpell(
 function attackTargets(state: GameState, playerId: PlayerId) {
   const openness = (opponentId: PlayerId): number =>
     eligibleBlockers(state, opponentId).reduce(
-      (sum, blocker) => sum + 2 + toughnessOf(blocker),
+      (sum, blocker) => sum + 2 + combatToughnessIn(state, blocker),
       0
     );
 
@@ -171,23 +180,29 @@ function attackTargets(state: GameState, playerId: PlayerId) {
  * bot is far enough ahead on board that trades are fine.
  */
 function shouldAttackWith(
+  state: GameState,
   attacker: CardInstance,
   defenders: CardInstance[],
   aggression: BotOptions['aggression'],
   lethalSwing: boolean,
   boardAdvantage: boolean
 ): boolean {
-  if (powerOf(attacker) <= 0) return false;
+  const power = combatPowerIn(state, attacker);
+  const toughness = combatToughnessIn(state, attacker);
+  if (power <= 0) return false;
   if (lethalSwing) return true;
 
-  const relevant = defenders.filter(defender => canBlock(attacker, defender));
+  const relevant = defenders.filter(defender => canBlock(state, attacker, defender));
   if (relevant.length === 0) return true;
 
   const killsMeAndLives = relevant.some(
     defender =>
-      powerOf(defender) >= toughnessOf(attacker) && toughnessOf(defender) > powerOf(attacker)
+      combatPowerIn(state, defender) >= toughness &&
+      combatToughnessIn(state, defender) > power
   );
-  const iKillIt = relevant.some(defender => powerOf(attacker) >= toughnessOf(defender));
+  const iKillIt = relevant.some(
+    defender => power >= combatToughnessIn(state, defender)
+  );
 
   if (aggression === 'aggressive') return !killsMeAndLives || boardAdvantage;
   if (aggression === 'timid') return !killsMeAndLives && iKillIt;
@@ -266,12 +281,12 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
       if (available.length === 0) return advance('No attackers.');
 
       const defenders = eligibleBlockers(state, target.id);
-      const totalPower = available.reduce((sum, card) => sum + powerOf(card), 0);
+      const totalPower = available.reduce((sum, card) => sum + combatPowerIn(state, card), 0);
       const lethalSwing = totalPower >= target.life && defenders.length === 0;
       const boardAdvantage = available.length > defenders.length + 1;
 
       const attacking = available.filter(card =>
-        shouldAttackWith(card, defenders, aggression, lethalSwing, boardAdvantage)
+        shouldAttackWith(state, card, defenders, aggression, lethalSwing, boardAdvantage)
       );
 
       if (attacking.length === 0) return advance('Holds back this turn.');
@@ -338,9 +353,9 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
   const attackers = incoming
     .map(declaration => state.cards[declaration.attackerId])
     .filter(Boolean)
-    .sort((a, b) => powerOf(b) - powerOf(a));
+    .sort((a, b) => combatPowerIn(state, b) - combatPowerIn(state, a));
 
-  const incomingDamage = attackers.reduce((sum, card) => sum + powerOf(card), 0);
+  const incomingDamage = attackers.reduce((sum, card) => sum + combatPowerIn(state, card), 0);
   const facingDeath = incomingDamage >= player.life;
 
   // A creature already assigned to a block stays assigned. Blocking does not
@@ -359,14 +374,15 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
 
   for (const attacker of attackers) {
     const candidates = availableBlockers.filter(
-      blocker => !used.has(blocker.instanceId) && canBlock(attacker, blocker)
+      blocker => !used.has(blocker.instanceId) && canBlock(state, attacker, blocker)
     );
     if (candidates.length === 0) continue;
 
     const kind = (blocker: CardInstance) => {
       const kills =
-        powerOf(blocker) >= toughnessOf(attacker) || hasKeyword(blocker, 'deathtouch');
-      const survives = toughnessOf(blocker) > powerOf(attacker);
+        combatPowerIn(state, blocker) >= combatToughnessIn(state, attacker) ||
+        hasKeywordIn(state, blocker, 'deathtouch');
+      const survives = combatToughnessIn(state, blocker) > combatPowerIn(state, attacker);
       if (kills && survives) return 3; // clean block
       if (kills) return 2; // trade
       if (survives) return 1; // wall
@@ -390,11 +406,11 @@ function blockMove(state: GameState, playerId: PlayerId, options: BotOptions): B
      * Sunstar Exemplar (vigilance, menace) got chump-blocked by a single body
      * in a real test game.
      */
-    const required = blockersRequiredFor(attacker);
+    const required = blockersRequiredFor(state, attacker);
     if (ranked.length < required) continue;
 
     const group = ranked.slice(0, required);
-    const legality = validateBlockGroup(attacker, group);
+    const legality = validateBlockGroup(state, attacker, group);
     if (!legality.ok) continue;
 
     const best = group[0];

@@ -1005,6 +1005,25 @@ export type GameAction = ActionMeta &
         }>;
       }
     | { type: 'BLOCK'; blocks: Array<{ blockerId: InstanceId; attackerId: InstanceId }> }
+    /**
+     * Take a blocker back out of the block it was assigned to.
+     *
+     * `BLOCK` appends, which is right for a rules engine — blockers are
+     * declared once and simultaneously — and wrong for the several seconds a
+     * human spends assembling that declaration. Without a way back, a misclick
+     * during declare blockers was permanent, so a board that let you assign
+     * blocks on the cards had to stage them locally and hide them until they
+     * were confirmed: two sources of truth, and `CardInspector` (which
+     * dispatches `BLOCK` immediately) disagreed with the mat.
+     *
+     * With this, `state.combat` stays the single source of truth for the whole
+     * step — click to assign, click again to take it back — and the inspector
+     * and the board cannot drift apart.
+     *
+     * `attackerId` narrows the removal to one lane. Omitted, the blocker comes
+     * out of every lane it is in.
+     */
+    | { type: 'UNBLOCK'; blockerId: InstanceId; attackerId?: InstanceId }
     | { type: 'END_COMBAT' }
 
     /* --- the stack and priority (see stack.ts) --- */

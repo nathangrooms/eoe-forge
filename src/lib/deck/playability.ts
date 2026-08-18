@@ -105,7 +105,9 @@ export type ManaColour = 'W' | 'U' | 'B' | 'R' | 'G';
 
 export const MANA_COLOURS: readonly ManaColour[] = ['W', 'U', 'B', 'R', 'G'] as const;
 
-const COLOUR_BIT: Record<ManaColour, number> = { W: 1, U: 2, B: 4, R: 8, G: 16 };
+/* Exported so view-layer code can ask "does this source make blue?" without
+   re-deriving the bit order. The maths stays in this module. */
+export const COLOUR_BIT: Record<ManaColour, number> = { W: 1, U: 2, B: 4, R: 8, G: 16 };
 const ALL_COLOURS_MASK = 31;
 
 function maskToColours(mask: number): ManaColour[] {

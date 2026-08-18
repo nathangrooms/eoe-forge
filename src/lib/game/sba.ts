@@ -78,7 +78,8 @@ import type {
 } from './types.ts';
 import { isCreature } from './mana.ts';
 import { hasKeyword } from './keywords.ts';
-import { toughnessOf } from './combat.ts';
+import { toughnessOf } from './printed.ts';
+import { characteristicsOf } from './characteristics.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Findings                                                                   */
@@ -162,12 +163,26 @@ export function printedInteger(value: string | undefined | null): number | null 
  *
  * `combat.ts` reads a variable toughness as 0 so a damage calculation has
  * something to work with. That is the right answer there and the wrong one
- * here: 0 toughness is lethal, so reusing it would kill every `*`/`*` creature
- * the moment it entered. The arithmetic still comes from `toughnessOf`, so
- * counters and overrides are counted exactly once, in one place.
+ * here: 0 toughness is lethal, so reusing it would kill every variable-toughness
+ * creature the moment it entered.
+ *
+ * Takes `state` because toughness is a layered question. A creature is not only
+ * killed by -1/-1 counters — "creatures your opponents control get -2/-2" kills
+ * it too, and that lives in layer 7c where a `CardInstance` cannot see it. Before
+ * this was wired, such a creature sat on the battlefield at a displayed 0
+ * toughness and never died.
  */
-export function knownToughness(card: CardInstance | null | undefined): number | null {
+export function knownToughness(
+  state: GameState,
+  card: CardInstance | null | undefined
+): number | null {
   if (!card) return null;
+
+  // On the battlefield the layer engine is the authority, including its `null`
+  // for an unevaluated `*` — which must stay null rather than becoming lethal 0.
+  const layered = characteristicsOf(state, card);
+  if (layered) return layered.toughness;
+
   if (card.toughnessOverride === undefined && printedInteger(card.toughness) === null) return null;
   return toughnessOf(card);
 }
@@ -388,7 +403,7 @@ export function stateBasedActions(state: GameState): SbaFinding[] {
   for (const card of permanents) {
     if (!isCreature(card)) continue;
 
-    const toughness = knownToughness(card);
+    const toughness = knownToughness(state, card);
     if (toughness !== null && toughness <= 0) {
       // CR 704.5f is not destruction, so indestructible does not save it.
       out.push({

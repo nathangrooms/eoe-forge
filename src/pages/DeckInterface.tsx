@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useOpenCard } from '@/components/cards';
 import { OracleText } from '@/components/cards/OracleText';
@@ -14,9 +13,12 @@ import {
   type DeckPower,
   type PowerDeckEntry,
 } from '@/lib/deck/power';
-import { DeckCardGrid } from '@/components/deck/DeckCardGrid';
-import { DeckCardTable } from '@/components/deck/DeckCardTable';
+import { DeckCardsPanel, type DeckCardView } from '@/components/deck/DeckCardsPanel';
+import { ManaSourcesPanel } from '@/components/deck/ManaSourcesPanel';
+import { DeckTabStrip } from '@/components/deck/DeckTabStrip';
 import { CommanderHero } from '@/components/deck/CommanderHero';
+import { createPlayabilityEngine } from '@/lib/deck/playability';
+import { rowsToPlayabilityInputs } from '@/lib/deck/playabilityView';
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,11 +66,11 @@ import {
   BarChart3,
   Crown,
   Download,
+  Droplets,
   Edit,
-  Eye,
-  FileText,
   Gavel,
   Heart,
+  LayoutGrid,
   ScrollText,
   Swords,
   Wallet,
@@ -85,25 +87,59 @@ interface DeckRecord {
 /**
  * The tabs this page offers.
  *
- * The owner's complaint was that the detail page felt empty next to the
- * builder — "feels like so much is missing, it is included in edit mode
- * though". It was: the curve, the category breakdown, collection ownership,
- * legality, archetype, budget, missing cards, the primer and the match record
- * all existed and were reachable only by opening the deck for *editing*.
- * Reading a deck should not require entering edit mode, so every one of them
- * is mounted here read-only. Nothing was taken off the builder to do it.
+ * Two problems were being solved at once here.
+ *
+ * The first was emptiness: the detail page used to show a commander, four stat
+ * tiles and one analytics tab, so a deck you had just built looked emptier than
+ * the screen you built it on. The curve, the category breakdown, collection
+ * ownership, legality, archetype, budget, missing cards, the primer and the
+ * match record all existed and were reachable only by opening the deck for
+ * *editing*. Every one of them is mounted here read-only, and nothing was taken
+ * off the builder to do it.
+ *
+ * The second is the one this pass fixes: having brought everything onto the
+ * page, all of it arrived at once, in one undifferentiated pile. Owner: "there
+ * is so much information and it needs a real overhaul of how its displayed -
+ * not saying to delete anything, but restructure". So the tabs are now named
+ * for the *question a player is asking*, not for the component that answers it,
+ * and each panel lives under the question it answers:
+ *
+ *   Cards     what is in this deck?          the list, filtered, with castability
+ *   Mana      can I cast it?                 the curve, the sources, the land fixer
+ *   EDH       how strong is it, for Commander?  the score, the coaching, the scrape
+ *   Analysis  how does it actually play?     archetype, deck analysis, the Brain
+ *   Legality  is it legal?                   validation
+ *   Value     what does it cost me?          budget and what I am missing
+ *   Primer    how do I pilot it?             the primer generator
+ *   Matches   how has it done?               tracker, analytics, notes
+ *
+ * EDH is its own tab on explicit instruction. It is also the only conditional
+ * one: a Standard deck has no bracket, no commander and no colour-identity
+ * legality, so offering the tab would be offering an empty room.
  */
-const TABS = [
-  { id: 'visual', label: 'Visual', icon: Eye },
-  { id: 'list', label: 'List', icon: FileText },
-  { id: 'analysis', label: 'Analysis', icon: BarChart3 },
-  { id: 'legality', label: 'Legality', icon: Gavel },
-  { id: 'value', label: 'Value', icon: Wallet },
-  { id: 'primer', label: 'Primer', icon: ScrollText },
-  { id: 'matches', label: 'Matches', icon: Swords },
+const TAB_DEFS = [
+  { id: 'cards', label: 'Cards', icon: LayoutGrid, hint: 'The decklist' },
+  { id: 'mana', label: 'Mana', icon: Droplets, hint: 'Curve and sources' },
+  { id: 'edh', label: 'EDH', icon: Crown, hint: 'Commander power' },
+  { id: 'analysis', label: 'Analysis', icon: BarChart3, hint: 'How it plays' },
+  { id: 'legality', label: 'Legality', icon: Gavel, hint: 'Format rules' },
+  { id: 'value', label: 'Value', icon: Wallet, hint: 'Cost and gaps' },
+  { id: 'primer', label: 'Primer', icon: ScrollText, hint: 'How to pilot it' },
+  { id: 'matches', label: 'Matches', icon: Swords, hint: 'Game record' },
 ] as const;
 
-type TabId = (typeof TABS)[number]['id'];
+type TabId = (typeof TAB_DEFS)[number]['id'];
+
+/**
+ * Links written before this restructure pointed at `?tab=visual` and
+ * `?tab=list`, which were two renderings of the same card list. They now both
+ * land on Cards, `list` selecting the table view, so an old bookmark or a
+ * shared link still opens what it opened.
+ */
+const LEGACY_TABS: Record<string, { tab: TabId; view?: DeckCardView }> = {
+  visual: { tab: 'cards', view: 'visual' },
+  list: { tab: 'cards', view: 'table' },
+};
 
 export default function DeckInterface() {
   const { id } = useParams();
@@ -176,17 +212,53 @@ export default function DeckInterface() {
   const stats = useMemo(() => computeDeckStats(cards), [cards]);
   const commander = useMemo(() => cards.find(c => c.is_commander) ?? null, [cards]);
 
+  const isCommanderFormat =
+    deck?.format?.toLowerCase() === 'commander' || deck?.format?.toLowerCase() === 'edh';
+  const showPower = usesPowerLevel(deck?.format);
+
+  /* A Standard deck has no bracket, no commander and no colour-identity
+     legality, so the EDH tab is not offered rather than offered empty. */
+  const tabs = useMemo(
+    () => TAB_DEFS.filter(tab => tab.id !== 'edh' || isCommanderFormat || showPower),
+    [isCommanderFormat, showPower]
+  );
+
   /* The open tab lives in the URL alongside the open card, so Back steps out of
      a tab and a deck link can carry the tab it was read on. */
   const tabParam = searchParams.get('tab');
-  const activeTab: TabId = TABS.some(t => t.id === tabParam) ? (tabParam as TabId) : 'visual';
+  const legacy = tabParam ? LEGACY_TABS[tabParam] : undefined;
+  const resolvedTab = legacy?.tab ?? tabParam;
+  const activeTab: TabId = tabs.some(t => t.id === resolvedTab)
+    ? (resolvedTab as TabId)
+    : 'cards';
+
+  /* Grid or table on the Cards tab, also in the URL — the same reasoning as the
+     tab itself, and it lets `?tab=list` from an old link still land on the
+     table it used to open. */
+  const viewParam = searchParams.get('view');
+  const cardView: DeckCardView =
+    viewParam === 'table' || viewParam === 'visual'
+      ? viewParam
+      : (legacy?.view ?? 'visual');
 
   const setActiveTab = useCallback(
     (next: string) => {
       setSearchParams(prev => {
         const params = new URLSearchParams(prev);
-        if (next === 'visual') params.delete('tab');
+        if (next === 'cards') params.delete('tab');
         else params.set('tab', next);
+        return params;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const setCardView = useCallback(
+    (next: DeckCardView) => {
+      setSearchParams(prev => {
+        const params = new URLSearchParams(prev);
+        if (next === 'visual') params.delete('view');
+        else params.set('view', next);
         return params;
       });
     },
@@ -246,6 +318,25 @@ export default function DeckInterface() {
     () => analyticsDeck.filter(c => c.category !== 'commanders'),
     [analyticsDeck]
   );
+
+  /**
+   * Castability, from the local engine rather than the edhpowerlevel.com
+   * scrape.
+   *
+   * The scrape only ever returned a per-card playability column for the ~100
+   * cards it managed to match, gave no derivation for any of them, and had to
+   * be re-run from the builder to refresh. This solves every card in the deck
+   * exactly, on render, from the decklist already in memory — so the figure
+   * exists for all of them and can explain itself.
+   *
+   * The engine memoises on mana cost, so a hundred rows across the grid, the
+   * table, the facet counts and the roll-up is one solve per distinct cost.
+   */
+  const playabilityEngine = useMemo(
+    () => createPlayabilityEngine(rowsToPlayabilityInputs(cards)),
+    [cards]
+  );
+  const playability = useMemo(() => playabilityEngine.deck(), [playabilityEngine]);
 
   /**
    * The deck's power, computed from the decklist on this page rather than read
@@ -365,9 +456,6 @@ export default function DeckInterface() {
     );
   }
 
-  const showPower = usesPowerLevel(deck.format);
-  const isCommanderFormat =
-    deck.format?.toLowerCase() === 'commander' || deck.format?.toLowerCase() === 'edh';
   const hasCards = mainboard.length > 0;
 
   /**
@@ -484,12 +572,34 @@ export default function DeckInterface() {
               {showPower && <PowerScore power={power} variant="compact" />}
             </div>
 
-            {/* The curve, in the header. It was two clicks deep inside a nested
-                tab on the one page whose whole job is to describe a deck. */}
-            {hasCards && (
-              <div className="min-w-0 rounded-lg bg-muted/30 p-3 xl:w-[22rem] xl:shrink-0 xl:self-start">
-                <ManaCurve cards={mainboard} height={116} />
-              </div>
+            {/* The curve used to sit here. Owner: "Mana curve not needs on main
+                cards page" — it is on the Mana tab now, beside the source
+                analysis that explains it. What takes its place is the other
+                number they called "one of the most important things": the
+                deck's castability, summarised, linking to the tab that derives
+                it. Both figures come from the decklist on screen. */}
+            {hasCards && playability.averagePct !== null && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('mana')}
+                className="min-w-0 rounded-lg bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:w-[20rem] xl:shrink-0 xl:self-start"
+              >
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Average playability
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums">
+                  {playability.averagePct.toFixed(1)}%
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  across {playability.scoredCount}{' '}
+                  {playability.scoredCount === 1 ? 'spell' : 'spells'} ·{' '}
+                  {playability.belowThresholdCount} under {playability.threshold}%
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {playability.profile.sources.length} mana sources in a{' '}
+                  {playability.profile.librarySize}-card library. See Mana →
+                </p>
+              </button>
             )}
           </div>
         </div>
@@ -533,56 +643,53 @@ export default function DeckInterface() {
         </div>
       )}
 
-      {/* Seven destinations, so this scrolls on a narrow screen rather than
-          crushing them into sevenths. */}
-      <div className="overflow-x-auto scrollbar-none">
-        <div className="flex w-max items-center gap-1 rounded-lg bg-muted/40 p-1 md:w-full">
-          {TABS.map(({ id: tabId, label, icon: Icon }) => {
-            const selected = activeTab === tabId;
-            return (
-              <button
-                key={tabId}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setActiveTab(tabId)}
-                className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  selected
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-                {tabId === 'visual' && (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] tabular-nums">
-                    {stats.totalCards}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <DeckTabStrip
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        badges={{ cards: stats.totalCards }}
+      />
 
-      <div className="mt-4">
-        {activeTab === 'visual' && (
-          <DeckCardGrid rows={cards} onCardClick={openCard} collapsedByDefault={['lands']} />
+      <div className="mt-5">
+        {activeTab === 'cards' && (
+          <DeckCardsPanel
+            rows={cards}
+            onCardClick={openCard}
+            engine={playabilityEngine}
+            view={cardView}
+            onViewChange={setCardView}
+          />
         )}
 
-        {activeTab === 'list' && (
-          <Card>
-            <CardContent className="p-0">
-              <DeckCardTable rows={cards} onCardClick={openCard} />
-            </CardContent>
-          </Card>
-        )}
+        {/* Everything about producing mana, in one place. The curve moved here
+            off the Cards tab, and `LandEnhancerUX` moved here off Analysis —
+            both are answers to "can I cast my spells", not "what is in the
+            deck" or "how good is the deck". Neither was removed. */}
+        {activeTab === 'mana' &&
+          (hasCards ? (
+            <div className="space-y-6">
+              <Card>
+                <CardContent className="p-5 md:p-6">
+                  <ManaCurve cards={mainboard} height={200} />
+                </CardContent>
+              </Card>
 
-        {activeTab === 'analysis' &&
+              <ManaSourcesPanel profile={playabilityEngine.profile} result={playability} />
+
+              <LandEnhancerUX entries={powerEntries} power={power} identity={identity} />
+            </div>
+          ) : (
+            needsCards('this deck’s mana analysed')
+          ))}
+
+        {/* EDH, on the owner's explicit instruction: "EDH should probably be
+            it's own tab." The canonical score and its nine subscores, the
+            commander read, the coaching, the colour-identity check, and the
+            labelled edhpowerlevel.com second opinion — every Commander-specific
+            panel that used to be buried in Analysis and Legality. */}
+        {activeTab === 'edh' &&
           (hasCards && power ? (
             <div className="space-y-6">
-              {/* The canonical score, explained — the same component, engine
-                  and nine subscores the builder renders. */}
               {showPower && <PowerScore power={power} variant="expanded" />}
 
               {showPower && (
@@ -599,7 +706,10 @@ export default function DeckInterface() {
                 </div>
               )}
 
-              <LandEnhancerUX entries={powerEntries} power={power} identity={identity} />
+              {/* `DeckCompatibilityChecker` deliberately stays on Legality
+                  rather than being mirrored here. A colour-identity violation
+                  is a legality question, and rendering the same panel under two
+                  tabs is the duplication this restructure exists to remove. */}
 
               {/* The labelled second opinion, read from the last scrape the
                   builder cached. Never presented as the canonical score, and
@@ -611,7 +721,19 @@ export default function DeckInterface() {
                   onRefresh={() => navigate(editHref)}
                 />
               )}
+            </div>
+          ) : (
+            needsCards('this deck’s Commander power')
+          ))}
 
+        {/* What is left on Analysis is the format-agnostic half: what kind of
+            deck this is and how it behaves. The power score, the commander read
+            and the coaching moved to EDH; the land fixer moved to Mana. Nothing
+            was dropped — every panel below is the same component with the same
+            props it had before. */}
+        {activeTab === 'analysis' &&
+          (hasCards && power ? (
+            <div className="space-y-6">
               <ArchetypeDetection
                 deckCards={mainboard}
                 commander={analyticsCommander}

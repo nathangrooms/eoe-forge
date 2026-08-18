@@ -221,6 +221,25 @@ function providesFor(part: EffectPart): string[] {
  * graveyard or the command zone says so in `activeZones`, and this respects it.
  */
 export function scanStatics(state: GameState, view?: Record<InstanceId, CharacteristicView>): StaticScan {
+  // Memoised on state identity for the no-view call, which is the one every hot
+  // path uses: `continuousEffectsFor`, `hasRestriction` and `costAdjustmentFor`
+  // all scan the whole battlefield, and combat asks about restrictions once per
+  // attacker. A scan with a caller-supplied view is not cached, because the view
+  // is part of the answer and is not part of the key.
+  if (!view) {
+    const cached = SCAN_CACHE.get(state);
+    if (cached) return cached;
+    const fresh = runScan(state, undefined);
+    SCAN_CACHE.set(state, fresh);
+    return fresh;
+  }
+  return runScan(state, view);
+}
+
+/** Superseded states are collected; a long game does not accumulate scans. */
+const SCAN_CACHE = new WeakMap<GameState, StaticScan>();
+
+function runScan(state: GameState, view: Record<InstanceId, CharacteristicView> | undefined): StaticScan {
   const effects: ContinuousEffect[] = [];
   const restrictions: ActiveRestriction[] = [];
   const costMods: ActiveCostMod[] = [];

@@ -1,34 +1,52 @@
-// Land recommendations section - Mobile optimized
+/**
+ * Land recommendations, plus what the mana base actually is.
+ *
+ * The old version drew each land into a 40×56 box with `object-cover`, which
+ * cropped a Magic card to a postage stamp — the one thing design law says never
+ * to do to card art. Lands are cards; they get the same grid as every other
+ * suggestion.
+ *
+ * The header now reports the *measured* mana base — real source counts per
+ * colour from `buildManaProfile`, computed from the decklist — beside the land
+ * count the edge function returned. The count alone never explained why a
+ * three-colour deck with 37 lands still stumbles.
+ */
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Mountain, 
-  Plus, 
-  Minus, 
-  Check,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Loader2
-} from 'lucide-react';
+import { Mountain, Plus, Trash2, Check, Loader2 } from 'lucide-react';
+import { CardGrid } from '@/components/cards';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { SuggestionTile, TilePill } from './SuggestionTile';
+import { colourSourceReadout } from '@/lib/deck/playabilityView';
+import type { ManaProfile } from '@/lib/deck/playability';
 
 export interface LandRecommendation {
   type: 'add' | 'remove';
   name: string;
-  image?: string;
+  /** Full card object for `<CardImage>`. `null` if Scryfall lookup failed. */
+  card: any | null;
   reason: string;
   priority: 'high' | 'medium' | 'low';
   category?: string;
 }
 
 interface LandRecommendationsSectionProps {
-  currentLandCount: number;
-  idealLandCount: number;
+  /**
+   * Both are counted from the real decklist by the edge function, and both are
+   * `null` when it reported neither. The panel used to default them to 0 and 37
+   * locally, which rendered "0 / 37 lands · 37 short of the target" as the
+   * headline of this tab out of two constants. 37 is a real Commander
+   * convention, but a convention nothing measured is not this deck's target,
+   * and a land count of zero is never true of a deck that has just been
+   * analysed. Absent counts now mean an absent block.
+   */
+  currentLandCount: number | null;
+  idealLandCount: number | null;
   recommendations: LandRecommendation[];
+  /** Measured from the real decklist. `null` before an analysis has run. */
+  manaProfile: ManaProfile | null;
   onAddLand: (name: string) => void;
   onRemoveLand: (name: string) => void;
   isApplying: boolean;
@@ -38,178 +56,193 @@ export function LandRecommendationsSection({
   currentLandCount,
   idealLandCount,
   recommendations,
+  manaProfile,
   onAddLand,
   onRemoveLand,
-  isApplying
+  isApplying,
 }: LandRecommendationsSectionProps) {
-  const landDiff = currentLandCount - idealLandCount;
-  const needsMore = landDiff < -2;
-  const needsLess = landDiff > 2;
-  const isOptimal = Math.abs(landDiff) <= 2;
+  const hasCounts = currentLandCount !== null && idealLandCount !== null;
+  const landDiff = hasCounts ? currentLandCount - idealLandCount : null;
+  const needsMore = landDiff !== null && landDiff < -2;
+  const needsLess = landDiff !== null && landDiff > 2;
+  const isOptimal = landDiff !== null && Math.abs(landDiff) <= 2;
 
-  const landsToAdd = recommendations.filter(r => r.type === 'add');
-  const landsToRemove = recommendations.filter(r => r.type === 'remove');
+  const toAdd = recommendations.filter(r => r.type === 'add');
+  const toRemove = recommendations.filter(r => r.type === 'remove');
 
-  const statusConfig = isOptimal 
-    ? { color: 'text-foreground', bg: 'bg-muted', border: 'border-border', icon: Check }
-    : needsMore 
-      ? { color: 'text-foreground', bg: 'bg-muted', border: 'border-border', icon: Plus }
-      : { color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-destructive/30', icon: Minus };
+  // The deck page's own readout, reused. It already drops colours the deck does
+  // not play, so a mono-red deck never prints "White 0".
+  const colourRows = manaProfile ? colourSourceReadout(manaProfile) : [];
 
   return (
-    <div className="space-y-3">
-      {/* Status header */}
-      <Card className={cn("border", statusConfig.border, statusConfig.bg)}>
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className={cn("p-1.5 rounded-lg", statusConfig.bg)}>
-                <Mountain className={cn("h-4 w-4", statusConfig.color)} />
+    <div className="space-y-6">
+      <Card className="shadow-lg">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-start gap-x-8 gap-y-5">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <Mountain className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-xl font-bold">Mana base</h3>
               </div>
-              <div>
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  Mana Base
-                  {!isOptimal && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-foreground" />
-                  )}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {currentLandCount}/{idealLandCount} lands
-                  {needsMore && ` (need ${Math.abs(landDiff)} more)`}
-                  {needsLess && ` (${landDiff} too many)`}
-                </p>
-              </div>
+              {hasCounts && (
+                <>
+                  <p className="mt-2 text-3xl font-bold tabular-nums">
+                    {currentLandCount}
+                    <span className="text-lg font-medium text-muted-foreground">
+                      {' '}
+                      / {idealLandCount} lands
+                    </span>
+                  </p>
+                  <p
+                    className={cn(
+                      'mt-1 text-sm font-medium',
+                      isOptimal ? 'text-muted-foreground' : 'text-destructive'
+                    )}
+                  >
+                    {isOptimal && 'Within the normal range'}
+                    {needsMore && `${Math.abs(landDiff!)} short of the target`}
+                    {needsLess && `${landDiff} over the target`}
+                  </p>
+                </>
+              )}
             </div>
-            
-            <Badge variant="outline" className={cn("text-xs", statusConfig.color, statusConfig.border)}>
-              {isOptimal ? 'Optimal' : needsMore ? 'Low' : 'High'}
-            </Badge>
+
+            {/* Measured, not suggested: these come from the decklist itself. */}
+            {colourRows.length > 0 && (
+              <div className="min-w-0 flex-1">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Sources by colour · counts every land, rock and dork
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {colourRows.map(row => (
+                    <span
+                      key={row.colour}
+                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-medium"
+                    >
+                      {row.name} <span className="tabular-nums">{row.sources}</span>
+                    </span>
+                  ))}
+                </div>
+                {manaProfile && (
+                  <p className="mt-2 text-sm text-muted-foreground tabular-nums">
+                    {manaProfile.landCount} lands · {manaProfile.rockCount} rocks ·{' '}
+                    {manaProfile.dorkCount} dorks
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recommendations */}
-      {recommendations.length > 0 && (
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-3 pr-3">
-            {/* Lands to add */}
-            {landsToAdd.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-foreground" />
-                  <span className="text-xs font-medium text-foreground">Add Lands</span>
-                  <Badge variant="secondary" className="text-[10px]">{landsToAdd.length}</Badge>
-                </div>
-                
-                <div className="space-y-2">
-                  {landsToAdd.map((land, i) => (
-                    <motion.div
-                      key={`add-${land.name}`}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted"
-                    >
-                      {land.image && (
-                        <img 
-                          src={land.image} 
-                          alt={land.name}
-                          className="w-10 h-14 rounded object-cover flex-shrink-0"
-                          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-xs truncate">{land.name}</p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-1">{land.reason}</p>
-                        {land.category && (
-                          <Badge variant="outline" className="text-[9px] mt-0.5">{land.category}</Badge>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => onAddLand(land.name)}
-                        disabled={isApplying}
-                        className="h-8 px-3 text-xs flex-shrink-0"
-                      >
-                        {isApplying ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add
-                          </>
-                        )}
-                      </Button>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Lands to remove */}
-            {landsToRemove.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5">
-                  <TrendingDown className="h-3.5 w-3.5 text-destructive" />
-                  <span className="text-xs font-medium text-destructive">Remove Lands</span>
-                  <Badge variant="secondary" className="text-[10px]">{landsToRemove.length}</Badge>
-                </div>
-                
-                <div className="space-y-2">
-                  {landsToRemove.map((land, i) => (
-                    <motion.div
-                      key={`remove-${land.name}`}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-destructive/20 bg-destructive/5"
-                    >
-                      {land.image && (
-                        <img 
-                          src={land.image} 
-                          alt={land.name}
-                          className="w-10 h-14 rounded object-cover flex-shrink-0"
-                          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-xs truncate">{land.name}</p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-1">{land.reason}</p>
-                        {land.category && (
-                          <Badge variant="outline" className="text-[9px] mt-0.5">{land.category}</Badge>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => onRemoveLand(land.name)}
-                        disabled={isApplying}
-                        className="h-8 px-3 text-xs flex-shrink-0"
-                      >
-                        {isApplying ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <Minus className="h-3.5 w-3.5 mr-1" />
-                            Remove
-                          </>
-                        )}
-                      </Button>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+      {toAdd.length > 0 && (
+        <LandGroup
+          title="Add"
+          count={toAdd.length}
+          items={toAdd}
+          isApplying={isApplying}
+          action={land => (
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => onAddLand(land.name)}
+              disabled={isApplying}
+            >
+              {isApplying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Add
+            </Button>
+          )}
+        />
       )}
 
-      {recommendations.length === 0 && isOptimal && (
-        <div className="text-center py-4 text-muted-foreground">
-          <Check className="h-8 w-8 mx-auto mb-2 text-foreground" />
-          <p className="text-sm">Your mana base looks good!</p>
-        </div>
+      {toRemove.length > 0 && (
+        <LandGroup
+          title="Remove"
+          count={toRemove.length}
+          items={toRemove}
+          isApplying={isApplying}
+          action={land => (
+            <Button
+              className="w-full"
+              size="lg"
+              variant="outline"
+              onClick={() => onRemoveLand(land.name)}
+              disabled={isApplying}
+            >
+              {isApplying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Remove
+            </Button>
+          )}
+        />
+      )}
+
+      {recommendations.length === 0 && (
+        <Card className="shadow-lg">
+          <CardContent className="p-10 text-center">
+            <Check className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-base font-medium">
+              {isOptimal
+                ? 'No land changes suggested — the count is where it should be.'
+                : 'No specific land changes were returned for this deck.'}
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
+  );
+}
+
+function LandGroup({
+  title,
+  count,
+  items,
+  isApplying,
+  action,
+}: {
+  title: string;
+  count: number;
+  items: LandRecommendation[];
+  isApplying: boolean;
+  action: (land: LandRecommendation) => React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        {title} · {count}
+      </h4>
+      <CardGrid width={260} gap={20}>
+        <AnimatePresence mode="popLayout">
+          {items.map(land => (
+            <motion.div
+              key={`${land.type}-${land.name}`}
+              layout
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.18 }}
+            >
+              <SuggestionTile
+                name={land.name}
+                /* A failed Scryfall lookup still gets a tile — `CardImage`
+                   renders its own skeleton for a card with no art, which beats
+                   dropping the recommendation on the floor. */
+                card={land.card ?? { name: land.name }}
+                reason={land.reason}
+                tags={land.category ? <TilePill>{land.category}</TilePill> : undefined}
+                action={action(land)}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </CardGrid>
+    </section>
   );
 }

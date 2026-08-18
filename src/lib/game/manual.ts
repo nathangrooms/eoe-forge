@@ -28,7 +28,8 @@
 import type { CardInstance, GameAction, GameState, PlayerId, TokenSpec, Zone } from './types.ts';
 import { ZONES } from './types.ts';
 import { FLAGGABLE_KEYWORDS, hasKeyword, keywordSupport } from './keywords.ts';
-import { powerOf, toughnessOf } from './combat.ts';
+// Layered, so the number beside the nudge button is the number on the card.
+import { combatPowerIn, combatToughnessIn } from './characteristics.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Counters                                                                   */
@@ -369,28 +370,28 @@ export function manualControlsFor(
         label: 'Power +1',
         group: 'stats',
         actions: adjustStats(card.instanceId, 1, 0, at),
-        count: powerOf(card),
+        count: combatPowerIn(state, card),
       },
       {
         id: 'stat:p-',
         label: 'Power −1',
         group: 'stats',
         actions: adjustStats(card.instanceId, -1, 0, at),
-        count: powerOf(card),
+        count: combatPowerIn(state, card),
       },
       {
         id: 'stat:t+',
         label: 'Toughness +1',
         group: 'stats',
         actions: adjustStats(card.instanceId, 0, 1, at),
-        count: toughnessOf(card),
+        count: combatToughnessIn(state, card),
       },
       {
         id: 'stat:t-',
         label: 'Toughness −1',
         group: 'stats',
         actions: adjustStats(card.instanceId, 0, -1, at),
-        count: toughnessOf(card),
+        count: combatToughnessIn(state, card),
       }
     );
     if (card.powerOverride !== undefined || card.toughnessOverride !== undefined) {

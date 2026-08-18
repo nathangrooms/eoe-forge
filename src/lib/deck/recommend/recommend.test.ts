@@ -299,9 +299,24 @@ test('the same colour identity always renders byte-identical SQL', () => {
   assert.equal(toSql(buildCandidateQuery(a)), toSql(buildCandidateQuery(c)));
 });
 
-test('an unindexed format is refused rather than sequentially scanned', () => {
+test('an unindexed format is flagged, not silently scanned', () => {
   const brawl = deriveDeckProfile({ format: 'brawl', colorIdentity: ['G'], cards: [] });
-  assert.throws(() => buildCandidateQuery(brawl), UnindexedFormatError);
+  assert.equal(buildCandidateQuery(brawl).usesIndex, false);
+  assert.equal(buildCandidateQuery(guProfile()).usesIndex, true);
+});
+
+test('a caller can insist on an indexed format', () => {
+  const brawl = deriveDeckProfile({ format: 'brawl', colorIdentity: ['G'], cards: [] });
+  assert.throws(() => buildCandidateQuery(brawl, { requireIndex: true }), UnindexedFormatError);
+  // The indexed case is unaffected by the same flag.
+  assert.equal(buildCandidateQuery(guProfile(), { requireIndex: true }).usesIndex, true);
+});
+
+test('brawl still filters on its own legality key, not commander\'s', () => {
+  const brawl = deriveDeckProfile({ format: 'brawl', colorIdentity: ['G'], cards: [] });
+  const sql = toSql(buildCandidateQuery(brawl));
+  assert.match(sql, /legalities->>'brawl' = 'legal'/);
+  assert.ok(!/legalities->>'commander'/.test(sql));
 });
 
 /* ------------------------------------------------------------------ *

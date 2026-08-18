@@ -336,7 +336,7 @@ test('a */* creature is NOT killed for having no printed number', () => {
   // `combat.ts` reads a variable toughness as 0 so damage maths has something to
   // work with. Reusing that here would kill every Tarmogoyf on arrival.
   const state = table([{ id: 'goyf', power: '*', toughness: '1+*' }]);
-  assert.equal(knownToughness(state.cards.goyf), null);
+  assert.equal(knownToughness(state, state.cards.goyf), null);
   assert.deepEqual(kinds(state), []);
 });
 
@@ -348,7 +348,7 @@ test('…but a hand-set override gives the engine a number it may act on', () =>
     power: 3,
     toughness: 3,
   });
-  assert.equal(knownToughness(state.cards.goyf), 3);
+  assert.equal(knownToughness(state, state.cards.goyf), 3);
   state = applyAction(state, {
     type: 'CARD_COUNTER',
     instanceId: 'goyf',

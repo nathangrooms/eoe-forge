@@ -53,57 +53,55 @@ import type {
   InstanceId,
   PlayerId,
 } from './types.ts';
-import { isCreature } from './mana.ts';
-import { hasKeyword, hasProtectionFrom } from './keywords.ts';
+import { hasProtectionFrom } from './keywords.ts';
+import {
+  combatPowerIn,
+  combatToughnessIn,
+  controllerIn,
+  hasKeywordIn,
+  isCreatureIn,
+} from './characteristics.ts';
+// "Creatures can't block", "creatures can't attack" and friends are compiled
+// from oracle text by the ability DSL and collected by the same battlefield scan
+// that produces the continuous effects. They are not characteristics, so they
+// are not layer effects — but they are combat legality, so they belong here.
+import { hasRestriction } from './abilities/statics.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Characteristics                                                            */
 /* -------------------------------------------------------------------------- */
 
-function baseNumber(value: string | undefined): number {
-  if (!value) return 0;
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function counterDelta(card: CardInstance): number {
-  const plus = card.counters['+1/+1'] ?? 0;
-  const minus = card.counters['-1/-1'] ?? 0;
-  return plus - minus;
-}
-
 /**
- * Current power: the hand-set override if there is one, otherwise the printed
- * value, plus counters either way. `*` and other variable printings read as 0,
- * which is exactly the case the manual override exists for.
+ * The printed accessors now live in `printed.ts` and are re-exported here so
+ * every existing `import { powerOf } from './combat.ts'` keeps working.
+ *
+ * They are no longer what this module computes with. Combat damage reads the
+ * layered board through `characteristics.ts`, because an anthem changes how
+ * much damage a creature deals and `powerOf` cannot see one.
  */
-export function powerOf(card: CardInstance | null | undefined): number {
-  if (!card) return 0;
-  const base = card.powerOverride ?? baseNumber(card.power);
-  return Math.max(0, base + counterDelta(card));
-}
-
-/** Current toughness, override and counters included. */
-export function toughnessOf(card: CardInstance | null | undefined): number {
-  if (!card) return 0;
-  const base = card.toughnessOverride ?? baseNumber(card.toughness);
-  return base + counterDelta(card);
-}
-
-/** Power/toughness as it should be printed on a battlefield card. */
-export function statLine(card: CardInstance | null | undefined): string | null {
-  if (!card || !isCreature(card)) return null;
-  return `${powerOf(card)}/${toughnessOf(card)}`;
-}
-
-/** True when the printed stats have been overridden by hand. */
-export function hasStatOverride(card: CardInstance | null | undefined): boolean {
-  return !!card && (card.powerOverride !== undefined || card.toughnessOverride !== undefined);
-}
+export { hasStatOverride, powerOf, statLine, toughnessOf } from './printed.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Legality                                                                   */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Every keyword question in this file goes through here, and therefore through
+ * the layer engine.
+ *
+ * `keywords.ts`'s `hasKeyword` reads the card's own printed and hand-flagged
+ * keywords; it cannot see a keyword *granted* by something else on the
+ * battlefield, because it is never told what else is on the battlefield. So a
+ * creature under "creatures you control have flying" would block a flier here
+ * and not in the card inspector — two answers to one question, which is the bug
+ * class this wiring removes.
+ *
+ * Layer 6 is where granting and stripping happen, so this asks layer 6.
+ */
+function kw(state: GameState, card: CardInstance | null | undefined, keyword: string): boolean {
+  if (!card) return false;
+  return hasKeywordIn(state, card, keyword);
+}
 
 /** Creatures this player could declare as attackers right now. */
 export function eligibleAttackers(state: GameState, playerId: PlayerId): CardInstance[] {
@@ -113,11 +111,16 @@ export function eligibleAttackers(state: GameState, playerId: PlayerId): CardIns
   return player.zones.battlefield
     .map(id => state.cards[id])
     .filter(card => {
-      if (!card || card.controllerId !== playerId) return false;
-      if (!isCreature(card)) return false;
+      if (!card) return false;
+      // Control is a layer-2 question: a stolen creature attacks for its new
+      // controller, not the one printed on the instance.
+      if (controllerIn(state, card) !== playerId) return false;
+      if (!isCreatureIn(state, card)) return false;
       if (card.tapped) return false;
-      if (hasKeyword(card, 'defender')) return false;
-      if (card.summoningSick && !hasKeyword(card, 'haste')) return false;
+      if (kw(state, card, 'defender')) return false;
+      if (card.summoningSick && !kw(state, card, 'haste')) return false;
+      // A static "can't attack" from anywhere on the board.
+      if (hasRestriction(state, card.instanceId, 'cant-attack')) return false;
       return true;
     });
 }
@@ -129,7 +132,14 @@ export function eligibleBlockers(state: GameState, playerId: PlayerId): CardInst
 
   return player.zones.battlefield
     .map(id => state.cards[id])
-    .filter(card => !!card && card.controllerId === playerId && isCreature(card) && !card.tapped);
+    .filter(
+      card =>
+        !!card &&
+        controllerIn(state, card) === playerId &&
+        isCreatureIn(state, card) &&
+        !card.tapped &&
+        !hasRestriction(state, card.instanceId, 'cant-block')
+    );
 }
 
 /**
@@ -137,28 +147,34 @@ export function eligibleBlockers(state: GameState, playerId: PlayerId): CardInst
  *
  * Menace is not asked here because it is a property of the whole block rather
  * than of a single blocker — `validateBlockGroup` answers that.
+ *
+ * Takes `state` because evasion is a layered question. Granted flying and
+ * granted reach both count, and both are invisible to the card alone.
  */
 export function canBlock(
+  state: GameState,
   attacker: CardInstance | null | undefined,
   blocker: CardInstance | null | undefined
 ): boolean {
   if (!attacker || !blocker) return false;
   if (blocker.tapped) return false;
-  if (
-    hasKeyword(attacker, 'flying') &&
-    !hasKeyword(blocker, 'flying') &&
-    !hasKeyword(blocker, 'reach')
-  ) {
+  if (hasRestriction(state, blocker.instanceId, 'cant-block')) return false;
+  if (kw(state, attacker, 'flying') && !kw(state, blocker, 'flying') && !kw(state, blocker, 'reach')) {
     return false;
   }
   // Protection from a quality the blocker has: it cannot block this attacker.
+  // Protection parses a named quality out of oracle text rather than being a
+  // layer characteristic, so it stays on `keywords.ts`.
   if (hasProtectionFrom(attacker, blocker)) return false;
   return true;
 }
 
 /** How many creatures it takes to block this attacker. Menace makes it two. */
-export function blockersRequiredFor(attacker: CardInstance | null | undefined): number {
-  return hasKeyword(attacker, 'menace') ? 2 : 1;
+export function blockersRequiredFor(
+  state: GameState,
+  attacker: CardInstance | null | undefined
+): number {
+  return kw(state, attacker, 'menace') ? 2 : 1;
 }
 
 export interface BlockLegality {
@@ -172,6 +188,7 @@ export interface BlockLegality {
  * single creature block a menacing attacker.
  */
 export function validateBlockGroup(
+  state: GameState,
   attacker: CardInstance | null | undefined,
   blockers: readonly (CardInstance | null | undefined)[]
 ): BlockLegality {
@@ -180,8 +197,8 @@ export function validateBlockGroup(
   if (live.length === 0) return { ok: true, reason: '' };
 
   for (const blocker of live) {
-    if (canBlock(attacker, blocker)) continue;
-    if (hasKeyword(attacker, 'flying')) {
+    if (canBlock(state, attacker, blocker)) continue;
+    if (kw(state, attacker, 'flying')) {
       return { ok: false, reason: `${blocker.name} has neither flying nor reach.` };
     }
     if (hasProtectionFrom(attacker, blocker)) {
@@ -190,7 +207,7 @@ export function validateBlockGroup(
     return { ok: false, reason: `${blocker.name} cannot block right now.` };
   }
 
-  const required = blockersRequiredFor(attacker);
+  const required = blockersRequiredFor(state, attacker);
   if (live.length < required) {
     return { ok: false, reason: `${attacker.name} has menace — it takes ${required} blockers.` };
   }
@@ -199,8 +216,8 @@ export function validateBlockGroup(
 }
 
 /** Attacking taps the creature unless it has vigilance. */
-export function tapsToAttack(card: CardInstance): boolean {
-  return !hasKeyword(card, 'vigilance');
+export function tapsToAttack(state: GameState, card: CardInstance): boolean {
+  return !kw(state, card, 'vigilance');
 }
 
 /* -------------------------------------------------------------------------- */
@@ -240,12 +257,12 @@ function commanderIdFor(state: GameState, card: CardInstance): string | undefine
   return undefined;
 }
 
-function dealsInFirstStep(card: CardInstance): boolean {
-  return hasKeyword(card, 'first strike') || hasKeyword(card, 'double strike');
+function dealsInFirstStep(state: GameState, card: CardInstance): boolean {
+  return kw(state, card, 'first strike') || kw(state, card, 'double strike');
 }
 
-function dealsInRegularStep(card: CardInstance): boolean {
-  return hasKeyword(card, 'double strike') || !hasKeyword(card, 'first strike');
+function dealsInRegularStep(state: GameState, card: CardInstance): boolean {
+  return kw(state, card, 'double strike') || !kw(state, card, 'first strike');
 }
 
 /** One creature hitting one thing, before prevention is applied. */
@@ -263,24 +280,25 @@ type Hit =
  * ignoring indestructibility before anything tramples over.
  */
 function assignToBlockers(
+  state: GameState,
   attacker: CardInstance,
   blockers: readonly CardInstance[],
   marked: Map<InstanceId, number>
 ): { perBlocker: Map<InstanceId, number>; trampleOver: number } {
   const perBlocker = new Map<InstanceId, number>();
-  const deathtouch = hasKeyword(attacker, 'deathtouch');
-  let remaining = powerOf(attacker);
+  const deathtouch = kw(state, attacker, 'deathtouch');
+  let remaining = combatPowerIn(state, attacker);
 
   for (const blocker of blockers) {
     if (remaining <= 0) break;
     const already = marked.get(blocker.instanceId) ?? 0;
-    const lethal = deathtouch ? 1 : Math.max(1, toughnessOf(blocker) - already);
+    const lethal = deathtouch ? 1 : Math.max(1, combatToughnessIn(state, blocker) - already);
     const assigned = Math.min(remaining, lethal);
     perBlocker.set(blocker.instanceId, assigned);
     remaining -= assigned;
   }
 
-  const trampleOver = hasKeyword(attacker, 'trample') ? Math.max(0, remaining) : 0;
+  const trampleOver = kw(state, attacker, 'trample') ? Math.max(0, remaining) : 0;
   return { perBlocker, trampleOver };
 }
 
@@ -327,7 +345,7 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
   for (const lane of live) {
     participants.push(lane.attacker, ...lane.blockers);
   }
-  const firstStrikeStep = participants.some(dealsInFirstStep);
+  const firstStrikeStep = participants.some(card => dealsInFirstStep(state, card));
 
   const actions: GameAction[] = [];
   const marked = new Map<InstanceId, number>();
@@ -341,7 +359,7 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
 
   for (const step of steps) {
     const dealsNow = (card: CardInstance): boolean =>
-      step === 'first' ? dealsInFirstStep(card) : dealsInRegularStep(card);
+      step === 'first' ? dealsInFirstStep(state, card) : dealsInRegularStep(state, card);
 
     const hits: Hit[] = [];
 
@@ -352,22 +370,27 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
       const survivingBlockers = blockers.filter(blocker => !dead.has(blocker.instanceId));
       const wasBlocked = declaration.blockedBy.length > 0;
 
-      if (dealsNow(attacker) && powerOf(attacker) > 0) {
+      if (dealsNow(attacker) && combatPowerIn(state, attacker) > 0) {
         if (survivingBlockers.length === 0) {
           // Unblocked, or every blocker is already dead. A blocked creature
           // with no blockers left deals no damage at all — unless it tramples
           // (CR 702.19b), in which case all of it goes through.
-          const throughToPlayer = !wasBlocked || hasKeyword(attacker, 'trample');
+          const throughToPlayer = !wasBlocked || kw(state, attacker, 'trample');
           if (throughToPlayer && declaration.defenderPlayerId) {
             hits.push({
               kind: 'player',
               source: attacker,
               playerId: declaration.defenderPlayerId,
-              amount: powerOf(attacker),
+              amount: combatPowerIn(state, attacker),
             });
           }
         } else {
-          const { perBlocker, trampleOver } = assignToBlockers(attacker, survivingBlockers, marked);
+          const { perBlocker, trampleOver } = assignToBlockers(
+            state,
+            attacker,
+            survivingBlockers,
+            marked
+          );
           for (const blocker of survivingBlockers) {
             const amount = perBlocker.get(blocker.instanceId) ?? 0;
             if (amount <= 0) continue;
@@ -386,7 +409,7 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
 
       for (const blocker of survivingBlockers) {
         if (!dealsNow(blocker)) continue;
-        const amount = powerOf(blocker);
+        const amount = combatPowerIn(state, blocker);
         if (amount <= 0) continue;
         hits.push({ kind: 'creature', source: blocker, targetId: attacker.instanceId, amount });
       }
@@ -411,7 +434,7 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
           amount: current.amount + hit.amount,
           commander: current.commander || !!commanderId,
         });
-        if (hasKeyword(hit.source, 'lifelink')) {
+        if (kw(state, hit.source, 'lifelink')) {
           lifelinkTotals.set(
             hit.source.controllerId,
             (lifelinkTotals.get(hit.source.controllerId) ?? 0) + hit.amount
@@ -426,8 +449,8 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
       if (target && hasProtectionFrom(target, hit.source)) continue;
 
       marked.set(hit.targetId, (marked.get(hit.targetId) ?? 0) + hit.amount);
-      if (hasKeyword(hit.source, 'deathtouch')) deathtouched.add(hit.targetId);
-      if (hasKeyword(hit.source, 'lifelink')) {
+      if (kw(state, hit.source, 'deathtouch')) deathtouched.add(hit.targetId);
+      if (kw(state, hit.source, 'lifelink')) {
         lifelinkTotals.set(
           hit.source.controllerId,
           (lifelinkTotals.get(hit.source.controllerId) ?? 0) + hit.amount
@@ -440,8 +463,8 @@ export function resolveCombat(state: GameState, at = 0): CombatOutcome {
       if (dead.has(instanceId) || amount <= 0) continue;
       const card = state.cards[instanceId];
       if (!card || card.zone !== 'battlefield') continue;
-      if (hasKeyword(card, 'indestructible')) continue;
-      const lethal = deathtouched.has(instanceId) || amount >= toughnessOf(card);
+      if (kw(state, card, 'indestructible')) continue;
+      const lethal = deathtouched.has(instanceId) || amount >= combatToughnessIn(state, card);
       if (!lethal) continue;
       dead.add(instanceId);
       destroyed.push(instanceId);
@@ -538,8 +561,10 @@ export function combatLanes(state: GameState): CombatLane[] {
       blockers: declaration.blockedBy.map(id => state.cards[id]).filter(Boolean),
       defenderPlayerId: declaration.defenderPlayerId,
       lethalIfUnblocked:
-        !!defender && declaration.blockedBy.length === 0 && powerOf(attacker) >= defender.life,
-      blockersRequired: blockersRequiredFor(attacker),
+        !!defender &&
+        declaration.blockedBy.length === 0 &&
+        combatPowerIn(state, attacker) >= defender.life,
+      blockersRequired: blockersRequiredFor(state, attacker),
     };
   });
 }

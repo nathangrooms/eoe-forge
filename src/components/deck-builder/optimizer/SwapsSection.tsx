@@ -1,38 +1,47 @@
-// Premium swaps section with EDH power impact - Mobile optimized
-import { useState } from 'react';
+/**
+ * Swaps, rebuilt around the cards themselves.
+ *
+ * The previous version was a dense text row with two 64px thumbnails wedged
+ * beside 9px labels — the owner's "cannot see anything, all so small" was
+ * pointed squarely at this file. A swap *is* two cards, so the two cards are
+ * now the interface: full art at reading size, side by side, with the reason
+ * between them and the mana consequence underneath it.
+ *
+ * Three other things changed for design-law reasons:
+ *   - `<img>` is gone. Card art goes through `<CardImage>`, which picks the
+ *     Scryfall resolution to match the rendered size and flips double-faced
+ *     cards. Hand-rolled tags did neither.
+ *   - Borders are gone. Rows separate by surface tint and shadow.
+ *   - The inner `ScrollArea` is gone. It capped the list at 500px inside a
+ *     full-height page, so big art would have been trapped in a letterbox.
+ *     The page scrolls; the list is just a list.
+ */
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { 
-  ArrowRight, 
-  ArrowDown,
-  Check, 
-  DollarSign, 
-  Package, 
-  TrendingUp, 
-  TrendingDown,
-  Loader2,
-  Zap,
-  RefreshCw
-} from 'lucide-react';
+import { ArrowRight, ArrowDown, Check, Loader2, Package, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CardImage, useOpenCard } from '@/components/cards';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManaImpactNote } from './ManaImpactNote';
+import { PowerImpactBadge } from './PowerImpactBadge';
+import { playabilityBand } from '@/lib/deck/playabilityView';
+import type { ManaImpact } from './manaImpact';
+import type { CardPlayability } from '@/lib/deck/playability';
 
 export interface SwapSuggestion {
   currentCard: {
     name: string;
-    image: string;
-    price: number;
+    /** Full card object — Scryfall shape or a deck row. Drives `<CardImage>`. */
+    card: any;
+    price: number | null;
     reason: string;
     playability?: number | null;
   };
   newCard: {
     name: string;
-    image: string;
-    price: number;
+    card: any;
+    price: number | null;
     reason: string;
     type?: string;
     inCollection?: boolean;
@@ -40,7 +49,22 @@ export interface SwapSuggestion {
   };
   priority: 'high' | 'medium' | 'low';
   category?: string;
-  edhImpact?: number;
+  /**
+   * The model's own power-delta estimate, or `null` when it did not give one.
+   * Never defaulted to a constant — see the note in `AIOptimizerPanel`.
+   */
+  edhImpact?: number | null;
+  /** Computed, not estimated. `null` when the swap does not move the mana base. */
+  manaImpact?: ManaImpact | null;
+  /**
+   * Castability of the incoming card on the sources it would actually arrive
+   * on: the post-swap base when the swap moves the mana base, the current base
+   * otherwise. Quoting the current base for a land-cutting swap contradicts the
+   * mana note sitting directly above it.
+   */
+  addCastability?: CardPlayability | null;
+  /** True when `addCastability` was scored on the post-swap mana base. */
+  addCastabilityAfterSwap?: boolean;
   selected: boolean;
 }
 
@@ -55,6 +79,23 @@ interface SwapsSectionProps {
   useCollection?: boolean;
 }
 
+const PRIORITY_LABEL = {
+  high: 'Critical',
+  medium: 'Recommended',
+  low: 'Optional',
+} as const;
+
+/** Money is only shown when both sides actually have a price. */
+function priceDelta(a: number | null, b: number | null): number | null {
+  if (a === null || b === null) return null;
+  return a - b;
+}
+
+function formatPrice(price: number | null): string | null {
+  if (price === null) return null;
+  return `$${price.toFixed(2)}`;
+}
+
 export function SwapsSection({
   suggestions,
   onToggle,
@@ -63,319 +104,313 @@ export function SwapsSection({
   onFindMoreSwaps,
   isApplying,
   isLoadingMore,
-  useCollection
+  useCollection,
 }: SwapsSectionProps) {
-  const selectedCount = suggestions.filter(s => s.selected).length;
-  const totalCostDiff = suggestions
-    .filter(s => s.selected)
-    .reduce((sum, s) => sum + (s.newCard.price - s.currentCard.price), 0);
-  
-  const totalEdhImpact = suggestions
-    .filter(s => s.selected)
-    .reduce((sum, s) => sum + (s.edhImpact || 0), 0);
+  const selected = suggestions.filter(s => s.selected);
+  const selectedCount = selected.length;
 
-  const priorityStyles = {
-    high: { bg: 'bg-destructive/10', border: 'border-destructive/30', text: 'text-destructive', label: 'Critical' },
-    medium: { bg: 'bg-muted', border: 'border-border', text: 'text-foreground', label: 'Recommended' },
-    low: { bg: 'bg-muted/50', border: 'border-border', text: 'text-muted-foreground', label: 'Optional' }
-  };
+  // Only sum swaps where both prices are known; a missing price must not read
+  // as $0 and quietly understate the bill.
+  const pricedSelected = selected.filter(
+    s => s.newCard.price !== null && s.currentCard.price !== null
+  );
+  const totalCostDiff = pricedSelected.reduce(
+    (sum, s) => sum + ((s.newCard.price ?? 0) - (s.currentCard.price ?? 0)),
+    0
+  );
 
-  // Group by priority
-  const byPriority = {
-    high: suggestions.filter(s => s.priority === 'high'),
-    medium: suggestions.filter(s => s.priority === 'medium'),
-    low: suggestions.filter(s => s.priority === 'low')
-  };
+  const order = ['high', 'medium', 'low'] as const;
 
   return (
-    <TooltipProvider>
-      <div className="space-y-3 sm:space-y-4">
-        {/* Summary header - Mobile optimized */}
-        <Card className="border-primary/20">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
-                    <span className="truncate">Card Replacements</span>
-                    {useCollection && (
-                      <Badge variant="outline" className="text-[10px] sm:text-xs ml-1 hidden xs:flex">
-                        <Package className="h-2.5 w-2.5 mr-0.5" />
-                        Collection
-                      </Badge>
-                    )}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 sm:gap-3 mt-1 text-xs sm:text-sm text-muted-foreground">
-                    <span>{suggestions.length} suggested</span>
-                    <span className={cn(
-                      "flex items-center",
-                      totalCostDiff > 0 ? "text-foreground" : totalCostDiff < 0 ? "text-foreground" : ""
-                    )}>
-                      <DollarSign className="h-3 w-3" />
-                      {totalCostDiff >= 0 ? '+' : ''}{totalCostDiff.toFixed(2)}
-                    </span>
-                    {totalEdhImpact !== 0 && (
-                      <span className={cn(
-                        "flex items-center",
-                        totalEdhImpact > 0 ? "text-foreground" : "text-foreground"
-                      )}>
-                        <Zap className="h-3 w-3 mr-0.5" />
-                        {totalEdhImpact > 0 ? '+' : ''}{totalEdhImpact.toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Action buttons */}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={onApplySelected}
-                  disabled={selectedCount === 0 || isApplying}
-                  className="flex-1 h-9 text-xs sm:text-sm"
-                >
-                  {isApplying ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  Apply ({selectedCount})
-                </Button>
-                {onFindMoreSwaps && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onFindMoreSwaps}
-                    disabled={isLoadingMore || isApplying}
-                    className="h-9 text-xs sm:text-sm px-3"
-                  >
-                    {isLoadingMore ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                        More
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Swaps by priority - Mobile optimized */}
-        <ScrollArea className="h-[60vh] sm:h-[500px]">
-          <div className="space-y-4 sm:space-y-6 pr-2 sm:pr-4">
-            {(['high', 'medium', 'low'] as const).map((priority) => {
-              const items = byPriority[priority];
-              if (items.length === 0) return null;
-              
-              const style = priorityStyles[priority];
-              
-              return (
-                <motion.div
-                  key={priority}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="mb-2 sm:mb-3 flex items-center gap-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
-                    <div className={cn("w-2 h-2 rounded-full", 
-                      priority === 'high' ? 'bg-destructive' :
-                      priority === 'medium' ? 'bg-muted' : 'bg-muted-foreground'
-                    )} />
-                    <h4 className={cn("text-xs sm:text-sm font-medium", style.text)}>
-                      {style.label} Swaps
-                    </h4>
-                    <Badge variant="secondary" className="text-[10px] sm:text-xs">{items.length}</Badge>
-                  </div>
-                  
-                  <div className="space-y-2 sm:space-y-3">
-                    <AnimatePresence mode="popLayout">
-                      {items.map((swap, globalIndex) => {
-                        const actualIndex = suggestions.findIndex(s => 
-                          s.currentCard.name === swap.currentCard.name && 
-                          s.newCard.name === swap.newCard.name
-                        );
-                        const priceDiff = swap.newCard.price - swap.currentCard.price;
-                        
-                        return (
-                          <motion.div
-                            key={`${swap.currentCard.name}-${swap.newCard.name}`}
-                            layout
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            transition={{ delay: globalIndex * 0.03 }}
-                            className={cn(
-                              "group relative rounded-lg sm:rounded-xl border transition-all duration-200",
-                              swap.selected ? "border-primary/50 bg-primary/5" : "border-border",
-                              "active:scale-[0.99]"
-                            )}
-                          >
-                            {/* Priority indicator bar */}
-                            <div className={cn(
-                              "absolute left-0 top-0 bottom-0 w-1 rounded-l-lg sm:rounded-l-xl",
-                              priority === 'high' ? 'bg-destructive' :
-                              priority === 'medium' ? 'bg-muted' : 'bg-muted-foreground'
-                            )} />
-
-                            <div className="p-2 sm:p-4 pl-3 sm:pl-5">
-                              {/* Header row - Mobile compact */}
-                              <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                  <Checkbox
-                                    checked={swap.selected}
-                                    onCheckedChange={() => onToggle(actualIndex)}
-                                    className="h-5 w-5"
-                                  />
-                                  {swap.category && (
-                                    <Badge variant="secondary" className="text-[10px] sm:text-xs hidden xs:flex">
-                                      {swap.category}
-                                    </Badge>
-                                  )}
-                                </div>
-                                
-                                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
-                                  {/* Price difference */}
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-[9px] sm:text-xs px-1 sm:px-1.5",
-                                      priceDiff > 0 ? "text-foreground bg-muted border-border" : 
-                                      priceDiff < 0 ? "text-foreground bg-muted border-border" :
-                                      "text-muted-foreground"
-                                    )}
-                                  >
-                                    <DollarSign className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5" />
-                                    {priceDiff >= 0 ? '+' : ''}{priceDiff.toFixed(2)}
-                                  </Badge>
-
-                                  {/* EDH power impact */}
-                                  {swap.edhImpact !== undefined && swap.edhImpact !== 0 && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "text-[9px] sm:text-xs px-1 sm:px-1.5",
-                                        swap.edhImpact > 0 
-                                          ? "text-foreground bg-muted border-border"
-                                          : "text-foreground bg-muted border-border"
-                                      )}
-                                    >
-                                      {swap.edhImpact > 0 ? (
-                                        <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5" />
-                                      ) : (
-                                        <TrendingDown className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5" />
-                                      )}
-                                      {swap.edhImpact > 0 ? '+' : ''}{swap.edhImpact.toFixed(1)}
-                                    </Badge>
-                                  )}
-
-                                  <Button
-                                    size="sm"
-                                    onClick={() => onApplySingle(actualIndex)}
-                                    disabled={isApplying}
-                                    className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
-                                  >
-                                    <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-                                    <span className="hidden xs:inline">Apply</span>
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Cards comparison - Vertical on mobile, horizontal on desktop */}
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                                {/* Current card */}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                                    <Badge variant="outline" className="text-[9px] sm:text-xs bg-destructive/10 text-destructive border-destructive/30">
-                                      Remove
-                                    </Badge>
-                                    {swap.currentCard.playability !== null && swap.currentCard.playability !== undefined && (
-                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
-                                        {swap.currentCard.playability}%
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-2 sm:gap-3">
-                                    <img
-                                      src={swap.currentCard.image}
-                                      alt={swap.currentCard.name}
-                                      className="w-16 sm:w-28 rounded-md sm:rounded-lg shadow-md"
-                                      onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-xs sm:text-sm truncate">{swap.currentCard.name}</p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">${swap.currentCard.price.toFixed(2)}</p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
-                                        {swap.currentCard.reason}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Arrow - horizontal on mobile, vertical arrow visible */}
-                                <div className="flex sm:flex-col items-center justify-center gap-1 py-1 sm:py-0 flex-shrink-0">
-                                  <motion.div
-                                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border border-primary/30"
-                                    animate={{ x: [0, 2, 0] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                  >
-                                    <ArrowDown className="h-4 w-4 sm:hidden text-primary" />
-                                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 hidden sm:block text-primary" />
-                                  </motion.div>
-                                  {swap.newCard.synergy && (
-                                    <Badge variant="secondary" className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 hidden sm:flex">
-                                      <Zap className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
-                                      {swap.newCard.synergy}
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                {/* New card */}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                                    <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
-                                      Add
-                                    </Badge>
-                                    {swap.newCard.inCollection && (
-                                      <Badge variant="outline" className="text-[9px] sm:text-xs bg-muted text-foreground border-border">
-                                        <Package className="h-2 w-2 sm:h-3 sm:w-3 mr-0.5" />
-                                        Owned
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-2 sm:gap-3">
-                                    <img
-                                      src={swap.newCard.image}
-                                      alt={swap.newCard.name}
-                                      className="w-16 sm:w-28 rounded-md sm:rounded-lg shadow-md"
-                                      onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-xs sm:text-sm truncate">{swap.newCard.name}</p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">${swap.newCard.price.toFixed(2)}</p>
-                                      <p className="text-[10px] sm:text-xs text-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
-                                        {swap.newCard.reason}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-              );
-            })}
+    <div className="space-y-6">
+      {/* Command bar. Sticks to the top so Apply stays reachable however far
+          down the list you have scrolled — the old version put it in a header
+          card that scrolled away above a 500px inner scroller. */}
+      <Card className="sticky top-2 z-20 bg-card/95 shadow-lg backdrop-blur">
+        <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-4 p-5">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xl font-bold">Card replacements</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {suggestions.length} suggested
+              {selectedCount > 0 && <> · {selectedCount} selected</>}
+              {pricedSelected.length > 0 && (
+                <>
+                  {' '}
+                  · {totalCostDiff >= 0 ? '+' : '−'}$
+                  {Math.abs(totalCostDiff).toFixed(2)}
+                  {pricedSelected.length !== selectedCount && ' (priced swaps only)'}
+                </>
+              )}
+              {useCollection && <> · from your collection</>}
+            </p>
           </div>
-        </ScrollArea>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {onFindMoreSwaps && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={onFindMoreSwaps}
+                disabled={isLoadingMore || isApplying}
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Find more
+              </Button>
+            )}
+            <Button
+              size="lg"
+              onClick={onApplySelected}
+              disabled={selectedCount === 0 || isApplying}
+            >
+              {isApplying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              Apply {selectedCount > 0 ? selectedCount : ''} swap
+              {selectedCount === 1 ? '' : 's'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {order.map(priority => {
+        const items = suggestions.filter(s => s.priority === priority);
+        if (items.length === 0) return null;
+
+        return (
+          <section key={priority} className="space-y-4">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              {PRIORITY_LABEL[priority]} · {items.length}
+            </h4>
+
+            <div className="space-y-5">
+              <AnimatePresence mode="popLayout">
+                {items.map(swap => {
+                  const index = suggestions.indexOf(swap);
+                  const delta = priceDelta(swap.newCard.price, swap.currentCard.price);
+
+                  return (
+                    <motion.article
+                      key={`${swap.currentCard.name}→${swap.newCard.name}`}
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                      className={cn(
+                        'rounded-2xl p-5 transition-colors sm:p-6',
+                        // Selection reads as a lift in surface tone, not an
+                        // outline — design law 2.
+                        swap.selected ? 'bg-muted shadow-xl' : 'bg-card shadow-lg'
+                      )}
+                    >
+                      {/* Row header: what kind of swap, and the two controls. */}
+                      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+                        <label className="flex cursor-pointer items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={swap.selected}
+                            onChange={() => onToggle(index)}
+                            className="h-5 w-5 cursor-pointer accent-primary"
+                          />
+                          <span className="text-base font-semibold">
+                            {swap.category || PRIORITY_LABEL[swap.priority]}
+                          </span>
+                        </label>
+
+                        <div className="ml-auto flex flex-wrap items-center gap-3">
+                          {delta !== null && (
+                            <span
+                              className={cn(
+                                'rounded-lg bg-muted px-3 py-1.5 text-sm font-medium tabular-nums',
+                                swap.selected && 'bg-background/60'
+                              )}
+                            >
+                              {delta >= 0 ? '+' : '−'}${Math.abs(delta).toFixed(2)}
+                            </span>
+                          )}
+                          {/* Renders nothing when the model returned no
+                              estimate — the badge owns that decision. */}
+                          <PowerImpactBadge
+                            impact={swap.edhImpact}
+                            className={swap.selected ? 'bg-background/60' : undefined}
+                          />
+                          <Button
+                            size="lg"
+                            onClick={() => onApplySingle(index)}
+                            disabled={isApplying}
+                          >
+                            <Check className="mr-2 h-4 w-4" />
+                            Apply this swap
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* The swap itself. Cards get their own columns and keep
+                          their full frame — never cropped to a band. */}
+                      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,17rem)] lg:gap-8">
+                        <SwapSide
+                          label="Cut"
+                          tone="out"
+                          name={swap.currentCard.name}
+                          card={swap.currentCard.card}
+                          price={swap.currentCard.price}
+                          playability={swap.currentCard.playability}
+                        />
+
+                        <div className="space-y-4 lg:pt-8">
+                          <div className="flex items-center gap-3 lg:justify-center">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted">
+                              <ArrowDown className="h-5 w-5 lg:hidden" />
+                              <ArrowRight className="hidden h-5 w-5 lg:block" />
+                            </div>
+                            <span className="text-sm font-medium text-muted-foreground lg:hidden">
+                              Replace with
+                            </span>
+                          </div>
+
+                          <div className="space-y-4 rounded-xl bg-muted/60 p-4">
+                            <div>
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Why cut {swap.currentCard.name}
+                              </p>
+                              <p className="text-base leading-relaxed">
+                                {swap.currentCard.reason}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Why {swap.newCard.name}
+                              </p>
+                              <p className="text-base leading-relaxed">{swap.newCard.reason}</p>
+                              {swap.newCard.synergy && (
+                                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                  {swap.newCard.synergy}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Computed consequences, shown only when real. */}
+                          <ManaImpactNote impact={swap.manaImpact ?? null} />
+
+                          {swap.addCastability && swap.addCastability.pct !== null && (
+                            <p className="rounded-xl bg-background/60 p-4 text-sm leading-relaxed">
+                              <span className="font-semibold">{swap.newCard.name}</span> is
+                              castable on turn {swap.addCastability.turn} in{' '}
+                              <span
+                                className={cn(
+                                  'font-semibold tabular-nums',
+                                  playabilityBand(swap.addCastability.pct).textClass
+                                )}
+                              >
+                                {swap.addCastability.pct.toFixed(0)}%
+                              </span>{' '}
+                              of games on{' '}
+                              {swap.addCastabilityAfterSwap
+                                ? 'the mana base this swap leaves behind'
+                                : 'this mana base'}
+                              .
+                            </p>
+                          )}
+                        </div>
+
+                        <SwapSide
+                          label="Add"
+                          tone="in"
+                          name={swap.newCard.name}
+                          card={swap.newCard.card}
+                          price={swap.newCard.price}
+                          owned={swap.newCard.inCollection}
+                        />
+                      </div>
+                    </motion.article>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+interface SwapSideProps {
+  label: string;
+  tone: 'in' | 'out';
+  name: string;
+  card: any;
+  price: number | null;
+  playability?: number | null;
+  owned?: boolean;
+}
+
+/**
+ * One side of a swap: the card at a size you can actually read, with its name
+ * and the couple of facts that belong on the card rather than in the reason.
+ */
+function SwapSide({ label, tone, name, card, price, playability, owned }: SwapSideProps) {
+  const priceLabel = formatPrice(price);
+  // Card click navigates to `/cards/:id`, same as the deck grid one component
+  // across on this very page. The optimiser is the surface where "what does
+  // this card actually do?" is the whole question, and until now it was the
+  // one card-heavy surface where the art was inert.
+  const openCard = useOpenCard();
+
+  return (
+    <div className="mx-auto w-full max-w-[17rem] lg:mx-0">
+      <div className="mb-2.5 flex items-center gap-2">
+        <span
+          className={cn(
+            'rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider',
+            tone === 'out' ? 'bg-destructive/15 text-destructive' : 'bg-muted text-foreground'
+          )}
+        >
+          {label}
+        </span>
+        {owned && (
+          <span className="flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium">
+            <Package className="h-3 w-3" />
+            Owned
+          </span>
+        )}
+        {/* Labelled, not bare. A pill reading "41%" beside a card is a number
+            with no stated unit — it could be a price, a win rate or a share of
+            the deck. The removals grid already says "41% castable"; this is the
+            same measurement and says the same words. */}
+        {playability !== null && playability !== undefined && (
+          <span
+            className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
+            title="Castability on this deck's mana base"
+          >
+            <span className="tabular-nums">{playability.toFixed(0)}%</span> castable
+          </span>
+        )}
       </div>
-    </TooltipProvider>
+
+      {/* `fill` + `size="xl"` so the art is requested at 672px and drawn at
+          ~272px — the resolution ladder in CardImage depends on the size token,
+          which `fill` does not infer. */}
+      <CardImage
+        card={card}
+        size="xl"
+        fill
+        onClick={() => openCard(card)}
+        imageClassName={tone === 'out' ? 'opacity-90' : undefined}
+      />
+
+      <div className="mt-3">
+        <p className="text-base font-semibold leading-snug">{name}</p>
+        {priceLabel && (
+          <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">{priceLabel}</p>
+        )}
+      </div>
+    </div>
   );
 }

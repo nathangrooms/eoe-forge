@@ -1114,6 +1114,7 @@ const CARD_ACTIONS = new Set([
   'SHUFFLE',
   'ATTACK',
   'BLOCK',
+  'UNBLOCK',
   'SET_CARD_STAT',
   'SET_KEYWORD',
   'CREATE_TOKEN',
@@ -1335,6 +1336,8 @@ function describeAction(state: GameState, action: GameAction): string {
       return `${playerName(state, state.activePlayerId)} attacked with ${action.attackers.length} creature${action.attackers.length === 1 ? '' : 's'}.`;
     case 'BLOCK':
       return `${action.blocks.length} block${action.blocks.length === 1 ? '' : 's'} declared.`;
+    case 'UNBLOCK':
+      return `${cardName(state, action.blockerId)} stopped blocking.`;
     case 'END_COMBAT':
       return 'Combat ended.';
     case 'CAST_SPELL': {
@@ -1556,13 +1559,39 @@ function reduce(state: GameState, action: GameAction): GameState {
 
     case 'BLOCK': {
       const attackers = state.combat.attackers.map(declaration => {
+        /* Deliberately deduplicated against what is already there. `BLOCK`
+           appends, and a board where the same chip can be pressed twice would
+           otherwise list one creature in one lane twice — which `resolveCombat`
+           reads as two blockers and assigns damage to twice. */
         const blockers = action.blocks
           .filter(block => block.attackerId === declaration.attackerId)
-          .map(block => block.blockerId);
+          .map(block => block.blockerId)
+          .filter(
+            (id, index, all) =>
+              all.indexOf(id) === index && declaration.blockedBy.indexOf(id) === -1
+          );
         if (blockers.length === 0) return declaration;
         return { ...declaration, blockedBy: [...declaration.blockedBy, ...blockers] };
       });
       return { ...state, combat: { attackers } };
+    }
+
+    /* The way back out of a block, so a misclick during the declare blockers
+       step is not permanent. See the note on the action in `types.ts`. */
+    case 'UNBLOCK': {
+      let changed = false;
+      const attackers = state.combat.attackers.map(declaration => {
+        if (action.attackerId && declaration.attackerId !== action.attackerId) return declaration;
+        if (declaration.blockedBy.indexOf(action.blockerId) === -1) return declaration;
+        changed = true;
+        return {
+          ...declaration,
+          blockedBy: declaration.blockedBy.filter(id => id !== action.blockerId),
+        };
+      });
+      // Same reference when nothing moved: the transport treats an unchanged
+      // state as a rejected action and keeps it out of the undo history.
+      return changed ? { ...state, combat: { attackers } } : state;
     }
 
     case 'END_COMBAT':

@@ -32,6 +32,7 @@
 
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GameStateProvider } from './GameStateContext';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { GameCardView } from './GameCardView';
 import { CARD_RATIO } from './Battlefield';
@@ -44,9 +45,7 @@ import {
   isUnderAttack,
   planCastFromHand,
   planLandDrop,
-  powerOf,
-  statLine,
-  toughnessOf,
+  statLineIn,
   type CardInstance,
   type GameState,
   type PlayerId,
@@ -207,11 +206,13 @@ export function CardInspector({
         }))
         .filter(
           (entry): entry is { attackerId: string; attacker: CardInstance } =>
-            !!entry.attacker && canBlock(entry.attacker, card)
+            !!entry.attacker && canBlock(state, entry.attacker, card)
         )
     : [];
 
-  const stats = statLine(card);
+  // The layered stat line: the number the board shows, anthems and granted
+  // effects included. `statLine` alone cannot see them.
+  const stats = statLineIn(state, card);
 
   /* The card is the point of this panel — *"the card large enough to read its
      rules text in full"* — so it takes as much of the rail as it can without
@@ -237,6 +238,10 @@ export function CardInspector({
   }
 
   return (
+    /* The inspector is mounted beside `PlayTable`, not inside it, so it
+       publishes the state itself — otherwise the preview card here would draw
+       printed values while the identical card on the mat drew layered ones. */
+    <GameStateProvider state={state}>
     <div className={cn('flex h-full w-full flex-col', className)}>
       <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -350,7 +355,7 @@ export function CardInspector({
               key={attackerId}
               label={`Block ${attacker.name}`}
               tone="primary"
-              hint={`${card.name} (${powerOf(card)}/${toughnessOf(card)}) blocks ${attacker.name} (${powerOf(attacker)}/${toughnessOf(attacker)})`}
+              hint={`${card.name} (${statLineIn(state, card) ?? '—'}) blocks ${attacker.name} (${statLineIn(state, attacker) ?? '—'})`}
               onClick={() => onBlock?.(card, attackerId)}
             />
           ))}
@@ -387,6 +392,7 @@ export function CardInspector({
         )}
       </div>
     </div>
+    </GameStateProvider>
   );
 }
 

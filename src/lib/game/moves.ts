@@ -178,7 +178,7 @@ export function declareAttack(
         return {
           attackerId: attack.attackerId,
           defenderPlayerId: attack.defenderPlayerId,
-          tap: card ? tapsToAttack(card) : true,
+          tap: card ? tapsToAttack(state, card) : true,
         };
       }),
     },

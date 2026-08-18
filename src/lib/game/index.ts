@@ -16,6 +16,10 @@
  *   - `layers.ts`    CR 613 continuous effects — the layer system, ported from
  *                    XMage (MIT); the pure "what are this object's current
  *                    characteristics" function everything else should ask
+ *   - `characteristics.ts` the ONE accessor for current power, toughness,
+ *                    types, colours and keywords — `computeLayers` applied and
+ *                    memoised per state. The board, the inspector, combat and
+ *                    the bot all ask this, so they cannot disagree.
  *   - `combat.ts`    what a declared attack actually does, expressed as actions
  *   - `stack.ts`     the stack, priority, targeting, fizzling and countering
  *   - `replacement.ts` CR 614 replacement effects, applied one at a time
@@ -59,7 +63,11 @@ export * from './seating.ts';
 
 export * from './mana.ts';
 export * from './keywords.ts';
+export * from './printed.ts';
 export * from './layers.ts';
+// The single accessor for "what are this object's characteristics right now".
+// Everything that draws a board or does combat maths asks this, not `powerOf`.
+export * from './characteristics.ts';
 export * from './combat.ts';
 export * from './stack.ts';
 export * from './replacement.ts';

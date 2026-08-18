@@ -53,7 +53,10 @@ import type {
   Selector,
   ValueExpr,
 } from '../../cards/abilities/dsl.ts';
-import { powerOf, toughnessOf } from '../combat.ts';
+// From `printed.ts`, not `combat.ts`. This is the pre-layer fallback used by the
+// first pass of `scanStatics`, and importing combat here would close a cycle:
+// combat -> characteristics -> statics -> context -> combat.
+import { powerOf, toughnessOf } from '../printed.ts';
 import { effectiveKeywords } from '../keywords.ts';
 
 /* -------------------------------------------------------------------------- */

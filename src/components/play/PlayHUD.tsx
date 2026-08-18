@@ -77,11 +77,20 @@ export interface PlayHUDProps {
   className?: string;
 }
 
+/**
+ * The places you can be. Combat is deliberately not one of them any more.
+ *
+ * Owner: *"this game engine does not support attacking very well, its an
+ * absolute mess and moves onto different screens"*. Attackers and blockers are
+ * declared on the table now — swords on the creatures, `CombatBar` for the
+ * confirm — so offering Combat here as a fourth destination would advertise the
+ * takeover that was just removed. `/play` still has a `'combat'` view id and
+ * still switches to it; that view renders the table, so it lights Table.
+ */
 const VIEWS: Array<{ id: PlayViewId; label: string; icon: typeof LayoutGrid; hint: string }> = [
   { id: 'table', label: 'Table', icon: LayoutGrid, hint: 'All four quadrants, everything upright' },
   { id: 'hand', label: 'Hand', icon: HandIcon, hint: 'The same table view, your seat alone' },
   { id: 'view', label: 'View', icon: Eye, hint: "An opponent's board, full screen" },
-  { id: 'combat', label: 'Combat', icon: Swords, hint: 'Attackers, blockers and the defender' },
 ];
 
 /**
@@ -197,7 +206,9 @@ export function PlayHUD({
           className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5"
         >
           {VIEWS.map(entry => {
-            const selected = view === entry.id;
+            /* `'combat'` renders the table, so it lights the Table tab — the
+               board on screen is the board that tab describes. */
+            const selected = view === entry.id || (view === 'combat' && entry.id === 'table');
             return (
               <button
                 key={entry.id}
@@ -215,7 +226,9 @@ export function PlayHUD({
               >
                 <entry.icon className="h-3.5 w-3.5" />
                 <span className="hidden lg:inline">{entry.label}</span>
-                {entry.id === 'combat' && combatLive && (
+                {/* Somebody is swinging. It is marked on the tab that shows the
+                    whole pod, because that is where you go to see it. */}
+                {entry.id === 'table' && combatLive && (
                   <span
                     aria-label="combat in progress"
                     className="h-1.5 w-1.5 rounded-full bg-destructive"

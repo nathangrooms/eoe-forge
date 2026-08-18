@@ -1,0 +1,2481 @@
+// supabase/functions/deck-optimizer/index.ts
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+// supabase/functions/deck-optimizer/catalog.ts
+var PAGE_SIZE = 1e3;
+var PAGE_CONCURRENCY = 6;
+var Catalog = class {
+  #url;
+  #anonKey;
+  #authorization;
+  constructor(opts) {
+    this.#url = opts.url.replace(/\/+$/, "");
+    this.#anonKey = opts.anonKey;
+    this.#authorization = opts.authorization?.trim() || `Bearer ${opts.anonKey}`;
+  }
+  #headers(extra = {}) {
+    return {
+      apikey: this.#anonKey,
+      Authorization: this.#authorization,
+      Accept: "application/json",
+      ...extra
+    };
+  }
+  async #get(pathAndQuery, extraHeaders = {}) {
+    const res = await fetch(`${this.#url}/rest/v1/${pathAndQuery}`, {
+      headers: this.#headers(extraHeaders)
+    });
+    if (!res.ok) {
+      throw new Error(`PostgREST ${res.status} on ${pathAndQuery.slice(0, 120)}: ${await res.text()}`);
+    }
+    return { rows: await res.json(), contentRange: res.headers.get("content-range") };
+  }
+  /**
+   * Fetch every row matching a query, paging past the 1000-row cap.
+   *
+   * The first page asks for an exact count so the remaining page boundaries are
+   * known rather than discovered one round trip at a time; those pages then go
+   * out in parallel. There is deliberately no cap on the number of rows: the
+   * pool must be complete before it is ranked. Truncating here would rank an
+   * arbitrary slice of the table, which is precisely the bug this engine was
+   * written to avoid.
+   */
+  async fetchAll(pathAndQuery) {
+    const first = await this.#get(pathAndQuery, {
+      Range: `0-${PAGE_SIZE - 1}`,
+      "Range-Unit": "items",
+      Prefer: "count=exact"
+    });
+    const rows = first.rows;
+    const total = Number(first.contentRange?.split("/")[1]);
+    if (!Number.isFinite(total)) {
+      for (let from = rows.length; ; from += PAGE_SIZE) {
+        const page = await this.#get(pathAndQuery, {
+          Range: `${from}-${from + PAGE_SIZE - 1}`,
+          "Range-Unit": "items"
+        });
+        rows.push(...page.rows);
+        if (page.rows.length < PAGE_SIZE) return rows;
+      }
+    }
+    const starts = [];
+    for (let from = PAGE_SIZE; from < total; from += PAGE_SIZE) starts.push(from);
+    for (let i = 0; i < starts.length; i += PAGE_CONCURRENCY) {
+      const batch = starts.slice(i, i + PAGE_CONCURRENCY);
+      const pages = await Promise.all(
+        batch.map(
+          (from) => this.#get(pathAndQuery, {
+            Range: `${from}-${from + PAGE_SIZE - 1}`,
+            "Range-Unit": "items"
+          })
+        )
+      );
+      for (const p of pages) rows.push(...p.rows);
+    }
+    return rows;
+  }
+  /**
+   * The legal candidate pool, executed from the engine's own query description.
+   *
+   * `buildCandidateQuery` decides what the filters are; this only renders them
+   * for PostgREST. Keeping the decision in one place means the SQL the edge
+   * function runs and the rules `recommend.test.ts` asserts cannot drift apart.
+   *
+   * The two filters are the ones that make a Commander suggestion legal at all:
+   * legal in the format, and colour identity a subset of the commander's. They
+   * are applied here in SQL for speed and again in TypeScript in the ranker for
+   * the guarantee.
+   *
+   * `query.limit` is `null` by construction and there is no relevance filter.
+   * Relevance is a ranking question, and ranking happens only once every
+   * candidate is in hand.
+   */
+  async poolFor(query) {
+    const fmt = query.legalityFilter.key;
+    const identity = `{${query.colorIdentityFilter.containedBy.join(",")}}`;
+    const select = [
+      "id",
+      "oracle_id",
+      "name",
+      "type_line",
+      "cmc",
+      "color_identity",
+      "tags",
+      "mana_cost",
+      "usd:prices->>usd",
+      `legal_in_format:legalities->>${fmt}`
+    ].join(",");
+    return this.fetchAll(
+      `cards?select=${encodeURIComponent(select)}&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}&color_identity=cd.${encodeURIComponent(identity)}`
+    );
+  }
+  /** Basic lands matching a colour identity, for the land section. */
+  async basicLands(format, colorIdentity) {
+    const BASICS = {
+      W: "Plains",
+      U: "Island",
+      B: "Swamp",
+      R: "Mountain",
+      G: "Forest"
+    };
+    const names = colorIdentity.map((c) => BASICS[c]).filter(Boolean);
+    if (!names.length) return [];
+    return this.cardsByName(names, format);
+  }
+  /**
+   * Look up specific cards by exact name, with the display columns attached.
+   *
+   * Used for the deck's own cards and for the diagnostic pass that explains why
+   * a model-suggested name never appeared in the pool. Chunked because a URL
+   * carrying a hundred card names is already long.
+   */
+  async cardsByName(names, format) {
+    const fmt = format.toLowerCase();
+    const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+    if (!unique.length) return [];
+    const select = [
+      "id",
+      "oracle_id",
+      "name",
+      "type_line",
+      "cmc",
+      "color_identity",
+      "tags",
+      "mana_cost",
+      "set_code",
+      "rarity",
+      "usd:prices->>usd",
+      "image_url:image_uris->>normal",
+      "legalities"
+    ].join(",");
+    const out = [];
+    const CHUNK = 80;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK);
+      const list = chunk.map(quoteForIn).join(",");
+      const { rows } = await this.#get(
+        `cards?select=${encodeURIComponent(select)}&name=in.${encodeURIComponent(`(${list})`)}`,
+        { Range: `0-${PAGE_SIZE - 1}`, "Range-Unit": "items" }
+      );
+      out.push(...rows);
+    }
+    for (const r of out) r.legal_in_format = r.legalities?.[fmt] ?? null;
+    return out;
+  }
+  /**
+   * How many copies of each named card the calling user owns.
+   *
+   * Runs under the caller's own JWT, so row-level security (`auth.uid() =
+   * user_id`) decides what comes back. An anonymous caller gets an empty map
+   * rather than an error, and the suggestion is simply not marked as owned.
+   */
+  async ownedQuantities(names) {
+    const owned = /* @__PURE__ */ new Map();
+    const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+    if (!unique.length) return owned;
+    const CHUNK = 80;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK);
+      const list = chunk.map(quoteForIn).join(",");
+      try {
+        const { rows } = await this.#get(
+          `user_collections?select=card_name,quantity&card_name=in.${encodeURIComponent(`(${list})`)}`,
+          { Range: `0-${PAGE_SIZE - 1}`, "Range-Unit": "items" }
+        );
+        for (const r of rows) {
+          const key = normalizeName(r.card_name);
+          owned.set(key, (owned.get(key) ?? 0) + (Number(r.quantity) || 0));
+        }
+      } catch (e) {
+        console.warn("collection lookup failed, treating as empty:", String(e).slice(0, 200));
+        return owned;
+      }
+    }
+    return owned;
+  }
+};
+function quoteForIn(value) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+function normalizeName(name) {
+  return String(name ?? "").replace(/[‘’ʼ]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function frontFace(name) {
+  const i = name.indexOf("//");
+  if (i < 0) return null;
+  const front = name.slice(0, i).trim();
+  return front || null;
+}
+
+// supabase/functions/deck-optimizer/_engine/deck/recommend/types.ts
+var COLORS = ["W", "U", "B", "R", "G"];
+var ROLES = ["ramp", "draw", "removal", "interaction", "wincon", "land"];
+
+// supabase/functions/deck-optimizer/_engine/deck/recommend/roles.ts
+var ROLE_TAGS = {
+  ramp: ["ramp", "mana-rock", "mana-dork", "fast-mana", "cost-reduction", "treasure"],
+  draw: ["card-draw", "draw"],
+  removal: [
+    "targeted-removal",
+    "board-wipe",
+    "removal",
+    "removal-spot",
+    "removal-sweeper",
+    "land-destruction",
+    "bounce"
+  ],
+  interaction: ["counterspell", "protection", "stax", "graveyard-hate"],
+  wincon: ["finisher", "wincon", "extra-turn", "extra-combat", "infect", "storm", "voltron"],
+  land: ["land"]
+};
+var ROLE_TAG_SETS = (() => {
+  const out = {};
+  for (const role of ROLES) out[role] = new Set(ROLE_TAGS[role]);
+  return out;
+})();
+var COMMANDER_ROLE_TARGETS = {
+  ramp: 10,
+  draw: 10,
+  removal: 8,
+  interaction: 4,
+  wincon: 3,
+  land: 36
+};
+var COMMANDER_DECK_SIZE = 100;
+var CONSTRUCTED_DECK_SIZE = 60;
+function servesRole(tags, role) {
+  if (!tags?.length) return false;
+  return tags.some((tag) => ROLE_TAG_SETS[role].has(tag));
+}
+function roleTargetsFor(format, overrides) {
+  const commanderish = isCommanderFormat(format);
+  const scale = commanderish ? 1 : CONSTRUCTED_DECK_SIZE / COMMANDER_DECK_SIZE;
+  const out = {};
+  for (const role of ROLES) {
+    out[role] = Math.round(COMMANDER_ROLE_TARGETS[role] * scale);
+  }
+  if (overrides) {
+    for (const role of ROLES) {
+      const v = overrides[role];
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[role] = v;
+    }
+  }
+  return out;
+}
+var COMMANDER_FORMATS = /* @__PURE__ */ new Set([
+  "commander",
+  "duel",
+  "oathbreaker",
+  "predh",
+  "paupercommander",
+  "brawl",
+  "standardbrawl",
+  "competitivebrawl"
+]);
+function isCommanderFormat(format) {
+  return COMMANDER_FORMATS.has(format.toLowerCase());
+}
+
+// supabase/functions/deck-optimizer/_engine/cards/tagger.ts
+var t = (re) => ({ kind: "text", re });
+var tl = (re) => ({ kind: "type", re });
+var mana = (re) => ({ kind: "mana", re });
+var kw = (...of) => ({ kind: "kw", of });
+var not = (of) => ({ kind: "not", of });
+var any = (...of) => ({ kind: "any", of });
+var all = (...of) => ({ kind: "all", of });
+var cmcLte = (n) => ({ kind: "cmcLte", n });
+var MANA_ABILITY = ": add (\\{|one |two |three |four |five |six |x |that much )";
+var SAC_MANA_ABILITY = "(^|\\n)[^\\n:]{0,60}sacrifice[^\\n:]{0,60}: add ";
+var RITUAL = "(^|\\n)add (\\{|one |two |three |four |x )";
+var LAND_SEARCH = "search your library for [^\\n]{0,60}(basic land|land card|basic plains|plains, island|island, swamp|forest card|mountain card|swamp card|plains card)";
+var TRIBES = [
+  "human",
+  "humans",
+  "elf",
+  "elves",
+  "goblin",
+  "goblins",
+  "wizard",
+  "wizards",
+  "warrior",
+  "warriors",
+  "soldier",
+  "soldiers",
+  "beast",
+  "beasts",
+  "dragon",
+  "dragons",
+  "angel",
+  "angels",
+  "demon",
+  "demons",
+  "vampire",
+  "vampires",
+  "zombie",
+  "zombies",
+  "spirit",
+  "spirits",
+  "elemental",
+  "elementals",
+  "merfolk",
+  "knight",
+  "knights",
+  "cleric",
+  "clerics",
+  "rogue",
+  "rogues",
+  "shaman",
+  "shamans",
+  "giant",
+  "giants",
+  "dwarf",
+  "dwarves",
+  "treefolk",
+  "sliver",
+  "slivers",
+  "cat",
+  "cats",
+  "dog",
+  "dogs",
+  "wolf",
+  "wolves",
+  "bird",
+  "birds",
+  "snake",
+  "snakes",
+  "spider",
+  "spiders",
+  "insect",
+  "insects",
+  "fungus",
+  "fungi",
+  "saproling",
+  "saprolings",
+  "pirate",
+  "pirates",
+  "ninja",
+  "ninjas",
+  "samurai",
+  "monk",
+  "monks",
+  "druid",
+  "druids",
+  "rat",
+  "rats",
+  "bear",
+  "bears",
+  "horror",
+  "horrors",
+  "construct",
+  "constructs",
+  "golem",
+  "golems",
+  "thopter",
+  "thopters",
+  "phyrexian",
+  "phyrexians",
+  "dinosaur",
+  "dinosaurs",
+  "hydra",
+  "hydras",
+  "god",
+  "gods",
+  "minotaur",
+  "minotaurs",
+  "centaur",
+  "centaurs",
+  "satyr",
+  "satyrs",
+  "faerie",
+  "faeries",
+  "kithkin",
+  "kor",
+  "leonin",
+  "naga",
+  "orc",
+  "orcs",
+  "ogre",
+  "ogres",
+  "troll",
+  "trolls",
+  "myr",
+  "assassin",
+  "assassins",
+  "archer",
+  "archers",
+  "berserker",
+  "berserkers",
+  "advisor",
+  "advisors",
+  "noble",
+  "nobles",
+  "peasant",
+  "peasants",
+  "citizen",
+  "citizens",
+  "artificer",
+  "artificers",
+  "mercenary",
+  "mercenaries",
+  "rebel",
+  "rebels",
+  "werewolf",
+  "werewolves",
+  "wurm",
+  "wurms",
+  "kraken",
+  "leviathan",
+  "leviathans",
+  "serpent",
+  "serpents",
+  "crab",
+  "crabs",
+  "fish",
+  "frog",
+  "frogs",
+  "lizard",
+  "lizards",
+  "salamander",
+  "salamanders",
+  "turtle",
+  "turtles",
+  "plant",
+  "plants",
+  "bat",
+  "bats",
+  "boar",
+  "boars",
+  "elephant",
+  "elephants",
+  "ox",
+  "oxen",
+  "goat",
+  "goats",
+  "rhino",
+  "rhinos",
+  "squirrel",
+  "squirrels",
+  "otter",
+  "otters",
+  "fox",
+  "foxes",
+  "griffin",
+  "griffins",
+  "pegasus",
+  "unicorn",
+  "unicorns",
+  "sphinx",
+  "sphinxes",
+  "gargoyle",
+  "gargoyles",
+  "scarecrow",
+  "scarecrows",
+  "servo",
+  "servos",
+  "drake",
+  "drakes",
+  "imp",
+  "imps",
+  "devil",
+  "devils",
+  "nightmare",
+  "nightmares",
+  "shade",
+  "shades",
+  "skeleton",
+  "skeletons",
+  "monkey",
+  "monkeys",
+  "ape",
+  "apes",
+  "mouse",
+  "mice",
+  "raccoon",
+  "raccoons",
+  "bringer",
+  "illusion",
+  "illusions"
+].join("|");
+var TAG_RULES = [
+  /* ---- Card types. Kept because CardRelated and the builder both read them,
+     and because a role list without types loses the type-line filters. ---- */
+  { tag: "creature", when: tl("creature") },
+  { tag: "instant", when: tl("instant") },
+  { tag: "sorcery", when: tl("sorcery") },
+  { tag: "artifact", when: tl("artifact") },
+  { tag: "enchantment", when: tl("enchantment") },
+  { tag: "planeswalker", when: tl("planeswalker") },
+  { tag: "land", when: tl("land") },
+  { tag: "battle", when: tl("battle") },
+  { tag: "basic-land", when: tl("basic[^\\n]{0,20}land") },
+  { tag: "equipment", when: tl("equipment") },
+  { tag: "aura", when: tl("aura"), also: ["auras"] },
+  { tag: "vehicle", when: tl("vehicle") },
+  /* ---- Mana ---- */
+  {
+    tag: "ramp",
+    note: 'Mana production or extra land drops. Lands qualify only when a single activation yields two or more mana (Ancient Tomb, Cabal Coffers) \u2014 otherwise every basic Forest would be "ramp".',
+    when: any(
+      all(t(MANA_ABILITY), not(tl("land"))),
+      t(RITUAL),
+      t("search your library for [^\\n]{0,70}land[^\\n]{0,90}onto the battlefield"),
+      t("you may play an additional land"),
+      t("play an additional land"),
+      t("creates? [^\\n]{0,60}treasure token"),
+      all(
+        tl("land"),
+        any(
+          t(": add [^\\n]{0,8}\\{[wubrgc]\\}[^\\n]{0,8}\\{[wubrgc]\\}"),
+          t(": add [^\\n]{0,40}for each"),
+          t(": add (two|three|four|x) ")
+        )
+      )
+    )
+  },
+  {
+    tag: "mana-rock",
+    note: "Non-creature artifact with a mana ability whose cost is not a sacrifice.",
+    when: all(tl("artifact"), not(tl("creature")), not(tl("land")), t(MANA_ABILITY), not(t(SAC_MANA_ABILITY)))
+  },
+  {
+    tag: "mana-dork",
+    when: all(tl("creature"), t(MANA_ABILITY), not(t(SAC_MANA_ABILITY)))
+  },
+  {
+    tag: "fast-mana",
+    note: "One mana or less, produces two or more \u2014 Sol Ring, Mana Crypt, Lotus Petal.",
+    when: all(
+      cmcLte(1),
+      not(tl("land")),
+      any(
+        t(": add [^\\n]{0,8}\\{[wubrgc]\\}[^\\n]{0,8}\\{[wubrgc]\\}"),
+        t(": add (two|three|four) "),
+        t("(^|\\n)add [^\\n]{0,8}\\{[wubrgc]\\}[^\\n]{0,8}\\{[wubrgc]\\}")
+      )
+    )
+  },
+  { tag: "treasure", when: t("treasure token") },
+  {
+    tag: "cost-reduction",
+    note: 'Reduces OTHER spells. "This spell costs {1} less" (Blasphemous Act) is self-discounting, not a cost reducer, and is excluded by requiring "you cast cost" or "spells cost".',
+    when: any(
+      t("you cast costs? \\{\\d+\\} less"),
+      t("spells cost \\{\\d+\\} less to cast"),
+      t("abilities [^\\n]{0,30}cost \\{\\d+\\} less"),
+      t("you cast costs? \\{\\d+\\} less to cast")
+    )
+  },
+  /* ---- Card flow ---- */
+  {
+    tag: "card-draw",
+    note: 'English templating separates "draw" (you) from "draws" (someone else), so requiring "draw <quantity> card" keeps out "each player draws a card" and "target opponent draws", which are group-hug and gift effects.',
+    also: ["draw"],
+    when: any(
+      t("draw (a|one|two|three|four|five|six|seven|eight|nine|ten|x|\\d+|that many) cards?"),
+      t("draw cards equal to"),
+      t("draw that many cards")
+    )
+  },
+  {
+    tag: "tutor",
+    note: "Library search that is not purely a land fetch.",
+    when: all(t("search your library for"), not(t(LAND_SEARCH)))
+  },
+  {
+    tag: "tutor-broad",
+    note: "Fetches any card at all \u2014 Demonic Tutor, Vampiric Tutor, Enlightened Tutor is narrow.",
+    when: any(t("search your library for a card"), t("search your library for any card"))
+  },
+  {
+    tag: "tutor-narrow",
+    when: all(t("search your library for"), not(t(LAND_SEARCH)), not(t("search your library for a card")))
+  },
+  {
+    tag: "group-hug",
+    when: any(
+      t("each player draws"),
+      t("each other player draws"),
+      t("each player may draw"),
+      t("each player searches their library"),
+      t("each player may search")
+    )
+  },
+  {
+    tag: "mill",
+    when: any(
+      t("mills? (a|one|two|three|four|five|six|seven|ten|x|\\d+|that many)"),
+      t("puts? the top (\\d+|one|two|three|four|five|seven|ten|x) cards? of [^\\n]{0,30}library into [^\\n]{0,30}graveyard")
+    )
+  },
+  {
+    tag: "self-mill",
+    when: any(t("you mill (a|one|two|three|four|five|six|seven|ten|x|\\d+)"), t("mill (a|one|two|three|four|five|six|seven|ten|x|\\d+) cards?, then"))
+  },
+  {
+    tag: "discard",
+    note: "Opponent-facing hand attack only. Self-discard is `discard-outlet`.",
+    when: any(
+      t("(each|target|that) (opponent|player|other player) discards"),
+      t("each other player discards"),
+      t("opponents? discards?"),
+      t("discards? their hand")
+    )
+  },
+  {
+    tag: "discard-outlet",
+    when: any(
+      t("(^|\\n|, )discard (a|one|two|three|x|\\d+|your hand) card"),
+      t("discard (a|one|two|three|x|\\d+) cards?:"),
+      t("then discard (a|one|two|three|x|\\d+) cards?")
+    )
+  },
+  /* ---- Interaction ---- */
+  {
+    tag: "targeted-removal",
+    also: ["removal", "removal-spot"],
+    note: `Exiling something YOU control is a blink or a sacrifice, not removal \u2014 Ephemerate reads "exile target creature you control, then return it". Oblivion Ring, which exiles an opponent's permanent and returns it later, is deliberately still removal.`,
+    when: all(
+      not(t("(destroy|exile) (target|another target)[^\\n]{0,40}(creature|permanent|artifact|enchantment|land) you control")),
+      any(
+        t("(destroy|exile) (target|another target|up to (one|two|three|four|x) target|each of up to (one|two|three) target)[^\\n]{0,60}(creature|permanent|artifact|enchantment|planeswalker|land|battle)"),
+        t("target creature gets -\\d+/-\\d+"),
+        t("target creature gets -x/-x"),
+        t("deals \\d+ damage to target (creature|planeswalker|battle|creature or)"),
+        t("deals \\d+ damage to any target"),
+        t("deals x damage to (target|any target)"),
+        t("deals damage to (target creature|any target) equal to"),
+        t("target (player|opponent) sacrifices a (creature|permanent|nonland permanent)"),
+        t("each opponent sacrifices a (creature|permanent|nonland permanent)"),
+        t("fights? target creature"),
+        t("put target (creature|nonland permanent)[^\\n]{0,40}(on the bottom|into (its|their) owner)")
+      )
+    )
+  },
+  {
+    tag: "board-wipe",
+    also: ["removal", "removal-sweeper"],
+    note: 'Cyclonic Rift reaches this through `overload`, which rewrites "target" to "each" \u2014 the single-target text alone would never read as a wipe.',
+    when: any(
+      t("(destroy|exile) all (creature|nonland|permanent|artifact|enchantment|land|planeswalker|token)"),
+      t("(destroy|exile) each (creature|nonland|permanent|artifact|enchantment)"),
+      t("all creatures get -\\d+/-\\d+"),
+      t("all creatures get -x/-x"),
+      t("deals \\d+ damage to each creature"),
+      t("deals x damage to each creature"),
+      t("each player sacrifices (all|half|x|\\d+|one|two|three)"),
+      t("sacrifices all (creature|permanent)"),
+      t("return all (nonland permanents|creatures|permanents|artifacts|enchantments)"),
+      all(
+        t("overload \\{"),
+        any(
+          t("(destroy|exile) target"),
+          t("return target"),
+          t("target creature gets -"),
+          t("deals \\d+ damage to target")
+        )
+      )
+    )
+  },
+  {
+    tag: "bounce",
+    when: any(
+      t("return (target|all|each|another target|up to (one|two|three|x) target)[^\\n]{0,80}to (its|their) owner"),
+      t("return (target|all|each)[^\\n]{0,80}to (its|their) (owner|controller)")
+    )
+  },
+  {
+    tag: "counterspell",
+    when: any(
+      t("counter target (spell|creature spell|noncreature spell|artifact spell|activated|triggered|ability)"),
+      t("counter that spell"),
+      t("counter it unless"),
+      t("counter target spell")
+    )
+  },
+  {
+    tag: "land-destruction",
+    when: any(
+      t("(destroy|exile) target( nonbasic| basic)? land"),
+      t("destroy all lands"),
+      t("(each player|target player|each opponent) sacrifices a land")
+    )
+  },
+  {
+    tag: "graveyard-hate",
+    note: `Someone else's graveyard. "Exile two cards from your graveyard" is a delve/escape COST, not hate, so a bare "from your graveyard" does not qualify.`,
+    when: any(
+      t("exile [^\\n]{0,50}from (a|target players|each players|target opponents|all) graveyard"),
+      t("exile (target players|each players|all|target opponents)[^\\n]{0,20}graveyard"),
+      t("exile all cards from (all|each|target)"),
+      t("cards? in graveyards? cant be"),
+      t("graveyards? cant"),
+      t("if a card would be put into (a|an opponents) graveyard")
+    )
+  },
+  {
+    tag: "stax",
+    note: 'Taxes and denial. Rhystic Study lands here as well as card-draw via "unless that player pays" \u2014 it genuinely is a tax effect.',
+    when: any(
+      t("spells? cost \\{\\d+\\} more"),
+      t("costs? \\{\\d+\\} more to cast"),
+      t("unless that player pays"),
+      t("unless they pay"),
+      t("unless its controller pays"),
+      t("unless that players? controller pays"),
+      t("players cant"),
+      t("your opponents cant"),
+      t("each opponent cant"),
+      t("cant cast spells"),
+      t("cant search"),
+      // Plural subject only. "This artifact doesn't untap during your untap
+      // step" is Basalt Monolith's own drawback, not a stax piece.
+      t("(lands|creatures|permanents|artifacts|players) [^\\n]{0,30}dont untap during"),
+      t("skip (your|their|that players) (draw|untap|combat|precombat)"),
+      // "You have no maximum hand size" is Reliquary Tower, a benefit.
+      t("maximum hand size is"),
+      t("cant draw more than"),
+      t("creatures cant attack")
+    )
+  },
+  {
+    tag: "protection",
+    note: "Grants protection. A creature that merely HAS hexproof is not a protection spell.",
+    when: any(
+      t("gains? (hexproof|indestructible|shroud|protection from|ward)"),
+      t("(creatures|permanents|artifacts|enchantments) you control (have|gain) (hexproof|indestructible|shroud|protection from|ward)"),
+      t("you have hexproof"),
+      t("have (hexproof|indestructible|shroud) until end of turn"),
+      t("prevent all (damage|combat damage)"),
+      t("regenerate target"),
+      t("(creatures|permanents) you control cant be")
+    )
+  },
+  /* ---- Graveyard ---- */
+  {
+    tag: "graveyard-recursion",
+    also: ["recursion"],
+    when: any(
+      t("return [^\\n]{0,70}from your graveyard to (your hand|the battlefield)"),
+      t("return [^\\n]{0,70}from (a|your|target players) graveyard to the battlefield"),
+      t("put [^\\n]{0,70}from your graveyard (onto|on) the battlefield"),
+      t("return [^\\n]{0,40}card from your graveyard"),
+      kw("flashback", "unearth", "escape", "disturb", "embalm", "eternalize", "encore", "jump-start", "aftermath", "retrace")
+    )
+  },
+  {
+    tag: "reanimator",
+    when: any(
+      t("return target creature card from (a|your|target players) graveyard to the battlefield"),
+      t("put target creature card from (a|your) graveyard onto the battlefield"),
+      t("return [^\\n]{0,30}creature card[^\\n]{0,40}graveyard to the battlefield"),
+      kw("unearth", "encore")
+    )
+  },
+  /* ---- Sacrifice / aristocrats ---- */
+  {
+    tag: "sacrifice-outlet",
+    /**
+     * `sac_outlet` used to be emitted here as well, because two readers spelled
+     * it with an underscore while the templates, `ArchetypeDetection` and
+     * `CommanderIntelligence` all spelled it with a hyphen. Those two readers
+     * now use the hyphen, so the underscore spelling has left the vocabulary:
+     * one idea, one name.
+     */
+    also: ["sac-outlet", "sacrifice"],
+    note: 'The sacrifice must sit in an activated-ability COST \u2014 left of a colon on its own line. "Sacrifice a creature. If you do..." is a one-shot effect, not an outlet, and has no colon. It must also sacrifice something OTHER than the card itself: an outlet is a repeatable way to convert your other permanents into value, which is not what "Sacrifice this land:" offers.',
+    when: any(
+      // An indefinite object — "sacrifice a creature:", "sacrifice two artifacts:".
+      t("(^|\\n)[^\\n:]{0,70}sacrifice (a|an|another|one|two|three|x|\\d+|any number of)[^\\n:]{0,60}:"),
+      // "Sacrifice this creature and any number of other non-Eldrazi creatures:"
+      // — Emrakul's Evangel really is an outlet, and the object is not adjacent
+      // to the verb. `[^\n:]` cannot cross the colon, so this still only reads
+      // the activation cost.
+      t("(^|\\n)[^\\n:]{0,70}sacrifice [^\\n:]{0,50}(another|other) [^\\n:]{0,40}:")
+    )
+  },
+  {
+    tag: "aristocrats",
+    when: any(
+      t("whenever [^\\n]{0,70}creature[^\\n]{0,30} dies"),
+      t("whenever [^\\n]{0,50}dies, (you|each|target|that)"),
+      t("whenever you sacrifice"),
+      t("whenever [^\\n]{0,40}creature you control dies")
+    )
+  },
+  /* ---- Tokens & counters ---- */
+  {
+    tag: "token-maker",
+    also: ["tokens"],
+    note: 'The verb "create" is required \u2014 "creature tokens you control get +1/+1" is a payoff, not a maker.',
+    when: any(
+      t("creates? [^\\n]{0,90}token"),
+      t("put [^\\n]{0,50}token onto the battlefield"),
+      t("creates? that many")
+    )
+  },
+  {
+    tag: "counters",
+    when: any(t("\\+1/\\+1 counter"), kw("modular", "evolve", "adapt", "bolster", "outlast", "renown", "mentor", "training", "backup"))
+  },
+  { tag: "proliferate", when: t("proliferate") },
+  { tag: "infect", when: any(kw("infect", "toxic"), t("poison counter"), t("(^|\\n)infect")) },
+  /* ---- Tempo / combat ---- */
+  {
+    tag: "haste-enabler",
+    note: "Grants haste to something else. A creature that simply has Haste does not qualify.",
+    when: any(
+      t("(creatures|creature tokens|permanents|they|it|those creatures) you control (gain|gains|have|has) haste"),
+      t("gains? haste"),
+      t("creatures you control have haste"),
+      t("has haste for as long as")
+    )
+  },
+  { tag: "extra-turn", when: any(t("takes? an extra turn"), t("take an extra turn after this one")) },
+  { tag: "extra-combat", when: any(t("additional combat phase"), t("an additional combat")) },
+  {
+    tag: "untapper",
+    when: any(
+      t("untap (target|another target|all|each|up to (one|two|three|four|five|x) target)"),
+      t("untap all (creatures|lands|permanents|artifacts)"),
+      t("untap [^\\n]{0,30}during each (other players|opponents) untap step")
+    )
+  },
+  {
+    tag: "blink",
+    when: any(
+      t("exile [^\\n]{0,90}return (it|them|that card|those cards|the exiled card|the exiled cards)[^\\n]{0,90}to the battlefield"),
+      t("exile [^\\n]{0,90}then return (it|them|those cards)[^\\n]{0,60}to the battlefield"),
+      t("exile [^\\n]{0,60}return (it|them)[^\\n]{0,60}under (its|their|your) owners control")
+    )
+  },
+  {
+    tag: "clone",
+    when: any(t("as a copy of"), t("copy of (any|target) (creature|permanent|artifact)"), t("enters as a copy"))
+  },
+  { tag: "flash", when: any(kw("flash"), t("as though it had flash")) },
+  { tag: "cascade", when: kw("cascade") },
+  {
+    tag: "evasion",
+    when: any(kw("flying", "menace", "shadow", "fear", "intimidate", "horsemanship", "skulk"), t("cant be blocked"))
+  },
+  {
+    tag: "finisher",
+    note: 'Mass pump and alternate wins. Craterhoof reaches this through "creatures you control ... get +X/+X".',
+    when: any(
+      t("you win the game"),
+      t("(target player|each opponent) loses the game"),
+      t("creatures you control [^\\n]{0,60}get \\+(x|\\d+)/\\+(x|\\d+)"),
+      t("creatures you control get \\+(x|\\d+)/\\+(x|\\d+)"),
+      t("each opponent loses \\d+ life for each")
+    ),
+    also: ["wincon"]
+  },
+  { tag: "mass-pump", when: any(t("creatures you control get \\+"), t("creatures you control [^\\n]{0,60}get \\+")) },
+  {
+    tag: "lifegain",
+    note: '"Its controller gains life" (Swords to Plowshares) is the opponent gaining, and is excluded.',
+    when: any(
+      t("you gain (\\d+|x|that much) life"),
+      t("you gain life equal to"),
+      t("(^|\\n)gain (\\d+|x) life"),
+      t("whenever you gain life"),
+      kw("lifelink"),
+      t("(creatures|permanents) you control (have|gain) lifelink")
+    )
+  },
+  /* ---- Archetype anchors ---- */
+  { tag: "voltron", when: any(t("equipped creature gets \\+"), t("enchanted creature gets \\+"), t("equipped creature has"), t("enchanted creature has")) },
+  { tag: "landfall", also: ["lands-matter"], when: any(t("landfall"), t("whenever a land (you control )?enters")) },
+  { tag: "lands-matter", when: any(t("for each land you control"), t("lands you control"), t("whenever a land [^\\n]{0,20}enters")) },
+  { tag: "artifacts-matter", when: any(t("for each artifact you control"), t("artifacts you control (get|have|gain)"), t("whenever (an|another) artifact [^\\n]{0,30}enters"), kw("affinity", "metalcraft", "improvise", "prototype")) },
+  { tag: "enchantments-matter", when: any(t("for each enchantment you control"), t("enchantments you control (get|have|gain)"), t("whenever an enchantment [^\\n]{0,30}enters"), kw("constellation")) },
+  { tag: "spellslinger", when: any(t("whenever you cast (an|a) (instant|sorcery|noncreature)"), t("instant or sorcery spell you cast"), t("for each instant and sorcery card")) },
+  { tag: "prowess", when: any(kw("prowess"), t("whenever you cast a noncreature spell, this")) },
+  { tag: "storm", when: any(kw("storm"), t("for each spell cast before it"), t("for each spell (youve|you have) cast this turn")) },
+  {
+    tag: "tribal-payoff",
+    when: any(
+      t(`(^| )(other )?(${TRIBES}) (creatures )?you control (get|gain|have)`),
+      t("choose a creature type"),
+      t("creatures of the chosen type"),
+      t(`(^| )other (${TRIBES}) you control`),
+      t("creature type of your choice")
+    )
+  },
+  { tag: "etb", when: any(t("when [^\\n]{0,40}enters"), t("whenever [^\\n]{0,40}enters the battlefield")) },
+  { tag: "x-spell", when: mana("\\{x\\}") }
+];
+var ALL_TAGS = Array.from(
+  new Set(TAG_RULES.flatMap((r) => [r.tag, ...r.also ?? []]))
+).sort();
+
+// supabase/functions/deck-optimizer/_engine/cards/tag-signal.ts
+var TAGGED_CARD_TOTAL = 34088;
+var ALIAS_CARD_COUNT = {
+  removal: 4010,
+  tokens: 3594,
+  draw: 3422,
+  "removal-spot": 3416,
+  recursion: 1574,
+  auras: 1304,
+  wincon: 750,
+  "sac-outlet": 724,
+  sacrifice: 724,
+  "removal-sweeper": 638
+};
+var CANONICAL_CARD_COUNT = {
+  creature: 18827,
+  etb: 4622,
+  evasion: 4412,
+  instant: 3953,
+  artifact: 3922,
+  enchantment: 3838,
+  sorcery: 3764,
+  "token-maker": 3594,
+  "card-draw": 3422,
+  "targeted-removal": 3416,
+  counters: 2881,
+  ramp: 2140,
+  lifegain: 2063,
+  "graveyard-recursion": 1574,
+  land: 1410,
+  aura: 1304,
+  voltron: 1243,
+  protection: 806,
+  finisher: 750,
+  "sacrifice-outlet": 724,
+  "mass-pump": 702,
+  flash: 674,
+  "discard-outlet": 663,
+  equipment: 647,
+  "board-wipe": 638,
+  "x-spell": 572,
+  mill: 557,
+  "tribal-payoff": 504,
+  stax: 501,
+  aristocrats: 476,
+  "lands-matter": 470,
+  discard: 469,
+  "mana-dork": 465,
+  "haste-enabler": 450,
+  bounce: 429,
+  counterspell: 428,
+  tutor: 409,
+  treasure: 383,
+  reanimator: 371,
+  untapper: 342,
+  spellslinger: 341,
+  "mana-rock": 340,
+  planeswalker: 333,
+  "tutor-narrow": 309,
+  "artifacts-matter": 252,
+  landfall: 219,
+  "graveyard-hate": 207,
+  vehicle: 204,
+  blink: 198,
+  "cost-reduction": 170,
+  "land-destruction": 144,
+  clone: 141,
+  infect: 136,
+  prowess: 115,
+  proliferate: 101,
+  "tutor-broad": 101,
+  "enchantments-matter": 69,
+  "self-mill": 66,
+  "group-hug": 60,
+  "extra-turn": 56,
+  "extra-combat": 47,
+  cascade: 42,
+  storm: 40,
+  "fast-mana": 38,
+  battle: 36,
+  "basic-land": 22
+};
+var TAG_CARD_COUNT = {
+  ...CANONICAL_CARD_COUNT,
+  ...ALIAS_CARD_COUNT
+};
+var TYPE_TAGS = /* @__PURE__ */ new Set([
+  "creature",
+  "instant",
+  "sorcery",
+  "artifact",
+  "enchantment",
+  "land",
+  "basic-land",
+  "planeswalker",
+  "battle"
+]);
+var LOW_INFORMATION_TAGS = /* @__PURE__ */ new Set(["etb", "evasion"]);
+var ALIAS_TAGS = (() => {
+  const canonical = new Set(TAG_RULES.map((r) => r.tag));
+  const aliases = /* @__PURE__ */ new Set();
+  for (const rule of TAG_RULES) {
+    for (const alias of rule.also ?? []) {
+      if (!canonical.has(alias)) aliases.add(alias);
+    }
+  }
+  return aliases;
+})();
+var DEFAULT_WEIGHT = (() => {
+  const weights = Object.values(CANONICAL_CARD_COUNT).map((n) => Math.log2(TAGGED_CARD_TOTAL / n)).sort((a, b) => a - b);
+  return weights[Math.floor(weights.length / 2)];
+})();
+function tagWeight(tag) {
+  const n = TAG_CARD_COUNT[tag];
+  if (!n || n <= 0) return DEFAULT_WEIGHT;
+  return Math.log2(TAGGED_CARD_TOTAL / n);
+}
+function isSignalTag(tag) {
+  return !TYPE_TAGS.has(tag) && !LOW_INFORMATION_TAGS.has(tag) && !ALIAS_TAGS.has(tag);
+}
+function signalTags(tags) {
+  const out = Array.from(new Set((tags ?? []).filter(Boolean))).filter(isSignalTag);
+  return out.sort((a, b) => tagWeight(b) - tagWeight(a) || a.localeCompare(b));
+}
+function sharedTagScore(signal, candidateTags) {
+  if (!candidateTags?.length || !signal.length) return 0;
+  const theirs = new Set(candidateTags);
+  let score = 0;
+  for (const tag of signal) if (theirs.has(tag)) score += tagWeight(tag);
+  return score;
+}
+function sharedTags(signal, candidateTags) {
+  if (!candidateTags?.length) return [];
+  const theirs = new Set(candidateTags);
+  return signal.filter((tag) => theirs.has(tag));
+}
+
+// supabase/functions/deck-optimizer/_engine/deck/recommend/query.ts
+var INDEXED_FORMATS = /* @__PURE__ */ new Set([
+  "commander",
+  "legacy",
+  "modern",
+  "pauper",
+  "pioneer",
+  "standard",
+  "vintage"
+]);
+function selectColumns(format) {
+  return [
+    "id",
+    "oracle_id",
+    "name",
+    "type_line",
+    "cmc",
+    "color_identity",
+    "tags",
+    "mana_cost",
+    `prices->>'usd' as usd`,
+    `legalities->>'${format}' as legal_in_format`
+  ];
+}
+var UnindexedFormatError = class extends Error {
+  format;
+  constructor(format) {
+    super(
+      `No index supports format "${format}". The query falls back to a bitmap heap scan driven by cards_color_identity_idx \u2014 measured at roughly 5x the cost of an indexed format, and it degrades as the table grows. Indexed formats: ${[...INDEXED_FORMATS].sort().join(", ")}.`
+    );
+    this.name = "UnindexedFormatError";
+    this.format = format;
+  }
+};
+function buildCandidateQuery(profile, options = {}) {
+  const format = profile.format.toLowerCase();
+  const usesIndex = INDEXED_FORMATS.has(format);
+  if (!usesIndex && options.requireIndex) throw new UnindexedFormatError(format);
+  return {
+    usesIndex,
+    table: "cards",
+    columns: selectColumns(format),
+    legalityFilter: { column: "legalities", key: format, equals: "legal" },
+    colorIdentityFilter: {
+      column: "color_identity",
+      // Sorted so the emitted SQL is byte-identical for the same identity.
+      containedBy: normalizeIdentity(profile.colorIdentity)
+    },
+    limit: null
+  };
+}
+function normalizeIdentity(identity) {
+  if (!identity?.length) return [];
+  const seen = new Set(identity.map((c) => String(c).toUpperCase()));
+  return COLORS.filter((c) => seen.has(c));
+}
+function withinIdentity(cardIdentity, deckIdentity) {
+  const allowed = new Set(normalizeIdentity(deckIdentity));
+  for (const c of normalizeIdentity(cardIdentity)) {
+    if (!allowed.has(c)) return false;
+  }
+  return true;
+}
+function isLegalIn(legalities, format) {
+  if (!legalities) return false;
+  return legalities[format.toLowerCase()] === "legal";
+}
+function normalizeRow(row, format) {
+  const fmt = typeof format === "string" && format ? format.toLowerCase() : null;
+  let legalities;
+  if (row.legalities) {
+    legalities = row.legalities;
+  } else if (fmt && row.legal_in_format != null) {
+    legalities = { [fmt]: row.legal_in_format };
+  } else {
+    legalities = {};
+  }
+  return {
+    id: row.id,
+    // Fall back to the printing id so a null oracle_id cannot collapse
+    // unrelated cards into one another during dedupe.
+    oracleId: row.oracle_id ?? row.id,
+    name: row.name,
+    typeLine: row.type_line ?? "",
+    cmc: toNumber(row.cmc) ?? 0,
+    colorIdentity: normalizeIdentity(row.color_identity),
+    tags: row.tags ?? [],
+    manaCost: row.mana_cost ?? null,
+    usd: toNumber(row.usd ?? row.prices?.usd ?? null),
+    legalities
+  };
+}
+function toNumber(v) {
+  if (v === null || v === void 0) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// supabase/functions/deck-optimizer/_engine/deck/recommend/profile.ts
+function isLand(typeLine) {
+  return /\bland\b/i.test(typeLine);
+}
+function deriveDeckProfile(input) {
+  const cards = input.cards ?? [];
+  const tagCounts = /* @__PURE__ */ Object.create(null);
+  const roleCounts = Object.fromEntries(ROLES.map((r) => [r, 0]));
+  const ownedOracleIds = /* @__PURE__ */ new Set();
+  let deckSize = 0;
+  let spellCount = 0;
+  let cmcTotal = 0;
+  for (const card of cards) {
+    const qty = Math.max(1, Math.trunc(card.quantity ?? 1));
+    deckSize += qty;
+    if (card.oracleId) ownedOracleIds.add(card.oracleId);
+    const land = isLand(card.typeLine ?? "");
+    if (!land) {
+      spellCount += qty;
+      cmcTotal += (Number.isFinite(card.cmc) ? card.cmc : 0) * qty;
+    }
+    const seen = /* @__PURE__ */ new Set();
+    for (const tag of card.tags ?? []) {
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      tagCounts[tag] = (tagCounts[tag] ?? 0) + qty;
+    }
+    for (const role of ROLES) {
+      if (servesRole(card.tags, role)) roleCounts[role] += qty;
+    }
+  }
+  const profileTags = signalTags(Object.keys(tagCounts));
+  return {
+    format: input.format.toLowerCase(),
+    colorIdentity: normalizeIdentity(input.colorIdentity),
+    deckSize,
+    spellCount,
+    meanCmc: spellCount > 0 ? cmcTotal / spellCount : 0,
+    signalTags: profileTags,
+    tagCounts,
+    roleCounts,
+    roleTargets: roleTargetsFor(input.format, input.roleTargets),
+    ownedOracleIds
+  };
+}
+function roleShortfall(profile, role) {
+  const target = profile.roleTargets[role] ?? 0;
+  if (target <= 0) return 0;
+  const have = profile.roleCounts[role] ?? 0;
+  if (have >= target) return 0;
+  return (target - have) / target;
+}
+function gapRoles(profile) {
+  return ROLES.filter((r) => roleShortfall(profile, r) > 0).sort(
+    (a, b) => roleShortfall(profile, b) - roleShortfall(profile, a) || a.localeCompare(b)
+  );
+}
+
+// supabase/functions/deck-optimizer/_engine/deck/recommend/rank.ts
+var WEIGHTS = {
+  roleGap: 3,
+  tagSynergy: 2,
+  curveFit: 1,
+  budgetFit: 1
+};
+var SYNERGY_SATURATION = 6;
+var CURVE_SPAN = 3;
+var CURVE_MIN_REPORTABLE = 0.5;
+var DEFAULT_BUDGET_CEILING_USD = 20;
+var NEVER_SUGGEST_TAGS = /* @__PURE__ */ new Set(["basic-land"]);
+function ineligibility(card, profile, options = {}) {
+  if (!isLegalIn(card.legalities, profile.format)) return "illegal-in-format";
+  if (!withinIdentity(card.colorIdentity, profile.colorIdentity)) return "outside-color-identity";
+  if (profile.ownedOracleIds.has(card.oracleId)) return "already-in-deck";
+  if (card.tags.some((t2) => NEVER_SUGGEST_TAGS.has(t2))) return "never-suggest";
+  if (typeof options.maxUsd === "number") {
+    if (card.usd === null) return "unpriced-under-budget-cap";
+    if (card.usd > options.maxUsd) return "over-budget";
+  }
+  return null;
+}
+function scoreCandidate(card, profile, options = {}) {
+  const signals = [];
+  const fillsRoles = ROLES.filter(
+    (role) => servesRole(card.tags, role) && roleShortfall(profile, role) > 0
+  );
+  let bestRole = null;
+  let bestShortfall = 0;
+  for (const role of fillsRoles) {
+    const s = roleShortfall(profile, role);
+    if (s > bestShortfall) {
+      bestShortfall = s;
+      bestRole = role;
+    }
+  }
+  if (bestRole) {
+    const have = profile.roleCounts[bestRole] ?? 0;
+    const target = profile.roleTargets[bestRole] ?? 0;
+    signals.push({
+      kind: "role-gap",
+      score: WEIGHTS.roleGap * bestShortfall,
+      detail: `fills a ${bestRole} gap (${have} of ${target})`
+    });
+  }
+  const shared = sharedTags(profile.signalTags, card.tags);
+  const raw = sharedTagScore(profile.signalTags, card.tags);
+  if (raw > 0 && shared.length > 0) {
+    signals.push({
+      kind: "tag-synergy",
+      score: WEIGHTS.tagSynergy * (raw / (raw + SYNERGY_SATURATION)),
+      detail: `shares ${shared.length} ${shared.length === 1 ? "tag" : "tags"} with your deck (${shared.slice(0, 3).join(", ")})`
+    });
+  }
+  const delta = profile.meanCmc - card.cmc;
+  if (profile.spellCount > 0 && Math.abs(delta) >= CURVE_MIN_REPORTABLE) {
+    const clamped = Math.max(-1, Math.min(1, delta / CURVE_SPAN));
+    signals.push({
+      kind: "curve-fit",
+      score: WEIGHTS.curveFit * clamped,
+      detail: `${Math.abs(delta).toFixed(1)} mana value ${delta > 0 ? "below" : "above"} your curve`
+    });
+  }
+  const wantsBudget = options.preferBudget === true || typeof options.maxUsd === "number";
+  if (wantsBudget && card.usd !== null) {
+    const ceiling = options.maxUsd ?? DEFAULT_BUDGET_CEILING_USD;
+    if (ceiling > 0) {
+      const cheapness = Math.max(0, 1 - Math.min(1, card.usd / ceiling));
+      signals.push({
+        kind: "budget-fit",
+        score: WEIGHTS.budgetFit * cheapness,
+        detail: `$${card.usd.toFixed(2)}`
+      });
+    }
+  }
+  const score = signals.reduce((sum, s) => sum + s.score, 0);
+  return { score, signals, fillsRoles, shared };
+}
+function buildReason(signals) {
+  if (!signals.length) return "No distinguishing signal.";
+  const parts = signals.map((s) => s.detail);
+  return parts.join("; ").replace(/^./, (c) => c.toUpperCase()) + ".";
+}
+function dedupeByOracle(cards) {
+  const best = /* @__PURE__ */ new Map();
+  for (const card of cards) {
+    const prev = best.get(card.oracleId);
+    if (!prev || cheaper(card, prev)) best.set(card.oracleId, card);
+  }
+  return [...best.values()].sort((a, b) => a.oracleId.localeCompare(b.oracleId));
+}
+function cheaper(a, b) {
+  if (a.usd === null && b.usd === null) return a.id < b.id;
+  if (a.usd === null) return false;
+  if (b.usd === null) return true;
+  if (a.usd !== b.usd) return a.usd < b.usd;
+  return a.id < b.id;
+}
+function rankCandidates(pool, profile, options = {}) {
+  const cards = dedupeByOracle(pool);
+  const eligible = cards.filter((c) => ineligibility(c, profile, options) === null);
+  const scored = eligible.map((card) => {
+    const { score, signals, fillsRoles, shared } = scoreCandidate(card, profile, options);
+    return {
+      card,
+      score,
+      signals,
+      reason: buildReason(signals),
+      fillsRoles,
+      sharedTags: shared
+    };
+  });
+  scored.sort(
+    (a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name) || a.card.oracleId.localeCompare(b.card.oracleId)
+  );
+  const limit = options.limit;
+  return typeof limit === "number" && limit >= 0 ? scored.slice(0, limit) : scored;
+}
+
+// supabase/functions/deck-optimizer/validate.ts
+var CardIndex = class {
+  /** normalised full name -> cheapest printing. */
+  #byName = /* @__PURE__ */ new Map();
+  /** normalised front face of a double-faced card -> cheapest printing. */
+  #byFrontFace = /* @__PURE__ */ new Map();
+  /** display columns keyed by printing id, when they were fetched. */
+  #display = /* @__PURE__ */ new Map();
+  constructor(rows, format) {
+    for (const row of rows) {
+      const card = normalizeRow(row, format);
+      this.#offer(this.#byName, normalizeName(card.name), card);
+      const front = frontFace(card.name);
+      if (front) this.#offer(this.#byFrontFace, normalizeName(front), card);
+      if (row.image_url != null || row.set_code != null || row.rarity != null) {
+        this.#display.set(card.id, row);
+      }
+    }
+  }
+  /**
+   * Keep the cheapest printing, exactly as the ranker's dedupe does, so the
+   * price attached to a suggestion is the price of the cheapest way to own the
+   * card rather than whichever row the database returned first.
+   */
+  #offer(map, key, card) {
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, card);
+      return;
+    }
+    if (prev.usd === null && card.usd !== null) map.set(key, card);
+    else if (prev.usd !== null && card.usd !== null && card.usd < prev.usd) map.set(key, card);
+    else if (prev.usd === card.usd && card.id < prev.id) map.set(key, card);
+  }
+  /**
+   * Resolve a name.
+   *
+   * Full names win outright. A front-face match is only accepted when the name
+   * is not itself some other card's full name, so "Dusk" never resolves to
+   * "Dusk // Dawn" if a card simply called "Dusk" exists.
+   */
+  resolve(name) {
+    const key = normalizeName(name);
+    if (!key) return null;
+    return this.#byName.get(key) ?? this.#byFrontFace.get(key) ?? null;
+  }
+  display(card) {
+    return this.#display.get(card.id) ?? null;
+  }
+  get size() {
+    return this.#byName.size;
+  }
+};
+function diagnose(name, catalogueRows, format, deckIdentity) {
+  const key = normalizeName(name);
+  const matches = catalogueRows.filter(
+    (r) => normalizeName(r.name) === key || normalizeName(frontFace(r.name) ?? "") === key
+  );
+  if (!matches.length) return { reason: "does-not-exist" };
+  const cards = matches.map((r) => normalizeRow(r, format));
+  if (!cards.some((c) => isLegalIn(c.legalities, format))) {
+    const seen = cards[0].legalities?.[format.toLowerCase()] ?? "not listed";
+    return { reason: "illegal-in-format", detail: `legalities.${format} = ${seen}` };
+  }
+  if (!cards.some((c) => withinIdentity(c.colorIdentity, deckIdentity))) {
+    return {
+      reason: "outside-color-identity",
+      detail: `identity [${cards[0].colorIdentity.join("") || "colourless"}] is not within [${deckIdentity.join("") || "colourless"}]`
+    };
+  }
+  return { reason: "does-not-exist", detail: "resolved in catalogue but absent from the legal pool" };
+}
+var ValidationLog = class {
+  dropped = [];
+  #checked = 0;
+  #accepted = 0;
+  check() {
+    this.#checked++;
+  }
+  accept() {
+    this.#accepted++;
+  }
+  drop(section, name, reason, detail) {
+    this.dropped.push({ section, name: String(name ?? ""), reason, ...detail ? { detail } : {} });
+  }
+  /**
+   * The report the owner reads.
+   *
+   * `dropRate` is the share of card names the model produced that could not be
+   * shown to a user. Before this change that number existed but nobody could
+   * see it, because nothing computed it.
+   */
+  summary() {
+    const byReason = {};
+    for (const d of this.dropped) byReason[d.reason] = (byReason[d.reason] ?? 0) + 1;
+    return {
+      checked: this.#checked,
+      accepted: this.#accepted,
+      dropped: this.dropped.length,
+      dropRate: this.#checked > 0 ? Number((this.dropped.length / this.#checked).toFixed(4)) : 0,
+      byReason,
+      droppedItems: this.dropped.slice(0, 60)
+    };
+  }
+};
+function isLandCard(card) {
+  return /\bland\b/i.test(card.typeLine);
+}
+
+// supabase/functions/deck-optimizer/swap-targets.ts
+var LOW_CASTABILITY_PCT = 40;
+function finitePct(value) {
+  if (value === null || value === void 0 || value === "") return null;
+  if (typeof value === "boolean") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0 || n > 100) return null;
+  return n;
+}
+function collectCastability(deckContext, edhAnalysis) {
+  const out = /* @__PURE__ */ new Map();
+  const offer = (name, raw, source) => {
+    const key = normalizeName(String(name ?? ""));
+    if (!key) return;
+    const pct = finitePct(raw);
+    if (pct === null) return;
+    const prev = out.get(key);
+    if (prev && prev.source === "castability" && source !== "castability") return;
+    out.set(key, { pct, source });
+  };
+  const explicit = deckContext?.castability;
+  if (Array.isArray(explicit)) {
+    for (const row of explicit) {
+      const r = row;
+      offer(r?.name, r?.pct ?? r?.castability ?? r?.playability, "castability");
+    }
+  }
+  const cards = deckContext?.cards;
+  if (Array.isArray(cards)) {
+    for (const row of cards) {
+      const r = row;
+      if (r && "castability" in r) offer(r.name, r.castability, "castability");
+    }
+  }
+  const analysis = edhAnalysis?.cardAnalysis;
+  if (Array.isArray(analysis)) {
+    for (const row of analysis) {
+      const r = row;
+      if (r?.isCommander) continue;
+      offer(r?.name, r?.playability, "playability");
+    }
+  }
+  return out;
+}
+function chooseSwapTargets(deck, castability, profile, limit) {
+  const eligible = deck.filter(
+    (e) => !e.isCommander && e.card !== null && !/\bland\b/i.test(e.card.typeLine)
+  );
+  const measured = [];
+  const unmeasured = [];
+  for (const entry of eligible) {
+    const hit = castability.get(normalizeName(entry.name));
+    if (hit && hit.pct < LOW_CASTABILITY_PCT) {
+      measured.push({
+        name: entry.name,
+        castability: hit.pct,
+        source: hit.source,
+        reason: `${hit.pct}% castable (${hit.source === "castability" ? "measured" : "scraped"})`
+      });
+    } else if (!hit) {
+      unmeasured.push(entry);
+    }
+  }
+  measured.sort((a, b) => (a.castability ?? 0) - (b.castability ?? 0) || a.name.localeCompare(b.name));
+  if (measured.length >= limit) return measured.slice(0, limit);
+  const scored = unmeasured.map((entry) => {
+    const { score, fillsRoles, shared } = scoreCandidate(entry.card, profile);
+    return { entry, score, fillsRoles, shared };
+  }).sort((a, b) => a.score - b.score || a.entry.name.localeCompare(b.entry.name));
+  const filler = scored.slice(0, limit - measured.length).map((s) => ({
+    name: s.entry.name,
+    castability: null,
+    source: "engine",
+    reason: s.shared.length === 0 && s.fillsRoles.length === 0 ? `shares no tag with the deck and fills no role it is short of` : `weakest fit of the measured deck (${s.shared.length} shared ${s.shared.length === 1 ? "tag" : "tags"}, fills ${s.fillsRoles.length} needed ${s.fillsRoles.length === 1 ? "role" : "roles"})`
+  }));
+  return [...measured, ...filler];
+}
+
+// supabase/functions/deck-optimizer/index.ts
+var corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
+};
+var ENGINE_VERSION = "deck-optimizer/5-grounded";
+var CANDIDATE_LIMIT = 120;
+var LAND_CANDIDATE_LIMIT = 40;
+var PER_ROLE_LIMIT = 12;
+var SWAP_TARGET_LIMIT = 14;
+var MAX_OUTPUT_TOKENS = 16e3;
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const startedAt = Date.now();
+  try {
+    const body = await req.json();
+    const {
+      deckContext,
+      edhAnalysis = null,
+      useCollection = false,
+      collectionCards = [],
+      excludeSwaps = []
+    } = body ?? {};
+    if (!deckContext) throw new Error("deckContext is required");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY are not configured");
+    }
+    const catalog = new Catalog({
+      url: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY,
+      authorization: req.headers.get("Authorization")
+    });
+    const result = await optimise({
+      catalog,
+      deckContext,
+      edhAnalysis,
+      useCollection: Boolean(useCollection),
+      collectionCards: Array.isArray(collectionCards) ? collectionCards.map(String) : [],
+      excludeSwaps: Array.isArray(excludeSwaps) ? excludeSwaps.map(String) : [],
+      apiKey: Deno.env.get("LOVABLE_API_KEY") ?? null,
+      startedAt
+    });
+    if (result.kind === "rate_limit") {
+      return json(
+        { error: "Rate limits exceeded. Please wait a moment and try again.", type: "rate_limit" },
+        429
+      );
+    }
+    if (result.kind === "payment_required") {
+      return json(
+        { error: "AI credits exhausted. Please add credits to continue.", type: "payment_required" },
+        402
+      );
+    }
+    return json({ analysis: result.analysis }, 200);
+  } catch (error) {
+    console.error("Deck optimizer error:", error);
+    return json(
+      { error: error instanceof Error ? error.message : "Unknown error", type: "error" },
+      500
+    );
+  }
+});
+function json(payload, status) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+}
+async function optimise(input) {
+  const { catalog, deckContext, startedAt } = input;
+  const format = String(deckContext.format ?? "commander").toLowerCase();
+  const legalityKey = format === "edh" ? "commander" : format;
+  const commanderish = isCommanderFormat(legalityKey);
+  const rawCards = Array.isArray(deckContext.cards) ? deckContext.cards : [];
+  const commanderName = String(
+    deckContext.commander?.name ?? ""
+  ).trim();
+  const deckNames = rawCards.map((c) => String(c.name ?? "")).filter(Boolean);
+  const lookupNames = commanderName ? [...deckNames, commanderName] : deckNames;
+  const deckRows = await catalog.cardsByName(lookupNames, legalityKey);
+  const deckIndex = new CardIndex(deckRows, legalityKey);
+  const commanderCard = commanderName ? deckIndex.resolve(commanderName) : null;
+  let colorIdentity;
+  let identitySource;
+  if (commanderCard) {
+    colorIdentity = commanderCard.colorIdentity;
+    identitySource = "commander";
+  } else {
+    const union = /* @__PURE__ */ new Set();
+    for (const name of deckNames) {
+      for (const col of deckIndex.resolve(name)?.colorIdentity ?? []) union.add(col);
+    }
+    colorIdentity = normalizeIdentity([...union]);
+    identitySource = commanderName ? "deck-union (commander not in catalogue)" : "deck-union";
+  }
+  const deckEntries = rawCards.map((c) => {
+    const name = String(c.name ?? "");
+    return {
+      name,
+      card: deckIndex.resolve(name),
+      quantity: Math.max(1, Math.trunc(Number(c.quantity) || 1)),
+      isCommander: false
+    };
+  });
+  if (commanderCard) {
+    deckEntries.push({
+      name: commanderCard.name,
+      card: commanderCard,
+      quantity: 1,
+      isCommander: true
+    });
+  }
+  const unresolved = deckEntries.filter((e) => !e.card).map((e) => e.name);
+  const profileCards = deckEntries.filter((e) => e.card).map((e) => ({
+    oracleId: e.card.oracleId,
+    name: e.card.name,
+    typeLine: e.card.typeLine,
+    cmc: e.card.cmc,
+    tags: e.card.tags,
+    quantity: e.quantity
+  }));
+  const profile = deriveDeckProfile({ format: legalityKey, colorIdentity, cards: profileCards });
+  const requiredCards = commanderish ? 100 : 60;
+  const totalCards = deckEntries.filter((e) => !e.isCommander).reduce((s, e) => s + e.quantity, 0);
+  const totalWithCommander = totalCards + (commanderCard ? 1 : 0);
+  const missingCards = Math.max(0, requiredCards - totalWithCommander);
+  const excessCards = Math.max(0, totalWithCommander - requiredCards);
+  const landCount = deckEntries.filter((e) => !e.isCommander && e.card && isLandCard(e.card)).reduce((s, e) => s + e.quantity, 0);
+  const idealLandCount = commanderish ? 37 : 24;
+  const query = buildCandidateQuery(profile);
+  const poolStarted = Date.now();
+  const poolRows = await catalog.poolFor(query);
+  const poolMs = Date.now() - poolStarted;
+  const poolIndex = new CardIndex(poolRows, legalityKey);
+  const pool = poolRows.map((r) => normalizeRow(r, legalityKey));
+  const rankStarted = Date.now();
+  const ranked = rankCandidates(pool, profile);
+  const rankMs = Date.now() - rankStarted;
+  console.log(
+    `pool: ${poolRows.length} rows in ${poolMs}ms (legality index=${query.usesIndex}); ranked ${ranked.length} distinct cards in ${rankMs}ms; identity=[${colorIdentity.join("") || "-"}] via ${identitySource}; ${unresolved.length} deck names unresolved`
+  );
+  const excluded = new Set(input.excludeSwaps.map(normalizeName));
+  const usable = ranked.filter((r) => !excluded.has(normalizeName(r.card.name)));
+  const nonLand = usable.filter((r) => !isLandCard(r.card));
+  const landish = usable.filter((r) => isLandCard(r.card));
+  const gaps = gapRoles(profile);
+  const offered = /* @__PURE__ */ new Map();
+  for (const r of nonLand.slice(0, CANDIDATE_LIMIT)) offered.set(r.card.oracleId, r);
+  for (const role of gaps) {
+    let taken = 0;
+    for (const r of nonLand) {
+      if (taken >= PER_ROLE_LIMIT) break;
+      if (!r.fillsRoles.includes(role)) continue;
+      offered.set(r.card.oracleId, r);
+      taken++;
+    }
+  }
+  const candidates = [...offered.values()].sort(
+    (a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name)
+  );
+  const landCandidates = landish.slice(0, LAND_CANDIDATE_LIMIT);
+  const basics = await catalog.basicLands(legalityKey, colorIdentity);
+  const castability = collectCastability(deckContext, input.edhAnalysis);
+  const swapTargets = chooseSwapTargets(
+    deckEntries,
+    castability,
+    profile,
+    SWAP_TARGET_LIMIT
+  ).filter((t2) => !excluded.has(normalizeName(t2.name)));
+  const prompt = buildGroundedPrompt({
+    deckContext,
+    profile,
+    commanderCard,
+    colorIdentity,
+    totalWithCommander,
+    requiredCards,
+    missingCards,
+    excessCards,
+    landCount,
+    idealLandCount,
+    candidates,
+    landCandidates,
+    basics: basics.map((b) => normalizeRow(b, legalityKey)),
+    swapTargets,
+    deckEntries,
+    gaps,
+    useCollection: input.useCollection,
+    collectionCards: input.collectionCards,
+    edhAnalysis: input.edhAnalysis
+  });
+  const model = await callModel(prompt, input.apiKey, legalityKey);
+  if (model.kind === "rate_limit") return { kind: "rate_limit" };
+  if (model.kind === "payment_required") return { kind: "payment_required" };
+  const log = new ValidationLog();
+  const raw = model.kind === "ok" ? model.analysis : null;
+  const sections = raw ? await validateSections({
+    raw,
+    catalog,
+    poolIndex,
+    deckIndex,
+    deckEntries,
+    legalityKey,
+    colorIdentity,
+    log,
+    missingCards,
+    excessCards
+  }) : engineOnlySections({
+    candidates,
+    landCandidates,
+    swapTargets,
+    missingCards,
+    excessCards
+  });
+  const enriched = await attachRealData({
+    catalog,
+    sections,
+    legalityKey,
+    collectionCards: input.collectionCards
+  });
+  const summary = log.summary();
+  console.log(
+    `validation: checked ${summary.checked}, accepted ${summary.accepted}, dropped ${summary.dropped} ${JSON.stringify(summary.byReason)}`
+  );
+  return {
+    kind: "ok",
+    analysis: buildResponse({
+      raw,
+      enriched,
+      profile,
+      log,
+      landCount,
+      idealLandCount,
+      swapTargets,
+      colorIdentity,
+      identitySource,
+      unresolved,
+      poolRows: poolRows.length,
+      poolCards: ranked.length,
+      candidatesOffered: candidates.length + landCandidates.length,
+      usesIndex: query.usesIndex,
+      aiUsed: model.kind === "ok",
+      aiFailure: model.kind === "failed" ? model.reason : null,
+      elapsedMs: Date.now() - startedAt
+    })
+  };
+}
+async function validateSections(a) {
+  const { raw, poolIndex, deckIndex, log, legalityKey, colorIdentity } = a;
+  const inDeck = new Set(a.deckEntries.map((e) => normalizeName(e.name)));
+  const touched = /* @__PURE__ */ new Set();
+  const misses = /* @__PURE__ */ new Set();
+  const noteMiss = (name) => {
+    if (name && !poolIndex.resolve(name)) misses.add(name);
+  };
+  for (const x of arr(raw.additions)) noteMiss(str(x.name));
+  for (const x of arr(raw.replacements)) noteMiss(str(x.add));
+  for (const x of arr(raw.landRecommendations)) if (str(x.type) !== "remove") noteMiss(str(x.name));
+  const missRows = misses.size ? await a.catalog.cardsByName([...misses], legalityKey) : [];
+  const resolveAdd = (name, section, seen) => {
+    log.check();
+    const key = normalizeName(name);
+    if (!key) {
+      log.drop(section, name, "empty-name");
+      return null;
+    }
+    const card = poolIndex.resolve(name);
+    if (!card) {
+      const d = diagnose(name, missRows, legalityKey, colorIdentity);
+      log.drop(section, name, d.reason, d.detail);
+      return null;
+    }
+    if (inDeck.has(key) || inDeck.has(normalizeName(card.name))) {
+      log.drop(section, name, "already-in-deck");
+      return null;
+    }
+    if (seen.has(card.oracleId)) {
+      log.drop(section, name, "duplicate");
+      return null;
+    }
+    seen.add(card.oracleId);
+    log.accept();
+    touched.add(card.name);
+    return card;
+  };
+  const resolveCut = (name, section, seen) => {
+    log.check();
+    const key = normalizeName(name);
+    if (!key) {
+      log.drop(section, name, "empty-name");
+      return { ok: false, card: null };
+    }
+    if (!inDeck.has(key)) {
+      log.drop(section, name, "not-in-deck");
+      return { ok: false, card: null };
+    }
+    if (seen.has(key)) {
+      log.drop(section, name, "duplicate");
+      return { ok: false, card: null };
+    }
+    seen.add(key);
+    log.accept();
+    touched.add(name);
+    return { ok: true, card: deckIndex.resolve(name) };
+  };
+  const seenAdd = /* @__PURE__ */ new Set();
+  const additions = [];
+  for (const x of arr(raw.additions)) {
+    const card = resolveAdd(str(x.name), "additions", seenAdd);
+    if (!card) continue;
+    additions.push({
+      name: card.name,
+      reason: str(x.reason),
+      type: str(x.type) || card.typeLine,
+      category: str(x.category) || "Other",
+      priority: priority(x.priority),
+      edhImpact: num(x.edhImpact, 0.2),
+      _card: card
+    });
+  }
+  const seenCut = /* @__PURE__ */ new Set();
+  const removals = [];
+  for (const x of arr(raw.removals)) {
+    const cut = resolveCut(str(x.name), "removals", seenCut);
+    if (!cut.ok) continue;
+    removals.push({
+      name: str(x.name),
+      reason: str(x.reason),
+      priority: priority(x.priority),
+      edhImpact: num(x.edhImpact, -0.1),
+      _card: cut.card
+    });
+  }
+  const seenRepAdd = /* @__PURE__ */ new Set();
+  const seenRepCut = /* @__PURE__ */ new Set();
+  const replacements = [];
+  for (const x of arr(raw.replacements)) {
+    const cut = resolveCut(str(x.remove), "replacements.remove", seenRepCut);
+    const addCard = resolveAdd(str(x.add), "replacements.add", seenRepAdd);
+    if (!cut.ok || !addCard) continue;
+    replacements.push({
+      remove: str(x.remove),
+      removeReason: str(x.removeReason),
+      add: addCard.name,
+      addBenefit: str(x.addBenefit),
+      addType: str(x.addType) || addCard.typeLine,
+      synergy: str(x.synergy) || null,
+      category: str(x.category) || null,
+      priority: priority(x.priority),
+      edhImpact: num(x.edhImpact, 0.1),
+      _addCard: addCard,
+      _removeCard: cut.card
+    });
+  }
+  const landAdds = /* @__PURE__ */ new Map();
+  const seenLandAdd = /* @__PURE__ */ new Set();
+  const seenLandCut = /* @__PURE__ */ new Set();
+  const landRecommendations = [];
+  for (const x of arr(raw.landRecommendations)) {
+    const name = str(x.name);
+    if (str(x.type) === "remove") {
+      const cut = resolveCut(name, "landRecommendations.remove", seenLandCut);
+      if (!cut.ok) continue;
+      landRecommendations.push({
+        type: "remove",
+        name,
+        reason: str(x.reason),
+        priority: priority(x.priority),
+        category: str(x.category) || "Basic",
+        quantity: 1,
+        _card: cut.card
+      });
+      continue;
+    }
+    const existing = landAdds.get(normalizeName(name));
+    if (existing) {
+      existing.quantity = (Number(existing.quantity) || 1) + 1;
+      continue;
+    }
+    const card = resolveAdd(name, "landRecommendations.add", seenLandAdd);
+    if (!card) continue;
+    if (!isLandCard(card)) {
+      log.drop("landRecommendations.add", name, "not-a-land", `type_line = ${card.typeLine}`);
+      continue;
+    }
+    const row = {
+      type: "add",
+      name: card.name,
+      reason: str(x.reason),
+      priority: priority(x.priority),
+      category: str(x.category) || "Basic",
+      quantity: 1,
+      _card: card
+    };
+    landAdds.set(normalizeName(name), row);
+    landRecommendations.push(row);
+  }
+  return {
+    // The pre-existing rule: additions only matter to an incomplete deck, and
+    // removals only to an overloaded one.
+    additions: a.missingCards > 0 ? additions.slice(0, Math.max(a.missingCards + 5, 15)) : [],
+    removals: a.excessCards > 0 ? removals.slice(0, Math.max(a.excessCards + 3, 10)) : [],
+    replacements: replacements.slice(0, 15),
+    landRecommendations: landRecommendations.slice(0, 12),
+    touched
+  };
+}
+function engineOnlySections(args) {
+  const { candidates, landCandidates, swapTargets, missingCards, excessCards } = args;
+  const touched = /* @__PURE__ */ new Set();
+  const additions = missingCards > 0 ? candidates.slice(0, Math.max(missingCards + 5, 15)).map((r) => {
+    touched.add(r.card.name);
+    return {
+      name: r.card.name,
+      reason: r.reason,
+      type: r.card.typeLine,
+      category: categoryFor(r),
+      priority: r.score >= 3 ? "high" : r.score >= 1.5 ? "medium" : "low",
+      edhImpact: 0,
+      _card: r.card
+    };
+  }) : [];
+  const removals = excessCards > 0 ? swapTargets.slice(0, Math.max(excessCards + 3, 10)).map((t2) => {
+    touched.add(t2.name);
+    return {
+      name: t2.name,
+      reason: t2.reason,
+      priority: "medium",
+      edhImpact: 0,
+      _card: null
+    };
+  }) : [];
+  const replacements = missingCards === 0 && excessCards === 0 ? swapTargets.slice(0, Math.min(10, candidates.length)).map((t2, i) => {
+    const r = candidates[i];
+    touched.add(t2.name);
+    touched.add(r.card.name);
+    return {
+      remove: t2.name,
+      removeReason: t2.reason,
+      add: r.card.name,
+      addBenefit: r.reason,
+      addType: r.card.typeLine,
+      synergy: r.sharedTags.length ? `Shares ${r.sharedTags.slice(0, 3).join(", ")}.` : null,
+      category: categoryFor(r),
+      priority: r.score >= 3 ? "high" : "medium",
+      edhImpact: 0,
+      _addCard: r.card,
+      _removeCard: null
+    };
+  }) : [];
+  const landRecommendations = landCandidates.slice(0, 8).map((r) => {
+    touched.add(r.card.name);
+    return {
+      type: "add",
+      name: r.card.name,
+      reason: r.reason,
+      priority: "medium",
+      category: "Utility",
+      quantity: 1,
+      _card: r.card
+    };
+  });
+  return { additions, removals, replacements, landRecommendations, touched };
+}
+function categoryFor(r) {
+  switch (r.fillsRoles[0]) {
+    case "ramp":
+      return "Ramp";
+    case "draw":
+      return "Card Draw";
+    case "removal":
+    case "interaction":
+      return "Removal";
+    case "wincon":
+      return "Essential";
+    case "land":
+      return "Lands";
+    default:
+      return /creature/i.test(r.card.typeLine) ? "Creatures" : "Other";
+  }
+}
+async function attachRealData(args) {
+  const { catalog, sections, legalityKey } = args;
+  const names = [...sections.touched];
+  const display = /* @__PURE__ */ new Map();
+  if (names.length) {
+    for (const row of await catalog.cardsByName(names, legalityKey)) {
+      const key = normalizeName(row.name);
+      const prev = display.get(key);
+      const price = row.usd == null ? Infinity : Number(row.usd);
+      const prevPrice = prev?.usd == null ? Infinity : Number(prev.usd);
+      if (!prev || !prev.image_url && row.image_url || Boolean(prev.image_url) === Boolean(row.image_url) && price < prevPrice) {
+        display.set(key, row);
+      }
+    }
+  }
+  const owned = await catalog.ownedQuantities(names);
+  for (const n of args.collectionCards) {
+    const key = normalizeName(n);
+    if (key && !owned.has(key)) owned.set(key, 1);
+  }
+  const facts = (name, card) => {
+    const row = display.get(normalizeName(name));
+    const qty = owned.get(normalizeName(name)) ?? 0;
+    return {
+      cardId: row?.id ?? card?.id ?? null,
+      oracleId: row?.oracle_id ?? card?.oracleId ?? null,
+      imageUrl: row?.image_url ?? null,
+      setCode: row?.set_code ?? null,
+      rarity: row?.rarity ?? null,
+      priceUsd: row?.usd != null ? Number(row.usd) : card?.usd ?? null,
+      owned: qty > 0,
+      ownedQuantity: qty,
+      verified: Boolean(row || card)
+    };
+  };
+  for (const a of sections.additions) {
+    Object.assign(a, facts(String(a.name), a._card ?? null));
+    delete a._card;
+  }
+  for (const r of sections.removals) {
+    Object.assign(r, facts(String(r.name), r._card ?? null));
+    delete r._card;
+  }
+  for (const l of sections.landRecommendations) {
+    Object.assign(l, facts(String(l.name), l._card ?? null));
+    delete l._card;
+  }
+  for (const r of sections.replacements) {
+    const add = facts(String(r.add), r._addCard ?? null);
+    const cut = facts(String(r.remove), r._removeCard ?? null);
+    Object.assign(r, {
+      addCardId: add.cardId,
+      addOracleId: add.oracleId,
+      addImageUrl: add.imageUrl,
+      addPriceUsd: add.priceUsd,
+      addOwned: add.owned,
+      addOwnedQuantity: add.ownedQuantity,
+      removeCardId: cut.cardId,
+      removeOracleId: cut.oracleId,
+      removeImageUrl: cut.imageUrl,
+      removePriceUsd: cut.priceUsd,
+      verified: add.verified
+    });
+    delete r._addCard;
+    delete r._removeCard;
+  }
+  return sections;
+}
+function buildResponse(args) {
+  const { raw, enriched, profile, log } = args;
+  const roleCounts = {};
+  const roleTargets = {};
+  for (const role of ROLES) {
+    roleCounts[role] = profile.roleCounts[role] ?? 0;
+    roleTargets[role] = profile.roleTargets[role] ?? 0;
+  }
+  const measured = measuredCategories(profile, args.landCount, args.idealLandCount);
+  const modelCategories = raw?.categories;
+  const categories = modelCategories ? {
+    synergy: clamp(num(modelCategories.synergy, measured.synergy)),
+    consistency: clamp(num(modelCategories.consistency, measured.consistency)),
+    power: clamp(num(modelCategories.power, measured.power)),
+    interaction: clamp(num(modelCategories.interaction, measured.interaction)),
+    manabase: clamp(num(modelCategories.manabase, measured.manabase))
+  } : measured;
+  return {
+    summary: raw?.summary ? str(raw.summary) : engineSummary(profile, args),
+    categories,
+    categoriesSource: modelCategories ? "model" : "measured",
+    currentPowerLevel: typeof raw?.currentPowerLevel === "number" ? raw.currentPowerLevel : null,
+    projectedPowerLevel: typeof raw?.projectedPowerLevel === "number" ? raw.projectedPowerLevel : null,
+    issues: arr(raw?.issues).map((i) => ({
+      card: str(i.card),
+      reason: str(i.reason),
+      severity: ["high", "medium", "low"].includes(String(i.severity)) ? String(i.severity) : "medium",
+      category: i.category ?? null
+    })),
+    strengths: arr(raw?.strengths).map(textOf),
+    strategy: arr(raw?.strategy).map(textOf),
+    manabase: raw?.manabase ? arr(raw.manabase).map(textOf) : [{ text: manabaseNote(args) }],
+    additions: enriched.additions,
+    removals: enriched.removals,
+    replacements: enriched.replacements,
+    landRecommendations: enriched.landRecommendations,
+    landCount: args.landCount,
+    idealLandCount: args.idealLandCount,
+    /* --- added --- */
+    validation: log.summary(),
+    grounding: {
+      source: "cards",
+      format: profile.format,
+      colorIdentity: args.colorIdentity,
+      colorIdentitySource: args.identitySource,
+      poolRows: args.poolRows,
+      poolCards: args.poolCards,
+      candidatesOffered: args.candidatesOffered,
+      legalityIndexUsed: args.usesIndex,
+      unresolvedDeckNames: args.unresolved,
+      elapsedMs: args.elapsedMs
+    },
+    engine: {
+      version: ENGINE_VERSION,
+      aiUsed: args.aiUsed,
+      aiFailure: args.aiFailure,
+      fallbackUsed: !args.aiUsed
+    },
+    deck: {
+      deckSize: profile.deckSize,
+      spellCount: profile.spellCount,
+      meanCmc: Number(profile.meanCmc.toFixed(2)),
+      roleCounts,
+      roleTargets,
+      signalTags: profile.signalTags.slice(0, 20)
+    },
+    swapTargets: args.swapTargets.map((t2) => ({
+      name: t2.name,
+      castability: t2.castability,
+      castabilitySource: t2.source,
+      reason: t2.reason
+    }))
+  };
+}
+function measuredCategories(profile, landCount, idealLandCount) {
+  const fill = (role) => clamp(Math.round(100 * (1 - roleShortfall(profile, role))));
+  const synergy = clamp(Math.round(100 * Math.min(1, profile.signalTags.length / 12)));
+  const consistency = fill("draw");
+  const interaction = Math.round((fill("removal") + fill("interaction")) / 2);
+  const manabase = clamp(100 - Math.abs(landCount - idealLandCount) * 8);
+  const power = Math.round((synergy + consistency + interaction + manabase) / 4);
+  return { synergy, consistency, power, interaction, manabase };
+}
+function engineSummary(profile, args) {
+  const short = ROLES.filter((r) => roleShortfall(profile, r) > 0).map((r) => `${r} ${profile.roleCounts[r] ?? 0}/${profile.roleTargets[r] ?? 0}`).slice(0, 4);
+  const parts = [
+    `${profile.deckSize} cards counted, mean mana value ${profile.meanCmc.toFixed(2)}.`,
+    `${args.landCount} lands against ${args.idealLandCount} for the format.`
+  ];
+  if (short.length) parts.push(`Short of: ${short.join(", ")}.`);
+  parts.push("These suggestions came from the in-house engine, not a language model.");
+  return parts.join(" ");
+}
+function manabaseNote(args) {
+  const d = args.landCount - args.idealLandCount;
+  if (d === 0) return `${args.landCount} lands, exactly what this format wants.`;
+  return `${args.landCount} lands against ${args.idealLandCount}: ${Math.abs(d)} ${d < 0 ? "short" : "over"}.`;
+}
+function candidateLine(r) {
+  const price = r.card.usd === null ? "n/a" : `$${r.card.usd.toFixed(2)}`;
+  const tags = r.card.tags.slice(0, 5).join(",") || "-";
+  return `- ${r.card.name} | ${r.card.typeLine} | mv ${r.card.cmc} | ${price} | ${tags} | ${r.reason}`;
+}
+function buildGroundedPrompt(p) {
+  const {
+    profile,
+    commanderCard,
+    colorIdentity,
+    totalWithCommander,
+    requiredCards,
+    missingCards,
+    excessCards,
+    landCount,
+    idealLandCount,
+    candidates,
+    landCandidates,
+    basics,
+    swapTargets,
+    deckEntries,
+    gaps
+  } = p;
+  const status = missingCards > 0 ? `INCOMPLETE \u2014 needs ${missingCards} more cards. Priority: ADDITIONS.` : excessCards > 0 ? `OVERLOADED \u2014 ${excessCards} too many cards. Priority: REMOVALS.` : `COMPLETE. Priority: SWAPS.`;
+  const out = [];
+  out.push(`# Deck optimisation`);
+  out.push(``);
+  out.push(`## The rule that governs this task`);
+  out.push(
+    `Every card you name in additions, replacements.add, or landRecommendations of type "add" MUST be copied verbatim from the CANDIDATE POOL or LAND CANDIDATES below. Those lists were retrieved from the card database: every entry is a real card, legal in ${profile.format}, and inside this deck's colour identity. Do not name a card from memory. Any name that is not in the list is discarded before the user sees it, so naming one only wastes the slot.`
+  );
+  out.push(
+    `Every card you name in removals, replacements.remove, or landRecommendations of type "remove" MUST be copied verbatim from the DECK list.`
+  );
+  out.push(``);
+  out.push(`## Deck`);
+  out.push(`Name: ${str(p.deckContext.name) || "Unnamed"}`);
+  out.push(`Format: ${profile.format}`);
+  if (commanderCard) out.push(`Commander: ${commanderCard.name}`);
+  out.push(`Colour identity: ${colorIdentity.join("") || "colourless"}`);
+  out.push(`Cards: ${totalWithCommander}/${requiredCards} \u2014 ${status}`);
+  out.push(`Lands: ${landCount} (format target ${idealLandCount})`);
+  out.push(`Mean mana value of non-lands: ${profile.meanCmc.toFixed(2)}`);
+  out.push(
+    `Roles held/target: ` + ROLES.map((r) => `${r} ${profile.roleCounts[r] ?? 0}/${profile.roleTargets[r] ?? 0}`).join(" | ")
+  );
+  if (gaps.length) out.push(`Short of, worst first: ${gaps.join(", ")}`);
+  if (profile.signalTags.length) {
+    out.push(`Deck themes, measured from card tags: ${profile.signalTags.slice(0, 14).join(", ")}`);
+  }
+  out.push(``);
+  out.push(`## DECK \u2014 the only cards you may name for removal`);
+  out.push(
+    deckEntries.filter((e) => !e.isCommander).map((e) => `- ${e.name}${e.quantity > 1 ? ` x${e.quantity}` : ""}`).join("\n")
+  );
+  out.push(``);
+  if (swapTargets.length) {
+    out.push(`## Cut targets, weakest first`);
+    out.push(
+      swapTargets.map(
+        (t2) => `- ${t2.name} \u2014 ${t2.reason}` + (t2.castability === null ? " [NO castability figure exists for this card]" : "")
+      ).join("\n")
+    );
+    out.push(
+      `A card with no castability figure is UNMEASURED, not weak. Prefer targets that carry a real figure, and never treat a missing figure as a low one.`
+    );
+    out.push(``);
+  }
+  out.push(`## CANDIDATE POOL \u2014 additions and replacement adds must come from here`);
+  out.push(`Format: name | type | mana value | price | tags | why the engine ranked it`);
+  out.push(candidates.map(candidateLine).join("\n"));
+  out.push(``);
+  out.push(`## LAND CANDIDATES \u2014 landRecommendations of type "add" must come from here`);
+  out.push(landCandidates.map(candidateLine).join("\n"));
+  if (basics.length) {
+    out.push(basics.map((b) => `- ${b.name} | ${b.typeLine} | mv 0 | basic land`).join("\n"));
+    out.push(`To recommend several copies of a basic land, list it once per copy.`);
+  }
+  out.push(``);
+  if (p.useCollection && p.collectionCards.length) {
+    out.push(`## The user already owns these \u2014 prefer them where they appear in the pool`);
+    out.push(p.collectionCards.slice(0, 150).join(", "));
+    out.push(``);
+  }
+  if (p.edhAnalysis) {
+    const e = p.edhAnalysis;
+    out.push(`## External EDH metrics (advisory)`);
+    out.push(
+      `Tipping point: ${str(e.tippingPoint) || "n/a"} | efficiency: ${str(e.efficiency) || "n/a"} | impact: ${str(e.impact) || "n/a"}`
+    );
+    out.push(``);
+  }
+  out.push(`## What to return`);
+  if (missingCards > 0) {
+    out.push(
+      `Choose ${Math.min(missingCards + 5, 20)} additions from the CANDIDATE POOL, spread across Essential / Ramp / Card Draw / Removal / Creatures / Lands and weighted towards the roles the deck is short of.`
+    );
+  } else if (excessCards > 0) {
+    out.push(`Identify at least ${excessCards + 2} cards from the DECK list to cut.`);
+  } else {
+    out.push(
+      `Propose 10-15 replacements. Each removes a card from the DECK list and adds one from the CANDIDATE POOL.`
+    );
+  }
+  if (Math.abs(landCount - idealLandCount) > 2) {
+    out.push(
+      landCount < idealLandCount ? `Recommend ${idealLandCount - landCount} lands to add, from LAND CANDIDATES.` : `Recommend ${landCount - idealLandCount} lands from the DECK list to remove.`
+    );
+  }
+  out.push(
+    `Also give category scores 0-100 (synergy, consistency, power, interaction, manabase), a 2-3 sentence summary, 3-5 strengths, 3-5 strategy notes, and mana base observations. Justify every pick from the measured numbers above.`
+  );
+  return out.join("\n");
+}
+var TEXT_LIST = {
+  type: "array",
+  items: { type: "object", properties: { text: { type: "string" } }, required: ["text"] }
+};
+var TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "deck_analysis",
+      description: "Deck analysis, choosing only from the supplied candidate pool and deck list",
+      parameters: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "2-3 sentence executive summary" },
+          categories: {
+            type: "object",
+            properties: {
+              synergy: { type: "number" },
+              consistency: { type: "number" },
+              power: { type: "number" },
+              interaction: { type: "number" },
+              manabase: { type: "number" }
+            },
+            required: ["synergy", "consistency", "power", "interaction", "manabase"]
+          },
+          currentPowerLevel: { type: "number" },
+          projectedPowerLevel: { type: "number" },
+          issues: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                card: { type: "string" },
+                reason: { type: "string" },
+                severity: { type: "string", enum: ["low", "medium", "high"] },
+                category: { type: "string" }
+              },
+              required: ["card", "reason", "severity"]
+            }
+          },
+          strengths: TEXT_LIST,
+          strategy: TEXT_LIST,
+          manabase: TEXT_LIST,
+          additions: {
+            type: "array",
+            description: "Cards to add. Each name MUST appear verbatim in the CANDIDATE POOL.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Copied verbatim from the CANDIDATE POOL" },
+                reason: { type: "string" },
+                type: { type: "string" },
+                category: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                edhImpact: { type: "number" }
+              },
+              required: ["name", "reason", "priority"]
+            }
+          },
+          removals: {
+            type: "array",
+            description: "Cards to cut. Each name MUST appear verbatim in the DECK list.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Copied verbatim from the DECK list" },
+                reason: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                edhImpact: { type: "number" }
+              },
+              required: ["name", "reason", "priority"]
+            }
+          },
+          replacements: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                remove: { type: "string", description: "Verbatim from the DECK list" },
+                removeReason: { type: "string" },
+                add: { type: "string", description: "Verbatim from the CANDIDATE POOL" },
+                addBenefit: { type: "string" },
+                addType: { type: "string" },
+                synergy: { type: "string" },
+                category: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                edhImpact: { type: "number" }
+              },
+              required: ["remove", "removeReason", "add", "addBenefit", "priority"]
+            }
+          },
+          landRecommendations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["add", "remove"] },
+                name: {
+                  type: "string",
+                  description: "Verbatim from LAND CANDIDATES (add) or the DECK list (remove)"
+                },
+                reason: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                category: { type: "string" }
+              },
+              required: ["type", "name", "reason", "priority"]
+            }
+          }
+        },
+        required: ["summary", "categories", "issues", "strengths", "strategy", "manabase"]
+      }
+    }
+  }
+];
+async function callModel(prompt, apiKey, format) {
+  if (!apiKey) return { kind: "failed", reason: "LOVABLE_API_KEY is not configured" };
+  let response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are a Magic: The Gathering deck optimiser working from retrieved data.
+
+The user message contains a CANDIDATE POOL fetched from a card database. Every entry in it is a real card, legal in ${format}, and inside the deck's colour identity. Your job is to CHOOSE from that pool and justify the choice \u2014 not to recall card names from memory.
+
+Hard rules:
+1. Copy card names verbatim from the CANDIDATE POOL / LAND CANDIDATES (to add) or from the DECK list (to cut). A name from neither list is discarded before the user sees it.
+2. Never suggest adding a card the DECK list already contains.
+3. Justify each pick from the measured numbers supplied: role gaps, mana curve, shared tags, price.
+4. A card with no castability figure is unmeasured, not weak.
+5. Prefer cards the user already owns when they appear in the pool.`
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        tools: TOOLS,
+        tool_choice: { type: "function", function: { name: "deck_analysis" } }
+      })
+    });
+  } catch (e) {
+    return { kind: "failed", reason: `gateway unreachable: ${String(e).slice(0, 200)}` };
+  }
+  if (response.status === 429) return { kind: "rate_limit" };
+  if (response.status === 402) return { kind: "payment_required" };
+  if (!response.ok) {
+    console.error("AI Gateway error:", response.status, (await response.text()).slice(0, 500));
+    return { kind: "failed", reason: `gateway ${response.status}` };
+  }
+  const payload = await response.json();
+  const choice = payload.choices?.[0];
+  const finish = choice?.finish_reason ?? null;
+  const toolCalls = choice?.message?.tool_calls;
+  if (toolCalls?.length) {
+    try {
+      return { kind: "ok", analysis: JSON.parse(toolCalls[0].function.arguments) };
+    } catch (e) {
+      console.error("tool arguments unparseable, finish_reason =", finish, String(e).slice(0, 200));
+      return { kind: "failed", reason: `tool arguments unparseable (finish_reason=${finish})` };
+    }
+  }
+  const content = choice?.message?.content;
+  if (typeof content === "string" && content.trim()) {
+    try {
+      return { kind: "ok", analysis: parseJsonFallback(content) };
+    } catch {
+    }
+  }
+  console.error("no usable model output; finish_reason =", finish);
+  return { kind: "failed", reason: `no tool call (finish_reason=${finish ?? "unknown"})` };
+}
+function parseJsonFallback(text) {
+  const clean = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = clean.indexOf("{");
+  if (start === -1) throw new Error("No JSON found");
+  let depth = 0;
+  for (let i = start; i < clean.length; i++) {
+    if (clean[i] === "{") depth++;
+    else if (clean[i] === "}" && --depth === 0) return JSON.parse(clean.slice(start, i + 1));
+  }
+  throw new Error("Incomplete JSON");
+}
+function arr(v) {
+  return Array.isArray(v) ? v : [];
+}
+function str(v) {
+  return v === null || v === void 0 ? "" : String(v);
+}
+function num(v, fallback) {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+function clamp(n) {
+  return Math.min(100, Math.max(0, Math.round(Number.isFinite(n) ? n : 0)));
+}
+function priority(v) {
+  return ["high", "medium", "low"].includes(String(v)) ? String(v) : "medium";
+}
+function textOf(s) {
+  return { text: typeof s === "string" ? s : str(s?.text) };
+}

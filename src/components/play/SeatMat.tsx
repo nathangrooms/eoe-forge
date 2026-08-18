@@ -67,7 +67,7 @@ import { LifeBadge, type CommanderDamagePip, type LifeBadgeSize } from './LifeBa
 import { CardBack, LibraryStack } from './CardBack';
 import { CARD_RATIO, ZoneBlock, ZoneRow, fitBlockCardWidth, fitRowCardWidth } from './Battlefield';
 import { BOARD_ROWS, SUPPORT_BLOCK, splitIntoRows } from './boardRows';
-import { GameCardView, type Lunge } from './GameCardView';
+import { GameCardView, type CombatChipProps, type Lunge } from './GameCardView';
 import { useMeasuredSize } from './useMeasure';
 import type { LifeDelta } from './useTableMotion';
 import {
@@ -117,6 +117,17 @@ export interface SeatMatProps {
    */
   onTapCard?: (card: CardInstance) => void;
   onOpenZone?: (playerId: PlayerId, zone: Zone) => void;
+  /**
+   * What each permanent offers while combat is being declared: the sword or
+   * shield chip it carries, and whether it should be greyed out because this
+   * step is about it and it cannot take part.
+   *
+   * Every seat gets the same function, including the opponents' — an attacker
+   * swinging at you is on THEIR mat, and pressing it is how you put a blocker
+   * in front of it. `combatUi.ts` decides what a card offers; a card the stage
+   * is not about gets nothing back and the mat draws exactly as it did before.
+   */
+  combatFor?: (card: CardInstance) => { chip: CombatChipProps | null; dimmed: boolean } | null;
   /** Give this seat the whole viewport, read-only. */
   onFocusSeat?: (playerId: PlayerId) => void;
   attackerIds?: readonly string[];
@@ -229,6 +240,7 @@ export function SeatMat({
   onInspect,
   onTapCard,
   onOpenZone,
+  combatFor,
   onFocusSeat,
   attackerIds = [],
   blockerIds = [],
@@ -364,19 +376,31 @@ export function SeatMat({
      inspector's Tap button is the way — it is still there. */
   const tapChipFits = boardCardWidth >= 54;
 
-  const renderCard = (card: CardInstance, _index: number, renderWidth: number) => (
-    <GameCardView
-      card={card}
-      width={renderWidth}
-      entering
-      role={roleOf(card)}
-      lunge={lunges?.[card.instanceId] ?? null}
-      selected={inspectedId === card.instanceId}
-      onClick={onInspect ? () => onInspect(card) : undefined}
-      onTap={onTapCard && tapChipFits ? () => onTapCard(card) : undefined}
-      title={card.name}
-    />
-  );
+  const renderCard = (card: CardInstance, _index: number, renderWidth: number) => {
+    /* Combat, on the card. `combatFor` returns null for everything the current
+       step is not about, which is every card on the mat outside the declare
+       steps — so the board is unchanged until there is a decision to make. */
+    const combat = combatFor?.(card) ?? null;
+
+    return (
+      <GameCardView
+        card={card}
+        width={renderWidth}
+        entering
+        role={roleOf(card)}
+        lunge={lunges?.[card.instanceId] ?? null}
+        selected={inspectedId === card.instanceId}
+        /* A creature that cannot swing or cannot block is greyed out in exactly
+           the language the hand uses for a card you cannot cast. The hourglass
+           `GameCardView` already draws says WHY; this says "not this one". */
+        dimmed={combat?.dimmed ?? false}
+        onClick={onInspect ? () => onInspect(card) : undefined}
+        onTap={onTapCard && tapChipFits ? () => onTapCard(card) : undefined}
+        combat={renderWidth >= 44 ? combat?.chip ?? null : null}
+        title={card.name}
+      />
+    );
+  };
 
   const pileColumn = (
     <aside

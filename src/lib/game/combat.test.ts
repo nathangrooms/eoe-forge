@@ -179,8 +179,8 @@ test('vigilance keeps an attacker untapped', () => {
     { id: 'v', owner: 'p1', keywords: ['vigilance'] },
     { id: 'n', owner: 'p1' },
   ]);
-  assert.equal(tapsToAttack(state.cards.v), false);
-  assert.equal(tapsToAttack(state.cards.n), true);
+  assert.equal(tapsToAttack(state, state.cards.v), false);
+  assert.equal(tapsToAttack(state, state.cards.n), true);
 });
 
 test('flying can only be blocked by flying or reach', () => {
@@ -190,9 +190,9 @@ test('flying can only be blocked by flying or reach', () => {
     { id: 'bird', owner: 'p2', keywords: ['flying'] },
     { id: 'spider', owner: 'p2', keywords: ['reach'] },
   ]);
-  assert.equal(canBlock(state.cards.flier, state.cards.ground), false);
-  assert.equal(canBlock(state.cards.flier, state.cards.bird), true);
-  assert.equal(canBlock(state.cards.flier, state.cards.spider), true);
+  assert.equal(canBlock(state, state.cards.flier, state.cards.ground), false);
+  assert.equal(canBlock(state, state.cards.flier, state.cards.bird), true);
+  assert.equal(canBlock(state, state.cards.flier, state.cards.spider), true);
 });
 
 test('a tapped creature cannot block', () => {
@@ -200,7 +200,7 @@ test('a tapped creature cannot block', () => {
     { id: 'a', owner: 'p1' },
     { id: 'b', owner: 'p2', tapped: true },
   ]);
-  assert.equal(canBlock(state.cards.a, state.cards.b), false);
+  assert.equal(canBlock(state, state.cards.a, state.cards.b), false);
 });
 
 test('menace needs two blockers, and one is rejected with a reason', () => {
@@ -209,13 +209,13 @@ test('menace needs two blockers, and one is rejected with a reason', () => {
     { id: 'x', owner: 'p2' },
     { id: 'y', owner: 'p2' },
   ]);
-  assert.equal(blockersRequiredFor(state.cards.menacer), 2);
+  assert.equal(blockersRequiredFor(state, state.cards.menacer), 2);
 
-  const single = validateBlockGroup(state.cards.menacer, [state.cards.x]);
+  const single = validateBlockGroup(state, state.cards.menacer, [state.cards.x]);
   assert.equal(single.ok, false);
   assert.match(single.reason, /menace/);
 
-  const pair = validateBlockGroup(state.cards.menacer, [state.cards.x, state.cards.y]);
+  const pair = validateBlockGroup(state, state.cards.menacer, [state.cards.x, state.cards.y]);
   assert.equal(pair.ok, true);
 });
 
@@ -225,9 +225,9 @@ test('protection from red stops a red creature blocking', () => {
     { id: 'goblin', owner: 'p2', colorIdentity: ['R'] },
     { id: 'bear', owner: 'p2', colorIdentity: ['G'] },
   ]);
-  assert.equal(canBlock(state.cards.knight, state.cards.goblin), false);
-  assert.equal(canBlock(state.cards.knight, state.cards.bear), true);
-  assert.match(validateBlockGroup(state.cards.knight, [state.cards.goblin]).reason, /protection/);
+  assert.equal(canBlock(state, state.cards.knight, state.cards.goblin), false);
+  assert.equal(canBlock(state, state.cards.knight, state.cards.bear), true);
+  assert.match(validateBlockGroup(state, state.cards.knight, [state.cards.goblin]).reason, /protection/);
 });
 
 /* ------------------------------------------------------------------ *

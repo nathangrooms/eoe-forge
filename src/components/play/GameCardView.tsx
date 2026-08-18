@@ -19,14 +19,15 @@
 
 import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RotateCcw, RotateCw, Hourglass, Zap } from 'lucide-react';
+import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
-import { powerOf, toughnessOf, statLine, isLand, isCreature, hasKeyword } from '@/lib/game';
+import { statLine, statLineIn, isLand, isCreature, hasKeyword } from '@/lib/game';
 import type { CardInstance } from '@/lib/game';
+import { useGameState } from './GameStateContext';
 
 export type GameCardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -52,6 +53,32 @@ export interface Lunge {
   x: number;
   y: number;
 }
+
+/**
+ * The combat control drawn on a permanent.
+ *
+ * `kind` comes straight from `combatUi.ts` and picks the glyph and the fill;
+ * `label` is the reason, and it is required, because the one state this chip
+ * has that the tap chip does not is *inert* — an attacker you cannot block yet
+ * — and an inert control that will not say why is the thing being complained
+ * about, not the fix for it.
+ */
+export interface CombatChipProps {
+  kind: 'attack' | 'attacking' | 'block' | 'armed' | 'blocking' | 'target';
+  enabled: boolean;
+  label: string;
+  onClick: () => void;
+}
+
+/** Glyph per chip kind. Swords for offence, shields for defence. */
+const COMBAT_CHIP_ICON = {
+  attack: Swords,
+  attacking: Swords,
+  block: Shield,
+  armed: ShieldPlus,
+  blocking: Shield,
+  target: Swords,
+} as const;
 
 export interface GameCardViewProps {
   card: CardInstance;
@@ -91,6 +118,23 @@ export interface GameCardViewProps {
    * complained about.
    */
   onTap?: () => void;
+  /**
+   * The combat control this permanent carries, on the card.
+   *
+   * Owner: *"attack button should be a sword icon or something too"*, and
+   * *"no way to attack with it and block stages"*.
+   *
+   * So attacking is a sword ON the creature, in the mirror position to the tap
+   * chip — same shape, same sizing rule, opposite edge — because a player who
+   * has learnt one control has learnt both. Pressing it declares or recalls the
+   * attack and opens nothing, exactly as the tap chip taps and opens nothing;
+   * clicking the card's art still opens the preview, so the owner's *"click and
+   * preview your card, then select a button action or close"* survives intact.
+   * The chip is the shortcut for the card you are NOT reading.
+   *
+   * `combatUi.ts` decides which chip a card carries and whether it is live.
+   */
+  combat?: CombatChipProps | null;
   /** Combat standing. Shown with elevation and a label, never an outline. */
   role?: 'attacker' | 'blocker' | 'target' | null;
   /** Push toward the defending seat while attacking. */
@@ -107,8 +151,15 @@ export interface GameCardViewProps {
 }
 
 /** A card with no art: still a card, not a placeholder. */
-function TypographicFace({ card, size }: { card: CardInstance; size: GameCardSize }) {
-  const stats = statLine(card);
+function TypographicFace({
+  card,
+  size,
+  stats,
+}: {
+  card: CardInstance;
+  size: GameCardSize;
+  stats: string | null;
+}) {
   const compact = size === 'xs' || size === 'sm';
 
   return (
@@ -145,6 +196,7 @@ export const GameCardView = memo(function GameCardView({
   selected,
   dimmed,
   onTap,
+  combat,
   role,
   lunge,
   onClick,
@@ -165,6 +217,12 @@ export const GameCardView = memo(function GameCardView({
      never so large on a full-size card that it stops being a control on the
      art and starts being a badge over it. */
   const chip = Math.min(34, Math.max(20, Math.round(renderedWidth * 0.24)));
+
+  /* The sword rides a little larger than the tap chip. Same proportional rule,
+     a bigger fraction: on a board of eight creatures the one question a player
+     is asking is "which of these can swing", and the answer has to be legible
+     from across the table rather than found by hovering. */
+  const swordChip = Math.min(42, Math.max(24, Math.round(renderedWidth * 0.3)));
 
   /* Summoning sickness, told truthfully.
      `summoningSick` is set on every permanent that enters, but it only RESTRAINS
@@ -188,8 +246,31 @@ export const GameCardView = memo(function GameCardView({
     onTap?.();
   };
 
+  const handleCombat = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (combat?.enabled) combat.onClick();
+  };
+
+  const CombatIcon = combat ? COMBAT_CHIP_ICON[combat.kind] : null;
+  /* Armed and already-declared read as filled; the two "you could" states read
+     as available; an inert chip is a whisper that still says why on hover. */
+  const combatFilled =
+    combat?.kind === 'attacking' || combat?.kind === 'armed' || combat?.kind === 'blocking';
+
   const counters = Object.entries(card.counters).filter(([, value]) => value !== 0);
   const damage = card.damage;
+
+  /*
+   * The stat line comes from the layer engine, not from the card.
+   *
+   * `statLineIn` is memoised on state identity, so every card on the board
+   * shares one `computeLayers` run per state and this is a `WeakMap` lookup.
+   * Outside a game (a deck-list row, a search result) there is no state and it
+   * falls back to the printed value, which is the right answer there.
+   */
+  const gameState = useGameState();
+  const stats = gameState ? statLineIn(gameState, card) : statLine(card);
 
   const lift = role === 'attacker' ? -10 : role === 'blocker' ? -5 : selected ? -6 : 0;
 
@@ -275,7 +356,7 @@ export const GameCardView = memo(function GameCardView({
             )}
             style={{ aspectRatio: '488 / 680', borderRadius: CARD_RADIUS }}
           >
-            <TypographicFace card={card} size={size} />
+            <TypographicFace card={card} size={size} stats={stats} />
           </div>
         )}
 
@@ -352,6 +433,56 @@ export const GameCardView = memo(function GameCardView({
           <TapIcon style={{ width: chip * 0.52, height: chip * 0.52 }} strokeWidth={2.5} />
         </button>
       )}
+
+      {/*
+        The sword. Owner: *"attack button should be a sword icon or something
+        too"*.
+
+        Mirror of the tap chip — same vertical centre, opposite edge — so the
+        two controls a permanent carries are the two ends of the same card and
+        can never overlap however narrow the board gets. Slightly larger than
+        the tap chip on purpose: declaring an attack is the loudest thing a
+        creature does, and the owner's complaint was that it read as a text
+        button in a step list rather than as attacking.
+
+        An inert chip (an attacker you have not armed a blocker for yet) is
+        drawn quiet rather than hidden. Hiding it would leave a player facing an
+        incoming attack with nothing on screen to press, which is the reported
+        bug — *"no way to attack with it and block stages"* — in the other
+        direction.
+      */}
+      {combat && CombatIcon && (
+        <button
+          type="button"
+          onClick={handleCombat}
+          onDoubleClick={event => event.stopPropagation()}
+          disabled={!combat.enabled}
+          title={combat.label}
+          aria-label={combat.label}
+          aria-pressed={combatFilled}
+          className={cn(
+            'absolute z-20 flex items-center justify-center rounded-full shadow-md shadow-black/60 backdrop-blur-sm transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            !combat.enabled
+              ? 'cursor-not-allowed bg-background/45 text-muted-foreground'
+              : combatFilled
+                ? 'bg-foreground text-background hover:bg-foreground/85'
+                : 'bg-background/85 text-foreground hover:bg-foreground hover:text-background'
+          )}
+          style={{
+            right: -Math.round(swordChip * 0.32),
+            top: Math.round((cardHeight - swordChip) / 2),
+            width: swordChip,
+            height: swordChip,
+          }}
+        >
+          <CombatIcon
+            style={{ width: swordChip * 0.54, height: swordChip * 0.54 }}
+            strokeWidth={2.5}
+          />
+        </button>
+      )}
+
       {(counters.length > 0 || damage > 0) && (
         <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 z-10 flex flex-wrap justify-center gap-0.5">
           {counters.map(([key, value]) => (
@@ -422,7 +553,7 @@ export const GameCardView = memo(function GameCardView({
               : 'bg-background/90 text-foreground backdrop-blur-sm'
           )}
         >
-          {powerOf(card)}/{toughnessOf(card)}
+          {stats ?? '—'}
         </span>
       )}
     </div>

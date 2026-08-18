@@ -20,6 +20,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  publishLiveSession,
+  withdrawLiveSession,
+  type LiveSession,
+} from '@/components/play/liveSession';
+import {
   applyAction,
   createLocalTransport,
   nextBotMove,
@@ -191,6 +196,27 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
         .catch(error => console.error('[play] broadcast failed', error));
     }
   }, []);
+
+  /*
+   * Publish the channel the board declares combat down.
+   *
+   * Combat is direct manipulation of a permanent — press the sword on the
+   * creature and it swings — so `SeatMat`, several levels below `/play`, needs
+   * a dispatcher. `src/pages/Play.tsx` belongs to another workstream, so a new
+   * prop cannot be threaded through it; `liveSession.ts` explains the trade and
+   * the guards in full. `dispatch` is a `useCallback` with no dependencies, so
+   * this publishes once per table rather than on every render.
+   */
+  useEffect(() => {
+    if (!table) return;
+    const session: LiveSession = {
+      tableId: table.state.id,
+      seatId: humanPlayerId,
+      dispatch,
+    };
+    publishLiveSession(session);
+    return () => withdrawLiveSession(session);
+  }, [table, humanPlayerId, dispatch]);
 
   const undo = useCallback(() => {
     const history = historyRef.current;

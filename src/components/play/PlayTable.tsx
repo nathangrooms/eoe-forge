@@ -17,18 +17,46 @@
  * mode and view mode exist as props rather than as separate screens: pass a
  * `focusPlayerId` and that seat takes the entire board. They cannot drift apart
  * because they are the same code.
+ *
+ * ---------------------------------------------------------------------------
+ * Combat happens HERE
+ * ---------------------------------------------------------------------------
+ * Owner: *"this game engine does not support attacking very well, its an
+ * absolute mess and moves onto different screens, attack button should be a
+ * sword icon or something too"*.
+ *
+ * It used to move onto a screen of its own: a lane diagram with its own header
+ * and its own tray of cards, drawn *instead of* this table. Declaring an attack
+ * therefore meant losing sight of the board you had spent the turn building.
+ *
+ * Attackers and blockers are now declared on this component, with the real
+ * cards in their real positions on their real mats. Pressing the sword on a
+ * creature sends it in; pressing the shield on one of yours and then the
+ * attacker it faces puts it in the way. `combatUi.ts` decides what each card
+ * offers and why, `CombatBar` carries the two things that belong to no single
+ * card (who you are hitting, and "that is my declaration"), and `combat.ts`
+ * resolves every point of damage. The board never changes into anything else.
  */
 
-import { useMemo, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { SeatMat } from './SeatMat';
 import { Playmat } from './Playmat';
-import type { Lunge } from './GameCardView';
+import { GameStateProvider } from './GameStateContext';
+import { CombatBar } from './CombatBar';
+import { useLiveSession } from './liveSession';
+import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
+import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
 import {
   layoutFromViewpoint,
+  livingPlayers,
+  resolveCombat,
   seatingFor,
+  tapsToAttack,
+  validateBlockGroup,
   type CardInstance,
+  type GameAction,
   type GameState,
   type PlayerId,
   type Seat,
@@ -148,7 +176,259 @@ export function PlayTable({
     ? state.players.find(p => p.id === focusPlayerId) ?? null
     : null;
 
+  /* ---------------------------------------------------------------------- */
+  /* Combat, declared on this board                                         */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * Combat is the one thing on the table that the page does not hand down as a
+   * prop, and it is deliberate: the gesture is a press on a CARD, and the card
+   * is drawn four levels below `/play`. `liveSession.ts` carries the dispatcher
+   * sideways and explains the trade in full. Outside a game this seat is
+   * playing — `/simulate`'s auto-game, an opponent's quadrant — it is `null`,
+   * every chip disappears, and the board is exactly what it was.
+   */
+  const session = useLiveSession(state.id, viewerPlayerId);
+  const dispatch = session?.dispatch ?? null;
+  const stage = combatStageFor(state, viewerPlayerId);
+
+  /** The blocker picked up and not yet put in front of anything. UI only. */
+  const [armedBlockerId, setArmedBlockerId] = useState<string | null>(null);
+  /** Which opponent the next declared attacker is pointed at. UI only. */
+  const [targetId, setTargetId] = useState<PlayerId | null>(null);
+
+  const opponents = useMemo(
+    () => livingPlayers(state).filter(player => player.id !== viewerPlayerId),
+    [state, viewerPlayerId]
+  );
+
+  // A held blocker belongs to one declare-blockers step and nothing else.
+  useEffect(() => {
+    setArmedBlockerId(null);
+  }, [state.step, state.turn]);
+
+  // Keep the chosen defender real: a player who dies mid-combat is not a target.
+  useEffect(() => {
+    setTargetId(previous =>
+      previous && opponents.some(player => player.id === previous)
+        ? previous
+        : opponents[0]?.id ?? null
+    );
+  }, [opponents]);
+
+  /** Everything already swinging, as `ATTACK` wants it. */
+  const declared = useMemo(
+    () =>
+      state.combat.attackers
+        .filter(d => !!d.defenderPlayerId && !!state.cards[d.attackerId])
+        .map(d => ({
+          attackerId: d.attackerId,
+          defenderPlayerId: d.defenderPlayerId as PlayerId,
+        })),
+    [state.combat.attackers, state.cards]
+  );
+
+  /* `ATTACK` replaces the whole declaration rather than appending to it, so
+     every change to the swing re-sends all of it. Re-tapping something already
+     tapped is a no-op in the reducer, which is what makes that safe. */
+  const attackAction = useCallback(
+    (entries: Array<{ attackerId: string; defenderPlayerId: PlayerId }>): GameAction => ({
+      type: 'ATTACK',
+      at: Date.now(),
+      attackers: entries.map(entry => {
+        const card = state.cards[entry.attackerId];
+        return { ...entry, tap: card ? tapsToAttack(state, card) : true };
+      }),
+    }),
+    [state]
+  );
+
+  const declareAttacker = useCallback(
+    (card: CardInstance) => {
+      if (!dispatch) return;
+      const defenderPlayerId = targetId ?? opponents[0]?.id;
+      if (!defenderPlayerId) return;
+      dispatch(
+        attackAction([
+          ...declared.filter(entry => entry.attackerId !== card.instanceId),
+          { attackerId: card.instanceId, defenderPlayerId },
+        ])
+      );
+    },
+    [dispatch, targetId, opponents, declared, attackAction]
+  );
+
+  const recallAttacker = useCallback(
+    (card: CardInstance) => {
+      if (!dispatch) return;
+      const actions: GameAction[] = [
+        attackAction(declared.filter(entry => entry.attackerId !== card.instanceId)),
+      ];
+      /* Declaring an attack taps; nothing untaps it on the way back out, and a
+         tapped creature is not an eligible attacker. Without this, calling a
+         creature back stranded it — tapped, out of the swing, and unable to be
+         sent in again for the rest of the combat. */
+      if (card.tapped && tapsToAttack(state, card)) {
+        actions.push({ type: 'UNTAP', instanceId: card.instanceId });
+      }
+      dispatch(actions);
+    },
+    [dispatch, declared, attackAction, state]
+  );
+
+  const armBlocker = useCallback((card: CardInstance) => {
+    setArmedBlockerId(previous => (previous === card.instanceId ? null : card.instanceId));
+  }, []);
+
+  const assignBlock = useCallback(
+    (attacker: CardInstance) => {
+      if (!dispatch || !armedBlockerId) return;
+      dispatch({
+        type: 'BLOCK',
+        blocks: [{ blockerId: armedBlockerId, attackerId: attacker.instanceId }],
+      });
+      setArmedBlockerId(null);
+    },
+    [dispatch, armedBlockerId]
+  );
+
+  const releaseBlocker = useCallback(
+    (card: CardInstance) => {
+      if (!dispatch) return;
+      dispatch({ type: 'UNBLOCK', blockerId: card.instanceId });
+    },
+    [dispatch]
+  );
+
+  /**
+   * What one card offers right now, and what pressing it does.
+   *
+   * `combatUi.ts` answers the first half (and is unit-tested on it); this
+   * attaches the verb. Handed to every seat, including the opponents', because
+   * the creature swinging at you is on THEIR mat and pressing it is how a
+   * blocker gets put in its way.
+   */
+  const combatFor = useCallback(
+    (card: CardInstance): { chip: CombatChipProps | null; dimmed: boolean } | null => {
+      if (!stage || !dispatch) return null;
+
+      const info = cardCombatFor(state, viewerPlayerId, card, stage, { armedBlockerId });
+      if (!info.chip) return info.dimmed ? { chip: null, dimmed: true } : null;
+
+      const kind = info.chip;
+      const onClick = () => {
+        switch (kind) {
+          case 'attack':
+            return declareAttacker(card);
+          case 'attacking':
+            return recallAttacker(card);
+          case 'block':
+          case 'armed':
+            return armBlocker(card);
+          case 'blocking':
+            return releaseBlocker(card);
+          case 'target':
+            return assignBlock(card);
+        }
+      };
+
+      return {
+        chip: { kind, enabled: info.enabled, label: info.label, onClick },
+        dimmed: info.dimmed,
+      };
+    },
+    [
+      stage,
+      dispatch,
+      state,
+      viewerPlayerId,
+      armedBlockerId,
+      declareAttacker,
+      recallAttacker,
+      armBlocker,
+      releaseBlocker,
+      assignBlock,
+    ]
+  );
+
+  /*
+   * The numbers on the bar, computed by the engine rather than by the view.
+   *
+   * `resolveCombat` is the same pure function the combat damage step calls, so
+   * this is a projection of what will happen, not a second opinion about it —
+   * trample spill, deathtouch and first strike included, for free.
+   */
+  const swing = useMemo(() => {
+    if (!stage) return { damage: 0, lethal: false };
+    const outcome = resolveCombat(state);
+    const attacking = stage === 'attackers';
+    const relevant = outcome.playerDamage.filter(entry =>
+      attacking ? entry.playerId !== viewerPlayerId : entry.playerId === viewerPlayerId
+    );
+    const damage = relevant.reduce((sum, entry) => sum + entry.amount, 0);
+    const lethal = relevant.some(entry => {
+      const player = state.players.find(p => p.id === entry.playerId);
+      return !!player && entry.amount > 0 && entry.amount >= player.life;
+    });
+    return { damage, lethal };
+  }, [state, stage, viewerPlayerId]);
+
+  /** Blockers this seat has put in the way, counted across every lane. */
+  const blockCount = useMemo(
+    () =>
+      state.combat.attackers.reduce(
+        (sum, declaration) =>
+          declaration.defenderPlayerId === viewerPlayerId
+            ? sum + declaration.blockedBy.length
+            : sum,
+        0
+      ),
+    [state.combat.attackers, viewerPlayerId]
+  );
+
+  /*
+   * Menace is a property of the whole block, so it cannot be enforced as each
+   * blocker is assigned — one creature in front of a menacing attacker is an
+   * illegal block that becomes legal the moment a second joins it. So the
+   * assignment is allowed and the CONFIRM is what refuses, with the reason the
+   * engine gives, which is also where a real table would catch it.
+   */
+  const blockIssue = useMemo(() => {
+    if (stage !== 'blockers') return '';
+    for (const declaration of state.combat.attackers) {
+      if (declaration.blockedBy.length === 0) continue;
+      const legality = validateBlockGroup(
+        state,
+        state.cards[declaration.attackerId],
+        declaration.blockedBy.map(id => state.cards[id])
+      );
+      if (!legality.ok) return legality.reason;
+    }
+    return '';
+  }, [state, stage]);
+
+  const confirmCombat = useCallback(() => {
+    if (!dispatch) return;
+    setArmedBlockerId(null);
+    dispatch({ type: 'ADVANCE_STEP', at: Date.now() });
+  }, [dispatch]);
+
+  const armedCard = armedBlockerId ? state.cards[armedBlockerId] ?? null : null;
+  const combatHint =
+    stage === 'attackers'
+      ? declared.length > 0
+        ? 'Press another sword to add it to the swing, or attack.'
+        : 'Press the sword on a creature to send it in. Greyed-out creatures cannot attack.'
+      : armedCard
+        ? `${armedCard.name} is ready — now press the attacker it stands in front of.`
+        : 'Press the shield on one of your creatures, then the attacker it blocks.';
+
   return (
+    /* Publishes the live state so every `GameCardView` below draws its stat line
+       from the layer engine rather than from printed values. The value is the
+       state object itself, so it changes identity exactly when the board does
+       and the layer computation downstream is memoised on it. */
+    <GameStateProvider state={state}>
     <div className={cn('relative w-full overflow-hidden', className)}>
       {/* The table itself, under every mat. Full bleed: a game board does not
           have a corner radius, and the viewport edge is the edge of the table. */}
@@ -169,6 +449,7 @@ export function PlayTable({
               onInspect={onInspect}
               onTapCard={focused.id === viewerPlayerId ? onTapCard : undefined}
               onOpenZone={onOpenZone}
+              combatFor={combatFor}
               attackerIds={attackerIds}
               blockerIds={blockerIds}
               inspectedId={inspectedId}
@@ -203,6 +484,7 @@ export function PlayTable({
                   onInspect={onInspect}
                   onTapCard={isViewer ? onTapCard : undefined}
                   onOpenZone={onOpenZone}
+                  combatFor={combatFor}
                   onFocusSeat={isViewer ? undefined : onFocusSeat}
                   attackerIds={attackerIds}
                   blockerIds={blockerIds}
@@ -216,8 +498,38 @@ export function PlayTable({
             );
           })
         )}
+
+        {/*
+          Combat's only piece of furniture, and it is a strip rather than a
+          screen.
+
+          It hangs from the top edge of the board, immediately under the HUD,
+          which is the one band of the table that belongs to no creature row:
+          every mat now puts creatures at its top and lands at its foot, so the
+          strip crosses the far seat's identity strip and nothing else. The
+          player's own board — the one they are declaring from — is untouched
+          and fully visible underneath it.
+        */}
+        {stage && dispatch && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex justify-center px-2 pt-1">
+            <CombatBar
+              stage={stage}
+              sentence={combatSentence(state, viewerPlayerId)}
+              hint={combatHint}
+              damage={swing.damage}
+              lethal={swing.lethal}
+              count={stage === 'attackers' ? declared.length : blockCount}
+              targets={opponents}
+              targetId={targetId}
+              onTarget={setTargetId}
+              onConfirm={confirmCombat}
+              blockedReason={blockIssue}
+            />
+          </div>
+        )}
       </div>
     </div>
+    </GameStateProvider>
   );
 }
 

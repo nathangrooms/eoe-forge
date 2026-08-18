@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,10 +7,27 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Printer, Download, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { Printer, Download, FileText, Loader2, CheckCircle, Info } from 'lucide-react';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
-import { supabase } from '@/integrations/supabase/client';
 import { CardImage } from '@/components/cards/CardImage';
+import { ProxySheet } from './ProxySheet';
+import {
+  CARD_H_MM,
+  CARD_W_MM,
+  PAPER,
+  PRINT_DIALOG_HINT,
+  PROXY_PER_PAGE,
+  PROXY_QUALITY,
+  buildProxySlots,
+  hydrateProxyPrintings,
+  isolateForPrint,
+  mergePrinting,
+  proxyDpi,
+  sheetMargins,
+  type HydrateResult,
+  type PaperSize,
+  type ProxyQuality,
+} from './proxy-print';
 
 interface DeckProxyGeneratorProps {
   deckCards: any[];
@@ -18,40 +35,34 @@ interface DeckProxyGeneratorProps {
   commander?: any;
 }
 
-// Load jsPDF from CDN
-const loadJsPDF = (): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded
-    if ((window as any).jspdf) {
-      resolve((window as any).jspdf.jsPDF);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    script.async = true;
-    script.onload = () => {
-      if ((window as any).jspdf) {
-        resolve((window as any).jspdf.jsPDF);
-      } else {
-        reject(new Error('jsPDF failed to initialize'));
-      }
-    };
-    script.onerror = () => reject(new Error('Failed to load jsPDF library'));
-    document.head.appendChild(script);
-  });
-};
-
+/**
+ * Printable proxies.
+ *
+ * This used to emit a PDF of *text boxes* — `drawTextCard` drew a name, a type
+ * line and wrapped oracle text with jsPDF vector calls, and no card image was
+ * ever placed on a page. The `quality` control was wired to nothing, because
+ * there was no image whose resolution it could pick. Proxies exist to be cut out
+ * and played with, so the art is the entire point; the text renderer survives
+ * only as the fallback for a printing that genuinely has no image.
+ *
+ * The printable artefact is the DOM sheet in `ProxySheet`, driven by the mm
+ * geometry in `proxy-print.ts`. The PDF export draws the same images at the same
+ * millimetre positions, so the two outputs cannot disagree about card size.
+ */
 export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxyGeneratorProps) {
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
-  const [paperSize, setPaperSize] = useState('a4');
-  const [quality, setQuality] = useState('high');
-  const [showOnlyOwned, setShowOnlyOwned] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [paperSize, setPaperSize] = useState<PaperSize>('a4');
+  const [quality, setQuality] = useState<ProxyQuality>('large');
+  const [cutGuides, setCutGuides] = useState(true);
+  const [busy, setBusy] = useState<null | 'print' | 'pdf'>(null);
   const [progress, setProgress] = useState(0);
+  const [hydrating, setHydrating] = useState(true);
+  const [printings, setPrintings] = useState<HydrateResult | null>(null);
+
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   // Combine commander with deck cards for full list
-  const allCards = React.useMemo(() => {
+  const baseCards = useMemo(() => {
     const cards = [...deckCards];
     if (commander && !cards.some(c => c.name === commander.name)) {
       cards.unshift({ ...commander, quantity: 1, isCommander: true });
@@ -59,10 +70,54 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     return cards;
   }, [deckCards, commander]);
 
+  /**
+   * Deck cards are re-read from the `cards` table before anything is printed.
+   *
+   * The deck store drops `card_faces` when it maps a Scryfall payload and keeps
+   * only `{small,normal,large,art_crop}` of `image_uris`, so a deck card can
+   * offer neither a print-resolution front nor a back face. Worse, it writes
+   * `image_uris: apiCard.image_uris || {}` and Scryfall puts no top-level images
+   * on a transform card, so every DFC in a deck arrives here with no image at
+   * all. `hydrateProxyPrintings` fetches the real printing row for each id.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    if (baseCards.length === 0) {
+      setPrintings(null);
+      setHydrating(false);
+      return;
+    }
+    setHydrating(true);
+    hydrateProxyPrintings(baseCards)
+      .then(result => {
+        if (!cancelled) setPrintings(result);
+      })
+      .catch(error => {
+        console.error('Proxy printing lookup failed:', error);
+        if (!cancelled) {
+          // Not fatal: whatever art the deck card already carries still prints.
+          showError('Could not load full-resolution art', 'Printing from the deck data instead.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHydrating(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [baseCards]);
+
+  const allCards = useMemo(
+    () => (printings ? baseCards.map(card => mergePrinting(card, printings)) : baseCards),
+    [baseCards, printings]
+  );
+
+  const getCardId = useCallback((card: any) => card.id || card.name, []);
+
   // Initialize selected cards when deck cards change
   useEffect(() => {
-    setSelectedCards(new Set(allCards.map(c => c.id || c.name)));
-  }, [allCards]);
+    setSelectedCards(new Set(baseCards.map(c => c.id || c.name)));
+  }, [baseCards]);
 
   const toggleCard = (cardId: string) => {
     const newSelected = new Set(selectedCards);
@@ -74,15 +129,8 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     setSelectedCards(newSelected);
   };
 
-  const selectAll = () => {
-    setSelectedCards(new Set(allCards.map(c => c.id || c.name)));
-  };
-
-  const clearAll = () => {
-    setSelectedCards(new Set());
-  };
-
-  const getCardId = (card: any) => card.id || card.name;
+  const selectAll = () => setSelectedCards(new Set(allCards.map(c => c.id || c.name)));
+  const clearAll = () => setSelectedCards(new Set());
 
   /**
    * Thumbnails in the selection list are drawn by the shared `CardImage`, which
@@ -92,9 +140,6 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
    * Scryfall named-card endpoint for a card carrying no image data at all.
    * `getBestCardImage` only reaches `image_url` after exhausting every real
    * printing image, so this never overrides a proper asset.
-   *
-   * Note the generated PDF does not use these: `drawTextCard` renders every
-   * proxy as vector text, so there is no print-resolution <img> in this file.
    */
   const withThumbnailFallback = (card: any) => ({
     ...card,
@@ -104,229 +149,200 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
       `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&format=image&version=small`,
   });
 
-  // Parse mana cost string to individual symbols
-  const parseManaSymbols = (manaCost: string): string[] => {
-    if (!manaCost) return [];
-    const matches = manaCost.match(/\{[^}]+\}/g);
-    return matches || [];
-  };
+  const selectedList = useMemo(
+    () => allCards.filter(c => selectedCards.has(getCardId(c))),
+    [allCards, selectedCards, getCardId]
+  );
 
-  // Draw a text-based proxy card with all card information
-  const drawTextCard = (doc: any, x: number, y: number, width: number, height: number, card: any, isCommander: boolean = false) => {
-    const padding = 0.08;
-    const lineHeight = 0.14;
-    
-    // Card border
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.02);
-    doc.rect(x, y, width, height);
-    
-    // Inner border for aesthetics
-    doc.setLineWidth(0.01);
-    doc.rect(x + 0.04, y + 0.04, width - 0.08, height - 0.08);
-    
-    let currentY = y + padding + 0.12;
-    
-    // === TITLE BAR ===
-    doc.setFillColor(230, 230, 230);
-    doc.rect(x + padding, y + padding, width - (padding * 2), 0.25, 'F');
-    
-    // Card name (left aligned, bold)
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0);
-    const cardName = card.name || 'Unknown';
-    const maxNameWidth = width - 0.9; // Leave space for mana cost
-    doc.text(cardName, x + padding + 0.04, currentY, { maxWidth: maxNameWidth });
-    
-    // Mana cost (right aligned)
-    const manaCost = card.mana_cost || card.manaCost || '';
-    if (manaCost) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      // Convert {W}{U}{B} to W U B for readability
-      const manaText = manaCost.replace(/\{/g, '').replace(/\}/g, ' ').trim();
-      const manaWidth = doc.getTextWidth(manaText);
-      doc.text(manaText, x + width - padding - 0.04 - manaWidth, currentY);
-    }
-    
-    currentY = y + padding + 0.32;
-    
-    // === TYPE LINE ===
-    doc.setFillColor(220, 220, 220);
-    doc.rect(x + padding, currentY - 0.08, width - (padding * 2), 0.2, 'F');
-    
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    const typeLine = card.type_line || card.typeLine || 'Unknown Type';
-    doc.text(typeLine, x + padding + 0.04, currentY + 0.04, { maxWidth: width - (padding * 2) - 0.08 });
-    
-    currentY += 0.2;
-    
-    // === ORACLE TEXT BOX ===
-    const textBoxHeight = height - 1.1; // Leave room for P/T and bottom
-    doc.setDrawColor(180);
-    doc.setLineWidth(0.005);
-    doc.rect(x + padding, currentY, width - (padding * 2), textBoxHeight);
-    
-    // Oracle text
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0);
-    const oracleText = card.oracle_text || card.oracleText || '';
-    
-    if (oracleText) {
-      const textLines = doc.splitTextToSize(oracleText, width - (padding * 2) - 0.1);
-      const maxLines = Math.floor(textBoxHeight / 0.11) - 1;
-      const displayLines = textLines.slice(0, maxLines);
-      
-      let textY = currentY + 0.12;
-      displayLines.forEach((line: string) => {
-        doc.text(line, x + padding + 0.05, textY);
-        textY += 0.11;
-      });
-    }
-    
-    currentY += textBoxHeight + 0.05;
-    
-    // === BOTTOM BAR ===
-    doc.setFillColor(230, 230, 230);
-    doc.rect(x + padding, currentY, width - (padding * 2), 0.22, 'F');
-    
-    // Set/Rarity info (left side)
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'normal');
-    const setCode = (card.set || card.set_code || '???').toUpperCase();
-    const rarity = (card.rarity || 'C')[0].toUpperCase();
-    doc.text(`${setCode} · ${rarity}`, x + padding + 0.04, currentY + 0.14);
-    
-    // Power/Toughness or Loyalty (right side)
-    const power = card.power;
-    const toughness = card.toughness;
-    const loyalty = card.loyalty;
-    
-    if (power !== undefined && toughness !== undefined) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      const ptText = `${power}/${toughness}`;
-      const ptWidth = doc.getTextWidth(ptText);
-      doc.text(ptText, x + width - padding - 0.04 - ptWidth, currentY + 0.16);
-    } else if (loyalty) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      const loyaltyText = `◆${loyalty}`;
-      const loyaltyWidth = doc.getTextWidth(loyaltyText);
-      doc.text(loyaltyText, x + width - padding - 0.04 - loyaltyWidth, currentY + 0.16);
-    }
-    
-    // Commander badge
-    if (isCommander) {
-      doc.setFillColor(100, 50, 150);
-      doc.rect(x + width - 0.45, y + 0.06, 0.4, 0.15, 'F');
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255);
-      doc.text('CMD', x + width - 0.38, y + 0.16);
-      doc.setTextColor(0);
-    }
-    
-    // CMC indicator in corner
-    const cmc = card.cmc ?? card.convertedManaCost ?? '';
-    if (cmc !== '' && cmc !== undefined) {
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      doc.text(`CMC: ${cmc}`, x + padding + 0.04, y + height - 0.06);
-      doc.setTextColor(0);
-    }
-  };
+  /**
+   * The slots are the source of truth for every count shown.
+   *
+   * `sum(quantity)` is not the number of cards you print: a transform or MDFC
+   * card occupies two slots because paper does not flip. The old UI derived its
+   * page count from `sum(quantity)` and so under-reported on any deck holding
+   * double-faced cards.
+   */
+  const slots = useMemo(() => buildProxySlots(selectedList, quality), [selectedList, quality]);
+  const totalPages = Math.ceil(slots.length / PROXY_PER_PAGE);
+  const extraFaces = slots.filter(s => s.faceLabel === 'Back').length;
+  const missingArt = slots.filter(s => !s.imageUrl).length;
 
-  const generateProxies = async () => {
-    if (selectedCards.size === 0) {
+  const imageUrls = useMemo(
+    () => Array.from(new Set(slots.map(s => s.imageUrl).filter((u): u is string => Boolean(u)))),
+    [slots]
+  );
+
+  /**
+   * Decode every image before handing the page to the printer.
+   *
+   * `loading="eager"` starts the fetches but guarantees nothing about when they
+   * finish, and the print rasteriser does not wait. On a 12-page sheet almost
+   * every card is off-screen, so without this the likely outcome is a stack of
+   * paper with blank slots — discovered only after the ink is spent. Concurrency
+   * is capped so a 100-card deck does not open 100 sockets at once.
+   */
+  const preloadImages = useCallback(async (urls: string[]) => {
+    let done = 0;
+    const queue = [...urls];
+    const worker = async () => {
+      for (;;) {
+        const url = queue.shift();
+        if (!url) return;
+        try {
+          const img = new Image();
+          img.src = url;
+          await img.decode();
+        } catch {
+          // A card that will not decode still prints its slot; the "no art"
+          // count in the hint line already tells the user how many there are.
+        }
+        done += 1;
+        setProgress(Math.round((done / Math.max(1, urls.length)) * 100));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, urls.length) }, worker));
+  }, []);
+
+  const printSheet = async () => {
+    if (slots.length === 0) {
       showError('No cards selected', 'Please select at least one card');
       return;
     }
-
-    setGenerating(true);
-    setProgress(10);
-    
+    /*
+     * The sheet is the only thing `isolateForPrint` knows how to isolate, and
+     * while hydration is in flight the preview renders a spinner instead of it,
+     * so `sheetRef.current` is null. `isolateForPrint(null)` is a no-op that
+     * returns a no-op — which means `window.print()` would have gone ahead and
+     * printed the entire application UI. Refusing here is the backstop; the
+     * button is also disabled while `hydrating`.
+     */
+    if (!sheetRef.current) {
+      showError('Sheet not ready', 'Wait for the printings to finish loading.');
+      return;
+    }
+    setBusy('print');
+    setProgress(0);
     try {
-      const selectedCardsList = allCards.filter(c => selectedCards.has(getCardId(c)));
-      
-      // Expand cards by quantity
-      const expandedCards: { card: any; isCommander: boolean }[] = [];
-      selectedCardsList.forEach(card => {
-        const qty = card.quantity || 1;
-        const isCmd = card.isCommander || false;
-        for (let i = 0; i < qty; i++) {
-          expandedCards.push({ card, isCommander: isCmd });
+      await preloadImages(imageUrls);
+
+      const restore = isolateForPrint(sheetRef.current);
+      let restored = false;
+      const cleanup = () => {
+        if (restored) return;
+        restored = true;
+        restore();
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+
+      window.print();
+
+      /* Chrome fires `afterprint` when the dialog closes, but Safari and some
+         Linux builds never fire it. Without a second path the app would be left
+         with its own UI still hidden. */
+      window.setTimeout(cleanup, 1000);
+    } catch (error) {
+      console.error('Print failed:', error);
+      showError('Print failed', String(error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setBusy(null);
+      setProgress(0);
+    }
+  };
+
+  /**
+   * PDF export — the same sheet, drawn deterministically.
+   *
+   * Worth keeping alongside the print dialog because the dialog's "Fit to page"
+   * default silently rescales an otherwise correct stylesheet, and a PDF cannot
+   * be rescaled by accident. It draws at the same mm coordinates as the CSS grid
+   * from the same image URLs, so the two outputs are the same sheet.
+   *
+   * jsPDF is the installed dependency now rather than a `<script>` appended to
+   * `<head>` from cdnjs. Dynamic `import()` keeps it out of the main bundle
+   * exactly as the CDN load did, without the remote-code and offline exposure.
+   */
+  const generatePdf = async () => {
+    if (slots.length === 0) {
+      showError('No cards selected', 'Please select at least one card');
+      return;
+    }
+    setBusy('pdf');
+    setProgress(0);
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const paper = PAPER[paperSize];
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: paper.pdfFormat });
+      const { xMm, yMm } = sheetMargins(paperSize);
+
+      // One fetch per distinct printing, reused across copies of the same card.
+      const cache = new Map<string, { data: string; format: 'JPEG' | 'PNG' }>();
+      const load = async (url: string) => {
+        const hit = cache.get(url);
+        if (hit) return hit;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`${response.status} fetching card image`);
+        const blob = await response.blob();
+        const data: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        /* Handing jsPDF the encoded bytes means it embeds the original JPEG/PNG
+           rather than re-encoding through a canvas, so the PDF carries the full
+           271 or 300 dpi asset instead of a generation-loss copy. */
+        const entry = { data, format: blob.type.includes('png') ? ('PNG' as const) : ('JPEG' as const) };
+        cache.set(url, entry);
+        return entry;
+      };
+
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        if (i > 0 && i % PROXY_PER_PAGE === 0) doc.addPage();
+
+        const posOnPage = i % PROXY_PER_PAGE;
+        const x = xMm + (posOnPage % 3) * CARD_W_MM;
+        const y = yMm + Math.floor(posOnPage / 3) * CARD_H_MM;
+
+        let drewImage = false;
+        if (slot.imageUrl) {
+          try {
+            const { data, format } = await load(slot.imageUrl);
+            doc.addImage(data, format, x, y, CARD_W_MM, CARD_H_MM);
+            drewImage = true;
+          } catch (error) {
+            console.warn(`Proxy image failed for ${slot.card?.name}:`, error);
+          }
         }
-      });
+        if (!drewImage) drawTextProxy(doc, x, y, slot.card);
 
-      setProgress(20);
-      
-      // Load jsPDF from CDN
-      const jsPDF = await loadJsPDF();
-      
-      setProgress(30);
-      
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'in',
-        format: paperSize === 'letter' ? 'letter' : 'a4'
-      });
-
-      const pageWidth = paperSize === 'letter' ? 8.5 : 8.27;
-      const pageHeight = paperSize === 'letter' ? 11 : 11.69;
-      
-      const cardWidth = 2.5;
-      const cardHeight = 3.5;
-      const cols = 3;
-      const rows = 3;
-      const marginX = (pageWidth - (cols * cardWidth)) / 2;
-      const marginY = (pageHeight - (rows * cardHeight)) / 2;
-
-      setProgress(40);
-
-      let cardIndex = 0;
-      for (const { card, isCommander } of expandedCards) {
-        if (cardIndex > 0 && cardIndex % (cols * rows) === 0) {
-          doc.addPage();
+        if (cutGuides) {
+          doc.setDrawColor(154);
+          doc.setLineWidth(0.2);
+          doc.rect(x, y, CARD_W_MM, CARD_H_MM);
         }
 
-        const posOnPage = cardIndex % (cols * rows);
-        const col = posOnPage % cols;
-        const row = Math.floor(posOnPage / cols);
-        
-        const x = marginX + (col * cardWidth);
-        const y = marginY + (row * cardHeight);
-
-        drawTextCard(doc, x, y, cardWidth, cardHeight, card, isCommander);
-
-        cardIndex++;
-        setProgress(40 + Math.round((cardIndex / expandedCards.length) * 55));
+        setProgress(Math.round(((i + 1) / slots.length) * 100));
       }
 
-      setProgress(95);
-
-      const fileName = `${deckName.replace(/[^a-z0-9]/gi, '_')}_proxies.pdf`;
-      doc.save(fileName);
-      
-      setProgress(100);
-      showSuccess('Proxies Generated!', `${expandedCards.length} cards, ${Math.ceil(expandedCards.length / 9)} pages`);
+      doc.save(`${deckName.replace(/[^a-z0-9]/gi, '_')}_proxies.pdf`);
+      showSuccess(
+        'Proxies exported',
+        `${slots.length} cards across ${totalPages} ${totalPages === 1 ? 'page' : 'pages'}.`
+      );
     } catch (error) {
       console.error('Generation failed:', error);
       showError('Generation failed', String(error instanceof Error ? error.message : 'Unknown error'));
     } finally {
-      setGenerating(false);
+      setBusy(null);
       setProgress(0);
     }
   };
 
   const exportText = () => {
-    const selectedCardsList = allCards.filter(c => selectedCards.has(getCardId(c)));
-    const textList = selectedCardsList.map(c => `${c.quantity || 1}x ${c.name}`).join('\n');
-    
+    const textList = selectedList.map(c => `${c.quantity || 1}x ${c.name}`).join('\n');
     const blob = new Blob([textList], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -334,17 +350,10 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
     a.download = `${deckName}-proxies.txt`;
     a.click();
     URL.revokeObjectURL(url);
-    
     showSuccess('Exported', 'Card list exported');
   };
 
-  const cardsPerPage = 9;
-  const totalCards = allCards
-    .filter(c => selectedCards.has(getCardId(c)))
-    .reduce((sum, c) => sum + (c.quantity || 1), 0);
-  const totalPages = Math.ceil(totalCards / cardsPerPage);
-  const totalUniqueSelected = selectedCards.size;
-  const totalUniqueCards = allCards.length;
+  const margins = sheetMargins(paperSize);
 
   return (
     <div className="space-y-4">
@@ -354,70 +363,90 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             <Printer className="h-4 w-4 text-primary" />
             Proxy Generator
           </CardTitle>
-          <CardDescription className="text-xs">Generate printable proxy cards for playtesting</CardDescription>
+          <CardDescription className="text-xs">
+            Full card art at {CARD_W_MM} × {CARD_H_MM} mm, {PROXY_PER_PAGE} per {PAPER[paperSize].label} sheet
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Settings Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Paper</Label>
-              <Select value={paperSize} onValueChange={setPaperSize}>
+              <Select value={paperSize} onValueChange={v => setPaperSize(v as PaperSize)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="a4">A4</SelectItem>
-                  <SelectItem value="letter">Letter</SelectItem>
+                  {(Object.keys(PAPER) as PaperSize[]).map(key => (
+                    <SelectItem key={key} value={key}>
+                      {PAPER[key].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Quality</Label>
-              <Select value={quality} onValueChange={setQuality}>
+              <Label className="text-xs">Art resolution</Label>
+              <Select value={quality} onValueChange={v => setQuality(v as ProxyQuality)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  {/*
+                    DPI, because that is the print decision and it is computed
+                    from the asset's real pixel width. This used to also print
+                    "~65 kB / ~99 kB / ~737 kB" — one sampled card's file size
+                    passed off as every card's. Real spread across ten printings
+                    is 65-104 / 101-164 / 316-1549 kB, so the label was wrong by
+                    a third on the JPEG tiers and by 2x on the PNG. A number
+                    that cannot be computed from the data does not get shown.
+                  */}
+                  {(Object.keys(PROXY_QUALITY) as ProxyQuality[]).map(key => (
+                    <SelectItem key={key} value={key}>
+                      {PROXY_QUALITY[key].label} · {proxyDpi(key)} dpi
+                      {PROXY_QUALITY[key].note ? ` · ${PROXY_QUALITY[key].note}` : ''}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="col-span-2 flex items-end">
               <div className="flex items-center gap-2 text-xs">
-                <Switch
-                  id="show-all"
-                  checked={!showOnlyOwned}
-                  onCheckedChange={(checked) => setShowOnlyOwned(!checked)}
-                  className="scale-75"
-                />
-                <label htmlFor="show-all" className="cursor-pointer">Show all cards</label>
+                <Switch id="cut-guides" checked={cutGuides} onCheckedChange={setCutGuides} className="scale-75" />
+                <label htmlFor="cut-guides" className="cursor-pointer">
+                  Cut guides
+                </label>
               </div>
             </div>
           </div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <div className="p-2 rounded border bg-muted/30">
+          {/* Stats — every number here is counted off the sheet that will print. */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
+            <div className="p-2 rounded bg-muted/30">
               <div className="text-xs text-muted-foreground">Selected</div>
-              <div className="font-bold">{totalUniqueSelected}/{totalUniqueCards}</div>
+              <div className="font-bold">
+                {selectedCards.size}/{allCards.length}
+              </div>
             </div>
-            <div className="p-2 rounded border bg-muted/30">
-              <div className="text-xs text-muted-foreground">Cards</div>
-              <div className="font-bold">{totalCards}</div>
+            <div className="p-2 rounded bg-muted/30">
+              <div className="text-xs text-muted-foreground">Cards to print</div>
+              <div className="font-bold">{slots.length}</div>
             </div>
-            <div className="p-2 rounded border bg-muted/30">
+            <div className="p-2 rounded bg-muted/30">
               <div className="text-xs text-muted-foreground">Pages</div>
               <div className="font-bold">{totalPages}</div>
             </div>
-            <div className="p-2 rounded border bg-muted/30">
-              <div className="text-xs text-muted-foreground">Per Page</div>
-              <div className="font-bold">{cardsPerPage}</div>
+            <div className="p-2 rounded bg-muted/30">
+              <div className="text-xs text-muted-foreground">Extra faces</div>
+              <div className="font-bold">{extraFaces}</div>
+            </div>
+            <div className="p-2 rounded bg-muted/30">
+              <div className="text-xs text-muted-foreground">Print dpi</div>
+              <div className="font-bold">{proxyDpi(quality)}</div>
             </div>
           </div>
 
-          {/* Selection Controls + Download - Same Row */}
+          {/* Selection controls + output */}
           <div className="flex gap-2 items-center flex-wrap">
             <Button variant="outline" size="sm" onClick={selectAll}>
               Select All
@@ -425,28 +454,32 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             <Button variant="outline" size="sm" onClick={clearAll}>
               Clear
             </Button>
-            {totalUniqueSelected === totalUniqueCards && (
-              <Badge variant="secondary" className="bg-muted text-foreground border-border text-xs">
+            {selectedCards.size === allCards.length && allCards.length > 0 && (
+              <Badge variant="secondary" className="bg-muted text-foreground text-xs">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 All
               </Badge>
             )}
             <div className="flex-1" />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportText}
-              disabled={selectedCards.size === 0}
-            >
+            <Button variant="outline" size="sm" onClick={exportText} disabled={slots.length === 0}>
               <FileText className="h-3 w-3 mr-1" />
               List
             </Button>
-            <Button 
-              onClick={generateProxies} 
-              disabled={selectedCards.size === 0 || generating}
+            {/*
+              Both outputs wait on hydration. Until the printing rows land, a
+              deck card carries at best a `normal` image and every transform
+              card carries none at all, so exporting now would silently produce
+              a PDF of text proxies where the art exists — and printing now
+              would find no sheet mounted to isolate at all. `List` is exempt:
+              it only needs names and quantities, which the deck already has.
+            */}
+            <Button
+              variant="outline"
               size="sm"
+              onClick={generatePdf}
+              disabled={slots.length === 0 || busy !== null || hydrating}
             >
-              {generating ? (
+              {busy === 'pdf' ? (
                 <>
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                   {progress}%
@@ -454,61 +487,182 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
               ) : (
                 <>
                   <Download className="h-3 w-3 mr-1" />
-                  PDF ({totalCards})
+                  PDF ({slots.length})
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={printSheet}
+              disabled={slots.length === 0 || busy !== null || hydrating}
+              size="sm"
+            >
+              {busy === 'print' ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  {progress}%
+                </>
+              ) : (
+                <>
+                  <Printer className="h-3 w-3 mr-1" />
+                  Print
                 </>
               )}
             </Button>
           </div>
 
-          {/* Card List */}
-          <ScrollArea className="h-[300px] border rounded-lg">
+          <div className="flex items-start gap-2 rounded bg-muted/30 p-2 text-[11px] text-muted-foreground">
+            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+            <div className="space-y-0.5">
+              <p>{PRINT_DIALOG_HINT}</p>
+              <p>
+                {PAPER[paperSize].label} leaves {margins.xMm.toFixed(1)} mm left/right and {margins.yMm.toFixed(1)} mm
+                top/bottom.
+                {extraFaces > 0 && ` ${extraFaces} back face${extraFaces === 1 ? '' : 's'} printed separately.`}
+                {missingArt > 0 &&
+                  (missingArt === 1
+                    ? ' 1 card has no art and prints as a text proxy.'
+                    : ` ${missingArt} cards have no art and print as text proxies.`)}
+              </p>
+            </div>
+          </div>
+
+          {/*
+            Card list. 56 px thumbnails in a 300 px box was the "everything is
+            tiny" complaint in miniature — at that width `CardImage` drops to
+            the 146 px `small` asset and the art is unreadable, which makes the
+            checkbox the only way to tell rows apart. 88 px moves it up to the
+            488 px `normal` asset, still one request per card.
+          */}
+          <ScrollArea className="h-[460px] rounded-lg bg-muted/20">
             <div className="p-2 space-y-1">
               {allCards.map((card, index) => (
                 <div
                   key={`${getCardId(card)}-${index}`}
-                  className={`flex items-center justify-between p-1.5 rounded hover:bg-muted/50 transition-colors cursor-pointer ${
-                    selectedCards.has(getCardId(card)) ? 'bg-primary/10 border border-primary/50' : 'border border-transparent'
+                  className={`flex items-center justify-between p-1.5 rounded transition-colors cursor-pointer ${
+                    selectedCards.has(getCardId(card)) ? 'bg-primary/10' : 'hover:bg-muted/50'
                   }`}
                   onClick={() => toggleCard(getCardId(card))}
                 >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Checkbox
                       checked={selectedCards.has(getCardId(card))}
                       onCheckedChange={() => toggleCard(getCardId(card))}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
                       className="h-4 w-4"
                     />
-                    {/* `w-8 h-11` was a 0.727 box holding a 0.718 card, so every
-                        thumbnail was very slightly cropped. `CardImage` owns the
-                        ratio; `hideFlip` because a flip button is larger than
-                        this thumbnail. */}
-                    <CardImage
-                      card={withThumbnailFallback(card)}
-                      width={40}
-                      hideFlip
-                      title={card.name}
-                    />
+                    {/* `CardImage` owns the ratio and the resolution; `hideFlip`
+                        because a flip button is larger than this thumbnail, and
+                        both faces get their own slot on the sheet anyway. */}
+                    <CardImage card={withThumbnailFallback(card)} width={88} hideFlip title={card.name} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate flex items-center gap-1">
                         {card.name}
                         {card.isCommander && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">CMD</Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                            CMD
+                          </Badge>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">{card.type_line}</div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs ml-2">{card.quantity || 1}x</Badge>
+                  <Badge variant="outline" className="text-xs ml-2">
+                    {card.quantity || 1}x
+                  </Badge>
                 </div>
               ))}
             </div>
           </ScrollArea>
+        </CardContent>
+      </Card>
 
-          <p className="text-[10px] text-muted-foreground">
-            Proxies are for playtesting only. 2.5" x 3.5" card size, 9 per page.
-          </p>
+      {/*
+        The preview is the print sheet itself under a `transform: scale()`, not a
+        second rendering of it, so nothing can look right here and print wrong.
+        It takes the full width it is given — the owner's standing complaint is
+        that cards draw too small, and on a wide screen this puts each card past
+        400 px.
+      */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Sheet preview</CardTitle>
+          <CardDescription className="text-xs">
+            {hydrating
+              ? 'Loading full-resolution art…'
+              : slots.length === 0
+                ? 'Select cards to preview the printed sheet.'
+                : `${totalPages} ${totalPages === 1 ? 'sheet' : 'sheets'}, exactly as they will print.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {hydrating ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Fetching printings…
+            </div>
+          ) : slots.length === 0 ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              Nothing selected.
+            </div>
+          ) : (
+            <ProxySheet ref={sheetRef} slots={slots} paper={paperSize} cutGuides={cutGuides} />
+          )}
         </CardContent>
       </Card>
     </div>
   );
+}
+
+/**
+ * jsPDF fallback for a printing with no image, mirroring `.proxy-text` in
+ * `proxy-sheet.css`. Kept deliberately plain — black on white, no filled bars —
+ * because it is printed, and toner spent on decoration is toner not spent on
+ * legibility. This is all that survives of the old `drawTextCard`, which drew
+ * *every* proxy this way.
+ */
+function drawTextProxy(doc: any, x: number, y: number, card: any) {
+  const pad = 3.5;
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(x, y, CARD_W_MM, CARD_H_MM, 3, 3);
+
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  const name: string = card?.name ?? 'Unknown card';
+  doc.text(doc.splitTextToSize(name, CARD_W_MM - pad * 2 - 14), x + pad, y + pad + 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  const cost = String(card?.mana_cost ?? '').replace(/[{}]/g, ' ').trim();
+  if (cost) doc.text(cost, x + CARD_W_MM - pad, y + pad + 4, { align: 'right' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  const typeLine: string = card?.type_line ?? 'Unknown type';
+  doc.text(doc.splitTextToSize(typeLine, CARD_W_MM - pad * 2), x + pad, y + 18);
+  doc.setLineWidth(0.2);
+  doc.line(x + pad, y + 20, x + CARD_W_MM - pad, y + 20);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  const oracle: string = card?.oracle_text ?? '';
+  if (oracle) {
+    const lines: string[] = doc.splitTextToSize(oracle, CARD_W_MM - pad * 2);
+    // Clipped rather than allowed to overflow the card edge; the sheet is a
+    // fixed grid and an overrun would print across the neighbouring card.
+    doc.text(lines.slice(0, 22), x + pad, y + 25);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.text('TEXT PROXY · NO ART', x + pad, y + CARD_H_MM - pad);
+
+  if (card?.power != null && card?.toughness != null) {
+    doc.setFontSize(11);
+    doc.text(`${card.power}/${card.toughness}`, x + CARD_W_MM - pad, y + CARD_H_MM - pad, { align: 'right' });
+  } else if (card?.loyalty != null) {
+    doc.setFontSize(11);
+    doc.text(String(card.loyalty), x + CARD_W_MM - pad, y + CARD_H_MM - pad, { align: 'right' });
+  }
 }

@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { HomeHero } from '@/components/marketing/HomeHero';
 import { HomeCollection, HomeCTA } from '@/components/marketing/HomeSections';
 import { HomeShowcase } from '@/components/marketing/HomeShowcase';
+import { HomeNewSets } from '@/components/marketing/HomeNewSets';
+import {
+  HomeFormats, HomeColors, HomeCatalogue, HomeBuilderPreview,
+} from '@/components/marketing/HomeStats';
 import { FAQSection } from '@/components/marketing/FAQSection';
 import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
@@ -129,6 +133,11 @@ export default function Homepage() {
       <PublicNavigation />
       <HomeHero cardCount={cardCount} />
       <HomeShowcase />
+      <HomeCatalogue />
+      <HomeNewSets />
+      <HomeBuilderPreview />
+      <HomeFormats />
+      <HomeColors />
       <HomeCollection />
       <FAQSection />
       <HomeCTA />

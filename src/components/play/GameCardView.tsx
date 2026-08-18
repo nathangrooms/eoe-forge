@@ -19,13 +19,13 @@
 
 import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RotateCcw, RotateCw } from 'lucide-react';
+import { RotateCcw, RotateCw, Hourglass, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
-import { powerOf, toughnessOf, statLine, isLand, isCreature } from '@/lib/game';
+import { powerOf, toughnessOf, statLine, isLand, isCreature, hasKeyword } from '@/lib/game';
 import type { CardInstance } from '@/lib/game';
 
 export type GameCardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -165,6 +165,19 @@ export const GameCardView = memo(function GameCardView({
      never so large on a full-size card that it stops being a control on the
      art and starts being a badge over it. */
   const chip = Math.min(34, Math.max(20, Math.round(renderedWidth * 0.24)));
+
+  /* Summoning sickness, told truthfully.
+     `summoningSick` is set on every permanent that enters, but it only RESTRAINS
+     a creature, and haste lifts the restraint entirely. The board used to print a
+     9px "zzz" for any sick creature with no haste check at all, so a hasty
+     creature — the one case where the player urgently needs to know it CAN swing
+     — was labelled as though it could not. combat.ts has always had this right
+     (`summoningSick && !hasKeyword('haste')`); only the display was lying.
+     These two are mutually exclusive by construction. */
+  const creature = isCreature(card) && !isLand(card);
+  const onBattlefield = card.zone === 'battlefield';
+  const hasty = creature && onBattlefield && card.summoningSick && hasKeyword(card, 'haste');
+  const restrained = creature && onBattlefield && card.summoningSick && !hasty;
   const TapIcon = card.tapped ? RotateCcw : RotateCw;
 
   const cardHeight = renderedWidth / CARD_RATIO;
@@ -339,7 +352,7 @@ export const GameCardView = memo(function GameCardView({
           <TapIcon style={{ width: chip * 0.52, height: chip * 0.52 }} strokeWidth={2.5} />
         </button>
       )}
-      {(counters.length > 0 || damage > 0 || card.summoningSick) && (
+      {(counters.length > 0 || damage > 0) && (
         <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 z-10 flex flex-wrap justify-center gap-0.5">
           {counters.map(([key, value]) => (
             <span
@@ -358,15 +371,46 @@ export const GameCardView = memo(function GameCardView({
               {damage}
             </span>
           )}
-          {card.summoningSick && isCreature(card) && !isLand(card) && (
-            <span
-              className="rounded-full bg-background/85 px-1.5 text-[9px] font-medium leading-4 text-muted-foreground shadow-md shadow-black/50 backdrop-blur-sm"
-              title="Summoning sick"
-            >
-              zzz
-            </span>
-          )}
         </div>
+      )}
+
+      {/* Summoning sickness is a state you must be able to read ACROSS THE BOARD
+          at a glance — "which of these can actually attack" is the question the
+          player is asking every combat. So it is a proper corner mark sized to
+          the card (the same proportional rule as the tap chip), not a 9px word
+          buried in the counter row where it competed with +1/+1 counters and
+          damage and lost.
+
+          Haste gets the opposite mark rather than none: a creature that entered
+          this turn AND can attack anyway is the single most missable thing on a
+          battlefield. */}
+      {(restrained || hasty) && (
+        <span
+          className={cn(
+            'pointer-events-none absolute z-10 flex items-center justify-center rounded-full shadow-md shadow-black/60',
+            restrained
+              ? 'bg-background/90 text-muted-foreground backdrop-blur-sm'
+              : 'bg-foreground text-background'
+          )}
+          style={{
+            width: chip * 0.82,
+            height: chip * 0.82,
+            left: -Math.round(chip * 0.2),
+            top: -Math.round(chip * 0.2),
+          }}
+          title={
+            restrained
+              ? `${card.name} entered the battlefield this turn — it cannot attack or use abilities that need tapping until your next turn begins. Haste would remove this.`
+              : `${card.name} entered the battlefield this turn but has haste — it can attack and tap immediately.`
+          }
+          aria-label={restrained ? 'Summoning sick' : 'Has haste'}
+        >
+          {restrained ? (
+            <Hourglass style={{ width: chip * 0.42, height: chip * 0.42 }} strokeWidth={2.5} />
+          ) : (
+            <Zap style={{ width: chip * 0.44, height: chip * 0.44 }} strokeWidth={2.5} />
+          )}
+        </span>
       )}
 
       {(role === 'attacker' || role === 'blocker') && (

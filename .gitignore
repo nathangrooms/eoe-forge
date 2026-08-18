@@ -47,3 +47,6 @@ dm-harness.*
 
 # Agent working files — never ship to Lovable
 scratch/
+
+# Windows/Git-Bash turns a /proc/self/fd/1 redirect into a real file
+proc/

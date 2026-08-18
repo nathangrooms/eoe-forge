@@ -38,7 +38,7 @@ import { Reveal } from './Reveal';
  * above the 112 device pixels a 2× display needs.
  */
 
-const THUMB_WIDTH = 56;
+const THUMB_WIDTH = 120;
 
 /** Fallback glyph for entries with no card behind them — imports, bulk scans. */
 const ACTIVITY_ICONS: Record<string, LucideIcon> = {
@@ -90,7 +90,7 @@ export function RecentActivity() {
 
       <CardContent className="pt-0">
         {loading ? (
-          <ul className="space-y-1">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {[0, 1, 2, 3, 4].map(i => (
               <li key={i} className="flex items-center gap-3 px-2 py-2">
                 <Skeleton

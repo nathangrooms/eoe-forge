@@ -12,6 +12,7 @@ import type { DeckSummary } from '@/features/dashboard/hooks';
 import { logActivity } from '@/lib/activityLogger';
 import { getBestCardImage } from '@/lib/scryfall/card-utils';
 import { cn } from '@/lib/utils';
+import { describeDeckPower, formatPowerScore, powerTextClass } from '@/lib/deck/power';
 import { Reveal } from './Reveal';
 
 interface RecentDecksProps {
@@ -19,14 +20,6 @@ interface RecentDecksProps {
   loading: boolean;
   error?: string | null;
   onToggleFavorite: (deckId: string) => Promise<boolean>;
-}
-
-/** Power level is one of the few places colour carries MTG meaning. */
-function powerToneClass(level: number): string {
-  if (level <= 3) return 'text-power-1';
-  if (level <= 6) return 'text-power-4';
-  if (level <= 8) return 'text-power-7';
-  return 'text-power-10';
 }
 
 /**
@@ -41,10 +34,11 @@ function powerToneClass(level: number): string {
  */
 function bannerFor(card: CardRow | null): { src: string; objectPosition: string } | null {
   if (!card) return null;
-  const crop = card.image_uris?.art_crop;
-  if (crop) return { src: crop, objectPosition: 'center 45%' };
-  const full = getBestCardImage(card, 'large');
-  return full ? { src: full, objectPosition: 'center 30%' } : null;
+  /* The WHOLE card, not the art crop. A cropped commander reads as a broken
+     image to a Magic player — the frame, type line and mana cost are part of
+     how the card is recognised. */
+  const full = getBestCardImage(card, 'large') ?? getBestCardImage(card, 'normal');
+  return full ? { src: full, objectPosition: 'center' } : null;
 }
 
 export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentDecksProps) {
@@ -67,7 +61,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
     logActivity('deck_opened', 'deck', deck.id, {
       name: deck.name,
       format: deck.format,
-      power: deck.powerLevel,
+      power: deck.power?.score ?? null,
     });
     navigate(`/deck-builder?deck=${deck.id}`);
   };
@@ -112,7 +106,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {[0, 1, 2, 3, 4, 5].map(i => (
               <li key={i} className="overflow-hidden rounded-xl bg-muted/30">
-                <Skeleton className="aspect-[16/9] w-full rounded-none" />
+                <Skeleton className="aspect-[4/3] w-full" />
                 <div className="space-y-2 p-3">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -157,7 +151,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                       tile is one target, leaving the star independently
                       focusable above it. */}
                   <div className="group relative flex h-full flex-col overflow-hidden rounded-xl bg-muted/30 shadow-lg shadow-black/20 transition-colors duration-200 hover:bg-accent focus-within:bg-accent motion-reduce:transition-none">
-                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                    <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-muted/40 p-3">
                       {banner ? (
                         <img
                           src={banner.src}
@@ -166,8 +160,7 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                           loading="lazy"
                           decoding="async"
                           draggable={false}
-                          style={{ objectPosition: banner.objectPosition }}
-                          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                          className="h-full w-auto rounded-lg object-contain shadow-xl shadow-black/50 transition-transform duration-500 ease-out group-hover:-translate-y-1 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
                         />
                       ) : (
                         /* No commander (or no art yet): the deck still reads
@@ -177,15 +170,26 @@ export function RecentDecks({ decks, loading, error, onToggleFavorite }: RecentD
                         </div>
                       )}
 
-                      {deck.powerLevel > 0 && (
+                      {/* The canonical score, on the same 1-decimal scale and
+                          with the same band colour the deck tile uses. A stale
+                          score is greyed and marked rather than stamped on the
+                          art as if it were current. */}
+                      {deck.power && (
                         <span
                           className={cn(
                             'absolute bottom-2 left-2 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums backdrop-blur',
-                            powerToneClass(deck.powerLevel)
+                            deck.power.stale
+                              ? 'text-muted-foreground'
+                              : powerTextClass(deck.power.band)
                           )}
-                          title={`Power level ${deck.powerLevel.toFixed(1)}`}
+                          title={
+                            deck.power.stale
+                              ? 'Outdated — this deck changed after it was scored'
+                              : describeDeckPower(deck.power)
+                          }
                         >
-                          {deck.powerLevel.toFixed(1)}
+                          {formatPowerScore(deck.power.score)}
+                          {deck.power.stale && <span className="ml-1 opacity-70">·</span>}
                         </span>
                       )}
 

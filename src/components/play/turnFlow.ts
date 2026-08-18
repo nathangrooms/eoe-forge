@@ -20,6 +20,7 @@
  */
 
 import {
+  controllerIn,
   eligibleAttackers,
   eligibleBlockers,
   isLand,
@@ -28,7 +29,11 @@ import {
   planLandDrop,
   type GameState,
   type PlayerId,
-} from '@/lib/game';
+  // Relative rather than the `@/` alias, for the same reason `combatUi.ts` is:
+  // this module decides when the surface may press next on the player's behalf,
+  // and `playCombatFlow.test.ts` drives exactly that decision under
+  // `node --test`, which has no bundler to resolve an alias with.
+} from '../../lib/game/index.ts';
 
 /**
  * The decisions a player is ever stopped for. Anything not in this union is a
@@ -155,9 +160,19 @@ export function decisionFor(
        * every case — that path sets `forcing` and ignores decisions entirely.
        */
       if (eligibleAttackers(state, playerId).length > 0) return 'attackers';
+      /*
+       * `controllerIn`, not `card.controllerId`. The latter is the *printed*
+       * controller — `layers.ts` documents it as "the battlefield controller
+       * before any layer-2 effect" — so a creature attacking under a control
+       * change answers to the wrong seat. `eligibleAttackers` on the line above
+       * already asks the layer engine, and the two halves of one decision
+       * disagreeing is how a swing gets walked out from under the player who
+       * declared it: attacking taps, the eligible list empties, and this
+       * fallback is then the only thing holding the step open.
+       */
       const declared = state.combat.attackers.some(declaration => {
         const card = state.cards[declaration.attackerId];
-        return !!card && card.controllerId === playerId;
+        return !!card && controllerIn(state, card) === playerId;
       });
       return declared ? 'attackers' : null;
     }

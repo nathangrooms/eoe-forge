@@ -203,6 +203,32 @@ await sleep(6000);
 await shot('table-turn1');
 await say('opening');
 
+/*
+ * Free cast, on.
+ *
+ * Not a cheat for its own sake: the seeded deck kept dealing one small creature
+ * into a bot that holds a 0/3 Wall of Wood, so every swing was legitimately
+ * blocked and the player's own damage never got to be photographed. Free cast
+ * is a shipped playtest toggle in the game menu; turning it on builds a board
+ * wide enough that an alpha strike is a decision rather than a coincidence.
+ */
+/* Dispatched on the element rather than at its coordinates: the HUD floats over
+   the table and a coordinate click can be swallowed by whatever sits on top. */
+const pressByTitle = async needle => page.evaluate(needle => {
+  const el = [...document.querySelectorAll('button')]
+    .find(e => (e.getAttribute('title') || '').includes(needle));
+  if (!el) return false;
+  el.click();
+  return true;
+}, needle);
+
+log(`  game menu opened: ${await pressByTitle('Game menu')}`);
+await sleep(1500);
+log(`  free cast on: ${await pressByTitle('ignore mana entirely')}`);
+await sleep(800);
+await pressByTitle('Close the menu');
+await sleep(800);
+
 /* ---------------------------------------------------------------- helpers */
 
 /** Hand cards, as the buttons the player actually clicks. */

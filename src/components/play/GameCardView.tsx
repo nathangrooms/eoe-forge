@@ -25,7 +25,15 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
-import { statLine, statLineIn, isLand, isCreature, hasKeyword } from '@/lib/game';
+import {
+  statLine,
+  statLineIn,
+  isLand,
+  isCreature,
+  hasKeyword,
+  hasKeywordIn,
+  isCreatureIn,
+} from '@/lib/game';
 import type { CardInstance } from '@/lib/game';
 import { useGameState } from './GameStateContext';
 
@@ -224,17 +232,43 @@ export const GameCardView = memo(function GameCardView({
      from across the table rather than found by hovering. */
   const swordChip = Math.min(42, Math.max(24, Math.round(renderedWidth * 0.3)));
 
+  /*
+   * The live board, published by `PlayTable`. Every question below about what
+   * this permanent CURRENTLY is — its stat line, whether it is a creature,
+   * whether it has haste — is answered through it by the layer engine. `null`
+   * outside a game (a deck-list row, a search result), where the printed values
+   * are the correct answer and the fallbacks below are what runs.
+   */
+  const gameState = useGameState();
+
   /* Summoning sickness, told truthfully.
      `summoningSick` is set on every permanent that enters, but it only RESTRAINS
      a creature, and haste lifts the restraint entirely. The board used to print a
      9px "zzz" for any sick creature with no haste check at all, so a hasty
      creature — the one case where the player urgently needs to know it CAN swing
-     — was labelled as though it could not. combat.ts has always had this right
-     (`summoningSick && !hasKeyword('haste')`); only the display was lying.
+     — was labelled as though it could not.
+
+     Both questions are LAYERED, and that is not a refinement — it is the whole
+     point. `combat.ts`'s `eligibleAttackers` asks `isCreatureIn` (layer 4) and
+     `hasKeywordIn` (layer 6), and `combatUi.ts` lights the sword from the same
+     two. Asking the printed `isCreature`/`hasKeyword` here put the badge and the
+     sword on one card into open contradiction:
+
+       - Fires of Yavimaya ("Creatures you control have haste") — the engine let
+         a summoning-sick bear attack and drew it a live sword, while this badge
+         called it restrained.
+       - Dryad Arbor — a creature that genuinely cannot attack the turn it lands,
+         and the old `!isLand(card)` guard silently gave it no badge at all. The
+         guard existed only to keep ordinary lands unmarked, and `isCreatureIn`
+         already excludes those, so it is gone rather than corrected.
+
      These two are mutually exclusive by construction. */
-  const creature = isCreature(card) && !isLand(card);
+  const creature = gameState ? isCreatureIn(gameState, card) : isCreature(card) && !isLand(card);
   const onBattlefield = card.zone === 'battlefield';
-  const hasty = creature && onBattlefield && card.summoningSick && hasKeyword(card, 'haste');
+  const hasHaste = gameState
+    ? hasKeywordIn(gameState, card, 'haste')
+    : hasKeyword(card, 'haste');
+  const hasty = creature && onBattlefield && card.summoningSick && hasHaste;
   const restrained = creature && onBattlefield && card.summoningSick && !hasty;
   const TapIcon = card.tapped ? RotateCcw : RotateCw;
 
@@ -265,11 +299,13 @@ export const GameCardView = memo(function GameCardView({
    * The stat line comes from the layer engine, not from the card.
    *
    * `statLineIn` is memoised on state identity, so every card on the board
-   * shares one `computeLayers` run per state and this is a `WeakMap` lookup.
+   * shares one `computeLayers` run per state and this is a `WeakMap` lookup —
+   * which is also why the sickness badge above can afford to ask the layer
+   * engine twice more without costing anything.
+   *
    * Outside a game (a deck-list row, a search result) there is no state and it
    * falls back to the printed value, which is the right answer there.
    */
-  const gameState = useGameState();
   const stats = gameState ? statLineIn(gameState, card) : statLine(card);
 
   const lift = role === 'attacker' ? -10 : role === 'blocker' ? -5 : selected ? -6 : 0;

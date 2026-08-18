@@ -30,13 +30,16 @@ import {
   boardCharacteristics,
   combatPowerIn,
   hasKeywordIn,
+  isCreatureIn,
   powerIn,
   ptIsUnknownIn,
   statLineIn,
   toughnessIn,
 } from './characteristics.ts';
 import { powerOf, toughnessOf } from './printed.ts';
-import { canBlock, eligibleBlockers, resolveCombat } from './combat.ts';
+import { hasKeyword } from './keywords.ts';
+import { isCreature, isLand } from './mana.ts';
+import { canBlock, eligibleAttackers, eligibleBlockers, resolveCombat } from './combat.ts';
 import { stateBasedActions } from './sba.ts';
 import type { CardInstance, GameState, InstanceId, PlayerId } from './types.ts';
 
@@ -57,6 +60,7 @@ interface Spec {
   powerOverride?: number;
   toughnessOverride?: number;
   tapped?: boolean;
+  summoningSick?: boolean;
 }
 
 function table(specs: Spec[], life = 40): GameState {
@@ -87,7 +91,7 @@ function table(specs: Spec[], life = 40): GameState {
         oracleText: spec.oracleText ?? '',
         counters: spec.counters ?? {},
         tapped: spec.tapped ?? false,
-        summoningSick: false,
+        summoningSick: spec.summoningSick ?? false,
         isCommander: false,
         powerOverride: spec.powerOverride,
         toughnessOverride: spec.toughnessOverride,
@@ -393,4 +397,86 @@ test('a compiled "creatures can\'t block" restriction reaches combat legality', 
     eligibleBlockers(state, 'p2').some(card => card.instanceId === 'wall'),
     false
   );
+});
+
+/* ------------------------------------------------------------------ *
+ * Summoning sickness — the badge the board draws, and the sword beside it
+ * ------------------------------------------------------------------ *
+ *
+ * `GameCardView` draws a small hourglass ("this cannot act yet") or a bolt
+ * ("haste — it can") on every summoning-sick permanent, and `combatUi.ts` draws
+ * a sword chip on the same card. Those two marks answer the same question and
+ * must never contradict each other.
+ *
+ * They did. The badge asked the PRINTED `isCreature` and `hasKeyword`, which are
+ * handed a `CardInstance` and therefore cannot see layer 4 or layer 6, while
+ * `eligibleAttackers` and the sword both asked the layered `isCreatureIn` /
+ * `hasKeywordIn`. The two tests below are the exact boards where that split was
+ * visible; they assert the divergence between the printed and layered accessors
+ * head-on, so anyone who puts a printed predicate back into the badge has a
+ * named board that proves why it is wrong.
+ */
+
+test('granted haste: the printed accessor says no, the layered one and combat say yes', () => {
+  const state = table([
+    {
+      id: 'fires',
+      name: 'Fires of Yavimaya',
+      typeLine: 'Enchantment',
+      power: '',
+      toughness: '',
+      oracleText: 'Creatures you control have haste.',
+    },
+    { id: 'bear', power: '2', toughness: '2', summoningSick: true },
+  ]);
+  const bear = state.cards.bear;
+
+  // The engine lets it swing, so the sword on the card is live.
+  assert.equal(hasKeywordIn(state, bear, 'haste'), true);
+  assert.equal(
+    eligibleAttackers(state, 'p1').some(card => card.instanceId === 'bear'),
+    true
+  );
+
+  // The printed accessor cannot see the enchantment. This is the value the
+  // badge used to read, and it is the wrong one — asserted rather than
+  // described, so the disagreement is a fact in the suite.
+  assert.equal(hasKeyword(bear, 'haste'), false);
+});
+
+test('a creature land is summoning sick, and the printed guard used to hide that', () => {
+  const state = table([
+    {
+      id: 'arbor',
+      name: 'Dryad Arbor',
+      typeLine: 'Land Creature — Forest Dryad',
+      power: '1',
+      toughness: '1',
+      summoningSick: true,
+    },
+  ]);
+  const arbor = state.cards.arbor;
+
+  // It is a creature, and it genuinely cannot attack the turn it lands.
+  assert.equal(isCreatureIn(state, arbor), true);
+  assert.deepEqual(eligibleAttackers(state, 'p1'), []);
+
+  // The old badge condition — `isCreature(card) && !isLand(card)` — was false
+  // here, so the one permanent that most needed the mark never got it.
+  assert.equal(isCreature(arbor) && !isLand(arbor), false);
+});
+
+test('an ordinary land is not a creature, so dropping the !isLand guard marks nothing new', () => {
+  const state = table([
+    {
+      id: 'forest',
+      name: 'Forest',
+      typeLine: 'Basic Land — Forest',
+      power: '',
+      toughness: '',
+      summoningSick: true,
+    },
+  ]);
+
+  assert.equal(isCreatureIn(state, state.cards.forest), false);
 });

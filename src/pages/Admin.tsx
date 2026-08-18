@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   LayoutDashboard, Flag, Users, Brain, ClipboardList,
   Download, Database, Loader2, AlertCircle,
-  Activity, CreditCard, Settings
+  Activity, CreditCard, Settings, Rocket
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -18,6 +18,7 @@ import { TaskManagement } from '@/components/admin/TaskManagement';
 import { AISystemAdmin } from '@/components/admin/AISystemAdmin';
 import { HomepageModeToggle } from '@/components/admin/HomepageModeToggle';
 import SyncDashboard from '@/components/SyncDashboard';
+import { DevConsole } from '@/components/admin/DevConsole';
 
 // ============= Overview Section =============
 function OverviewSection() {
@@ -164,7 +165,7 @@ export default function Admin() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-max sm:grid sm:w-full sm:grid-cols-7 h-auto">
+          <TabsList className="inline-flex w-max sm:grid sm:w-full sm:grid-cols-8 h-auto">
             <TabsTrigger value="overview" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -192,6 +193,10 @@ export default function Admin() {
             <TabsTrigger value="sync" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">Sync</span>
+            </TabsTrigger>
+            <TabsTrigger value="dev" className="flex items-center gap-2 py-2.5 px-3 whitespace-nowrap">
+              <Rocket className="h-4 w-4" />
+              <span className="hidden sm:inline">Dev</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -225,6 +230,10 @@ export default function Admin() {
 
         <TabsContent value="sync" className="mt-6">
           <SyncDashboard />
+        </TabsContent>
+
+        <TabsContent value="dev" className="mt-6">
+          <DevConsole />
         </TabsContent>
       </Tabs>
     </div>

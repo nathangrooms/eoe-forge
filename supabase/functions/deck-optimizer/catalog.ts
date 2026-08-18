@@ -100,8 +100,27 @@ export class Catalog {
    * pool must be complete before it is ranked. Truncating here would rank an
    * arbitrary slice of the table, which is precisely the bug this engine was
    * written to avoid.
+   *
+   * Every page is a SEPARATE query, so the ordering must be pinned or the pages
+   * do not compose. Postgres only promises an order when one is asked for:
+   * without `ORDER BY`, `EXPLAIN` on this very pool query is a bare
+   * `Limit -> Index Scan using cards_legal_commander_idx` with no sort node, so
+   * page boundaries fall wherever the scan happened to be. Any concurrent write
+   * to `cards` — `scryfall-sync` runs exactly such an update — moves a row
+   * between two of those independent scans, and the row is then fetched twice
+   * or not at all. Duplicates the ranker would absorb in `dedupeByOracle`; the
+   * silent drop is the real damage, because a legal card vanishes from the pool
+   * and the engine cannot suggest what it never retrieved. That is the same
+   * class of failure as ranking a truncated pool, arriving by a different road.
+   *
+   * `id` is the primary key, so it is unique and total — a stable sort needs
+   * both, and a non-unique key like `name` would leave ties free to reorder.
+   * Measured cost of pinning it, on the two-colour commander pool: 13 ms to
+   * 71 ms per page, the extra being a top-N heapsort over the matched rows.
+   * Paid deliberately. A pool that is fast and wrong has no value here.
    */
   async fetchAll<T>(pathAndQuery: string): Promise<T[]> {
+    pathAndQuery = withStableOrder(pathAndQuery);
     const first = await this.#get<T>(pathAndQuery, {
       Range: `0-${PAGE_SIZE - 1}`,
       'Range-Unit': 'items',
@@ -276,6 +295,22 @@ export class Catalog {
     }
     return owned;
   }
+}
+
+/**
+ * Pin a paged query to a deterministic order.
+ *
+ * Appends `order=id.asc` unless the caller already chose an order, so a caller
+ * with its own ordering keeps it rather than being silently overridden. Only
+ * paged reads need this: a single request under the 1000-row cap returns one
+ * whole result set, and there are no page boundaries for an unstable order to
+ * fall across.
+ */
+export function withStableOrder(pathAndQuery: string, column = 'id'): string {
+  // Match `order` as a whole query parameter, never as a substring of another
+  // key — `&reorder=` and `&order_by=` must not read as an existing order.
+  if (/[?&]order=/.test(pathAndQuery)) return pathAndQuery;
+  return `${pathAndQuery}${pathAndQuery.includes('?') ? '&' : '?'}order=${column}.asc`;
 }
 
 /**

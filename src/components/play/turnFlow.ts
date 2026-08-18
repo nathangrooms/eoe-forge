@@ -136,8 +136,31 @@ export function decisionFor(
     case 'precombat_main':
       return 'main';
 
-    case 'declare_attackers':
-      return eligibleAttackers(state, playerId).length > 0 ? 'attackers' : null;
+    case 'declare_attackers': {
+      /*
+       * The step releases when the PLAYER says so, not when the engine runs out
+       * of creatures to offer.
+       *
+       * It used to release the moment `eligibleAttackers` came back empty. That
+       * reads sensible and is wrong on a board: attacking taps (barring
+       * vigilance), so the list empties itself as the swing is declared — and
+       * the surface walked out of the step 130 ms after the last sword was
+       * pressed, with no chance to look at what was declared, call one back, or
+       * point the swing at a different seat. In a real game you say "attacks"
+       * out loud; here you press Attack with N on the combat bar.
+       *
+       * So a seat holds the step while it has anything left to add OR anything
+       * already declared. A seat with no creatures at all flows straight past,
+       * because there is nothing to decide, and END TURN sweeps through in
+       * every case — that path sets `forcing` and ignores decisions entirely.
+       */
+      if (eligibleAttackers(state, playerId).length > 0) return 'attackers';
+      const declared = state.combat.attackers.some(declaration => {
+        const card = state.cards[declaration.attackerId];
+        return !!card && card.controllerId === playerId;
+      });
+      return declared ? 'attackers' : null;
+    }
 
     case 'postcombat_main':
       return hasPlayableAction(state, playerId, options) ? 'second-main' : null;

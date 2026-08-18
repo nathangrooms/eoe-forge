@@ -46,7 +46,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { Catalog, normalizeName, type CatalogRow } from './catalog.ts';
-import { CardIndex, ValidationLog, diagnose, isLandCard } from './validate.ts';
+import { CardIndex, ValidationLog, diagnose, isBasicLand, isLandCard } from './validate.ts';
 import {
   chooseSwapTargets,
   collectCastability,
@@ -438,6 +438,12 @@ interface Sections {
   removals: Record<string, unknown>[];
   replacements: Record<string, unknown>[];
   landRecommendations: Record<string, unknown>[];
+  /**
+   * `issues[].card` is a card name, rendered verbatim by the UI, so it is a
+   * claim about the user's deck and is validated like any other name rather
+   * than passed through from the model.
+   */
+  issues: Record<string, unknown>[];
   /** Every card accepted anywhere, for the one image/price/ownership lookup. */
   touched: Set<string>;
 }
@@ -480,8 +486,18 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
    * pool was fetched with exactly those two filters, so a name that resolves
    * here has already passed both. A name that does not resolve is diagnosed
    * only to record *why*, never to let it through.
+   *
+   * `inDeckExempt` is consulted only AFTER the card has resolved, so the
+   * exemption is decided from the real row's type line rather than from the
+   * name the model happened to write. Its one caller is the land section, where
+   * a basic already in the deck is still addable — see `isBasicLand`.
    */
-  const resolveAdd = (name: string, section: string, seen: Set<string>): CandidateCard | null => {
+  const resolveAdd = (
+    name: string,
+    section: string,
+    seen: Set<string>,
+    inDeckExempt?: (card: CandidateCard) => boolean
+  ): CandidateCard | null => {
     log.check();
     const key = normalizeName(name);
     if (!key) {
@@ -494,7 +510,10 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
       log.drop(section, name, d.reason, d.detail);
       return null;
     }
-    if (inDeck.has(key) || inDeck.has(normalizeName(card.name))) {
+    if (
+      !inDeckExempt?.(card) &&
+      (inDeck.has(key) || inDeck.has(normalizeName(card.name)))
+    ) {
       log.drop(section, name, 'already-in-deck');
       return null;
     }
@@ -626,10 +645,21 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     const existing = landAdds.get(normalizeName(name));
     if (existing) {
       // A repeat of an already-accepted land: count the copy, do not re-check.
+      // It is still a name the model produced, so it is counted in the drop
+      // rate's denominator — otherwise "add five Plains" would move the
+      // measured rate simply by being asked for as five names instead of one.
+      log.check();
+      log.accept();
       existing.quantity = (Number(existing.quantity) || 1) + 1;
       continue;
     }
-    const card = resolveAdd(name, 'landRecommendations.add', seenLandAdd);
+    // Basic lands are exempt from "already in the deck": a deck may run any
+    // number of them, so a land-short deck that already plays Plains is
+    // exactly the deck that should be told to add more. Without this, every
+    // basic-land recommendation was dropped as `already-in-deck`, the
+    // quantity-collapse above could never fire, and the drop rate this
+    // response reports was inflated by suggestions that were never wrong.
+    const card = resolveAdd(name, 'landRecommendations.add', seenLandAdd, isBasicLand);
     if (!card) continue;
     if (!isLandCard(card)) {
       log.drop('landRecommendations.add', name, 'not-a-land', `type_line = ${card.typeLine}`);
@@ -648,6 +678,39 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     landRecommendations.push(row);
   }
 
+  /* --- issues --- */
+  // This section used to be the one place a model-authored card name reached
+  // the user unchecked: `issues[].card` is rendered verbatim in the optimiser's
+  // Issues panel, so an invented name became a confident statement about the
+  // user's deck, and it was invisible to the drop rate because nothing counted
+  // it. An issue is a claim ABOUT a card the deck contains, so it is held to
+  // the same rule as a removal. Commentary that is not about one specific card
+  // belongs in summary / strengths / strategy / manabase, which are prose and
+  // name nothing.
+  const issues: Record<string, unknown>[] = [];
+  for (const x of arr(raw.issues)) {
+    const name = str(x.card);
+    log.check();
+    const key = normalizeName(name);
+    if (!key) {
+      log.drop('issues', name, 'empty-name');
+      continue;
+    }
+    if (!inDeck.has(key)) {
+      log.drop('issues', name, 'not-in-deck');
+      continue;
+    }
+    log.accept();
+    issues.push({
+      card: name,
+      reason: str(x.reason),
+      severity: ['high', 'medium', 'low'].includes(String(x.severity))
+        ? String(x.severity)
+        : 'medium',
+      category: x.category ?? null,
+    });
+  }
+
   return {
     // The pre-existing rule: additions only matter to an incomplete deck, and
     // removals only to an overloaded one.
@@ -655,6 +718,7 @@ async function validateSections(a: ValidateArgs): Promise<Sections> {
     removals: a.excessCards > 0 ? removals.slice(0, Math.max(a.excessCards + 3, 10)) : [],
     replacements: replacements.slice(0, 15),
     landRecommendations: landRecommendations.slice(0, 12),
+    issues,
     touched,
   };
 }
@@ -743,7 +807,10 @@ function engineOnlySections(args: {
     };
   });
 
-  return { additions, removals, replacements, landRecommendations, touched };
+  // No issues: the engine ranks and explains cards, but it has no opinion to
+  // offer about a specific card being a problem, and an empty list is the
+  // honest way to say so.
+  return { additions, removals, replacements, landRecommendations, issues: [], touched };
 }
 
 function categoryFor(r: Recommendation): string {
@@ -933,14 +1000,10 @@ function buildResponse(args: {
     currentPowerLevel: typeof raw?.currentPowerLevel === 'number' ? raw.currentPowerLevel : null,
     projectedPowerLevel:
       typeof raw?.projectedPowerLevel === 'number' ? raw.projectedPowerLevel : null,
-    issues: arr(raw?.issues).map(i => ({
-      card: str(i.card),
-      reason: str(i.reason),
-      severity: ['high', 'medium', 'low'].includes(String(i.severity))
-        ? String(i.severity)
-        : 'medium',
-      category: i.category ?? null,
-    })),
+    // Already resolved against the deck in `validateSections`. Reading
+    // `raw.issues` here instead would put the one unvalidated card name in the
+    // response straight back.
+    issues: enriched.issues,
     strengths: arr(raw?.strengths).map(textOf),
     strategy: arr(raw?.strategy).map(textOf),
     manabase: raw?.manabase ? arr(raw.manabase).map(textOf) : [{ text: manabaseNote(args) }],
@@ -1101,8 +1164,14 @@ function buildGroundedPrompt(p: {
       `user sees it, so naming one only wastes the slot.`
   );
   out.push(
-    `Every card you name in removals, replacements.remove, or landRecommendations of ` +
-      `type "remove" MUST be copied verbatim from the DECK list.`
+    `Every card you name in removals, replacements.remove, landRecommendations of ` +
+      `type "remove", or issues MUST be copied verbatim from the DECK list. An issue ` +
+      `is a problem with a card this deck already plays; for anything broader use the ` +
+      `summary, strengths, strategy or mana base notes, which name no cards.`
+  );
+  out.push(
+    `Do not suggest adding a card the DECK list already contains — except basic lands, ` +
+      `of which a deck may play any number.`
   );
   out.push(``);
   out.push(`## Deck`);
@@ -1250,10 +1319,16 @@ const TOOLS = [
           projectedPowerLevel: { type: 'number' },
           issues: {
             type: 'array',
+            description:
+              'Problems with specific cards the deck already plays. Use summary / ' +
+              'strengths / strategy / manabase for anything not about one named card.',
             items: {
               type: 'object',
               properties: {
-                card: { type: 'string' },
+                card: {
+                  type: 'string',
+                  description: 'Copied verbatim from the DECK list',
+                },
                 reason: { type: 'string' },
                 severity: { type: 'string', enum: ['low', 'medium', 'high'] },
                 category: { type: 'string' },
@@ -1363,7 +1438,10 @@ async function callModel(
               `1. Copy card names verbatim from the CANDIDATE POOL / LAND CANDIDATES (to add) ` +
               `or from the DECK list (to cut). A name from neither list is discarded before ` +
               `the user sees it.\n` +
-              `2. Never suggest adding a card the DECK list already contains.\n` +
+              `2. Never suggest adding a card the DECK list already contains, except ` +
+              `basic lands — a deck may play any number of those.\n` +
+              `2a. An issue names a card from the DECK list. Observations about the deck ` +
+              `as a whole go in the summary, strengths, strategy or mana base notes.\n` +
               `3. Justify each pick from the measured numbers supplied: role gaps, mana curve, ` +
               `shared tags, price.\n` +
               `4. A card with no castability figure is unmeasured, not weak.\n` +

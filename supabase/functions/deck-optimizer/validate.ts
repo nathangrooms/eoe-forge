@@ -194,3 +194,16 @@ export class ValidationLog {
 export function isLandCard(card: CandidateCard): boolean {
   return /\bland\b/i.test(card.typeLine);
 }
+
+/**
+ * A basic land — "Basic Land — Plains".
+ *
+ * The one class of card the "already in the deck" rule must not apply to. A
+ * deck may run any number of basics (Commander's singleton rule names them as
+ * the explicit exception, and constructed's four-of limit does too), so
+ * "add three more Plains" is ordinary advice to a deck that is short on lands
+ * and already plays Plains — which is nearly every deck that needs it.
+ */
+export function isBasicLand(card: CandidateCard): boolean {
+  return isLandCard(card) && /\bbasic\b/i.test(card.typeLine);
+}

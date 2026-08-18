@@ -31,11 +31,16 @@ import { GameCardView } from './GameCardView';
 import { CARD_RATIO } from './Battlefield';
 import { useMeasuredSize } from './useMeasure';
 import {
+  canBlock,
   eligibleAttackers,
+  eligibleBlockers,
   isLand,
+  isUnderAttack,
   planCastFromHand,
   planLandDrop,
+  powerOf,
   statLine,
+  toughnessOf,
   type CardInstance,
   type GameState,
   type PlayerId,
@@ -61,6 +66,12 @@ export interface CardInspectorProps {
   onPlayLand: (card: CardInstance) => void;
   onTapToggle: (card: CardInstance) => void;
   onAttack: (card: CardInstance, defenderPlayerId: PlayerId) => void;
+  /**
+   * Put this creature in front of one attacker. The mirror image of `onAttack`:
+   * blocking is a decision made about a card, so it is made in the preview of
+   * that card rather than by a select-then-confirm dance on the board.
+   */
+  onBlock?: (card: CardInstance, attackerId: string) => void;
   onMoveZone: (card: CardInstance, to: Zone) => void;
   onFocusSeat?: (playerId: PlayerId) => void;
   onClose: () => void;
@@ -123,6 +134,7 @@ export function CardInspector({
   onPlayLand,
   onTapToggle,
   onAttack,
+  onBlock,
   onMoveZone,
   onFocusSeat,
   onClose,
@@ -156,6 +168,40 @@ export function CardInspector({
   const alreadyAttacking = state.combat.attackers.some(
     declaration => declaration.attackerId === card.instanceId
   );
+  const alreadyBlocking = state.combat.attackers.find(
+    declaration => declaration.blockedBy.indexOf(card.instanceId) !== -1
+  );
+
+  /*
+   * Blocking, asked of the engine rather than restated here.
+   *
+   * `eligibleBlockers` owns "is this creature able to block at all" and
+   * `canBlock` owns evasion, so a button offered here is a block the rules
+   * would accept. A creature already in front of something is not offered
+   * again: `BLOCK` appends to the declaration, so a second press would put the
+   * same body in the way twice.
+   */
+  const canDeclareBlock =
+    mine &&
+    !!onBlock &&
+    card.zone === 'battlefield' &&
+    state.step === 'declare_blockers' &&
+    isUnderAttack(state, viewerPlayerId) &&
+    !alreadyBlocking &&
+    eligibleBlockers(state, viewerPlayerId).some(c => c.instanceId === card.instanceId);
+
+  const blockable: Array<{ attackerId: string; attacker: CardInstance }> = canDeclareBlock
+    ? state.combat.attackers
+        .filter(declaration => declaration.defenderPlayerId === viewerPlayerId)
+        .map(declaration => ({
+          attackerId: declaration.attackerId,
+          attacker: state.cards[declaration.attackerId],
+        }))
+        .filter(
+          (entry): entry is { attackerId: string; attacker: CardInstance } =>
+            !!entry.attacker && canBlock(entry.attacker, card)
+        )
+    : [];
 
   const stats = statLine(card);
 
@@ -174,6 +220,10 @@ export function CardInspector({
     if (value !== 0) notes.push(`${value > 0 ? '+' : ''}${value} ${key}`);
   }
   if (alreadyAttacking) notes.push('Attacking');
+  if (alreadyBlocking) {
+    const blocked = state.cards[alreadyBlocking.attackerId];
+    notes.push(blocked ? `Blocking ${blocked.name}` : 'Blocking');
+  }
 
   return (
     <div className={cn('flex h-full w-full flex-col', className)}>
@@ -267,7 +317,7 @@ export function CardInspector({
           {mine && card.zone === 'battlefield' && (
             <ActionButton
               label={card.tapped ? 'Untap' : 'Tap'}
-              tone={canDeclare ? 'quiet' : 'primary'}
+              tone={canDeclare || blockable.length > 0 ? 'quiet' : 'primary'}
               onClick={() => onTapToggle(card)}
             />
           )}
@@ -279,6 +329,18 @@ export function CardInspector({
               tone="primary"
               hint={`Declare ${card.name} as an attacker against ${defender.name}`}
               onClick={() => onAttack(card, defender.id)}
+            />
+          ))}
+
+          {/* One button per attacker this creature could legally stand in front
+              of, named, because "block" with nothing named is a guess. */}
+          {blockable.map(({ attackerId, attacker }) => (
+            <ActionButton
+              key={attackerId}
+              label={`Block ${attacker.name}`}
+              tone="primary"
+              hint={`${card.name} (${powerOf(card)}/${toughnessOf(card)}) blocks ${attacker.name} (${powerOf(attacker)}/${toughnessOf(attacker)})`}
+              onClick={() => onBlock?.(card, attackerId)}
             />
           ))}
 

@@ -152,26 +152,27 @@ async function saveSyncState(state: SyncState) {
   }, { onConflict: 'id' });
 }
 
-function tagCard(card: ScryfallCard): string[] {
-  const tags: string[] = [];
-  const text = (card.oracle_text || '').toLowerCase();
-  const typeLine = (card.type_line || '').toLowerCase();
-  
-  if (typeLine.includes('land')) tags.push('land');
-  if (typeLine.includes('creature')) tags.push('creature');
-  if (typeLine.includes('instant')) tags.push('instant');
-  if (typeLine.includes('sorcery')) tags.push('sorcery');
-  if (typeLine.includes('artifact')) tags.push('artifact');
-  if (typeLine.includes('enchantment')) tags.push('enchantment');
-  if (typeLine.includes('planeswalker')) tags.push('planeswalker');
-  
-  if (text.includes('add') && text.includes('mana')) tags.push('ramp');
-  if (text.includes('destroy') || text.includes('exile')) tags.push('removal');
-  if (text.includes('draw') && text.includes('card')) tags.push('draw');
-  if (text.includes('search') && text.includes('library')) tags.push('tutor');
-  if (text.includes('token')) tags.push('tokens');
-  
-  return tags;
+/**
+ * Applies the role tagger to the rows this run just wrote.
+ *
+ * Tags used to be computed here, by `text.includes('add') && text.includes('mana')`
+ * and four rules like it. That yielded card TYPES plus noise — `removal` fired on
+ * any text containing "exile", `tokens` on any text containing "token" — and gave
+ * Sol Ring no role at all. The classifier now lives in exactly one place,
+ * `public.derive_card_tags`, generated from `src/lib/cards/tagger.ts`.
+ *
+ * The `cards_apply_role_tags` trigger already tags every row as it is written, so
+ * this call is belt-and-braces. It is here so that tagging on arrival is visible
+ * in the sync itself: if the trigger is ever dropped, the sync still produces
+ * tagged rows rather than silently regressing to untagged ones.
+ *
+ * Never fatal. Cards that are saved but not yet tagged are fixed by the next
+ * `retag` pass; cards that are not saved at all are lost work.
+ */
+async function tagWrittenCards(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.rpc('retag_cards', { p_ids: ids });
+  if (error) console.warn(`⚠️ retag_cards failed for ${ids.length} ids: ${error.message}`);
 }
 
 function getImageUris(card: ScryfallCard): Record<string, string> {
@@ -250,7 +251,11 @@ function transformCard(card: ScryfallCard) {
     is_legendary: (card.type_line || '').toLowerCase().includes('legendary'),
     is_reserved: card.reserved || false,
     rarity: card.rarity || 'common',
-    tags: tagCard(card),
+    // `tags` is deliberately absent. It is owned by the cards_apply_role_tags
+    // trigger, which calls public.derive_card_tags on every insert and on any
+    // update that touches name/type_line/oracle_text/keywords/mana_cost/cmc/faces.
+    // Sending a value here would only be overwritten, and omitting it means an
+    // upsert that changes nothing but prices leaves the existing tags untouched.
   };
 }
 
@@ -332,8 +337,10 @@ async function syncCards(resumeState?: SyncState): Promise<{ success: boolean; p
               });
               throw new Error(`DB error: ${error.message}`);
             }
+
+            await tagWrittenCards(batch.map((c) => c.id));
           }
-          
+
           totalProcessed += transformed.length;
           console.log(`✅ Page ${currentPage}: saved ${transformed.length} cards (total: ${totalProcessed})`);
         }
@@ -463,6 +470,10 @@ async function backfillFaces(opts: { onlyMissing?: boolean; deadlineMs?: number 
         .upsert(withFaces.map(transformCard), { onConflict: 'id', ignoreDuplicates: false });
 
       if (writeError) throw new Error(`DB write failed: ${writeError.message}`);
+      // Faces carry the oracle text of every side, and for 802 rows they carry
+      // the ONLY oracle text — so a face backfill changes what these cards are
+      // classified as, and they have to be re-tagged with it.
+      await tagWrittenCards(withFaces.map((c) => c.id));
       updated += withFaces.length;
       console.log(`✅ Backfilled ${updated} cards (scanned ${scanned})`);
     }
@@ -506,6 +517,42 @@ serve(async (req) => {
       });
     }
     
+    /**
+     * Reclassify the whole catalogue. Needed after TAG_RULES changes, since the
+     * trigger only fires on rows that are written and an oracle text that has
+     * not changed will never be revisited.
+     *
+     * Re-runnable and resumable: it walks a keyset cursor held in
+     * `card_retag_progress` and returns after `budget_seconds`, so call it again
+     * until `done` is true. `restart: true` starts from the beginning.
+     */
+    if (action === 'retag') {
+      const { data, error } = await supabase.rpc('retag_all_cards', {
+        // Under the database's 120s statement_timeout, which is armed before the
+        // function body runs and cannot be widened from inside it.
+        p_budget_seconds: typeof body.budget_seconds === 'number' ? body.budget_seconds : 100,
+        p_page: typeof body.page === 'number' ? body.page : 500,
+        p_restart: body.restart === true,
+      });
+
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+
+      const state = Array.isArray(data) ? data[0] : data;
+      return new Response(JSON.stringify({
+        ...state,
+        message: state?.done
+          ? `Re-tag complete. ${state.changed} of ${state.scanned} cards changed.`
+          : `Re-tagged ${state?.scanned ?? 0} cards so far; call again to continue.`,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'backfill-faces') {
       const result = await backfillFaces({
         onlyMissing: body.only_missing !== false,

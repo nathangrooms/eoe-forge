@@ -103,9 +103,15 @@ export function controlsFlow(state: GameState, playerId: PlayerId): boolean {
  *   - **main** — always. This is the one place per turn where a player is
  *     expected to look at the board and choose, so it is never skipped even
  *     with an empty hand; it is also where End Turn and Attack live.
- *   - **attackers** — only while there is something to swing with *and* nothing
- *     has been declared yet. Declaring an attack is itself the decision, so the
- *     step releases the moment attackers exist on the stack of declarations.
+ *   - **attackers** — while anything is still *able* to swing. Note "able", not
+ *     "nothing declared yet". Attacks are declared one creature at a time from
+ *     the preview, and releasing the step on the first declaration meant a
+ *     player who swung with one creature had the rest of the step walked out
+ *     from under them 130 ms later — a three-creature alpha strike was simply
+ *     not expressible. Attacking taps (barring vigilance), so
+ *     `eligibleAttackers` empties itself as the swing is declared and the step
+ *     releases on its own once there is nothing left to add; until then the
+ *     player says when they are done.
  *   - **blockers** — only when the attack is pointed at you and you have an
  *     untapped body that could get in the way. Being attacked with an empty
  *     board is not a decision, and the engine's bot politely waits for a human
@@ -131,7 +137,6 @@ export function decisionFor(
       return 'main';
 
     case 'declare_attackers':
-      if (state.combat.attackers.length > 0) return null;
       return eligibleAttackers(state, playerId).length > 0 ? 'attackers' : null;
 
     case 'postcombat_main':

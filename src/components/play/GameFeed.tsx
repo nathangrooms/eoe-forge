@@ -137,15 +137,20 @@ export function GameFeed({ state, feed, className, limit = 3, variant = 'feed' }
         {lines.map((line, index) => {
           // The oldest lines in the collapsed feed fade out rather than being
           // cut off, so the strip reads as a stream instead of a truncated list.
+          //
+          // The floor is not decoration. The feed floats in the strip the hand
+          // is held over, so an older line is usually lying across a card face:
+          // at the 0.28 this used to bottom out at, the line and the art behind
+          // it were equally visible and neither could be read.
           const depth = lines.length - 1 - index;
           const faded = !isPanel && depth > 0;
           return (
             <li
               key={line.key}
-              style={faded ? { opacity: Math.max(0.28, 1 - depth * 0.22) } : undefined}
+              style={faded ? { opacity: Math.max(0.6, 1 - depth * 0.18) } : undefined}
               className={cn(
                 'w-fit max-w-full truncate rounded-md px-2 py-0.5 text-[11px] leading-snug',
-                isPanel ? '' : 'bg-background/55 shadow-sm shadow-black/30 backdrop-blur-sm',
+                isPanel ? '' : 'bg-background/75 shadow-sm shadow-black/40 backdrop-blur-sm',
                 line.emphasis
                   ? 'font-medium text-foreground'
                   : line.intent

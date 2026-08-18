@@ -106,6 +106,19 @@ const HUMAN_SEAT: PlayerId = 'p1';
 /** Height of the floating HUD — the board is held off the top edge by this. */
 const HUD_INSET = 56;
 
+/**
+ * Height of the strip along the bottom edge that the game feed lives in.
+ *
+ * The feed is a float, not a panel, so it needs somewhere to float that belongs
+ * to nobody. On the table and in hand mode that is the strip the viewer's hand
+ * is held over, which is already reserved. In view and combat mode there is no
+ * hand — and a full-bleed single seat put its command zone and its creature row
+ * exactly where the feed was sitting. So those two modes reserve the strip for
+ * the feed instead: same place on screen in every mode, never on top of
+ * somebody's board in any of them.
+ */
+const FEED_INSET = 74;
+
 /** A real card is 63 × 88 mm: height = width ÷ this. */
 const CARD_RATIO = 0.7176;
 
@@ -461,14 +474,6 @@ export default function Play() {
     setEndingTurn(state.turn);
   }, [state]);
 
-  const handleDeclareAttack = useCallback(
-    (attacks: Array<{ attackerId: string; defenderPlayerId: PlayerId }>) => {
-      if (!state) return;
-      dispatch(declareAttack(state, attacks, Date.now()));
-    },
-    [state, dispatch]
-  );
-
   /**
    * Declare one creature from the preview.
    *
@@ -497,9 +502,19 @@ export default function Play() {
     [state, dispatch]
   );
 
-  const handleDeclareBlocks = useCallback(
-    (blocks: Array<{ blockerId: string; attackerId: string }>) => {
-      dispatch({ type: 'BLOCK', blocks });
+  /**
+   * Put one creature in front of one attacker, from the preview.
+   *
+   * The mirror of `handleAttackOne`, with one difference that comes straight
+   * from the reducer: `BLOCK` *appends* to `blockedBy` where `ATTACK` replaces
+   * the declaration, so this sends only the new pairing. `CardInspector` will
+   * not offer a creature that is already blocking, which is what keeps the same
+   * body out of two lanes.
+   */
+  const handleBlockOne = useCallback(
+    (card: CardInstance, attackerId: string) => {
+      dispatch({ type: 'BLOCK', blocks: [{ blockerId: card.instanceId, attackerId }] });
+      setInspectId(null);
     },
     [dispatch]
   );
@@ -716,7 +731,7 @@ export default function Play() {
                   variant={variant}
                   focusPlayerId={focusedSeat}
                   cardWidth={boardCardWidth}
-                  bottomInset={showHand ? hand.inset : 0}
+                  bottomInset={showHand ? hand.inset : FEED_INSET}
                   topInset={HUD_INSET}
                   onInspect={card => setInspectId(card.instanceId)}
                   onOpenZone={(playerId, zone) => {
@@ -748,28 +763,32 @@ export default function Play() {
                 )}
               </div>
             ) : (
-              <div
-                className="h-full overflow-y-auto px-2 pb-2 md:px-4"
-                style={{ paddingTop: HUD_INSET + 8 }}
-              >
-                <CombatView
-                  state={state}
-                  viewerPlayerId={HUMAN_SEAT}
-                  botPlayerIds={botPlayerIds}
-                  onDeclareAttack={handleDeclareAttack}
-                  onDeclareBlocks={handleDeclareBlocks}
-                  onAdvance={handleAdvance}
-                />
-              </div>
+              /* Combat owns its own insets rather than sitting in a padded box:
+                 it measures the room it has and sizes its cards from that, the
+                 same bargain every mat on the table makes. */
+              <CombatView
+                className="h-full w-full"
+                state={state}
+                viewerPlayerId={HUMAN_SEAT}
+                botPlayerIds={botPlayerIds}
+                onInspect={card => setInspectId(card.instanceId)}
+                inspectedId={inspectId}
+                onAdvance={handleAdvance}
+                topInset={HUD_INSET}
+                bottomInset={FEED_INSET}
+              />
             )}
           </motion.div>
         </AnimatePresence>
 
         {/* The log, as a feed over the board rather than a column beside it.
-            It sits in the strip the hand is held over, not on a mat: every
-            square inch of the four quadrants belongs to somebody's board, and
-            the row along the bottom edge of the near seats is their creature
-            row — the one row nobody can afford to have a log sitting on. */}
+            Every square inch of the four quadrants belongs to somebody's board,
+            and the row along the bottom edge of the near seats is their creature
+            row — the one row nobody can afford to have a log sitting on. So the
+            feed lives in the reserved strip along the bottom edge: shared with
+            the hand on the table, kept clear by `FEED_INSET` in the two views
+            that have no hand, where it used to land squarely on the focused
+            seat's command zone. */}
         <div className="pointer-events-none absolute bottom-2 left-2 z-40 w-56 max-w-[36vw]">
           <GameFeed state={state} feed={feed} variant="feed" />
         </div>
@@ -809,6 +828,7 @@ export default function Play() {
               onPlayLand={handlePlayLand}
               onTapToggle={handleTapToggle}
               onAttack={handleAttackOne}
+              onBlock={handleBlockOne}
               onMoveZone={handleMoveZone}
               onFocusSeat={handleFocusSeat}
               onClose={() => setInspectId(null)}

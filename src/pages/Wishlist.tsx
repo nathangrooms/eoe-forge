@@ -31,6 +31,7 @@ import { WishlistCardGrid } from '@/components/wishlist/WishlistCardGrid';
 import { WishlistListView } from '@/components/wishlist/WishlistListView';
 import { WishlistByDeck, type DeckGap, type DeckGapCard } from '@/components/wishlist/WishlistByDeck';
 import { WishlistEmptyState } from '@/components/wishlist/WishlistEmptyState';
+import { WishlistBuyPanel } from '@/components/wishlist/WishlistBuyPanel';
 import {
   MoveToCollectionPanel,
   type MoveToCollectionValues,
@@ -112,6 +113,8 @@ export default function Wishlist() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [deckGaps, setDeckGaps] = useState<DeckGap[]>([]);
   const [userDecks, setUserDecks] = useState<UserDeck[]>([]);
+  /** Copies already in the collection, keyed by card id — read with the gaps. */
+  const [ownedByCard, setOwnedByCard] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [gapsLoading, setGapsLoading] = useState(true);
   /* Open card lives in the URL so Back closes the detail pane. */
@@ -246,6 +249,7 @@ export default function Wishlist() {
 
       if (!decks?.length) {
         setDeckGaps([]);
+        setOwnedByCard(new Map());
         return;
       }
 
@@ -272,6 +276,8 @@ export default function Wishlist() {
           (ownedByCard.get(row.card_id) ?? 0) + (row.quantity ?? 0) + (row.foil ?? 0)
         );
       }
+
+      setOwnedByCard(ownedByCard);
 
       const wishlistByCard = new Map((wishlistRows ?? []).map(r => [r.card_id, r.id]));
 
@@ -642,6 +648,32 @@ export default function Wishlist() {
     [wishlistItems]
   );
 
+  /**
+   * Card ids at least one deck is genuinely short of, straight out of the gap
+   * calculation — deck requirement minus copies owned. This is what turns
+   * "94 cards you fancy" into "these are the ones a deck is waiting on".
+   */
+  const neededByDeck = useMemo(
+    () => new Set(deckGaps.flatMap(gap => gap.cards.map(card => card.cardId))),
+    [deckGaps]
+  );
+
+  /**
+   * Copy the visible rows in the `N Card Name` shape every mass-entry box
+   * accepts, then open one. Same mechanism as the per-deck buy list, applied to
+   * whatever the filters have narrowed the wishlist to.
+   */
+  const copyWishlistBuyList = useCallback((items: WishlistItem[]) => {
+    const list = items.map(i => `${i.quantity} ${i.card_name}`).join('\n');
+    navigator.clipboard.writeText(list);
+    window.open(
+      'https://www.tcgplayer.com/massentry?productline=Magic',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    showSuccess('Copied', `${items.length} lines copied for mass entry`);
+  }, []);
+
   const activeFilterCount = filters.activeCount + (priorityFilter === 'all' ? 0 : 1);
   const hasActiveFilter = activeFilterCount > 0;
 
@@ -684,7 +716,11 @@ export default function Wishlist() {
           </Button>
         </div>
 
-        <WishlistQuickStats items={wishlistItems} />
+        <WishlistQuickStats
+          items={wishlistItems}
+          neededByDeck={neededByDeck}
+          ownedByCard={ownedByCard}
+        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="flex flex-col gap-4">
@@ -820,6 +856,14 @@ export default function Wishlist() {
           </div>
 
           <TabsContent value="wishlist" className="mt-4 space-y-4">
+            {!loading && filteredItems.length > 0 && (
+              <WishlistBuyPanel
+                items={filteredItems}
+                filtered={hasActiveFilter}
+                neededByDeck={neededByDeck}
+                onCopyBuyList={copyWishlistBuyList}
+              />
+            )}
             {moveTarget && (
               <MoveToCollectionPanel
                 key={moveTarget.id}

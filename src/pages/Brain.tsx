@@ -28,9 +28,11 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { DeckAPI, DeckSummary } from '@/lib/api/deckAPI';
 import { CardDetailPane } from '@/components/cards/CardDetailPane';
+import { CardImage } from '@/components/cards';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
 import { AddCardPanel, type AddableCard } from '@/components/brain/AddCardPanel';
+import { DeckContextPanel, type BrainDeckCard } from '@/components/brain/DeckContextPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -157,7 +159,8 @@ export default function Brain() {
   const [isLoading, setIsLoading] = useState(false);
   const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
-  const [deckCards, setDeckCards] = useState<any[]>([]);
+  const [deckCards, setDeckCards] = useState<BrainDeckCard[]>([]);
+  const [loadingDeckCards, setLoadingDeckCards] = useState(false);
   const [loadingDecks, setLoadingDecks] = useState(true); // Start true to prevent layout shift
   const [detailedResponses, setDetailedResponses] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -167,6 +170,8 @@ export default function Brain() {
      detail column or it is not. There is nothing to "open". */
   const [modalCard, setModalCard] = useState<any>(null);
   const [addCard, setAddCard] = useState<AddableCard | null>(null);
+  /** Mid-conversation: whether the full decklist receipt is expanded. */
+  const [contextOpen, setContextOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
   const scrollToBottom = () => {
@@ -194,17 +199,48 @@ export default function Brain() {
     }
   };
 
+  /**
+   * The decklist that is sent as context — joined back to `cards` so the page can
+   * *show* it. The entries alone carry a name and a quantity and nothing visual,
+   * which is why the page used to assert it was reading your deck without ever
+   * proving it.
+   */
   const loadDeckCards = async (deckId: string) => {
+    setLoadingDeckCards(true);
     try {
-      const { data: cards, error } = await supabase
+      const { data: entries, error } = await supabase
         .from('deck_cards')
         .select('card_id, card_name, quantity, is_commander, is_sideboard')
         .eq('deck_id', deckId);
 
       if (error) throw error;
-      setDeckCards(cards || []);
+
+      const ids = [...new Set((entries ?? []).map(e => e.card_id).filter(Boolean))];
+      const { data: cardRows } = ids.length
+        ? await supabase
+            .from('cards')
+            .select(
+              'id, name, set_code, collector_number, type_line, mana_cost, cmc, colors, color_identity, rarity, layout, image_uris, faces, oracle_text, prices, power, toughness, keywords, legalities'
+            )
+            .in('id', ids)
+        : { data: [] as any[] };
+
+      const byId = new Map((cardRows ?? []).map(row => [row.id, row]));
+
+      setDeckCards(
+        (entries ?? []).map(entry => ({
+          card_id: entry.card_id,
+          card_name: entry.card_name,
+          quantity: entry.quantity ?? 1,
+          is_commander: Boolean(entry.is_commander),
+          is_sideboard: Boolean(entry.is_sideboard),
+          card: byId.get(entry.card_id) ?? null,
+        }))
+      );
     } catch (error) {
       console.error('Error loading deck cards:', error);
+    } finally {
+      setLoadingDeckCards(false);
     }
   };
 
@@ -240,10 +276,17 @@ export default function Brain() {
       const enrichedDeckContext = selectedDeck
         ? {
             ...selectedDeck,
+            /* Exactly the list the page renders under "What the assistant is
+               reading" — same rows, same order, sideboard flagged rather than
+               silently folded in. */
             cards: deckCards.map(dc => ({
               name: dc.card_name,
               quantity: dc.quantity || 1,
               is_commander: dc.is_commander,
+              is_sideboard: dc.is_sideboard,
+              type_line: dc.card?.type_line ?? undefined,
+              mana_cost: dc.card?.mana_cost ?? undefined,
+              cmc: dc.card?.cmc ?? undefined,
             })),
           }
         : null;
@@ -364,6 +407,14 @@ export default function Brain() {
     const commander = deckCards.find(c => c.is_commander);
     return commander?.card_name;
   };
+
+  /** The commander's real `cards` row, for the strip above the composer. */
+  const commanderCard = deckCards.find(c => c.is_commander)?.card ?? null;
+
+  /** Exactly what goes in the request: maindeck entries, summed by quantity. */
+  const contextCardCount = deckCards
+    .filter(c => !c.is_sideboard)
+    .reduce((sum, c) => sum + (c.quantity ?? 1), 0);
 
   const openAddDialog = (card: CardData) => {
     setAddCard(card as AddableCard);
@@ -514,7 +565,9 @@ export default function Brain() {
       {/* Main chat area */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card/40 shadow-lg shadow-black/20">
         <ScrollArea className="flex-1 p-4 lg:p-6">
-          <div className="mx-auto max-w-4xl space-y-6">
+          {/* The conversation is centred, but the deck receipt below is not: it is
+              a wall of cards and wants the whole column. */}
+          <div className="mx-auto w-full max-w-5xl space-y-6">
             {messages.length === 0 ? (
               /* Empty state with quick actions */
               <div className="space-y-6 py-4">
@@ -524,10 +577,20 @@ export default function Brain() {
                   </h2>
                   <p className="mx-auto max-w-md text-sm text-muted-foreground">
                     {selectedDeck
-                      ? "Ask about this deck's strategy, card choices, or where it can be improved."
+                      ? "Every question below is answered with this list attached — the cards it holds are shown, not asserted."
                       : 'Rules, deck building, card recommendations and strategy. Select a deck for analysis of your own list.'}
                   </p>
                 </div>
+
+                {/* The decklist that travels with the question. */}
+                {selectedDeck && (
+                  <DeckContextPanel
+                    deckName={selectedDeck.name}
+                    cards={deckCards}
+                    loading={loadingDeckCards}
+                    onCardClick={setModalCard}
+                  />
+                )}
 
                 {/* Quick actions */}
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -707,7 +770,51 @@ export default function Brain() {
 
         {/* Input */}
         <div className="bg-muted/20 p-4">
-          <div className="mx-auto max-w-4xl">
+          <div className="mx-auto w-full max-w-5xl">
+            {/* Once the conversation has started the full receipt would push the
+                thread off screen, so it shrinks to the commander, the count and a
+                way back to the list. It never disappears: the context is always
+                attached, so it is always visible. */}
+            {selectedDeck && messages.length > 0 && contextOpen && (
+              <div className="mb-3 max-h-[26rem] overflow-y-auto">
+                <DeckContextPanel
+                  deckName={selectedDeck.name}
+                  cards={deckCards}
+                  loading={loadingDeckCards}
+                  onCardClick={setModalCard}
+                />
+              </div>
+            )}
+            {selectedDeck && messages.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-card/70 px-3 py-2">
+                {commanderCard ? (
+                  <button
+                    type="button"
+                    onClick={() => setModalCard(commanderCard)}
+                    className="w-9 shrink-0"
+                    title={commanderCard.name}
+                  >
+                    <CardImage card={commanderCard} size="xs" fill />
+                  </button>
+                ) : (
+                  <Crown className="h-4 w-4 shrink-0 text-type-commander" aria-hidden="true" />
+                )}
+                <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                  Answering with <span className="font-medium text-foreground">{selectedDeck.name}</span>{' '}
+                  attached — {contextCardCount} maindeck card{contextCardCount === 1 ? '' : 's'} sent
+                  with every question.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 text-xs"
+                  onClick={() => setContextOpen(open => !open)}
+                  aria-expanded={contextOpen}
+                >
+                  {contextOpen ? 'Hide the list' : 'See the list'}
+                </Button>
+              </div>
+            )}
             <div className="relative">
               <Textarea
                 ref={inputRef}

@@ -132,17 +132,27 @@ export function WishlistByDeck({
                 onClick={() => setExpandedDeck(isExpanded ? null : deck.deckId)}
                 aria-expanded={isExpanded}
               >
-                {/* The priciest missing card stands in as the deck's face. */}
-                <CardImage
-                  card={{
-                    name: deck.cards[0]?.name ?? deck.name,
-                    image_uris: deck.cards[0]?.images,
-                  }}
-                  width={48}
-                  hideFlip
-                  interactive={false}
-                  className="shrink-0"
-                />
+                {/* The costliest missing cards, at a size where they read as
+                    cards. A 48px thumbnail of one of them told you nothing about
+                    what the deck is actually short of. */}
+                <div className="flex shrink-0 items-center gap-2">
+                  {deck.cards.slice(0, 6).map((card, index) => (
+                    <CardImage
+                      key={card.cardId}
+                      card={{ name: card.name, image_uris: card.images }}
+                      width={index === 0 ? 84 : 68}
+                      quality="normal"
+                      hideFlip
+                      interactive={false}
+                      title={`${card.missing}× ${card.name}`}
+                      className={cn(
+                        'shrink-0',
+                        index > 0 && 'hidden lg:block',
+                        index > 2 && 'lg:hidden xl:block'
+                      )}
+                    />
+                  ))}
+                </div>
 
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-semibold text-foreground">{deck.name}</h3>

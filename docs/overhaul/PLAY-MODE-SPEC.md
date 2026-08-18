@@ -68,10 +68,17 @@ concept; `seating.ts` geometry stays for *placement*, but seats render upright.
 > "Hand mode is the full screen version just your board."
 > "should be able to view other peoples boards in view mode"
 
-## Sizing
+## Sizing — the hand is the biggest thing on screen
 
 > "For the player, the hand needs to be massive."
 > "Cards need to be much bigger in general"
+> "my hand should be massive - I can barely even see it - cards are tiny"
+
+Measured starting point: `ViewerHand` defaulted to **104px** per card — roughly a third of the
+size at which a Magic card can be read. Raised to 210px, and it should go further in hand view.
+
+The hand is where a player STUDIES a card before committing to a play, so it is the largest
+element on the table, not a strip of thumbnails along the bottom edge.
 
 The viewer's hand is the largest element on the table. Card sizes throughout play should be
 substantially larger than the current measurements.

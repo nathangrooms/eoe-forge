@@ -66,7 +66,10 @@ export function ViewerHand({
   freeCast,
   onCast,
   onPlayLand,
-  cardWidth = 104,
+  /* 104px rendered a Magic card at roughly a third of readable size — the owner
+     could not read their own hand. A hand card is the thing you study before
+     committing to a play, so it is the largest element on the table. */
+  cardWidth = 210,
   includeCommandZone = true,
   className,
 }: ViewerHandProps) {

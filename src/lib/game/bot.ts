@@ -141,11 +141,26 @@ function chooseSpell(
   return null;
 }
 
-/** Living opponents, worst-off first — a bot should finish someone, not spread damage. */
+/**
+ * Living opponents, easiest first.
+ *
+ * Ranking on life alone makes every bot in a pod pile onto the same seat and
+ * leaves a third player untouched at 40 for the whole game — which is not how
+ * anyone plays. Defence counts too: an open board is a better target than a
+ * lower life total behind three untapped blockers.
+ */
 function attackTargets(state: GameState, playerId: PlayerId) {
+  const openness = (opponentId: PlayerId): number =>
+    eligibleBlockers(state, opponentId).reduce(
+      (sum, blocker) => sum + 2 + toughnessOf(blocker),
+      0
+    );
+
   return livingPlayers(state)
     .filter(p => p.id !== playerId)
-    .sort((a, b) => a.life - b.life || a.seat - b.seat);
+    .map(p => ({ player: p, score: p.life + openness(p.id) }))
+    .sort((a, b) => a.score - b.score || a.player.seat - b.player.seat)
+    .map(entry => entry.player);
 }
 
 /**

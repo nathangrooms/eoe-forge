@@ -279,7 +279,7 @@ export function StorageQuickActions({
           {/* Entire Deck Tab */}
           <TabsContent value="deck" className="flex-1 overflow-auto px-6 py-4 space-y-4">
             {decks.length === 0 ? (
-              <Card className="border-dashed border-2 border-muted-foreground/20">
+              <Card className="border-dashed ring-1 ring-muted-foreground/40/20">
                 <CardContent className="py-12 px-6 text-center">
                   <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
                     <Layers className="h-6 w-6 text-muted-foreground" />
@@ -395,7 +395,7 @@ export function StorageQuickActions({
 
             {/* Collection Cards Grid */}
             {collectionCards.length === 0 ? (
-              <Card className="border-dashed border-2 border-muted-foreground/20 flex-1">
+              <Card className="border-dashed ring-1 ring-muted-foreground/40/20 flex-1">
                 <CardContent className="py-12 px-6 text-center h-full flex flex-col items-center justify-center">
                   <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
                     <Library className="h-6 w-6 text-muted-foreground" />

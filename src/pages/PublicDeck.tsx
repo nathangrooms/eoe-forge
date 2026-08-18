@@ -188,7 +188,7 @@ export default function PublicDeck() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-border border-t-foreground" />
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full  border-t-foreground" />
           <p className="text-muted-foreground">Loading deck…</p>
         </div>
       </div>

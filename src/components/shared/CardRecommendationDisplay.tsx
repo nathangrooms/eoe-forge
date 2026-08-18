@@ -50,7 +50,7 @@ export function CardRecommendationDisplay({
               <img
                 src={card.image_uri || '/placeholder.svg'}
                 alt={card.name}
-                className="w-full h-auto rounded-lg border-2 border-border hover:border-primary transition-all shadow-sm group-hover:scale-105"
+                className="w-full h-auto rounded-lg  hover:border-primary transition-all shadow-sm group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-end justify-center pb-2">
                 <Eye className="h-4 w-4 text-white" />

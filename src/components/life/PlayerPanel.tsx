@@ -92,9 +92,13 @@ function TapHalf({ direction, label, disabled, glyphSize, onStep, onSwipe, reduc
       disabled={disabled}
       className={cn(
         'absolute inset-x-0 h-1/2 flex items-start justify-center outline-none',
-        'transition-colors duration-100 focus-visible:bg-foreground/[0.07]',
+        'transition-colors duration-100 focus-visible:bg-foreground/[0.09]',
         direction === 1 ? 'top-0' : 'bottom-0 items-end',
-        pressed ? 'bg-foreground/[0.09]' : 'bg-transparent',
+        // The plus half sits a shade lighter. Two tones make the split visible
+        // at a glance — the whole defence against a mis-tap — and lighter for
+        // "more" is the reading that needs no explaining. Done with a surface
+        // tint, not a border.
+        pressed ? 'bg-foreground/[0.11]' : direction === 1 ? 'bg-foreground/[0.04]' : 'bg-transparent',
         reducedMotion && 'transition-none',
         'motion-reduce:transition-none',
       )}
@@ -119,8 +123,9 @@ function TapHalf({ direction, label, disabled, glyphSize, onStep, onSwipe, reduc
     >
       <Glyph
         aria-hidden
-        className="shrink-0 text-muted-foreground/45"
-        style={{ width: glyphSize, height: glyphSize, margin: `calc(${glyphSize} * 0.28)` }}
+        className="shrink-0 text-muted-foreground"
+        strokeWidth={2.5}
+        style={{ width: glyphSize, height: glyphSize, margin: `calc(${glyphSize} * 0.25)` }}
       />
     </button>
   );
@@ -181,7 +186,7 @@ export function PlayerPanel({
   const nameSize = `clamp(0.8rem, 8${h}, 1.5rem)`;
   const chipSize = `clamp(0.7rem, 6${h}, 1.1rem)`;
   const deltaSize = `clamp(0.9rem, 11${h}, 2.25rem)`;
-  const glyphSize = `clamp(1.1rem, 9${h}, 2.5rem)`;
+  const glyphSize = `clamp(1.25rem, 11${h}, 2.75rem)`;
 
   const lifeTone =
     view.life <= 0
@@ -232,12 +237,15 @@ export function PlayerPanel({
 
           {/* Life total. Inert: the halves underneath own every tap. */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <div
-              className={cn('font-semibold leading-none tabular-nums', lifeTone, dead && 'opacity-45')}
-              style={{ fontSize: lifeSize, letterSpacing: '-0.03em' }}
-            >
-              {view.life}
-            </div>
+            {/* A dead player's total is not the headline any more — the reason is. */}
+            {!dead && (
+              <div
+                className={cn('font-semibold leading-none tabular-nums', lifeTone)}
+                style={{ fontSize: lifeSize, letterSpacing: '-0.03em' }}
+              >
+                {view.life}
+              </div>
+            )}
 
             {view.lifeDelta !== 0 && (
               <div
@@ -297,7 +305,7 @@ export function PlayerPanel({
               onClick={onOpenDetail}
               aria-label={`${player.name} eliminated — open details`}
               className={cn(
-                'absolute inset-0 flex flex-col items-center justify-center gap-[0.4em] bg-background/70 text-center outline-none',
+                'absolute inset-0 flex flex-col items-center justify-center gap-[0.4em] bg-background/65 text-center outline-none',
                 !reducedMotion && 'transition-opacity duration-200 motion-reduce:transition-none',
               )}
               style={{ fontSize: nameSize, touchAction: 'none' }}

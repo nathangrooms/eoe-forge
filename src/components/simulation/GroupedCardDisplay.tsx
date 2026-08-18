@@ -62,7 +62,7 @@ export const GroupedCardDisplay = ({
               isBlocking={isBlocking}
             />
             {group.count > 1 && (
-              <div className="absolute -right-1 -top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-background text-[10px] font-bold tabular-nums text-foreground">
+              <div className="absolute -right-1 -top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full  bg-background text-[10px] font-bold tabular-nums text-foreground">
                 ×{group.count}
               </div>
             )}

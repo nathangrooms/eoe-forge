@@ -189,7 +189,7 @@ export function MessagingDrawer({ open, onClose, listingId, sellerId, cardName }
                   Loading messages...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                <div className="text-center py-8 border border-dashed rounded-lg">
                   <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p className="text-muted-foreground">
                     No messages yet. Start the conversation!

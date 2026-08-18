@@ -778,6 +778,11 @@ export interface CardFilterPanelProps {
   showQuery?: boolean;
   /** Hide sort controls where the caller sorts results itself. */
   showSort?: boolean;
+  /**
+   * Turn off when the page renders `<ActiveFilterChips>` above its results —
+   * otherwise the chips appear twice.
+   */
+  showChips?: boolean;
   autoFocusSearch?: boolean;
   className?: string;
 }
@@ -786,6 +791,7 @@ export function CardFilterPanel({
   controller,
   showQuery = true,
   showSort = true,
+  showChips = true,
   autoFocusSearch = false,
   className,
 }: CardFilterPanelProps) {
@@ -948,7 +954,7 @@ export function CardFilterPanel({
         </div>
       )}
 
-      <ActiveFilterChips controller={controller} className="px-0.5" />
+      {showChips && <ActiveFilterChips controller={controller} className="px-0.5" />}
 
       {/* ------------------------------ Colors ----------------------------- */}
       <Section title="Colors" count={colorCount} defaultOpen>

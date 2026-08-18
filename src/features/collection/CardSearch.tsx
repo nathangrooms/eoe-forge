@@ -204,8 +204,8 @@ export function CardSearch({ onCardSelect }: CardSearchProps) {
                           className={`text-xs ${
                             card.rarity === 'mythic' ? 'bg-orange-500/20 text-orange-600 border-orange-500' :
                             card.rarity === 'rare' ? 'bg-yellow-500/20 text-yellow-600 border-yellow-500' :
-                            card.rarity === 'uncommon' ? 'bg-gray-400/20 text-gray-600 border-gray-400' :
-                            'bg-gray-300/20 text-gray-500 border-gray-300'
+                            card.rarity === 'uncommon' ? 'bg-gray-400/20 text-gray-600 border-border' :
+                            'bg-gray-300/20 text-gray-500 border-border'
                           }`}
                         >
                           {card.rarity.charAt(0).toUpperCase()}

@@ -28,11 +28,11 @@ export const SimulationLegend = () => {
           <h4 className="mb-2 text-sm font-bold text-foreground">Card states</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">
-              <span className="h-4 w-4 shrink-0 rounded border-2 border-dashed border-foreground" />
+              <span className="h-4 w-4 shrink-0 rounded border border-dashed border-foreground" />
               Summoning sick — cannot attack or tap
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-4 w-4 shrink-0 rotate-90 rounded border-2 border-border bg-muted" />
+              <span className="h-4 w-4 shrink-0 rotate-90 rounded  bg-muted" />
               Tapped — rotated 90°
             </li>
             <li className="flex items-center gap-2">

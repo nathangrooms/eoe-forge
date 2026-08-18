@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -148,14 +148,29 @@ export function CardImage({
     [card, resolved, face]
   );
 
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  /**
+   * Load state is tracked as "which src finished", not as a boolean.
+   *
+   * A boolean plus a `useEffect(..., [src])` reset is the obvious version and it
+   * is broken: a cached image fires `onLoad` during commit, *before* the effect
+   * runs, so the effect immediately resets the flag and the card stays at
+   * `opacity-0` forever. Deriving it from the src makes a new src false by
+   * construction, with no effect to lose the race against.
+   */
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const loaded = Boolean(src) && loadedSrc === src;
+  const failed = Boolean(src) && failedSrc === src;
 
-  // A new src (different card, flipped face, changed resolution) restarts the fade.
-  useEffect(() => {
-    setLoaded(false);
-    setFailed(false);
-  }, [src]);
+  const srcRef = useRef(src);
+  srcRef.current = src;
+
+  /** Belt and braces: an image already complete at mount never fires `onLoad`. */
+  const attachImage = useCallback((node: HTMLImageElement | null) => {
+    if (node && node.complete && node.naturalWidth > 0) {
+      setLoadedSrc(srcRef.current ?? null);
+    }
+  }, []);
 
   const flip = useCallback(
     (e: React.MouseEvent) => {
@@ -237,13 +252,16 @@ export function CardImage({
 
         {src && !failed && (
           <img
+            // Remounting per src guarantees `attachImage` re-runs for cached hits.
+            key={src}
+            ref={attachImage}
             src={src}
             alt={alt}
             loading={eager ? 'eager' : 'lazy'}
             decoding="async"
             draggable={false}
-            onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
+            onLoad={() => setLoadedSrc(src)}
+            onError={() => setFailedSrc(src)}
             className={cn(
               'absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
               'motion-reduce:transition-none',

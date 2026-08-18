@@ -451,7 +451,7 @@ I'm your dedicated DeckMatrix AI analyst with comprehensive Magic knowledge. Sel
               <div className="flex justify-start">
                 <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg p-4">
                   <div className="flex items-center gap-2">
-                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                    <div className="animate-spin h-4 w-4 ring-2 ring-primary ring-offset-0 border-t-transparent rounded-full" />
                     <span className="text-sm text-muted-foreground">DeckMatrix AI is analyzing...</span>
                   </div>
                 </div>

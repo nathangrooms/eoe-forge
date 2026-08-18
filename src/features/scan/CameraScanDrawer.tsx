@@ -446,7 +446,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
 
           {/* Settings Panel */}
           {showSettings && (
-            <div className="p-4 bg-black/90 border-b border-white/10 space-y-4">
+            <div className="p-4 bg-black/90 border-b border-border/10 space-y-4">
               {/* Scan Behavior */}
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center space-x-2">
@@ -461,7 +461,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                   <select
                     value={settings.preferPrinting}
                     onChange={(e) => updateSettings({ preferPrinting: e.target.value as any })}
-                    className="bg-black/50 border border-white/20 rounded px-2 py-1 text-sm text-white"
+                    className="bg-black/50 border border-border rounded px-2 py-1 text-sm text-white"
                   >
                     <option value="newest">Newest</option>
                     <option value="cheapest">Cheapest</option>
@@ -470,7 +470,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
               </div>
 
               {/* Add Destinations */}
-              <div className="border-t border-white/10 pt-3">
+              <div className="border-t border-border/10 pt-3">
                 <p className="text-xs text-muted-foreground mb-2">Add scanned cards to:</p>
                 <div className="space-y-2">
                   {/* Collection toggle */}
@@ -496,7 +496,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                         value={settings.selectedDeckId} 
                         onValueChange={(val) => updateSettings({ selectedDeckId: val })}
                       >
-                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-white/20">
+                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-border">
                           <SelectValue placeholder="Select deck" />
                         </SelectTrigger>
                         <SelectContent className="bg-background border-border">
@@ -521,7 +521,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                         value={settings.selectedStorageId} 
                         onValueChange={(val) => updateSettings({ selectedStorageId: val })}
                       >
-                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-white/20">
+                        <SelectTrigger className="w-32 h-7 text-xs bg-black/50 border-border">
                           <SelectValue placeholder="Select box" />
                         </SelectTrigger>
                         <SelectContent className="bg-background border-border">
@@ -544,7 +544,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                 <div className="text-center">
                   <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
                   <p className="text-white mb-4">{cameraError}</p>
-                  <Button onClick={startCamera} variant="outline" className="text-white border-white">
+                  <Button onClick={startCamera} variant="outline" className="text-white border-border">
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Try Again
                   </Button>
@@ -577,13 +577,13 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                     }`} />
                     
                     {/* Inner card texture hint */}
-                    <div className="absolute inset-2 border border-white/20 rounded-lg" />
+                    <div className="absolute inset-2 border border-border rounded-lg" />
                     
                     {/* Title bar area indicator */}
-                    <div className="absolute top-3 left-3 right-3 h-6 bg-white/5 rounded border border-white/10" />
+                    <div className="absolute top-3 left-3 right-3 h-6 bg-white/5 rounded border border-border/10" />
                     
                     {/* Art box area indicator */}
-                    <div className="absolute top-11 left-3 right-3 h-[45%] bg-white/5 rounded border border-white/10" />
+                    <div className="absolute top-11 left-3 right-3 h-[45%] bg-white/5 rounded border border-border/10" />
                   </div>
                   
                   {/* Instructions above frame */}
@@ -605,7 +605,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                       onClick={() => setAutoScanEnabled(!autoScanEnabled)}
                       variant="outline"
                       size="sm"
-                      className={`rounded-full w-14 h-14 border-2 ${autoScanEnabled ? 'border-green-400 bg-green-500/20 text-green-400' : 'border-white/40 bg-black/40 text-white/60'}`}
+                      className={`rounded-full w-14 h-14 border-2 ${autoScanEnabled ? 'border-green-400 bg-green-500/20 text-green-400' : 'border-border/40 bg-black/40 text-white/60'}`}
                     >
                       {autoScanEnabled ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                     </Button>
@@ -639,7 +639,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
           </div>
 
           {/* Candidates or Manual Search */}
-          <div className="bg-black/95 border-t border-white/10">
+          <div className="bg-black/95 border-t border-border/10">
             {candidates.length > 0 ? (
               <div className="p-4">
                 <p className="text-sm text-muted-foreground mb-3">Select the correct card:</p>
@@ -648,7 +648,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                     <button
                       key={candidate.cardId}
                       onClick={() => addCardToCollection(candidate)}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-left"
+                      className="flex items-center gap-2 p-2 rounded-lg border border-border/10 bg-white/5 hover:bg-white/10 transition-colors text-left"
                     >
                       {candidate.imageUrl && (
                         <img 
@@ -680,7 +680,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                     value={manualSearch}
                     onChange={(e) => setManualSearch(e.target.value)}
                     placeholder="Or type card name..."
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-base"
+                    className="bg-white/5 border-border text-white placeholder:text-white/40 text-base"
                     onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
                   />
                   <Button 
@@ -701,7 +701,7 @@ export function CameraScanDrawer({ isOpen, onClose, onCardAdded }: CameraScanDra
                   <img 
                     src={lastAddedCard.imageUrl} 
                     alt={lastAddedCard.name}
-                    className="w-12 h-16 object-cover rounded border border-white/20"
+                    className="w-12 h-16 object-cover rounded border border-border"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-green-400 flex items-center gap-1">

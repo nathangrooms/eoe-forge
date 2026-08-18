@@ -236,7 +236,7 @@ export const SimulationCinematicOverlay = ({
                     initial={{ scale: 0, rotate: -180 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ delay: idx * 0.15, duration: 0.5, ease: "backOut" }}
-                    className="bg-primary/20 border-2 border-primary rounded-xl px-8 py-6 flex flex-col items-center gap-2"
+                    className="bg-primary/20 ring-2 ring-primary ring-offset-0 rounded-xl px-8 py-6 flex flex-col items-center gap-2"
                   >
                     <div className="text-7xl font-black text-primary drop-shadow-lg">{token.count}×</div>
                     <div className="text-xl font-bold text-foreground">{token.name}</div>

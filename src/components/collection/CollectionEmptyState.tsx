@@ -40,7 +40,7 @@ export function CollectionEmptyState({
   };
 
   return (
-    <Card className="border-2 border-dashed border-border">
+    <Card className="border border-dashed border-border">
       <CardContent className="px-6 py-12">
         <div className="mx-auto max-w-2xl space-y-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">

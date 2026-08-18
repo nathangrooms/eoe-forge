@@ -79,10 +79,10 @@ const appSectionConfig: Record<AppSection, { label: string; color: string }> = {
   wishlist: { label: 'Wishlist', color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20' },
   brain: { label: 'Brain', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
   scan: { label: 'Scan', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
-  storage: { label: 'Storage', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' },
+  storage: { label: 'Storage', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-border' },
   templates: { label: 'Templates', color: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20' },
   admin: { label: 'Admin', color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  settings: { label: 'Settings', color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' },
+  settings: { label: 'Settings', color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-border' },
   general: { label: 'General', color: 'bg-muted/80 text-muted-foreground border-border' },
 };
 

@@ -232,12 +232,15 @@ export function PlayerDetail({
             {/* Commander damage */}
             {rules.usesCommanderDamage && (
               <section className="flex flex-col gap-2 rounded-2xl bg-card p-3">
-                <header className="flex items-center gap-2 px-1">
-                  <Crown aria-hidden className="h-4 w-4 text-type-commander" />
-                  <h2 className="text-sm font-semibold">Commander damage</h2>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    lethal at {rules.commanderDamageLethal} from one commander
-                  </span>
+                <header className="flex flex-col gap-0.5 px-1">
+                  <div className="flex items-center gap-2">
+                    <Crown aria-hidden className="h-4 w-4 text-type-commander" />
+                    <h2 className="text-sm font-semibold">Commander damage</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Lethal at {rules.commanderDamageLethal} from a single commander — partners each
+                    need their own. Adding damage here also removes that much life.
+                  </p>
                 </header>
 
                 {damageRows.length === 0 && (
@@ -252,7 +255,7 @@ export function PlayerDetail({
                     delta={view.commanderDelta[row.commanderId] ?? 0}
                     lethal={rules.commanderDamageLethal}
                     tone="text-type-commander"
-                    hint={row.colors.length > 0 ? <ColorIdentity colors={row.colors} size="xs" /> : 'also removes life'}
+                    hint={row.colors.length > 0 ? <ColorIdentity colors={row.colors} size="xs" /> : undefined}
                     disabled={!running || !alive}
                     onStep={delta =>
                       onNudge(

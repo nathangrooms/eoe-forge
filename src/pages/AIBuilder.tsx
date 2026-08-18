@@ -624,7 +624,7 @@ export default function AIBuilder() {
                     n < currentStage
                       ? 'bg-primary text-primary-foreground'
                       : n === currentStage
-                        ? 'border-2 border-foreground text-foreground'
+                        ? 'ring-2 ring-foreground text-foreground'
                         : 'bg-muted text-muted-foreground'
                   )}
                   aria-current={n === currentStage ? 'step' : undefined}

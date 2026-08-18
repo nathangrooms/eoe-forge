@@ -26,7 +26,7 @@ export const BattleIntro = ({ deck1Name, deck2Name, onComplete }: BattleIntroPro
           transition={{ duration: 0.4 }}
           className="min-w-0 flex-1 text-center"
         >
-          <div className="mx-auto mb-4 h-32 w-24 rounded-lg border-2 border-border bg-card" />
+          <div className="mx-auto mb-4 h-32 w-24 rounded-lg  bg-card" />
           <div className="truncate text-lg font-bold text-foreground sm:text-xl">{deck1Name}</div>
         </motion.div>
 
@@ -45,7 +45,7 @@ export const BattleIntro = ({ deck1Name, deck2Name, onComplete }: BattleIntroPro
           transition={{ duration: 0.4 }}
           className="min-w-0 flex-1 text-center"
         >
-          <div className="mx-auto mb-4 h-32 w-24 rounded-lg border-2 border-border bg-card" />
+          <div className="mx-auto mb-4 h-32 w-24 rounded-lg  bg-card" />
           <div className="truncate text-lg font-bold text-foreground sm:text-xl">{deck2Name}</div>
         </motion.div>
       </div>

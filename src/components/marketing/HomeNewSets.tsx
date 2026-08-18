@@ -136,7 +136,7 @@ export function HomeNewSets() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-4">
                     <div className="flex items-center gap-2">
-                      <span className="rounded border border-white/25 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/80">
+                      <span className="rounded border border-border/25 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/80">
                         {t.code}
                       </span>
                       <span className="text-[11px] text-white/60">{t.released}</span>

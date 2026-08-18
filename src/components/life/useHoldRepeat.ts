@@ -123,7 +123,14 @@ export function useHoldRepeat(config: HoldRepeatConfig): HoldRepeatHandlers {
       // Mouse: left button only. Touch and pen report button 0 too.
       if (event.button !== 0) return;
 
-      event.currentTarget.setPointerCapture?.(event.pointerId);
+      try {
+        // Capture keeps the hold alive if the finger drifts off the half. It
+        // throws for a pointer the browser no longer considers active, which is
+        // not a reason to drop the gesture.
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      } catch {
+        /* capture unavailable — the window-level listeners still end the hold */
+      }
       gesture.current = {
         pointerId: event.pointerId,
         startX: event.clientX,

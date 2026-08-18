@@ -168,12 +168,12 @@ export function EnhancedCollectionAnalytics({ stats, loading }: EnhancedCollecti
 
   const getRarityColor = (rarity: string) => {
     const colors = {
-      'Common': 'bg-gray-500/10 text-gray-700 border-gray-500/30',
+      'Common': 'bg-gray-500/10 text-gray-700 border-border',
       'Uncommon': 'bg-blue-500/10 text-blue-700 border-blue-500/30',
       'Rare': 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30',
       'Mythic': 'bg-orange-500/10 text-orange-700 border-orange-500/30'
     };
-    return colors[rarity as keyof typeof colors] || 'bg-gray-500/10 text-gray-700 border-gray-500/30';
+    return colors[rarity as keyof typeof colors] || 'bg-gray-500/10 text-gray-700 border-border';
   };
 
   if (loading) {

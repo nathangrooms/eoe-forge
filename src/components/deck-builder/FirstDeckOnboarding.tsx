@@ -425,7 +425,7 @@ export function FirstDeckOnboarding({ onCreateDeck, loading }: FirstDeckOnboardi
                       commanderSearchResults.slice(0, 12).map((card: any) => (
                         <div
                           key={card.id}
-                          className="cursor-pointer group relative aspect-[488/680] rounded-lg overflow-hidden border-2 border-transparent hover:border-primary transition-all hover:scale-105"
+                          className="cursor-pointer group relative aspect-[488/680] rounded-lg overflow-hidden  hover:border-primary transition-all hover:scale-105"
                           onClick={() => handleCommanderSelect(card)}
                         >
                           <img

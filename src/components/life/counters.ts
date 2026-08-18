@@ -26,7 +26,7 @@ export const TRACKED_COUNTERS: CounterDefinition[] = [
     key: COUNTER_EXPERIENCE,
     label: 'Experience',
     icon: Sparkles,
-    description: 'Never removed once gained',
+    description: 'Never removed',
   },
   {
     key: COUNTER_ENERGY,

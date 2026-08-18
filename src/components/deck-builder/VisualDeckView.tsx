@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { ManaCost, ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { OracleText } from '@/components/cards/OracleText';
-import { CardDetailPane, CardDetailSplit } from '@/components/cards/CardDetailPane';
+import { useOpenCard } from '@/components/cards';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { ManaCurve } from './ManaCurve';
 import {
@@ -142,7 +142,9 @@ export function VisualDeckView({
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [detailCard, setDetailCard] = useState<DeckCard | null>(null);
+  /* Clicking a card goes to the card page — the same everywhere in the app.
+     The builder's own controls (quantity, remove, group) stay in place. */
+  const openCard = useOpenCard();
   const { prefs, update } = useDeckViewPrefs();
   const navigate = useNavigate();
   const location = useLocation();
@@ -331,11 +333,11 @@ export function VisualDeckView({
             card={card}
             width={prefs.cardSize}
             fill
-            onClick={() => setDetailCard(card)}
+            onClick={() => openCard(card)}
             // The hover overlay below is the affordance here; the lift would
             // slide the card out from under its own controls.
             interactive={false}
-            title={`${card.name} — open details`}
+            title={`Open ${card.name}`}
           >
             {(card.quantity || 1) > 1 && (
               /* Sits on card art, so light-on-dark is the correct ground here. */
@@ -444,7 +446,7 @@ export function VisualDeckView({
               <td className="px-3 py-1.5">
                 <button
                   type="button"
-                  onClick={() => setDetailCard(card)}
+                  onClick={() => openCard(card)}
                   className="truncate text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {card.name}
@@ -667,12 +669,9 @@ export function VisualDeckView({
         </p>
       )}
 
-      {/* Body — grid left, card detail docked right. In the builder you are
-          comparing a card against the pile, so covering the pile was exactly
-          the wrong behaviour. */}
-      <CardDetailSplit
-        pane={detailCard ? <CardDetailPane card={detailCard} onClose={() => setDetailCard(null)} /> : null}
-      >
+      {/* Body — full width. The detail pane that used to dock to the right of
+          this grid is gone; a card click leaves for `/cards/:id`. */}
+      <div>
         {cards.length === 0 ? (
           <div className="py-16 text-center">
             <Sparkles className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
@@ -711,7 +710,7 @@ export function VisualDeckView({
             ))}
           </div>
         )}
-      </CardDetailSplit>
+      </div>
     </div>
   );
 }

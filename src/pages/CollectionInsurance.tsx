@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 import { InsuranceReport } from '@/components/collection/InsuranceReport';
 import { useCollectionStore } from '@/features/collection/store';
 import { priceUSD } from '@/features/collection/value';
@@ -60,7 +59,6 @@ export default function CollectionInsurance() {
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-3 flex items-center gap-2">
-          <HistoryNav />
           <Link
             to="/collection?tab=analytics"
             className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

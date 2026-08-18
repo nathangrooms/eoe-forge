@@ -1,25 +1,50 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, AlertCircle, Code, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+
+/**
+ * A viewer for the prompts compiled into the edge functions.
+ *
+ * It was presented as an editor: every section carried "Save Changes" and
+ * "Reset to Default" buttons with no `onClick` at all, a `<Textarea>` given a
+ * `value` and no `onChange` (so typing did nothing and React warned on every
+ * render), and an "Advanced Configuration" block of four more controls —
+ * response style, context inclusion, temperature, max output tokens — that were
+ * pure `defaultValue`, read by nothing and written nowhere. Clicking Save
+ * produced no request, no toast and no error; the prompt in production was
+ * whatever the last deployment compiled in.
+ *
+ * Prompts live in the edge function source and change by deployment, so this is
+ * a read-only reference and now says so once, at the top, instead of offering
+ * six controls that lie.
+ */
 
 interface PromptSection {
   id: string;
   title: string;
   content: string;
-  tokens: number;
-  editable: boolean;
+}
+
+/**
+ * Rough size of a prompt section, computed from its own text.
+ *
+ * Each section used to carry a hand-typed `tokens: 520`, summed into a
+ * "Total: 670 tokens" badge — a number that could only ever change when
+ * somebody edited this file, not when the prompt changed. Four characters per
+ * token is the usual English approximation, and it is labelled approximate
+ * everywhere it appears.
+ */
+function approxTokens(content: string): number {
+  return Math.round(content.length / 4);
 }
 
 export function PromptEditor({ functionName }: { functionName: string }) {
-  const [selectedSection, setSelectedSection] = useState<string>("system");
+  /* Defaulted to the literal id "system", which only exists on mtg-brain. On
+     the Deck Builder and Deck Coach tabs no section id matched, so the panel
+     rendered its tab strip above an empty box. */
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
   const prompts: Record<string, PromptSection[]> = {
     "mtg-brain": [
@@ -62,8 +87,6 @@ export function PromptEditor({ functionName }: { functionName: string }) {
 
 ### Card Evaluation (RATE Framework)
 R - Rate of Return (efficiency), A - Adaptability (versatility), T - Tempo Impact, E - Endgame Relevance`,
-        tokens: 520,
-        editable: true
       },
       {
         id: "deck-context",
@@ -76,8 +99,6 @@ R - Rate of Return (efficiency), A - Adaptability (versatility), T - Tempo Impac
 - Cards: {{deck.totalCards}} (Lands: {{deck.lands}}, Creatures: {{deck.creatures}})
 - Curve Bins: {{deck.curve}}
 - Mana Sources: {{deck.manaSources}}`,
-        tokens: 80,
-        editable: true
       },
       {
         id: "response-guidelines",
@@ -90,8 +111,6 @@ R - Rate of Return (efficiency), A - Adaptability (versatility), T - Tempo Impac
 - Use tool calls for charts (CMC, colors) when relevant
 
 Always ground responses in provided context and MTG knowledge.`,
-        tokens: 70,
-        editable: true
       }
     ],
     "ai-deck-builder-v2": [
@@ -149,8 +168,6 @@ List specific cards with CMC, explain synergy, categorize: Enablers/Payoffs/Prot
 
 ### Step 6: Win Condition Clarity (3-5 paths)
 Primary Win | Secondary Win | Combo Win | Value Win`,
-        tokens: 680,
-        editable: true
       },
       {
         id: "validation",
@@ -168,8 +185,6 @@ Primary Win | Secondary Win | Combo Win | Value Win`,
 4. Quality score (1-10) + ONE key improvement
 
 Be HONEST. If bad, say why.`,
-        tokens: 120,
-        editable: true
       }
     ],
     "gemini-deck-coach": [
@@ -208,8 +223,6 @@ Be HONEST. If bad, say why.`,
 - Project power level after changes
 
 **Style**: Direct, data-driven, specific. Use exact card names, percentages, turn counts. No vague advice.`,
-        tokens: 380,
-        editable: true
       },
       {
         id: "power-analysis",
@@ -221,8 +234,6 @@ Be HONEST. If bad, say why.`,
 - Suggest specific improvements with 2-3 concrete card recommendations
 
 **Format**: 2-4 concise paragraphs, conversational language, and prioritize actionable advice.`,
-        tokens: 80,
-        editable: true
       },
       {
         id: "mana-analysis",
@@ -234,132 +245,87 @@ Be HONEST. If bad, say why.`,
 - Suggest 2-3 specific mana rocks or lands to add
 
 **Format**: 2-4 concise paragraphs with specific card names.`,
-        tokens: 70,
-        editable: true
       }
     ]
   };
 
   const currentPrompts = prompts[functionName] || [];
 
+  const activeSection =
+    currentPrompts.find(section => section.id === selectedSection) ?? currentPrompts[0];
+  const totalTokens = currentPrompts.reduce(
+    (sum, section) => sum + approxTokens(section.content),
+    0
+  );
+
+  if (currentPrompts.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          No prompt is recorded for <span className="font-mono">{functionName}</span>.
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Prompt Engineering - {functionName}
+              Deployed prompt — <span className="font-mono text-base">{functionName}</span>
             </CardTitle>
             <CardDescription>
-              Customize AI prompts and response templates
+              A reference copy of what the edge function sends. Prompts are compiled into the
+              function source, so they change by deployment and cannot be edited from here.
             </CardDescription>
           </div>
-          <Badge variant="outline">
-            Total: {currentPrompts.reduce((sum, p) => sum + p.tokens, 0)} tokens
+          <Badge variant="outline" className="shrink-0 tabular-nums">
+            ≈{totalTokens.toLocaleString()} tokens
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <Alert>
-          <Code className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Template Variables:</strong> Use {`{{variable}}`} for dynamic content. 
-            Available: {`{{deck.name}}, {{deck.commander}}, {{responseStyle}}, {{archetype}}`}, etc.
-          </AlertDescription>
-        </Alert>
 
-        <Tabs value={selectedSection} onValueChange={setSelectedSection}>
-          <TabsList className="grid w-full grid-cols-3">
-            {currentPrompts.slice(0, 3).map(section => (
-              <TabsTrigger key={section.id} value={section.id}>
-                {section.title}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <CardContent className="space-y-4">
+        <Tabs
+          value={activeSection.id}
+          onValueChange={setSelectedSection}
+          className="space-y-4"
+        >
+          <div className="-mx-3 overflow-x-auto px-3 scrollbar-none sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex h-auto w-max">
+              {currentPrompts.map(section => (
+                <TabsTrigger
+                  key={section.id}
+                  value={section.id}
+                  className="whitespace-nowrap px-3 py-2"
+                >
+                  {section.title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           {currentPrompts.map(section => (
-            <TabsContent key={section.id} value={section.id} className="space-y-4">
-              <div className="flex items-center justify-between">
+            <TabsContent key={section.id} value={section.id} className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label className="text-base">{section.title}</Label>
-                <Badge variant="secondary">{section.tokens} tokens</Badge>
+                <Badge variant="secondary" className="tabular-nums">
+                  ≈{approxTokens(section.content).toLocaleString()} tokens
+                </Badge>
               </div>
 
-              <Textarea
-                value={section.content}
-                readOnly={!section.editable}
-                className="font-mono text-sm min-h-[300px]"
-                placeholder="Enter prompt template..."
-              />
-
-              {section.editable && (
-                <div className="flex gap-2">
-                  <Button variant="default" size="sm">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Reset to Default
-                  </Button>
-                </div>
-              )}
-
-              {!section.editable && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    This section is read-only. Requires edge function deployment to modify.
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* A read-only <pre>, not a <Textarea> that silently discards
+                  keystrokes. Placeholders such as {'{{deck.name}}'} are
+                  substituted by the edge function at call time. */}
+              <pre className="max-h-[26rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-4 font-mono text-xs leading-relaxed text-foreground">
+                {section.content}
+              </pre>
             </TabsContent>
           ))}
         </Tabs>
-
-        <div className="pt-4 space-y-4">
-          <h4 className="font-semibold">Advanced Configuration</h4>
-          
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Default Response Style</Label>
-              <Select defaultValue="concise">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="concise">Concise (400 tokens)</SelectItem>
-                  <SelectItem value="detailed">Detailed (1000 tokens)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Context Inclusion</Label>
-              <Select defaultValue="smart">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minimal">Minimal (stats only)</SelectItem>
-                  <SelectItem value="smart">Smart (conditional)</SelectItem>
-                  <SelectItem value="full">Full (always include all cards)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Temperature</Label>
-              <Input type="number" step="0.1" min="0" max="2" defaultValue="0.7" />
-              <p className="text-xs text-muted-foreground">0 = deterministic, 2 = very creative</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Max Output Tokens</Label>
-              <Input type="number" step="100" min="100" max="2000" defaultValue="800" />
-              <p className="text-xs text-muted-foreground">Higher = longer responses, more credits</p>
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

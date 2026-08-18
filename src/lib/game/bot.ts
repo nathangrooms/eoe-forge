@@ -24,10 +24,10 @@ import {
   canBlock,
   eligibleAttackers,
   eligibleBlockers,
-  hasKeyword,
   powerOf,
   toughnessOf,
 } from './combat.ts';
+import { hasKeyword } from './keywords.ts';
 import { isCreature, isLand, isPermanent, manaSourcesFor } from './mana.ts';
 import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
 import type { CardInstance, GameAction, GameState, PlayerId } from './types.ts';

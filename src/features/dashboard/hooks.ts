@@ -91,7 +91,7 @@ export function useDashboardSummary() {
           .from('user_collections')
           .select('quantity, foil, cards(prices)')
           .eq('user_id', user.id),
-        supabase.from('wishlist').select('quantity, card_id').eq('user_id', user.id),
+        supabase.from('wishlist').select('quantity, card_id, card_name').eq('user_id', user.id),
         supabase.from('user_decks').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('favorite_decks').select('deck_id', { count: 'exact', head: true }).eq('user_id', user.id),
       ]);
@@ -124,14 +124,45 @@ export function useDashboardSummary() {
         }
       }
 
+      /*
+       * A wishlist row stores the printing the user picked, and that exact
+       * printing is not always in our table — 11 of 94 rows here. Pricing only
+       * by id counts those as zero, which is why this tile read $2,318 while
+       * /wishlist read $4,653 for the same cards. The wishlist page already
+       * falls back to the name; this does the same so the two agree.
+       */
+      const unresolved = (wishlistRows ?? [])
+        .filter(row => row?.card_name && !(row.card_id && row.card_id in priceByCardId))
+        .map(row => row!.card_name as string);
+
+      const priceByName: Record<string, number> = {};
+      if (unresolved.length > 0) {
+        const { data: byName } = await supabase
+          .from('cards')
+          .select('name, prices')
+          .in('name', Array.from(new Set(unresolved)));
+
+        for (const card of byName ?? []) {
+          const price = parseUsdPrice(card.prices);
+          // Keep the highest priced printing rather than whichever row arrived
+          // first, so the figure does not swing with query ordering.
+          if (price > (priceByName[card.name] ?? 0)) priceByName[card.name] = price;
+        }
+      }
+
       let wishlistValue = 0;
       let wishlistDesired = 0;
       for (const row of wishlistRows ?? []) {
-        if (!row?.card_id) continue;
+        if (!row) continue;
         const quantity = num(row.quantity, 1);
-        wishlistValue += num(priceByCardId[row.card_id]) * quantity;
+        const unit =
+          (row.card_id ? priceByCardId[row.card_id] : undefined)
+          ?? (row.card_name ? priceByName[row.card_name] : undefined)
+          ?? 0;
+        wishlistValue += num(unit) * quantity;
         wishlistDesired += quantity;
       }
+      wishlistValue = Math.round(wishlistValue * 100) / 100;
 
       setData({
         displayName: profile?.username?.trim() || user.email?.split('@')[0] || '',

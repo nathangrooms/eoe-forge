@@ -1,6 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload } from 'lucide-react';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 import { CollectionImportPanel } from '@/components/collection/CollectionBulkImport';
 import { useCollectionStore } from '@/features/collection/store';
 
@@ -20,7 +19,6 @@ export default function CollectionImport() {
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-3 flex items-center gap-2">
-          <HistoryNav />
           <Link
             to="/collection"
             className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

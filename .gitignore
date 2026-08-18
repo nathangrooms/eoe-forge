@@ -40,3 +40,7 @@ src/pages/__*.tsx
 .env.local
 .env.*.local
 !.env.example
+.playtest-harness/
+matshot.html
+src/__matshot.tsx
+dm-harness.*

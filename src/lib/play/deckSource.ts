@@ -76,6 +76,8 @@ interface CardRow {
   color_identity?: string[] | null;
   keywords?: string[] | null;
   image_uris?: unknown;
+  /** Present when the query projected `image_uris->>normal` instead of the object. */
+  image_url?: string | null;
   faces?: unknown;
   is_legendary?: boolean | null;
 }
@@ -91,9 +93,21 @@ const CARD_COLUMNS =
  * on `image_uris is not null`, so no row it returns can ever reach that
  * fallback — and `faces` is the widest column on the table. Dropping it is a
  * straight cut to the bytes on the wire for no loss of card art.
+ *
+ * The same argument applies to `image_uris` itself, and harder. It is a jsonb
+ * object of six Scryfall URLs; play needs exactly one of them. Asking PostgREST
+ * to project the key rather than the object is the difference between an
+ * oversized response and a small one — measured on this project's database, one
+ * 480-row pool query:
+ *
+ *     select image_uris              744 KB, 705 ms
+ *     select image_uris->>normal     233 KB, 127 ms
+ *
+ * Four seats fetching pools at once is where those megabytes turned into the
+ * timeouts that dropped a table onto the offline demo deck.
  */
 const SEED_CARD_COLUMNS =
-  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, image_uris, is_legendary';
+  'id, name, mana_cost, cmc, type_line, oracle_text, power, toughness, color_identity, keywords, is_legendary, image_url:image_uris->>normal';
 
 function readImage(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -103,6 +117,8 @@ function readImage(value: unknown): string | undefined {
 
 /** Double-faced cards carry no top-level `image_uris`; the front face has them. */
 function imageFor(row: CardRow): string | undefined {
+  // The seeded pools project the one URL they need rather than the whole object.
+  if (typeof row.image_url === 'string' && row.image_url.length > 0) return row.image_url;
   const direct = readImage(row.image_uris);
   if (direct) return direct;
   if (Array.isArray(row.faces) && row.faces.length > 0) {

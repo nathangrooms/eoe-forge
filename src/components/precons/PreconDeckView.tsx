@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CardGrid, CardImage, CardImageSkeleton, useCardSize, CardSizeSlider } from '@/components/cards';
+import {
+  CardGrid,
+  CardImage,
+  CardImageSkeleton,
+  cardHref,
+  useCardSize,
+  CardSizeSlider,
+} from '@/components/cards';
 import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import {
   CATEGORY_BG_CLASS,
@@ -161,18 +168,26 @@ export function PreconDeckView({
           <div className="-mt-20 flex shrink-0 gap-2 sm:-mt-28 md:-mt-36">
             {commanderCards.length > 0 ? (
               commanderCards.slice(0, 2).map((card, i) => (
-                <div
+                // The commander is a card, so it goes where every other card
+                // goes when clicked.
+                <Link
                   key={card?.id ?? i}
-                  className={cn(wide ? 'w-24 sm:w-32 md:w-36' : 'w-28 sm:w-36 md:w-44')}
+                  to={cardHref(card)}
+                  aria-label={card?.name ?? 'Commander'}
+                  className={cn(
+                    'block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    wide ? 'w-24 sm:w-32 md:w-36' : 'w-28 sm:w-36 md:w-44'
+                  )}
                 >
                   <CardImage
                     card={card}
                     size="lg"
                     fill
                     eager
+                    interactive
                     imageClassName="shadow-2xl shadow-black/60"
                   />
-                </div>
+                </Link>
               ))
             ) : (
               <div className="w-28 sm:w-36 md:w-44">
@@ -364,27 +379,32 @@ export function PreconDeckView({
 
                     <CardGrid width={cardWidth}>
                       {group.items.map(row => (
-                        <CardImage
+                        // A real link, so the card can be opened in a new tab
+                        // and the destination shows in the status bar.
+                        <Link
                           key={row.id}
-                          card={rowCard(row)}
-                          width={cardWidth}
-                          fill
-                          onClick={() => setOpenCard(row)}
+                          // `cardHref`, not the raw id: a row the local card
+                          // table has never seen still carries its Scryfall id
+                          // here, and the routed page resolves by name.
+                          to={cardHref(rowCard(row))}
+                          aria-label={row.card_name}
+                          className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
-                          {row.quantity > 1 && (
-                            <span className="absolute left-1.5 top-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums text-foreground backdrop-blur-sm">
-                              {row.quantity}
-                            </span>
-                          )}
-                        </CardImage>
+                          <CardImage card={rowCard(row)} width={cardWidth} fill interactive>
+                            {row.quantity > 1 && (
+                              <span className="absolute left-1.5 top-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums text-foreground backdrop-blur-sm">
+                                {row.quantity}
+                              </span>
+                            )}
+                          </CardImage>
+                        </Link>
                       ))}
                     </CardGrid>
                   </div>
                 );
               })
             )}
-          </div>
-        </CardDetailSplit>
+        </div>
       </section>
     </div>
   );

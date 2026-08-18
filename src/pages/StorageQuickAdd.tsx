@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 import { StorageQuickAddPanel } from '@/components/storage/StorageQuickAddPanel';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import type { StorageContainer } from '@/types/storage';
@@ -56,7 +55,6 @@ export default function StorageQuickAdd() {
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-24 pt-2 md:px-6 md:pt-4">
       <div className="mx-auto w-full max-w-5xl">
         <div className="mb-3 flex items-center gap-2">
-          <HistoryNav />
           <Link
             to={backPath}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

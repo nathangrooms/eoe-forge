@@ -167,7 +167,18 @@ export function EventSetup() {
         </Button>
       }
     >
-      <div className="max-w-4xl space-y-4 pb-10">
+      {/*
+        Full width, two regions. The form used to be a 56rem column centred in a
+        74rem page — owner: "new event page doesnt utilise full page width at
+        all" — which left a third of the screen black and squeezed the roster,
+        the one part of this page that is a list of Magic decks and wants room.
+        Settings are a rail on the left; the roster takes everything else; the
+        summary and Create span the whole width underneath, where a commit
+        control belongs.
+      */}
+      <div className="flex w-full flex-col gap-4 pb-6">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,27rem)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
         {/* Identity */}
         <section className="space-y-4 rounded-2xl bg-card p-4 shadow-sm sm:p-5">
           <div className="space-y-1.5">
@@ -218,7 +229,10 @@ export function EventSetup() {
             Structure
           </p>
 
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          {/* Stacked: in the settings rail two columns left each blurb 200px
+              wide and six lines tall. Wide screens spend their width on the
+              roster instead. */}
+          <div className="grid gap-2.5">
             {STRUCTURES.map(option => {
               const Icon = option.icon;
               const selected = draft.format === option.value;
@@ -250,7 +264,7 @@ export function EventSetup() {
             })}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3">
             {draft.format === 'swiss' ? (
               <NumberField
                 label="Rounds"
@@ -309,7 +323,10 @@ export function EventSetup() {
           </div>
         </section>
 
-        {/* Roster */}
+        </div>
+
+        {/* The roster takes the rest of the page: it is a list of decks with
+            people attached, and the deck picker opens inside its rows. */}
         <section className="rounded-2xl bg-card p-4 shadow-sm sm:p-5">
           <PlayerRoster
             tournament={draft}
@@ -323,7 +340,10 @@ export function EventSetup() {
           />
         </section>
 
-        {/* Summary + create */}
+        </div>
+
+        {/* Summary + create, across the whole width — this is the commit
+            control for the page, not for one of its columns. */}
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/30 p-4">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <SummaryFact icon={Swords} label={`${draft.players.length} players`} />

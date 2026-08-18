@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { StandardSectionHeader } from '@/components/ui/standardized-components';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 
 interface DeckSubpageLayoutProps {
   title: ReactNode;
@@ -34,8 +33,9 @@ export function DeckSubpageLayout({
 }: DeckSubpageLayoutProps) {
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 pb-10 pt-2 md:px-6 md:pt-4">
+      {/* Back and forward live in the top nav and nowhere else. What stays
+          here is a named destination, not a direction. */}
       <div className="mb-3 flex items-center gap-2">
-        <HistoryNav />
         <Link
           to={backTo}
           className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

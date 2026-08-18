@@ -17,7 +17,6 @@ import {
 } from '@/components/cards';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
-import { HistoryNav } from '@/components/navigation/HistoryNav';
 import { useCommanderBrowse } from '@/components/ai-builder/useCommanderBrowse';
 import { commanderSearchUrl } from '@/components/ai-builder/commander-query';
 
@@ -230,7 +229,6 @@ export function NewDeck() {
       {/* Back / forward, plus a labelled destination so the control does not
           depend on browser chrome that PWA and mobile do not show. */}
       <div className="mb-3 flex items-center gap-2">
-        <HistoryNav />
         <Link
           to="/decks"
           className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

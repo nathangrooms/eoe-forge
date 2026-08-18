@@ -7,10 +7,12 @@
  * the whole screen.
  *
  * The rules live in `src/lib/game`, the seat geometry in `src/lib/game/seating`,
- * the session and undo in `useLifeGame`. This file is the assembly: which
- * overlay is open, which confirmations are needed, and the two device
- * capabilities a table counter wants — full screen and a wake lock, both
- * feature-detected and both optional.
+ * the session and undo in `useLifeGame`. This file is the assembly: which panel
+ * is showing, and the two device capabilities a table counter wants — full
+ * screen and a wake lock, both feature-detected and both optional.
+ *
+ * Nothing here is a modal. Reset confirms in place inside the game menu, which
+ * is itself a positioned region rather than an overlay.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,7 +20,6 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, Trophy, Undo2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { seatAt, type PlayerId, type SeatingVariant } from '@/lib/game';
 
 import { GameMenu } from '@/components/life/GameMenu';
@@ -42,9 +43,12 @@ export default function LifeCounter() {
   const navigate = useNavigate();
   const game = useLifeGame();
 
-  const [setupOpen, setSetupOpen] = useState(false);
+  /* Land on setup EVERY time rather than silently resuming the last game. A
+     persisted session meant opening /life always dropped you into whatever was
+     played last — usually a stale 4-player pod — with no way to see the
+     player-count choice. Setup now offers Resume explicitly instead. */
+  const [setupOpen, setSetupOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
   const [detailPlayerId, setDetailPlayerId] = useState<PlayerId | null>(null);
 
   const reducedMotion = usePrefersReducedMotion();
@@ -225,9 +229,9 @@ export default function LifeCounter() {
         wakeLock={wakeLock}
         canUndo={game.canUndo}
         onUndo={undo}
-        onRequestReset={() => {
-          setMenuOpen(false);
-          setResetOpen(true);
+        onReset={() => {
+          game.resetGame();
+          setDetailPlayerId(null);
         }}
         onRequestNewGame={() => {
           setMenuOpen(false);
@@ -235,19 +239,6 @@ export default function LifeCounter() {
         }}
         onSetVariant={(variant: SeatingVariant) => game.setOptions({ variant })}
         onExit={handleExit}
-      />
-
-      <ConfirmationDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title="Reset the game?"
-        description={`Every player goes back to ${session.config.startingLife} life. Commander damage, poison and counters are cleared. This can still be undone.`}
-        confirmText="Reset"
-        variant="destructive"
-        onConfirm={() => {
-          game.resetGame();
-          setDetailPlayerId(null);
-        }}
       />
     </>
   );

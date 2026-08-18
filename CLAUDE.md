@@ -211,16 +211,32 @@ These are standing instructions from the owner. Treat them as constraints, not p
 2. **No borders.** Owner: *"I absolutely hate hard border lines."* Depth comes from surface tint
    (`bg-card`, `bg-muted/30`) and shadow. `--border` is deliberately near-invisible and the Card
    primitive carries no outline. Never reintroduce hairlines.
-3. **No modal popups — any of them.** Owner: *"I dont want any modal popups at all, I always want
-   it to work fluidly within the screen with clear back/forward buttons."* Destinations become
-   routes with real URLs and a visible back control; side panels become inline layout; AlertDialog
-   confirmations swap in place. The only exception is the command palette.
-4. **Card art wherever a card is referenced.** Owner: *"every part of the app needs to be as
+3. **No centred modal popups.** Owner: *"I dont want any modal popups at all, I always want it to
+   work fluidly within the screen with clear back/forward buttons."*
+
+   **Right-hand pop-out side panels ARE approved and preferred** for in-context actions. Owner:
+   *"we already utilising right hand pop out side windows - these are super good for keeping in
+   screen without leaving to do a function like edit a deck or something, or even for card
+   replacement."* So the rule is:
+
+   | Case | Pattern |
+   |---|---|
+   | A destination (new deck, card detail, precon detail, import/export) | **Route** with a real URL and a visible back control |
+   | An action taken *without leaving the current context* (edit deck, replace a card, filters, quick add) | **Right-hand slide-out panel** — the page stays visible and keeps its scroll position |
+   | A confirmation | **In place** — the destructive control swaps to Confirm/Cancel, or offer undo afterwards |
+   | Centred dialog that dims and traps focus | **Never** |
+
+   The command palette (Ctrl/Cmd+K) is the one overlay exception.
+
+4. **Back and forward work universally.** Owner: *"back/forward should always work universally
+   across the app to streamline navigation."* Every page renders `HistoryNav` via
+   `StandardPageLayout`; do not rely on browser chrome, which is absent in standalone/PWA mode.
+5. **Card art wherever a card is referenced.** Owner: *"every part of the app needs to be as
    visual as possible."* A deck is represented by its commander's art, an activity entry by the
    card it concerns. Never a coloured dot where art is available.
-5. **Full width, flat, typographic.** No gradients, glows, floating orbs, pulsing badges or
+6. **Full width, flat, typographic.** No gradients, glows, floating orbs, pulsing badges or
    animated grids. Animation is welcome for real state change; respect `prefers-reduced-motion`.
-6. **Nothing fabricated.** No invented statistics, testimonials, ratings or competitor claims.
+7. **Nothing fabricated.** No invented statistics, testimonials, ratings or competitor claims.
    If a number cannot be read from the database or computed from real data, it does not ship.
 
 ### Card images

@@ -177,11 +177,11 @@ export function PlayerPanel({
   const dead = player.hasLost;
   const canTap = interactive && !dead;
 
-  const lifeSize = `clamp(2.25rem, 33${h}, 13rem)`;
-  const nameSize = `clamp(0.7rem, 5.5${h}, 1.35rem)`;
-  const chipSize = `clamp(0.65rem, 4.6${h}, 1.1rem)`;
-  const deltaSize = `clamp(0.8rem, 8${h}, 2.5rem)`;
-  const glyphSize = `clamp(1rem, 7${h}, 2.75rem)`;
+  const lifeSize = `clamp(2.5rem, 33${h}, 12rem)`;
+  const nameSize = `clamp(0.8rem, 8${h}, 1.5rem)`;
+  const chipSize = `clamp(0.7rem, 6${h}, 1.1rem)`;
+  const deltaSize = `clamp(0.9rem, 11${h}, 2.25rem)`;
+  const glyphSize = `clamp(1.1rem, 9${h}, 2.5rem)`;
 
   const lifeTone =
     view.life <= 0

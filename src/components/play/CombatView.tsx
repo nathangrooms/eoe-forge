@@ -114,7 +114,9 @@ export function CombatView({
   const defender = defenderId ? state.players.find(p => p.id === defenderId) : null;
   const defenderIsViewer = defenderId === viewerPlayerId;
 
-  const incoming = lanes.filter(lane => lane.defenderPlayerId === defenderId);
+  // A lane whose attacker has already left the battlefield is stale — the
+  // reducer keeps the declaration, but there is no card left to draw.
+  const incoming = lanes.filter(lane => lane.defenderPlayerId === defenderId && !!lane.attacker);
   const unblockedDamage = incoming
     .filter(lane => lane.declaration.blockedBy.length === 0)
     .reduce((sum, lane) => sum + powerOf(lane.attacker), 0);

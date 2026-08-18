@@ -17,6 +17,14 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 
 const HOLD_DELAY_MS = 420;
 
+/**
+ * A hold cannot run longer than this. Pointer capture is not a guarantee: a
+ * dropped `pointerup` (a stolen pointer, a synthesised event, a browser that
+ * loses the capture) would otherwise leave the repeat running forever and add a
+ * few hundred life. Belt and braces alongside the window-level listeners below.
+ */
+const MAX_HOLD_MS = 8000;
+
 /** Repeat interval, in ms, for the nth repeat. Ramps so long holds are usable. */
 function intervalFor(ticks: number): number {
   if (ticks < 8) return 130;
@@ -59,6 +67,12 @@ export function useHoldRepeat(config: HoldRepeatConfig): HoldRepeatHandlers {
 
   const gesture = useRef<Gesture | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxHold = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable identity so add/removeEventListener match, delegating to whichever
+  // `finish` the current render produced.
+  const finishRef = useRef<() => void>(() => undefined);
+  const globalEnd = useRef(() => finishRef.current()).current;
 
   // Handlers are attached once but the callbacks change every render; reading
   // them through a ref keeps a hold that started three renders ago calling the
@@ -73,7 +87,21 @@ export function useHoldRepeat(config: HoldRepeatConfig): HoldRepeatHandlers {
     }
   }, []);
 
-  useEffect(() => stopTimer, [stopTimer]);
+  const finish = useCallback(() => {
+    stopTimer();
+    if (maxHold.current !== null) {
+      clearTimeout(maxHold.current);
+      maxHold.current = null;
+    }
+    gesture.current = null;
+    window.removeEventListener('pointerup', globalEnd);
+    window.removeEventListener('pointercancel', globalEnd);
+    window.removeEventListener('blur', globalEnd);
+  }, [globalEnd, stopTimer]);
+
+  finishRef.current = finish;
+
+  useEffect(() => finish, [finish]);
 
   const scheduleRepeat = useCallback(
     (delay: number) => {
@@ -105,8 +133,15 @@ export function useHoldRepeat(config: HoldRepeatConfig): HoldRepeatHandlers {
       };
       latest.current.onStep();
       scheduleRepeat(HOLD_DELAY_MS);
+
+      // The element's own pointerup is the normal path; these are the safety
+      // net for when it never arrives.
+      window.addEventListener('pointerup', globalEnd);
+      window.addEventListener('pointercancel', globalEnd);
+      window.addEventListener('blur', globalEnd);
+      maxHold.current = setTimeout(globalEnd, MAX_HOLD_MS);
     },
-    [enabled, scheduleRepeat],
+    [enabled, globalEnd, scheduleRepeat],
   );
 
   const onPointerMove = useCallback(
@@ -127,11 +162,6 @@ export function useHoldRepeat(config: HoldRepeatConfig): HoldRepeatHandlers {
     },
     [stopTimer, swipePx],
   );
-
-  const finish = useCallback(() => {
-    stopTimer();
-    gesture.current = null;
-  }, [stopTimer]);
 
   const onPointerUp = useCallback(() => finish(), [finish]);
   const onPointerCancel = useCallback(() => finish(), [finish]);

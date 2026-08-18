@@ -91,7 +91,10 @@ export default function Play() {
   const [botsPaused, setBotsPaused] = useState(false);
   const [zoneTarget, setZoneTarget] = useState<{ playerId: PlayerId; zone: Zone } | null>(null);
 
+  /** The view combat interrupted, so it can be handed back afterwards. */
   const autoOpenedFrom = useRef<PlayViewId | null>(null);
+  /** Turn number on which the player deliberately left the combat view. */
+  const dismissedCombatOnTurn = useRef<number | null>(null);
 
   const { state, dispatch, undo, canUndo, botPlayerIds, botThinking, feed, transportKind } =
     usePlayGame({
@@ -173,6 +176,7 @@ export default function Play() {
       setVariant(setup.variant);
       setView('table');
       autoOpenedFrom.current = null;
+      dismissedCombatOnTurn.current = null;
       setTable(built);
 
       if (myDeck.source !== 'user-deck') {
@@ -205,7 +209,12 @@ export default function Play() {
       (state.activePlayerId === HUMAN_SEAT && state.step === 'declare_attackers') ||
       isUnderAttack(state, HUMAN_SEAT);
 
-    if (myDecision && view !== 'combat') {
+    // Auto-opening is a convenience, so leaving has to stick. Without the
+    // dismissal check the effect would drag the player straight back and the
+    // switcher would look broken for the rest of the turn.
+    const dismissed = dismissedCombatOnTurn.current === state.turn;
+
+    if (myDecision && view !== 'combat' && !dismissed) {
       autoOpenedFrom.current = view;
       setView('combat');
       return;
@@ -217,6 +226,17 @@ export default function Play() {
       autoOpenedFrom.current = null;
     }
   }, [state, view, combatLive]);
+
+  const changeView = useCallback(
+    (next: PlayViewId) => {
+      if (view === 'combat' && next !== 'combat' && state) {
+        dismissedCombatOnTurn.current = state.turn;
+      }
+      autoOpenedFrom.current = null;
+      setView(next);
+    },
+    [view, state]
+  );
 
   /* ---------------------------------------------------------------------- */
   /* Moves                                                                  */
@@ -308,6 +328,7 @@ export default function Play() {
     setTable(null);
     setView('table');
     autoOpenedFrom.current = null;
+    dismissedCombatOnTurn.current = null;
   }, []);
 
   /* ---------------------------------------------------------------------- */
@@ -366,10 +387,7 @@ export default function Play() {
         <PlayHUD
           state={state}
           view={view}
-          onViewChange={next => {
-            autoOpenedFrom.current = null;
-            setView(next);
-          }}
+          onViewChange={changeView}
           viewerPlayerId={HUMAN_SEAT}
           combatLive={combatLive}
           botThinking={botThinking}
@@ -465,10 +483,7 @@ export default function Play() {
                 size="sm"
                 variant="secondary"
                 className="h-7 text-[11px]"
-                onClick={() => {
-                  autoOpenedFrom.current = null;
-                  setView('hand');
-                }}
+                onClick={() => changeView('hand')}
               >
                 Open hand view
               </Button>

@@ -18,6 +18,7 @@ import {
   availableMana,
   isLand,
   isUnderAttack,
+  lossReasonLabel,
   type CardInstance,
   type GameState,
   type Player,
@@ -227,7 +228,7 @@ export function SeatPanel({
         })}
         {dead && (
           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            Out — {player.lossReasons[0] ?? 'eliminated'}
+            Out — {player.lossReasons[0] ? lossReasonLabel(player.lossReasons[0]) : 'eliminated'}
           </span>
         )}
       </div>

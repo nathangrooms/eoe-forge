@@ -60,8 +60,10 @@ All colors MUST be HSL.
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    /* Borders are intentionally near-invisible: separation comes from surface
+       tint and elevation. --input stays darker so form fields remain findable. */
+    --border: 0 0% 94.5%;
+    --input: 0 0% 87%;
     --ring: 0 0% 8%;
 
 
@@ -155,8 +157,8 @@ All colors MUST be HSL.
     --destructive: 0 65% 52%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 6% 15%;
-    --input: 220 6% 15%;
+    --border: 220 6% 9.5%;
+    --input: 220 6% 17%;
     --ring: 0 0% 84%;
 
 

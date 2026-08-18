@@ -28,6 +28,12 @@ export type CardImageSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 /**
  * Nominal width per size token, and the Scryfall resolution drawn at it.
  * `md` and above default to `large` — that is the whole point of this table.
+ *
+ * The bytes are worth it. `normal` is 488 px wide, so on the 2× displays most
+ * people browse on it is already under-sampled at `md` (180 CSS px → 360 device
+ * px) and visibly soft by `lg` (500 device px). `large` is 672 px and covers
+ * every grid size. The loading cost that actually hurts is request *count*, and
+ * that is handled separately by the blur-up rule below.
  */
 export const CARD_IMAGE_SIZES: Record<
   CardImageSize,
@@ -126,12 +132,19 @@ export function CardImage({
     [card, quality, face]
   );
   /**
-   * The `small` image is ~15 kB and almost always already in cache, so it is
-   * painted blurred underneath while the full-resolution image decodes. That
-   * removes the grey-box flash without ever *shipping* a low-res card.
+   * Blur-up placeholder — `lg` and `xl` only.
+   *
+   * It costs a second request per card, and in a 60-card grid that is 120
+   * requests instead of 60, which is what made card loading crawl. At `lg`/`xl`
+   * a card is a focal element and the lists are short, so the blur-up is worth
+   * one extra 15 kB fetch; at grid sizes the fade up from the muted surface is
+   * enough on its own.
    */
   const placeholder = useMemo(
-    () => (resolved === 'xs' ? undefined : getBestCardImage(card, 'small', face)),
+    () =>
+      resolved === 'lg' || resolved === 'xl'
+        ? getBestCardImage(card, 'small', face)
+        : undefined,
     [card, resolved, face]
   );
 

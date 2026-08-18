@@ -12,6 +12,8 @@ import { BuildStage } from '@/components/ai-builder/BuildStage';
 import { CommanderFinder } from '@/components/ai-builder/CommanderFinder';
 import { EMPTY_COMMANDER_FILTERS } from '@/components/ai-builder/commander-query';
 import { AIGeneratedDeckList } from '@/components/deck-builder/AIGeneratedDeckList';
+import { AuthProvider } from '@/components/AuthProvider';
+import AIBuilder from '@/pages/AIBuilder';
 
 const params = new URLSearchParams(location.search);
 const only = params.get('only');
@@ -99,6 +101,14 @@ function Harness() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="ml-[16rem]">
+        {only === 'page' && (
+          <section data-shot className="bg-background">
+            <AuthProvider>
+              <AIBuilder />
+            </AuthProvider>
+          </section>
+        )}
+
         {(!only || only === 'commander' || only === 'finder') && (
           <Shell label="Stage 1 — Commander">
             <CommanderStage

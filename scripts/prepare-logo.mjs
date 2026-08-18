@@ -53,7 +53,9 @@ const transparent = sharp(Buffer.from(px), {
   raw: { width: info.width, height: info.height, channels: info.channels },
 }).trim();
 
-const trimmed = await transparent.toBuffer({ resolveWithObject: true });
+/* Encode to PNG here. Taking the raw buffer instead would hand sharp bare
+   pixels with no header on the next pass, which it cannot decode. */
+const trimmed = await transparent.png().toBuffer({ resolveWithObject: true });
 console.log(`trimmed to: ${trimmed.info.width}x${trimmed.info.height}`);
 
 /* The header renders at h-8 (32px) and the auth panel at h-12 (48px); 2x of the

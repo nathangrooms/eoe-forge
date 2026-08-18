@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Wordmark } from '@/components/Wordmark';
+import { Logo } from '@/components/Logo';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
@@ -51,7 +51,7 @@ export function AuthLayout({
 
         <div className="relative flex h-full flex-col justify-between p-10">
           <Link to="/" className="inline-flex w-fit">
-            <Wordmark size="md" />
+            <Logo size="md" />
           </Link>
 
           <div className="max-w-sm">
@@ -91,7 +91,7 @@ export function AuthLayout({
           )}
 
           <Link to="/" className="mb-8 inline-flex lg:hidden">
-            <Wordmark size="md" />
+            <Logo size="md" />
           </Link>
 
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

@@ -30,6 +30,8 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
+import ShoppingList from "./pages/Buylist";
+import ProxyList from "./pages/ProxyList";
 import DeckInterface from "./pages/DeckInterface";
 import DeckAnalysis from "./pages/DeckAnalysis";
 import DeckExport from "./pages/DeckExport";
@@ -37,7 +39,7 @@ import DeckShare from "./pages/DeckShare";
 import DeckMissingCards from "./pages/DeckMissingCards";
 import DeckCommander from "./pages/DeckCommander";
 import AIBuilder from "./pages/AIBuilder";
-import Brain from "./pages/Brain";
+import Tutor from "./pages/Tutor";
 import Marketplace from "./pages/Marketplace";
 import PublicDeck from "./pages/PublicDeck";
 import Simulate from "./pages/Simulate";
@@ -159,8 +161,16 @@ function AppContent() {
             of the darker page background show between the fixed nav and the
             page's own panel. That read as a thin black line under the nav on
             every page, which the owner reported on the collection page. Pages
-            now sit flush against the nav; bottom padding is kept. */}
-        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] overflow-x-hidden pb-1 md:pb-4 transition-[margin] duration-200">
+            now sit flush against the nav; bottom padding is kept.
+
+            No overflow-x-hidden either. It forces overflow-y to compute as
+            `auto`, which makes this a scroll container, and every
+            `position: sticky` descendant then anchors to THIS element instead of
+            the viewport. Measured on the new-deck page: its sticky action bar sat
+            at y=1555 in a 900px viewport, 655px below the fold, so the Create
+            button appeared not to exist. The outer wrapper still carries
+            overflow-x-hidden as the page-level guard against horizontal scroll. */}
+        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] pb-1 md:pb-4 transition-[margin] duration-200">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -198,11 +208,20 @@ function AppContent() {
                 third deck-builder surface. Redirected to the one that works. */}
             <Route path="/builder" element={<Navigate to="/deck-builder" replace />} />
             <Route path="/smart-builder" element={<ProtectedRoute><AIBuilder /></ProtectedRoute>} />
-            <Route path="/brain" element={<ProtectedRoute><Brain /></ProtectedRoute>} />
+            <Route path="/tutor" element={<ProtectedRoute><Tutor /></ProtectedRoute>} />
+            {/* MTG Brain became Tutor. Links to /brain are out there in saved
+                bookmarks and in anything already shared, and back/forward has to
+                keep working, so the old path redirects rather than 404s. */}
+            <Route path="/brain" element={<Navigate to="/tutor" replace />} />
             <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
             <Route path="/cards/:id" element={<ProtectedRoute><CardDetailPage /></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
+            {/* The shopping list and the proxy list are the same feature with
+                two endings: one buys, one prints. Both are destinations, so both
+                get a real URL and a nav entry. */}
+            <Route path="/shopping" element={<ProtectedRoute><ShoppingList /></ProtectedRoute>} />
+            <Route path="/proxies" element={<ProtectedRoute><ProxyList /></ProtectedRoute>} />
             <Route path="/play" element={<ProtectedRoute><Play /></ProtectedRoute>} />
             {/* Setup renders here, in the frame. The running board covers it. */}
             <Route path="/life" element={<ProtectedRoute><LifeCounter /></ProtectedRoute>} />

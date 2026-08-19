@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Crown, Loader2, Search, Sword, TrendingUp, Wand2, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Crown, Loader2, Search, Sword, TrendingUp, Wand2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -238,15 +238,45 @@ export function NewDeck() {
         </Link>
       </div>
 
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-          New deck
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {wantsCommander
-            ? 'Pick a format and a commander — or skip the commander and open the builder empty.'
-            : 'Pick a format, name it, and the builder opens on the empty list.'}
-        </p>
+      {/* The primary action lives HERE as well as at the foot.
+
+          The owner: "selecting a commander doesnt let you actually progress,
+          nothing happens and no continue button at top to create?". The button
+          did exist, in a sticky bar at the bottom, and it was measured sitting at
+          y=1555 in a 900px viewport. `overflow-x-hidden` on the app's main
+          element forces `overflow-y` to compute as `auto`, which makes it a
+          scroll container, and a `position: sticky` descendant then anchors to
+          THAT container rather than the viewport. So the action was 655px below
+          the fold on a page whose whole job is to be scrolled.
+
+          Rather than depend on sticky behaving, the action is simply where
+          someone looks for it: beside the title, at the top, visible the moment
+          the page loads. The bottom bar stays for when you have scrolled the
+          commander wall. */}
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            New deck
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {wantsCommander
+              ? 'Pick a format and a commander, or skip the commander and open the builder empty.'
+              : 'Pick a format, name it, and the builder opens on the empty list.'}
+          </p>
+        </div>
+        <Button onClick={handleCreate} disabled={creating} size="lg" className="shrink-0">
+          {creating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              Creating
+            </>
+          ) : (
+            <>
+              Create deck
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
       </header>
 
       {/* Setup bar: format and name side by side across the full width, with

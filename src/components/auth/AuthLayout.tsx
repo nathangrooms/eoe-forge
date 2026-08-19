@@ -11,93 +11,101 @@ interface AuthLayoutProps {
 }
 
 /**
- * Split auth layout: the six-panel colour artwork holds the full height of one
- * side on desktop and sits behind the form on mobile.
+ * Auth layout. The colour artwork is FULL BLEED behind the whole page.
+ *
+ * It used to live inside one half of a `lg:grid-cols-2`, and that was the bug.
+ * The artwork is 16:9 (1920x1081). Forced into a tall half-width column it is
+ * roughly a 0.69 ratio box, so `object-cover` keeps only 0.69/1.78 = 39% of the
+ * image width and centre-crops the rest. The owner counted the result: three
+ * colours visible out of the five they wanted.
+ *
+ * Full bleed across a ~1.6 ratio viewport keeps about 90% of the width, so the
+ * whole spread survives. The form floats over it rather than sitting beside it.
+ *
+ * Scrims are deliberately restrained. The owner on the homepage hero: "no need
+ * for as much black gradient overlay, covers background too much". So the ground
+ * is local to the text that needs it, not a sheet over the entire image.
  *
  * Replaces a purple gradient with an animated grid, four blurred floating orbs,
  * and a "Trusted by thousands of Magic players worldwide" line that was not
- * true — the product is pre-launch.
+ * true. The product is pre-launch.
  */
 export function AuthLayout({
   title, description, children, showBackToHome = true,
 }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-2">
-      {/* ---------------- artwork ---------------- */}
-      <div className="relative hidden lg:block">
+    <div className="relative min-h-screen">
+      {/* ---------------- artwork: full bleed, all five colours ---------------- */}
+      <div className="absolute inset-0 -z-10" aria-hidden="true">
         <img
-          src="/hero-1280.webp"
+          src="/hero-1920.webp"
           srcSet="/hero-768.webp 768w, /hero-1280.webp 1280w, /hero-1920.webp 1920w"
-          sizes="50vw"
+          sizes="100vw"
           alt=""
-          aria-hidden="true"
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="h-full w-full object-cover object-center"
         />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-background"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-background/30"
-        />
-        {/* Dedicated ground for the tagline: the art is bright and high-chroma
-            down there, and thin white type was picking up colour from it. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background via-background/85 to-transparent"
-        />
-
-        <div className="relative flex h-full flex-col justify-between p-10">
-          <Link to="/" className="inline-flex w-fit">
-            <Wordmark size="md" />
-          </Link>
-
-          <div className="max-w-sm">
-            <p className="text-2xl font-medium leading-snug text-balance">
-              Every card you own, in one place.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Catalogue your collection, track where each card is stored, and build decks
-              against what is already on your shelf.
-            </p>
-          </div>
-        </div>
+        {/* One light wash so white type never sits directly on bright art, and a
+            soft floor so the page has somewhere to end. Nothing heavier: the art
+            is the point. */}
+        <div className="absolute inset-0 bg-background/30" />
+        {/* The page needs a floor. Stripping the scrims back to let the art
+            through went too far and left the artwork ending on a hard edge at
+            the bottom of the viewport. This fades it out properly without
+            covering the panels: it starts well down the image and only reaches
+            full background at the very bottom. */}
+        <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-background via-background/70 to-transparent" />
       </div>
 
-      {/* ---------------- form ---------------- */}
-      <div className="relative flex min-h-screen items-center justify-center p-6 lg:min-h-0">
-        {/* Mobile: the same artwork sits behind the form. */}
-        <div className="absolute inset-0 lg:hidden" aria-hidden="true">
-          <img
-            src="/hero-768.webp"
-            alt=""
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-background/90" />
-        </div>
-
-        <div className="relative w-full max-w-sm">
+      <div className="relative flex min-h-screen flex-col">
+        <header className="flex items-center justify-between p-6 lg:p-10">
+          {/* The wordmark lands on the white panel, which is the brightest part
+              of the artwork. White-on-gold needs help. */}
+          <Link to="/" className="inline-flex w-fit rounded-lg bg-background/70 px-3 py-1.5 backdrop-blur">
+            <Wordmark size="md" />
+          </Link>
           {showBackToHome && (
             <Link
               to="/"
-              className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-sm text-foreground/90 backdrop-blur transition-colors hover:text-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to home
             </Link>
           )}
+        </header>
 
-          <Link to="/" className="mb-8 inline-flex lg:hidden">
-            <Wordmark size="md" />
-          </Link>
+        {/* The form used to sit hard against the right edge, which left it
+            crowding the frame and reading as an afterthought pasted on top.
+            It now sits inboard with real margin, and the tagline keeps the
+            left. */}
+        <div className="mx-auto flex w-full max-w-[110rem] flex-1 items-center justify-center gap-10 px-6 pb-10 lg:justify-between lg:px-16 xl:px-24">
+          {/* The tagline sits over the art on wide screens, where there is room
+              for it without covering the panels. */}
+          <div className="hidden max-w-lg lg:block">
+            <p className="text-3xl font-medium leading-snug text-balance drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+              Every card you own, in one place.
+            </p>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-foreground/80 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+              Catalogue your collection, track where each card is stored, and build decks
+              against what is already on your shelf.
+            </p>
+          </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+          {/* The form gets its own ground. This is the one place a solid surface
+              is worth spending, because input legibility is not negotiable. */}
+          {/* OPAQUE, deliberately. The first attempt used bg-background/92 with a
+              backdrop blur, and it landed over the brightest panels of the art
+              (red dragon, green canopy) where even 8% bleed-through washed the
+              labels and the heading out. Input legibility is not negotiable, so
+              this one surface stops being clever and becomes solid. The art is
+              still doing its job in the other four fifths of the page. */}
+          <div className="w-full max-w-sm rounded-2xl bg-card p-7 shadow-2xl shadow-black/70 ring-1 ring-black/40 sm:p-8">
+            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{description}</p>
 
-          <div className="mt-8">{children}</div>
+            <div className="mt-8">{children}</div>
+          </div>
         </div>
       </div>
     </div>

@@ -19,6 +19,7 @@ import {
   canRespond,
   castSpellAction,
   abilityAction,
+  defaultResolutionZone,
   legalTargetsOf,
   passUntilResolved,
   stackHeight,
@@ -31,7 +32,15 @@ import {
   willFizzle,
 } from './stack.ts';
 import { entersTapped, entersWithCounters, preventDamage } from './replacement.ts';
-import type { GameAction, GameState, InstanceId, PlayerId, StackEffect, Zone } from './types.ts';
+import type {
+  CardInstance,
+  GameAction,
+  GameState,
+  InstanceId,
+  PlayerId,
+  StackEffect,
+  Zone,
+} from './types.ts';
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -706,4 +715,44 @@ test('the stack is not a manual zone and a life counter has no stack at all', ()
   const check = validateAction(counter, { type: 'PASS_PRIORITY', playerId: 'p1' });
   assert.equal(check.ok, false);
   assert.match(check.reason ?? '', /life counter/i);
+});
+
+/* -------------------------------------------------------------------------- */
+/* Resolution zone: one face at a time                                        */
+/* -------------------------------------------------------------------------- */
+
+test('a modal double-faced permanent resolves onto the battlefield, not the graveyard', () => {
+  // Aquatic Alchemist // Bubble Up. The back face is an instant and the type
+  // line names both, which used to send the creature straight to the graveyard.
+  const card = {
+    instanceId: 'mdfc',
+    typeLine: 'Creature — Elemental // Instant',
+    flipped: false,
+  } as unknown as CardInstance;
+
+  assert.equal(defaultResolutionZone(card), 'battlefield');
+});
+
+test('the back face of a double-faced card still resolves to the graveyard', () => {
+  const card = {
+    instanceId: 'mdfc-back',
+    typeLine: 'Creature — Elemental // Instant',
+    flipped: true,
+  } as unknown as CardInstance;
+
+  assert.equal(defaultResolutionZone(card), 'graveyard');
+});
+
+test('a plain instant is unaffected', () => {
+  const card = { instanceId: 'bolt', typeLine: 'Instant', flipped: false } as unknown as CardInstance;
+  assert.equal(defaultResolutionZone(card), 'graveyard');
+});
+
+test('a split card with two spell halves still goes to the graveyard', () => {
+  const card = {
+    instanceId: 'split',
+    typeLine: 'Sorcery // Sorcery',
+    flipped: false,
+  } as unknown as CardInstance;
+  assert.equal(defaultResolutionZone(card), 'graveyard');
 });

@@ -71,6 +71,7 @@ import type {
 } from './types.ts';
 import { getCard, getPlayer, isAlive, livingPlayers, nextLivingPlayer } from './rules.ts';
 import { canBeTargetedBy } from './keywords.ts';
+import { resolvesToGraveyard } from './mana.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Selectors                                                                  */
@@ -470,10 +471,32 @@ export function resolutionActionsFor(
   return out;
 }
 
-/** Instants and sorceries resolve to the graveyard; everything else stays in play. */
+/**
+ * Instants and sorceries resolve to the graveyard; everything else stays in play.
+ *
+ * ONE FACE AT A TIME, and the whole string is the trap. A modal double-faced
+ * card carries both faces in its type line, so `Aquatic Alchemist // Bubble Up`
+ * reads "Creature - Elemental // Instant". Asking whether the word "instant"
+ * appears ANYWHERE in that finds the back face and sends a creature to the
+ * graveyard the moment it resolves.
+ *
+ * The playtest harness caught it as 13 `permanent-card-resolved-into-the-
+ * graveyard` violations across 10 of 120 games, which is every modal
+ * double-faced card and every Adventure with a spell on the back: unplayable,
+ * silently, with no refusal from the engine because nothing was illegal. Only
+ * wrong.
+ *
+ *   node --experimental-strip-types scripts/playtest/run.ts --seed 5010  *     --games 1 --kind commander --players 2 --verify
+ *
+ * THE RULE LIVES IN `mana.ts`, not here, and that matters. `moves.ts` builds
+ * the cast action and stamps `resolvesTo` from `resolvesToGraveyard`, and that
+ * value wins over this function, which answers only when nothing set one. Both
+ * files used to hold their own copy: fixing this one changed nothing, and the
+ * harness proved it by replaying 120 games to a byte-identical 50,170 actions
+ * with the same 13 violations. One owner now.
+ */
 export function defaultResolutionZone(card: CardInstance): Zone {
-  const line = (card.typeLine ?? '').toLowerCase();
-  return line.includes('instant') || line.includes('sorcery') ? 'graveyard' : 'battlefield';
+  return resolvesToGraveyard(card) ? 'graveyard' : 'battlefield';
 }
 
 /* -------------------------------------------------------------------------- */

@@ -172,8 +172,26 @@ export function isCreature(card: CardInstance | null | undefined): boolean {
   return !!card && (card.typeLine ?? '').toLowerCase().includes('creature');
 }
 
+/**
+ * The type line of the face actually in play, lowercased.
+ *
+ * A card with two faces carries BOTH in one type line, so `Aquatic Alchemist //
+ * Bubble Up` reads "creature - elemental // instant". Every check below asks
+ * whether a word appears in the line, and against the whole string those
+ * questions get the wrong face's answer.
+ *
+ * `flipped` is the only face signal on a `CardInstance`, so a card sitting
+ * normally is judged on its front face.
+ */
+export function faceTypeLine(card: CardInstance | null | undefined): string {
+  const full = (card?.typeLine ?? '').toLowerCase();
+  const faces = full.split('//').map(part => part.trim()).filter(Boolean);
+  if (faces.length < 2) return full;
+  return card?.flipped ? faces[faces.length - 1] : faces[0];
+}
+
 export function isPermanent(card: CardInstance | null | undefined): boolean {
-  const line = (card?.typeLine ?? '').toLowerCase();
+  const line = faceTypeLine(card);
   if (!line) return false;
   return (
     line.includes('creature') ||
@@ -185,9 +203,31 @@ export function isPermanent(card: CardInstance | null | undefined): boolean {
   );
 }
 
-/** Instants and sorceries resolve to the graveyard rather than the battlefield. */
+/**
+ * Instants and sorceries resolve to the graveyard rather than the battlefield.
+ *
+ * THIS IS THE ONE THAT RUNS. `moves.ts` builds the cast action and stamps
+ * `resolvesTo` from here, and that value wins over `stack.ts`'s
+ * `defaultResolutionZone`, which only answers when nothing set it. The two used
+ * to hold separate copies of the same rule, and fixing the one in `stack.ts`
+ * changed nothing at all: the playtest harness replayed 120 games and produced
+ * a byte-identical 50,170 actions with the same 13 violations. `stack.ts` now
+ * delegates here so there is a single answer.
+ *
+ * Reading the whole type line put every modal double-faced card and every
+ * Adventure with a spell on the back into the graveyard on resolution: 13
+ * `permanent-card-resolved-into-the-graveyard` violations across 10 of 120
+ * games, with no refusal from the engine, because nothing was illegal. Only
+ * wrong.
+ *
+ * NOT HANDLED, rather than half-implemented: an Adventure cast as its Adventure
+ * half goes to EXILE under CR 715.3d. Nothing here knows which half was cast,
+ * so it answers for the front face. That leaves the Adventure creature in play
+ * instead of binned, and the exile route for whoever teaches the stack which
+ * half it is resolving.
+ */
 export function resolvesToGraveyard(card: CardInstance | null | undefined): boolean {
-  const line = (card?.typeLine ?? '').toLowerCase();
+  const line = faceTypeLine(card);
   return line.includes('instant') || line.includes('sorcery');
 }
 

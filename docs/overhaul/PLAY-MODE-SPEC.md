@@ -346,3 +346,57 @@ Required, end to end:
 
 Verify by PLAYING: two real 100-card decks, several turns, until combat has happened in both
 directions with blocks assigned. Report what a real Magic player would find wrong.
+
+---
+
+## Amendment — the clicked card previews in the CENTRE (19 Aug 2026)
+
+Owner, verbatim:
+
+> "card you play or attack with when clicked may be better off showing in the
+>  middle, then buttons under it - no modal needed as on playmat"
+
+This **supersedes** the earlier line above suggesting the right edge as the
+natural home for the inspector. Two different things had been conflated, and they
+now separate cleanly:
+
+| What | Where | Why |
+|---|---|---|
+| **You click a card** to read it and act on it | **CENTRE**, actions in a row beneath it | It is the thing you are doing. It deserves the middle of the table and the largest readable size. |
+| **A card is cast** and everyone should see it | **RIGHT EDGE** (unchanged) | It is an announcement, not a decision. It must not cover the table, because play continues around it. |
+
+Still absolutely not a modal. No dimmed full-screen backdrop, no portal, no
+`fixed inset-0` overlay, no dialog primitive. The preview is drawn **into the
+mat** — the board stays visible and alive around it, and it is dismissed by
+clicking away or taking an action. Centre means *centre of the playmat surface*,
+not centre of a floating window.
+
+Buttons go **underneath the card**, not beside it: the eye reads the card, then
+drops to the choices. They are real actions for that card in that zone right now
+(cast, attack, tap, block, move to graveyard…), never a fixed list with disabled
+entries padding it out.
+
+## Animation — the mat should feel alive
+
+Owner: *"think about all of the animations and review them for play mode - make
+it feel immersive with animations where possible"*.
+
+Principles, so this does not turn into decoration:
+
+1. **Animate what actually happened.** A card moving zones should travel from
+   where it was to where it is going — hand to battlefield, battlefield to
+   graveyard. The movement IS the feedback; a card that teleports leaves the
+   player unsure whether their click registered.
+2. **Combat should read as combat.** Attackers lunge toward the player they are
+   attacking. Damage lands visibly. A creature that dies leaves rather than
+   blinking out.
+3. **Never block input on an animation.** The engine state is already committed
+   before the animation plays — animations narrate the reducer, they never gate
+   it. A player who clicks through must never be waiting on a tween.
+4. **Respect `prefers-reduced-motion`** everywhere, as `GameCardView` already
+   does via `useReducedMotion`.
+5. **Nothing that fires every frame or every render.** This board can hold 120
+   permanents; the layer engine budget is measured in microseconds and animation
+   must not undo that.
+6. Spring physics, consistent with the existing `framer-motion` usage already in
+   `GameCardView` — not linear fades bolted on per component.

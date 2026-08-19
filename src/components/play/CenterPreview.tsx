@@ -144,10 +144,15 @@ export interface CenterPreviewProps {
  * are the heights those three blocks actually take at this type scale. The card
  * gets everything else.
  */
-const PANEL_CHROME = 210;
+/* The details column: wide enough for a rules-text paragraph and two columns of
+   action buttons, which is what stops anything needing to scroll. */
+const DETAILS_IDEAL = 340;
+const DETAILS_MIN = 220;
+const PANEL_PADDING = 44;
+const MAX_PANEL_WIDTH = 980;
 /** The panel never takes more of the board than this, so the table stays a table. */
 const MAX_HEIGHT_SHARE = 0.86;
-const MAX_WIDTH_SHARE = 0.5;
+const MAX_WIDTH_SHARE = 0.5; // retained for reference; the panel is width-led now
 
 /** One action. Surface tint and weight, never an outline, never a raw hue. */
 function ActionButton({ action, onClick }: { action: CardAction; onClick: () => void }) {
@@ -236,13 +241,27 @@ export function CenterPreview({
   const notes = cardNotes(state, card);
   const stats = statLineIn(state, card);
 
-  /* The card is as large as the board can hold it. Height is the binding
-     constraint on every screen this runs on, so it is solved for first and the
-     width follows from the card's own proportions. */
+  /* CARD LEFT, EVERYTHING ELSE RIGHT, and the sizing follows from that.
+     Stacked, the card ate the height and the text below it overflowed, so the
+     panel scrolled. Owner: "i dont really like the modal window, and scroll bar
+     ... maybe card details is on right hand of the card instead? Could maybe be
+     a glass modal instead but wider."
+
+     Beside the card there is no chrome under it to subtract, so the card is
+     free to use the full height, and the details column takes width the panel
+     was not using before. The result fits without scrolling, which is the
+     actual requirement: "Should never be a scroll bar." */
   const matHeight = Math.max(240, boardHeight - topInset - bottomInset);
+  const panelWidth = Math.min(boardWidth - 32, MAX_PANEL_WIDTH);
+  /* What is left for the card once the details column and the padding are
+     taken. On a narrow board the details column shrinks first, then the card. */
+  const detailsWidth = Math.max(DETAILS_MIN, Math.min(DETAILS_IDEAL, panelWidth * 0.42));
   const cardHeight = Math.max(
     170,
-    Math.min(matHeight * MAX_HEIGHT_SHARE - PANEL_CHROME, (boardWidth * MAX_WIDTH_SHARE) / CARD_RATIO)
+    Math.min(
+      matHeight * MAX_HEIGHT_SHARE,
+      (panelWidth - detailsWidth - PANEL_PADDING) / CARD_RATIO
+    )
   );
   const cardWidth = Math.round(cardHeight * CARD_RATIO);
 
@@ -293,20 +312,45 @@ export function CenterPreview({
           transition={
             reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 28, mass: 0.7 }
           }
-          className="pointer-events-auto relative flex max-h-full flex-col items-center overflow-hidden rounded-2xl"
-          style={{ width: Math.min(boardWidth - 32, Math.max(cardWidth + 48, 320)) }}
+          className="pointer-events-auto relative flex max-h-full flex-col overflow-hidden rounded-2xl"
+          style={{ width: panelWidth }}
           role="group"
           aria-label={`${card.name}, ${ZONE_LABEL[card.zone]}`}
         >
-          {/* The panel is made of the table. Same material, same shadow, no
-              border — it reads as a card laid on the mat, not a window over it. */}
-          <Playmat tone="board" rounded="rounded-2xl" className="absolute inset-0 h-full w-full" />
+          {/* Glass over the table rather than another slab of it. The mat
+              behind stays visible through the blur, which is what keeps this
+              reading as something laid ON the board mid-game instead of a
+              window that has replaced it.
+
+              Deliberately low opacity: 30% ground under a heavy blur, so the
+              playmat's colour and weave still come through and the panel reads
+              as glass rather than as a grey slab. The blur does the legibility
+              work, not the fill. `backdrop-saturate` keeps the mat's colour
+              alive through it instead of washing to grey. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_28px_70px_rgba(0,0,0,0.75)]"
+            className="pointer-events-none absolute inset-0 rounded-2xl bg-background/30 backdrop-blur-3xl backdrop-saturate-150"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_28px_70px_rgba(0,0,0,0.75),inset_0_1px_0_hsl(0_0%_100%/0.10)]"
           />
 
-          <div className="relative flex min-h-0 w-full flex-col items-center gap-3 overflow-y-auto px-4 pb-4 pt-3">
+          {/* NO `overflow-y-auto` ANYWHERE IN HERE. The card is the flexible
+              element: it shrinks to whatever height is left, so the content
+              always fits and nothing ever scrolls. */}
+          <div className="relative flex w-full items-stretch gap-4 p-4">
+            {/* The card, as large as the panel can hold. */}
+            <GameCardView
+              card={card}
+              width={cardWidth}
+              ignoreTapped
+              className="shrink-0 self-center drop-shadow-[0_18px_40px_rgba(0,0,0,0.8)]"
+              title={card.name}
+            />
+
+            {/* Everything else, beside it. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2.5">
             <div className="flex w-full shrink-0 items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {ZONE_LABEL[card.zone]}
@@ -322,15 +366,6 @@ export function CenterPreview({
                 <X className="h-4 w-4" />
               </button>
             </div>
-
-            {/* The card, at the largest size the board can hold. */}
-            <GameCardView
-              card={card}
-              width={cardWidth}
-              ignoreTapped
-              className="shrink-0 drop-shadow-[0_18px_40px_rgba(0,0,0,0.8)]"
-              title={card.name}
-            />
 
             <div className="w-full shrink-0">
               <div className="flex items-start gap-2">
@@ -361,10 +396,14 @@ export function CenterPreview({
               )}
             </div>
 
-            {/* THE ACTIONS. Underneath the card, in a row, and only the ones
-                that are really available. */}
+            {/* THE ACTIONS. Beside the card, and only the ones really
+                available. The room this gained is what the owner asked it to
+                buy: "This could give room to overwrite actions on the card too." */}
             {actions.length > 0 && (
-              <div className="flex w-full shrink-0 flex-wrap gap-2">
+              /* Two columns, because the details column has real width now. A
+                 long action list used to run down the panel and was the other
+                 half of why it scrolled. */
+              <div className="grid w-full shrink-0 grid-cols-2 gap-2">
                 {actions.map(action => (
                   <ActionButton key={action.id} action={action} onClick={() => run(action)} />
                 ))}
@@ -411,6 +450,7 @@ export function CenterPreview({
                 ))}
               </div>
             )}
+            </div>
           </div>
         </motion.div>
       </div>

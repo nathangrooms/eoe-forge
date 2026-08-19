@@ -6,9 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { Section, SectionHeading } from '@/components/marketing/Section';
-import { supabase } from '@/integrations/supabase/client';
+import { tutorDeck } from '@/lib/homepage/snapshot';
 import { preconIndexEntry } from '@/data/precon-index';
-import { commanderCard, fetchPreconDeck, type PreconCard } from '@/lib/precons/precon-api';
+import { commanderCard, type PreconCard } from '@/lib/precons/precon-api';
 import { scryfallImageUrl } from '@/lib/deck/deckCards';
 import { cn } from '@/lib/utils';
 
@@ -27,8 +27,16 @@ import { cn } from '@/lib/utils';
  * cards, computed in the browser while you read it. Nothing is asserted that the
  * list on the left does not prove.
  *
- * Cost control: the decklist is ~50 kB gzipped and the section sits well down
- * the page, so nothing is fetched until it is close to the viewport.
+ * Cost control: the deck used to be pulled through the `fetch-precons` edge
+ * function on every visit that scrolled this far, and then every one of its 87
+ * distinct card names resolved against the card table in chunks. That is a
+ * ~50 kB decklist download plus two more round trips, per visitor, for a deck
+ * that is frozen: it is a published 2017 product and it will never change.
+ *
+ * It is resolved once a night in `scripts/homepage-snapshot.mjs` instead, which
+ * keeps the rule that mattered: if any card fails to resolve, the generator
+ * stores nothing rather than arithmetic that is 99% right, and this section
+ * drops to its no-numbers rendering.
  */
 
 /** A real, frozen, published product — not a deck this file made up. */
@@ -230,59 +238,17 @@ function Curve({ curve, avgMv }: { curve: number[]; avgMv: number }) {
 
 export function HomeTutor() {
   const [wrapRef, near] = useNearViewport<HTMLDivElement>();
-  const [entries, setEntries] = useState<DeckEntry[] | null>(null);
-  const [failed, setFailed] = useState(false);
 
   const index = preconIndexEntry(PRECON_ID);
   const commander = index?.commanders[0];
 
-  useEffect(() => {
-    if (!near) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const deck = await fetchPreconDeck(PRECON_ID);
-        const names = Array.from(new Set(deck.cards.map(c => c.card_name)));
-
-        const rows: any[] = [];
-        for (let i = 0; i < names.length; i += 80) {
-          const { data, error } = await supabase
-            .from('cards')
-            .select('name,mana_cost,cmc,type_line')
-            .in('name', names.slice(i, i + 80));
-          if (error) throw error;
-          rows.push(...((data ?? []) as any[]));
-        }
-
-        const byName = new Map<string, any>();
-        for (const row of rows) if (!byName.has(row.name)) byName.set(row.name, row);
-
-        /* Every figure below is a count over these rows, so a card the table is
-           missing would quietly shift the arithmetic. Rather than print a number
-           that is 99% right, drop to the no-numbers rendering. */
-        if (names.some(n => !byName.has(n))) throw new Error('incomplete card resolution');
-
-        const resolved: DeckEntry[] = deck.cards.map(c => {
-          const row = byName.get(c.card_name);
-          return {
-            ...c,
-            typeLine: String(row.type_line ?? '').toLowerCase(),
-            mv: Number(row.cmc ?? 0),
-            manaCost: row.mana_cost ?? null,
-          };
-        });
-
-        if (!cancelled) setEntries(resolved);
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [near]);
+  /* The viewport gate stays: there is no request to defer any more, but it
+     still keeps the deck's card art out of the initial load. */
+  const entries = (near ? tutorDeck() : null) as DeckEntry[] | null;
+  /* Failed and pending are now the same state, and both draw the same thing:
+     the deck without figures over it. The generator writes no deck at all if it
+     could not resolve every card, which is the case this flag existed for. */
+  const failed = near && entries === null;
 
   const stats = useMemo(() => (entries ? composeStats(entries) : null), [entries]);
   const named = stats?.top.slice(0, NAMED) ?? [];

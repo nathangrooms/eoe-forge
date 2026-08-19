@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import { supabase } from '@/integrations/supabase/client';
+import { preconCommanders } from '@/lib/homepage/snapshot';
 import { Section, SectionInner, SectionHeading } from '@/components/marketing/Section';
 import { PRECON_INDEX, type PreconIndexEntry } from '@/data/precon-index';
 
@@ -84,22 +83,12 @@ interface CommanderCard {
 }
 
 export function HomePrecons() {
-  const [byId, setById] = useState<Map<string, CommanderCard> | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      /* One request for all eight commanders, keyed on the printing id the
-         precon index already stores. `cards.id` IS the Scryfall printing id. */
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,type_line,mana_cost,layout,faces,image_uris')
-        .in('id', FEATURED_IDS);
-
-      const map = new Map<string, CommanderCard>();
-      for (const row of (data ?? []) as unknown as CommanderCard[]) map.set(row.id, row);
-      setById(map);
-    })();
-  }, []);
+  /* Keyed on the printing id the precon index already stores, because
+     `cards.id` IS the Scryfall printing id. The same four commanders are
+     resolved once a night in scripts/homepage-snapshot.mjs, which repeats the
+     FEATURED selection above so both ends agree on which four. */
+  const rows = preconCommanders();
+  const byId = rows ? new Map(Object.entries(rows) as [string, CommanderCard][]) : null;
 
   const loading = byId === null;
 

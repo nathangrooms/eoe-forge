@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "vendor": "node scripts/vendor-engine.mjs",
     "vendor:check": "node scripts/vendor-engine.mjs --check",
-    "prebuild": "node scripts/vendor-engine.mjs --check",
+    "snapshot": "node --experimental-strip-types scripts/homepage-snapshot.mjs",
+    "snapshot:check": "node scripts/homepage-snapshot.mjs --check",
+    "prebuild": "node scripts/vendor-engine.mjs --check && node scripts/homepage-snapshot.mjs --check",
     "pretest": "node scripts/vendor-engine.mjs --check"
   },
   "dependencies": {

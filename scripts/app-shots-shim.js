@@ -36,6 +36,30 @@
 (() => {
   const URL_BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
 
+  /**
+   * The fixture account's display name.
+   *
+   * `dashboard-shim.js` calls it "Harness", which is right for a diagnostic run
+   * and wrong in a published picture: the play table prints the seat's name, so
+   * the board came back with a player called `harness` on it. "Demo" is what the
+   * account actually is, it is nobody's name, and it does not pretend to be a
+   * real person — which is the whole reason the account is invented.
+   */
+  try {
+    const key = 'sb-udnaflcohfyljrsgqggy-auth-token';
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const session = JSON.parse(raw);
+      session.user.user_metadata = { ...session.user.user_metadata, username: 'Demo' };
+      /* `Play` names the human seat `user.email.split('@')[0]`, which is where
+         `harness` was coming from. Nothing is ever sent to this address. */
+      session.user.email = 'demo@deckmatrix.com';
+      localStorage.setItem(key, JSON.stringify(session));
+    }
+  } catch {
+    /* no storage, no rename; the picture is still the real page */
+  }
+
   const seed = window.__dmDeck;
   if (!seed || !Array.isArray(seed.rows) || seed.rows.length === 0) return;
 

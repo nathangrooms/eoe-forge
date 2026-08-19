@@ -1,19 +1,25 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ManaPip } from '@/components/ui/mana-cost';
-import { supabase } from '@/integrations/supabase/client';
-import { selectCardsWhere } from '@/lib/supabase/jsonPath';
+import { appVisualCards, approxLabel, counts } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /**
  * Catalogue sections.
  *
- * Every figure is a live COUNT against the cards table — nothing is typed in.
+ * Every figure is a COUNT against the card table, taken by
+ * `scripts/homepage-snapshot.mjs` after the nightly sync. Nothing is typed in.
  * If the sync ever regresses, these numbers fall with it, which is the point:
  * the homepage should not be able to overstate the product.
+ *
+ * They are counted over `cards_unique`, not `cards`. `cards` holds every
+ * printing — 97,140 rows over 33,037 distinct cards — so counting it under a
+ * label that says "cards" overstates the catalogue roughly threefold. That is
+ * what was happening: this section reported 97,140 cards, 11,283 legendary
+ * creatures and 9,150 mythics, against real figures of 33,037, 3,540 and 2,110.
+ * The rule is in src/lib/cards/source.ts; the counts now follow it.
  *
  * `HomeFormats` used to live here — six tiles of legal-card counts. It was
  * replaced by `HomeFormatPicker`, which demonstrates legality with real cards
@@ -31,24 +37,15 @@ const COLORS: { c: string; name: string; blurb: string }[] = [
 ];
 
 export function HomeColors() {
-  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  /* Five counts that used to be five concurrent count queries on mount. */
+  const byColor: Record<string, number> | null = (() => {
+    const entries = COLORS.map(({ c }) => [c, counts.colorIdentity(c)] as const);
+    return entries.every(([, n]) => n !== null)
+      ? (Object.fromEntries(entries) as Record<string, number>)
+      : null;
+  })();
 
-  useEffect(() => {
-    (async () => {
-      const entries = await Promise.all(
-        COLORS.map(async ({ c }) => {
-          const { count } = await supabase
-            .from('cards')
-            .select('id', { count: 'exact', head: true })
-            .contains('color_identity', [c]);
-          return [c, count ?? 0] as const;
-        })
-      );
-      setCounts(Object.fromEntries(entries));
-    })();
-  }, []);
-
-  const max = counts ? Math.max(...Object.values(counts)) : 1;
+  const max = byColor ? Math.max(...Object.values(byColor)) : 1;
 
   return (
     <Section tint>
@@ -59,7 +56,7 @@ export function HomeColors() {
 
       <div className="mt-14 space-y-3">
         {COLORS.map(({ c, name, blurb }) => {
-          const n = counts?.[c] ?? 0;
+          const n = byColor?.[c] ?? 0;
           return (
             <div key={c} className="flex items-center gap-4">
               <ManaPip symbol={c} size="lg" />
@@ -69,11 +66,11 @@ export function HomeColors() {
               <div className="relative h-8 flex-1 overflow-hidden rounded bg-muted">
                 <div
                   className="h-full rounded bg-foreground/85 transition-all duration-700"
-                  style={{ width: counts ? `${(n / max) * 100}%` : '0%' }}
+                  style={{ width: byColor ? `${(n / max) * 100}%` : '0%' }}
                 />
               </div>
               <span className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                {counts ? n.toLocaleString() : '–'}
+                {byColor ? approxLabel(n) : '–'}
               </span>
               <span className="hidden w-56 shrink-0 text-xs text-muted-foreground lg:block">
                 {blurb}
@@ -89,70 +86,58 @@ export function HomeColors() {
 /* --------------------------------------------------------- catalogue at a glance */
 
 export function HomeCatalogue() {
-  /* Each count is independently nullable: one query can time out while the
-     others answer, which is exactly what happened on the live page. */
-  const [stats, setStats] = useState<{
-    total: number | null; legendary: number | null; mythic: number | null; sets: number | null;
-  } | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const [total, legendary, mythic] = await Promise.all([
-        supabase.from('cards').select('id', { count: 'exact', head: true }),
-        /* `is_legendary` alone also counts legendary lands, artifacts,
-           enchantments, planeswalkers and sagas, so the old query returned
-           4,364 under the caption "every one a possible commander" — the one
-           outright false statement left on the page. Rule 903.3 makes exactly
-           the legendary CREATURES eligible, so the count is narrowed to match
-           the sentence rather than the sentence softened to match the count. */
-        supabase
-          .from('cards')
-          .select('id', { count: 'exact', head: true })
-          .eq('is_legendary', true)
-          .ilike('type_line', '%Creature%'),
-        supabase.from('cards').select('id', { count: 'exact', head: true }).eq('rarity', 'mythic'),
-      ]);
-
-      /* NULL, NOT ZERO.
-
-         This read `total.count ?? 0`. PostgREST returns a null count when the
-         query fails, and an exact count over 97,140 rows is expensive enough to
-         hit the statement timeout, so the homepage told visitors there were ZERO
-         cards you can search and ZERO legendary creatures while cheerfully
-         reporting 9,150 mythics beside them. The mythic count survived only
-         because `rarity = 'mythic'` is far narrower.
-
-         The tile below already renders a dash for null. The `?? 0` was undoing
-         that and turning a failed request into a confident false claim, which is
-         the fabrication rule at its worst: on a public page, about the size of
-         the thing the whole product is built on. */
-      setStats({
-        total: total.count,
-        legendary: legendary.count,
-        mythic: mythic.count,
-        sets: null,
-      });
-    })();
-  }, []);
-
+  /*
+   * These were three exact counts fired on mount, and the first one was the
+   * bug. `count(*)` over `cards` measures 7,586 ms (EXPLAIN ANALYZE,
+   * 2026-08-19) and the `anon` role every visitor holds carries
+   * statement_timeout=3s, so it could not finish. PostgREST returns null for a
+   * count that failed, the tile read `total.count ?? 0`, and the homepage told
+   * visitors there were ZERO cards you can search and ZERO legendary creatures
+   * while cheerfully reporting the mythic figure beside them.
+   *
+   * Now they are read from the nightly file, and each one is still
+   * independently nullable: the tile draws a dash for a number it does not
+   * have. Null, never zero. That distinction is the whole section.
+   */
   const tiles = [
-    { label: 'Cards you can search', value: stats?.total, sub: 'updated from Scryfall every night' },
-    { label: 'Legendary creatures', value: stats?.legendary, sub: 'every one of them a legal commander' },
-    { label: 'Mythic rares', value: stats?.mythic, sub: 'with full art and current prices' },
+    {
+      label: 'Cards in the catalogue',
+      value: counts.cards(),
+      /* Not "cards you can search". Search on /cards is a Scryfall query, so
+         that label made a claim about somebody else's catalogue and then put
+         our row count under it. This says what the number is. */
+      sub: 'one row per card, updated from Scryfall every night',
+    },
+    {
+      label: 'Legendary creatures',
+      value: counts.legendaryCreatures(),
+      sub: 'every one of them a legal commander',
+    },
+    {
+      label: 'Mythic rares',
+      value: counts.mythics(),
+      sub: 'with full art and current prices',
+    },
   ];
 
   return (
     <Section tint size="compact">
       <div className="grid gap-8 sm:grid-cols-3">
-        {tiles.map(t => (
-          <div key={t.label} className="text-center">
-            <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
-              {t.value != null ? t.value.toLocaleString() : '–'}
-            </p>
-            <p className="mt-2 font-medium">{t.label}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
-          </div>
-        ))}
+        {tiles.map(t => {
+          /* Rounded down, with a "+". The count was exact last night and the
+             catalogue has grown since, so the unit digit is a precision this
+             page has not got. See `approx` in src/lib/homepage/snapshot.ts. */
+          const shown = approxLabel(t.value);
+          return (
+            <div key={t.label} className="text-center">
+              <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">
+                {shown ?? '–'}
+              </p>
+              <p className="mt-2 font-medium">{t.label}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
+            </div>
+          );
+        })}
       </div>
     </Section>
   );
@@ -179,20 +164,14 @@ const GROUPS = [
 ];
 
 export function HomeBuilderPreview() {
-  const [cards, setCards] = useState<PreviewCard[] | null>(null);
+  /* The same pool `HomeAppVisual` draws from: commander-legal mythics and rares
+     with art, picked once a night. This section is not currently on the page
+     (see the note at the bottom of src/pages/Homepage.tsx) but it is still
+     exported, so it reads the file rather than keeping a live query alive for a
+     section nobody is looking at. */
+  const cards = appVisualCards() as unknown as PreviewCard[] | null;
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await selectCardsWhere('id,name,mana_cost,cmc,type_line,image_uris,prices')
-        .eq('legalities->>commander', 'legal')
-        .in('rarity', ['mythic', 'rare'])
-        .not('image_uris', 'is', null)
-        .limit(120);
-      setCards(((data ?? []) as unknown as PreviewCard[]).slice(0, 40));
-    })();
-  }, []);
-
-  const list = cards ?? [];
+  const list = (cards ?? []).slice(0, 40);
   const total = list.reduce((sum, c) => sum + Number(c.prices?.usd ?? 0), 0);
 
   /* Assign each card to the FIRST matching group so nothing is double-counted.

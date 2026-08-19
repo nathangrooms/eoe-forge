@@ -645,9 +645,32 @@ async function playTable(tab) {
     }
   }
 
-  /* Land on the table view rather than whatever the last click left focused. */
-  await pressTitle(tab, 'Table');
-  await sleep(1200);
+  /**
+   * Clear the table before the shutter.
+   *
+   * A run that has been clicking cards leaves whatever it last opened on top —
+   * the first attempt came back with the command-zone sheet covering the middle
+   * of the board, which is a picture of a dialog rather than of a game. Escape,
+   * then any close control, then the Table view, then a check that nothing is
+   * still floating; a board with a panel over it is not written.
+   */
+  await tab.keyboard.press('Escape');
+  await sleep(500);
+  await tab.evaluate(() => {
+    for (const el of document.querySelectorAll('button')) {
+      const name = `${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''}`;
+      if (/close/i.test(name)) el.click();
+    }
+  });
+  await sleep(600);
+  await pressText(tab, /^Table$/);
+  await sleep(1500);
+
+  const covered = await tab.evaluate(() =>
+    document.querySelectorAll('[role="dialog"], [data-state="open"][role="dialog"]').length
+  );
+  if (covered > 0) return 'a panel is still over the board';
+
   return true;
 }
 

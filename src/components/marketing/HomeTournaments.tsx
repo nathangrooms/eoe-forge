@@ -36,6 +36,7 @@ import {
 } from '@/components/tournament/scoring';
 
 import { Section, SectionHeading } from '@/components/marketing/Section';
+import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 import {
   loadCardsById,
   useCompact,
@@ -254,6 +255,20 @@ export function HomeTournaments() {
         title="Run the pod, not a spreadsheet"
         lead="Swiss or knockout, scored the way a paper event scores it. Three points for a win and one for a draw, with your opponents' win rate breaking the ties. Nobody gets paired with the same person twice while somebody else is free. Results go in with one click, and you can take them back."
       />
+
+      {/* ------------------------------------------------------ the real screen
+          The worked example below is the honest way to show a scoring engine:
+          it RUNS, in the reader's browser, and the standings under it are what
+          `computeStandings` returned. What it cannot do is show the product, so
+          it is now introduced by a photograph of the actual tournament manager,
+          taken by `scripts/app-shots.mjs`. Picture first, proof underneath. */}
+      <div className="mt-14">
+        <AppScreenshot
+          scene="tournament"
+          alt="The DeckMatrix tournament manager running a Swiss Commander event: a round clock, the current round's pairings with each seat's commander card, and live standings down the right"
+          caption="A Swiss event in progress: the round clock, the pairings for round three with the deck each seat registered, and the standings as they stand."
+        />
+      </div>
 
       <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
         {/* ------------------------------------------------------- pairings */}

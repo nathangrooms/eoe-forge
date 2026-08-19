@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+
 import { Link } from 'react-router-dom';
 import { Camera, Check, ScanLine, Zap, ArrowRight, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { Section, SectionHeading } from '@/components/marketing/Section';
-import { supabase } from '@/integrations/supabase/client';
+import { scannerCard } from '@/lib/homepage/snapshot';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,17 +31,19 @@ import { cn } from '@/lib/utils';
 const MISREAD = 'Lightnng Bolt';
 const TARGET = 'Lightning Bolt';
 
-/**
- * Ravnica: Clue Edition — Christopher Moeller's original illustration.
+/*
+ * Which printing of Lightning Bolt this section shows is pinned to Ravnica:
+ * Clue Edition, Christopher Moeller's original illustration. Pinned rather than
+ * picked by price: sorting Lightning Bolt's printings by USD puts the Marvel
+ * crossover on top, and opening the scanner with a picture of Thor is the same
+ * mistake as letting Secret Lair oddities lead the card wall. Only the CHOICE
+ * of printing is fixed; the set, cost, type line and price are all read off
+ * that row, and if it ever leaves the table the fallback is the cheapest
+ * printing that has art.
  *
- * Pinned rather than picked by price. Sorting Lightning Bolt's printings by USD
- * puts the Marvel crossover on top, and opening the scanner with a picture of
- * Thor is the same mistake as letting Secret Lair oddities lead the card wall.
- * Only the *choice of printing* is fixed here — the set, cost, type line and
- * price all come off this row live, and if it ever disappears the query falls
- * back to the cheapest printing that has art.
+ * The id itself lives with the query, as SCAN_PINNED_PRINTING in
+ * scripts/homepage-snapshot.mjs.
  */
-const PINNED_PRINTING = '77c6fa74-5543-42ac-9ead-0e890b188e99';
 
 /**
  * Levenshtein distance, then similarity as a fraction of the longer string.
@@ -136,34 +138,10 @@ interface ScanCard {
 }
 
 export function HomeScanner() {
-  const [card, setCard] = useState<ScanCard | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,mana_cost,type_line,set_code,image_uris,prices')
-        .eq('name', TARGET)
-        .not('image_uris', 'is', null)
-        .limit(6);
-
-      if (cancelled) return;
-
-      const withArt = ((data ?? []) as any[]).filter(
-        c => c?.image_uris?.large || c?.image_uris?.normal
-      );
-      const pinned = withArt.find(c => c.id === PINNED_PRINTING);
-      const cheapest = [...withArt].sort(
-        (a, b) => Number(a.prices?.usd ?? Infinity) - Number(b.prices?.usd ?? Infinity)
-      )[0];
-
-      setCard(((pinned ?? cheapest) as ScanCard) ?? null);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  /* One card, the one held up to the camera. The printing is pinned in
+     scripts/homepage-snapshot.mjs, which also keeps the fall back to the
+     cheapest printing with art if the pinned one ever leaves the table. */
+  const card = scannerCard() as ScanCard | null;
 
   const usd = card?.prices?.usd ? Number(card.prices.usd) : null;
   const art = card?.image_uris?.art_crop ?? null;

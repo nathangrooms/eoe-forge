@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeHero } from '@/components/marketing/HomeHero';
-import { HomeCTA } from '@/components/marketing/HomeSections';
+import { HomeCTA, HomeCollection } from '@/components/marketing/HomeSections';
 import { HomeShowcase } from '@/components/marketing/HomeShowcase';
 import { HomeNewSets } from '@/components/marketing/HomeNewSets';
 import { HomeCatalogue } from '@/components/marketing/HomeStats';
@@ -21,6 +21,7 @@ import { PublicNavigation } from '@/components/navigation/PublicNavigation';
 import { TestingBanner } from '@/components/marketing/TestingBanner';
 import { SectionInner } from '@/components/marketing/Section';
 import { supabase } from '@/integrations/supabase/client';
+import { counts } from '@/lib/homepage/snapshot';
 
 /**
  * Public homepage.
@@ -137,9 +138,31 @@ const FLAG_WAIT_MS = 1200;
 
 export default function Homepage() {
   const [showTestingBanner, setShowTestingBanner] = useState<boolean | null>(null);
-  const [cardCount, setCardCount] = useState<number | null>(null);
 
   /*
+   * The card count comes out of the nightly snapshot, not the database.
+   *
+   * It used to be `count(*)` over `cards`, run on every visit. Measured with
+   * EXPLAIN ANALYZE on 2026-08-19 that count takes 7,586 ms, and the `anon`
+   * role a logged-out visitor holds carries `statement_timeout=3s`. It could
+   * not succeed. PostgREST answers a failed count with null, the tile read the
+   * null as zero, and the homepage told people there were no cards.
+   *
+   * See src/lib/homepage/snapshot.ts for what the file holds and why the number
+   * is rounded before it is shown.
+   */
+  const cardCount = counts.cards();
+
+  /*
+   * THE ONE QUERY THAT STAYS LIVE, and it stays live on purpose.
+   *
+   * Everything else the homepage reads is now a nightly file. This is not,
+   * because it is not content: it is the switch that decides whether visitors
+   * see the site or a holding page. A kill switch that only takes effect at the
+   * next nightly build is not a kill switch. It is one row read by primary key
+   * against a table with thirteen rows in it, it is capped at a moment's wait
+   * below, and it fails towards showing the site.
+   *
    * The banner flag decides whether a visitor sees the site or a holding page,
    * so it has to be known before anything is drawn. That made the database the
    * thing standing between a visitor and their first pixel: until this query
@@ -177,16 +200,6 @@ export default function Homepage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  /* Read the real row count so the one number on the page can never go stale. */
-  useEffect(() => {
-    (async () => {
-      const { count } = await supabase
-        .from('cards')
-        .select('id', { count: 'exact', head: true });
-      if (typeof count === 'number') setCardCount(count);
-    })();
-  }, []);
-
   if (showTestingBanner === null) return null;
   if (showTestingBanner) return <TestingBanner />;
 
@@ -208,6 +221,15 @@ export default function Homepage() {
       <HomeCatalogue />
       <HomeSearch />
       <HomeAppVisual />
+
+      {/* ------------------------------------------------------ the collection
+          Back on the page after being dropped on 2026-08-19. It was dropped
+          because its picture was the hero's own background reused as
+          decoration; it is here because the picture is now a photograph of the
+          real `/collection` screen, and the hero promises a collection that the
+          page then never showed. It sits after the builder because "build with
+          what you own" is the sentence it answers. */}
+      <HomeCollection />
 
       {/* ------------------------------------------------- the differentiator
           Everything above this line, Moxfield and Archidekt also do. This is
@@ -250,14 +272,9 @@ export default function Homepage() {
 }
 
 /*
- * Two sections were dropped from the page in this pass rather than reordered:
- *
- *   HomeCollection ("Your collection, not just your decklists") — a four-bullet
- *     list beside /hero-768.webp, which is the hero's own background image
- *     reused as decoration, cropped to 16:10. So the page opened and closed on
- *     the same picture. Three of its four bullets are now whole sections
- *     (storage, price history, the builder reading your collection); the fourth,
- *     the wishlist, is a footer link. It is still exported from HomeSections.tsx.
+ * One section is still dropped from the page rather than reordered. (The other,
+ * HomeCollection, is back — see the comment beside it above: it was dropped for
+ * its picture, and its picture is now a photograph of the real screen.)
  *
  *   HomeColors ("Colour identity, counted properly") — five live counts drawn as
  *     five bars: 7,759 / 7,602 / 7,661 / 7,746 / 7,504. The numbers are real and

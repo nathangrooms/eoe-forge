@@ -2,8 +2,18 @@
  * Homepage — the life counter.
  *
  * The owner's note was specific: show it as it looks on a device lying flat in
- * the middle of the table, with the seats rotated. So this does not draw a
- * picture of the counter — it renders the counter's own geometry.
+ * the middle of the table, with the seats rotated. There are now two pictures
+ * here and they do different jobs.
+ *
+ * **The big one is a photograph** of `/life` running a four-player game, taken
+ * by `scripts/app-shots.mjs`. It was a drawing until 2026-08-19, and drawn from
+ * the app's own geometry at that — but a claim about how something LOOKS on a
+ * table is the one claim a photograph settles outright, and the photograph
+ * carries two things the drawing could not: the mats with their real card art,
+ * and totals that a game left behind rather than four seats still on 40.
+ *
+ * **The three small ones are still drawn**, because they are the one thing a
+ * single screenshot cannot be — two, three and four seats at once:
  *
  *   - Seat rectangles and rotations come from `seatingFor` in `src/lib/game`,
  *     the same function `/life` calls. Nothing here hardcodes a percentage, so
@@ -12,14 +22,11 @@
  *     the left and right seats are laid out with their width and height swapped
  *     *before* being rotated rather than overflowing their box.
  *   - The mats are the real `MatSurface`, drawn from the real `--mana-*` tokens.
- *     Its optional `art` layer is deliberately not wired up here: `matSurfaceStyle`
- *     paints an opaque black behind its own gradients, so the art beneath it is
- *     never visible anyway, and passing it would only buy five invisible image
- *     downloads. The CSS mat is the mat — that is exactly what `mats.ts` says.
  *
- * The life totals are a depicted game, and a coherent one: seat four is on four
- * life having taken fifteen from a commander, which is why its total is drawn in
- * the destructive tone exactly as `PlayerPanel` draws a total at five or below.
+ * Their life totals are a depicted game, and a coherent one: seat four is on
+ * four life having taken fifteen from a commander, which is why its total is
+ * drawn in the destructive tone exactly as `PlayerPanel` draws a total at five
+ * or below.
  */
 
 import { Link } from 'react-router-dom';
@@ -37,6 +44,7 @@ import { MatSurface } from '@/components/life/MatSurface';
 import type { MatColor } from '@/components/life/mats';
 
 import { Section, SectionHeading } from '@/components/marketing/Section';
+import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 import { useNearViewport } from '@/components/marketing/sectionData';
 
 /* -------------------------------------------------------------------------- */
@@ -210,13 +218,37 @@ function PodRow() {
   );
 }
 
-/** The hero board: one phone on the table, four seats. */
+/**
+ * The hero board: a photograph of the real counter, four seats, mid-game.
+ *
+ * This used to be a fourth `Device` — the counter's own geometry drawn from
+ * `seatingFor`, which is as close as a drawing gets to the thing. It was
+ * replaced because the promise this section makes is about how the counter
+ * LOOKS on a table, and that is the one kind of claim a photograph settles
+ * outright. The picture shows two things the drawing could not: the real mats,
+ * with the card art that sits behind them, and four totals that are what a game
+ * leaves behind rather than four seats still on 40.
+ *
+ * `scripts/app-shots.mjs` starts a four-player game on `/life` and takes the
+ * points off using the panels' own controls — the same press a player makes.
+ *
+ * The three seating variants above it are still drawn, because they are the one
+ * thing a single screenshot cannot be: two, three and four seats at once.
+ */
 function LifeBoards() {
   return (
     <div>
-      {/* The table the device is lying on. */}
+      {/* The table the device is lying on. The screenshot takes the screen's
+          own rounding here and drops its shadow, because the bezel around it is
+          already doing both. */}
       <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-9">
-        <Device layout={seatingFor(4, 'table')} aspect="4 / 3" />
+        <div className="overflow-hidden rounded-[1.25rem] shadow-2xl shadow-black/60">
+          <AppScreenshot
+            scene="life-counter"
+            frame={false}
+            alt="Four life-counter panels filling the screen, one to each edge of the table, each rotated to face the player sitting there"
+          />
+        </div>
       </div>
 
       <p className="mt-5 text-center text-xs text-muted-foreground">
@@ -273,7 +305,7 @@ export function HomeLifeCounter() {
           <LifeBoards />
         ) : (
           <div className="rounded-[2.25rem] bg-muted/40 p-6 sm:p-10">
-            <div className="w-full rounded-[1.25rem] bg-background" style={{ aspectRatio: '4 / 3' }} />
+            <div className="w-full rounded-[1.25rem] bg-background" style={{ aspectRatio: '16 / 10' }} />
           </div>
         )}
       </div>

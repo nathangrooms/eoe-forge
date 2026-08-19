@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import { supabase } from '@/integrations/supabase/client';
+import { showcaseCards } from '@/lib/homepage/snapshot';
 import { Section, SectionInner, SectionHeading } from '@/components/marketing/Section';
 import { cn } from '@/lib/utils';
 
@@ -187,29 +186,11 @@ function Panel({
 /* ------------------------------------------------------------------ section */
 
 export function HomeShowcase() {
-  const [cards, setCards] = useState<ShowcaseCard[] | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      /* Mythics and rares with real market value — the cards players recognise
-         on sight, which is what makes the row read as Magic. */
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,mana_cost,cmc,type_line,set_code,layout,faces,image_uris,prices')
-        .in('rarity', ['mythic', 'rare'])
-        .not('image_uris', 'is', null)
-        .not('prices', 'is', null)
-        .limit(400);
-
-      const withArt = ((data ?? []) as unknown as ShowcaseCard[])
-        .filter(c => Boolean(c.image_uris?.large || c.image_uris?.normal))
-        .filter(c => !NOVELTY_SETS.has(c.set_code))
-        .filter(c => Number(c.prices?.usd) > 0)
-        .sort((a, b) => Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0));
-
-      setCards(withArt.slice(0, 12));
-    })();
-  }, []);
+  /* Mythics and rares with real market value, the cards players recognise on
+     sight. The pool of 400 rows this used to pull down on every visit, and the
+     filter-and-sort that cut it to twelve, both moved into
+     scripts/homepage-snapshot.mjs, novelty-set exclusion included. */
+  const cards = showcaseCards() as ShowcaseCard[] | null;
 
   const loading = cards === null;
   const list = cards ?? [];
@@ -219,7 +200,7 @@ export function HomeShowcase() {
       <SectionInner>
         <SectionHeading
           title="Real cards. Real costs. Real prices."
-          lead="Every card below is real, pulled live as this page loaded. It is the same card data the deck builder, your collection and the marketplace all run on."
+          lead="Every card below is a real row out of the card table, refreshed with the catalogue every night. It is the same card data the deck builder, your collection and the marketplace all run on."
         />
       </SectionInner>
 

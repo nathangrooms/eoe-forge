@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { approxLabel, heroCards } from '@/lib/homepage/snapshot';
 import { CardImage } from '@/components/cards';
 
 /**
@@ -13,43 +12,19 @@ import { CardImage } from '@/components/cards';
  * the art, so contrast never depends on which panel is behind a given letter.
  */
 
-interface HeroCard {
-  id: string;
-  name: string;
-  image_uris: Record<string, string> | null;
-}
-
-/* Iconic, instantly recognisable to any Commander player. */
-const HERO_CARDS = [
-  'Sol Ring',
-  'Cyclonic Rift',
-  'Rhystic Study',
-  'Smothering Tithe',
-  'Jeweled Lotus',
-  'Dockside Extortionist',
-  'Craterhoof Behemoth',
-];
-
+/**
+ * The fan, from the nightly snapshot.
+ *
+ * Seven iconic cards, chosen and ordered in `scripts/homepage-snapshot.mjs` so
+ * the fan is deterministic. They used to be fetched on mount, which meant the
+ * first thing a visitor saw was seven empty gaps waiting on a round trip.
+ */
 export function HomeHero({ cardCount }: { cardCount: number | null }) {
-  const [cards, setCards] = useState<HeroCard[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,image_uris')
-        .in('name', HERO_CARDS)
-        .not('image_uris', 'is', null)
-        .limit(60);
-
-      /* One printing per name, ordered as listed so the fan is deterministic. */
-      const byName = new Map<string, HeroCard>();
-      for (const row of ((data ?? []) as unknown as HeroCard[])) {
-        if (row.image_uris?.normal && !byName.has(row.name)) byName.set(row.name, row);
-      }
-      setCards(HERO_CARDS.map(n => byName.get(n)).filter(Boolean) as HeroCard[]);
-    })();
-  }, []);
+  const cards = heroCards() ?? [];
+  /* Rounded down and written with a "+", because the file was true last night
+     and the catalogue only grows. `approxLabel` explains the choice. Null falls
+     back to the phrase, never to a number. */
+  const countLabel = approxLabel(cardCount);
 
   return (
     <section className="relative isolate overflow-hidden">
@@ -146,7 +121,7 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
               the 3:1 this size clears, and short of the 4.5:1 body-copy bar,
               which is why it is a meta line and not the lead. */}
           <p className="mt-7 text-sm text-foreground/70">
-            {cardCount ? `${cardCount.toLocaleString()} cards` : 'Full card pool'} · synced nightly from Scryfall
+            {countLabel ? `${countLabel} cards` : 'Full card pool'} · synced nightly from Scryfall
           </p>
         </div>
       </div>

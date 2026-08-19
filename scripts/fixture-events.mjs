@@ -2,7 +2,7 @@
  * The fixture tournament events the screenshot scripts photograph.
  *
  * Shared by `tournament-shots.mjs` (the before/after review shots) and
- * `capture-app-screens.mjs` (the images the homepage can use), so the event in
+ * `app-shots.mjs` (the images the homepage shows), so the event in
  * a review shot and the event in a published screenshot are the same event.
  *
  * These have to be fixture, and it is worth being exact about why: a tournament

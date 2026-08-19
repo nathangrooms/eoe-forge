@@ -4,12 +4,17 @@
  * The page had no mention of `/marketplace` at all, which is odd for a feature
  * that carries listings, sales, a watchlist, buy links and a full price history.
  *
- * Everything numeric here is read live from `card_price_history` — the table the
- * `daily-price-capture` job writes into, which is public-readable and holds
- * thousands of real snapshots. The chart is that series, unsmoothed: the first
- * and last points, the low, the high and the percentage are all computed from
- * the rows that came back. Nothing on this section is seeded, and the section
- * renders nothing rather than inventing a shape when the query is empty.
+ * Everything numeric here comes from `card_price_history` — the table the
+ * `daily-price-capture` job writes into, which holds thousands of real
+ * snapshots. It is NOT read from the browser any more. The series is taken once
+ * a night by `scripts/homepage-snapshot.mjs` and read here out of
+ * `src/data/homepage-snapshot.json`, so the newest point on these charts is
+ * from the last time that job ran rather than from this moment. The caption at
+ * the foot of the section therefore dates the window it is drawing instead of
+ * calling it live, which it no longer is. The chart is the stored series,
+ * unsmoothed: the first and last points, the low, the high and the percentage
+ * are all computed from those rows. Nothing here is seeded, and the section
+ * renders nothing rather than inventing a shape when there is no series.
  *
  * Listings themselves are deliberately absent: `listings` is row-level-secured
  * to its owner, so a logged-out visitor cannot be shown one truthfully.
@@ -308,10 +313,15 @@ export function HomeMarketplace() {
         </div>
       </div>
 
+      {/* The dates are the claim. They say which day the last point on these
+          lines is from, which is the only honest way to caption a chart drawn
+          from a file written last night. It used to say "read live", and that
+          stopped being true the moment this section started reading the
+          nightly snapshot instead of the database. */}
       {data && (
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Daily price snapshots between {shortDate(data.from)} and {shortDate(data.to)}, read live
-          from DeckMatrix's own price history.
+          Daily price snapshots between {shortDate(data.from)} and {shortDate(data.to)}, from
+          DeckMatrix's own price history.
         </p>
       )}
 

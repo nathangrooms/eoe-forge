@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import { supabase } from '@/integrations/supabase/client';
+import { newSetCommanders, newSetTiles } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 
 /**
@@ -53,94 +52,30 @@ interface Commander {
   image_uris: Record<string, string> | null;
 }
 
-/**
- * One commander per featured set, in the order the sets are listed.
- *
- * Straight `.slice(0, 6)` on the query result returns six cards from whichever
- * set happens to sort first — twenty-four of the sixty rows come from a single
- * Commander set — so the spotlight would show six Marvel cards under a heading
- * about six sets. Round-robin keeps the claim and the picture in agreement.
+/*
+ * One commander per featured set, in the order the sets are listed, is decided
+ * by the round-robin in scripts/homepage-snapshot.mjs. A straight slice returns
+ * six cards from whichever set sorts first (a quarter of the candidates come
+ * from one Commander set), so the spotlight would show six Marvel cards under a
+ * heading about six sets.
  */
-function oneCommanderPerSet(rows: Commander[], limit: number): Commander[] {
-  const bySet = new Map<string, Commander[]>();
-  for (const row of rows) {
-    const bucket = bySet.get(row.set_code);
-    if (bucket) bucket.push(row);
-    else bySet.set(row.set_code, [row]);
-  }
-
-  const picked: Commander[] = [];
-  const seen = new Set<string>();
-  // Several passes, so a set with only one legend still contributes and the
-  // remaining slots fill from the sets that have more.
-  for (let round = 0; picked.length < limit && round < 8; round++) {
-    let progressed = false;
-    for (const { code } of FEATURED_SETS) {
-      if (picked.length >= limit) break;
-      const candidate = (bySet.get(code) ?? [])[round];
-      if (!candidate || seen.has(candidate.name)) continue;
-      seen.add(candidate.name);
-      picked.push(candidate);
-      progressed = true;
-    }
-    if (!progressed) break;
-  }
-  return picked;
-}
 
 export function HomeNewSets() {
-  const [tiles, setTiles] = useState<SetTile[] | null>(null);
-  const [commanders, setCommanders] = useState<Commander[] | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const results = await Promise.all(
-        FEATURED_SETS.map(async s => {
-          const { count } = await supabase
-            .from('cards')
-            .select('id', { count: 'exact', head: true })
-            .eq('set_code', s.code);
-
-          /* A mythic from the set makes the most striking tile art. */
-          const { data } = await supabase
-            .from('cards')
-            .select('name,image_uris,rarity')
-            .eq('set_code', s.code)
-            .in('rarity', ['mythic', 'rare'])
-            .not('image_uris', 'is', null)
-            .limit(25);
-
-          const pick = (data ?? []).find((c: any) => c.image_uris?.art_crop) as any;
-
-          return {
-            ...s,
-            count: count ?? 0,
-            art: pick?.image_uris?.art_crop ?? null,
-            headline: pick?.name ?? null,
-          };
-        })
-      );
-      setTiles(results.filter(t => t.count > 0));
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('cards')
-        .select('id,name,type_line,color_identity,set_code,layout,faces,image_uris')
-        .in('set_code', FEATURED_SETS.map(s => s.code))
-        .eq('is_legendary', true)
-        .ilike('type_line', '%Creature%')
-        .not('image_uris', 'is', null)
-        .limit(60);
-
-      const withArt = ((data ?? []) as unknown as Commander[]).filter(
-        c => c.image_uris?.large || c.image_uris?.normal
-      );
-      setCommanders(oneCommanderPerSet(withArt, 6));
-    })();
-  }, []);
+  /*
+   * Thirteen requests on mount became none.
+   *
+   * This section fired one exact count and one 25-row art query per featured
+   * set, six of each, plus a commander query: thirteen round trips before a
+   * visitor had scrolled anywhere near it. All thirteen now run once a night in
+   * scripts/homepage-snapshot.mjs, which also does the round-robin that keeps
+   * one commander per set rather than six from whichever set sorts first.
+   *
+   * A set whose cards have not synced yet is left out of the file entirely
+   * rather than stored as a zero, so the row shrinks instead of showing an
+   * empty tile claiming the set has no cards in it.
+   */
+  const tiles = newSetTiles() as SetTile[] | null;
+  const commanders = newSetCommanders() as unknown as Commander[] | null;
 
   return (
     <Section>

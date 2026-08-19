@@ -2,10 +2,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  ArrowRight, Boxes, Camera, LineChart, Layers, Search, Sparkles, Wallet, Heart,
+  ArrowRight, Boxes, Camera, LineChart, Layers, Search, Sparkles,
 } from 'lucide-react';
 import { ManaSymbol } from '@/components/ui/mana-symbols';
 import { Section, SectionHeading } from '@/components/marketing/Section';
+import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 
 /**
  * Homepage content sections.
@@ -129,50 +130,46 @@ export function HomeColorIdentity() {
 
 /* ----------------------------------------------------------------- collection */
 
+/**
+ * The collection page, photographed.
+ *
+ * This section was dropped from the page on 2026-08-19 for a good reason: the
+ * picture beside it was `/hero-768.webp`, the hero's own background image reused
+ * as decoration and cropped to 16:10, so the page opened and closed on the same
+ * artwork. It is back because that reason is now fixed — the picture is the real
+ * `/collection` screen, taken by `scripts/app-shots.mjs`, and it is the one
+ * screen the whole product is named after. The hero promises "your collection,
+ * finally organised" and until now the page never showed a collection.
+ *
+ * The four bullets it used to carry are gone rather than restored: three of them
+ * are whole sections of their own further down (storage, price history, the
+ * builder reading your collection) and the fourth, the wishlist, is a footer
+ * link. What is left is the claim and the evidence.
+ */
 export function HomeCollection() {
   return (
     <Section>
-      <div className="grid items-center gap-12 lg:grid-cols-2">
-        <SectionHeading
-          align="left"
-          title="Your collection, not just your decklists"
-          lead="Most deck builders assume you can buy anything. DeckMatrix starts from what is already in your boxes: quantities, condition, where it is stored, and what it is worth now versus when you got it."
-        >
-          <ul className="mt-6 space-y-3 text-sm">
-            {[
-              ['Quantities and condition per printing', Wallet],
-              ['Physical storage down to the slot', Boxes],
-              ['Wishlist for the cards you still want', Heart],
-              ['Daily price capture, kept as history', LineChart],
-            ].map(([label, Icon]) => {
-              const I = Icon as typeof Wallet;
-              return (
-                <li key={label as string} className="flex items-start gap-3">
-                  <I className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <span className="text-muted-foreground">{label as string}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <Button asChild className="mt-8">
-            <Link to="/register">
-              Start your collection
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </SectionHeading>
+      <SectionHeading
+        eyebrow="Collection"
+        title="Your collection, not just your decklists"
+        lead="Most deck builders assume you can buy anything. DeckMatrix starts from what is already in your boxes: how many you have, what condition they are in, which box they are sitting in, and what the lot is worth today."
+      />
 
-        <div className="relative">
-          <div className="overflow-hidden rounded-2xl shadow-2xl shadow-black/40">
-            <img
-              src="/hero-768.webp"
-              alt="The five colours of Magic rendered as painted panels"
-              loading="lazy"
-              decoding="async"
-              className="aspect-[16/10] w-full object-cover"
-            />
-          </div>
-        </div>
+      <div className="mt-14">
+        <AppScreenshot
+          scene="collection"
+          alt="The DeckMatrix collection page: a header counting the cards, the unique cards among them and their market value, above a grid of real Magic cards each showing its set, condition and price"
+          caption="Cards, unique cards, market value and the ones nobody has a price for — counted from the copies you actually own, at the printing you own."
+        />
+      </div>
+
+      <div className="mt-10 text-center">
+        <Button asChild size="lg">
+          <Link to="/register">
+            Start your collection
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </div>
     </Section>
   );

@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import { supabase } from '@/integrations/supabase/client';
+import { storageFiled, storagePalette } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import { DEFAULT_STORAGE_TEMPLATES, getTemplateById } from '@/lib/storageTemplates';
 import { cn } from '@/lib/utils';
@@ -408,80 +408,24 @@ function ColourBoxes({ cards }: { cards: FiledCard[] | null }) {
 
 /* ------------------------------------------------------------------ section */
 
-const CARD_COLUMNS =
-  'id,name,type_line,color_identity,image_uris,faces,layout,prices,set_code';
-
-/**
- * The colour boxes draw one small card per slot and never flip or price it, so
- * this pool leaves out `faces`, `layout` and `prices` — three jsonb/`text`
- * columns whose weight is what makes a wide read over this table slow enough to
- * hit the statement timeout. Same rows, a fraction of the bytes.
- */
-const PALETTE_COLUMNS = 'id,name,type_line,color_identity,image_uris,set_code';
-
-/** Secret Lair drops are real cards, but a crossover is not the face of Magic. */
-const drawable = (c: FiledCard) =>
-  !c.set_code.startsWith('sl') && Boolean(c.image_uris?.normal ?? c.image_uris?.large);
-
-const byPriceDesc = (a: FiledCard, b: FiledCard) =>
-  Number(b.prices?.usd ?? 0) - Number(a.prices?.usd ?? 0);
-
 export function HomeStorage() {
-  const [cards, setCards] = useState<FiledCard[] | null>(null);
-  const [palette, setPalette] = useState<FiledCard[] | null>(null);
+  /* Two pools, because the two exhibits want different cards.
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      /* Two pools, because the two exhibits want different cards.
+     The binder, the deck box and the long box want commanders: mythic legendary
+     creatures, modern frames, art worth filing. The colour boxes want one card
+     per colour, and a pool of twelve legends has no guarantee of containing a
+     mono-blue one, which is exactly why the blue box used to render an empty
+     grey frame. So the colour boxes get their own, broader pool and the
+     commander pool is subtracted from it, so no card can appear in two
+     containers at once.
 
-         The binder, the deck box and the long box want commanders: mythic
-         legendary creatures, modern frames, art worth filing. The colour boxes
-         want one card per colour, and a pool of twelve legends has no guarantee
-         of containing a mono-blue one — which is exactly why the blue box used
-         to render an empty grey frame. So the colour boxes get their own,
-         broader pool of mythics and the commander pool is subtracted from it, so
-         no card can appear in two containers at once. */
-      const [{ data: legends }, { data: mythics }] = await Promise.all([
-        supabase
-          .from('cards')
-          .select(CARD_COLUMNS)
-          .eq('is_legendary', true)
-          .eq('rarity', 'mythic')
-          .ilike('type_line', '%Creature%')
-          .not('image_uris', 'is', null)
-          .limit(150),
-        supabase
-          .from('cards')
-          .select(PALETTE_COLUMNS)
-          .eq('rarity', 'mythic')
-          .not('image_uris', 'is', null)
-          .not('color_identity', 'is', null)
-          .limit(250),
-      ]);
-
-      if (!alive) return;
-
-      const filed = ((legends ?? []) as unknown as FiledCard[])
-        .filter(drawable)
-        .sort(byPriceDesc)
-        .slice(0, 12);
-
-      const used = new Set(filed.map(c => c.id));
-      /* No price sort here: the slot is chosen on colour identity, every mythic
-         has art worth showing, and asking for `prices` is the expensive half of
-         the query this pool was trimmed to avoid. */
-      const pool = ((mythics ?? []) as unknown as FiledCard[]).filter(
-        c => drawable(c) && !used.has(c.id)
-      );
-
-      setCards(filed);
-      setPalette(pool);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+     Both used to be fetched on mount: 150 rows plus 250 rows, on every visit,
+     for a section a long way down the page. They are chosen once a night in
+     scripts/homepage-snapshot.mjs now, and the palette is cut there to the
+     candidates the six slots below can actually reach, in pool order, so
+     `ColourBoxes` lands on exactly the cards it would have. */
+  const cards = storageFiled() as FiledCard[] | null;
+  const palette = storagePalette() as FiledCard[] | null;
 
   const commander = cards?.[0] ?? null;
   /* The commander is standing in the deck box, so it should not also be in the

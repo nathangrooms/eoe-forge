@@ -251,6 +251,13 @@ export function HomeSearch() {
         </p>
       )}
 
+      {/* The card page IS captured — `card` in public/screens/manifest.json — and
+          it is deliberately not shown here yet. Its right-hand details rail runs
+          under the page's own `overflow-x-hidden` and comes out with four labels
+          sliced mid-word (COLLECTOR N…, ARTIST Victor Adam…) at every width
+          tried. Publishing that would be advertising the bug. Put the picture in
+          once the rail has a gutter: see docs/overhaul/APP-SCREENSHOTS.md §7. */}
+
       <div className="mt-10 text-center">
         <Button asChild size="lg" variant="outline">
           <Link to="/cards">

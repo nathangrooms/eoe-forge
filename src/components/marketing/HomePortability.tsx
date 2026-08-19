@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
-import { supabase } from '@/integrations/supabase/client';
+import { portabilityCards } from '@/lib/homepage/snapshot';
 import { Section, SectionHeading } from '@/components/marketing/Section';
 import { useNearViewport } from '@/components/marketing/sectionData';
 import { cn } from '@/lib/utils';
@@ -139,53 +139,30 @@ interface ImportedCard {
   collector_number: string | null;
 }
 
-const IMPORT_COLUMNS =
-  'id,name,mana_cost,cmc,type_line,colors,image_uris,faces,layout,prices,set_code,collector_number';
-
-let rowsPromise: Promise<Map<string, ImportedCard>> | null = null;
-
 /**
- * One query per pasted name, not one `.in()` over all twelve.
+ * The pasted list, resolved.
  *
- * The `.in()` version asked for every printing of all twelve names and cut the
- * result at `PARSED.length * 8` — 96 rows. Ten of the twelve names here are
- * format staples with well over a hundred printings each, and PostgREST applies
- * the limit to the whole result set in whatever order the table hands it back,
- * so the cap was spent entirely on the first two or three names. Rendered live
- * this section reported "2 of 12 lines matched" and drew two cards: a panel
- * whose heading is "DeckMatrix reads this", on a section arguing that a pasted
- * list comes back out intact, demonstrating the importer dropping ten of twelve
- * lines. The count was honest; what it was counting was a broken query.
+ * This used to be twelve parallel queries, one per name, and the workaround was
+ * itself worth reading: a single `.in()` over all twelve names against `cards`
+ * asked for 96 rows, and ten of these twelve names are staples with well over a
+ * hundred printings each, so PostgREST spent the whole limit on the first two
+ * or three names. Rendered live, this section reported "2 of 12 lines matched"
+ * and drew two cards, on a section whose entire argument is that a pasted list
+ * comes back out intact. The count was honest; what it was counting was a
+ * broken query.
  *
- * Per name the limit cannot be starved by a neighbour, and asking for four rows
- * is enough to skip a printing whose art is missing. Twelve small parallel
- * requests, ~48 rows total, against 96 before.
+ * `scripts/homepage-snapshot.mjs` reads `cards_unique` instead, which holds one
+ * row per card, so twelve names is twelve rows and there is nothing to starve.
+ * That is also the right relation by the rule in src/lib/cards/source.ts: a
+ * decklist line names a card, not a printing.
+ *
+ * A line that does not resolve is still reported as unresolved rather than
+ * quietly dropped, which is what happens if somebody edits PASTE above without
+ * adding the name to PASTE_NAMES in the generator.
  */
-function loadPastedCards(): Promise<Map<string, ImportedCard>> {
-  rowsPromise ??= (async () => {
-    const perName = await Promise.all(
-      PARSED.map(async line => {
-        const { data } = await supabase
-          .from('cards')
-          .select(IMPORT_COLUMNS)
-          .eq('name', line.name)
-          .limit(4);
-        return (data ?? []) as unknown as ImportedCard[];
-      })
-    );
-
-    const out = new Map<string, ImportedCard>();
-    for (const row of perName.flat()) {
-      if (!row?.name) continue;
-      const key = row.name.trim().toLowerCase();
-      const existing = out.get(key);
-      /* First printing WITH art wins, so the wall never draws a blank frame. */
-      if (!existing || (!existing.image_uris?.normal && row.image_uris?.normal)) out.set(key, row);
-    }
-    return out;
-  })();
-
-  return rowsPromise;
+function pastedCards(): Map<string, ImportedCard> | null {
+  const rows = portabilityCards();
+  return rows ? new Map(Object.entries(rows) as [string, ImportedCard][]) : null;
 }
 
 /* ------------------------------------------------------------------ output */
@@ -307,25 +284,13 @@ function Mono({ text, className }: { text: string; className?: string }) {
 
 export function HomePortability() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
-  const [rows, setRows] = useState<Map<string, ImportedCard> | null>(null);
   /* Which shape of the same list is on screen: the pasted text, or one of
      the formats it can be written back out as. */
   const [shape, setShape] = useState('You paste this');
 
-  useEffect(() => {
-    if (!near) return;
-    let alive = true;
-    loadPastedCards()
-      .then(map => {
-        if (alive) setRows(map);
-      })
-      .catch(() => {
-        /* No rows means no cards drawn — never a placeholder. */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [near]);
+  /* The viewport gate stays, and still earns its keep: there is no request to
+     defer any more, but it keeps twelve card images out of the initial load. */
+  const rows = near ? pastedCards() : null;
 
   const resolved = useMemo<Resolved[]>(() => {
     if (!rows) return [];

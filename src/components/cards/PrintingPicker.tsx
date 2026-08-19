@@ -275,10 +275,29 @@ export function PrintingPicker({
                     onClick={onSelect ? () => select(printing) : undefined}
                     interactive={!!onSelect}
                     title={`${printing.set_name ?? printing.set_code} #${printing.collector_number}`}
+                    /* THE ART IS NEVER DESATURATED, AND PUTTING IT BACK BREAKS
+                       THE SECTION.
+
+                       `missingFinish` printings used to render `opacity-60
+                       grayscale`. The owner: "Why are art variants on card page
+                       not in colour?" The section is titled "Printings and art
+                       variants" and its whole job is letting somebody compare
+                       artwork, so draining the colour out of most of the grid
+                       defeats the only reason to look at it. On a card like
+                       Atraxa, where the majority of printings are foil only,
+                       nearly every tile went grey.
+
+                       It was also saying nothing new. The caption under each
+                       tile already reads "Foil only" or "No foil made" in
+                       words, so the filter added no information and cost the
+                       artwork. Grey on a card reads as "unavailable" anyway,
+                       which is not what a foil-only printing is.
+
+                       If a finish signal is ever wanted on the image itself,
+                       put it in the chrome around the art, never on the art. */
                     imageClassName={cn(
                       'transition-all duration-200 motion-reduce:transition-none',
-                      active && 'ring-2 ring-foreground',
-                      missingFinish && 'opacity-60 grayscale'
+                      active && 'ring-2 ring-foreground'
                     )}
                   >
                     {active && (

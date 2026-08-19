@@ -140,6 +140,7 @@ export function VisualDeckView({
   showCommander = true,
 }: VisualDeckViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   /* Clicking a card goes to the card page — the same everywhere in the app.
      The builder's own controls (quantity, remove, group) stay in place. */
@@ -203,7 +204,16 @@ export function VisualDeckView({
         if (!byCategory.has(cat)) byCategory.set(cat, []);
         byCategory.get(cat)!.push(card);
       }
-      return CATEGORY_ORDER.filter(c => byCategory.has(c)).map(c => ({
+      /* The commander is drawn at full size directly above this grid, so a
+         Commanders group underneath repeats it as a thumbnail and pushes the
+         actual deck down a row. Owner: "dont need to show the commander row -
+         start with creatures - we already show commander at the top". When the
+         block above is turned off, as the deck generator does, the group comes
+         back, because then it is the only place the commander appears. */
+      const shown = CATEGORY_ORDER.filter(
+        c => byCategory.has(c) && !(showCommander && c === 'commanders')
+      );
+      return shown.map(c => ({
         key: c,
         label: CATEGORY_CONFIG[c].label,
         category: c,
@@ -224,7 +234,7 @@ export function VisualDeckView({
       map.get(k)!.push(card);
     }
     return order.filter(k => map.has(k)).map(k => ({ key: k, label: k, cards: map.get(k)! }));
-  }, [sorted, prefs.groupBy]);
+  }, [sorted, prefs.groupBy, showCommander]);
 
   const toggleGroup = (key: string) => {
     setCollapsed(prev => {
@@ -562,12 +572,39 @@ export function VisualDeckView({
           reading and editing the list. Owner: "we probably dont want the mana
           curve on the main cards page, should be saved for analysis page". */}
 
-      {/* The filter row, in the same shape the rest of the app uses: one surface,
-          no outlines. Owner: "can you fix the filter styling (doesnt match rest
-          of app) and has borders (we dont use borders)". Inputs and selects
-          carry a border by default, so each one turns it off explicitly and
-          sits on a tinted surface instead, which is how every other filter row
-          in the app separates a control from its background. */}
+      {/* FILTERS ARE CLOSED BY DEFAULT.
+
+          Six controls sat above the deck on every visit, and almost every visit
+          is "look at my deck" rather than "narrow my deck". Owner: "dont need
+          all those filters by default". One line opens them, and it says how
+          many are doing something so a narrowed list is never a mystery.
+
+          The row itself is one tinted surface with no outlines, matching every
+          other filter row in the app: inputs and selects carry a border by
+          default, so each turns it off explicitly. */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowFilters(v => !v)}
+          className="rounded-md bg-foreground/[0.06] px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.12] hover:text-foreground"
+        >
+          {showFilters ? 'Hide filters' : 'Filter and sort'}
+        </button>
+        {!showFilters && searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Clear &ldquo;{searchTerm}&rdquo;
+          </button>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+          {totalShown} card{totalShown === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      {showFilters && (
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-card p-2.5 shadow-sm">
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -667,11 +704,6 @@ export function VisualDeckView({
           ))}
         </div>
       </div>
-
-      {searchTerm && (
-        <p className="text-xs text-muted-foreground">
-          {totalShown} card{totalShown === 1 ? '' : 's'} match "{searchTerm}"
-        </p>
       )}
 
       {/* Body — full width. The detail pane that used to dock to the right of

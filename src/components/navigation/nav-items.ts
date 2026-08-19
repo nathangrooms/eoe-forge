@@ -13,8 +13,10 @@ import {
   HeartPulse,
   Trophy,
   Search,
+  ShoppingCart,
+  Printer,
   Store,
-  Brain,
+  BookOpenCheck,
   Shield,
 } from 'lucide-react';
 
@@ -86,6 +88,21 @@ export const NAV_GROUPS: NavGroup[] = [
         href: '/wishlist',
         icon: Heart,
         description: 'Cards you are still hunting for',
+      },
+      {
+        title: 'Shopping List',
+        href: '/shopping',
+        icon: ShoppingCart,
+        description: 'What to buy, what you bought and what is on the way',
+      },
+      {
+        // The owner asked for proxies to stop being buried in the deck page:
+        // "Maybe Proxies should be its own feature in left nav". The deck
+        // builder's own generator stays exactly where it is, as they asked.
+        title: 'Proxies',
+        href: '/proxies',
+        icon: Printer,
+        description: 'Cards to print out and play with',
       },
     ],
   },
@@ -169,10 +186,10 @@ export const NAV_GROUPS: NavGroup[] = [
         description: 'Prices and listings',
       },
       {
-        title: 'MTG Brain',
-        href: '/brain',
-        icon: Brain,
-        description: 'Ask rules and deckbuilding questions',
+        title: 'Tutor',
+        href: '/tutor',
+        icon: BookOpenCheck,
+        description: 'Ask about your deck, a card or the rules',
       },
     ],
   },

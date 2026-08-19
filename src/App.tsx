@@ -1,58 +1,127 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { PublicNavigation } from "@/components/navigation/PublicNavigation";
 import { LeftNavigation } from "@/components/navigation/LeftNavigation";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import Collection from "./pages/Collection";
-import CollectionImport from "./pages/CollectionImport";
-import CollectionInsurance from "./pages/CollectionInsurance";
-import StorageQuickAdd from "./pages/StorageQuickAdd";
-import SellCard from "./pages/SellCard";
-import Homepage from "./pages/Homepage";
-import Dashboard from "./pages/Dashboard";
-import Scan from "./pages/Scan";
-import DeckBuilder from "./pages/DeckBuilder";
-import Decks from "./pages/Decks";
-import NewDeck from "./pages/NewDeck";
-import Templates from "./pages/Templates";
-import Cards from "./pages/Cards";
-import CardDetailPage from "./pages/CardDetail";
+import { RouteFallback, AppBootFallback } from "@/components/routing/RouteFallback";
+import { RouteBoundary, clearChunkReloadGuard } from "@/components/routing/RouteBoundary";
 
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin";
-import Settings from "./pages/Settings";
-import Wishlist from "./pages/Wishlist";
-import ShoppingList from "./pages/Buylist";
-import ProxyList from "./pages/ProxyList";
-import DeckInterface from "./pages/DeckInterface";
-import DeckAnalysis from "./pages/DeckAnalysis";
-import DeckExport from "./pages/DeckExport";
-import DeckShare from "./pages/DeckShare";
-import DeckMissingCards from "./pages/DeckMissingCards";
-import DeckCommander from "./pages/DeckCommander";
-import AIBuilder from "./pages/AIBuilder";
-import Tutor from "./pages/Tutor";
-import Marketplace from "./pages/Marketplace";
-import PublicDeck from "./pages/PublicDeck";
-import Simulate from "./pages/Simulate";
-import Play from "./pages/Play";
-import Tournament from "./pages/Tournament";
-import TournamentNew from "./pages/TournamentNew";
-import CameraScan from "./pages/CameraScan";
-import ListingEdit from "./pages/ListingEdit";
-import ListingMessages from "./pages/ListingMessages";
-import AdminUserDetail from "./pages/AdminUserDetail";
-import ResetPassword from "./pages/ResetPassword";
-import Precons from "./pages/Precons";
-import LifeCounter from "./pages/LifeCounter";
+/*
+ * Every page is fetched when it is needed, not before.
+ *
+ * All 43 of them used to be imported at the top of this file, which left the
+ * build no choice: one file, measured at 3.44 MB raw and 968 KB over the wire,
+ * downloaded and parsed in full before a single pixel appeared. Someone
+ * arriving at the homepage was paying for the play engine, the deck builder,
+ * the admin console, the scanner and the PDF exporter before they had read a
+ * word.
+ *
+ * The factories live in `load` rather than being written inline inside
+ * `lazy()`, because `lazy` keeps the function it is handed to itself and the
+ * prefetcher below needs to call the same ones again to warm a page ahead of a
+ * click. Calling a factory twice costs nothing: the module registry hands back
+ * the first result.
+ */
+const load = {
+  // Public. A first-time visitor reaches exactly these, so they stay small.
+  homepage: () => import("./pages/Homepage"),
+  login: () => import("./pages/Login"),
+  register: () => import("./pages/Register"),
+  resetPassword: () => import("./pages/ResetPassword"),
+  publicDeck: () => import("./pages/PublicDeck"),
+  cardDetail: () => import("./pages/CardDetail"),
+  notFound: () => import("./pages/NotFound"),
+
+  // Signed in.
+  dashboard: () => import("./pages/Dashboard"),
+  collection: () => import("./pages/Collection"),
+  collectionImport: () => import("./pages/CollectionImport"),
+  collectionInsurance: () => import("./pages/CollectionInsurance"),
+  storageQuickAdd: () => import("./pages/StorageQuickAdd"),
+  marketplace: () => import("./pages/Marketplace"),
+  sellCard: () => import("./pages/SellCard"),
+  listingEdit: () => import("./pages/ListingEdit"),
+  listingMessages: () => import("./pages/ListingMessages"),
+  scan: () => import("./pages/Scan"),
+  cameraScan: () => import("./pages/CameraScan"),
+  decks: () => import("./pages/Decks"),
+  newDeck: () => import("./pages/NewDeck"),
+  precons: () => import("./pages/Precons"),
+  deckBuilder: () => import("./pages/DeckBuilder"),
+  deckCommander: () => import("./pages/DeckCommander"),
+  deckInterface: () => import("./pages/DeckInterface"),
+  deckAnalysis: () => import("./pages/DeckAnalysis"),
+  deckExport: () => import("./pages/DeckExport"),
+  deckShare: () => import("./pages/DeckShare"),
+  deckMissingCards: () => import("./pages/DeckMissingCards"),
+  aiBuilder: () => import("./pages/AIBuilder"),
+  tutor: () => import("./pages/Tutor"),
+  templates: () => import("./pages/Templates"),
+  cards: () => import("./pages/Cards"),
+  wishlist: () => import("./pages/Wishlist"),
+  shoppingList: () => import("./pages/Buylist"),
+  proxyList: () => import("./pages/ProxyList"),
+  play: () => import("./pages/Play"),
+  lifeCounter: () => import("./pages/LifeCounter"),
+  simulate: () => import("./pages/Simulate"),
+  tournament: () => import("./pages/Tournament"),
+  tournamentNew: () => import("./pages/TournamentNew"),
+  settings: () => import("./pages/Settings"),
+  admin: () => import("./pages/Admin"),
+  adminUserDetail: () => import("./pages/AdminUserDetail"),
+};
+
+const Homepage = lazy(load.homepage);
+const Login = lazy(load.login);
+const Register = lazy(load.register);
+const ResetPassword = lazy(load.resetPassword);
+const PublicDeck = lazy(load.publicDeck);
+const CardDetailPage = lazy(load.cardDetail);
+const NotFound = lazy(load.notFound);
+
+const Dashboard = lazy(load.dashboard);
+const Collection = lazy(load.collection);
+const CollectionImport = lazy(load.collectionImport);
+const CollectionInsurance = lazy(load.collectionInsurance);
+const StorageQuickAdd = lazy(load.storageQuickAdd);
+const Marketplace = lazy(load.marketplace);
+const SellCard = lazy(load.sellCard);
+const ListingEdit = lazy(load.listingEdit);
+const ListingMessages = lazy(load.listingMessages);
+const Scan = lazy(load.scan);
+const CameraScan = lazy(load.cameraScan);
+const Decks = lazy(load.decks);
+const NewDeck = lazy(load.newDeck);
+const Precons = lazy(load.precons);
+const DeckBuilder = lazy(load.deckBuilder);
+const DeckCommander = lazy(load.deckCommander);
+const DeckInterface = lazy(load.deckInterface);
+const DeckAnalysis = lazy(load.deckAnalysis);
+const DeckExport = lazy(load.deckExport);
+const DeckShare = lazy(load.deckShare);
+const DeckMissingCards = lazy(load.deckMissingCards);
+const AIBuilder = lazy(load.aiBuilder);
+const Tutor = lazy(load.tutor);
+const Templates = lazy(load.templates);
+const Cards = lazy(load.cards);
+const Wishlist = lazy(load.wishlist);
+const ShoppingList = lazy(load.shoppingList);
+const ProxyList = lazy(load.proxyList);
+const Play = lazy(load.play);
+const LifeCounter = lazy(load.lifeCounter);
+const Simulate = lazy(load.simulate);
+const Tournament = lazy(load.tournament);
+const TournamentNew = lazy(load.tournamentNew);
+const Settings = lazy(load.settings);
+const Admin = lazy(load.admin);
+const AdminUserDetail = lazy(load.adminUserDetail);
 
 const queryClient = new QueryClient();
 
@@ -71,15 +140,79 @@ const queryClient = new QueryClient();
  * chrome once Start is pressed. See `src/pages/LifeCounter.tsx`.
  */
 
+/**
+ * Splitting the app means the first click on each nav entry waits for a
+ * network round trip, which would trade one kind of lag for another. So once
+ * the app is up and the browser has nothing else to do, the pages behind the
+ * left rail are fetched quietly in the background.
+ *
+ * Only the handful people actually reach next. Fetching all 36 signed-in pages
+ * would be the old single bundle again with extra steps. Play, the deck builder
+ * and admin are deliberately absent: they are the heaviest pages and the least
+ * likely next click.
+ */
+const PREFETCH_ON_IDLE: Array<() => Promise<unknown>> = [
+  load.collection,
+  load.decks,
+  load.cards,
+  load.wishlist,
+];
+
+function useIdlePrefetch(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    /* A metered or slow connection should not be spent on a guess. */
+    const connection = (navigator as any)?.connection;
+    if (connection?.saveData) return;
+    if (typeof connection?.effectiveType === 'string' && /2g/.test(connection.effectiveType)) return;
+
+    let cancelled = false;
+    const run = () => {
+      if (cancelled) return;
+      for (const factory of PREFETCH_ON_IDLE) {
+        factory().catch(() => { /* a warm-up is allowed to fail quietly */ });
+      }
+    };
+
+    const idle = (window as any).requestIdleCallback;
+    if (typeof idle === 'function') {
+      const handle = idle(run, { timeout: 4000 });
+      return () => {
+        cancelled = true;
+        (window as any).cancelIdleCallback?.(handle);
+      };
+    }
+    const timer = window.setTimeout(run, 2500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [enabled]);
+}
+
+/**
+ * One suspense boundary and one error boundary wrap the whole route table
+ * rather than every route wrapping itself.
+ *
+ * Per-route boundaries would remount on each navigation and lose the reset:
+ * keying the error boundary on the pathname is what lets someone who hit a
+ * broken page navigate away and have the app recover, instead of being stuck
+ * on the message until they reload.
+ */
+function RouteHost({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <RouteBoundary resetKey={location.pathname}>
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </RouteBoundary>
+  );
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 ring-2 ring-primary ring-offset-0 border-t-transparent rounded-full" />
-      </div>
-    );
+    return <AppBootFallback />;
   }
 
 
@@ -110,33 +243,38 @@ function PublicContentShell({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { user, loading } = useAuth();
 
+  useIdlePrefetch(Boolean(user));
+
+  /* A route that rendered is proof this tab is not running against a dead build. */
+  useEffect(() => {
+    if (!loading) clearChunkReloadGuard();
+  }, [loading]);
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 ring-2 ring-primary ring-offset-0 border-t-transparent rounded-full" />
-      </div>
-    );
+    return <AppBootFallback />;
   }
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/" element={<Homepage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/auth" element={<Navigate to="/login" replace />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/forgot-password" element={<ResetPassword />} />
-        {/* Shared content a signed-out visitor can land on directly. These get
-            the public header: without it there is no wordmark, no back control
-            and no route to signing up — a dead end at the end of a shared link. */}
-        <Route path="/p/:slug" element={<PublicContentShell><PublicDeck /></PublicContentShell>} />
-        <Route
-          path="/cards/:id"
-          element={<PublicContentShell><CardDetailPage /></PublicContentShell>}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <RouteHost>
+        <Routes>
+          <Route path="/" element={<Homepage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth" element={<Navigate to="/login" replace />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ResetPassword />} />
+          {/* Shared content a signed-out visitor can land on directly. These get
+              the public header: without it there is no wordmark, no back control
+              and no route to signing up — a dead end at the end of a shared link. */}
+          <Route path="/p/:slug" element={<PublicContentShell><PublicDeck /></PublicContentShell>} />
+          <Route
+            path="/cards/:id"
+            element={<PublicContentShell><CardDetailPage /></PublicContentShell>}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </RouteHost>
     );
   }
 
@@ -172,6 +310,7 @@ function AppContent() {
             overflow-x-hidden as the page-level guard against horizontal scroll. */}
         <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] pb-1 md:pb-4 transition-[margin] duration-200">
           <ScrollToTop />
+          <RouteHost>
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -239,6 +378,7 @@ function AppContent() {
             <Route path="/forgot-password" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </RouteHost>
         </main>
       </div>
     </div>

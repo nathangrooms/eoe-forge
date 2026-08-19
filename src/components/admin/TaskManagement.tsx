@@ -85,7 +85,7 @@ const appSectionConfig: Record<AppSection, { label: string; color: string }> = {
   deck_builder: { label: 'Deck Builder', color: CHIP_QUIET },
   marketplace: { label: 'Marketplace', color: CHIP_QUIET },
   wishlist: { label: 'Wishlist', color: CHIP_QUIET },
-  brain: { label: 'Brain', color: CHIP_QUIET },
+  brain: { label: 'Tutor', color: CHIP_QUIET },
   scan: { label: 'Scan', color: CHIP_QUIET },
   storage: { label: 'Storage', color: CHIP_QUIET },
   templates: { label: 'Templates', color: CHIP_QUIET },
@@ -937,7 +937,7 @@ export function TaskManagement() {
                 <SelectItem value="deck_builder">Deck Builder</SelectItem>
                 <SelectItem value="marketplace">Marketplace</SelectItem>
                 <SelectItem value="wishlist">Wishlist</SelectItem>
-                <SelectItem value="brain">Brain</SelectItem>
+                <SelectItem value="brain">Tutor</SelectItem>
                 <SelectItem value="scan">Scan</SelectItem>
                 <SelectItem value="storage">Storage</SelectItem>
                 <SelectItem value="templates">Templates</SelectItem>

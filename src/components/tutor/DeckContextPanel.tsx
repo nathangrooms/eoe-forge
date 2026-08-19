@@ -4,7 +4,7 @@ import { CardImage } from '@/components/cards';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { cn } from '@/lib/utils';
 
-export interface BrainDeckCard {
+export interface TutorDeckCard {
   card_id: string;
   card_name: string;
   quantity: number;
@@ -16,7 +16,7 @@ export interface BrainDeckCard {
 
 interface DeckContextPanelProps {
   deckName: string;
-  cards: BrainDeckCard[];
+  cards: TutorDeckCard[];
   loading: boolean;
   onCardClick?: (card: any) => void;
 }
@@ -40,9 +40,9 @@ function primaryType(typeLine: string): string {
 }
 
 /**
- * What the assistant is actually holding.
+ * What Tutor is actually holding.
  *
- * `/brain` really does load your decklist and send it as context before it
+ * `/tutor` really does load your decklist and send it as context before it
  * answers — but nothing on screen said so, so the claim was invisible and the
  * page rendered as a chat box next to a list of deck names. This is the receipt:
  * every card in the list, drawn as itself, with the counts and the curve computed
@@ -129,7 +129,7 @@ export function DeckContextPanel({ deckName, cards, loading, onCardClick }: Deck
     <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          What the assistant is reading
+          What Tutor is reading
         </h3>
         <p className="text-xs text-muted-foreground">
           {summary.total} maindeck card{summary.total === 1 ? '' : 's'} from {deckName} go with every

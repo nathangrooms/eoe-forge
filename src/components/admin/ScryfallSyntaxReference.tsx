@@ -22,7 +22,7 @@ export function ScryfallSyntaxReference() {
               <Search className="h-5 w-5" />
               Scryfall Search Syntax Reference
             </CardTitle>
-            <CardDescription>Advanced search operators for MTG Brain queries</CardDescription>
+            <CardDescription>Search operators Tutor and card search both accept</CardDescription>
           </div>
           <Badge variant="outline">v2.0</Badge>
         </div>

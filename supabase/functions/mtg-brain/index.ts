@@ -1,252 +1,255 @@
+/**
+ * Tutor.
+ *
+ * WHY THIS DIRECTORY IS STILL CALLED `mtg-brain`
+ * ---------------------------------------------
+ * The feature is Tutor everywhere a person can see it. The deployed endpoint is
+ * deliberately NOT renamed, and this is the one place in the codebase that
+ * carries the old word.
+ *
+ * A directory name here IS the deployed function id. Renaming it does not move
+ * a function, it creates a second one and leaves the first deployed with the old
+ * code. Deployment is `git push` -> Lovable, and the static bundle and the
+ * function do not go live in the same instant, so any window where the frontend
+ * has shipped and the function has not is a window where every question 404s.
+ *
+ * Seven call sites invoke it, and six of them live in files owned by other
+ * agents right now: AIAnalysisPanel, BrainAnalysis, EnhancedDeckAnalysis,
+ * ScanInsightsHelper, AITemplateRecommendations and AIBuilder. A rename is
+ * therefore a simultaneous seven-file edit across three ownership boundaries,
+ * bought for a string no player will ever read.
+ *
+ * So: the endpoint keeps its id, everything else is Tutor. Do not "tidy" this.
+ *
+ * Rewritten after the owner's session, which is the specification for this file:
+ *
+ *   "Which lands can I upgrade?"
+ *   -> a pie chart of mana sources, then "please provide a list of the 36 lands
+ *      you currently have"
+ *
+ *   "wasn't very good and kept showing me graphs when not needed and didnt
+ *    attach any reference cards, then it told me it didn't know what lands i
+ *    even have so where is deck context and do chats continue?"
+ *
+ * Four separate faults produced that, and each is fixed in a named place:
+ *
+ *   1. The decklist was gated behind a keyword regex and then truncated to 1200
+ *      characters. It is now always sent, in full, compactly. See deck-context.ts.
+ *   2. Charts were a reflex: "if no chart exists yet, add the curve", "if fewer
+ *      than two exist, add the colour pie". A chart is now drawn only when the
+ *      question is about the thing the chart shows. See chartsFor().
+ *   3. Referenced cards depended on the model appending a magic section. Names
+ *      are now read out of the answer and resolved against the `cards` table.
+ *      See resolve-cards.ts.
+ *   4. Conversations lived in React state. They are persisted now; this function
+ *      accepts and returns a conversation id, and the page writes the turns.
+ *
+ * And the numbers themselves were wrong: mana sources were bucketed by
+ * `card.colors`, which is empty for every land, so a four-colour deck reported
+ * 34 colourless sources. Lands are classified by `produced_mana` now, from the
+ * database, and when a land cannot be classified the breakdown is withheld
+ * rather than guessed.
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+import {
+  normaliseDeckCards,
+  renderDecklist,
+  measure,
+  type NormalisedCard,
+} from "./deck-context.ts";
+import { gradeLands, upgradeTargets, findLandCandidates, renderCandidates } from "./manabase.ts";
+import { extractCardNames, resolveCards } from "./resolve-cards.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// In-memory response cache (resets on cold start, but that's fine)
-const responseCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+/* -------------------------------------------------------------------------- *
+ * Charts
+ *
+ * The old code ran this:
+ *
+ *   if (curveBins && (visualData.charts.length === 0 || wantCurve))   // always
+ *   if (src && (visualData.charts.length < 2 || wantColors))          // always
+ *
+ * The first fires whenever nothing has been charted yet and the second whenever
+ * fewer than two things have, so every deck question got up to two charts no
+ * matter what was asked. "Which lands can I upgrade" wants a list of lands.
+ * -------------------------------------------------------------------------- */
 
-function getCacheKey(deckId: string | undefined, message: string): string {
-  const normalized = message.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
-  const hash = hashString(normalized);
-  return `${deckId || 'no-deck'}:${hash}`;
+const ASKS_FOR_A_PICTURE = /\b(chart|graph|plot|pie|histogram|visuali[sz]e|breakdown|distribution)\b/i;
+const ASKS_ABOUT_CURVE = /\b(curve|cmc|mana value|top ?heavy|average cost)\b/i;
+const ASKS_ABOUT_COLOUR_BALANCE =
+  /\b(colou?r (balance|distribution|breakdown|spread)|how many (\w+ )?sources|pip|pips|enough sources|source count)\b/i;
+
+interface Chart {
+  type: 'bar' | 'pie' | 'line';
+  title: string;
+  data: { name: string; value: number }[];
 }
 
-function hashString(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
-}
+/**
+ * Charts that answer the question that was asked, and no others.
+ *
+ * Every number here is read off the deck summary. Nothing is drawn from an
+ * estimate, and the colour chart is skipped entirely when the database could not
+ * classify one of the lands, because a bar of the wrong height is worse than no
+ * bar at all.
+ */
+function chartsFor(message: string, deckContext: any): Chart[] {
+  const charts: Chart[] = [];
+  const asked = ASKS_FOR_A_PICTURE.test(message);
 
-function getCached(key: string): any | null {
-  const entry = responseCache.get(key);
-  if (!entry) return null;
-  
-  if (Date.now() - entry.timestamp > entry.ttl) {
-    responseCache.delete(key);
-    return null;
-  }
-  
-  return entry.data;
-}
-
-function setCache(key: string, data: any, ttl: number = 300000) { // 5 min default
-  responseCache.set(key, { data, timestamp: Date.now(), ttl });
-  
-  // Keep cache size under control
-  if (responseCache.size > 100) {
-    const oldest = Array.from(responseCache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
-    responseCache.delete(oldest[0]);
-  }
-}
-
-// MTG Knowledge Base (condensed for edge function)
-const MTG_KNOWLEDGE = {
-  GAME_RULES: {
-    turn_structure: {
-      phases: ['Untap', 'Upkeep', 'Draw', 'Main Phase 1', 'Combat', 'Main Phase 2', 'End Step', 'Cleanup'],
-      combat_steps: ['Beginning of Combat', 'Declare Attackers', 'Declare Blockers', 'Combat Damage', 'End of Combat']
-    },
-    zones: ['Library', 'Hand', 'Battlefield', 'Graveyard', 'Stack', 'Exile', 'Command Zone'],
-    card_types: {
-      permanent: ['Creature', 'Artifact', 'Enchantment', 'Land', 'Planeswalker', 'Battle'],
-      non_permanent: ['Instant', 'Sorcery']
-    }
-  },
-  
-  COLOR_PHILOSOPHY: {
-    W: {
-      name: 'White',
-      philosophy: 'Peace through structure, morality, order, protection',
-      strengths: ['Life gain', 'Protection', 'Board wipes', 'Token generation', 'Removal (exile)', 'Tax effects'],
-      weaknesses: ['Card draw', 'Ramp', 'Direct damage'],
-      keywords: ['Vigilance', 'Lifelink', 'Protection', 'Flying', 'First Strike', 'Indestructible']
-    },
-    U: {
-      name: 'Blue',
-      philosophy: 'Perfection through knowledge, manipulation, control',
-      strengths: ['Card draw', 'Counterspells', 'Bounce', 'Theft effects', 'Evasion', 'Extra turns'],
-      weaknesses: ['Creature removal', 'Direct damage', 'Enchantment removal'],
-      keywords: ['Flying', 'Flash', 'Hexproof', 'Prowess', 'Scry']
-    },
-    B: {
-      name: 'Black',
-      philosophy: 'Power through ruthlessness, ambition, death',
-      strengths: ['Creature removal', 'Reanimation', 'Tutors', 'Drain effects', 'Sacrifice value', 'Card draw (at a cost)'],
-      weaknesses: ['Artifact/enchantment removal', 'Life total management'],
-      keywords: ['Deathtouch', 'Menace', 'Lifelink', 'Flying', 'Regenerate']
-    },
-    R: {
-      name: 'Red',
-      philosophy: 'Freedom through action, emotion, chaos',
-      strengths: ['Direct damage', 'Haste', 'Artifact removal', 'Temporary theft', 'Impulse draw', 'Fast mana'],
-      weaknesses: ['Card draw', 'Enchantment removal', 'Life gain', 'Long game'],
-      keywords: ['Haste', 'First Strike', 'Trample', 'Menace', 'Double Strike']
-    },
-    G: {
-      name: 'Green',
-      philosophy: 'Growth through nature, community, tradition',
-      strengths: ['Ramp', 'Big creatures', 'Artifact/enchantment removal', 'Card draw (creatures)', 'Fight effects', 'Trample'],
-      weaknesses: ['Flying', 'Counterspells', 'Board wipes', 'Creature removal'],
-      keywords: ['Trample', 'Reach', 'Hexproof', 'Vigilance', 'Deathtouch']
-    }
-  },
-
-  DECK_BUILDING: {
-    rule_of_9: {
-      description: 'Include 9 copies of each card concept (adjust for singleton formats)',
-      roles: ['Ramp', 'Draw', 'Removal', 'Threats', 'Interaction', 'Win Conditions', 'Recursion', 'Protection', 'Utility']
-    },
-    mana_curve: {
-      aggressive: { '1': '8-12', '2': '12-16', '3': '8-12', '4': '4-6', '5+': '2-4', lands: '20-22' },
-      midrange: { '1': '2-4', '2': '8-12', '3': '10-14', '4': '8-10', '5+': '6-8', lands: '23-25' },
-      control: { '1': '0-2', '2': '8-12', '3': '6-8', '4': '8-12', '5+': '10-14', lands: '26-28' },
-      commander: { '1': '4-6', '2': '8-12', '3': '10-14', '4': '8-12', '5': '6-10', '6+': '8-12', lands: '36-40', ramp: '10-15' }
-    }
-  },
-
-  COMMANDER_ARCHETYPES: {
-    voltron: { description: 'Single creature with equipment/auras for 21 commander damage', key_cards: ['Equipment', 'Auras', 'Protection', 'Evasion'] },
-    aristocrats: { description: 'Sacrifice creatures for value', key_cards: ['Blood Artist effects', 'Sacrifice outlets', 'Token generators', 'Recursion'] },
-    spellslinger: { description: 'Cast many instants/sorceries', key_cards: ['Copy effects', 'Storm', 'Prowess', 'Cost reduction', 'Recursion'] },
-    tribal: { description: 'Creature type synergy', key_cards: ['Lords', 'Tribal payoffs', 'Token generators', 'Cost reduction'] },
-    combo: { description: 'Win with infinite loops or combos', key_cards: ['Tutors', 'Combo pieces', 'Protection', 'Fast mana'] },
-    tokens: { description: 'Create many creature tokens', key_cards: ['Token generators', 'Anthems', 'Sacrifice outlets', 'Token doublers'] }
-  },
-
-  SYNERGY_PATTERNS: {
-    sacrifice: { outlets: ['Free sac (Ashnod\'s Altar)', 'Mana producing (Phyrexian Altar)', 'Value sac (Viscera Seer)'], payoffs: ['Death triggers (Blood Artist)', 'Token generators', 'Recursion'] },
-    graveyard: { fillers: ['Self-mill', 'Discard', 'Sacrifice', 'Dredge'], payoffs: ['Reanimation', 'Recursion', 'Delve', 'Threshold', 'Escape'] },
-    tokens: { generators: ['One-shot', 'Repeatable', 'Triggered'], payoffs: ['Anthems', 'Sacrifice outlets', 'Tap effects', 'ETB triggers'] }
-  },
-
-  FORMAT_RULES: {
-    standard: { deck_size: 60, max_copies: 4, sideboard: 15, power_level: 'Rotating, lower power' },
-    modern: { deck_size: 60, max_copies: 4, sideboard: 15, power_level: 'Non-rotating, high power' },
-    commander: { deck_size: 100, singleton: true, commander: 1, starting_life: 40, commander_damage: 21, power_level: 'Varies by playgroup' },
-    legacy: { deck_size: 60, max_copies: 4, sideboard: 15, power_level: 'Extremely high, fast combo' },
-    vintage: { deck_size: 60, max_copies: 4, sideboard: 15, restricted: 'Power 9 restricted to 1 copy', power_level: 'Highest power level' }
-  },
-
-  STAPLE_CARDS: {
-    ramp: {
-      colorless: ['Sol Ring', 'Arcane Signet', 'Fellwar Stone', 'Mind Stone', 'Commander\'s Sphere'],
-      green: ['Nature\'s Lore', 'Three Visits', 'Farseek', 'Rampant Growth', 'Kodama\'s Reach', 'Cultivate']
-    },
-    removal: {
-      white: ['Swords to Plowshares', 'Path to Exile', 'Generous Gift', 'Fateful Absence'],
-      blue: ['Counterspell', 'Swan Song', 'Cyclonic Rift', 'Pongify', 'Rapid Hybridization'],
-      black: ['Fatal Push', 'Go for the Throat', 'Toxic Deluge', 'Damnation'],
-      red: ['Chaos Warp', 'Vandalblast', 'Blasphemous Act', 'By Force'],
-      green: ['Beast Within', 'Nature\'s Claim', 'Krosan Grip', 'Return to Nature']
-    },
-    card_draw: {
-      white: ['Esper Sentinel', 'Welcoming Vampire', 'Mentor of the Meek'],
-      blue: ['Rhystic Study', 'Mystic Remora', 'Ponder', 'Preordain', 'Brainstorm'],
-      black: ['Necropotence', 'Phyrexian Arena', 'Sign in Blood', 'Night\'s Whisper'],
-      red: ['Wheel of Fortune', 'Faithless Looting', 'Light Up the Stage'],
-      green: ['Sylvan Library', 'Guardian Project', 'Harmonize', 'Return of the Wildspeaker']
-    }
-  }
-};
-
-// Scryfall API integration for edge functions
-class ScryfallAPI {
-  private baseUrl = 'https://api.scryfall.com';
-
-  async makeRequest<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'MTG-Brain/1.0' }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Scryfall API error: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  async searchCards(query: string): Promise<any> {
-    const encodedQuery = encodeURIComponent(query);
-    const url = `${this.baseUrl}/cards/search?q=${encodedQuery}&order=name&unique=cards`;
-    return this.makeRequest(url);
-  }
-
-  async getCardByName(name: string): Promise<any> {
-    const encodedName = encodeURIComponent(name);
-    const url = `${this.baseUrl}/cards/named?fuzzy=${encodedName}`;
-    return this.makeRequest(url);
-  }
-}
-
-// Card name detection patterns
-const detectCardMentions = (text: string): string[] => {
-  const cardNames = new Set<string>();
-  
-  console.log('Processing text for card detection:', text.substring(0, 200) + '...');
-  
-  // Pattern for "Referenced Cards:" section at end of AI responses (highest priority)
-  const referencedCardsMatch = text.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
-  if (referencedCardsMatch) {
-    console.log('Found Referenced Cards section:', referencedCardsMatch[1]);
-    const referencedSection = referencedCardsMatch[1];
-    const cards = referencedSection
-      .split(/[;,\n]/)
-      .flatMap(seg => seg.split(/\s*•\s*/))
-      .map(card => card.trim().replace(/^[\-•]\s*/, ''))
-      .filter(card => card.length > 1);
-    console.log('Parsed cards from Referenced section:', cards);
-    // If explicit referenced cards are present, prefer ONLY these
-    return Array.from(new Set(cards));
-  }
-  
-  // Pattern for quoted card names: "Card Name"
-  const quotedNames = text.match(/"([^"]+)"/g);
-  if (quotedNames) {
-    quotedNames.forEach(match => {
-      const name = match.slice(1, -1).trim();
-      if (name.length > 2) {
-        console.log('Found quoted card:', name);
-        cardNames.add(name);
-      }
+  const bins = deckContext?.curve?.bins ?? deckContext?.curve;
+  const wantsCurve = ASKS_ABOUT_CURVE.test(message) || (asked && !ASKS_ABOUT_COLOUR_BALANCE.test(message));
+  if (bins && typeof bins === 'object' && wantsCurve) {
+    charts.push({
+      type: 'bar',
+      title: 'Cards by mana value',
+      data: Object.entries(bins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) })),
     });
   }
-  
-  // Pattern for [[Card Name]] (common MTG notation)
-  const bracketNames = text.match(/\[\[([^\]]+)\]\]/g);
-  if (bracketNames) {
-    bracketNames.forEach(match => {
-      const name = match.slice(2, -2).trim();
-      if (name.length > 2) {
-        console.log('Found bracketed card:', name);
-        cardNames.add(name);
-      }
-    });
-  }
-  
-  return Array.from(cardNames);
-};
 
-// Strictly extract cards only from a final "Referenced Cards:" section in the text
-const detectReferencedCardsStrict = (text: string): string[] => {
-  const match = text.match(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i);
-  if (!match) return [];
-  const section = match[1];
-  const cards = section
-    .split(/[;\n]/)
-    .flatMap((seg) => seg.split(/\s*•\s*/))
-    .map((c) => c.trim().replace(/^[\-•]\s*/, ''))
-    .filter((c) => c.length > 1);
-  return Array.from(new Set(cards));
-};
+  const sources = deckContext?.mana?.sources;
+  const wantsColours = ASKS_ABOUT_COLOUR_BALANCE.test(message) || (asked && !ASKS_ABOUT_CURVE.test(message));
+  if (sources && wantsColours) {
+    const data = ['W', 'U', 'B', 'R', 'G', 'C']
+      .filter(k => sources[k] !== undefined)
+      .map(k => ({ name: k, value: Number(sources[k] || 0) }))
+      .filter(d => d.value > 0);
+    if (data.length) charts.push({ type: 'pie', title: 'Lands that make each colour', data });
+  }
+
+  return charts;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Cache
+ *
+ * Keyed on the thread as well as the question. The old key was deck plus
+ * message, so asking the same thing twice in two different conversations
+ * returned the first conversation's answer.
+ * -------------------------------------------------------------------------- */
+
+const responseCache = new Map<string, { data: any; at: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+
+function hash(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return h.toString(36);
+}
+
+function cacheKey(deckId: string | undefined, message: string, history: any[]): string {
+  const tail = history.slice(-2).map((m: any) => String(m?.content ?? '')).join('|');
+  return `${deckId ?? 'no-deck'}:${hash(String(message ?? '').toLowerCase().trim())}:${hash(tail)}`;
+}
+
+/* -------------------------------------------------------------------------- *
+ * The prompt
+ * -------------------------------------------------------------------------- */
+
+const HOUSE_STYLE = `
+### How to write
+
+Write for a Commander player who does not know this product and does not know
+software. Plain words a player would use at a table.
+
+- Never use an em dash. If a sentence wants one, write two sentences.
+- No product jargon. Not "engine", "pipeline", "subscore", "canonical", "taxonomy".
+- Name real cards. "Add ramp" is useless. "Add Nature's Lore, Three Visits and Farseek" is an answer.
+- Say the price when a card costs more than about twenty dollars.
+- If you do not know something, say so. Never invent a card, a price or a number.
+- Do not describe what you are about to do. Answer.
+- Lead with the answer. The first sentence is the recommendation, not a preamble.
+- Never say "AI", "assistant", "model", "smart", "intelligent" or "powered by".
+  The Magic community has no patience for that vocabulary and neither does this
+  product.
+- Never ask the user what is in their deck. You have been given the full list.
+  If something genuinely is not in the context above, name what is missing.`;
+
+const CHART_RULE = `
+### Charts
+
+Do not call create_chart unless the user asked for a picture, a breakdown or a
+distribution. A question about which cards to change wants a list of cards, not
+a pie chart. Most answers need no chart at all.`;
+
+function buildSystemPrompt(opts: {
+  deckContext: any;
+  manaSection: string;
+  decklist: string;
+}): string {
+  const { deckContext, manaSection, decklist } = opts;
+
+  const base = `You are Tutor, the Magic: The Gathering expert inside DeckMatrix. You know the rules, the formats, the card pool and how Commander decks are actually built. Answer the way a good player at the next table would: straight, specific, and without ceremony.
+
+Never describe yourself as software, and never mention how you were built. If you are asked what you are, you are Tutor, the part of DeckMatrix that answers questions about Magic.
+
+${HOUSE_STYLE}
+${CHART_RULE}
+
+### Commander baselines (99 cards behind a commander)
+Lands 36 to 40. Ramp 10 to 14. Card draw 10 to 15. Spot removal 6 to 10.
+Board wipes 2 to 4. Protection 3 to 6. Clear ways to win 3 to 5.
+Average mana value: about 3.5 for a casual deck, about 3.0 for a strong one,
+about 2.5 for a high power deck.
+
+### Judging a land
+A land is good in a deck when it makes a colour that deck needs, and better when
+it makes two or more of them without entering tapped. A land that makes no colour
+the deck plays is the first thing to look at, unless it does something the deck
+genuinely needs. A land's colour comes from what it taps for, never from the
+colour printed on the card.`;
+
+  if (!deckContext) {
+    return `${base}
+
+### Right now
+No deck is attached. Answer general questions about rules, cards, formats and
+deck building. If the answer depends on what is in someone's deck, say so and ask
+them to attach one from the picker at the top of the page.`;
+  }
+
+  const c = deckContext.counts ?? {};
+  const identity: string[] = deckContext.identity ?? deckContext.colors ?? [];
+
+  return `${base}
+
+### The deck you are looking at
+Name: ${deckContext.name ?? 'Unnamed'}
+Format: ${deckContext.format ?? 'unknown'}
+Commander: ${deckContext.commander?.name ?? 'none set'}
+Colour identity: ${identity.length ? identity.join('') : 'unknown'}
+Cards: ${c.total ?? 0} total. Lands ${c.lands ?? 0}, creatures ${c.creatures ?? 0}, instants ${c.instants ?? 0}, sorceries ${c.sorceries ?? 0}, artifacts ${c.artifacts ?? 0}, enchantments ${c.enchantments ?? 0}, planeswalkers ${c.planeswalkers ?? 0}.
+Owned from collection: ${Math.round(Number(deckContext.economy?.ownedPct ?? 0))}%. Missing ${deckContext.economy?.missing ?? 0}. Value about $${Math.round(Number(deckContext.economy?.priceUSD ?? 0))}.
+${manaSection}
+
+${decklist
+    ? `### The full decklist
+This is the complete list. You have it. Never ask the user what is in this deck.
+Square brackets after a land say what that land taps for.
+${decklist}
+
+### Answering about this deck
+Name cards from the list above by name. When you suggest a change, say which card
+comes out and which goes in, and why, in one line each. Match the power of what
+is already there.`
+    : `### The decklist did not arrive
+The cards in this deck could not be loaded this time. You have the counts above
+and nothing else.
+
+Say plainly that you could not read the list right now and ask them to try again.
+Do NOT name cards as though they were in the deck, do not guess what a deck with
+this commander usually plays, and do not ask the user to type their decklist out.
+The app holds it. This is a fault on our side, not a question for them.`}`;
+}
+
+/* -------------------------------------------------------------------------- */
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -254,315 +257,211 @@ serve(async (req) => {
   }
 
   try {
-    console.log('MTG Brain function called');
-    
-    const { message, deckContext, conversationHistory = [], responseStyle = 'concise' } = await req.json();
-    console.log('Received message:', message);
-    console.log('Response style:', responseStyle);
+    const {
+      message,
+      deckContext,
+      conversationHistory = [],
+      responseStyle = 'concise',
+      conversationId = null,
+    } = await req.json();
 
-    // Check cache first
-    const cacheKey = getCacheKey(deckContext?.id, message);
-    const cached = getCached(cacheKey);
-    if (cached) {
-      console.log('Cache hit! Returning cached response');
-      return new Response(JSON.stringify(cached), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    console.log('tutor:', JSON.stringify({
+      message: String(message ?? '').slice(0, 120),
+      deck: deckContext?.name ?? null,
+      historyTurns: conversationHistory.length,
+      conversationId,
+    }));
+
+    const key = cacheKey(deckContext?.id, message, conversationHistory);
+    const hit = responseCache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL) {
+      console.log('cache hit');
+      return json({ ...hit.data, cached: true });
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
+
+    /* Read-only catalogue access. The anon key is enough: `cards` is public and
+       this function never writes. */
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { auth: { persistSession: false } }
+    );
+
+    // ---------------------------------------------------------------- deck
+    const deckCards: NormalisedCard[] = normaliseDeckCards(deckContext?.cards);
+    const identity: string[] = (deckContext?.identity ?? deckContext?.colors ?? [])
+      .filter((c: string) => 'WUBRG'.includes(c));
+
+    /* Empty string, not a sentence saying it is empty.
+       The prompt used to print "No cards were sent with this deck." directly
+       under the heading "This is the complete list. You have it. Never ask the
+       user what is in this deck." Those two claims together are worse than
+       either alone: they assert that an empty list IS the deck. Observed live,
+       with the deck attached and the page's own card lookup timed out, so the
+       counts said 100 cards and the list said none. `buildSystemPrompt` now
+       branches on this instead. */
+    let decklist = '';
+    if (deckCards.length) {
+      decklist = renderDecklist(deckCards);
+      const cost = measure(decklist);
+      console.log(`decklist: ${deckCards.length} entries, ${cost.chars} chars, about ${cost.approxTokens} tokens`);
+    } else {
+      console.warn('decklist: NO CARDS were sent with this deck; saying so rather than implying an empty deck');
     }
 
-    // Initialize Scryfall API and detect card mentions
-    const scryfallAPI = new ScryfallAPI();
-    const allText = message; // Only analyze the current user message to avoid stale detections
-    console.log('All text being analyzed:', allText);
-    const mentionedCards = detectCardMentions(allText);
-    
-    console.log('Detected card mentions:', mentionedCards);
+    // ------------------------------------------------------------ mana base
+    const sources = deckContext?.mana?.sources ?? null;
+    const unknownLands: string[] = deckContext?.mana?.unknownLands ?? [];
+    const dryLands: string[] = deckContext?.mana?.landsMakingNoManaThemselves ?? [];
 
-    // Search for card data and images
-    let cardContext = '';
-    const cardData: any[] = [];
-    
-    if (mentionedCards.length > 0) {
-      console.log('Searching for card data...');
-      
-      // Limit to first 10 cards to avoid overwhelming the context
-      const cardsToSearch = mentionedCards.slice(0, 10);
-      
-      for (const cardName of cardsToSearch) {
-        try {
-          const card = await scryfallAPI.getCardByName(cardName);
-          cardData.push({
-            id: card.id,
-            set: card.set,
-            collector_number: card.collector_number,
-            name: card.name,
-            image_uri: card.image_uris?.normal || card.image_uris?.large,
-            image_uris: card.image_uris || null,
-            mana_cost: card.mana_cost,
-            type_line: card.type_line,
-            oracle_text: card.oracle_text,
-            power: card.power,
-            toughness: card.toughness,
-            cmc: card.cmc,
-            colors: card.colors,
-            rarity: card.rarity
-          });
-          
-          cardContext += `\n**${card.name}** (${card.mana_cost}) - ${card.type_line}\n`;
-          cardContext += `${card.oracle_text}\n`;
-          if (card.power && card.toughness) {
-            cardContext += `Power/Toughness: ${card.power}/${card.toughness}\n`;
-          }
-          cardContext += `---\n`;
-        } catch (error) {
-          console.log(`Could not find card: ${cardName}`);
-        }
+    let manaSection: string;
+    if (sources) {
+      const line = ['W', 'U', 'B', 'R', 'G', 'C']
+        .filter(k => sources[k] !== undefined)
+        .map(k => `${k}:${sources[k]}`)
+        .join(' ');
+      manaSection = `Lands that make each colour, counted by what each land taps for: ${line}.`;
+      if (dryLands.length) {
+        manaSection += `\nLands that make no mana themselves, so they are in none of those counts: ${dryLands.join(', ')}.`;
       }
+    } else {
+      // Nothing rather than a wrong number.
+      manaSection = unknownLands.length
+        ? `Mana sources by colour cannot be reported for this deck. ${unknownLands.join(', ')} could not be classified. Do not estimate those numbers and do not state them.`
+        : 'Mana sources by colour are not available for this deck. Do not state them.';
     }
 
-    // Detect if user needs full card list (card-specific analysis)
-    const needsFullCardList = /(card list|specific cards|which cards|card analysis|cut these|replace these|show me the|what cards)/i.test(message);
-    
-    // Build COMPREHENSIVE system prompt optimized for general MTG knowledge AND deck analysis
-    let systemPrompt = `You are MTG Super Brain, an elite Magic: The Gathering expert with tournament-level expertise across all formats and deep knowledge of the game's rules, history, and strategy.
+    // --------------------------------------------- the in-house land engine
+    const asksAboutLands =
+      /\b(land|lands|mana ?base|fixing|duals?|fetch|colou?r screw|tapped)\b/i.test(String(message ?? ''));
 
-${deckContext ? '## MODE: DECK ANALYSIS\nYou are currently analyzing a specific deck. Focus your responses on this deck\'s strategy, card choices, and optimization.' : '## MODE: GENERAL MTG ASSISTANT\nNo deck is currently selected. Answer questions about MTG rules, mechanics, formats, card recommendations, deck building theory, strategy, lore, and any other Magic-related topics.'}
+    let landSection = '';
+    if (deckContext && asksAboutLands && deckCards.length) {
+      const verdicts = gradeLands(deckCards, identity);
+      const targets = upgradeTargets(verdicts);
+      const inDeck = deckCards.map(c => c.name);
+      const candidates = await findLandCandidates(supabase, identity, inDeck);
 
-## CORE KNOWLEDGE FRAMEWORK
+      const targetLines = targets.length
+        ? targets.map(t => {
+            const taps = t.produces === null
+              ? 'not classified'
+              : t.produces.length === 0
+                ? 'makes no mana itself'
+                : `taps for ${t.produces.join('')}`;
+            return `  ${t.name} [${taps}] - ${t.verdict}`;
+          }).join('\n')
+        : "  none: every nonbasic land here makes at least two of the deck's colours";
 
-### Color Identity & Strategic Philosophy
-**W (White):** Life gain, tokens, protection, removal via exile, tax effects. WEAKNESSES: card draw, ramp. STAPLES: Swords to Plowshares, Path to Exile, Smothering Tithe, Teferi's Protection, Esper Sentinel.
+      /* Three different situations, and they have to read differently: a
+         shortlist we computed, a shortlist that is genuinely empty, and a lookup
+         that failed. The old code collapsed the last two into "print nothing",
+         which quietly handed the question back to recall at exactly the moment
+         the catalogue was unavailable. */
+      const candidateSection =
+        candidates === null
+          ? `
+The catalogue of replacement lands could not be read just now. Do not suggest
+specific lands to add. Say that the shortlist is unavailable, and answer only
+about the lands listed above, which came from the decklist itself.`
+          : candidates.length
+            ? `
+Lands in the catalogue that make two or more of ${identity.join('')} and are not
+already in this deck, ordered by how much Commander plays them. Suggest from this
+list. If you suggest anything outside it, say why:
+${renderCandidates(candidates, identity)}`
+            : `
+No land in the catalogue makes two or more of ${identity.join('')} that this deck
+does not already run. Say so rather than inventing one.`;
 
-**U (Blue):** Card draw, control, counterspells, tempo, theft effects. WEAKNESSES: permanent removal (creatures/artifacts). STAPLES: Rhystic Study, Cyclonic Rift, Mystic Remora, Counterspell, Pongify.
+      landSection = `
 
-**B (Black):** Tutors, removal, reanimation, life-for-resources, drain effects. WEAKNESSES: artifacts/enchantments removal. STAPLES: Demonic Tutor, Damnation, Necropotence, Toxic Deluge, Vampiric Tutor.
+### Mana base worked out from the list
+The weakest land slots in this deck, worst first. Computed from what each land
+taps for against the deck's colours, not from memory:
+${targetLines}
+${candidateSection}
 
-**R (Red):** Direct damage, haste, artifact hate, impulse draw, temporary effects. WEAKNESSES: long-game sustainability, enchantment removal. STAPLES: Dockside Extortionist, Wheel of Fortune, Deflecting Swat, Chaos Warp, Blasphemous Act.
-
-**G (Green):** Ramp, big creatures, artifact/enchantment removal, creature-based draw. WEAKNESSES: flying, counterspells, board wipes. STAPLES: Worldly Tutor, Heroic Intervention, Nature's Lore, Three Visits, Sylvan Library.
-
-### Commander Deck Construction Quotas (99-card EDH)
-**CRITICAL BASELINE REQUIREMENTS:**
-- **Lands:** 36-40 (adjust by avg CMC: higher curve = more lands)
-- **Ramp:** 10-14 pieces (Sol Ring, Arcane Signet, land ramp, mana dorks)
-- **Card Draw:** 10-15 engines (Rhystic Study, Esper Sentinel, Phyrexian Arena, value creatures)
-- **Spot Removal:** 6-10 pieces (Swords, Beast Within, Chaos Warp, Generous Gift, Anguished Unmaking)
-- **Board Wipes:** 2-4 mass removal (Damnation, Blasphemous Act, Cyclonic Rift, Toxic Deluge)
-- **Protection:** 3-6 pieces (Teferi's Protection, Heroic Intervention, Deflecting Swat, counterspells)
-- **Win Conditions:** 3-5 clear paths to victory (combos, beatdown engines, value loops)
-- **Synergy Package:** 20-30 cards directly supporting commander's core strategy
-
-### Mana Curve Optimization Principles
-**Target Avg CMC by Power Level:**
-- **Casual (1-4):** 3.5-4.0 avg CMC (battlecruiser, high-impact spells)
-- **Focused (5-6):** 3.0-3.5 avg CMC (efficient threats, good curve)
-- **High Power (7-8):** 2.5-3.0 avg CMC (low to ground, fast deployment)
-- **cEDH (9-10):** 2.0-2.5 avg CMC (hyper-efficient, fast combo)
-
-**Distribution Guidelines:**
-- **0-1 CMC:** 6-10 cards (fast mana, cantrips, essential 1-drops)
-- **2 CMC:** 10-15 cards (ramp, removal, card draw engines)
-- **3 CMC:** 12-18 cards (key synergy pieces, efficient threats)
-- **4 CMC:** 8-12 cards (powerful payoffs, board impact)
-- **5-6 CMC:** 6-10 cards (game-ending threats, high value)
-- **7+ CMC:** 3-6 cards MAXIMUM (only if they WIN games or are absolutely essential)
-
-**CRITICAL CURVE MISTAKES TO AVOID:**
-- ❌ Top-heavy (too many 6+ CMC) = clunky hands, slow starts, easy to disrupt
-- ❌ Too flat (even distribution) = inefficient, no power spikes
-- ❌ Missing 2-3 CMC slots = nothing to do early-mid game
-
-### Archetype Deep Dive & Construction Patterns
-
-**VOLTRON (Power 7-8):** Single creature with equipment/auras for 21 commander damage.
-- CORE STRATEGY: Suit up commander, attack for lethal in 3-4 hits
-- QUOTAS: 12-15 equipment/auras, 8-10 protection spells, 6-8 evasion enablers
-- KEY CARDS: Colossus Hammer, Swiftfoot Boots, Sword of Feast and Famine, Teferi's Protection, Deflecting Swat, Blackblade Reforged
-- CURVE TARGET: 2.5-3.0 avg CMC (deploy commander early, protect immediately)
-- LANDS: 34-36 (low curve allows fewer lands) + 10-12 ramp (artifact-heavy for redundancy)
-
-**ARISTOCRATS (Power 7-9):** Sacrifice creatures for value via death/ETB triggers.
-- CORE STRATEGY: Generate tokens, sacrifice for value, loop for advantage/combo kills
-- QUOTAS: 4-6 Blood Artist effects, 4-6 free sac outlets, 10-15 token generators, 3-5 combo pieces
-- KEY CARDS: Blood Artist, Zulaport Cutthroat, Ashnod's Altar, Phyrexian Altar, Bitterblossom, Grave Pact, Pitiless Plunderer
-- COMBOS: Mikaeus + Triskelion, Persist creature + sac outlet + Blood Artist = infinite damage
-- CURVE TARGET: 3.0-3.5 avg CMC (need engine pieces online T4-5)
-- LANDS: 35-37 + 10-12 ramp
-
-**SPELLSLINGER (Power 7-8):** Cast many instants/sorceries for triggers/value.
-- CORE STRATEGY: Chain spells via cost reduction, copy effects, storm count
-- QUOTAS: 25-35 instants/sorceries, 6-8 cost reduction, 4-6 copy effects, 3-5 recursion pieces
-- KEY CARDS: Thousand-Year Storm, Storm-Kiln Artist, Arcane Denial, Snapcaster Mage, Underworld Breach, Mizzix's Mastery
-- WIN VIA: Storm count (Grapeshot, Aetherflux Reservoir), commander damage (Kalamax triggers), value loops
-- CURVE TARGET: 2.8-3.3 avg CMC (cast multiple spells per turn)
-- LANDS: 34-36 + 12-14 ramp (ritual effects: Dark Ritual, Jeska's Will)
-
-**COMBO (Power 9-10, cEDH):** Win via 2-3 card infinite loops T3-5.
-- CORE STRATEGY: Assemble combo ASAP, protect with counters, win instantly
-- QUOTAS: 8-12 tutors, 6-10 counterspells, 10-15 fast mana, 2-4 compact combos
-- KEY CARDS: Demonic Tutor, Vampiric Tutor, Mana Crypt, Mana Vault, Force of Will, Pact of Negation, Ad Nauseam
-- COMBOS: Thassa's Oracle + Demonic Consultation/Tainted Pact, Dramatic Reversal + Isochron Scepter + mana rocks, Breach lines
-- CURVE TARGET: 2.0-2.5 avg CMC (every card hyper-efficient)
-- LANDS: 28-32 (low curve) + 15-20 fast mana/ramp
-
-**STAX (Power 8-10):** Lock opponents out via resource denial.
-- CORE STRATEGY: Deploy locks early, break parity, grind to incremental win
-- QUOTAS: 12-18 stax pieces, 8-12 asymmetric effects, 3-5 win conditions
-- KEY CARDS: Winter Orb, Static Orb, Rule of Law, Grand Arbiter Augustin IV, Aven Mindcensor, Cursed Totem, Sphere of Resistance
-- CURVE TARGET: 2.5-3.0 avg CMC (deploy locks T2-4)
-- LANDS: 30-34 + 12-16 fast mana (MUST break parity on your own locks)
-
-**LANDFALL (Power 6-8):** Trigger abilities from land ETB.
-- CORE STRATEGY: Extra land drops, land recursion, landfall payoffs, big mana finishers
-- QUOTAS: 10-15 extra land drops, 8-12 land recursion, 6-10 landfall payoffs, 5-8 finishers
-- KEY CARDS: Azusa, Oracle of Mul Daya, Crucible of Worlds, Life from the Loam, Avenger of Zendikar, Scute Swarm, Lotus Cobra
-- CURVE TARGET: 3.5-4.0 avg CMC (ramp supports higher curve)
-- LANDS: 38-42 (more lands = more triggers) + 8-12 ramp
-
-### Card Evaluation Framework (RATE)
-**R - Rate of Return:** Mana efficiency (cost vs. impact). Sol Ring (10/10), Divination (4/10).
-**A - Adaptability:** Works in multiple scenarios vs. narrow. Beast Within (9/10), Doom Blade (5/10).
-**T - Tempo Impact:** Speed of board impact. Dockside Extortionist (10/10), Explosive Vegetation (4/10).
-**E - Endgame Relevance:** Still useful late-game? Necropotence (10/10), Llanowar Elves (3/10).
-
-### Synergy Detection Patterns
-**SACRIFICE:** Outlets (free, mana-producing, value) + Payoffs (death triggers, recursion) + Enablers (tokens, indestructible)
-**GRAVEYARD:** Fillers (self-mill, discard, sac) + Payoffs (reanimate, recursion, delve/escape) + Protection (anti-exile, shuffle titans)
-**TOKENS:** Generators (one-shot, repeatable) + Payoffs (anthems, sac outlets, ETB triggers) + Multipliers (Doubling Season, Anointed Procession)
-**+1/+1 COUNTERS:** Generators (proliferate, modular) + Payoffs (Hydra's Growth, Ozolith) + Support (counter manipulation, protection)
-
-${deckContext ? `
-## CURRENT DECK ANALYSIS
-**Identity:** ${deckContext.name || 'Unnamed'} | ${deckContext.format || 'Unknown'} | Commander: ${deckContext.commander?.name || 'None'}
-**Power Target:** ${deckContext.power?.score || '?'}/10 (${deckContext.power?.band || 'Unknown'} tier)
-**Composition:** ${deckContext.counts?.total || 0} cards → Lands: ${deckContext.counts?.lands || 0}, Creatures: ${deckContext.counts?.creatures || 0}, Instants: ${deckContext.counts?.instants || 0}, Sorceries: ${deckContext.counts?.sorceries || 0}
-**Curve Distribution:** ${JSON.stringify(deckContext.curve?.bins || {})}
-**Mana Sources by Color:** ${JSON.stringify(deckContext.mana?.sources || {})}
-**Collection Ownership:** ${deckContext.economy?.ownedPct || 0}% owned, ${deckContext.economy?.missing || 0} missing cards, Est. Value: $${deckContext.economy?.priceUSD || 0}
-
-${needsFullCardList && deckContext.cards?.length > 0 ? 
-  `**CURRENT DECKLIST (${deckContext.cards.length} cards):**\n${deckContext.cards.map((c: any) => `- ${c.name} (${c.card_data?.cmc || '?'} CMC, ${c.card_data?.type_line?.split('—')[0]?.trim() || 'Unknown'})`).join('\n').substring(0, 1200)}${deckContext.cards.length > 50 ? '\n...(list truncated, ask "show full decklist" for complete list)' : ''}` 
-  : '**Full Card List:** Not included in context (query "show me the full card list" if needed for specific analysis)'}
-` : ''}`;
-
-    // Add card context if cards were mentioned
-    if (cardContext) {
-      systemPrompt += `
-
-## REFERENCED CARDS IN CONVERSATION
-The following cards have been mentioned in this conversation:
-${cardContext}
-
-When discussing these cards, reference their actual mechanics, costs, and abilities as shown above.`;
+Recommend swaps as "cut X, play Y". Only cut a land the list above marks weak,
+and keep the land count roughly where it is: this deck has ${deckContext?.counts?.lands ?? 0}.`;
+      console.log(
+        `land engine: ${targets.length} weak lands, ` +
+        (candidates === null ? 'candidate lookup FAILED' : `${candidates.length} candidates`)
+      );
     }
 
-    systemPrompt += `
+    const systemPrompt = buildSystemPrompt({ deckContext, manaSection, decklist }) + landSection;
+    console.log(`system prompt: about ${measure(systemPrompt).approxTokens} tokens`);
 
-### RESPONSE PROTOCOL
-**Style:** ${responseStyle === 'detailed' ? 'COMPREHENSIVE - Use tables, charts, multi-paragraph analysis with specific examples' : 'CONCISE - Bullet points, key takeaways, 2-3 sentences max per section'}
-**Structure:** Use ## headings for major sections with blank lines before and after. Use **bold** for critical terms. Use proper paragraph spacing.
-**Formatting:** Add blank lines between paragraphs. Use bullet lists for options. Ensure proper spacing between headings and content.
-**Card References:** When mentioning specific cards, end with "**Referenced Cards:** [Card 1]; [Card 2]; [Card 3]" (semicolon-separated)
-**Data Visualization:** Call create_chart() for mana curves, type distribution, CMC analysis. Call create_table() for card comparisons.
-**Specificity:** Provide EXACT card names with context (not "add more ramp" → "Add Nature's Lore, Three Visits, or Farseek")
-${deckContext ? '**Power Calibration:** When suggesting upgrades, match user\'s power target (don\'t suggest cEDH cards for casual decks)' : ''}
+    // ------------------------------------------------------------- messages
+    /* History is trimmed by size, not by a fixed count. Six turns was a guess
+       that threw away the start of every real conversation. */
+    const history: { role: string; content: string }[] = [];
+    let budget = 24000; // characters
+    for (let i = conversationHistory.length - 1; i >= 0; i--) {
+      const m = conversationHistory[i];
+      const content = String(m?.content ?? '');
+      if (!content) continue;
+      if (budget - content.length < 0) break;
+      budget -= content.length;
+      history.unshift({
+        role: m.type === 'user' || m.role === 'user' ? 'user' : 'assistant',
+        content,
+      });
+    }
 
-### COMMON QUERIES & RESPONSES
-${deckContext ? `**"Improve my deck"** → Analyze quotas (ramp, draw, removal), suggest 5-8 specific swaps with reasoning
-**"Card suggestions for [theme]"** → Provide 8-12 cards with prices, CMC, and exact synergies
-**"Is this deck good?"** → Power level (1-10), strengths, 3 biggest weaknesses, win condition clarity
-**"What should I cut?"** → Identify 5-10 underperformers (high CMC, low synergy, win-more cards)
-**"Mana base help"** → Calculate color requirements, suggest dual lands, fixing, utility lands` : 
-`**Rules questions** → Explain mechanics clearly with examples, reference comprehensive rules when relevant
-**Card recommendations** → Provide 5-10 cards with mana costs, prices, and why they fit the context
-**Format questions** → Explain format rules, banlist, typical meta, and entry points
-**Strategy questions** → Give actionable advice with specific examples and card names
-**Deck building theory** → Explain ratios, curve considerations, and archetype construction`}
-
-### CRITICAL RULES
-1. **NEVER** suggest banned cards in the format being discussed
-2. **ALWAYS** consider budget when recommending cards (mention if card is $20+)
-${deckContext ? '3. **GROUND** all advice in the specific commander\'s strategy and colors' : '3. **ASK** clarifying questions if the user\'s format/context is unclear'}
-4. **PRIORITIZE** practical advice over theoretical perfection
-5. **EXPLAIN WHY** - Don't just list cards, explain the strategic reasoning
-
-${deckContext ? 'Base all analysis on tournament-proven strategies, statistical deck construction principles, and the provided deck context.' : 'Provide helpful, accurate information about Magic: The Gathering based on your comprehensive knowledge.'}`;
-
-
-    console.log('Calling Lovable AI Gateway...');
-    
-    const temperature = responseStyle === 'detailed' ? 0.8 : 0.2;
-    const max_tokens = responseStyle === 'detailed' ? 1000 : 400; // Reduced from 2000/600
-    
-    // Define visual tools for structured output
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "create_chart",
-          description: "Create a chart visualization (bar, pie, or line chart) for deck statistics or analysis data",
-          parameters: {
-            type: "object",
-            properties: {
-              chart_type: { type: "string", enum: ["bar", "pie", "line"] },
-              title: { type: "string", description: "Chart title" },
-              data: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string" },
-                    value: { type: "number" }
-                  },
-                  required: ["name", "value"]
-                }
-              }
-            },
-            required: ["chart_type", "title", "data"]
-          }
-        }
-      },
-      {
-        type: "function",
-        function: {
-          name: "create_table",
-          description: "Create a data table for card comparisons, deck breakdowns, or structured lists",
-          parameters: {
-            type: "object",
-            properties: {
-              title: { type: "string", description: "Table title" },
-              headers: { type: "array", items: { type: "string" } },
-              rows: {
-                type: "array",
-                items: {
-                  type: "array",
-                  items: { type: "string" }
-                }
-              }
-            },
-            required: ["title", "headers", "rows"]
-          }
-        }
-      }
-    ];
-    
-    // Build messages array with full conversation history
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...conversationHistory.map((msg: any) => ({
-        role: msg.type === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      })),
-      { role: 'user', content: message }
+      ...history,
+      { role: 'user', content: message },
     ];
-    
-    console.log(`Sending ${messages.length} messages to AI (including ${conversationHistory.length} history messages)`);
-    
+
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'create_chart',
+          description:
+            'Draw a chart. Only call this when the user asked for a picture, a breakdown or a distribution. Do not call it to decorate an answer about which cards to change.',
+          parameters: {
+            type: 'object',
+            properties: {
+              chart_type: { type: 'string', enum: ['bar', 'pie', 'line'] },
+              title: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { name: { type: 'string' }, value: { type: 'number' } },
+                  required: ['name', 'value'],
+                },
+              },
+            },
+            required: ['chart_type', 'title', 'data'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'create_table',
+          description: 'A table comparing cards or listing swaps. Good for "cut this, play that".',
+          parameters: {
+            type: 'object',
+            properties: {
+              title: { type: 'string' },
+              headers: { type: 'array', items: { type: 'string' } },
+              rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
+            },
+            required: ['title', 'headers', 'rows'],
+          },
+        },
+      },
+    ];
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -572,247 +471,107 @@ ${deckContext ? 'Base all analysis on tournament-proven strategies, statistical 
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages,
-        temperature,
-        max_tokens,
-        tools
+        temperature: responseStyle === 'detailed' ? 0.7 : 0.3,
+        // 400 tokens could not fit a list of land swaps, which is part of why
+        // the answers read as thin.
+        max_tokens: responseStyle === 'detailed' ? 2400 : 1100,
+        tools,
       }),
     });
 
-    console.log('AI Gateway response status:', response.status);
-
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ 
-          error: 'Rate limits exceeded. Please try again in a moment.',
-          type: 'rate_limit' 
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return json({ error: 'Too many requests just now. Try again in a moment.', type: 'rate_limit' }, 429);
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ 
-          error: 'Payment required: AI usage credits exhausted. Please add credits to your workspace.',
-          type: 'payment_required' 
-        }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return json({ error: 'AI credits are exhausted for this workspace.', type: 'payment_required' }, 402);
       }
-      
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+      const body = await response.text();
+      console.error('AI gateway error', response.status, body);
+      throw new Error(`AI gateway error ${response.status}`);
     }
 
-    const aiResponse = await response.json();
-    console.log('AI response received:', aiResponse?.choices?.[0]?.message?.content?.substring(0, 100) + '...');
+    const ai = await response.json();
+    let assistantMessage: string = ai.choices?.[0]?.message?.content ?? '';
+    const toolCalls = ai.choices?.[0]?.message?.tool_calls;
 
-    let assistantMessage = aiResponse.choices?.[0]?.message?.content;
-    const toolCalls = aiResponse.choices?.[0]?.message?.tool_calls;
-    
-    // Process tool calls for visual data
-    const visualData: any = { charts: [], tables: [] };
-    if (toolCalls && Array.isArray(toolCalls)) {
-      console.log('Processing tool calls for visual data:', toolCalls.length);
-      for (const toolCall of toolCalls) {
-        if (toolCall.function?.name === 'create_chart') {
-          const args = JSON.parse(toolCall.function.arguments);
-          visualData.charts.push({
-            type: args.chart_type,
-            title: args.title,
-            data: args.data
-          });
-        } else if (toolCall.function?.name === 'create_table') {
-          const args = JSON.parse(toolCall.function.arguments);
-          visualData.tables.push({
-            title: args.title,
-            headers: args.headers,
-            rows: args.rows
-          });
+    // --------------------------------------------------------------- visuals
+    const visualData: { charts: Chart[]; tables: any[] } = { charts: [], tables: [] };
+    const wantsPicture =
+      ASKS_FOR_A_PICTURE.test(String(message ?? '')) ||
+      ASKS_ABOUT_CURVE.test(String(message ?? '')) ||
+      ASKS_ABOUT_COLOUR_BALANCE.test(String(message ?? ''));
+
+    if (Array.isArray(toolCalls)) {
+      for (const call of toolCalls) {
+        try {
+          const args = JSON.parse(call.function.arguments);
+          if (call.function?.name === 'create_chart') {
+            if (!wantsPicture) {
+              console.log('dropped a chart the question did not ask for:', args.title);
+              continue;
+            }
+            visualData.charts.push({ type: args.chart_type, title: args.title, data: args.data });
+          } else if (call.function?.name === 'create_table') {
+            visualData.tables.push({ title: args.title, headers: args.headers, rows: args.rows });
+          }
+        } catch (e) {
+          console.log('unreadable tool call, skipped:', e);
         }
       }
     }
 
-    // Auto-build visuals from deck context when relevant or if the model didn't call tools
-    try {
-      const wantCurve = /(curve|mana curve|cmc)/i.test(message || '');
-      const curveBins = (deckContext?.curve?.bins || deckContext?.curve) as Record<string, number> | undefined;
-      if (curveBins && (visualData.charts.length === 0 || wantCurve)) {
-        const chartData = Object.entries(curveBins).map(([name, value]) => ({ name: String(name), value: Number(value || 0) }));
-        visualData.charts.push({ type: 'bar', title: 'CMC Distribution', data: chartData });
-      }
-
-      const wantColors = /(color|pip|mana sources|color distribution)/i.test(message || '');
-      const src = deckContext?.mana?.sources as Record<string, number> | undefined;
-      if (src && (visualData.charts.length < 2 || wantColors)) {
-        const keys = ['W','U','B','R','G','C'];
-        const data = keys.filter(k => src[k] !== undefined).map(k => ({ name: k, value: Number(src[k] || 0) }));
-        if (data.length) visualData.charts.push({ type: 'pie', title: 'Mana Sources by Color', data });
-      }
-    } catch (e) {
-      console.log('Auto-visual generation failed (non-fatal):', e);
+    // Charts the question asked for that the model did not draw itself.
+    for (const chart of chartsFor(String(message ?? ''), deckContext)) {
+      if (!visualData.charts.some(c => c.title === chart.title)) visualData.charts.push(chart);
     }
-    
-    // Handle case where AI returns tool calls without text content
+
     if (!assistantMessage) {
-      // If we have tool calls, the response is still valid - just no text
-      if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
-        assistantMessage = 'Analysis generated with visual data.';
-        console.log('No text content but tool calls present - using fallback message');
+      if (visualData.charts.length || visualData.tables.length) {
+        assistantMessage = 'Here is what the deck looks like.';
       } else {
         throw new Error('No response content from AI');
       }
     }
 
-    // Re-detect cards from the assistant's response STRICTLY from the "Referenced Cards:" section
-    let responseCardMentions = detectReferencedCardsStrict(assistantMessage);
-    console.log('Cards detected from AI response (strict):', responseCardMentions);
-    
-    // Always clear any previously collected card data to avoid mismatches
-    cardData.length = 0;
+    // ----------------------------------------------------------------- cards
+    /* Resolved against our own catalogue, not against whatever the model wrote
+       in a "Referenced Cards" line. A name the catalogue does not know is a name
+       the model invented, and it is silently dropped. */
+    const { names, explicitCount } = extractCardNames(assistantMessage);
+    const cards = await resolveCards(supabase, names, explicitCount);
+    console.log(`cards: ${names.length} candidate names (${explicitCount} marked up), ${cards.length} resolved`);
 
-    if (responseCardMentions.length > 0) {
-      console.log('Rebuilding cards from AI referenced list with smart comma-join + de-dup...');
+    /* The section was only ever a parsing hook. Now that the prose is parsed
+       directly it is noise at the end of an answer, so it comes out. */
+    assistantMessage = assistantMessage
+      .replace(/\n*\**Referenced Cards?:?\**[^\n]*(?:\n(?!\n)[^\n]*)*/i, '')
+      .trim();
 
-      const segments = responseCardMentions.map((s) => s.trim()).filter(Boolean);
-      const seen = new Set<string>();
-
-      for (let i = 0; i < segments.length; i++) {
-        let name = segments[i];
-        let fetched: any = null;
-
-        // Try to merge with next token to handle names like "Tevesh Szat, Doom of Fools"
-        if (i + 1 < segments.length) {
-          const combined = `${name}, ${segments[i + 1]}`.trim();
-          try {
-            const card = await scryfallAPI.getCardByName(combined);
-            if (card && typeof card.name === 'string' && card.name.toLowerCase().startsWith(name.toLowerCase() + ',')) {
-              fetched = card;
-              i++; // consume next segment
-            }
-          } catch (_) {
-            // ignore and fall back to single-token lookup
-          }
-        }
-
-        // Fallback: try current token as-is
-        if (!fetched) {
-          try {
-            fetched = await scryfallAPI.getCardByName(name);
-          } catch (_) {
-            console.log(`Could not find card: ${name}`);
-            continue;
-          }
-        }
-
-        if (fetched && !seen.has(fetched.id)) {
-          seen.add(fetched.id);
-          cardData.push({
-            id: fetched.id,
-            set: fetched.set,
-            collector_number: fetched.collector_number,
-            name: fetched.name,
-            image_uri: fetched.image_uris?.normal || fetched.image_uris?.large,
-            image_uris: fetched.image_uris || null,
-            mana_cost: fetched.mana_cost,
-            type_line: fetched.type_line,
-            oracle_text: fetched.oracle_text,
-            power: fetched.power,
-            toughness: fetched.toughness,
-            cmc: fetched.cmc,
-            colors: fetched.colors,
-            rarity: fetched.rarity,
-          });
-        }
-      }
-    } else {
-      // Fallback: try general detection from the assistant message body and fetch cards
-      const fallbackNames = detectCardMentions(assistantMessage).slice(0, 12);
-      console.log('No strict list found. Fallback detected names:', fallbackNames);
-      for (const name of fallbackNames) {
-        try {
-          const c = await scryfallAPI.getCardByName(name);
-          cardData.push({
-            id: c.id,
-            set: c.set,
-            collector_number: c.collector_number,
-            name: c.name,
-            image_uri: c.image_uris?.normal || c.image_uris?.large,
-            image_uris: c.image_uris || null,
-            mana_cost: c.mana_cost,
-            type_line: c.type_line,
-            oracle_text: c.oracle_text,
-            power: c.power,
-            toughness: c.toughness,
-            cmc: c.cmc,
-            colors: c.colors,
-            rarity: c.rarity,
-          });
-        } catch (_) {
-          console.log(`Fallback could not find card: ${name}`);
-        }
-      }
-
-      if (cardData.length === 0) {
-        console.log('No cards could be extracted from message.');
-      } else {
-        // Ensure the assistant message ends with a Referenced Cards section so the UI can parse next time
-        if (!/Referenced Cards?:/i.test(assistantMessage)) {
-          assistantMessage = `${assistantMessage.trim()}\n\nReferenced Cards: ${cardData.map((c:any) => c.name).join('; ')}`;
-        }
-      }
-    }
-
-    // If the user asked about commanders, ensure we only surface legal commanders
-    const commanderIntent = /(\bcommander\b|\bedh\b|\bgeneral\b)/i.test(message || '');
-    if (commanderIntent && cardData.length) {
-      const isLegalCommander = (c: any) => {
-        const tl = (c.type_line || '').toLowerCase();
-        const ot = (c.oracle_text || '').toLowerCase();
-        const isLegendaryCreature = tl.includes('legendary creature');
-        const hasCommanderText = ot.includes('can be your commander');
-        const isPlaneswalkerCommander = tl.includes('planeswalker') && hasCommanderText;
-        return isLegendaryCreature || isPlaneswalkerCommander || hasCommanderText;
-      };
-
-      const filtered = cardData.filter(isLegalCommander);
-      if (filtered.length !== cardData.length) {
-        // Rebuild the Referenced Cards section to match the filtered list
-        const names = filtered.map((c: any) => c.name);
-        const refSection = `Referenced Cards: ${names.join('; ')}`;
-        if (/Referenced Cards?:/i.test(assistantMessage)) {
-          assistantMessage = assistantMessage.replace(/Referenced Cards?:\s*([^\n]*(?:\n(?!\n)[^\n]*)*)/i, refSection);
-        } else {
-          assistantMessage = `${assistantMessage.trim()}\n\n${refSection}`;
-        }
-        cardData.length = 0;
-        cardData.push(...filtered);
-      }
-    }
-
-    const result = { 
+    const result = {
       message: assistantMessage,
-      cards: cardData,
-      visualData: (visualData.charts.length > 0 || visualData.tables.length > 0) ? visualData : null,
-      success: true 
+      cards,
+      visualData: visualData.charts.length || visualData.tables.length ? visualData : null,
+      conversationId,
+      success: true,
     };
-    
-    // Cache the response
-    setCache(cacheKey, result);
-    
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
+    responseCache.set(key, { data: result, at: Date.now() });
+    if (responseCache.size > 100) {
+      const oldest = [...responseCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+      responseCache.delete(oldest[0]);
+    }
+
+    return json(result);
   } catch (error) {
-    console.error('MTG Brain error:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('tutor failed:', error);
+    return json({ error: error instanceof Error ? error.message : 'Unknown error', success: false }, 500);
   }
 });
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}

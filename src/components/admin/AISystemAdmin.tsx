@@ -44,7 +44,7 @@ import { PromptEditor } from './PromptEditor';
  * They are listed rather than pattern-matched so a new non-AI key cannot
  * silently start appearing under an AI heading.
  */
-const AI_FLAG_KEYS = ['ai_deck_builder', 'ai_deck_coach', 'ai_card_scanner', 'mtg_brain'];
+const AI_FLAG_KEYS = ['ai_deck_builder', 'ai_deck_coach', 'ai_card_scanner', 'tutor'];
 
 const AI_METER_KEYS = ['ai_deck_builds', 'ai_coach_queries', 'card_scans'];
 
@@ -369,7 +369,11 @@ export function AISystemAdmin() {
       <TabsContent value="prompts" className="space-y-4">
         <Tabs defaultValue="mtg-brain" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="mtg-brain">MTG Brain</TabsTrigger>
+            {/* The tab value is the deployed function id, which is still
+                `mtg-brain` on purpose. See the header of
+                supabase/functions/mtg-brain/index.ts. The label is the feature's
+                real name. */}
+            <TabsTrigger value="mtg-brain">Tutor</TabsTrigger>
             <TabsTrigger value="ai-deck-builder-v2">Deck Builder</TabsTrigger>
             <TabsTrigger value="gemini-deck-coach">Deck Coach</TabsTrigger>
           </TabsList>

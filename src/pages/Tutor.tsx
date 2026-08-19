@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send,
   Zap,
@@ -7,8 +7,7 @@ import {
   TrendingUp,
   MessageSquare,
   Lightbulb,
-  Trash2,
-  Bot,
+  Library,
   User,
   Crown,
   Loader2,
@@ -16,6 +15,8 @@ import {
   Check,
   Scale,
   Sparkles,
+  History,
+  Plus,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
@@ -31,14 +32,24 @@ import { useOpenCard } from '@/components/cards';
 import { CardImage } from '@/components/cards';
 import { CardRecommendationDisplay, type CardData as SharedCardData } from '@/components/shared/CardRecommendationDisplay';
 import { AIVisualDisplay, type VisualData } from '@/components/shared/AIVisualDisplay';
-import { AddCardPanel, type AddableCard } from '@/components/brain/AddCardPanel';
-import { CardContextPanel } from '@/components/brain/CardContextPanel';
+import { AddCardPanel, type AddableCard } from '@/components/tutor/AddCardPanel';
+import { CardContextPanel } from '@/components/tutor/CardContextPanel';
 import {
-  BRAIN_CARD_COLUMNS,
+  TUTOR_CARD_COLUMNS,
   ContextPicker,
-  type BrainCard,
-} from '@/components/brain/ContextPicker';
-import { DeckContextPanel, type BrainDeckCard } from '@/components/brain/DeckContextPanel';
+  type TutorCard,
+} from '@/components/tutor/ContextPicker';
+import { DeckContextPanel, type TutorDeckCard } from '@/components/tutor/DeckContextPanel';
+import { ConversationList } from '@/components/tutor/ConversationList';
+import {
+  appendMessage,
+  createConversation,
+  deleteConversation,
+  listConversations,
+  loadMessages,
+  titleFrom,
+  type TutorConversation,
+} from '@/components/tutor/conversations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -215,18 +226,18 @@ const DECK_EXAMPLE_PROMPTS = [
   "What's my win condition?",
 ];
 
-export default function Brain() {
+export default function Tutor() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [availableDecks, setAvailableDecks] = useState<DeckSummary[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<DeckSummary | null>(null);
   /**
-   * The other thing the assistant can be pointed at. A deck and a card are two
+   * The other thing the Tutor can be pointed at. A deck and a card are two
    * different questions, so exactly one of these is ever set.
    */
-  const [selectedCard, setSelectedCard] = useState<BrainCard | null>(null);
-  const [deckCards, setDeckCards] = useState<BrainDeckCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState<TutorCard | null>(null);
+  const [deckCards, setDeckCards] = useState<TutorDeckCard[]>([]);
   const [loadingDeckCards, setLoadingDeckCards] = useState(false);
   const [loadingDecks, setLoadingDecks] = useState(true); // Start true to prevent layout shift
   const [detailedResponses, setDetailedResponses] = useState(false);
@@ -242,6 +253,13 @@ export default function Brain() {
   const [contextOpen, setContextOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
+  /* Saved chats. The thread used to live only in the state above, so a reload
+     erased it and there was no way back to anything said yesterday. */
+  const [conversations, setConversations] = useState<TutorConversation[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -256,6 +274,18 @@ export default function Brain() {
 
   useEffect(() => {
     loadDecks();
+    refreshConversations();
+  }, []);
+
+  const refreshConversations = useCallback(async () => {
+    setConversationsLoading(true);
+    try {
+      setConversations(await listConversations());
+    } catch (error) {
+      console.error('Error loading saved chats:', error);
+    } finally {
+      setConversationsLoading(false);
+    }
   }, []);
 
   const loadDecks = async () => {
@@ -288,12 +318,16 @@ export default function Brain() {
       if (error) throw error;
 
       const ids = [...new Set((entries ?? []).map(e => e.card_id).filter(Boolean))];
-      const { data: cardRows } = ids.length
+      /* The error is read, not dropped. Without this the catalogue join could
+         fail and the page would carry on with art missing and no explanation,
+         which is indistinguishable from cards that simply have no art. */
+      const { data: cardRows, error: cardsError } = ids.length
         ? await supabase
             .from('cards')
-            .select(BRAIN_CARD_COLUMNS)
+            .select(TUTOR_CARD_COLUMNS)
             .in('id', ids)
-        : { data: [] as any[] };
+        : { data: [] as any[], error: null };
+      if (cardsError) console.error('Could not read the cards in this deck:', cardsError.message);
 
       const byId = new Map((cardRows ?? []).map(row => [row.id, row]));
 
@@ -314,21 +348,24 @@ export default function Brain() {
     }
   };
 
-  /* Changing what is attached clears the thread: the answers above it were
+  /* Changing what is attached starts a new thread: the answers above it were
      given about something else, and leaving them under a new context is the
-     one way this page could lie about what it read. */
+     one way this page could lie about what it read. The old thread is not lost,
+     it is a saved chat and it is in the list. */
   const selectDeck = (deck: DeckSummary) => {
     setSelectedCard(null);
     setSelectedDeck(deck);
     loadDeckCards(deck.id);
     setMessages([]);
+    setActiveConversationId(null);
   };
 
-  const selectCard = (card: BrainCard) => {
+  const selectCard = (card: TutorCard) => {
     setSelectedDeck(null);
     setDeckCards([]);
     setSelectedCard(card);
     setMessages([]);
+    setActiveConversationId(null);
   };
 
   const clearContext = () => {
@@ -336,10 +373,53 @@ export default function Brain() {
     setSelectedCard(null);
     setDeckCards([]);
     setMessages([]);
+    setActiveConversationId(null);
   };
 
-  const handleClearConversation = () => {
+  /** Put the thread down and start a fresh one. Nothing is deleted. */
+  const startNewChat = () => {
     setMessages([]);
+    setActiveConversationId(null);
+  };
+
+  /**
+   * Reopen a saved chat, with whatever it was about back on screen.
+   *
+   * The deck is re-attached from the id on the row, so the answers in the thread
+   * still sit under the list they were given about. If the deck has since been
+   * deleted the chat still opens; it just opens with nothing attached, which is
+   * the truth rather than a stale claim.
+   */
+  const openConversation = async (conversation: TutorConversation) => {
+    setActiveConversationId(conversation.id);
+    setIsLoading(true);
+    try {
+      const restored = await loadMessages(conversation.id);
+
+      const deck = conversation.deck_id
+        ? availableDecks.find(d => d.id === conversation.deck_id) ?? null
+        : null;
+      setSelectedCard(null);
+      setSelectedDeck(deck);
+      setDeckCards([]);
+      if (deck) loadDeckCards(deck.id);
+
+      setMessages(restored);
+    } catch (error) {
+      console.error('Error opening chat:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeConversation = async (conversation: TutorConversation) => {
+    try {
+      await deleteConversation(conversation.id);
+      if (conversation.id === activeConversationId) startNewChat();
+      await refreshConversations();
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
   };
 
   useEffect(() => {
@@ -352,14 +432,14 @@ export default function Brain() {
    * The card in focus, written out as the facts the model should reason from.
    *
    * Every line is read off the `cards` row the picker selected — the same
-   * catalogue the rest of the app renders from — so the assistant is arguing
+   * catalogue the rest of the app renders from — so the answer argues
    * about the printing on screen rather than its own recollection of the oracle
    * text. It rides on the message because `mtg-brain` takes a deck context and
    * a message, and nothing else; the user's own bubble stays as they typed it.
    */
-  const cardBrief = (card: BrainCard): string => {
+  const cardBrief = (card: TutorCard): string => {
     const lines: string[] = [
-      'CARD IN FOCUS — exact catalogue data for the card the user is asking about.',
+      'CARD IN FOCUS. Exact catalogue data for the card the user is asking about.',
       'Treat these fields as authoritative and answer about this card specifically.',
       `Name: ${card.name}`,
     ];
@@ -386,9 +466,11 @@ export default function Brain() {
       const enrichedDeckContext = selectedDeck
         ? {
             ...selectedDeck,
-            /* Exactly the list the page renders under "What the assistant is
-               reading" — same rows, same order, sideboard flagged rather than
-               silently folded in. */
+            /* Exactly the list the page renders under the deck receipt — same rows, same order, sideboard flagged rather than
+               silently folded in.
+               `produced_mana` and the rules text ride along because a land's
+               colour is what it taps for, and a list of bare names cannot
+               answer a question about a mana base. */
             cards: deckCards.map(dc => ({
               name: dc.card_name,
               quantity: dc.quantity || 1,
@@ -397,6 +479,19 @@ export default function Brain() {
               type_line: dc.card?.type_line ?? undefined,
               mana_cost: dc.card?.mana_cost ?? undefined,
               cmc: dc.card?.cmc ?? undefined,
+              oracle_text: dc.card?.oracle_text ?? undefined,
+              produced_mana: dc.card?.produced_mana ?? undefined,
+              card_data: dc.card
+                ? {
+                    type_line: dc.card.type_line ?? undefined,
+                    mana_cost: dc.card.mana_cost ?? undefined,
+                    oracle_text: dc.card.oracle_text ?? undefined,
+                    cmc: dc.card.cmc ?? undefined,
+                    produced_mana: dc.card.produced_mana ?? undefined,
+                    prices: dc.card.prices ?? undefined,
+                    edhrec_rank: dc.card.edhrec_rank ?? undefined,
+                  }
+                : undefined,
             })),
           }
         : null;
@@ -407,8 +502,13 @@ export default function Brain() {
 
 ${cardBrief(selectedCard)}` : message,
           deckContext: enrichedDeckContext,
-          conversationHistory: messages.slice(-6),
+          /* The whole thread. It used to be `slice(-6)`, so the seventh turn
+             back was invisible and a conversation could not refer to its own
+             beginning. The function trims by size on the far end, which is a
+             real limit rather than a guessed one. */
+          conversationHistory: messages,
           responseStyle: detailedResponses ? 'detailed' : 'concise',
+          conversationId: activeConversationId,
         },
       });
 
@@ -423,7 +523,7 @@ ${cardBrief(selectedCard)}` : message,
         visualData: data.visualData || null,
       };
     } catch (error) {
-      console.error('Error calling MTG Brain:', error);
+      console.error('Tutor request failed:', error);
 
       // Fallback local analysis
       const visualData: VisualData = { charts: [], tables: [] } as any;
@@ -442,11 +542,11 @@ ${cardBrief(selectedCard)}` : message,
       const power = selectedDeck?.power && !selectedDeck.power.stale
         ? selectedDeck.power.score
         : null;
-      const fallbackText = `I'm currently unable to connect to the AI service. Here's what I can tell you from local data:\n\n${
+      const fallbackText = `That question could not be answered just now. Here is what your deck holds, counted from the list itself:\n\n${
         counts
-          ? `**Deck Composition:**\n- Total: ${counts.total} cards\n- Lands: ${counts.lands}\n- Creatures: ${counts.creatures}\n- Instants: ${counts.instants}\n- Sorceries: ${counts.sorceries}`
+          ? `**What is in the deck**\n- Total: ${counts.total} cards\n- Lands: ${counts.lands}\n- Creatures: ${counts.creatures}\n- Instants: ${counts.instants}\n- Sorceries: ${counts.sorceries}`
           : ''
-      }${power ? `\n\n**Power Level:** ${power}/10` : ''}\n\nPlease try again in a moment.`;
+      }${power ? `\n\n**Power level:** ${power}/10` : ''}\n\nPlease try again in a moment.`;
 
       return {
         message: fallbackText,
@@ -456,9 +556,16 @@ ${cardBrief(selectedCard)}` : message,
     }
   };
 
+  /* A deck is attached but its list is still being read. Asking now would send a
+     deck with no cards in it, and the answer would be about a hundred cards it
+     never saw. Observed live: the deck attached, the catalogue join was slow,
+     and the question went out with an empty list behind a heading that said
+     "This is the complete list." */
+  const contextStillLoading = Boolean(selectedDeck) && loadingDeckCards;
+
   const handleSendMessage = async (customMessage?: string) => {
     const messageText = customMessage || input.trim();
-    if (!messageText || isLoading) return;
+    if (!messageText || isLoading || contextStillLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -470,6 +577,27 @@ ${cardBrief(selectedCard)}` : message,
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+
+    /* The thread is written to the database as it happens, so closing the tab
+       mid-answer still leaves the question saved. Persistence failing must not
+       take the answer down with it, so every write is caught and logged. */
+    let conversationId = activeConversationId;
+    try {
+      if (!conversationId) {
+        const created = await createConversation({
+          title: titleFrom(messageText),
+          deckId: selectedDeck?.id ?? null,
+          deckName: selectedDeck?.name ?? null,
+          cardId: selectedCard?.id ?? null,
+          cardName: selectedCard?.name ?? null,
+        });
+        conversationId = created.id;
+        setActiveConversationId(created.id);
+      }
+      await appendMessage(conversationId, userMessage);
+    } catch (error) {
+      console.error('Could not save your message:', error);
+    }
 
     try {
       const { message: responseText, cards, visualData } = await generateResponse(messageText);
@@ -484,16 +612,25 @@ ${cardBrief(selectedCard)}` : message,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+
+      if (conversationId) {
+        try {
+          await appendMessage(conversationId, assistantMessage);
+        } catch (error) {
+          console.error('Could not save the answer:', error);
+        }
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: 'I encountered an error processing your request. Please try again.',
+        content: 'Something went wrong answering that. Please try again.',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      refreshConversations();
     }
   };
 
@@ -542,8 +679,8 @@ ${cardBrief(selectedCard)}` : message,
 
   return (
     <StandardPageLayout
-      title="MTG Brain"
-      description="Rules, strategy and analysis. Attach one of your decks or any card, and every answer is about it."
+      title="Tutor"
+      description="Rules, strategy and card advice. Attach one of your decks or any card, and every answer is about it."
     >
     {/* 13.5rem is the page chrome above and below this block — top bar, the
         StandardPageLayout header and its padding — so the chat fills the
@@ -592,18 +729,47 @@ ${cardBrief(selectedCard)}` : message,
             />
           </div>
 
+          {/* "Clear conversation" used to throw the thread away, because there
+              was nowhere for it to go. Chats are saved now, so the same control
+              simply puts one down and starts another. */}
           <Button
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-foreground"
-            onClick={handleClearConversation}
+            onClick={startNewChat}
             disabled={messages.length === 0}
           >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Clear conversation
+            <Plus className="mr-2 h-4 w-4" />
+            New chat
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="mr-2 h-4 w-4" />
+            Your chats
+            {conversations.length > 0 && (
+              <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-xs">
+                {conversations.length}
+              </span>
+            )}
           </Button>
         </div>
       </div>
+
+      <ConversationList
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        conversations={conversations}
+        activeId={activeConversationId}
+        loading={conversationsLoading}
+        onOpenConversation={openConversation}
+        onNewChat={startNewChat}
+        onDelete={removeConversation}
+      />
 
       {/* The conversation, now the whole width of the page. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card/40 shadow-lg shadow-black/20">
@@ -625,9 +791,9 @@ ${cardBrief(selectedCard)}` : message,
                   </h2>
                   <p className="mx-auto max-w-xl text-sm text-muted-foreground">
                     {selectedCard
-                      ? 'Every question below is answered about this exact printing — its oracle text, cost and type line are sent with the question, not recalled.'
+                      ? 'Every question below is answered about this exact printing. Its oracle text, cost and type line are sent with the question, not recalled.'
                       : selectedDeck
-                        ? 'Every question below is answered with this list attached — the cards it holds are shown, not asserted.'
+                        ? 'Every question below is answered with this list attached. The cards it holds are shown, not asserted.'
                         : 'Rules, deck building, card recommendations and strategy. Attach a deck or a card above to make every answer about it.'}
                   </p>
                 </div>
@@ -695,7 +861,7 @@ ${cardBrief(selectedCard)}` : message,
                   >
                     {message.type === 'assistant' && (
                       <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                        <Bot className="h-4 w-4 text-muted-foreground" />
+                        <Library className="h-4 w-4 text-muted-foreground" />
                       </div>
                     )}
 
@@ -780,12 +946,12 @@ ${cardBrief(selectedCard)}` : message,
                     className="flex gap-3"
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <Library className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="rounded-lg bg-card px-4 py-3 shadow-md shadow-black/20">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Thinking…</span>
+                        <span className="text-sm text-muted-foreground">Looking it up...</span>
                       </div>
                     </div>
                   </motion.div>
@@ -847,7 +1013,7 @@ ${cardBrief(selectedCard)}` : message,
                 )}
                 <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                   Answering with <span className="font-medium text-foreground">{selectedDeck.name}</span>{' '}
-                  attached — {contextCardCount} maindeck card{contextCardCount === 1 ? '' : 's'} sent
+                  attached. {contextCardCount} maindeck card{contextCardCount === 1 ? '' : 's'} sent
                   with every question.
                 </p>
                 <Button
@@ -876,7 +1042,7 @@ ${cardBrief(selectedCard)}` : message,
                 </button>
                 <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                   Answering about{' '}
-                  <span className="font-medium text-foreground">{selectedCard.name}</span> — its
+                  <span className="font-medium text-foreground">{selectedCard.name}</span>. Its
                   oracle text and cost go with every question.
                 </p>
                 {selectedCard.mana_cost && (
@@ -903,7 +1069,7 @@ ${cardBrief(selectedCard)}` : message,
               />
               <Button
                 onClick={() => handleSendMessage()}
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || contextStillLoading || !input.trim()}
                 size="icon"
                 className="absolute bottom-2 right-2 h-8 w-8"
               >
@@ -916,7 +1082,9 @@ ${cardBrief(selectedCard)}` : message,
               </Button>
             </div>
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              Enter to send, Shift+Enter for a new line
+              {contextStillLoading
+                ? `Reading ${selectedDeck?.name ?? 'your deck'} before answering...`
+                : 'Enter to send, Shift+Enter for a new line'}
             </p>
           </div>
         </div>

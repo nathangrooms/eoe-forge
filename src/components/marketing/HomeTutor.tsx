@@ -13,7 +13,7 @@ import { scryfallImageUrl } from '@/lib/deck/deckCards';
 import { cn } from '@/lib/utils';
 
 /**
- * MTG Brain.
+ * Tutor.
  *
  * Owner: *"ask about deck — could show a deck."* The old version was a chat
  * bubble asking about a deck that appeared nowhere, and an answer that invented
@@ -40,8 +40,8 @@ const GRID_SIZE = 12;
 const NAMED = 3;
 
 /**
- * The six one-tap prompts the assistant ships with when a deck is selected —
- * copied from `DECK_QUICK_ACTIONS` in `src/pages/Brain.tsx`, not invented for
+ * The six one-tap prompts Tutor ships with when a deck is selected, copied
+ * from `DECK_QUICK_ACTIONS` in `src/pages/Tutor.tsx` rather than invented for
  * this page.
  */
 const QUICK_ACTIONS = [
@@ -228,7 +228,7 @@ function Curve({ curve, avgMv }: { curve: number[]; avgMv: number }) {
 
 /* --------------------------------------------------------------------- main */
 
-export function HomeBrain() {
+export function HomeTutor() {
   const [wrapRef, near] = useNearViewport<HTMLDivElement>();
   const [entries, setEntries] = useState<DeckEntry[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -352,8 +352,8 @@ export function HomeBrain() {
                 </div>
               ) : failed ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  A real 100-card deck. It is the same one the Precons page loads, and the same one the
-                  assistant is handed when you ask it something.
+                  A real 100-card deck. It is the same one the Precons page loads, and the same one
+                  Tutor is handed when you ask it something.
                 </p>
               ) : (
                 <Skeleton className="mt-7 h-32 w-full rounded-lg" />
@@ -446,7 +446,7 @@ export function HomeBrain() {
                 </div>
               ) : failed ? (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  The assistant reads the whole deck before it answers: every card, the curve, the mana,
+                  Tutor reads the whole deck before it answers: every card, the curve, the mana,
                   and which of them you already own.
                 </p>
               ) : (
@@ -463,8 +463,8 @@ export function HomeBrain() {
 
           <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
             {stats
-              ? `Every number above is counted from the ${stats.total} cards on the left, and the three it names carry a white badge in that grid. In the app your own deck is attached to the question before the assistant sees it.`
-              : 'In the app your decklist is attached to the question before the assistant sees it.'}
+              ? `Every number above is counted from the ${stats.total} cards on the left, and the three it names carry a white badge in that grid. In the app your own deck is attached to the question before Tutor answers it.`
+              : 'In the app your decklist is attached to the question before Tutor answers it.'}
           </p>
 
           {/* Composer group sits on the floor of the panel — the space above it
@@ -488,7 +488,7 @@ export function HomeBrain() {
 
           <div className="mt-9">
             <Link
-              to="/brain"
+              to="/tutor"
               className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
             >
               <span className="min-w-0 flex-1 truncate">Ask about your own deck</span>
@@ -496,8 +496,8 @@ export function HomeBrain() {
             </Link>
 
             <Button asChild size="lg" variant="outline" className="mt-4 w-full">
-              <Link to="/brain">
-                Open the assistant
+              <Link to="/tutor">
+                Open Tutor
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -508,4 +508,4 @@ export function HomeBrain() {
   );
 }
 
-export default HomeBrain;
+export default HomeTutor;

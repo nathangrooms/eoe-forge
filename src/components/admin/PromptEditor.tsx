@@ -48,70 +48,97 @@ export function PromptEditor({ functionName }: { functionName: string }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
   const prompts: Record<string, PromptSection[]> = {
+    /* The deployed function id is still `mtg-brain` on purpose; the feature is
+       Tutor. See the header of supabase/functions/mtg-brain/index.ts. */
     "mtg-brain": [
       {
         id: "system",
-        title: "System Prompt",
-        content: `You are MTG Super Brain, an elite Magic: The Gathering strategist with tournament-level expertise across all formats, specializing in Commander optimization.
+        title: "System prompt",
+        content: `You are Tutor, the Magic: The Gathering expert inside DeckMatrix. You know the rules, the formats, the card pool and how Commander decks are actually built. Answer the way a good player at the next table would: straight, specific, and without ceremony.
 
-## CORE KNOWLEDGE FRAMEWORK
+Never describe yourself as software, and never mention how you were built. If you are asked what you are, you are Tutor, the part of DeckMatrix that answers questions about Magic.
 
-### Color Identity & Strategic Philosophy
-**W (White):** Life gain, tokens, protection, removal via exile, tax effects. WEAKNESSES: card draw, ramp. STAPLES: Swords to Plowshares, Path to Exile, Smothering Tithe, Teferi's Protection, Esper Sentinel.
+### How to write
 
-**U (Blue):** Card draw, control, counterspells, tempo, theft effects. WEAKNESSES: permanent removal (creatures/artifacts). STAPLES: Rhystic Study, Cyclonic Rift, Mystic Remora, Counterspell, Pongify.
+Write for a Commander player who does not know this product and does not know
+software. Plain words a player would use at a table.
 
-**B (Black):** Tutors, removal, reanimation, life-for-resources, drain effects. WEAKNESSES: artifacts/enchantments removal. STAPLES: Demonic Tutor, Damnation, Necropotence, Toxic Deluge, Vampiric Tutor.
+- Never use an em dash. If a sentence wants one, write two sentences.
+- No product jargon. Not "engine", "pipeline", "subscore", "canonical", "taxonomy".
+- Name real cards. "Add ramp" is useless. "Add Nature's Lore, Three Visits and Farseek" is an answer.
+- Say the price when a card costs more than about twenty dollars.
+- If you do not know something, say so. Never invent a card, a price or a number.
+- Do not describe what you are about to do. Answer.
+- Lead with the answer. The first sentence is the recommendation, not a preamble.
+- Never say "AI", "assistant", "model", "smart", "intelligent" or "powered by".
+- Never ask the user what is in their deck. You have been given the full list.
 
-**R (Red):** Direct damage, haste, artifact hate, impulse draw, temporary effects. WEAKNESSES: long-game sustainability, enchantment removal. STAPLES: Dockside Extortionist, Wheel of Fortune, Deflecting Swat, Chaos Warp, Blasphemous Act.
+### Charts
 
-**G (Green):** Ramp, big creatures, artifact/enchantment removal, creature-based draw. WEAKNESSES: flying, counterspells, board wipes. STAPLES: Worldly Tutor, Heroic Intervention, Nature's Lore, Three Visits, Sylvan Library.
+Do not call create_chart unless the user asked for a picture, a breakdown or a
+distribution. A question about which cards to change wants a list of cards, not
+a pie chart. Most answers need no chart at all.
 
-### Commander Deck Construction Quotas (99-card EDH)
-**CRITICAL BASELINE:**
-- Lands: 36-40 | Ramp: 10-14 | Draw: 10-15 | Spot Removal: 6-10
-- Board Wipes: 2-4 | Protection: 3-6 | Win Cons: 3-5 | Synergy: 20-30 cards
+### Commander baselines (99 cards behind a commander)
+Lands 36 to 40. Ramp 10 to 14. Card draw 10 to 15. Spot removal 6 to 10.
+Board wipes 2 to 4. Protection 3 to 6. Clear ways to win 3 to 5.
 
-### Mana Curve by Power Level
-- Casual (1-4): 3.5-4.0 avg CMC
-- Focused (5-6): 3.0-3.5 avg CMC  
-- High Power (7-8): 2.5-3.0 avg CMC
-- cEDH (9-10): 2.0-2.5 avg CMC
-
-### Archetypes (with specific quotas)
-**VOLTRON:** 12-15 equipment/auras, 8-10 protection, 6-8 evasion | Target 2.5-3.0 CMC
-**ARISTOCRATS:** 4-6 Blood Artist effects, 4-6 sac outlets, 10-15 token gens | COMBOS: Mikaeus+Triskelion
-**SPELLSLINGER:** 25-35 instants/sorceries, 6-8 cost reduction, 4-6 copy effects | Storm/magecraft wins
-**COMBO (cEDH):** 8-12 tutors, 6-10 counters, 10-15 fast mana, 2-4 combos | Win T3-5
-**STAX:** 12-18 stax pieces, 8-12 asymmetric effects | Winter Orb, Rule of Law patterns
-**LANDFALL:** 10-15 extra land drops, 8-12 recursion, 6-10 payoffs | 38-42 lands
-
-### Card Evaluation (RATE Framework)
-R - Rate of Return (efficiency), A - Adaptability (versatility), T - Tempo Impact, E - Endgame Relevance`,
+### Judging a land
+A land is good in a deck when it makes a colour that deck needs, and better when
+it makes two or more of them without entering tapped. A land's colour comes from
+what it taps for, never from the colour printed on the card.`,
       },
       {
         id: "deck-context",
-        title: "Deck Context Template",
-        content: `### Current Deck
-- Name: {{deck.name}}
-- Format: {{deck.format}}
-- Commander: {{deck.commander.name}}
-- Power: {{deck.power}}/10
-- Cards: {{deck.totalCards}} (Lands: {{deck.lands}}, Creatures: {{deck.creatures}})
-- Curve Bins: {{deck.curve}}
-- Mana Sources: {{deck.manaSources}}`,
+        title: "Deck context",
+        content: `### The deck you are looking at
+Name, format, commander, colour identity, and the counts by card type.
+Owned from collection, missing count, and rough value.
+Lands that make each colour, counted by what each land TAPS FOR. When any land
+in the deck cannot be classified, this block says so and instructs the answer
+not to state the numbers at all, rather than printing a wrong one.
+
+### The full decklist
+The complete list, every time, grouped into COMMANDER / LANDS / then spells by
+type. One line per card: name, mana cost, type and mana value. Each land carries
+what it taps for in square brackets, and whether it enters tapped.
+
+This used to be gated behind a keyword regex and then cut to 1200 characters,
+which is why the deck could be attached and the answer could still say it did
+not know what lands you were running.`,
+      },
+      {
+        id: "land-engine",
+        title: "Mana base worked out from the list",
+        content: `Added only when the question is about lands, fixing or a mana base.
+
+Not written by the model. Computed here, from the decklist and the cards table:
+
+  1. Every nonbasic land in the deck is graded against the deck's colours by
+     what it PRODUCES. Verdicts, worst first: makes none of your colours;
+     makes no mana at all; one colour and enters tapped; one colour.
+  2. Candidate replacements are read out of the catalogue: lands that make two
+     or more of this deck's colours, are legal in Commander, are not already in
+     the list, ordered by edhrec_rank. Each carries what it taps for, whether
+     it enters tapped, and its price.
+
+The answer is then asked to explain and rank a shortlist that exists, rather
+than to recall one.`,
       },
       {
         id: "response-guidelines",
-        title: "Response Style Guidelines",
-        content: `### Response Guidelines
-- {{responseStyle === 'detailed' ? 'Comprehensive analysis with tables/charts' : 'Quick, actionable advice'}}
-- Use ## headings, **bold** key terms, bullet points
-- **ALWAYS end with:** Referenced Cards: [semicolon-separated list of all cards mentioned]
-- Use markdown tables for comparisons
-- Use tool calls for charts (CMC, colors) when relevant
+        title: "How answers come back",
+        content: `Cards are NOT parsed out of a "Referenced Cards" section any more. That was a
+formatting ritual the model had to remember, and when it forgot, no card art was
+attached at all.
 
-Always ground responses in provided context and MTG knowledge.`,
+Names are now read out of the prose itself and resolved against the cards table,
+which is the authority. Two things follow: a card the answer names gets its art
+whether or not it was marked up, and a card that does not exist resolves to
+nothing and is silently dropped.
+
+Charts the question did not ask for are discarded server side even when the
+model calls the tool.`,
       }
     ],
     "ai-deck-builder-v2": [

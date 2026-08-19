@@ -1,8 +1,8 @@
 /**
- * DeckMatrix — MTG Brain: the receipt for a single card.
+ * DeckMatrix, Tutor: the receipt for a single card.
  *
  * The sibling of `DeckContextPanel`. When the top line is pointed at one card
- * rather than a deck, this is what the assistant was handed: the printing
+ * rather than a deck, this is what Tutor was handed: the printing
  * itself at full size — never cropped — and the exact fields that ride along
  * with every question. If a line is on screen here it is in the payload, and
  * nothing is on screen that is not read off the `cards` row.
@@ -11,10 +11,10 @@
 import { Crown } from 'lucide-react';
 import { CardImage } from '@/components/cards';
 import { ManaCost } from '@/components/ui/mana-cost';
-import type { BrainCard } from './ContextPicker';
+import type { TutorCard } from './ContextPicker';
 
 interface CardContextPanelProps {
-  card: BrainCard;
+  card: TutorCard;
   onCardClick?: (card: any) => void;
 }
 
@@ -39,7 +39,7 @@ export function CardContextPanel({ card, onCardClick }: CardContextPanelProps) {
     <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          What the assistant is reading
+          What Tutor is reading
         </h3>
         <p className="text-xs text-muted-foreground">
           The full oracle text, cost and type line of this printing go with every question

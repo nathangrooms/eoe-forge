@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input';
 import { MobileNavigation } from './MobileNavigation';
 import { AccountMenu } from './AccountMenu';
 import { HistoryNav } from './HistoryNav';
+/* Deliberately the file, not `@/components/shopping`.
+ *
+ * That barrel re-exports the whole feature, including `ShoppingListPage` and
+ * `ProxyListPage`, and this header renders on every signed-in screen. Going
+ * through the barrel put the entire shopping and proxy-printing feature into
+ * the shell's own chunk, which every visitor downloads before anything renders:
+ * the proxy print geometry, the proxy sheet, the card-size slider and the Radix
+ * select and slider they pull with them. All of it for one cart badge. */
+import { CartNavButton } from '@/components/shopping/CartNavButton';
 
 /**
  * The header is placed by `App.tsx` in a `fixed` wrapper that offsets content by
@@ -140,6 +149,11 @@ export function TopNavigation() {
               New deck
             </Link>
           </Button>
+
+          {/* The cart sits beside back and forward because the owner has ruled
+              that navigation lives in the nav, and this is the standing way
+              back to the shopping list from anywhere in the product. */}
+          <CartNavButton />
 
           <HistoryNav className="mr-0.5" />
 

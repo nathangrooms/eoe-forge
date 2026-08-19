@@ -1,8 +1,8 @@
 /**
- * DeckMatrix — MTG Brain: the one control that says what the assistant is
+ * DeckMatrix, Tutor: the one control that says what the answer is
  * looking at.
  *
- * This replaces the 320px column that used to sit down the left of `/brain`.
+ * This replaces the 320px column that used to sit down the left of `/tutor`.
  * Owner: *"left hand deck context menu is awful - i told you to add a top line
  * dropdown/search for your deck or a specific card."* That column held four
  * controls and a grid of thumbnails squeezed to 140px, and it cost the
@@ -14,11 +14,11 @@
  * and a card by itself, so both sides of the list are card art rather than
  * names in a select. Decks are matched in memory (there are never many); cards
  * are searched against the same `cards` table the rest of the app reads, so a
- * result here is a printing the assistant can actually be told about.
+ * result here is a printing Tutor can actually be told about.
  *
  * The two are mutually exclusive on purpose. "Answer about this deck" and
  * "answer about this card" are different questions, and a bar claiming both
- * would be lying about which one the model was given.
+ * would be lying about which one was actually sent.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,13 +32,21 @@ import { CardImage } from '@/components/cards';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { PowerScoreBadge } from '@/components/deck/PowerScore';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards } from '@/lib/cards/cardQuery';
 import type { DeckSummary } from '@/lib/api/deckAPI';
 
-/** The `cards` columns the picker shows and the assistant is later told about. */
-export const BRAIN_CARD_COLUMNS =
-  'id, name, set_code, collector_number, type_line, mana_cost, cmc, colors, color_identity, rarity, layout, image_uris, faces, oracle_text, prices, power, toughness, keywords, legalities';
+/**
+ * The `cards` columns the picker shows and Tutor is later told about.
+ *
+ * `produced_mana` is in here because a land's colour is what it TAPS FOR, and
+ * nothing else on the row says so: `colors` is empty for every land ever
+ * printed. Without it Tutor cannot answer a question about a mana base,
+ * which is exactly what went wrong.
+ */
+export const TUTOR_CARD_COLUMNS =
+  'id, name, set_code, collector_number, type_line, mana_cost, cmc, colors, color_identity, produced_mana, rarity, layout, image_uris, faces, oracle_text, prices, edhrec_rank, power, toughness, keywords, legalities';
 
-export interface BrainCard {
+export interface TutorCard {
   id: string;
   name: string;
   type_line?: string | null;
@@ -51,9 +59,9 @@ interface ContextPickerProps {
   decks: DeckSummary[];
   decksLoading: boolean;
   selectedDeck: DeckSummary | null;
-  selectedCard: BrainCard | null;
+  selectedCard: TutorCard | null;
   onSelectDeck: (deck: DeckSummary) => void;
-  onSelectCard: (card: BrainCard) => void;
+  onSelectCard: (card: TutorCard) => void;
   onClear: () => void;
   className?: string;
 }
@@ -63,13 +71,18 @@ interface ContextPickerProps {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One name per result. The catalogue holds every printing, so a raw `ilike`
- * on "bolt" answers with eleven Lightning Bolts and nothing else fits on
- * screen. Reprints are the same card to a rules or strategy question.
+ * One name per result.
+ *
+ * The printing collapse is done by the database now: the search reads
+ * `cards_unique`, which is one row per oracle_id, so eleven Lightning Bolts
+ * arrive as one. This is the last thin layer on top, for the handful of cards
+ * that share a printed name across DIFFERENT oracle ids and would still read as
+ * a duplicate to someone scanning the list. Reprints are the same card to a
+ * rules or strategy question, and so are these.
  */
-function dedupeByName(rows: BrainCard[]): BrainCard[] {
+function dedupeByName(rows: TutorCard[]): TutorCard[] {
   const seen = new Set<string>();
-  const out: BrainCard[] = [];
+  const out: TutorCard[] = [];
   for (const row of rows) {
     const key = row.name.toLowerCase();
     if (seen.has(key)) continue;
@@ -79,9 +92,20 @@ function dedupeByName(rows: BrainCard[]): BrainCard[] {
   return out;
 }
 
+/** Distinct cards pulled per keystroke. */
+const CARD_FETCH_LIMIT = 60;
+/** Distinct cards actually offered. More than this and the list stops being scannable. */
+const CARD_RESULT_LIMIT = 8;
+
 function useCardResults(query: string, enabled: boolean) {
-  const [cards, setCards] = useState<BrainCard[]>([]);
+  const [cards, setCards] = useState<TutorCard[]>([]);
   const [loading, setLoading] = useState(false);
+  /**
+   * True when the catalogue holds more matches than are on screen, so the
+   * header can say "closest 8" instead of claiming 8 is the total. `ilike
+   * %lightning%` really matches 56+ distinct names; the list shows 8.
+   */
+  const [truncated, setTruncated] = useState(false);
   /** Guards against a slow early request overwriting a later, better one. */
   const requestId = useRef(0);
 
@@ -89,6 +113,7 @@ function useCardResults(query: string, enabled: boolean) {
     const term = query.trim();
     if (!enabled || term.length < 2) {
       setCards([]);
+      setTruncated(false);
       setLoading(false);
       return;
     }
@@ -97,16 +122,23 @@ function useCardResults(query: string, enabled: boolean) {
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const { data, error } = await supabase
-          .from('cards')
-          .select(BRAIN_CARD_COLUMNS)
+        // One row per card, not one per printing.
+        //
+        // `cards` holds every printing now, and the limit is applied by the
+        // database BEFORE anything here can collapse them. Asking for
+        // CARD_FETCH_LIMIT rows matching "sol" would return that many PRINTINGS
+        // covering a handful of cards, so the list would look nearly empty
+        // while the query looked perfectly healthy.
+        const { data, error } = await uniqueCards()
+          .select(TUTOR_CARD_COLUMNS)
           .ilike('name', `%${term}%`)
           .order('name')
-          .limit(60);
+          .limit(CARD_FETCH_LIMIT);
         if (error) throw error;
         if (id !== requestId.current) return;
 
-        const rows = dedupeByName((data ?? []) as BrainCard[]);
+        const fetched = (data ?? []) as TutorCard[];
+        const rows = dedupeByName(fetched);
         /* Prefix matches first — typing "sol" should reach Sol Ring before
            Console or Consul's Lieutenant. */
         const lower = term.toLowerCase();
@@ -116,10 +148,22 @@ function useCardResults(query: string, enabled: boolean) {
           if (aStarts !== bStarts) return aStarts - bStarts;
           return a.name.length - b.name.length;
         });
-        setCards(rows.slice(0, 8));
+        setCards(rows.slice(0, CARD_RESULT_LIMIT));
+        /*
+         * Two ways the screen is not the whole truth: more distinct names came
+         * back than fit, or the fetch itself hit its ceiling, in which case
+         * even the number of matches is unknown. Either way, do not print a
+         * total — the header would be stating a figure nothing measured.
+         */
+        setTruncated(
+          rows.length > CARD_RESULT_LIMIT || fetched.length >= CARD_FETCH_LIMIT
+        );
       } catch (error) {
         console.error('Card context search failed:', error);
-        if (id === requestId.current) setCards([]);
+        if (id === requestId.current) {
+          setCards([]);
+          setTruncated(false);
+        }
       } finally {
         if (id === requestId.current) setLoading(false);
       }
@@ -128,7 +172,7 @@ function useCardResults(query: string, enabled: boolean) {
     return () => clearTimeout(timer);
   }, [query, enabled]);
 
-  return { cards, loading };
+  return { cards, loading, truncated };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -140,7 +184,7 @@ function TriggerFace({
   card,
 }: {
   deck: DeckSummary | null;
-  card: BrainCard | null;
+  card: TutorCard | null;
 }) {
   if (card) {
     return (
@@ -225,7 +269,7 @@ export function ContextPicker({
 }: ContextPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const { cards, loading: cardsLoading } = useCardResults(query, open);
+  const { cards, loading: cardsLoading, truncated: cardsTruncated } = useCardResults(query, open);
 
   const matchingDecks = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -255,7 +299,7 @@ export function ContextPicker({
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label="Choose what the assistant reasons about"
+            aria-label="Choose what the answers are about"
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-card px-3 py-2 text-left shadow-md shadow-black/20 transition-colors hover:bg-accent"
           >
             <TriggerFace deck={selectedDeck} card={selectedCard} />
@@ -297,20 +341,20 @@ export function ContextPicker({
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <X aria-hidden="true" className="h-3.5 w-3.5" />
-                Detach — go back to general Magic questions
+                Detach, and go back to general Magic questions
               </button>
             )}
 
             <GroupLabel>
               {decksLoading
-                ? 'Your decks — loading'
+                ? 'Your decks, loading'
                 : `Your decks${matchingDecks.length ? ` (${matchingDecks.length})` : ''}`}
             </GroupLabel>
 
             {!decksLoading && matchingDecks.length === 0 && (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">
                 {decks.length === 0
-                  ? 'No decks yet — card and rules questions still work.'
+                  ? 'No decks yet. Card and rules questions still work.'
                   : 'No deck matches that.'}
               </p>
             )}
@@ -361,12 +405,19 @@ export function ContextPicker({
               </button>
             ))}
 
+            {/* `Cards (8)` used to sit here, which was the length of the list
+                after it had been sliced to eight — not a count of anything.
+                "lightning" matches 56+ distinct names and the header still
+                said 8. A number on screen has to be measured, so an exact
+                count ships only when the list really is everything. */}
             <GroupLabel>
               {query.trim().length < 2
-                ? 'Any card — type two letters to search'
+                ? 'Any card. Type two letters to search'
                 : cardsLoading
-                  ? 'Cards — searching'
-                  : `Cards (${cards.length})`}
+                  ? 'Cards, searching'
+                  : cardsTruncated
+                    ? `Cards, closest ${cards.length}. Keep typing to narrow`
+                    : `Cards (${cards.length})`}
             </GroupLabel>
 
             {query.trim().length >= 2 && cardsLoading && (

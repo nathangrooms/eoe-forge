@@ -19,7 +19,7 @@ import type { DeckSummary } from '@/lib/api/deckAPI';
 import { Loader2, X } from 'lucide-react';
 
 /**
- * The one add-to-destination flow for cards MTG Brain recommends.
+ * The one add-to-destination flow for cards Tutor recommends.
  *
  * Used to be a Dialog. It is a choice about a card that is already on screen,
  * so it now expands as a panel in the results column directly above the
@@ -46,7 +46,7 @@ interface AddCardPanelProps {
   decks: DeckSummary[];
   /** Collapses the panel. */
   onClose: () => void;
-  /** Pre-selects a deck, e.g. the deck currently loaded into Brain. */
+  /** Pre-selects a deck, e.g. the deck currently attached in Tutor. */
   defaultDeckId?: string | null;
 }
 

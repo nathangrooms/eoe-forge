@@ -153,8 +153,14 @@ function AppContent() {
           <LeftNavigation />
         </div>
         
-        {/* Main Content Area - Offset by left nav width on desktop */}
-        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] overflow-x-hidden py-1 md:py-4 transition-[margin] duration-200">
+        {/* Main Content Area - Offset by left nav width on desktop.
+
+            No TOP padding, deliberately. It used to carry py-4, which let 16px
+            of the darker page background show between the fixed nav and the
+            page's own panel. That read as a thin black line under the nav on
+            every page, which the owner reported on the collection page. Pages
+            now sit flush against the nav; bottom padding is kept. */}
+        <main id="main-content" className="flex-1 min-h-[calc(100vh-4rem)] w-full max-w-full md:ml-[var(--nav-rail-w)] overflow-x-hidden pb-1 md:pb-4 transition-[margin] duration-200">
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

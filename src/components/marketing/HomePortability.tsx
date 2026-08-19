@@ -308,7 +308,9 @@ function Mono({ text, className }: { text: string; className?: string }) {
 export function HomePortability() {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const [rows, setRows] = useState<Map<string, ImportedCard> | null>(null);
-  const [format, setFormat] = useState(EXPORTS[0].label);
+  /* Which shape of the same list is on screen: the pasted text, or one of
+     the formats it can be written back out as. */
+  const [shape, setShape] = useState('You paste this');
 
   useEffect(() => {
     if (!near) return;
@@ -334,7 +336,6 @@ export function HomePortability() {
   }, [rows]);
 
   const copies = resolved.reduce((sum, entry) => sum + entry.quantity, 0);
-  const emit = EXPORTS.find(e => e.label === format) ?? EXPORTS[0];
   const loading = rows === null;
 
   return (
@@ -348,12 +349,51 @@ export function HomePortability() {
 
       <div className="mt-14 grid gap-6 lg:grid-cols-12 lg:gap-8">
         {/* ------------------------------------------------------ the paste */}
+        {/* IN AND OUT SHARE ONE PANEL.
+
+            The export block used to sit in its own band underneath the whole
+            section, which meant the page showed the same decklist twice in two
+            places with a wall of cards between them. The owner: "you paste this
+            can have exports in tabs next to it, takes up too much space having
+            that below".
+
+            They are the same conversation. What you pasted and what comes back
+            out are one document in two shapes, so they are one panel with tabs
+            and the cards in the middle show what it became. */}
         <div className="min-w-0 lg:col-span-5">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            You paste this
-          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {['You paste this', ...EXPORTS.map(e => e.label)].map(tab => {
+              const on = tab === shape;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setShape(tab)}
+                  aria-pressed={on}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    on
+                      ? 'bg-foreground font-medium text-background'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
           <div className="mt-4 rounded-2xl bg-card p-4 shadow-xl shadow-black/30 sm:p-5">
-            <Mono text={PASTE} className="max-h-[26rem]" />
+            <Mono
+              text={
+                shape === 'You paste this'
+                  ? PASTE
+                  : loading
+                    ? ''
+                    : (EXPORTS.find(e => e.label === shape) ?? EXPORTS[0]).render(resolved)
+              }
+              className="max-h-[26rem] min-h-[16rem]"
+            />
           </div>
 
           <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
@@ -429,52 +469,6 @@ export function HomePortability() {
         </div>
       </div>
 
-      {/* ------------------------------------------------------ and back out
-
-          Capped and centred rather than run to the section's full 1600px.
-
-          What this block prints is a decklist: thirteen short monospace lines.
-          Stretched edge to edge it drew a ~1600x330px card carrying about 200px
-          of text, so five sixths of the widest element on the page was empty
-          background. A decklist is a narrow document, so it is now shaped like
-          one, with the format tabs sharing its measure so the two read as a
-          single panel rather than a band and a strip. */}
-      <div className="mx-auto mt-14 max-w-3xl">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            And writes it back out as
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {EXPORTS.map(entry => {
-              const on = entry.label === format;
-              return (
-                <button
-                  key={entry.label}
-                  type="button"
-                  onClick={() => setFormat(entry.label)}
-                  aria-pressed={on}
-                  className={cn(
-                    'rounded-full px-3.5 py-1.5 text-xs transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                    on
-                      ? 'bg-foreground font-medium text-background'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  {entry.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-2xl bg-card p-4 shadow-xl shadow-black/30 sm:p-5">
-          <Mono
-            text={loading ? '' : emit.render(resolved)}
-            className="max-h-[22rem] min-h-[12rem]"
-          />
-        </div>
-      </div>
     </Section>
   );
 }

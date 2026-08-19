@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import {
   EnhancedUniversalCardSearch,
@@ -53,6 +54,8 @@ const BROWSE_VIEWS: BrowseView[] = [
 ];
 
 export default function Cards() {
+  const [searchParams] = useSearchParams();
+  const navQuery = searchParams.get('q') ?? '';
   const collection = useCollectionStore();
   const { user } = useAuth();
 
@@ -182,7 +185,16 @@ export default function Cards() {
         builder, wishlist add) and passes `mode="pick"`, because there a click
         that navigates abandons whatever the person was in the middle of.
       */}
+      {/* The top bar's search navigates here as /cards?q=..., and this page
+          never read that parameter, so typing a card name in the nav landed on
+          the default browse view and looked like nothing happened. `urlSync`
+          does not cover it: that only keeps the PAGE number in the URL.
+
+          `initialQuery` seeds the search state and re-commits when it changes
+          after mount, so searching again from the nav while already on this
+          page works too rather than only on first arrival. */}
       <EnhancedUniversalCardSearch
+        initialQuery={navQuery}
         onCardAdd={addToCollection}
         onCardWishlist={addToWishlist}
         browseViews={BROWSE_VIEWS}

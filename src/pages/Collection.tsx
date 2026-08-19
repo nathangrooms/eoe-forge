@@ -20,7 +20,6 @@ import { StorageAPI } from '@/lib/api/storageAPI';
 import { useOpenCard } from '@/components/cards';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { DeckAdditionPanel } from '@/components/collection/DeckAdditionPanel';
-import { FavoriteDecksPreview } from '@/components/collection/FavoriteDecksPreview';
 import { CollectionArriving } from '@/components/shopping';
 
 import { StorageTab } from '@/components/storage/StorageTab';
@@ -480,7 +479,6 @@ export default function Collection() {
               />
             ) : (
               <div className="space-y-6">
-                <FavoriteDecksPreview />
 
                 {/* Picking a destination deck for a card already on screen is
                     not a place you travel to — it expands here instead. */}

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Crown, Library, Plus } from 'lucide-react';
+import { Crown, Library, Plus, Star } from 'lucide-react';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { DecksSummaryStats } from '@/components/deck-builder/DecksSummaryStats';
@@ -275,6 +276,19 @@ export default function Decks() {
       action={
         showOnboarding ? null : (
           <div className="flex items-center gap-2">
+            {/* Favourites live here now, as a way of narrowing your decks,
+                rather than as a block on the collection page. */}
+            <Button
+              variant={filters.favoritesOnly ? 'default' : 'secondary'}
+              onClick={() => updateFilters({ favoritesOnly: !filters.favoritesOnly })}
+              aria-pressed={filters.favoritesOnly}
+              title={filters.favoritesOnly ? 'Showing favourites only' : 'Show favourites only'}
+            >
+              <Star
+                className={cn('mr-2 h-4 w-4', filters.favoritesOnly && 'fill-current')}
+              />
+              <span className="hidden sm:inline">Favourites</span>
+            </Button>
             <Button variant="secondary" onClick={() => setShowArchetypes(true)}>
               <Library className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Archetypes</span>

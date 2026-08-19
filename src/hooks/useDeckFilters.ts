@@ -20,6 +20,16 @@ export interface DeckFilters {
   minPower: number;
   maxPower: number;
   searchQuery: string;
+  /**
+   * Show only decks marked favourite.
+   *
+   * Favourites used to be a separate block on the collection page, which is a
+   * page about cards. A favourite is a way of narrowing your decks, so it
+   * belongs here with the other ways of doing that. Owner: "Favourite decks
+   * probably doesn't need to be on the my collection page. makes me think the
+   * my decks page needs a 'show favourites' button though".
+   */
+  favoritesOnly: boolean;
 }
 
 export interface DeckItem {
@@ -29,6 +39,7 @@ export interface DeckItem {
   colors?: string[];
   identity?: string[];
   power?: { score: number; stale: boolean } | null;
+  favorite?: boolean;
 }
 
 export const COLOR_MATCH_LABELS: Record<ColorMatchMode, string> = {
@@ -44,6 +55,7 @@ const initialFilters: DeckFilters = {
   minPower: 1,
   maxPower: 10,
   searchQuery: '',
+  favoritesOnly: false,
 };
 
 /** Colour identity, falling back to the deck's colour list when unset. */
@@ -78,6 +90,8 @@ export const useDeckFilters = <T extends DeckItem>(decks: T[]) => {
 
   const filteredDecks = useMemo(() => {
     return decks.filter(deck => {
+      if (filters.favoritesOnly && !deck.favorite) return false;
+
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
         if (!deck.name.toLowerCase().includes(query)) return false;
@@ -133,6 +147,7 @@ export const useDeckFilters = <T extends DeckItem>(decks: T[]) => {
     filters.format.length +
     filters.colors.length +
     (filters.searchQuery ? 1 : 0) +
+    (filters.favoritesOnly ? 1 : 0) +
     (powerNarrowed ? 1 : 0);
 
   return {

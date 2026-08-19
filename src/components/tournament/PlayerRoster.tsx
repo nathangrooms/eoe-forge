@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Layers, Plus, RotateCcw, UserMinus, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -163,14 +164,29 @@ export function PlayerRoster({
                       <RecordLine standing={view.standing} className="mt-0.5 block" />
                     )}
 
+                    {/* Both halves of this line name something with a page of
+                        its own, and both used to be dead text: the deck name
+                        goes to the deck, the commander to the card. Kept as its
+                        own line rather than swapped for `DeckLine`, because the
+                        format-mismatch warning has to travel with it. */}
                     {registered ? (
                       <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <Layers aria-hidden="true" className="h-3 w-3 shrink-0" />
-                        <span className="truncate font-medium text-foreground">
+                        <Link
+                          to={`/deck/${registered.deckId}`}
+                          title={`Open ${registered.deckName}`}
+                          className="truncate rounded font-medium text-foreground transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                        >
                           {registered.deckName}
-                        </span>
+                        </Link>
                         {registered.commanderName && (
-                          <span className="truncate">· {registered.commanderName}</span>
+                          <Link
+                            to={`/cards/${encodeURIComponent(registered.commanderName)}`}
+                            title={`Open ${registered.commanderName}`}
+                            className="truncate rounded transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                          >
+                            · {registered.commanderName}
+                          </Link>
                         )}
                         {mismatch && (
                           <span

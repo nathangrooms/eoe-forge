@@ -103,7 +103,7 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
         />
       </div>
 
-      <div className="container mx-auto px-4 pt-20 sm:pt-24">
+      <div className="container mx-auto px-4 pt-14 sm:pt-24">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-5xl font-semibold tracking-tight sm:text-7xl lg:text-[5.5rem] lg:leading-[0.94] text-balance">
             Your collection.
@@ -116,12 +116,12 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
               over the thinned wash bottomed out at 3.8:1, this holds 6.2:1 at
               its worst pixel, and it buys the artwork back a layer of ink.
               Figures from the run described above the scrim. */}
-          <p className="mx-auto mt-7 max-w-lg text-lg leading-relaxed text-foreground/80 text-pretty">
+          <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-foreground/80 text-pretty sm:mt-7">
             Track every card you own, right down to the box it is sitting in. Then build
             decks that already know what is on your shelf.
           </p>
 
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:mt-9 sm:flex-row">
             <Button asChild size="lg" className="w-full px-8 text-base sm:w-auto">
               <Link to="/register">
                 Start free
@@ -138,7 +138,7 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
               lightest pixel behind it. At /70 its worst pixel is 4.1:1 — over
               the 3:1 this size clears, and short of the 4.5:1 body-copy bar,
               which is why it is a meta line and not the lead. */}
-          <p className="mt-7 text-sm text-foreground/70">
+          <p className="mt-6 text-sm text-foreground/70 sm:mt-7">
             {countLabel ? `${countLabel} cards` : 'Full card pool'} · synced nightly from Scryfall
           </p>
         </div>
@@ -157,14 +157,32 @@ export function HomeHero({ cardCount }: { cardCount: number | null }) {
           and drops the near bottom corner ~27px below it, and the outermost card
           is additionally translated 42px down. pt-6 / pb-16 clears both, and the
           section's overflow-hidden now only ever clips empty space. */}
+      {/* SEVEN CARDS DO NOT FIT ON A PHONE, AND THE OUTER TWO WERE BEING CUT.
+
+          Seven 128px cards overlapping by 48 is 608px of fan inside a 390px
+          section with `overflow-hidden` on it: measured, the first and last card
+          were sliced vertically by the section edge, so the very first thing a
+          visitor saw on a phone was two cropped cards. That is the complaint the
+          owner has raised more than any other, on the one section that cannot be
+          scrolled past.
+
+          Five cards overlapping by 80 instead of 48 leaves the outermost card
+          box running from 10px to 380px, measured, rotation included. Nothing is
+          clipped.
+          The cards are the same size; there are two fewer of them, and the fan
+          keeps its symmetry because the two that go are the outermost pair.
+          Nothing changes at `sm` and above, where seven already fitted. */}
       <div className="relative mt-4 flex items-end justify-center pb-16 pt-6 sm:pb-20">
           {cards.map((c, i) => {
             const mid = (cards.length - 1) / 2;
             const offset = i - mid;
+            const offPhone = i === 0 || i === cards.length - 1;
             return (
               <figure
                 key={c.id}
-                className="group relative -mx-6 w-32 shrink-0 transition-transform duration-500 hover:z-20 hover:-translate-y-6 motion-reduce:transition-none sm:-mx-8 sm:w-44 lg:-mx-6 lg:w-52"
+                className={`group relative -mx-10 w-32 shrink-0 transition-transform duration-500 hover:z-20 hover:-translate-y-6 motion-reduce:transition-none sm:-mx-8 sm:w-44 lg:-mx-6 lg:w-52 ${
+                  offPhone ? 'hidden sm:block' : ''
+                }`}
                 style={{
                   zIndex: 10 - Math.abs(offset),
                   transform: `rotate(${offset * 5}deg) translateY(${Math.abs(offset) * 14}px)`,

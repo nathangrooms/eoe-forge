@@ -214,12 +214,21 @@ export function HomeMarketplace() {
       <SectionHeading
         eyebrow="Marketplace"
         title="Watch the price before you buy it"
-        lead="DeckMatrix saves the price of every card it tracks, once a day, going back months. So you can see whether a card is climbing or falling instead of only today's number. Put cards up for sale straight from your collection, get told when one hits the price you wanted, and buy without leaving the page."
+        lead={
+          <>
+            DeckMatrix saves the price of every card it tracks, once a day, going back months. So
+            you can see whether a card is climbing or falling instead of only today&rsquo;s number.{' '}
+            <span className="hidden sm:inline">
+              Put cards up for sale straight from your collection, get told when one hits the price
+              you wanted, and buy without leaving the page.
+            </span>
+          </>
+        }
       />
 
-      <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-9 grid gap-5 sm:mt-14 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ---------------------------------------------------- the tracked card */}
-        <div className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-2xl shadow-black/40 sm:p-8">
+        <div className="flex min-w-0 flex-col rounded-2xl bg-card p-5 shadow-2xl shadow-black/40 sm:p-8">
           {noSeries ? (
             /* Nothing to draw, said plainly. Daily capture reached the whole
                catalogue on 19 August 2026, so most cards have one recorded day
@@ -284,7 +293,11 @@ export function HomeMarketplace() {
                   <span>{data ? shortDate(data.to) : ''}</span>
                 </div>
 
-                <dl className="mt-6 grid grid-cols-3 gap-3">
+                {/* Low, high and first-tracked. Desktop only: the chart
+                    directly above draws all three, the big figure beside it is
+                    today's price, and the change badge is the movement. At 390px
+                    these three tiles are the chart written out as numbers. */}
+                <dl className="mt-6 grid grid-cols-3 gap-3 max-sm:hidden">
                   {[
                     { label: 'Low', value: money(hero.low) },
                     { label: 'High', value: money(hero.high) },
@@ -331,7 +344,14 @@ export function HomeMarketplace() {
                 </li>
               ))
             ) : (
-              rest.map(entry => <WatchRow key={entry.card.id} entry={entry} />)
+              /* Two on a phone, four from `sm` up. Each row is a card, a
+                 sparkline and two figures, and the list is a supporting exhibit
+                 beside the tracked card above it rather than the argument. */
+              rest.map((entry, i) => (
+                <div key={entry.card.id} className={cn(i >= 2 && 'hidden sm:block')}>
+                  <WatchRow entry={entry} />
+                </div>
+              ))
             )}
           </ul>
           {noSeries && (
@@ -364,7 +384,7 @@ export function HomeMarketplace() {
         </p>
       )}
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg" variant="outline">
           <Link to="/marketplace">
             Open the marketplace

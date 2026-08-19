@@ -154,7 +154,7 @@ export function HomeScanner() {
           With items-center, a 467px text column sat inside a 944px row, so 240px
           of black was parked above the heading and another 240px below the
           button. */}
-      <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-20">
+      <div className="grid items-start gap-9 sm:gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-20">
         {/* ------------------------------------------------------------ copy */}
         <SectionHeading
           align="left"
@@ -162,7 +162,7 @@ export function HomeScanner() {
           title="Point your phone at a card"
           lead="Hold a card up to the camera and it lands in your collection. No typing, no picking the set, no menus."
         >
-          <ol className="mt-10 space-y-5">
+          <ol className="mt-8 space-y-4 sm:mt-10 sm:space-y-5">
             {STEPS.map((s, i) => (
               <li key={s.title} className="flex gap-4">
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold tabular-nums">
@@ -233,7 +233,7 @@ export function HomeScanner() {
                 </p>
               </div>
 
-          <Button asChild size="lg" className="mt-10">
+          <Button asChild size="lg" className="mt-8 sm:mt-10">
             <Link to="/scan">
               Try the scanner
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -255,7 +255,12 @@ export function HomeScanner() {
             </div>
 
             {/* viewfinder */}
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-black">
+            {/* Square on a phone, 4:5 from `sm` up. The frame is a
+                viewfinder, not a card: the card inside is 68% of the padded box
+                and sits whole in either shape, and a square one is 90px shorter
+                on a screen where this object is already the tallest thing in the
+                section. */}
+            <div className="relative aspect-square overflow-hidden rounded-[1.35rem] bg-black sm:aspect-[4/5]">
               {/* The card lights its own frame — atmosphere from art, not a gradient. */}
               {art && (
                 <img
@@ -299,8 +304,11 @@ export function HomeScanner() {
               </p>
             </div>
 
-            {/* capture controls — a drawn shutter, so hidden from the a11y tree */}
-            <div aria-hidden className="flex items-center justify-center gap-10 py-6">
+            {/* Capture controls, a drawn shutter, so hidden from the a11y tree.
+                Hidden from a phone too: it is 120px of furniture around a button
+                that does not do anything, under a viewfinder that has already
+                said "camera" without help. */}
+            <div aria-hidden className="flex items-center justify-center gap-10 py-6 max-sm:hidden">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/50 text-muted-foreground">
                 <Pause className="h-4 w-4" />
               </span>

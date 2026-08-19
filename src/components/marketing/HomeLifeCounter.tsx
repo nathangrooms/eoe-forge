@@ -241,7 +241,7 @@ function LifeBoards() {
       {/* The table the device is lying on. The screenshot takes the screen's
           own rounding here and drops its shadow, because the bezel around it is
           already doing both. */}
-      <div className="rounded-[2.25rem] bg-muted/40 p-6 shadow-2xl shadow-black/50 sm:p-9">
+      <div className="rounded-[2.25rem] bg-muted/40 p-4 shadow-2xl shadow-black/50 sm:p-9">
         <div className="overflow-hidden rounded-[1.25rem] shadow-2xl shadow-black/60">
           <AppScreenshot
             scene="life-counter"
@@ -273,14 +273,28 @@ export function HomeLifeCounter() {
           column below. Before this the right column ran 944px against 405px of
           text, and items-center split the 539px difference into two slabs of
           black, one above the heading and one below the button. */}
-      <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
+      <div className="grid items-start gap-9 sm:gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
         <SectionHeading
           align="left"
           eyebrow="Life counter"
           title="The phone goes in the middle of the table"
-          lead="Every seat gets its own panel, turned to face whoever is sitting there, so nobody has to read their life total upside down. Tap the top to gain and the bottom to lose. Quick taps add up into one change, so a mis-tap is easy to fix. It counts commander damage, poison, energy and experience too, goes full screen, and stops the phone sleeping."
+          lead={
+            <>
+              Every seat gets its own panel, turned to face whoever is sitting there, so nobody has
+              to read their life total upside down. Tap the top to gain and the bottom to lose.{' '}
+              {/* The chips directly under this lead already name commander
+                  damage, poison, energy, full screen and the screen staying
+                  awake, so on a phone the sentence that lists them again is the
+                  same content twice. */}
+              <span className="hidden sm:inline">
+                Quick taps add up into one change, so a mis-tap is easy to fix. It counts commander
+                damage, poison, energy and experience too, goes full screen, and stops the phone
+                sleeping.
+              </span>
+            </>
+          }
         >
-          <div className="mt-8 flex flex-wrap gap-2">
+          <div className="mt-7 flex flex-wrap gap-2 sm:mt-8">
             {FEATURES.map(f => (
               <span
                 key={f}
@@ -291,7 +305,7 @@ export function HomeLifeCounter() {
             ))}
           </div>
 
-          <Button asChild size="lg" className="mt-8">
+          <Button asChild size="lg" className="mt-7 sm:mt-8">
             <Link to="/life">
               Start a pod
               <ArrowRight className="ml-2 h-4 w-4" />

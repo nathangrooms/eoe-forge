@@ -57,6 +57,17 @@ const QUERIES: { q: string; note: string }[] = [
  */
 const SHOWN = 6;
 
+/**
+ * How many of those a phone draws.
+ *
+ * Six is one row at the widest breakpoint and THREE rows at 390px, because the
+ * grid is two columns there. A phone reader sees one card at a time whatever
+ * the count is, so the third row is 280px spent repeating the evidence of the
+ * first. The cards themselves are untouched; the caption underneath counts what
+ * is on screen either way, because it reads `current.cards.length`.
+ */
+const SHOWN_ON_PHONE = 4;
+
 interface ScryfallCard {
   id: string;
   name: string;
@@ -180,11 +191,18 @@ export function HomeSearch() {
 
       <SectionHeading
         title="Search it the way you search Scryfall"
-        lead="If you know how to search on Scryfall, you already know how to search here. The same search terms all work: colour identity, mana value, rules text, what is legal where, power and toughness. Pick one below and watch it run."
+        lead={
+          <>
+            If you know how to search on Scryfall, you already know how to search here. The same
+            search terms all work: colour identity, mana value, rules text, what is legal where,
+            power and toughness.{' '}
+            <span className="hidden sm:inline">Pick one below and watch it run.</span>
+          </>
+        }
       />
 
       {/* --------------------------------------------------------- the queries */}
-      <div className="mt-12 flex flex-wrap justify-center gap-2">
+      <div className="mt-8 flex flex-wrap justify-center gap-2 sm:mt-12">
         {QUERIES.map(entry => {
           const on = entry.q === active;
           return (
@@ -194,7 +212,8 @@ export function HomeSearch() {
               onClick={() => setActive(entry.q)}
               aria-pressed={on}
               className={cn(
-                'rounded-full px-4 py-2 text-xs transition-colors sm:text-sm',
+                /* 44px tall on a phone. Unchanged from `sm` up. */
+                'rounded-full px-4 py-3.5 text-xs transition-colors sm:py-2 sm:text-sm',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 on
                   ? 'bg-foreground font-medium text-background'
@@ -208,7 +227,7 @@ export function HomeSearch() {
       </div>
 
       {/* ------------------------------------------------------- the search bar */}
-      <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-card px-5 py-4 shadow-lg shadow-black/20 sm:px-6">
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-card px-5 py-4 shadow-lg shadow-black/20 sm:mt-8 sm:px-6">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <code className="min-w-0 flex-1 break-words font-mono text-sm text-foreground sm:text-base">
           {active}
@@ -231,20 +250,29 @@ export function HomeSearch() {
 
       {/* ------------------------------------------------------------ the cards */}
       {(loading || current) && (
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:mt-10 sm:grid-cols-3 lg:grid-cols-6">
           {loading
             ? Array.from({ length: SHOWN }).map((_, i) => (
-                <div key={i}>
+                <div key={i} className={cn(i >= SHOWN_ON_PHONE && 'hidden sm:block')}>
                   <CardImageSkeleton size="md" fill />
                 </div>
               ))
-            : current!.cards.map(card => <ResultCard key={card.id} card={card} />)}
+            : current!.cards.map((card, i) => (
+                <div key={card.id} className={cn(i >= SHOWN_ON_PHONE && 'hidden sm:block')}>
+                  <ResultCard card={card} />
+                </div>
+              ))}
         </div>
       )}
 
       {current && (
-        <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground">
-          The first {current.cards.length} of {current.total.toLocaleString()} results for{' '}
+        <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground sm:mt-8">
+          {/* Counts what is drawn, not what was asked for, so it is true at both
+              counts: the phone hides the last two and says so. */}
+          The first{' '}
+          <span className="sm:hidden">{Math.min(SHOWN_ON_PHONE, current.cards.length)}</span>
+          <span className="hidden sm:inline">{current.cards.length}</span> of{' '}
+          {current.total.toLocaleString()} results for{' '}
           <span className="font-mono text-foreground/80">{active}</span>, {note.toLowerCase()}, in the
           order Scryfall ranks them by how often people play them. This ran for real when the page
           loaded, on the same search the card browser uses.
@@ -258,7 +286,7 @@ export function HomeSearch() {
           tried. Publishing that would be advertising the bug. Put the picture in
           once the rail has a gutter: see docs/overhaul/APP-SCREENSHOTS.md §7. */}
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg" variant="outline">
           <Link to="/cards">
             Try a search

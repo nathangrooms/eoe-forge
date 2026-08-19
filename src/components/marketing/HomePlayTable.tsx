@@ -41,10 +41,22 @@ export function HomePlayTable() {
       <SectionHeading
         eyebrow="Play"
         title="Play a real game, in the browser"
-        lead="Play one of your own decks against the computer. Cards sit in rows the way they do on a real table, lands in their own row underneath, and tapped means turned sideways. Swap between the table, your hand and a combat view for picking attackers and blockers. Any part of the turn with nothing to decide is done for you."
+        lead={
+          <>
+            Play one of your own decks against the computer. Cards sit in rows the way they do on a
+            real table, lands in their own row underneath, and tapped means turned sideways.{' '}
+            {/* The three tiles under the picture already name the table, the
+                hand and the combat view, so on a phone that sentence is the
+                caption of a figure that has not appeared yet. */}
+            <span className="hidden sm:inline">
+              Swap between the table, your hand and a combat view for picking attackers and
+              blockers. Any part of the turn with nothing to decide is done for you.
+            </span>
+          </>
+        }
       />
 
-      <div className="mt-14">
+      <div className="mt-9 sm:mt-14">
         <AppScreenshot
           scene="play-table"
           alt="A game of Commander part-way through: creatures and lands on both battlefields, the commander in its own zone, and a hand of cards along the bottom edge"
@@ -52,7 +64,7 @@ export function HomePlayTable() {
         />
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-3 sm:mt-8 sm:grid-cols-3 sm:gap-4">
         {VIEWS.map(v => (
           <div key={v.id} className="rounded-xl bg-muted/30 px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-medium">
@@ -64,7 +76,7 @@ export function HomePlayTable() {
         ))}
       </div>
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg">
           <Link to="/play">
             Sit down at the table

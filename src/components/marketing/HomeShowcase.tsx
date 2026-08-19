@@ -28,6 +28,15 @@ import { cn } from '@/lib/utils';
 /** Secret Lair and promo sets — real Magic cards, but not the face of the game. */
 const NOVELTY_SETS = new Set(['sld', 'slu', 'slp', 'slc', 'slx', 'sch', 'pmei']);
 
+/**
+ * Catalogue rows drawn on a phone.
+ *
+ * Four rows is four rows at any width, and each is a 68px card beside two lines
+ * of type. Three of them make the point (real name, real printing, real price,
+ * none of it retyped) at 390px; the fourth is the same evidence again.
+ */
+const ROWS_ON_PHONE = 3;
+
 interface ShowcaseCard {
   id: string;
   name: string;
@@ -200,12 +209,21 @@ export function HomeShowcase() {
       <SectionInner>
         <SectionHeading
           title="Real cards. Real costs. Real prices."
-          lead="Every card below is a real row out of the card table, refreshed with the catalogue every night. It is the same card data the deck builder, your collection and the marketplace all run on."
+          lead={
+            <>
+              Every card below is a real row out of the card table, refreshed with the catalogue
+              every night.{' '}
+              <span className="hidden sm:inline">
+                It is the same card data the deck builder, your collection and the marketplace all
+                run on.
+              </span>
+            </>
+          }
         />
       </SectionInner>
 
       {/* full-bleed marquee of WHOLE cards */}
-      <div className="mt-14">
+      <div className="mt-8 sm:mt-14">
         {loading ? (
           <SectionInner containerClassName="flex gap-4 overflow-hidden">
             {Array.from({ length: 7 }).map((_, i) => (
@@ -219,7 +237,7 @@ export function HomeShowcase() {
         )}
       </div>
 
-      <SectionInner className="mt-16">
+      <SectionInner className="mt-9 sm:mt-16">
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel
             className="lg:col-span-2"
@@ -236,16 +254,38 @@ export function HomeShowcase() {
             <div className="rounded-xl bg-muted/30 p-1.5">
               {loading
                 ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-4 px-3 py-2">
+                    <div
+                      key={i}
+                      className={cn(
+                        'flex items-center gap-4 px-3 py-2',
+                        i >= ROWS_ON_PHONE && 'hidden sm:flex'
+                      )}
+                    >
                       <Skeleton className="h-[4.2rem] w-12 shrink-0 rounded" />
                       <Skeleton className="h-4 flex-1" />
                     </div>
                   ))
-                : list.slice(0, 4).map(c => <CatalogueRow key={c.id} card={c} />)}
+                : list.slice(0, 4).map((c, i) => (
+                    <div key={c.id} className={cn(i >= ROWS_ON_PHONE && 'hidden sm:block')}>
+                      <CatalogueRow card={c} />
+                    </div>
+                  ))}
             </div>
           </Panel>
 
+          {/* Desktop only, and this is the one place on the page a whole
+              figure is dropped on a phone rather than shrunk.
+
+              It is the third curve on the page: this one, the one in the deck
+              builder photograph two sections below, and Tutor's. Beside the
+              catalogue rows on a desktop it costs nothing, because it fills a
+              column that would otherwise be empty. Stacked at 390px it is a
+              ~370px block whose whole content is "twelve cards, average mana
+              value 3.4" about twelve cards that are not a deck. The sentence it
+              is making, that the builder does this sum on your own list, is
+              made properly by the builder photograph directly underneath. */}
           <Panel
+            className="max-sm:hidden"
             title="See the curve"
             body="Worked out from the real mana costs of the cards above. The deck builder does the same sum on your own deck."
           >
@@ -257,7 +297,7 @@ export function HomeShowcase() {
           </Panel>
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-8 text-center sm:mt-10">
           <Button asChild size="lg">
             <Link to="/register">
               Start building

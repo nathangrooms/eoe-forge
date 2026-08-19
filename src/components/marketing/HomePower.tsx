@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardImage } from '@/components/cards/CardImage';
-import { Section, SectionHeading } from '@/components/marketing/Section';
+import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
 import {
   loadCardsByName,
   useDeferred,
@@ -89,6 +89,15 @@ const SUBSCORES = SUBSCORE_ORDER.map(key => ({
  * stale the next time the model is retuned.
  */
 const HEAVIEST_WEIGHT = Math.max(...SUBSCORES.map(s => s.weight));
+
+/**
+ * How many of the ten subscore rows a phone shows before it offers the rest.
+ *
+ * Three, because three is enough to establish that the score is a weighted sum
+ * of named, ordinary things rather than a verdict, and the heaviest three carry
+ * over half the weight between them.
+ */
+const WEIGHTS_ON_PHONE = 3;
 
 const BANDS = ['Casual', 'Mid', 'High', 'cEDH'];
 
@@ -186,11 +195,18 @@ function ClassPanel({
   );
 }
 
+/** How many of a panel's cards a phone draws. Six is two rows there, one here. */
+const WALL_ON_PHONE = 3;
+
 function CardWall({ cards }: { cards: MarketingCard[] }) {
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-      {cards.map(card => (
-        <figure key={card.id} className="group min-w-0">
+      {cards.map((card, i) => (
+        /* Fewer cards, not smaller ones. Six cards is two rows of three at
+           390px and one row of six from `sm` up, so the phone pays double for a
+           point the first row has already made. The cards that stay are the
+           same size they always were. */
+        <figure key={card.id} className={cn('group min-w-0', i >= WALL_ON_PHONE && 'hidden sm:block')}>
           <CardImage
             card={card}
             size="sm"
@@ -266,15 +282,44 @@ export function HomePower() {
       <SectionHeading
         eyebrow="Power level"
         title="A power level you can argue with"
-        lead="Find out if your deck is too strong for your group, before you sit down. Ten things get measured and all ten are shown below, so you can see why the number came out the way it did. The same deck always gets the same score."
+        lead={
+          <>
+            Find out if your deck is too strong for your group, before you sit down. Ten things get
+            measured and you can see every one of them, so you can see why the number came out the
+            way it did.{' '}
+            <span className="hidden sm:inline">The same deck always gets the same score.</span>
+          </>
+        }
       />
 
-      {/* ------------------------------------------------------- the weights */}
-      <div className="mt-14 grid gap-x-10 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
-        {SUBSCORES.map(entry => (
+      {/* ------------------------------------------------------- the weights
+
+          Three of the ten on a phone, then a control for the rest.
+
+          The ten rows are three columns and about one screen on a desktop. On a
+          390px phone they are ten rows one under another, roughly 1,150px, and
+          the four panels of cards below them another 1,600px: this was a five
+          screen section on a phone against two on a desktop. The argument on a
+          phone is "here is the score and here is why"; the full table and the
+          card catalogue behind it are what you open when you want to check it.
+          Nothing is removed and nothing moves above `sm`. */}
+      <div className="mt-9 grid gap-x-10 gap-y-7 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
+        {SUBSCORES.slice(0, WEIGHTS_ON_PHONE).map(entry => (
           <WeightRow key={entry.label} {...entry} />
         ))}
       </div>
+
+      <MobileReveal
+        label={`See the other ${SUBSCORES.length - WEIGHTS_ON_PHONE}, and the cards it watches for`}
+      >
+        {/* The remaining rows continue the same grid: `mt-7` is the same 28px
+            the grid's own `gap-y-7` puts between rows, so at `sm` and above the
+            ten rows land exactly where one grid of ten put them. */}
+        <div className="mt-7 grid gap-x-10 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+          {SUBSCORES.slice(WEIGHTS_ON_PHONE).map(entry => (
+            <WeightRow key={entry.label} {...entry} />
+          ))}
+        </div>
 
       {/* -------------------------------------------------- the game changers
 
@@ -283,7 +328,7 @@ export function HomePower() {
           section, so two lines of text sat next to ~800px of empty background:
           the same ragged void the storage section had, in miniature. Every
           other sub-heading on the page is centred; this was the odd one out. */}
-      <div className="mt-12">
+      <div className="mt-10 sm:mt-12">
         <div className="mx-auto max-w-3xl text-center">
           <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             And the cards it watches for
@@ -294,7 +339,7 @@ export function HomePower() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+        <div className="mt-8 grid gap-5 sm:mt-10 lg:grid-cols-2">
           <ClassPanel
             title="Two cards that end the game"
             body="These count as a pair, not as two good cards on their own. Each half is useless without the other."
@@ -302,8 +347,13 @@ export function HomePower() {
           >
             {combos.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {combos.map(pair => (
-                  <ComboPair key={pair.a.id} a={pair.a} b={pair.b} />
+                {combos.map((pair, i) => (
+                  /* One pair on a phone. Three pairs is six cards stacked
+                     vertically there, and the second and third say exactly what
+                     the first one says. */
+                  <div key={pair.a.id} className={cn(i >= 1 && 'hidden sm:block')}>
+                    <ComboPair a={pair.a} b={pair.b} />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -337,8 +387,10 @@ export function HomePower() {
         </div>
       </div>
 
+      </MobileReveal>
+
       {/* --------------------------------------------------------- the bands */}
-      <div className="mt-14 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-10 flex flex-wrap items-center justify-center gap-3 sm:mt-14">
         {BANDS.map((band, i) => (
           <span
             key={band}
@@ -355,11 +407,16 @@ export function HomePower() {
       </div>
 
       <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        These are the numbers and the bands the score really uses, and the cards above are the real
-        list it checks your deck against.
+        These are the numbers and the bands the score really uses
+        {/* True only once the cards are on screen, and on a phone they are
+            behind the control above until somebody opens it. */}
+        <span className="hidden sm:inline">
+          , and the cards above are the real list it checks your deck against
+        </span>
+        .
       </p>
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg" variant="outline">
           <Link to="/decks">
             Score a deck

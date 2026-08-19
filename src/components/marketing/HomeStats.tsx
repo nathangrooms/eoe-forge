@@ -122,7 +122,7 @@ export function HomeCatalogue() {
 
   return (
     <Section tint size="compact">
-      <div className="grid gap-8 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-3 sm:gap-8">
         {tiles.map(t => {
           /* Rounded down, with a "+". The count was exact last night and the
              catalogue has grown since, so the unit digit is a precision this

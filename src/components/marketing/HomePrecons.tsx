@@ -7,6 +7,18 @@ import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { preconCommanders } from '@/lib/homepage/snapshot';
 import { Section, SectionInner, SectionHeading } from '@/components/marketing/Section';
 import { PRECON_INDEX, type PreconIndexEntry } from '@/data/precon-index';
+import { cn } from '@/lib/utils';
+
+/**
+ * How many of the four featured precons a phone draws.
+ *
+ * Four is one row of four at `lg` and two rows of two at 390px, each row a
+ * ~230px commander card plus four lines of product detail: ~690px to say
+ * something the first row has already said. Two, at the same card size, still
+ * shows that a precon here is a real product with a real commander, a real set
+ * and a real list, and the control underneath is what carries the other 182.
+ */
+const FEATURED_ON_PHONE = 2;
 
 /**
  * Precons.
@@ -124,16 +136,16 @@ export function HomePrecons() {
           }
         />
 
-        <div className="mt-16 grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
+        <div className="mt-9 grid grid-cols-2 gap-x-6 gap-y-10 sm:mt-16 lg:grid-cols-4">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={i}>
+                <div key={i} className={cn(i >= FEATURED_ON_PHONE && 'hidden sm:block')}>
                   <CardImageSkeleton size="lg" fill />
                   <Skeleton className="mt-4 h-4 w-4/5" />
                   <Skeleton className="mt-2 h-3 w-1/2" />
                 </div>
               ))
-            : FEATURED.map(precon => {
+            : FEATURED.map((precon, i) => {
                 const lead = precon.commanders[0];
                 const card = byId?.get(lead.scryfallId);
                 const partners = precon.commanders.length - 1;
@@ -142,7 +154,10 @@ export function HomePrecons() {
                   <Link
                     key={precon.id}
                     to="/precons"
-                    className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                    className={cn(
+                      'group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background',
+                      i >= FEATURED_ON_PHONE && 'hidden sm:block'
+                    )}
                   >
                     {/* The whole card. Never a crop — this card IS the deck. */}
                     <CardImage
@@ -176,7 +191,7 @@ export function HomePrecons() {
               })}
         </div>
 
-        <div className="mt-16 text-center">
+        <div className="mt-9 text-center sm:mt-16">
           <Button asChild size="lg" variant="outline">
             <Link to="/precons">
               Browse all {PRECON_COUNT} precons

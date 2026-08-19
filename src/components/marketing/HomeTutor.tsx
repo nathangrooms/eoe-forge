@@ -46,6 +46,8 @@ const PRECON_ID = 'Draconic Domination (Commander 2017 Precon Decklist)';
 const GRID_SIZE = 12;
 /** How many of those the answer names. */
 const NAMED = 3;
+/** How many of the wall a phone draws. The three named all sit inside this. */
+const TOP_ON_PHONE = 4;
 
 /**
  * The six one-tap prompts Tutor ships with when a deck is selected, copied
@@ -262,10 +264,10 @@ export function HomeTutor() {
 
       <div
         ref={wrapRef}
-        className="mt-14 grid gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:gap-8"
+        className="mt-9 grid gap-5 sm:mt-14 sm:gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:gap-8"
       >
         {/* -------------------------------------------------------- the deck */}
-        <div className="rounded-3xl bg-background p-6 shadow-2xl shadow-black/30 sm:p-7">
+        <div className="rounded-3xl bg-background p-5 shadow-2xl shadow-black/30 sm:p-7">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h3 className="text-xl font-semibold tracking-tight">
               {index?.name ?? 'Draconic Domination'}
@@ -290,8 +292,17 @@ export function HomeTutor() {
             </div>
 
             <div className="min-w-0 flex-1">
+              {/* THE FIGURES AND THE ANSWER SAY THE SAME THING.
+
+                  The eight tiles and the curve under them are the deck counted;
+                  the answer's opening paragraph on the right is the deck counted
+                  in words, down to the same eight numbers. Side by side on a
+                  desktop that is a figure and its caption. Stacked on a 390px
+                  phone it is ~430px of the page saying a thing and then saying
+                  it again, so the phone keeps the sentence, which is the one
+                  that shows the product answering a question. */}
               {stats ? (
-                <div className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-5 gap-y-5 max-sm:hidden sm:grid-cols-4">
                   <Stat value={String(stats.total)} label="Cards" />
                   <Stat value={String(stats.lands)} label="Lands" />
                   <Stat value={String(stats.creatures)} label="Creatures" />
@@ -302,7 +313,7 @@ export function HomeTutor() {
                   <Stat value={String(stats.instants)} label="Instants" />
                 </div>
               ) : failed ? null : (
-                <div className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-5 gap-y-5 max-sm:hidden sm:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i}>
                       <Skeleton className="h-7 w-12" />
@@ -313,7 +324,7 @@ export function HomeTutor() {
               )}
 
               {stats ? (
-                <div className="mt-7">
+                <div className="mt-7 max-sm:hidden">
                   <Curve curve={stats.curve} avgMv={stats.avgMv} />
                 </div>
               ) : failed ? (
@@ -322,7 +333,7 @@ export function HomeTutor() {
                   Tutor is handed when you ask it something.
                 </p>
               ) : (
-                <Skeleton className="mt-7 h-32 w-full rounded-lg" />
+                <Skeleton className="mt-7 h-32 w-full rounded-lg max-sm:hidden" />
               )}
             </div>
           </div>
@@ -330,9 +341,15 @@ export function HomeTutor() {
           {/* The whole card wall is dropped rather than left as permanent
               skeletons if the decklist never arrives. */}
           {!failed && (
-            <p className="mt-8 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <p className="mt-6 text-[11px] uppercase tracking-wider text-muted-foreground sm:mt-8">
               {stats
-                ? `Top of the curve: the ${GRID_SIZE} heaviest of ${stats.nonland} nonland cards`
+                ? // Counts what is drawn, which is four of them on a phone.
+                  <>
+                    Top of the curve: the{' '}
+                    <span className="sm:hidden">{TOP_ON_PHONE}</span>
+                    <span className="hidden sm:inline">{GRID_SIZE}</span> heaviest of{' '}
+                    {stats.nonland} nonland cards
+                  </>
                 : 'Top of the curve'}
             </p>
           )}
@@ -340,7 +357,15 @@ export function HomeTutor() {
           <div className={cn('mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6', failed && 'hidden')}>
             {stats
               ? stats.top.map((e, i) => (
-                  <figure key={e.scryfall_id} className="relative">
+                  /* Four of the twelve on a phone, at the same size. Twelve is
+                     two rows of six on a desktop and three rows of four at
+                     390px, and the three the answer names are all in the first
+                     four. The caption above deliberately stopped naming a
+                     number so that it is true of both. */
+                  <figure
+                    key={e.scryfall_id}
+                    className={cn('relative', i >= TOP_ON_PHONE && 'hidden sm:block')}
+                  >
                     <CardImage card={displayCard(e)} fill title={`${e.card_name}, mana value ${e.mv}`} />
                     {/* Bottom-left: the top of the card carries its name and cost. */}
                     <figcaption
@@ -360,7 +385,7 @@ export function HomeTutor() {
         </div>
 
         {/* ---------------------------------------------------- the question */}
-        <div className="flex flex-col rounded-3xl bg-background p-6 shadow-2xl shadow-black/30 sm:p-7">
+        <div className="flex flex-col rounded-3xl bg-background p-5 shadow-2xl shadow-black/30 sm:p-7">
           {/* Wraps rather than truncates: a `truncate` flex child has no
               automatic minimum of zero, so on a 390 px screen it dragged this
               panel — and the deck panel sharing its grid column — 77 px wider
@@ -385,13 +410,22 @@ export function HomeTutor() {
                     I read all {stats.total} cards first.{' '}
                     <span className="tabular-nums">{stats.lands}</span> lands,{' '}
                     <span className="tabular-nums">{stats.nonland}</span> spells, average mana value{' '}
-                    <span className="tabular-nums">{stats.avgMv.toFixed(2)}</span>. Those spells are{' '}
-                    <span className="tabular-nums">{stats.creatures}</span> creatures,{' '}
-                    <span className="tabular-nums">{stats.dragons}</span> of them Dragons,{' '}
-                    <span className="tabular-nums">{stats.artifacts}</span> artifacts,{' '}
-                    <span className="tabular-nums">{stats.enchantments}</span> enchantments,{' '}
-                    <span className="tabular-nums">{stats.sorceries}</span> sorceries and{' '}
-                    <span className="tabular-nums">{stats.instants}</span> instants.
+                    <span className="tabular-nums">{stats.avgMv.toFixed(2)}</span>.{' '}
+                    {/* The full type breakdown, dropped on a phone along with
+                        the eight tiles that say the same thing on the left.
+                        They are six numbers the rest of the answer never uses,
+                        and the sentence that survives is the one that carries
+                        the argument: it read the whole list before answering.
+                        Kept whole from `sm` up, where the tiles are beside it
+                        and the two agree. */}
+                    <span className="max-sm:hidden">
+                      Those spells are <span className="tabular-nums">{stats.creatures}</span>{' '}
+                      creatures, <span className="tabular-nums">{stats.dragons}</span> of them
+                      Dragons, <span className="tabular-nums">{stats.artifacts}</span> artifacts,{' '}
+                      <span className="tabular-nums">{stats.enchantments}</span> enchantments,{' '}
+                      <span className="tabular-nums">{stats.sorceries}</span> sorceries and{' '}
+                      <span className="tabular-nums">{stats.instants}</span> instants.
+                    </span>
                   </p>
                   <p>
                     You are asking to cut <em>toward</em> something that is not in the list:{' '}
@@ -429,14 +463,27 @@ export function HomeTutor() {
 
           <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
             {stats
-              ? `Every number above is counted from the ${stats.total} cards on the left, and the three it names carry a white badge in that grid. In the app your own deck is attached to the question before Tutor answers it.`
+              ? <>
+                  Every number above is counted from the {stats.total} cards{' '}
+                  {/* The deck is beside this on a desktop and above it on a
+                      phone, so the direction has to follow the layout. */}
+                  <span className="sm:hidden">shown above</span>
+                  <span className="hidden sm:inline">on the left</span>, and the three it names
+                  carry a white badge in that grid. In the app your own deck is attached to the
+                  question before Tutor answers it.
+                </>
               : 'In the app your decklist is attached to the question before Tutor answers it.'}
           </p>
 
           {/* Composer group sits on the floor of the panel — the space above it
               is the empty conversation area every chat UI has, rather than a
               hole punched between two blocks. */}
-          <div className="mt-auto pt-9">
+          {/* Desktop only. These six chips are the prompts Tutor ships with,
+              and they are furniture around the answer rather than part of it:
+              on a desktop they fill the floor of a panel that would otherwise
+              have a hole in it, and at 390px there is no hole and they are
+              ~110px of pills between the answer and the way in. */}
+          <div className="mt-auto pt-7 max-sm:hidden sm:pt-9">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Also one tap away
             </p>
@@ -452,16 +499,19 @@ export function HomeTutor() {
             </div>
           </div>
 
-          <div className="mt-9">
+          <div className="mt-7 sm:mt-9">
+            {/* The drawn composer. Desktop only: it is a picture of the box
+                you type into, and the real control is the button directly under
+                it, so on a phone it is a second way in stacked on the first. */}
             <Link
               to="/tutor"
-              className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+              className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground max-sm:hidden"
             >
               <span className="min-w-0 flex-1 truncate">Ask about your own deck</span>
               <SendHorizontal className="h-4 w-4 shrink-0" />
             </Link>
 
-            <Button asChild size="lg" variant="outline" className="mt-4 w-full">
+            <Button asChild size="lg" variant="outline" className="w-full sm:mt-4">
               <Link to="/tutor">
                 Open Tutor
                 <ArrowRight className="ml-2 h-4 w-4" />

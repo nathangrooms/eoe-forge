@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ManaPip } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { storageFiled, storagePalette } from '@/lib/homepage/snapshot';
-import { Section, SectionHeading } from '@/components/marketing/Section';
+import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
 import { DEFAULT_STORAGE_TEMPLATES, getTemplateById } from '@/lib/storageTemplates';
 import { cn } from '@/lib/utils';
 
@@ -108,7 +108,21 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
        as the deckbox, no need for it to be this large". The nine pockets still
        work at 400px because the point of the figure is the SHAPE of a binder
        page holding real cards, not reading the rules text on them. */
-    <figure className="relative w-full flex-[1_1_0%] max-w-[320px] xl:max-w-[360px]">
+    /* No width cap on a phone. The cap exists because a binder inside a
+       col-span-8 of a 1600px section drew 290px pockets and stopped reading as a
+       binder; at 390px the opposite happens, and capped at 320 in a shared row
+       the pockets fell to 45px, which is a third of the smallest card anywhere
+       else on the page. Full width there, and the deck box beside it moves down
+       into the control below rather than halving this. */
+    <figure className="relative w-full flex-[1_1_0%] max-w-none sm:max-w-[320px] xl:max-w-[360px]">
+      {/* The tabs and the cover, in their own box.
+
+          This wrapper is the fix for a real overlap: the tabs were absolutely
+          positioned against the whole <figure>, which includes the caption, so
+          `inset-y-8` stretched them down over the caption text and at 390px they
+          were drawn straight through it. They belong to the cover. Absolutely
+          positioned children take no space, so no layout moves at any width. */}
+      <div className="relative">
       {/* Page tabs — one per real template slot, so the binder has as many
           pages as the template declares. */}
       <div className="absolute inset-y-8 -right-1.5 z-0 flex flex-col justify-between sm:-right-2.5">
@@ -154,6 +168,7 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
             ))}
           </div>
         </div>
+      </div>
       </div>
 
       <figcaption className="mt-4">
@@ -472,15 +487,24 @@ export function HomeStorage() {
        they used to share. The text does not sprawl when it goes full width:
        SectionHeading caps its measure at max-w-3xl either way. */
     <Section>
-      <div className="grid items-start gap-12 lg:grid-cols-12 lg:gap-14">
+      <div className="grid items-start gap-8 sm:gap-12 lg:grid-cols-12 lg:gap-14">
         <div className="min-w-0 lg:col-span-4">
           <SectionHeading
             align="left"
             eyebrow="Nobody else does this"
             title="Know which box it is in"
-            lead="Other deck sites know what you own. None of them know where you put it. Tell DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the divider, and finding it takes seconds instead of an afternoon."
+            lead={
+              <>
+                Other deck sites know what you own. None of them know where you put it. Tell
+                DeckMatrix which binder, deck box or bulk box a card is in, down to the page and the
+                divider.{' '}
+                <span className="hidden sm:inline">
+                  Then finding it takes seconds instead of an afternoon.
+                </span>
+              </>
+            }
           >
-            <Button asChild size="lg" className="mt-8">
+            <Button asChild size="lg" className="mt-7 sm:mt-8">
               <Link to="/register">
                 Map your collection
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -489,7 +513,7 @@ export function HomeStorage() {
 
             {/* Not decoration: these are the box types the product actually
                 ships, read straight from the constant. */}
-            <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-7 text-sm leading-relaxed text-muted-foreground sm:mt-8">
               Five kinds of box come ready to use: {DEFAULT_STORAGE_TEMPLATES.map(t => t.name).join(', ')}.
               Every card you put away gets a place in one of them. The cards shown here are real
               printings from the card list. Yours would hold your own.
@@ -499,17 +523,40 @@ export function HomeStorage() {
 
         <div className="flex min-w-0 flex-wrap items-start justify-center gap-8 lg:flex-nowrap lg:col-span-8 lg:justify-end">
           <BinderPage cards={filed} />
-          <DeckBox commander={commander} />
+          {/* The deck box joins the other boxes in the control below on a
+              phone. Two objects sharing a 390px row gave each one 163px, which
+              made the binder's pockets 45px cards and stood a deck box next to
+              them that is mostly a wall of card edges. One object at full
+              width, and the rest a tap away. */}
+          <div className="contents max-sm:hidden">
+            <DeckBox commander={commander} />
+          </div>
         </div>
       </div>
 
-      <div className="mt-14">
-        <LongBox cards={filed} />
-      </div>
+      {/* The other three boxes, behind a control on a phone.
 
-      <div className="mt-12">
-        <ColourBoxes cards={palette} />
-      </div>
+          There are five kinds of box and the binder and the deck box above are
+          the two that read at 390px. The long box does not: its twenty-six
+          A-Z dividers are a 1,800px-wide object drawn inside a 310px column, so
+          a phone sees about four letters of it and the rest is masked off. The
+          six colour boxes do read, but they are three stacked rows there, ~450px
+          to make a point the sentence beside the heading already makes. Both are
+          a tap away and neither is cut down: opened, they are the same figures
+          at the same size. Nothing changes at `sm` and above. */}
+      <MobileReveal label="See the other four kinds of box">
+        <div className="mt-9 sm:hidden">
+          <DeckBox commander={commander} />
+        </div>
+
+        <div className="mt-9 sm:mt-14">
+          <LongBox cards={filed} />
+        </div>
+
+        <div className="mt-9 sm:mt-12">
+          <ColourBoxes cards={palette} />
+        </div>
+      </MobileReveal>
     </Section>
   );
 }

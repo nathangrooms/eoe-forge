@@ -76,7 +76,7 @@ export function FAQSection() {
           bordered chip breaks design law 2, and the line said nothing the
           heading had not already said. */}
       <motion.div
-        className="mb-16"
+        className="mb-9 sm:mb-16"
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
@@ -90,7 +90,7 @@ export function FAQSection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
       >
-        <Card className="border-0 bg-card/50 p-6 backdrop-blur-sm md:p-8">
+        <Card className="border-0 bg-card/50 p-4 backdrop-blur-sm sm:p-6 md:p-8">
           <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
               <AccordionItem key={index} value={`item-${index}`} className="border-b-0">
@@ -108,7 +108,7 @@ export function FAQSection() {
 
       {/* Contact CTA */}
       <motion.div
-        className="text-center mt-12"
+        className="text-center mt-9 sm:mt-12"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, amount: 0, margin: '0px 0px -10% 0px' }}
@@ -116,7 +116,10 @@ export function FAQSection() {
         <p className="text-muted-foreground mb-4">
           Still have questions?
         </p>
-        <a href="mailto:support@deckmatrix.com" className="text-primary hover:underline font-medium">
+        <a
+          href="mailto:support@deckmatrix.com"
+          className="inline-block py-2.5 font-medium text-primary hover:underline sm:py-0"
+        >
           Contact our support team →
         </a>
       </motion.div>

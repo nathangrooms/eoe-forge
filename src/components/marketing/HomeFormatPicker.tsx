@@ -93,6 +93,16 @@ interface Slot {
  * section used to draw while its query was in flight. It states the roles,
  * which is true of every format, and claims no cards, which is what we have.
  */
+/**
+ * How many of the six deck slots a phone draws.
+ *
+ * Six whole cards is one row at `lg` and three rows of ~230px cards at 390px.
+ * Four is two rows, the cards are the size they always were, and the four roles
+ * that survive are the ones every list in every format has: a commander (or the
+ * format's headline card), ramp, removal and card draw.
+ */
+const SLOTS_ON_PHONE = 4;
+
 const PLACEHOLDER_SLOTS: { role: string }[] = [
   { role: 'Commander' }, { role: 'Ramp' }, { role: 'Removal' },
   { role: 'Card draw' }, { role: 'Tutor' }, { role: 'Finisher' },
@@ -121,11 +131,19 @@ export function HomeFormatPicker() {
       <SectionHeading
         eyebrow="Pick your format"
         title={`What can you build in ${format.label}?`}
-        lead="What is legal comes from the cards themselves, not from a list someone updates by hand, so a new ban shows up here as soon as the cards update overnight. Pick a format and the cards below change with it."
+        lead={
+          <>
+            What is legal comes from the cards themselves, not from a list someone updates by hand,
+            so a new ban shows up here as soon as the cards update overnight.{' '}
+            <span className="hidden sm:inline">
+              Pick a format and the cards below change with it.
+            </span>
+          </>
+        }
       />
 
       {/* Format tabs */}
-      <div className="mt-12 flex flex-wrap justify-center gap-2">
+      <div className="mt-8 flex flex-wrap justify-center gap-2 sm:mt-12">
         {FORMATS.map(f => {
           const on = f.key === active;
           return (
@@ -135,7 +153,9 @@ export function HomeFormatPicker() {
               onClick={() => setActive(f.key)}
               aria-pressed={on}
               className={cn(
-                'rounded-full px-5 py-2.5 text-sm transition-colors',
+                /* 40px everywhere before; 44 on a phone via `max-sm`, so the desktop
+                   row of six tabs keeps the height it had. */
+                'rounded-full px-5 py-2.5 max-sm:py-3 text-sm transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 on
                   ? 'bg-foreground font-medium text-background'
@@ -170,11 +190,14 @@ export function HomeFormatPicker() {
       </div>
 
       {/* The skeleton of a deck in this format, as whole cards */}
-      <div className="mt-12 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6 lg:gap-6">
+      <div className="mt-8 grid grid-cols-2 gap-5 sm:mt-12 sm:grid-cols-3 lg:grid-cols-6 lg:gap-6">
         {((loaded ?? PLACEHOLDER_SLOTS) as (Slot | { role: string })[]).map((entry, i) => {
           const slot: Slot | null = 'card' in entry ? (entry as Slot) : null;
           return (
-            <figure key={slot?.card.id ?? `slot-${i}`}>
+            <figure
+              key={slot?.card.id ?? `slot-${i}`}
+              className={cn(i >= SLOTS_ON_PHONE && 'hidden sm:block')}
+            >
               <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {entry.role}
               </p>
@@ -201,7 +224,7 @@ export function HomeFormatPicker() {
         })}
       </div>
 
-      <div className="mt-12 text-center">
+      <div className="mt-9 text-center sm:mt-12">
         <Button asChild size="lg" variant="outline">
           <Link to="/cards">
             Search the {format.label} pool

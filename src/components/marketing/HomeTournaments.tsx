@@ -35,7 +35,7 @@ import {
   type Round,
 } from '@/components/tournament/scoring';
 
-import { Section, SectionHeading } from '@/components/marketing/Section';
+import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
 import { AppScreenshot } from '@/components/marketing/AppScreenshot';
 import {
   loadCardsById,
@@ -138,12 +138,28 @@ function buildRounds(entrants: Entrant[]): Round[] {
   return rounds;
 }
 
-const COLUMNS: Array<{ key: 'points' | 'record' | 'omw' | 'gw' | 'ogw'; label: string; hint: string }> = [
-  { key: 'points', label: 'Pts', hint: 'Match points' },
-  { key: 'record', label: 'W–L–D', hint: 'Record' },
-  { key: 'omw', label: 'OMW%', hint: "Opponents' match-win percentage" },
-  { key: 'gw', label: 'GW%', hint: 'Game-win percentage' },
-  { key: 'ogw', label: 'OGW%', hint: "Opponents' game-win percentage" },
+/**
+ * The standings columns.
+ *
+ * `phone` is false for the two second-order tiebreakers. Six columns of tabular
+ * numbers plus a deck name and a commander thumbnail want ~464px, and a 390px
+ * phone gives this panel 318: measured, this table was the one figure on the
+ * homepage a reader had to scroll sideways inside. The first tiebreaker,
+ * opponents' match-win percentage, is the one the copy above names, so it
+ * stays. Game-win and opponents' game-win only ever separate two decks that
+ * have already tied on both of the columns above them.
+ */
+const COLUMNS: Array<{
+  key: 'points' | 'record' | 'omw' | 'gw' | 'ogw';
+  label: string;
+  hint: string;
+  phone: boolean;
+}> = [
+  { key: 'points', label: 'Pts', hint: 'Match points', phone: true },
+  { key: 'record', label: 'W–L–D', hint: 'Record', phone: true },
+  { key: 'omw', label: 'OMW%', hint: "Opponents' match-win percentage", phone: true },
+  { key: 'gw', label: 'GW%', hint: 'Game-win percentage', phone: false },
+  { key: 'ogw', label: 'OGW%', hint: "Opponents' game-win percentage", phone: false },
 ];
 
 const CAPABILITIES = [
@@ -253,7 +269,18 @@ export function HomeTournaments() {
       <SectionHeading
         eyebrow="Tournaments"
         title="Run the pod, not a spreadsheet"
-        lead="Swiss or knockout, scored the way a paper event scores it. Three points for a win and one for a draw, with your opponents' win rate breaking the ties. Nobody gets paired with the same person twice while somebody else is free. Results go in with one click, and you can take them back."
+        lead={
+          <>
+            Swiss or knockout, scored the way a paper event scores it. Three points for a win and one
+            for a draw, with your opponents&rsquo; win rate breaking the ties.{' '}
+            {/* Two more sentences from `sm` up. At 390px this lead ran to nine
+                lines before the section had shown anything at all. */}
+            <span className="hidden sm:inline">
+              Nobody gets paired with the same person twice while somebody else is free. Results go
+              in with one click, and you can take them back.
+            </span>
+          </>
+        }
       />
 
       {/* ------------------------------------------------------ the real screen
@@ -262,7 +289,7 @@ export function HomeTournaments() {
           `computeStandings` returned. What it cannot do is show the product, so
           it is now introduced by a photograph of the actual tournament manager,
           taken by `scripts/app-shots.mjs`. Picture first, proof underneath. */}
-      <div className="mt-14">
+      <div className="mt-9 sm:mt-14">
         <AppScreenshot
           scene="tournament"
           alt="The DeckMatrix tournament manager running a Swiss Commander event: a round clock, the current round's pairings with each seat's commander card, and live standings down the right"
@@ -270,7 +297,21 @@ export function HomeTournaments() {
         />
       </div>
 
-      <div className="mt-14 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
+      {/* The worked example, behind a control on a phone.
+
+          The photograph above is the product. What follows is the PROOF: four
+          real precon decks, two rounds played, and every figure produced by
+          calling the app's own `computeStandings` and `generatePairings` in the
+          reader's browser. Side by side on a desktop that is a picture and its
+          working. Stacked at 390px it is a second set of pairings under a
+          photograph of pairings, then a standings table, then the results that
+          table came from: about 980px of checking, under a picture that has
+          already made the point.
+
+          So on a phone it is a tap, and it is the whole thing when opened, still
+          computed live. Nothing changes at `sm` and above. */}
+      <MobileReveal label="See it score a real event">
+      <div className="mt-9 grid gap-5 sm:mt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
         {/* ------------------------------------------------------- pairings */}
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -303,15 +344,19 @@ export function HomeTournaments() {
                   const right = model.byName.get(match.player2);
                   if (!left || !right) return null;
                   return (
-                    <PairingPanel
-                      key={match.id}
-                      table={i + 1}
-                      left={left}
-                      right={right}
-                      leftPoints={model.pointsOf.get(match.player1) ?? 0}
-                      rightPoints={model.pointsOf.get(match.player2) ?? 0}
-                      cardWidth={cardWidth}
-                    />
+                    /* One table on a phone. The two panels are the same exhibit
+                       twice, and each is two commander cards plus four lines of
+                       label, so the second costs ~290px to repeat the first. */
+                    <div key={match.id} className={cn(i >= 1 && 'hidden sm:block')}>
+                      <PairingPanel
+                        table={i + 1}
+                        left={left}
+                        right={right}
+                        leftPoints={model.pointsOf.get(match.player1) ?? 0}
+                        rightPoints={model.pointsOf.get(match.player2) ?? 0}
+                        cardWidth={cardWidth}
+                      />
+                    </div>
                   );
                 })}
           </div>
@@ -341,7 +386,10 @@ export function HomeTournaments() {
                       <th
                         key={c.key}
                         title={c.hint}
-                        className="whitespace-nowrap px-2 pb-1 text-right font-medium tabular-nums"
+                        className={cn(
+                          'whitespace-nowrap px-2 pb-1 text-right font-medium tabular-nums',
+                          !c.phone && 'max-sm:hidden'
+                        )}
                       >
                         {c.label}
                       </th>
@@ -353,7 +401,10 @@ export function HomeTournaments() {
                     const entrant = model.byName.get(row.player);
                     return (
                       <tr key={row.player} className="bg-muted/30">
-                        <td className="rounded-l-xl px-3 py-2.5">
+                        {/* `max-w-0` is what makes this the cell that yields.
+                            Without it the deck name sets the column width and
+                            the truncation below never fires. */}
+                        <td className="w-full rounded-l-xl px-3 py-2.5 max-sm:max-w-0">
                           <div className="flex items-center gap-3">
                             <span className="w-4 shrink-0 text-xs tabular-nums text-muted-foreground">
                               {i + 1}
@@ -361,7 +412,7 @@ export function HomeTournaments() {
                             {entrant ? (
                               <CardImage card={entrant.card} size="sm" width={30} />
                             ) : null}
-                            <span className="min-w-0">
+                            <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium leading-tight">
                                 {row.player}
                               </span>
@@ -380,10 +431,10 @@ export function HomeTournaments() {
                         <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground">
                           {row.opponentMatchWinPct.toFixed(1)}
                         </td>
-                        <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground max-sm:hidden">
                           {row.gameWinPct.toFixed(1)}
                         </td>
-                        <td className="rounded-r-xl px-2 py-2.5 text-right tabular-nums text-muted-foreground">
+                        <td className="rounded-r-xl px-2 py-2.5 text-right tabular-nums text-muted-foreground max-sm:hidden">
                           {row.opponentGameWinPct.toFixed(1)}
                         </td>
                       </tr>
@@ -397,7 +448,12 @@ export function HomeTournaments() {
           {/* The input to the maths, directly under its output — a reader can
               check every figure in the table above against these four results. */}
           {model && (
-            <div className="mt-6 rounded-xl bg-muted/30 p-4">
+            /* The four results the table is computed FROM, so a reader can
+               check every figure in it against them. That is a desk exercise
+               and a phone reader is not doing it, and the sentence under the
+               table already says the numbers were worked out by the app's own
+               code. */
+            <div className="mt-6 rounded-xl bg-muted/30 p-4 max-sm:hidden">
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 The results those come from
               </p>
@@ -426,7 +482,10 @@ export function HomeTournaments() {
             it all ran in your browser as this page loaded.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          {/* Hidden on a phone because the same six chips are drawn below the
+              control, outside it, where a phone reader gets them without
+              opening anything. Opening this panel must not print them twice. */}
+          <div className="mt-6 flex flex-wrap gap-2 max-sm:hidden">
             {CAPABILITIES.map(c => (
               <span
                 key={c}
@@ -446,6 +505,39 @@ export function HomeTournaments() {
             </Button>
           </div>
         </div>
+      </div>
+      </MobileReveal>
+
+      {/* WHAT THE THING DOES, ON A PHONE.
+
+          The same six chips are drawn inside the panel above, which is behind
+          the control on a phone, so without this a phone reader got the
+          heading, two sentences and a photograph and never learned that it
+          runs single elimination, times rounds, handles byes or lets someone
+          drop. That is the section's feature list, and it is not a working.
+          Phone only, so the desktop layout is untouched: there the list sits
+          under the standings where it always has. */}
+      <div className="mt-8 flex flex-wrap justify-center gap-2 sm:hidden">
+        {CAPABILITIES.map(c => (
+          <span
+            key={c}
+            className="rounded-full bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+
+      {/* The way in, on a phone. The one inside the panel above is behind the
+          control, and a section with no way through to the thing it describes is
+          not a shorter section, it is a broken one. */}
+      <div className="mt-8 text-center sm:hidden">
+        <Button asChild size="lg" variant="outline" className="w-full">
+          <Link to="/tournament">
+            Open the tournament manager
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </div>
     </Section>
   );

@@ -265,6 +265,18 @@ const EXPORTS: { label: string; render: (rows: Resolved[]) => string }[] = [
 /** The four line shapes the importer's patterns accept, with a live example. */
 const SHAPES = ['4 Card Name', '4x Card Name', 'Card Name x4', '1 Card Name (SET) 117'];
 
+/**
+ * How many of the twelve resolved cards a phone draws.
+ *
+ * The grid is three columns at 390px, so twelve is FOUR rows there against two
+ * at `lg`: ~680px of wall under a panel that is itself ~500px. Three is one row,
+ * at the same card size, and the line above the grid still reports the real
+ * figure ("12 of 12 lines matched"), which is the claim this section is actually
+ * making. The wall is the evidence that the names became cards, and one row of
+ * it evidences that.
+ */
+const RESOLVED_ON_PHONE = 3;
+
 /* ------------------------------------------------------------------ pieces */
 
 function Mono({ text, className }: { text: string; className?: string }) {
@@ -309,10 +321,16 @@ export function HomePortability() {
 
       <SectionHeading
         title="Bring your decks in, take them out again"
-        lead="Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing you put in here is stuck here. This is it working, on this page."
+        lead={
+          <>
+            Paste in a list from anywhere, and get it back out in whatever shape you need. Nothing
+            you put in here is stuck here.{' '}
+            <span className="hidden sm:inline">This is it working, on this page.</span>
+          </>
+        }
       />
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-12 lg:gap-8">
+      <div className="mt-9 grid gap-6 sm:mt-14 lg:grid-cols-12 lg:gap-8">
         {/* ------------------------------------------------------ the paste */}
         {/* IN AND OUT SHARE ONE PANEL.
 
@@ -336,7 +354,9 @@ export function HomePortability() {
                   onClick={() => setShape(tab)}
                   aria-pressed={on}
                   className={cn(
-                    'rounded-full px-3 py-1.5 text-xs transition-colors',
+                    /* 44px on a phone, which is the smallest control Apple publishes; the
+                       desktop size is untouched. */
+                    'rounded-full px-3 py-3.5 text-xs transition-colors sm:py-1.5',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     on
                       ? 'bg-foreground font-medium text-background'
@@ -348,7 +368,7 @@ export function HomePortability() {
               );
             })}
           </div>
-          <div className="mt-4 rounded-2xl bg-card p-4 shadow-xl shadow-black/30 sm:p-5">
+          <div className="mt-4 rounded-2xl bg-card p-3 shadow-xl shadow-black/30 sm:p-5">
             <Mono
               text={
                 shape === 'You paste this'
@@ -357,18 +377,24 @@ export function HomePortability() {
                     ? ''
                     : (EXPORTS.find(e => e.label === shape) ?? EXPORTS[0]).render(resolved)
               }
-              className="max-h-[26rem] min-h-[16rem]"
+              /* Capped shorter on a phone. It is a pasted file, and a file is
+                 a thing you scroll: the tabs above say which shape is on screen
+                 and the first few lines are what proves the shape. */
+              className="max-h-[13rem] min-h-[11rem] sm:max-h-[26rem] sm:min-h-[16rem]"
             />
           </div>
 
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:mt-5">
             Comments, an Arena <span className="font-mono text-foreground/80">Deck</span> header, a
             set code with a collector number, a leading{' '}
             <span className="font-mono text-foreground/80">2x</span> and a trailing{' '}
             <span className="font-mono text-foreground/80">x1</span> are all in that block, and every
             one of them works:
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          {/* The four line shapes, spelled out. Desktop only: the sentence
+              directly above already names every one of them in prose, and the
+              block they describe is on screen two inches up. */}
+          <div className="mt-3 flex flex-wrap gap-2 max-sm:hidden">
             {SHAPES.map(shape => (
               <span
                 key={shape}
@@ -396,10 +422,18 @@ export function HomePortability() {
           <div className="mt-4 grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
             {loading
               ? Array.from({ length: PARSED.length }).map((_, i) => (
-                  <CardImageSkeleton key={i} size="sm" fill />
+                  <div key={i} className={cn(i >= RESOLVED_ON_PHONE && 'hidden sm:block')}>
+                    <CardImageSkeleton size="sm" fill />
+                  </div>
                 ))
-              : resolved.map(entry => (
-                  <figure key={entry.card.id} className="group relative min-w-0">
+              : resolved.map((entry, i) => (
+                  <figure
+                    key={entry.card.id}
+                    className={cn(
+                      'group relative min-w-0',
+                      i >= RESOLVED_ON_PHONE && 'hidden sm:block'
+                    )}
+                  >
                     <CardImage
                       card={entry.card}
                       size="md"
@@ -425,7 +459,7 @@ export function HomePortability() {
           </div>
 
           {!loading && (
-            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:mt-5">
               Each card above was looked up by name in the real card list, so its printing, mana cost,
               colours and price all came with it. That is why the file below is a real deck and not
               just a copy of what you pasted.

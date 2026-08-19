@@ -39,7 +39,7 @@ export function HomeAppVisual() {
         lead="Cards drop into the right group on their own, the curve redraws as you go, and what the deck costs is always on screen."
       />
 
-      <div className="mt-14">
+      <div className="mt-8 sm:mt-14">
         <AppScreenshot
           scene="deck-builder"
           alt="The DeckMatrix deck builder holding a hundred-card Commander deck: the commander card, a mana curve broken down by card type, and the creature list underneath"
@@ -47,7 +47,7 @@ export function HomeAppVisual() {
         />
       </div>
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg">
           <Link to="/deck-builder">
             Open the builder

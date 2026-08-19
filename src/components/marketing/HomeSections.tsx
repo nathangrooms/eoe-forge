@@ -152,10 +152,16 @@ export function HomeCollection() {
       <SectionHeading
         eyebrow="Collection"
         title="Your collection, not just your decklists"
-        lead="Most deck builders assume you can buy anything. DeckMatrix starts from what is already in your boxes: how many you have, what condition they are in, which box they are sitting in, and what the lot is worth today."
+        lead={
+          <>
+            Most deck builders assume you can buy anything. DeckMatrix starts from what is already
+            in your boxes: how many you have, what condition they are in, which box they are sitting
+            in, and what the lot is worth today.
+          </>
+        }
       />
 
-      <div className="mt-14">
+      <div className="mt-8 sm:mt-14">
         <AppScreenshot
           scene="collection"
           alt="The DeckMatrix collection page: a header counting the cards, the unique cards among them and their market value, above a grid of real Magic cards each showing its set, condition and price"
@@ -163,7 +169,7 @@ export function HomeCollection() {
         />
       </div>
 
-      <div className="mt-10 text-center">
+      <div className="mt-8 text-center sm:mt-10">
         <Button asChild size="lg">
           <Link to="/register">
             Start your collection
@@ -184,7 +190,7 @@ export function HomeCTA() {
         title="Bring your collection with you"
         lead="Free while we are in early access. No card details, no trial timer."
       >
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:mt-8 sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto shadow-glow-elegant">
             <Link to="/register">
               Create your account

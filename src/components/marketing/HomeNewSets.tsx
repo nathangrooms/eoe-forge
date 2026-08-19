@@ -5,7 +5,21 @@ import { ArrowRight } from 'lucide-react';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import { CardImage, CardImageSkeleton } from '@/components/cards/CardImage';
 import { newSetCommanders, newSetTiles } from '@/lib/homepage/snapshot';
-import { Section, SectionHeading } from '@/components/marketing/Section';
+import { MobileReveal, Section, SectionHeading } from '@/components/marketing/Section';
+import { cn } from '@/lib/utils';
+
+/**
+ * How many of the six sets, and their six legends, a phone draws.
+ *
+ * Six tiles are one row on a desktop and three rows at 390px; six whole
+ * commander cards are one row on a desktop and three rows of ~230px cards plus
+ * their captions at 390px, which is ~900px on its own. Four of each is two rows
+ * of each, the cards stay exactly the size they were, and the claim the section
+ * makes ("a legend from each of those sets") stays true of what is on screen
+ * because the sets and the legends are cut at the same place and in the same
+ * order.
+ */
+const ON_PHONE = 4;
 
 /**
  * "New sets" showcase.
@@ -92,15 +106,21 @@ export function HomeNewSets() {
            own legend and the pairing is visible instead of stated. It also
            takes ~480px off the section, which was 1,697px to make one point
            twice. */}
-      <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:mt-12 sm:grid-cols-3 lg:grid-cols-6">
         {tiles === null
           ? Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[3/2] rounded-xl" />
+              <Skeleton
+                key={i}
+                className={cn('aspect-[3/2] rounded-xl', i >= ON_PHONE && 'hidden sm:block')}
+              />
             ))
-          : tiles.map(t => (
+          : tiles.map((t, i) => (
               <article
                 key={t.code}
-                className="group relative aspect-[3/2] overflow-hidden rounded-xl shadow-lg shadow-black/30"
+                className={cn(
+                  'group relative aspect-[3/2] overflow-hidden rounded-xl shadow-lg shadow-black/30',
+                  i >= ON_PHONE && 'hidden sm:block'
+                )}
               >
                 {t.art ? (
                   <img
@@ -128,8 +148,17 @@ export function HomeNewSets() {
             ))}
       </div>
 
-      {/* ---- commander spotlight: WHOLE cards at 5:7, one per set ---- */}
-      <div className="mt-12">
+      {/* ---- commander spotlight: WHOLE cards at 5:7, one per set ----
+
+           Behind a control on a phone. The tiles above already prove the claim
+           the section makes, which is that a set is here the week it lands: they
+           carry the set's own art, its code, its release month and its real card
+           count. The spotlight is the same claim shown a second way, and shown a
+           second way it costs a sub-heading, a paragraph and two rows of whole
+           commander cards with captions, about 700px at 390px. Opened, the cards
+           are exactly the size they are on a desktop. */}
+      <MobileReveal label="See a new commander from each of them">
+      <div className="mt-10 sm:mt-12">
         <div className="mx-auto max-w-3xl text-center">
           <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Fresh commanders, already legal to build
@@ -142,16 +171,16 @@ export function HomeNewSets() {
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:mt-10 sm:grid-cols-3 lg:grid-cols-6">
           {commanders === null
             ? Array.from({ length: 6 }).map((_, i) => (
-                <div key={i}>
+                <div key={i} className={cn(i >= ON_PHONE && 'hidden sm:block')}>
                   <CardImageSkeleton size="lg" fill />
                   <Skeleton className="mt-3 h-4 w-3/4" />
                 </div>
               ))
-            : commanders.map(c => (
-                <figure key={c.id} className="group">
+            : commanders.map((c, i) => (
+                <figure key={c.id} className={cn('group', i >= ON_PHONE && 'hidden sm:block')}>
                   <CardImage
                     card={c}
                     size="md"
@@ -175,14 +204,16 @@ export function HomeNewSets() {
               ))}
         </div>
 
-        <div className="mt-12 text-center">
-          <Button asChild size="lg" variant="outline">
-            <Link to="/cards">
-              Browse every card
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+      </div>
+      </MobileReveal>
+
+      <div className="mt-9 text-center sm:mt-12">
+        <Button asChild size="lg" variant="outline">
+          <Link to="/cards">
+            Browse every card
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </div>
     </Section>
   );

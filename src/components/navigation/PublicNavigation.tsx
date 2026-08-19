@@ -52,7 +52,7 @@ export function PublicNavigation() {
 
           <button
             type="button"
-            className="rounded-md p-2 text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+            className="rounded-md p-3 text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
             onClick={() => setIsMenuOpen(open => !open)}
             aria-expanded={isMenuOpen}
             aria-controls="public-nav-menu"

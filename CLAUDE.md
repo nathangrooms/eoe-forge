@@ -321,6 +321,34 @@ client-visible, and the same values are hardcoded in `src/integrations/supabase/
 what actually gets used. **No rotation is needed.** History was deliberately left un-rewritten — a
 force-push to scrub a non-secret is not worth breaking every clone.
 
+### The audit backlog was a public download — closed 2026-08-19
+
+`src/data/auditFindings.json` was 278 internal findings: file paths, severities, what is wrong with
+each one and what to do about it. Only the admin Dev Console imported it, but an import is an
+import, so Vite emitted it as a chunk and Lovable served it from the site's own origin. Measured
+before the fix:
+
+```
+GET https://deckmatrix.com/assets/auditFindings-B6Ihw0Jk.js  ->  200, 330,965 bytes
+```
+
+and that file name is written into the entry chunk, so it was discoverable, not merely guessable.
+Nothing in it is exploitable on its own. It is a map of the product's weak points on a commercial
+site, which is enough.
+
+The 278 rows now live in `public.dev_findings`, which `anon` holds no grant on at all (401, verified
+over HTTP with the anon key, read and write). Two columns were added: `source` (`tracked` for
+findings raised in the console, `audit` for these) and `source_ref` (`af-001` … `af-278`). Migration
+`audit_backlog_lives_in_dev_findings_not_the_bundle`. The Dev Console still fetches the backlog only
+when the Findings tab is opened, from the table instead of a chunk; rendered before and after, the
+page is identical to the byte.
+
+> ⚠️ **The GitHub repo is public** (`nathangrooms/eoe-forge`, verified). The same file was, and its
+> source `docs/overhaul/AUDIT.md` still is, readable at `raw.githubusercontent.com` by anyone. So
+> nothing sensitive should be written into this repo expecting it to be private, and no data
+> migration should carry that text back in. Removing the deployed copy is the part that was worth
+> doing; scrubbing git history is a force-push decision for the owner.
+
 ### RLS audit — completed 2026-08-18
 
 All 39 public tables have RLS enabled. Empirically tested against PostgREST with the anon key:
@@ -811,3 +839,30 @@ and the most expensive kind to maintain on write, plus `idx_cards_legalities`
 **The cheapest structural win available** is that `cards` and `cards_unique` carry
 near-duplicate index sets over the same data. One of them can probably lose most
 of its indexes once usage stats exist to prove which.
+
+## Green tests do not mean a player can reach it
+
+The game engine is a rules library with 1,367 passing tests, and for months the
+most common complaint about play mode was that it could not do things the engine
+had already implemented. Counterspells, equip, Aether Vial's charge counter,
+mulligan. None of them were broken. None of them were reachable.
+
+The cause is structural and worth remembering, because every test in
+`src/lib/game` builds a `GameAction` by hand and feeds it to the reducer. That
+is the right way to test rules. It also means a suite can be completely green
+while nothing in the app has ever constructed the action under test. `ATTACH`
+was proven correct by tests and had never been built by any code path, anywhere.
+`PHASE_CHANGE` had validation, two reducer cases, a network-authorisation entry,
+an effects handler, and a filter in `GameFeed` to keep it out of the log, all
+serving an action nothing produces.
+
+So: **"the engine supports it" and "a player can do it" are different claims,
+and only the second one is what was asked.** Do not report the first as if it
+answered the second. This has been reported wrongly more than once, on the
+XMage port and again on play mode.
+
+`src/lib/game/reachability.test.ts` now enforces the weaker half of this
+mechanically, as a ratchet. Its own doc comment records what it still cannot
+see: it accepts any producer, so an action the engine builds during resolution
+counts as reachable even when the player-initiated path is missing. Closing that
+gap is a judgement call, not a check.

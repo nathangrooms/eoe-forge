@@ -99,8 +99,16 @@ function BinderPage({ cards }: { cards: FiledCard[] | null }) {
        column is short of room the deck box gives up width first. Measured
        after: 168px pockets at 1680, 118px at 1280 — up from 95 and 86, and
        still barely half the 290px that made the object disappear. Cards stay
-       WHOLE 5:7 through CardImage at every width; nothing is cropped. */
-    <figure className="relative w-full flex-[2_1_0%] max-w-[600px] 2xl:max-w-[660px]">
+       WHOLE 5:7 through CardImage at every width; nothing is cropped.
+
+       SIZED TO SIT BESIDE THE DECK BOX, not to tower over it. It was
+       flex-[2_1_0%] at up to 660px against the deck box's 360px, so it took
+       roughly twice the room and the section read as one giant binder with a
+       small object parked next to it. The owner: "The binder should be as small
+       as the deckbox, no need for it to be this large". The nine pockets still
+       work at 400px because the point of the figure is the SHAPE of a binder
+       page holding real cards, not reading the rules text on them. */
+    <figure className="relative w-full flex-[1_1_0%] max-w-[400px] xl:max-w-[440px]">
       {/* Page tabs — one per real template slot, so the binder has as many
           pages as the template declares. */}
       <div className="absolute inset-y-8 -right-1.5 z-0 flex flex-col justify-between sm:-right-2.5">

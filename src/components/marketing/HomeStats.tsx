@@ -89,8 +89,10 @@ export function HomeColors() {
 /* --------------------------------------------------------- catalogue at a glance */
 
 export function HomeCatalogue() {
+  /* Each count is independently nullable: one query can time out while the
+     others answer, which is exactly what happened on the live page. */
   const [stats, setStats] = useState<{
-    total: number; legendary: number; mythic: number; sets: number;
+    total: number | null; legendary: number | null; mythic: number | null; sets: number | null;
   } | null>(null);
 
   useEffect(() => {
@@ -110,11 +112,25 @@ export function HomeCatalogue() {
           .ilike('type_line', '%Creature%'),
         supabase.from('cards').select('id', { count: 'exact', head: true }).eq('rarity', 'mythic'),
       ]);
+
+      /* NULL, NOT ZERO.
+
+         This read `total.count ?? 0`. PostgREST returns a null count when the
+         query fails, and an exact count over 97,140 rows is expensive enough to
+         hit the statement timeout, so the homepage told visitors there were ZERO
+         cards you can search and ZERO legendary creatures while cheerfully
+         reporting 9,150 mythics beside them. The mythic count survived only
+         because `rarity = 'mythic'` is far narrower.
+
+         The tile below already renders a dash for null. The `?? 0` was undoing
+         that and turning a failed request into a confident false claim, which is
+         the fabrication rule at its worst: on a public page, about the size of
+         the thing the whole product is built on. */
       setStats({
-        total: total.count ?? 0,
-        legendary: legendary.count ?? 0,
-        mythic: mythic.count ?? 0,
-        sets: 0,
+        total: total.count,
+        legendary: legendary.count,
+        mythic: mythic.count,
+        sets: null,
       });
     })();
   }, []);

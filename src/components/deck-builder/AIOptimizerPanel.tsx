@@ -23,7 +23,7 @@
  *     and the mana-impact delta underneath it are the same measurement.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -214,6 +214,17 @@ export function AIOptimizerPanel({
   const [isApplying, setIsApplying] = useState(false);
   const [isLoadingMoreSwaps, setIsLoadingMoreSwaps] = useState(false);
   const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
+  /**
+   * Where the confirmation is, so it can be brought to the reader.
+   *
+   * "Apply N swaps" renders the confirmation AFTER the whole list of swaps, and
+   * with nine of them that is a screen and a half below the button you just
+   * pressed. Owner: "if I try 'apply 9 swaps' nothing happens." It was working
+   * the entire time and asking a question nobody could see. The confirmation
+   * stays in the flow, because an overlay would hide the swaps you are being
+   * asked to check, but it now comes to you.
+   */
+  const confirmRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   /** Which steps the reader has actually opened, so the tabs can show progress. */
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']));
@@ -771,6 +782,11 @@ export function AIOptimizerPanel({
     }
   };
 
+  useEffect(() => {
+    if (!showConfirmSwaps) return;
+    confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [showConfirmSwaps]);
+
   const applySelectedSwaps = async () => {
     const selected = swapSuggestions.filter(s => s.selected);
     if (selected.length === 0) {
@@ -1149,7 +1165,7 @@ export function AIOptimizerPanel({
                    * before saying yes — the ticked swaps sitting above it.
                    */}
                   {showConfirmSwaps && (
-                    <div className="mt-6 rounded-2xl bg-muted p-5 shadow-lg">
+                    <div ref={confirmRef} className="mt-6 rounded-2xl bg-muted p-5 shadow-lg ring-1 ring-foreground/15">
                       <p className="text-base">
                         Apply {selectedSwapCount} swap{selectedSwapCount === 1 ? '' : 's'} to the
                         deck? The cards above are replaced.

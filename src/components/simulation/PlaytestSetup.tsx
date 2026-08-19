@@ -305,19 +305,12 @@ export function PlaytestSetup({
         <p className="rounded-lg bg-destructive/15 px-3 py-2 text-xs text-foreground">{error}</p>
       )}
 
-      <Button size="lg" className="h-12 w-full text-base" onClick={onStart} disabled={starting}>
-        {starting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Shuffling up…
-          </>
-        ) : (
-          <>
-            <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
-            Play the {seats.length}-player game
-          </>
-        )}
-      </Button>
+      {/* THE START BUTTON MOVED TO THE PAGE HEADER.
+
+          It was a full width bar at the bottom of a tall setup panel, so the
+          only reason to open this page was the last thing you reached. Owner:
+          "playtest page - play button should be more prominent at top right".
+          It now sits beside the tab strip in the header, matching /play. */}
     </div>
   );
 }

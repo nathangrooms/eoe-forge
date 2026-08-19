@@ -143,7 +143,11 @@ export function TopNavigation() {
               button used to promise a new deck and deliver the list instead. It
               now goes to the `/decks/new` route — a real link, so it can be
               middle-clicked and browser Back leaves it. */}
-          <Button size="sm" className="hidden h-9 md:inline-flex" asChild>
+          {/* Charcoal, not white. The top bar carries several actions and the
+              primary white treatment made this one shout over the search field
+              and the account. Owner: "New deck should be another charcoal
+              colour, not white in top nav". */}
+          <Button variant="secondary" size="sm" className="hidden h-9 md:inline-flex" asChild>
             <Link to="/decks/new">
               <Plus className="h-4 w-4" />
               New deck

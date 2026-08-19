@@ -25,6 +25,7 @@
 
 import { Bot, Check, Dices, Globe, Loader2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MatStylePicker } from './MatStylePicker';
 import { Button } from '@/components/ui/button';
 import { ColorIdentity } from '@/components/ui/mana-cost';
 import {
@@ -231,6 +232,7 @@ export function PlaySetup({
 
   const startLabel =
     value.mode === 'goldfish' ? 'Start goldfish' : `Start ${playerCount}-player game`;
+  void startLabel; // the header owns the button now; see startLabelFor below
 
   return (
     <div className="space-y-4">
@@ -327,6 +329,26 @@ export function PlaySetup({
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               The shuffle is seeded, so the same seed and the same decks deal the same game. That is
               what makes a bad draw reproducible instead of anecdotal.
+            </p>
+          </div>
+
+          {/* The table you play on.
+
+              This also exists in the in-game menu, but that is behind starting
+              a game, so nobody ever found it. Owner: "I dont see the themed
+              playmats?" Choosing your surface belongs with choosing your deck
+              and your seed: it is part of setting up your side of the table. */}
+          <div className="mt-4">
+            <span className="text-[11px] font-medium text-muted-foreground">Playmat</span>
+            {/* The chosen deck's colours, so `Deck` previews the mat this
+                seat will actually get rather than six black rectangles. */}
+            <MatStylePicker
+              className="mt-2"
+              colors={decks.find(deck => deck.id === value.deckId)?.colors}
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Drawn rather than photographed, so it stays sharp on any screen. Remembered for next
+              time.
             </p>
           </div>
         </div>
@@ -441,16 +463,24 @@ export function PlaySetup({
         <p className="rounded-lg bg-destructive/15 px-3 py-2 text-xs text-foreground">{error}</p>
       )}
 
-      <Button className="h-11 w-full" onClick={onStart} disabled={starting}>
-        {starting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Shuffling up…
-          </>
-        ) : (
-          startLabel
-        )}
-      </Button>
+      {/* THE START BUTTON IS NOT HERE ANY MORE.
+
+          It was a full width bar at the very bottom of a tall setup panel, so
+          the one thing you came to this page to press was the last thing you
+          reached and the least prominent. Owner: "start button for play should
+          be top right". It now lives in the page header beside the title, in
+          `StandardPageLayout`'s own action slot, which is where every other
+          page in the app puts its primary action.
+
+          `startLabelFor` is exported rather than the label being retyped up
+          there, so the two cannot drift. */}
     </div>
   );
+}
+
+/** What the start button says, given a setup. Used by the page header. */
+export function startLabelFor(value: PlaySetupValue): string {
+  return value.mode === 'goldfish'
+    ? 'Start goldfish'
+    : `Start ${playerCountFor(value)}-player game`;
 }

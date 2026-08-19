@@ -68,7 +68,7 @@ import { memo, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { identityGround } from '@/lib/cards/identityGround';
 import { matStyleOf, type MatStyleId } from './matStyles';
-import { usePlaymatStyle } from './usePlaymatStyle';
+import { tintColors, usePlaymatPrefs, type MatTintId } from './usePlaymatStyle';
 
 export type MatTone = 'seat' | 'active' | 'viewer' | 'board';
 
@@ -113,6 +113,19 @@ export interface PlaymatProps {
    * mat should follow one choice; pass it in a picker to draw a preview.
    */
   style?: MatStyleId;
+  /** Same, for the colour. Only a picker should pass this. */
+  tintOverride?: MatTintId;
+  /**
+   * Whether this is the reader's OWN seat.
+   *
+   * A chosen colour applies here and nowhere else. Letting it repaint every mat
+   * would make a four-seat table four identical rectangles and destroy the one
+   * job the tint has, which is telling seats apart at a glance. Owner: "it
+   * loads the same colour playmat for bot enemy, it should load their colour
+   * scheme maybe (of commander)". So opponents always follow their own
+   * commander, whatever you picked for yourself.
+   */
+  ownSeat?: boolean;
 }
 
 export const Playmat = memo(function Playmat({
@@ -122,12 +135,20 @@ export const Playmat = memo(function Playmat({
   className,
   rounded = 'rounded-2xl',
   style,
+  tintOverride,
+  ownSeat = false,
 }: PlaymatProps) {
-  const [chosen] = usePlaymatStyle();
-  const mat = matStyleOf(style ?? chosen);
+  const prefs = usePlaymatPrefs();
+  const mat = matStyleOf(style ?? prefs.style);
   const settings = TONE[tone];
+  /* `deck` follows the seat, which is what tells four players apart. A named
+     colour overrides it for the reader's own mat only; every other seat keeps
+     its commander's colours so the table stays readable. A picker passing
+     `tintOverride` is always drawing the reader's own surface. */
+  const chosenTint = tintOverride ?? (ownSeat ? prefs.tint : 'deck');
+  const painted = tintColors(chosenTint, colors);
   const tint =
-    settings.tint > 0 ? identityGround(colors, { alpha: settings.tint, angle: 155 }) : null;
+    settings.tint > 0 ? identityGround(painted, { alpha: settings.tint, angle: 155 }) : null;
 
   /* One element, one `background-image`, painted front to back in CSS order.
      The browser composites this as a single layer, so a four-seat board is four

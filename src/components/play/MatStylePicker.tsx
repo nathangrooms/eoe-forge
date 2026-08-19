@@ -15,8 +15,8 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Playmat } from './Playmat';
-import { MAT_STYLES, MAT_STYLE_IDS, type MatStyleId } from './matStyles';
-import { usePlaymatStyle } from './usePlaymatStyle';
+import { MAT_STYLES, MAT_STYLE_IDS } from './matStyles';
+import { MAT_TINTS, usePlaymatPrefs } from './usePlaymatStyle';
 
 export const MatStylePicker = memo(function MatStylePicker({
   /** The seat's colours, so a preview shows the mat you will actually get. */
@@ -26,10 +26,43 @@ export const MatStylePicker = memo(function MatStylePicker({
   colors?: readonly string[] | null;
   className?: string;
 }) {
-  const [chosen, choose] = usePlaymatStyle();
+  const { style: chosen, tint, chooseStyle, chooseTint } = usePlaymatPrefs();
 
   return (
-    <div className={cn('grid grid-cols-2 gap-2', className)} role="radiogroup" aria-label="Playmat">
+    <div className={cn('space-y-3', className)}>
+      {/* COLOUR FIRST, and it is the reason this row exists.
+
+          The surfaces are charcoal by design, so with no colour behind them all
+          six previews read as the same black rectangle. Owner: "need playmat
+          colour picker, all look black". `Deck` follows whoever sits there,
+          which is what tells four seats apart at a glance, but on the setup
+          screen there is no seat yet, so without an explicit choice there was
+          nothing to see. */}
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Playmat colour">
+        {MAT_TINTS.map(option => {
+          const active = option.id === tint;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => chooseTint(option.id)}
+              className={cn(
+                'rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/60',
+                active
+                  ? 'bg-foreground text-background'
+                  : 'bg-foreground/10 text-muted-foreground hover:bg-foreground/15'
+              )}
+            >
+              {option.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Playmat surface">
       {MAT_STYLE_IDS.map(id => {
         const style = MAT_STYLES[id];
         const active = id === chosen;
@@ -39,7 +72,7 @@ export const MatStylePicker = memo(function MatStylePicker({
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => choose(id)}
+            onClick={() => chooseStyle(id)}
             title={style.note}
             className={cn(
               'group flex flex-col gap-1.5 rounded-lg p-1 text-left transition-colors',
@@ -62,6 +95,7 @@ export const MatStylePicker = memo(function MatStylePicker({
           </button>
         );
       })}
+      </div>
     </div>
   );
 });

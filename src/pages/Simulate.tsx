@@ -26,6 +26,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Fish, Loader2, Swords } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -493,7 +494,26 @@ export default function Simulate() {
       <StandardPageLayout
         title="Playtest"
         description="Two to four real decks, played live by the bot on the same rules engine as /play"
-        action={tabStrip}
+        /* The tab strip AND the thing you came here to press. The start used to
+           be a full width bar under the whole setup panel. */
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {tabStrip}
+            <Button size="lg" onClick={startLive} disabled={startingLive}>
+              {startingLive ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Shuffling up…
+                </>
+              ) : (
+                <>
+                  <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Play the {seats.length}-player game
+                </>
+              )}
+            </Button>
+          </div>
+        }
       >
         <PlaytestSetup
           decks={decks}

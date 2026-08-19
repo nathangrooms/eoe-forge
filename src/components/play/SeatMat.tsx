@@ -778,6 +778,9 @@ export function SeatMat({
     >
       <Playmat
         colors={commander?.colorIdentity}
+        /* Your chosen colour paints your mat. Everyone else keeps their own
+           commander's, so four seats never read as one. */
+        ownSeat={isViewer}
         tone={active ? 'active' : isViewer ? 'viewer' : 'seat'}
         className={cn(
           'h-full w-full transition-shadow duration-300 motion-reduce:transition-none',

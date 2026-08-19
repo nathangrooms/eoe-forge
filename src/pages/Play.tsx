@@ -64,6 +64,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCardSize } from '@/components/cards/CardSizeSlider';
 import {
@@ -75,7 +76,12 @@ import {
 } from '@/components/play/tableMetrics';
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
-import { PlaySetup, playerCountFor, type PlaySetupValue } from '@/components/play/PlaySetup';
+import {
+  PlaySetup,
+  playerCountFor,
+  startLabelFor,
+  type PlaySetupValue,
+} from '@/components/play/PlaySetup';
 import { PlayTable } from '@/components/play/PlayTable';
 import { ViewerHand } from '@/components/play/ViewerHand';
 import { CastSpotlight } from '@/components/play/CastSpotlight';
@@ -856,6 +862,20 @@ export default function Play() {
       <StandardPageLayout
         title="Play"
         description="Goldfish a deck or play a pod against bots, on the rules engine that will run online tables."
+        /* The one thing this page is for, where a primary action belongs.
+           It used to be a full width bar under a tall setup panel. */
+        action={
+          <Button size="lg" onClick={startGame} disabled={starting}>
+            {starting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Shuffling up…
+              </>
+            ) : (
+              startLabelFor(setup)
+            )}
+          </Button>
+        }
       >
         <PlaySetup
           decks={decks}

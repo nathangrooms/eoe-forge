@@ -36,6 +36,7 @@ import {
 } from '@/components/deck-builder/proxy-print';
 import { ProxySheet } from '@/components/deck-builder/ProxySheet';
 import {
+  countProxyCopies,
   proxyCandidatesFromShopping,
   proxyCandidatesFromWishlist,
   showListItemCount,
@@ -140,21 +141,40 @@ export default function ProxyListPage() {
   );
   const fromWishlist = useMemo(() => proxyCandidatesFromWishlist(wishlist), [wishlist]);
 
+  /*
+   * COPIES, NOT ROWS, EVERYWHERE A NUMBER IS SHOWN
+   * ----------------------------------------------
+   * These buttons used to be labelled with `fromShopping.length`, which is how
+   * many distinct cards the list holds. The panel they open counts COPIES, and
+   * copies is also what gets written. A shopping list of six cards where one is
+   * wanted three times read "Your shopping list, 6 cards" and then offered "Add
+   * 12 to the proxy list" on the very next screen. Same for the emptying
+   * confirmation, which counted rows while the headline above it counted cards
+   * to print. One number, counted one way, on every surface.
+   */
+  const shoppingCopies = useMemo(() => countProxyCopies(fromShopping), [fromShopping]);
+  const wishlistCopies = useMemo(() => countProxyCopies(fromWishlist), [fromWishlist]);
+  const copiesOnList = useMemo(
+    () => proxies.reduce((sum, item) => sum + Math.max(1, item.quantity), 0),
+    [proxies]
+  );
+
   const bringingList: ProxyCandidate[] =
     bringing === 'shopping' ? fromShopping : bringing === 'wishlist' ? fromWishlist : [];
 
   const clearAll = useCallback(async () => {
     setClearing(true);
+    const going = copiesOnList;
     try {
-      const gone = await clear('proxy');
+      await clear('proxy');
       setConfirmingClear(false);
-      showSuccess('Proxy list emptied', `${showListItemCount(gone)} taken off.`);
+      showSuccess('Proxy list emptied', `${showListItemCount(going)} taken off.`);
     } catch (error: any) {
       showError('Could not empty the list', error?.message ?? 'Please try again.');
     } finally {
       setClearing(false);
     }
-  }, [clear]);
+  }, [clear, copiesOnList]);
 
   const print = useCallback(async () => {
     if (slots.length === 0) return;
@@ -197,8 +217,8 @@ export default function ProxyListPage() {
       action={
         <div className="flex flex-wrap items-center gap-2">
           <BringInButtons
-            fromShopping={fromShopping.length}
-            fromWishlist={fromWishlist.length}
+            fromShopping={shoppingCopies}
+            fromWishlist={wishlistCopies}
             onBring={setBringing}
           />
           {proxies.length > 0 && (
@@ -251,13 +271,13 @@ export default function ProxyListPage() {
                 {fromShopping.length > 0 && (
                   <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('shopping')}>
                     <ShoppingCart className="h-4 w-4" />
-                    Your shopping list, {showListItemCount(fromShopping.length)}
+                    Your shopping list, {showListItemCount(shoppingCopies)}
                   </Button>
                 )}
                 {fromWishlist.length > 0 && (
                   <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('wishlist')}>
                     <Heart className="h-4 w-4" />
-                    Your wishlist, {showListItemCount(fromWishlist.length)}
+                    Your wishlist, {showListItemCount(wishlistCopies)}
                   </Button>
                 )}
               </div>
@@ -356,7 +376,7 @@ export default function ProxyListPage() {
               {confirmingClear ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">
-                    Take all {showListItemCount(proxies.length)} off the list?
+                    Take all {showListItemCount(copiesOnList)} off the list?
                   </span>
                   <Button size="sm" variant="secondary" onClick={clearAll} disabled={clearing} className="gap-2">
                     {clearing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

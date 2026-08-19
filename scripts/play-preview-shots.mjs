@@ -279,7 +279,7 @@ await sleep(900);
 
 /* Free cast, so a board can be built in a few turns rather than a dozen. */
 log('menu:', await pressTitle('Game menu')); await sleep(1400);
-log('free cast:', await pressTitle('ignore mana entirely')); await sleep(700);
+log('free cast:', await pressTitle('Ignore mana entirely')); await sleep(700);
 await pressTitle('Close the menu'); await sleep(700);
 
 /* --------------------------------------------------- the centre preview */

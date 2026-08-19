@@ -229,7 +229,7 @@ const pressByTitle = async needle => page.evaluate(needle => {
 
 log(`  game menu opened: ${await pressByTitle('Game menu')}`);
 await sleep(1500);
-log(`  free cast on: ${await pressByTitle('ignore mana entirely')}`);
+log(`  free cast on: ${await pressByTitle('Ignore mana entirely')}`);
 await sleep(800);
 await pressByTitle('Close the menu');
 await sleep(800);

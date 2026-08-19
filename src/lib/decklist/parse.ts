@@ -268,22 +268,44 @@ export function parseCardLine(input: string): LineParse | null {
     return qty ?? '';
   });
 
-  /* The printing. `(M21) 163`, `(M21)` alone, or `(M21) 163★`. */
-  text = text.replace(
-    /\s*\(([A-Za-z0-9_]{2,5})\)\s*([A-Za-z0-9★†-]{1,8})?/,
-    (_all, code: string, number: string | undefined) => {
-      const lower = code.toLowerCase();
-      if (NOT_A_SET.has(lower)) {
-        /* `(Commander)` is nine characters and never reaches here, but `(CMDR)`
-           does, and it is a role rather than a set. */
-        if (lower === 'cmdr' || lower === 'cmd') section = 'commander';
-        return ' ';
-      }
+  /*
+   * The printing. `(M21) 163`, `(M21)` alone, or `(M21) 163★`.
+   *
+   * A CARD NAME CAN END IN A SHORT PARENTHETICAL TOO
+   * ------------------------------------------------
+   * `1 Hazmat Suit (Used)` is a real Unstable card and `Used` is four
+   * characters, so this rule read it as set code `used` and asked the catalogue
+   * for `Hazmat Suit`, which is not a card. The line was not dropped, but it
+   * came back as a GUESS in "Worth a look" instead of the exact match it is, so
+   * a name typed correctly and in full still needed a click to survive.
+   *
+   * Nothing in the text tells `(Used)` from `(LTC)`, so this does not guess. It
+   * keeps the other reading and hands it along, exactly as the trailing-number
+   * rule below already does for `Pain 101`: both readings ride in the same
+   * single batch and whichever finds a card wins. It only applies when the
+   * parenthetical ENDS the line and no collector number follows, because
+   * `(LTC) 284` is not ambiguous.
+   */
+  const printing = /\s*\(([A-Za-z0-9_]{2,5})\)\s*([A-Za-z0-9★†-]{1,8})?/.exec(text);
+  let trailingParenthetical: string | undefined;
+  if (printing) {
+    const code = printing[1];
+    const number = printing[2];
+    const lower = code.toLowerCase();
+    const endsTheLine = printing.index + printing[0].length === text.length;
+
+    if (NOT_A_SET.has(lower)) {
+      /* `(Commander)` is nine characters and never reaches here, but `(CMDR)`
+         does, and it is a role rather than a set. */
+      if (lower === 'cmdr' || lower === 'cmd') section = 'commander';
+    } else {
       setCode = lower;
       if (number) collectorNumber = number;
-      return ' ';
+      if (endsTheLine && !number) trailingParenthetical = `(${code})`;
     }
-  );
+
+    text = `${text.slice(0, printing.index)} ${text.slice(printing.index + printing[0].length)}`;
+  }
 
   /* Long-form role markers the product's own export writes. */
   text = text.replace(/\s*\((commander|companion|sideboard|maybeboard)\)\s*/i, (_all, word: string) => {
@@ -327,6 +349,16 @@ export function parseCardLine(input: string): LineParse | null {
   if (!name) return null;
   /* A line that is nothing but digits is a stray count, not a card. */
   if (/^\d+$/.test(name)) return null;
+
+  /* The parenthetical this line ended with, put back. Only when the
+     trailing-number rule has not already claimed the alternate, which it cannot
+     have: a line cannot end in both `(Used)` and a bare number. */
+  if (trailingParenthetical && !alternate) {
+    alternate = {
+      name: tidyName(`${name} ${trailingParenthetical}`),
+      quantity: quantity && quantity > 0 ? quantity : 1,
+    };
+  }
 
   return {
     name,

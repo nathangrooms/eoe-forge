@@ -574,7 +574,7 @@ async function playTable(tab) {
 
   await pressTitle(tab, 'Game menu');
   await sleep(1200);
-  await pressTitle(tab, 'ignore mana entirely');
+  await pressTitle(tab, 'Ignore mana entirely');
   await sleep(700);
   await pressTitle(tab, 'Close the menu');
   await sleep(700);

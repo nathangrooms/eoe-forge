@@ -192,6 +192,49 @@ test('a whole Moxfield style commander paste', () => {
   assert.equal(parsed.cards[5].section, 'sideboard');
 });
 
+test('a card whose name ends in a short parenthetical keeps both readings', () => {
+  /*
+   * `Hazmat Suit (Used)` is a real Unstable card. `Used` is four characters, so
+   * the printing rule reads it as a set code and asks for `Hazmat Suit`, which
+   * is not a card: before this the line came back as a GUESS in "Worth a look"
+   * rather than as the exact match it is. Both readings go in the same batch,
+   * the way `Pain 101` already did, and the lookup settles it.
+   */
+  const line = parseCardLine('1 Hazmat Suit (Used)');
+  assert.equal(line?.name, 'Hazmat Suit');
+  assert.equal(line?.setCode, 'used');
+  assert.deepEqual(line?.alternate, { name: 'Hazmat Suit (Used)', quantity: 1 });
+
+  /* The quantity travels with the other reading. */
+  assert.deepEqual(parseCardLine('3 Hazmat Suit (Used)')?.alternate, {
+    name: 'Hazmat Suit (Used)',
+    quantity: 3,
+  });
+});
+
+test('a real printing is not turned into a second reading', () => {
+  /* `(LTC) 284` is not ambiguous, so there is nothing to keep. */
+  const withNumber = parseCardLine('1 Sol Ring (LTC) 284');
+  assert.equal(withNumber?.setCode, 'ltc');
+  assert.equal(withNumber?.collectorNumber, '284');
+  assert.equal(withNumber?.alternate, undefined);
+
+  /* A set code in the middle of a line is not the end of a name either. */
+  const deckstats = parseCardLine('4 [M21] Lightning Bolt');
+  assert.equal(deckstats?.name, 'Lightning Bolt');
+  assert.equal(deckstats?.alternate, undefined);
+});
+
+test('a long parenthetical in a name is never mistaken for a set', () => {
+  /* Three real cards, none of which this rule may touch. */
+  assert.equal(parseCardLine('1 B.F.M. (Big Furry Monster)')?.name, 'B.F.M. (Big Furry Monster)');
+  assert.equal(parseCardLine('1 B.O.B. (Bevy of Beebles)')?.name, 'B.O.B. (Bevy of Beebles)');
+  assert.equal(
+    parseCardLine("1 Erase (Not the Urza's Legacy One)")?.name,
+    "Erase (Not the Urza's Legacy One)"
+  );
+});
+
 function pick(line: ReturnType<typeof parseCardLine>) {
   return line ? { name: line.name, quantity: line.quantity } : null;
 }

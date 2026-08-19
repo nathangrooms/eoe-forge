@@ -389,7 +389,7 @@ for (const m of await matProbe()) log('  ' + JSON.stringify(m));
 
 /* Free cast so a board exists to measure. */
 log('\nmenu:', await pressTitle('Game menu')); await sleep(1400);
-log('free cast:', await pressTitle('ignore mana entirely')); await sleep(700);
+log('free cast:', await pressTitle('Ignore mana entirely')); await sleep(700);
 await pressTitle('Close the menu'); await sleep(700);
 
 const handTitles = () => page.evaluate(() =>

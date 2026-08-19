@@ -241,9 +241,14 @@ if (!(await game())) throw new Error('the table vanished after it was dealt');
 log('opening:', JSON.stringify(await game()));
 await pressText(/^Keep$/);
 await sleep(900);
-await pressTitle('Game menu'); await sleep(1200);
-await pressTitle('ignore mana entirely'); await sleep(600);
-await pressTitle('Close the menu'); await sleep(600);
+/* Logged rather than swallowed. The needle here read "ignore mana entirely"
+   against a title that says "Goldfishing. Ignore mana entirely", and `.includes`
+   is case sensitive, so this press returned false in silence: every run measured
+   a board built at full mana cost while the line above claimed free cast was on.
+   A press whose result nobody looks at is not a press. */
+log('game menu:', await pressTitle('Game menu')); await sleep(1200);
+log('free cast:', await pressTitle('Ignore mana entirely')); await sleep(600);
+log('menu closed:', await pressTitle('Close the menu')); await sleep(600);
 await shot('dealt');
 
 /* ------------------------------------------------------ 2. QUAD RECTS */

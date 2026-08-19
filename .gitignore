@@ -9,8 +9,18 @@ lerna-debug.log*
 
 node_modules
 dist
+# Measurement agents build to their own output directories so they can A/B a
+# change without disturbing dist/. One of those, dist-after-audit, was committed
+# by accident: 271 files, 8.7 MB of build output, on a public repo. Any dist-*
+# is build output and none of it belongs in git.
+dist-*
 dist-ssr
 *.local
+
+# Generated proxy sheets. These are produced from card images at run time and a
+# stray one in public/ would be served from the live site.
+public/*_proxies.pdf
+*_proxies.pdf
 
 # Editor directories and files
 .vscode/*

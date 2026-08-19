@@ -114,8 +114,8 @@ export default {
 				'glow-accent': 'var(--glow-accent)'
 			},
 			fontFamily: {
-				display: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-				sans: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				display: ['var(--app-font-sans)'],
+				sans: ['var(--app-font-sans)'],
 				mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
 			},
 			borderRadius: {

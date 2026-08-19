@@ -1,3 +1,60 @@
+/* ---------------------------------------------------------------------------
+   Mona Sans, self-hosted.
+
+   Inter used to load from fonts.googleapis.com. That is a third-party request on
+   every page load, it is a known GDPR problem for EU visitors because the CDN
+   sees their IP, and it puts a render-blocking dependency on someone else's
+   uptime. Self-hosting removes all three.
+
+   One variable file covers 200-900, so the whole weight range costs 38KB rather
+   than six static instances. Both styles, Latin and Latin Extended: 108KB total.
+
+   Mona Sans is SIL OFL 1.1. See THIRD-PARTY-NOTICES.md.
+
+   The family is read through --app-font-sans rather than hard-coded, so it can
+   be changed in one place. Admin exposes that.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('/fonts/mona-sans-latin-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('/fonts/mona-sans-latin-ext-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('/fonts/mona-sans-latin-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('/fonts/mona-sans-latin-ext-italic.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,6 +91,10 @@ All colors MUST be HSL.
    * everything navy/purple, which is what made the app read as "themed".
    * ------------------------------------------------------------------ */
   :root {
+    /* The app's face, in one place. Admin writes this. */
+    --app-font-sans: 'Mona Sans', ui-sans-serif, system-ui, -apple-system,
+      'Segoe UI', Roboto, sans-serif;
+
     --background: 0 0% 100%;
     --foreground: 0 0% 8%;
 

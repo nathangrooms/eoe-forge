@@ -46,14 +46,32 @@ function decisionIn(effects) {
   return null;
 }
 
+/** Effect members to-actions.ts names and never resolves. */
+const NEVER_RESOLVED = new Set(['pump', 'gain-control', 'search-library', 'return-from', 'add-mana', 'counter']);
+
+function neverResolvedVerb(effects) {
+  for (const e of effects ?? []) {
+    if (NEVER_RESOLVED.has(e.do)) return e.do;
+    if (e.do === 'if') { const r = neverResolvedVerb(e.then) ?? neverResolvedVerb(e.else); if (r) return r; }
+    if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') {
+      const r = neverResolvedVerb(e.effects); if (r) return r;
+    }
+    if (e.do === 'choose-mode') for (const m of e.modes) { const r = neverResolvedVerb(m.effects); if (r) return r; }
+  }
+  return null;
+}
+
 function abilityVerdict(ability, owns, scryfallKeywords) {
   if (hasManualEffect(effectsOf(ability))) return { s: 'manual', why: '{do:manual}' };
+  const verb = neverResolvedVerb(effectsOf(ability));
+  if (verb) return { s: 'dead', why: `to-actions.ts names "${verb}" and never resolves it` };
   const decision = decisionIn(effectsOf(ability));
   switch (ability.kind) {
     case 'triggered':
+      // Ownership first. See scripts/verify-promptable-audit.mjs.
+      if (!owns) return { s: 'dead', why: unrunnableReason(ability) ?? 'card not owned' };
       if (ability.optional) return { s: 'decision', why: 'optional trigger' };
       if (decision) return { s: 'decision', why: `contains ${decision}` };
-      if (!owns) return { s: 'dead', why: unrunnableReason(ability) ?? 'card not owned' };
       return { s: 'run', why: 'triggers.ts:468' };
     case 'static':
       if (decision) return { s: 'decision', why: `contains ${decision}` };
@@ -61,6 +79,13 @@ function abilityVerdict(ability, owns, scryfallKeywords) {
         if (m.layer === 'cost-modify') return { s: 'dead', why: 'cost-modify unread' };
         if (m.layer === 'restriction' && !RESTRICTIONS_COMBAT_READS.has(m.rule?.rule)) {
           return { s: 'dead', why: `restriction ${m.rule?.rule} unread` };
+        }
+        // A layer-6 grant of a keyword combat.ts never asks about is a badge.
+        if (m.layer === 'ability') {
+          for (const g of (m.grant ?? [])) {
+            const word = String(g).toLowerCase();
+            if (keywordSupport(word) !== 'engine') return { s: 'dead', why: `grants advisory "${word}"` };
+          }
         }
       }
       return { s: 'run', why: 'statics.ts -> layers' };

@@ -121,8 +121,26 @@ const OWNER = {
   STATICS: 'src/lib/game/abilities/statics.ts — collected, never read',
   MANA: 'src/lib/game/mana.ts — approximates sources instead',
   BACK_FACE: 'src/lib/cards/abilities/normalize.ts — back faces are a declared gap',
+  TO_ACTIONS: 'src/lib/game/abilities/to-actions.ts — names the effect, never resolves it',
   DECISION: '(not a blocker) needs a player choice — a prompt, not automation',
 };
+
+/* ADVERSARIAL REVIEW. Effect members to-actions.ts writes a line about and
+ * never carries out: a perfect grammar in this folder does not make any of them
+ * happen, so they are a blocker owned by to-actions.ts, not a decision. */
+const NAMED_NOT_RESOLVED = new Set(['pump', 'gain-control', 'search-library', 'return-from', 'add-mana', 'counter']);
+
+function namedNotResolved(effects) {
+  for (const e of effects ?? []) {
+    if (NAMED_NOT_RESOLVED.has(e.do)) return e.do;
+    if (e.do === 'if') { const r = namedNotResolved(e.then) ?? namedNotResolved(e.else); if (r) return r; }
+    if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') {
+      const r = namedNotResolved(e.effects); if (r) return r;
+    }
+    if (e.do === 'choose-mode') for (const m of e.modes) { const r = namedNotResolved(m.effects); if (r) return r; }
+  }
+  return null;
+}
 
 /* Restriction rules `combat.ts` actually asks about. Same list, same reason, as
  * the T3 CORRECTION in ability-layer-coverage.mjs. */
@@ -247,6 +265,8 @@ function homeOfUnreadLine(norm, isSpellCard) {
 /** Where an ability that DID compile lands, and who owns the fix if it is dead. */
 function homeOfCompiled(ability, ownsTriggers) {
   const decision = decisionReason(effectsOf(ability));
+  const named = namedNotResolved(effectsOf(ability));
+  if (named) return { ok: false, decision: false, owner: OWNER.TO_ACTIONS, home: ability.kind };
   switch (ability.kind) {
     case 'triggered': {
       /* ADVERSARIAL REVIEW. Ownership first. A trigger the bridge refuses is

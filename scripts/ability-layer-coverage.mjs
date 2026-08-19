@@ -177,6 +177,30 @@ function decisionReason(effects) {
 const READ_RESTRICTIONS = new Set(['cant-attack', 'cant-block']);
 
 /**
+ * Effect members `to-actions.ts` writes a line about and never carries out.
+ * Read case by case out of that file:
+ *   pump           a duration-limited continuous effect; GameState has no list
+ *   gain-control   same
+ *   search-library a hidden zone the player must pick from
+ *   return-from    same
+ *   add-mana       mana.ts counts untapped sources instead of holding a pool
+ *   counter        there is no stack to counter anything on
+ */
+const NAMED_NOT_RESOLVED = new Set(['pump', 'gain-control', 'search-library', 'return-from', 'add-mana', 'counter']);
+
+function namedNotResolved(effects) {
+  for (const e of effects ?? []) {
+    if (NAMED_NOT_RESOLVED.has(e.do)) return e.do;
+    if (e.do === 'if') { const r = namedNotResolved(e.then) ?? namedNotResolved(e.else); if (r) return r; }
+    if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') {
+      const r = namedNotResolved(e.effects); if (r) return r;
+    }
+    if (e.do === 'choose-mode') for (const m of e.modes) { const r = namedNotResolved(m.effects); if (r) return r; }
+  }
+  return null;
+}
+
+/**
  * The reason a static ability is dead, or `null` when every modification on it
  * reaches a live consumer. A static is dead if ANY of its modifications is,
  * because the ability is one sentence and half of one is not the card.
@@ -231,6 +255,25 @@ function staticDeadModification(ability) {
 function abilityStatus(ability, ownsTriggers) {
   const effects = effectsOf(ability);
   const decision = decisionReason(effects);
+
+  /*
+   * ADVERSARIAL REVIEW — a verb `to-actions.ts` only NAMES.
+   *
+   * The behaviour probe was meant to catch these and mostly does. It cannot
+   * catch them all: `case 'pump'` and `case 'gain-control'` both read
+   * `if (names.length === 0) break;` BEFORE they push the deferral. The probe
+   * board holds no lands and one creature a side, so "attacking creatures with
+   * flying get +2/+0" matches nothing there, defers nothing, and comes back
+   * `silent` — which the probe deliberately does not treat as a failure.
+   * Kangee, Sky Warden and Karrthus, Tyrant of Jund reached AUTOMATED that way
+   * and both print a NOTE and change nothing on a real board.
+   *
+   * Graded from the effect tree instead, which does not depend on what one
+   * synthetic board happened to match. 104 abilities carry one; 83 were already
+   * being caught by the probe, so the headline moves by 21 cards.
+   */
+  const named = namedNotResolved(effects);
+  if (named) return { status: 'dead', why: `effect "${named}": to-actions.ts names it and never resolves it` };
 
   switch (ability.kind) {
     case 'triggered': {

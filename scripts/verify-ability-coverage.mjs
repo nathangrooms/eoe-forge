@@ -162,8 +162,54 @@ function decisionIn(effects) {
   return null;
 }
 
+/*
+ * THIRD DEFECT FOUND BY THIS REVIEW — the probe board hides these.
+ *
+ * `to-actions.ts` NAMES these six and never resolves them. Read case by case:
+ *
+ *   pump           to-actions.ts:389  a duration-limited continuous effect;
+ *                                     GameState carries no list to put it in
+ *   gain-control   to-actions.ts:405  same
+ *   search-library to-actions.ts:~317 a hidden zone the player must pick from
+ *   return-from    to-actions.ts:~317 same
+ *   add-mana       to-actions.ts:~424 mana.ts counts untapped sources instead
+ *   counter        to-actions.ts:~473 no stack to counter anything on
+ *
+ * The behaviour probe was supposed to catch these, and mostly does. It cannot
+ * catch them all, because `pump` and `gain-control` read
+ * `if (names.length === 0) break;` BEFORE they push the deferral. On the probe
+ * board — no lands, one creature a side — "attacking creatures with flying get
+ * +2/+0" matches nothing, so nothing is deferred, the probe returns `silent`,
+ * and `silent` is deliberately not a downgrade. The card stays AUTOMATED.
+ *
+ * Kangee, Sky Warden and Karrthus, Tyrant of Jund both reached AUTOMATED that
+ * way. On a real board both print a NOTE and change nothing.
+ *
+ * A verb the interpreter never resolves is not automation on any board, so it
+ * is graded here from the effect tree rather than from what one board happened
+ * to match.
+ */
+const NEVER_RESOLVED = new Set(['pump', 'gain-control', 'search-library', 'return-from', 'add-mana', 'counter']);
+
+function neverResolvedVerb(effects) {
+  for (const e of effects ?? []) {
+    if (NEVER_RESOLVED.has(e.do)) return e.do;
+    if (e.do === 'if') { const r = neverResolvedVerb(e.then) ?? neverResolvedVerb(e.else); if (r) return r; }
+    if (e.do === 'for-each' || e.do === 'repeat' || e.do === 'may' || e.do === 'unless-pays') {
+      const r = neverResolvedVerb(e.effects); if (r) return r;
+    }
+    if (e.do === 'choose-mode') for (const m of e.modes) { const r = neverResolvedVerb(m.effects); if (r) return r; }
+  }
+  return null;
+}
+
 function abilityVerdict(ability, ownsTriggers, scryfallKeywords, STRICT_GRANTS) {
   if (hasManualEffect(effectsOf(ability))) return { s: 'manual', why: '{do:manual} marker' };
+
+  if (STRICT_GRANTS) {
+    const verb = neverResolvedVerb(effectsOf(ability));
+    if (verb) return { s: 'dead', why: `effect "${verb}" is named by to-actions.ts and never resolved` };
+  }
 
   const decision = decisionIn(effectsOf(ability));
 
@@ -254,6 +300,8 @@ const unmappedSamples = [];
 let automatedWithoutFullCoverage = 0;
 let keywordNotInScryfall = 0;
 let deadGrantCost = 0;   // AUTOMATED under their grading, refused by the dead-grant rule
+let neverResolvedCost = 0;  // AUTOMATED and probe-clean, but carries a verb to-actions.ts only names
+const neverResolvedSamples = [];
 const keywordNotInScryfallSamples = [];
 
 const automatedBy = new Map();
@@ -347,7 +395,17 @@ for (const card of pool) {
   else if (result.abilities.length === 0) mine = 'SILENT';
   else mine = 'AUTOMATED';
 
-  if (theirs === 'AUTOMATED' && mine !== 'AUTOMATED') deadGrantCost++;
+  if (theirs === 'AUTOMATED' && mine !== 'AUTOMATED') {
+    deadGrantCost++;
+    const verbHit = perAbility.find(v => v.s === 'dead' && v.why.includes('never resolved'));
+    if (verbHit) {
+      neverResolvedCost++;
+      if (neverResolvedSamples.length < 25) {
+        const oneLine = String(card.oracle_text ?? '').split('\n').join(' | ');
+        neverResolvedSamples.push(`${card.name} :: ${verbHit.why} :: ${oneLine.slice(0, 120)}`);
+      }
+    }
+  }
   if ((theirs === 'AUTOMATED' || theirs === 'PROMPTABLE') && (unmapped > 0 || unaccounted > 0)) {
     mine = 'SILENT';
     if (theirs === 'AUTOMATED') {
@@ -482,7 +540,9 @@ for (const s of consumedButNoAbilitySamples.slice(0, 15)) say(`  ${s}`);
 say(`AUTOMATED under their rule, refused under mine             ${automatedWithUnmappedParagraph}`);
 for (const s of unmappedSamples.slice(0, 15)) say(`  ${s}`);
 say(`AUTOMATED with coverage !== 'full'                         ${automatedWithoutFullCoverage}`);
-say(`AUTOMATED under their grading, refused by the dead-grant rule ${deadGrantCost}`);
+say(`AUTOMATED under their grading, refused by my stricter grading ${deadGrantCost}`);
+say(`  of those, refused for a verb to-actions.ts only NAMES            ${neverResolvedCost}`);
+for (const s2 of neverResolvedSamples.slice(0, 20)) say(`    ${s2}`);
 say(`engine keyword compiled but absent from card.keywords      ${keywordNotInScryfall}`);
 for (const s of keywordNotInScryfallSamples.slice(0, 15)) say(`  ${s}`);
 say(`AUTOMATED whose oracle text still carries a decision word  ${overReach.length}`);
@@ -518,7 +578,7 @@ writeFileSync(OUT, JSON.stringify({
     automatedWithUnmappedParagraph, unmappedSamples,
     automatedWithoutFullCoverage,
     keywordNotInScryfall, keywordNotInScryfallSamples,
-    deadGrantCost,
+    deadGrantCost, neverResolvedCost, neverResolvedSamples,
     overReach,
   },
   accountingFailures, accountingSamples,

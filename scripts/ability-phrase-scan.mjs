@@ -122,6 +122,12 @@ function staticDeadModification(ability) {
 function abilityStatus(ability, ownsTriggers) {
   const effects = effectsOf(ability);
   const decision = decisionReason(effects);
+  /* ADVERSARIAL REVIEW. A verb to-actions.ts only names is not automation on
+   * any board; the probe misses some because pump and gain-control check for an
+   * empty selector before they defer. Same rule as ability-layer-coverage.mjs. */
+  if (hasDeferredVerb(effects) && !decision) {
+    return { status: 'dead', why: 'to-actions.ts names the effect and never resolves it' };
+  }
   switch (ability.kind) {
     case 'triggered': {
       /* ADVERSARIAL REVIEW. Ownership first. A trigger the bridge refuses is
@@ -188,6 +194,8 @@ const DEFERRED_EFFECT_VERBS = new Set([
   'gain-control',   // to-actions.ts case 'gain-control'  — same
   'search-library', // to-actions.ts case 'search-library'— a hidden zone the player must pick from
   'return-from',    // to-actions.ts case 'return-from'   — same
+  'add-mana',       // to-actions.ts case 'add-mana'      — mana.ts counts sources
+  'counter',        // to-actions.ts case 'counter'       — there is no stack
   'choose-mode',    // to-actions.ts case 'choose-mode'   — a decision
   'may',            // to-actions.ts case 'may'           — a decision
   'unless-pays',    // to-actions.ts case 'unless-pays'   — an opponent's decision

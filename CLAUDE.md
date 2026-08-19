@@ -113,6 +113,27 @@ deck-optimizer result is computed against this stale table. Fixing sync is a pre
 any AI output. Sync must become **automatic, resumable and complete** — the stored `next_page_url`
 in `sync_status.error_message` shows it paginates and stalls.
 
+#### 🔴 The watchdog has never once worked — confirmed 2026-08-19, **not yet fixed**
+
+`cron.job` 3 (`scryfall-sync-watchdog`, `*/15 * * * *`) calls
+`public.resume_scryfall_sync_if_stalled()`, which builds its return string with
+`format('resumed stalled run (%.1f min idle)', …)` and `format('healthy (status=%s, idle=%.1f min)', …)`.
+Postgres `format()` accepts only `%s`, `%I`, `%L` and `%%` — `%.1f` is a hard error. Every run since
+the job was created has ended:
+
+> `ERROR: unrecognized format() type specifier "."` — `resume_scryfall_sync_if_stalled()` line 26
+
+Confirmed in `cron.job_run_details`: status `failed`, every 15 minutes, no exceptions. The
+`perform public.trigger_scryfall_sync('resume')` call sits *before* the throwing `return`, so the
+exception **rolls the resume back** — the watchdog is not merely silent, it actively undoes its own
+work. `sync_status.scryfall_cards` has been stuck `running` at page 46 / 32,726 (7,875 processed)
+since 2026-08-18, which is why the sets above are still missing.
+
+Fix is `round(stalled_mins, 1)` passed through `%s` on **both** `format()` calls (plain `%s` on a
+numeric prints full precision). **Deliberately not applied**: repairing the watchdog makes the next
+15-minute tick kick off a full ~32k-card sync against production. That is almost certainly what we
+want, but it should be a decision, not a side effect of a review.
+
 ---
 
 ## 7. Database
@@ -121,32 +142,67 @@ in `sync_status.error_message` shows it paginates and stalls.
 `deck_cards` (459), `tasks` (166), `activity_log` (130), `wishlist` (94), `user_collections` (51),
 `user_decks` (15), `profiles` (13).
 
-### Price-history coverage — diagnosed 2026-08-18
+### Price-history coverage — diagnosed 2026-08-18, **fixed 2026-08-19**
 
-The old note said `daily-price-capture` "only widens coverage for cards someone already owns or
-watches". **That is not what it does.** It pages the whole `cards` table — but it fetches Scryfall one
-card at a time with a 125 ms delay, always starting at `offset=0` (cron passes no offset), so it dies
-on the edge wall clock after ~400 cards and re-captures the *same* ~342 cards every run. Its
-`BATCH_SIZE = 75` constant (Scryfall's `/cards/collection` bulk limit) is declared and never used.
-
-Real coverage: 701 of 34,088 cards, and only **14 of the 572 cards users actually own, wishlist,
-deck or list**. Capture also stopped entirely between 2026-02-20 and 2026-08-18.
+**The old `daily-price-capture` loop was the bug.** It paged the whole `cards` table but fetched
+Scryfall one card at a time with a 125 ms delay, always starting at `offset=0` (cron passed no
+offset), so it died on the edge wall clock after ~400 cards and re-captured the *same* first cards
+every run. Its `BATCH_SIZE = 75` constant (Scryfall's `/cards/collection` bulk limit) was declared
+and never used. Coverage was 701 of 34,088 cards and only **14 of the 583 card ids users own,
+wishlist, deck or list**. Capture also stopped entirely between 2026-02-20 and 2026-08-18.
 
 `scryfall-sync` already refreshes `cards.prices` nightly (33,903 of 34,088 rows touched within 2
-days), so the snapshot needs **no Scryfall traffic at all**. `public.capture_daily_prices(scope,
-min_usd, date)` does it as an `INSERT … SELECT`: measured 2,884 rows in 2.5 s for scope `'relevant'`
-(all 572 user-relevant cards + everything ≥ $5) and all 34,088 rows in 1.6 s for scope `'all'`.
-Storage measured at **410 bytes/row** including the three indexes:
+days), so the snapshot needs **no Scryfall traffic at all**. `public.capture_daily_prices(p_scope,
+p_min_usd, p_date)` does it as an `INSERT … SELECT`: measured 2,884 rows in 2.5 s for scope
+`'relevant'`, 34,088 rows in 1.6 s for scope `'all'`. Storage measured at **410 bytes/row**
+including the three indexes:
 
 | scope | rows/day | rows/year | storage/year |
 |---|---|---|---|
 | user-relevant only (572) | 572 | 209 k | ~86 MB |
 | relevant + ≥ $20 (1,138) | 1,138 | 415 k | ~170 MB |
-| **relevant + ≥ $5 (2,884) — recommended** | 2,884 | 1.05 M | **~430 MB** |
+| **relevant + ≥ $5 (2,884) — in force** | 2,884 | 1.05 M | **~430 MB** |
 | entire catalogue (34,088) | 34,088 | 12.4 M | ~5.1 GB |
 
-The cron job was **not** repointed — that is a storage-cost decision. To switch it on:
-`select cron.alter_job(1, command => $$select public.capture_daily_prices('relevant', 5)$$);`
+**Cron job 1 now runs `select public.capture_daily_prices('relevant', 5)` in SQL** and no longer
+POSTs the edge function (which also removed a hardcoded anon JWT from the cron command). Migration
+`20260819000648_repoint_daily_price_capture_to_set_based_rpc`. Measured after the first run:
+
+| | before | after (2026-08-19) |
+|---|---|---|
+| distinct cards with history | 701 (2.06%) | **3,528 (10.35%)** |
+| user-relevant ids covered | 14 / 583 | **572 / 583** |
+| rows written per night | ~405 | 2,884 |
+
+The 11 uncovered ids are orphan `wishlist` rows whose `card_id` has no row in `cards` — 10 stale
+UUIDs and one literal string `'sol-ring'` (a slug, not an id: a bug in the wishlist writer).
+
+`EXECUTE` on `capture_daily_prices` is `postgres` + `service_role` only. The
+`daily-price-capture` edge function survives as a thin RPC wrapper for manual/admin triggers; it is
+deployed `verify_jwt = false`, so its `?scope=all` override is gated on the caller presenting the
+service-role key — otherwise an anonymous request could write all 34,088 rows in 1.6 s on repeat.
+**The rewritten wrapper is not yet deployed** (`git push` → Lovable). Cron does not touch it, so
+nightly capture is already correct; a manual invoke still runs the old loop until it ships.
+
+### oracle_text — established 2026-08-19
+
+`cards.oracle_text` is NULL for **854** rows and that is **correct, not a gap**: all 854 are
+multi-face layouts (transform 396, adventure 160, split 124, modal_dfc 100, prepare 52, flip 21,
+double_faced_token 1) and Scryfall itself publishes no top-level `oracle_text` for them — the text
+lives in `card_faces[]`. `src/lib/cards/abilities/normalize.ts:158` already reads
+`card.faces ?? card.card_faces`.
+
+The real gap was **52** `prepare`-layout cards (Secrets of Strixhaven, `sos`/`soc`/`fra`) that had
+neither `oracle_text` **nor** `faces`, because `backfillFaces` selected on a hardcoded
+`MULTI_FACE_LAYOUTS` allowlist that predated the layout. Backfilled from Scryfall's
+`/cards/collection`; **0 cards now have neither**. The selector is now
+`layout IN (…) OR name LIKE '%//%'` so a future layout self-heals — measured: all 854 rows carrying
+`faces` also carry `//` in the name (zero false negatives) and exactly one false positive exists in
+34,088 rows (`SP//dr, Piloted by Peni`).
+
+The **351 empty-string** `oracle_text` rows are all `layout = normal` vanilla creatures with
+genuinely no rules text (Squire, Scathe Zombies, Bronze Sable…). Leave them alone — writing text
+into them would make them look processed.
 
 Existing enums: `task_status` (pending, in_progress, blocked, done), `task_category` (feature, bug,
 improvement, core_functionality), `task_priority` (high, medium, low), `subscription_tier` (free, pro, unlimited).
@@ -201,9 +257,27 @@ return zero rows to an unauthenticated caller. Four real holes were found and fi
 4. **`anon`/`authenticated` held TRUNCATE on every table**, which bypasses RLS entirely. Not
    reachable through PostgREST, but revoked anyway.
 
+### `deck_share_events` — scoped 2026-08-19
+
+The INSERT policy was **named** "Service role can insert share events" but was created `TO public`
+with `WITH CHECK (true)`: anyone with the anon key could forge unlimited events against **any** deck
+id, including private ones. It is still open to `anon`/`authenticated` — logged-out share views are
+recorded client-side and there is no server-side recorder — but now gated on
+`public.is_published_share_target(deck_id, slug)`, so an event may be logged only for a genuinely
+published deck and only under that deck's real slug. `UPDATE`/`DELETE` table grants were revoked
+from `anon`/`authenticated` (the grant, not just the policy — a policy alone is not the gate).
+Migration `20260819001528_scope_deck_share_events_inserts_to_published_decks`.
+
+The predicate **must** be SECURITY DEFINER. An inline `EXISTS` against `user_decks` is filtered by
+that table's own RLS, whose SELECT policies key on **`is_public`** — a *different* column from the
+sharing flag **`public_enabled`**. Same trap bit the client: `trackShareEvent()` used to resolve the
+deck id with a direct `user_decks` read, which matched no policy for a logged-out visitor, so it
+returned early and **no share event or view-count increment was ever recorded**. It now resolves via
+the SECURITY DEFINER `get_public_deck` RPC. Anything added later that chains `.select()` onto the
+insert will still fail — returning the row needs SELECT, which is owner-only.
+
 Left deliberately unchanged: `profiles` is world-readable by design (but two usernames are raw email
-addresses — worth scrubbing); `deck_share_events` accepts anonymous inserts because logged-out
-share-page views are tracked client-side; `listings`/`wishlist_shares` are owner-only, so the
+addresses — worth scrubbing); `listings`/`wishlist_shares` are owner-only, so the
 marketplace and shared wishlists cannot actually be read by other users — that is a **feature gap,
 and closing it means loosening RLS deliberately, not a bug fix**.
 
@@ -422,3 +496,50 @@ only thing asking to be looked at. See PreconDeckView for the reference.
 deck detail (commander), card detail (the card itself), collection favourite
 decks, storage containers, tournament events, homepage recent decks. The life
 counter already wants colour identity backgrounds for a related reason.
+
+
+## Card coverage: the plan, and the two numbers that must never be conflated
+
+Owner, 19 Aug 2026: "whatever we can to get as close to 100% as we can - if we
+can do cheap to get 80% then work on the last 20% we would have the most complete
+engine ever."
+
+Approved. The goal is maximum coverage, sequenced cheapest-first.
+
+**TWO DIFFERENT NUMBERS. Never quote one as the other.**
+- REPRESENTABLE: what fraction of cards our ability DSL can express. Measured at
+  76.0% against XMage's corpus, rising to 80.7% with four cheap DSL extensions.
+- AUTOMATED: what fraction the engine actually RUNS. Currently 84 cards of
+  ~12,000. A card can be perfectly representable and still not run, because it
+  calls engine primitives nobody has written.
+
+Representable is a ceiling. Automated is the floor. Progress means closing the
+gap, and only the second number is what a player experiences.
+
+**The sequence:**
+1. Build the XMage extractor as a PLANNING INSTRUMENT, not a source of
+   automation. Its output is a ranked, dependency-ordered list of which engine
+   primitives to write, verified against all 32,168 real cards, with the count of
+   cards each one unlocks.
+2. Build the four cheap DSL extensions (computed values, watchers, cost
+   modification, conditional mana). Together +1,526 cards representable, without
+   touching the stack, layers or priority.
+3. Then grind the primitive list in ranked order. This is the part that raises
+   actual automation. It is long, but it is COUNTABLE: each primitive unlocks a
+   known number of real cards, so progress is measurable and can stop when the
+   return per primitive falls off.
+
+**Why not Forge, settled:** Forge is architecturally the same, so it hits the
+identical primitive-writing wall. Its effect vocabulary is smaller (~400 ApiType
+classes vs the 2,558 distinct primitives XMage cards invoke) and its scripts are
+plain text so extraction is easier, but neither removes the work. And it is
+GPL-3.0: plain GPL triggers on distribution rather than network use, but this app
+ships its rules engine to the browser by design, and that IS distribution, so it
+would force DeckMatrix's full source under GPL-3.0. Translating it to TypeScript
+does not help; that is explicitly a derivative work. XMage is MIT and safe with
+attribution.
+
+**Do not trust coverage measured against deck_cards.** It holds 474 rows across
+8 decks, alphabetically clustered, which looks like fixture data rather than real
+play. Real ranked decklists are needed before any coverage number is
+decision-grade.

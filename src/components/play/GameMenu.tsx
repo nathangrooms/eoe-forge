@@ -22,6 +22,7 @@ import {
   CARD_WIDTH_MIN,
 } from '@/components/cards/CardSizeSlider';
 import type { SeatingVariant } from '@/lib/game';
+import { MatStylePicker } from './MatStylePicker';
 
 export interface GameMenuProps {
   boardCardWidth: number;
@@ -43,6 +44,12 @@ export interface GameMenuProps {
   onLeave: () => void;
   onClose: () => void;
   className?: string;
+  /**
+   * The viewer's colour identity, so the playmat previews are tinted the way
+   * their own seat will be. Optional: without it the previews are plain
+   * charcoal, which still shows the texture honestly.
+   */
+  viewerColors?: readonly string[] | null;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -107,6 +114,7 @@ export function GameMenu({
   onMulligan,
   onLeave,
   onClose,
+  viewerColors,
   className,
 }: GameMenuProps) {
   return (
@@ -155,6 +163,12 @@ export function GameMenu({
               max={CARD_WIDTH_MAX}
             />
           </div>
+        </Section>
+
+        <Section title="Playmat">
+          {/* The surface, chosen rather than assigned. Every mat on the board
+              follows this, and it is remembered between games. */}
+          <MatStylePicker colors={viewerColors} />
         </Section>
 
         <Section title="Table">

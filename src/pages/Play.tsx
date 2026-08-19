@@ -1213,6 +1213,11 @@ export default function Play() {
               onMulligan={handleRedraw}
               onLeave={handleLeave}
               onClose={() => setMenuOpen(false)}
+              /* So the playmat previews are tinted the way this seat will be,
+                 rather than showing six charcoal rectangles. */
+              viewerColors={
+                state.players.find(p => p.id === HUMAN_SEAT)?.commanders[0]?.colorIdentity
+              }
             />
           )}
         </BoardRail>

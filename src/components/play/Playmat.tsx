@@ -67,6 +67,8 @@
 import { memo, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { identityGround } from '@/lib/cards/identityGround';
+import { matStyleOf, type MatStyleId } from './matStyles';
+import { usePlaymatStyle } from './usePlaymatStyle';
 
 export type MatTone = 'seat' | 'active' | 'viewer' | 'board';
 
@@ -88,31 +90,9 @@ const TONE: Record<
   board: { base: '0 0% 6.5%', glow: 0.035, vignette: 0.62, tint: 0, weave: 0.6 },
 };
 
-/**
- * The cloth itself, at a given strength.
- *
- * A twill: one bright pass and one dark pass crossing at right angles, with the
- * dark one heavier, which is how woven fabric catches light. The 7px pitch was
- * chosen against a card edge — finer than about 5px and the weave beats against
- * the card borders on a wide screen and reads as a render fault.
- */
-const weave = (strength: number): string[] => [
-  `repeating-linear-gradient(45deg, hsl(0 0% 100% / ${0.014 * strength}) 0 1px, transparent 1px 7px)`,
-  `repeating-linear-gradient(-45deg, hsl(0 0% 0% / ${0.13 * strength}) 0 2px, transparent 2px 7px)`,
-];
-
-/**
- * The large-scale variation, so the surface is a material rather than a fill.
- *
- * Three radials at different sizes and positions, deliberately not symmetrical:
- * a mat lit exactly evenly looks like a box, and the eye reads the asymmetry as
- * a physical object before it reads anything else.
- */
-const MOTTLE: readonly string[] = [
-  'radial-gradient(70% 120% at 18% 8%, hsl(0 0% 100% / 0.035), transparent 60%)',
-  'radial-gradient(90% 140% at 88% 92%, hsl(0 0% 0% / 0.16), transparent 62%)',
-  'radial-gradient(50% 90% at 68% 22%, hsl(0 0% 100% / 0.02), transparent 70%)',
-];
+/* The texture and the large-scale mottle both come from the chosen style now.
+   See `matStyles.ts`, which also carries the note on why a 7px weave pitch and
+   why none of this is a photograph. */
 
 export interface PlaymatProps {
   /**
@@ -128,6 +108,11 @@ export interface PlaymatProps {
   className?: string;
   /** Corner radius class for the whole surface. */
   rounded?: string;
+  /**
+   * Override the reader's chosen surface. Leave unset in the game, where every
+   * mat should follow one choice; pass it in a picker to draw a preview.
+   */
+  style?: MatStyleId;
 }
 
 export const Playmat = memo(function Playmat({
@@ -136,7 +121,10 @@ export const Playmat = memo(function Playmat({
   children,
   className,
   rounded = 'rounded-2xl',
+  style,
 }: PlaymatProps) {
+  const [chosen] = usePlaymatStyle();
+  const mat = matStyleOf(style ?? chosen);
   const settings = TONE[tone];
   const tint =
     settings.tint > 0 ? identityGround(colors, { alpha: settings.tint, angle: 155 }) : null;
@@ -150,11 +138,15 @@ export const Playmat = memo(function Playmat({
       /* Light on the middle of the table, and the fall-off at its edges. */
       `radial-gradient(120% 100% at 50% 38%, hsl(0 0% 100% / ${settings.glow}) 0%, transparent 46%)`,
       `radial-gradient(125% 110% at 50% 45%, transparent 38%, hsl(0 0% 2% / ${settings.vignette}) 100%)`,
-      ...weave(settings.weave),
-      ...MOTTLE,
+      ...mat.texture(settings.weave),
+      ...mat.mottle,
       /* The tint sits under the texture, so the weave reads on top of it — the
          way a dye sits in cloth rather than on it. */
       ...(tint ? [tint] : []),
+      /* Real artwork, when a style carries any, goes under the tint and the
+         texture so the weave still reads across it. Unset on every built-in
+         style; see the licensing note in `matStyles.ts`. */
+      ...(mat.image ? [mat.image] : []),
     ].join(','),
   };
 

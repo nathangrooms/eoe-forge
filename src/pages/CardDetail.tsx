@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ExternalLink, Heart, Layers, Library, Plus, RefreshCw } from 'lucide-react';
+import { ExternalLink, Heart, Layers, Library, Plus, Printer, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Breadcrumb,
@@ -19,6 +19,7 @@ import { CardPrintingsRow } from '@/components/cards/CardPrintingsRow';
 import { CardPriceHistory } from '@/components/cards/CardPriceHistory';
 import { CardWorksWellWith, CardSimilar } from '@/components/cards/CardRelated';
 import { CardAddToDeckPanel } from '@/components/cards/CardAddToDeckPanel';
+import { AddToListButton } from '@/components/shopping';
 import {
   canBeCommander,
   edhrecUrl,
@@ -464,6 +465,24 @@ export default function CardDetailPage() {
   const artist = card ? faceValue(card, face, 'artist') ?? card.artist : null;
   const faceName = card ? faceValue(card, face, 'name') : '';
 
+  /**
+   * Which printing a proxy of this card would actually print.
+   *
+   * The art is the whole point of a proxy, so this follows the printing the
+   * reader is looking at rather than the card in general: swap version in the
+   * printings row and the proxy button follows. The sheet reads its art out of
+   * our own `cards` table, so the id has to be one that table holds.
+   * `findDbCard` matches the exact printing first and only then falls back to
+   * another printing of the same card, so when the two differ the page says so
+   * instead of quietly printing different art from the one on screen.
+   */
+  const proxyPrintingId: string | null = dbCardId;
+  const proxyIsThisPrinting = Boolean(dbCard?.id && card?.id && dbCard.id === card.id);
+  const proxySetLine =
+    dbCard && !proxyIsThisPrinting
+      ? `${String(dbCard.set_code ?? '').toUpperCase()} ${dbCard.collector_number ?? ''}`.trim()
+      : '';
+
   const keywords: string[] = card?.keywords ?? dbCard?.keywords ?? [];
   const legalities = card?.legalities ?? dbCard?.legalities ?? null;
   const setCode = card ? getSetCode(card).toUpperCase() : '';
@@ -577,7 +596,43 @@ export default function CardDetailPage() {
                         Wishlist
                       </Button>
                     </div>
+
+                    {/* The proxy list, alongside the other three places a card
+                        can go. Owner: "card pages dont have add proxy". */}
+                    {proxyPrintingId ? (
+                      <AddToListButton
+                        card={{
+                          id: proxyPrintingId,
+                          name: card.name,
+                          oracle_id: card.oracle_id ?? dbCard?.oracle_id ?? null,
+                        }}
+                        kind="proxy"
+                        size="default"
+                        variant="secondary"
+                        display="full"
+                      />
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        className="w-full gap-2"
+                        onClick={() =>
+                          showError(
+                            'Not in the card database',
+                            'This printing has not synced into DeckMatrix yet, so we have no art to print.'
+                          )
+                        }
+                      >
+                        <Printer className="h-4 w-4" />
+                        Proxy list
+                      </Button>
+                    )}
                   </div>
+
+                  {proxySetLine && (
+                    <p className="mt-2 text-center text-xs text-muted-foreground">
+                      We do not hold this exact version, so a proxy prints {proxySetLine}.
+                    </p>
+                  )}
 
                   {owned && owned.quantity + owned.foil > 0 && (
                     <p className="mt-2 text-center text-xs text-muted-foreground">

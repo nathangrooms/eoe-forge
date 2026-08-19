@@ -1,69 +1,55 @@
 /**
- * Geometry and data preparation for printable proxies.
+ * Data preparation for printable proxies.
  *
- * Split out of `DeckProxyGenerator` because three consumers have to agree on
- * the same numbers or the printed card comes out the wrong size: the print
- * stylesheet (`proxy-sheet.css`), the on-screen preview, and the jsPDF export.
- * Before this they did not agree — the PDF drew 2.5 x 3.5 in *text boxes* and
- * the preview had no physical geometry at all, because no card image was ever
- * placed on a page.
+ * Split out of `DeckProxyGenerator` because three consumers have to agree or
+ * the printed card comes out the wrong size: the print stylesheet
+ * (`proxy-sheet.css`), the on-screen preview, and the jsPDF export. Before this
+ * they did not agree: the PDF drew 2.5 x 3.5 in *text boxes* and the preview
+ * had no physical geometry at all, because no card image was ever placed on a
+ * page.
+ *
+ * The millimetres themselves now live one file over in `proxy-geometry.ts`,
+ * which imports nothing so it can be unit tested, and are re-exported below so
+ * that this file is still the only import a consumer needs.
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { getBestCardImage, getCardFaces, hasBackFace, type ScryfallImageSize } from '@/lib/scryfall/card-utils';
+import { getBestCardImage, hasBackFace, type ScryfallImageSize } from '@/lib/scryfall/card-utils';
 
 /* ------------------------------------------------------------------ *
  * Physical geometry
+ *
+ * Lives in `proxy-geometry.ts`, which imports nothing so that the millimetres
+ * can be unit tested under `node --test`. Re-exported here so every existing
+ * consumer keeps its single import.
  * ------------------------------------------------------------------ */
 
-/**
- * A Magic card is 63 x 88 mm.
- *
- * Deliberately *not* 2.5 x 3.5 in (= 63.5 x 88.9 mm), which is the sleeve /
- * card-stock rounding everyone quotes. The difference is only 0.5 mm per card,
- * but it is 1.5 mm across a 3-up row and 2.7 mm down a 3-up column, which is
- * enough to walk a cut line off the black border by the third card. Print at
- * true card size and a proxy drops into a sleeve next to a real card without
- * anyone noticing.
- */
-export const CARD_W_MM = 63;
-export const CARD_H_MM = 88;
+export {
+  BLEED_MM,
+  BLOCK_H_MM,
+  BLOCK_W_MM,
+  CARD_H_MM,
+  CARD_W_MM,
+  EDGE_CLEARANCE_MM,
+  MARK_OUT_MM,
+  MARK_W_MM,
+  MM_TO_PT,
+  MM_TO_PX,
+  PAPER,
+  PRINT_DIALOG_HINT,
+  PROXY_COLS,
+  PROXY_PER_PAGE,
+  PROXY_ROWS,
+  bleedRect,
+  chunkIntoPages,
+  cropMarkSegments,
+  sheetMargins,
+  sheetPlan,
+  showSheetPlan,
+} from './proxy-geometry';
+export type { MarkTone, PaperSize, SheetPlan, SheetRect } from './proxy-geometry';
 
-/** CSS reference pixels per millimetre. CSS fixes 1in = 96px exactly. */
-export const MM_TO_PX = 96 / 25.4;
-
-export const PROXY_COLS = 3;
-export const PROXY_ROWS = 3;
-export const PROXY_PER_PAGE = PROXY_COLS * PROXY_ROWS;
-
-export type PaperSize = 'a4' | 'letter';
-
-export const PAPER: Record<PaperSize, { label: string; wMm: number; hMm: number; pdfFormat: string }> = {
-  a4: { label: 'A4', wMm: 210, hMm: 297, pdfFormat: 'a4' },
-  letter: { label: 'Letter', wMm: 215.9, hMm: 279.4, pdfFormat: 'letter' },
-};
-
-/**
- * Margins are derived, never authored.
- *
- * The card block is 189 x 264 mm, so it fits both sheets and the leftover is
- * split evenly. Letter is the tight one: 279.4 - 264 leaves only 7.7 mm top and
- * bottom, which is inside most printers' unprintable margin. That is fine —
- * nothing is printed there — but it does mean "Fit to page" in the browser's
- * print dialog will shrink the sheet to make its own margins fit, which is the
- * single most common way a correct stylesheet still prints the wrong size.
- * {@link PRINT_DIALOG_HINT} exists to tell the user that.
- */
-export function sheetMargins(paper: PaperSize) {
-  const p = PAPER[paper];
-  return {
-    xMm: (p.wMm - PROXY_COLS * CARD_W_MM) / 2,
-    yMm: (p.hMm - PROXY_ROWS * CARD_H_MM) / 2,
-  };
-}
-
-export const PRINT_DIALOG_HINT =
-  'In the print dialog set Margins to "None" and Scale to 100% (turn off "Fit to page"), or cards print undersized.';
+import { CARD_W_MM } from './proxy-geometry';
 
 /* ------------------------------------------------------------------ *
  * Resolution
@@ -234,11 +220,41 @@ export interface ProxySlot {
  * 1. **Quantity.** Four Lightning Bolts are four printed cards.
  * 2. **Faces.** A transform/MDFC card is printed as two separate cards, because
  *    paper does not flip. `hasBackFace` is the right test rather than
- *    `faces.length > 1`: adventure, split and flip cards also carry two entries
- *    in `faces`, but they are one physical card with one image, and printing a
- *    second slot for them would waste a third of every sheet. (Measured against
- *    the live table: 497 rows have separately-illustrated backs; 305 more have
- *    multiple faces and no back image.)
+ *    `faces.length > 1`: adventure, split, flip and prepare cards also carry two
+ *    entries in `faces`, but they are one physical card printed with both halves
+ *    on one side, and giving them a second slot would waste a ninth of a sheet
+ *    each and hand the player a card that does not exist.
+ *
+ *    Counted on the live `cards` table on 2026-08-19, by layout:
+ *
+ *    | layout              | printings | slots each |
+ *    |---------------------|-----------|------------|
+ *    | transform           |       988 |          2 |
+ *    | modal_dfc           |       262 |          2 |
+ *    | double_faced_token  |         2 |          2 |
+ *    | adventure           |       388 |          1 |
+ *    | split               |       284 |          1 |
+ *    | prepare             |        91 |          1 |
+ *    | meld                |        63 |          1 |
+ *    | flip                |        37 |          1 |
+ *
+ *    All 1,252 rows in the two-slot group carry a real image URL on the back
+ *    face, so no back slot is left with nothing to print. All 863 rows in the
+ *    one-slot group carry no per-face images at all, only the single top-level
+ *    card image, which is the shape that proves they are one physical card.
+ *
+ *    Meld is the one to be plain about. A meld pair is three separate rows in
+ *    the catalogue: the two halves, and the melded result, whose own row is a
+ *    normal single-image card. So the halves print as normal cards and the
+ *    result prints as a normal card. The real melded card is two cards wide, so
+ *    a 63 mm proxy of it is a reminder rather than a replica, and the player has
+ *    to add it to the list themselves.
+ *
+ * A back slot is never emitted unless the back has its own image. Without that
+ * guard `getBestCardImage(card, size, 1)` would fall through the face and reach
+ * the card's top-level `image_uris`, which is the FRONT, and quietly print the
+ * front of the card twice. No row in the catalogue does that today; the guard
+ * is here so that no row ever can.
  */
 export function buildProxySlots(cards: any[], quality: ProxyQuality): ProxySlot[] {
   const size = PROXY_QUALITY[quality].size;
@@ -246,36 +262,35 @@ export function buildProxySlots(cards: any[], quality: ProxyQuality): ProxySlot[
 
   cards.forEach((card, cardIndex) => {
     const qty = Math.max(1, Number(card?.quantity) || 1);
-    const twoSided = hasBackFace(card);
-    const faceCount = twoSided ? Math.min(2, getCardFaces(card).length) : 1;
+
+    /*
+     * `getBestCardImage` walks down from the requested resolution and only
+     * reaches the flat `image_url` string after exhausting every real printing
+     * image, so asking for `png`/`large` here can never silently downgrade a
+     * card that has the asset.
+     */
+    const frontUrl = getBestCardImage(card, size, 0);
+    const backUrl = hasBackFace(card) ? getBestCardImage(card, size, 1) : undefined;
+    /* Its own art, or it is not a back. Equality is the test that catches the
+       fall-through to the card's top-level image, which is the front. */
+    const twoSided = Boolean(backUrl) && backUrl !== frontUrl;
+    const faces = [frontUrl, ...(twoSided ? [backUrl] : [])];
 
     for (let copy = 0; copy < qty; copy++) {
-      for (let face = 0; face < faceCount; face++) {
+      faces.forEach((imageUrl, face) => {
         slots.push({
           key: `${card?.id ?? card?.name ?? 'card'}-${cardIndex}-${copy}-${face}`,
           card,
           faceIndex: face,
           isCommander: Boolean(card?.isCommander),
-          /*
-           * `getBestCardImage` walks down from the requested resolution and only
-           * reaches the flat `image_url` string after exhausting every real
-           * printing image, so asking for `png`/`large` here can never silently
-           * downgrade a card that has the asset.
-           */
-          imageUrl: getBestCardImage(card, size, face),
+          imageUrl,
           faceLabel: twoSided ? (face === 0 ? 'Front' : 'Back') : undefined,
         });
-      }
+      });
     }
   });
 
   return slots;
-}
-
-export function chunkIntoPages<T>(slots: T[], perPage = PROXY_PER_PAGE): T[][] {
-  const pages: T[][] = [];
-  for (let i = 0; i < slots.length; i += perPage) pages.push(slots.slice(i, i + perPage));
-  return pages;
 }
 
 /* ------------------------------------------------------------------ *

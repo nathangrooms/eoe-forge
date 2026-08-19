@@ -269,6 +269,14 @@ if (!(await game())) throw new Error('the table vanished after it was dealt — 
 await shot('table');
 log('opening:', JSON.stringify(await game()));
 
+/* Keep the opening hand.
+   The London mulligan is answered before the first untap and nothing is
+   playable until it is: measured here, a Play land press on turn one with the
+   mulligan bar still up correctly did nothing. Pressing Keep is what a player
+   does, so the run does it too rather than measuring a frozen table. */
+log('kept opening hand:', await pressText(/^Keep$/));
+await sleep(900);
+
 /* Free cast, so a board can be built in a few turns rather than a dozen. */
 log('menu:', await pressTitle('Game menu')); await sleep(1400);
 log('free cast:', await pressTitle('ignore mana entirely')); await sleep(700);

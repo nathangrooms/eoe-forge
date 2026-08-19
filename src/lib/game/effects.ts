@@ -752,10 +752,32 @@ function isManaAbilityLine(line: string): boolean {
 }
 
 /**
+ * One answer per card object, kept for as long as that object lives.
+ *
+ * `automationFor` runs a dozen regexes over every line of oracle text, and the
+ * marker it feeds is now drawn on every permanent on the table — a board can
+ * hold 120 of them and re-renders on every action. A `WeakMap` keyed on the
+ * instance is exactly the right cache here because game state is immutable: any
+ * change to a card produces a NEW `CardInstance`, which misses the cache and is
+ * recomputed, while the old entry is collected. There is no invalidation to get
+ * wrong and no key to keep in step.
+ */
+const automationCache = new WeakMap<CardInstance, CardAutomation>();
+
+/**
  * Everything the UI needs to tell the truth about one card: what fires by
  * itself, what the player has to do, and whether to show the manual marker.
  */
 export function automationFor(card: CardInstance | null | undefined): CardAutomation {
+  if (!card) return computeAutomation(card);
+  const cached = automationCache.get(card);
+  if (cached) return cached;
+  const computed = computeAutomation(card);
+  automationCache.set(card, computed);
+  return computed;
+}
+
+function computeAutomation(card: CardInstance | null | undefined): CardAutomation {
   const empty: CardAutomation = {
     level: 'vanilla',
     triggers: [],

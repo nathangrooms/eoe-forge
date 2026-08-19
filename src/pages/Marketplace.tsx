@@ -16,6 +16,8 @@ import { PriceTrendCard } from '@/components/marketplace/PriceTrendCard';
 import { PriceWatchlist } from '@/components/marketplace/PriceWatchlist';
 import { ShoppingList } from '@/components/marketplace/ShoppingList';
 import { CardImage, cardDetailPath } from '@/components/cards';
+import { CardPrices } from '@/components/pricing';
+import { readAmount } from '@/lib/pricing';
 import {
   Package,
   Edit,
@@ -47,6 +49,9 @@ interface Listing {
     name: string;
     image_uris: any;
     prices: any;
+    /** Which finishes this printing was actually made in. Tells "no foil price"
+        apart from "never printed in foil", which `CardPrices` says out loud. */
+    finishes: string[] | null;
     set_code: string;
     rarity: string;
   };
@@ -73,7 +78,8 @@ interface WatchlistItem {
   name: string;
   set_code: string;
   image_uri?: string;
-  currentPrice: number;
+  /** Null when no shop quotes this printing. Never 0: see PriceWatchlist. */
+  currentPrice: number | null;
   targetPrice?: number;
   alertEnabled: boolean;
   addedAt: string;
@@ -115,7 +121,10 @@ export default function Marketplace() {
       name: card.name,
       set_code: card.set_code,
       image_uri: card.image_uri,
-      currentPrice: card.lowestPrice || card.averagePrice || 0,
+      /* `|| 0` was here, and the search panel hands us `parseFloat(usd || '0')`,
+         so a printing with no USD price arrived as 0 and was saved as a price.
+         `readAmount` returns null for anything that is not a real amount. */
+      currentPrice: readAmount(card.lowestPrice) ?? readAmount(card.averagePrice),
       alertEnabled: true,
       addedAt: new Date().toISOString(),
       priceChange: card.priceChange7d,
@@ -188,6 +197,7 @@ export default function Marketplace() {
             name,
             image_uris,
             prices,
+            finishes,
             set_code,
             rarity
           )
@@ -209,6 +219,7 @@ export default function Marketplace() {
             name,
             image_uris,
             prices,
+            finishes,
             set_code,
             rarity
           )
@@ -377,14 +388,39 @@ export default function Marketplace() {
             <span className="text-xs text-muted-foreground">Qty: {listing.qty}</span>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-lg font-semibold tabular-nums text-foreground">
-              ${listing.price_usd.toFixed(2)}
-            </span>
-            {listing.cards?.prices?.usd && (
-              <span className="text-xs text-muted-foreground">
-                Market: ${parseFloat(listing.cards.prices.usd).toFixed(2)}
+          {/* The asking price, then every price we actually hold for this exact
+              printing.
+
+              This was one number labelled "Market", read from `prices.usd`
+              alone. We store six slots per printing, so a seller pricing a foil
+              was being compared against the normal copy, and a printing with no
+              `usd` showed nothing at all beside the ask with no explanation.
+              `CardPrices` names the shop and the finish for each figure, and
+              says "No price yet" in words rather than printing a zero. */}
+          <div className="mb-3 space-y-2">
+            <div className="flex items-baseline justify-between gap-2">
+              {/* `price_usd` is the ask on a sold listing too: what the card
+                  actually went for is recorded in `sales`, not here. So a sold
+                  tile says what it was listed at rather than pretending to
+                  report the sale. */}
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {listing.status === 'sold' ? 'Listed at' : 'Asking'}
               </span>
+              <span className="text-lg font-semibold tabular-nums text-foreground">
+                ${listing.price_usd.toFixed(2)}
+              </span>
+            </div>
+
+            {listing.cards && (
+              <CardPrices
+                card={listing.cards}
+                surface="inset"
+                /* The tile is a quarter of a wide screen at most, and the buy
+                   row would wrap under every price. Buying is on the card page,
+                   one click away through the art. */
+                showBuyLinks={false}
+                heading="Market prices"
+              />
             )}
           </div>
 

@@ -1,0 +1,1 @@
+const r=8,n="At least 8 characters.";function t(a){return a?a.length<8?{valid:!1,message:"Password must be at least 8 characters."}:{valid:!0}:{valid:!1,message:"Enter a password."}}function i(a,s){const e=t(a);return e.valid?a!==s?{valid:!1,message:"Passwords do not match."}:{valid:!0}:e}export{n as P,r as a,i as v};

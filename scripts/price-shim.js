@@ -148,6 +148,44 @@
     { id: USER_ID, username: 'Harness', is_admin: false, avatar_url: null, created_at: '2026-01-01T00:00:00+00:00' },
   ];
 
+  /**
+   * Listings, chosen so the marketplace tile has to answer every price shape a
+   * seller can hit. `listings` is owner-scoped, so a signed-out run sees an
+   * empty For Sale tab and proves nothing.
+   *
+   *   card                                  what the tile must get right
+   *   8698c46b  normal listing, usd $0.63 and usd_foil $15.32 both real
+   *   8698c46b  FOIL listing of the same card, so the two must not read alike
+   *   c2c3e33c  no usd at all, foil $20.64 — the ask has nothing to sit beside
+   *   a87dd615  finishes = ['nonfoil'], so "never printed in foil" is provable
+   *   acefc515  no price in any slot: the panel has to say so in words
+   *   4a2e428c  Black Lotus, four figures, listed under market
+   */
+  const LISTED = [
+    ['8698c46b-2628-4482-88f9-e37a01ade274', 0, 1, 0.75, 'near_mint', 'active'],
+    ['8698c46b-2628-4482-88f9-e37a01ade274', 1, 1, 14.0, 'near_mint', 'active'],
+    ['c2c3e33c-8893-436e-ab3a-f8c2ae8b2527', 1, 1, 22.5, 'lightly_played', 'active'],
+    ['a87dd615-565d-4b79-a346-f8c6bb0a8340', 0, 3, 0.4, 'near_mint', 'active'],
+    ['acefc515-bf97-4dc0-b0f7-ae8ae5a61671', 0, 1, 2.0, 'near_mint', 'active'],
+    ['4a2e428c-dd25-484c-bbc8-2d6ce10ef42c', 0, 1, 6900.0, 'moderately_played', 'sold'],
+  ];
+
+  const listings = LISTED.map((row, i) => ({
+    id: `lst-${i}`,
+    user_id: USER_ID,
+    card_id: row[0],
+    foil: row[1] === 1,
+    qty: row[2],
+    price_usd: row[3],
+    condition: row[4],
+    status: row[5],
+    currency: 'USD',
+    note: null,
+    visibility: 'public',
+    created_at: '2026-08-0' + ((i % 9) + 1) + 'T00:00:00+00:00',
+    updated_at: '2026-08-1' + (i % 9) + 'T00:00:00+00:00',
+  }));
+
   const TABLES = {
     user_collections,
     wishlist,
@@ -158,7 +196,7 @@
     profiles,
     favorite_decks: [],
     activity_log: [],
-    listings: [],
+    listings,
     sales: [],
     messages: [],
     card_price_history: [],
@@ -181,7 +219,11 @@
   let cardsReady = null;
 
   async function loadCards() {
-    const ids = [...new Set([...OWNED.map(r => r[0]), ...wishlist.map(w => w.card_id)])].filter(
+    const ids = [...new Set([
+      ...OWNED.map(r => r[0]),
+      ...wishlist.map(w => w.card_id),
+      ...listings.map(l => l.card_id),
+    ])].filter(
       id => /^[0-9a-f-]{36}$/i.test(id)
     );
     const url =

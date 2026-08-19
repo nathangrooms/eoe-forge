@@ -41,12 +41,23 @@ export {
   fitRowCardWidth,
   overlapFor,
 } from './boardMetrics';
-import { CARD_RATIO, MIN_BOARD_CARD, fitRowCardWidth } from './boardMetrics';
+import { CARD_RATIO } from './boardMetrics';
 /* One row layout, measured in `seatLayout.ts` (where `node --test` can reach
    it) and rendered here. They were two copies of the same arithmetic once and
    the copies disagreed about tapped cards, which is how the layout shift got
    in. There is now nothing here to disagree with. */
-import { layoutRow } from './seatLayout';
+import { layoutRow, tapLean } from './seatLayout';
+/* The block's arithmetic, in a `.ts` for the same reason `seatLayout.ts` is:
+   `node --test` cannot import a file with JSX in it, and while this lived here
+   the block kept a card COUNT in its geometry long after the rows had lost
+   theirs. `blockLayout.test.ts` is what stops that coming back. */
+import {
+  BLOCK_LABEL,
+  BLOCK_PADDING,
+  blockGap,
+  blockLayout,
+} from './blockLayout';
+export { blockColumns, blockInner, blockCardWidth, blockLayout } from './blockLayout';
 
 export interface PermanentRowProps {
   cards: CardInstance[];
@@ -59,7 +70,6 @@ export interface PermanentRowProps {
    */
   renderCard: (card: CardInstance, index: number, width: number) => ReactNode;
   className?: string;
-  align?: 'center' | 'start';
 }
 
 export function PermanentRow({
@@ -68,7 +78,6 @@ export function PermanentRow({
   available,
   renderCard,
   className,
-  align = 'center',
 }: PermanentRowProps) {
   if (cards.length === 0) return null;
 
@@ -96,8 +105,10 @@ export function PermanentRow({
   return (
     <div
       className={cn(
-        'flex flex-nowrap items-center overflow-visible',
-        align === 'center' ? 'justify-center' : 'justify-start',
+        /* Always laid from the LEFT. `layoutRow` rule three: the pitch is a
+           constant, so card k sits in the same place whether the row holds k+1
+           permanents or twelve — which it cannot do if the run is centred. */
+        'flex flex-nowrap items-center justify-start overflow-visible',
         className
       )}
       style={{ paddingLeft: layout.edge || undefined, paddingRight: layout.edge || undefined }}
@@ -106,11 +117,12 @@ export function PermanentRow({
         <span
           key={card.instanceId}
           className="relative block transition-[z-index] hover:z-30"
-          style={{
-            marginLeft:
-              index === 0 ? 0 : layout.overlap > 0 ? -cardWidth * layout.overlap : layout.gap,
-            zIndex: index,
-          }}
+          /* One number, from one place. `layout.gap` is the pitch minus a card,
+             so it is the positive space of a sparse row and the negative margin
+             of a crowded one — the two used to be computed separately here and
+             from `overlap`, which is two ways for the paint and the measurement
+             to disagree. */
+          style={{ marginLeft: index === 0 ? 0 : layout.gap, zIndex: index }}
         >
           {renderCard(card, index, cardWidth)}
         </span>
@@ -176,6 +188,14 @@ export interface ZoneRowProps {
 /** Narrower than this and the label can only lie about itself, so it is dropped. */
 const LABEL_MIN_WIDTH = 30;
 
+/**
+ * Width the row keeps for its own name, plus the breathing room after the last
+ * card. `SeatMat` subtracts exactly this before it works out how wide the run
+ * may be, because a measurement taken in a box the cards are not laid out in is
+ * the way every previous version of this file came to overlap its own edge.
+ */
+export const ROW_LABEL_GUTTER = 18;
+
 /** One band of a seat's mat: a labelled, tinted strip that holds its height. */
 export function ZoneRow({
   label,
@@ -195,38 +215,44 @@ export function ZoneRow({
   return (
     <div
       className={cn(
-        'relative flex w-full shrink-0 items-center justify-center overflow-visible rounded-lg px-1',
+        /* `justify-start`, not centre: the run inside is already laid from the
+           left at a constant pitch, and centring the WRAPPER would undo that
+           the moment the run's width changed. */
+        'relative flex w-full shrink-0 items-stretch justify-start overflow-visible rounded-lg',
         tinted && 'bg-foreground/[0.045]',
         className
       )}
       style={{ height, paddingLeft: insetStart || undefined, paddingRight: insetEnd || undefined }}
       aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
-      {/* Above the cards, not behind them. A full row used to slice its own
-          label in half — "CREATURES" arriving as "CR" reads as a broken render
-          rather than as a zone name printed on the mat. */}
+      {/*
+        The row's name, in a gutter of its own down the left edge.
+
+        It used to be printed across the top of the row at 30% opacity, which
+        was fine on an empty row and a render fault on a full one: with the row
+        laid from the left, "CREATURES" was drawn straight over the first
+        creature's title bar. A gutter costs 14px of row width and cannot
+        collide with anything, because the cards start after it.
+      */}
       {labelFits && (
         <span
           aria-hidden="true"
-          /* Clear of the identity strip, not underneath it — the row's name and
-             the player's name overlapping read as a render fault. Bounded by
-             the gutter it actually has, so it never runs onto card art. */
-          style={{
-            left: (labelInset ?? insetStart) + 8,
-            maxWidth: labelMaxWidth,
-          }}
-          className="pointer-events-none absolute top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
+          className="pointer-events-none flex w-[14px] shrink-0 select-none items-center justify-center overflow-hidden text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/25"
         >
-          {label}
+          <span className="whitespace-nowrap" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>
+            {label}
+          </span>
         </span>
       )}
 
+      <div className="flex min-w-0 flex-1 items-center overflow-visible pr-1">
       <PermanentRow
         cards={cards}
         cardWidth={cardWidth}
         available={available}
         renderCard={renderCard}
       />
+      </div>
     </div>
   );
 }
@@ -235,55 +261,17 @@ export function ZoneRow({
 /* The support block — artifacts, enchantments, planeswalkers                  */
 /* -------------------------------------------------------------------------- */
 
-/** Horizontal padding inside the block, counted once on each side. */
-const BLOCK_PADDING = 8;
-/** Vertical room the block's label takes before any card is drawn. */
-const BLOCK_LABEL = 14;
-
-const blockGap = (cardWidth: number) => Math.max(2, Math.round(cardWidth * 0.07));
-
-/**
- * How many cards of `cardWidth` tile across a block of the given outer width.
- *
- * Shared by the fit search and the renderer on purpose. They disagreed once —
- * the search counted the block's full width and the renderer counted it minus
- * its padding — and the eight pixels between them were enough to turn a tidy
- * two-column block into a single column of four cards stacked on each other.
- */
-export function blockColumns(width: number, cardWidth: number): number {
-  const gap = blockGap(cardWidth);
-  return Math.max(1, Math.floor((width - BLOCK_PADDING + gap) / (cardWidth + gap)));
-}
-
-/**
- * The widest card that lets `count` of them tile inside a `width × height` box.
- *
- * The block is the one part of the mat that grows in two directions, so its
- * arithmetic is a search rather than a division: try the ceiling, work down
- * two pixels at a time, and take the first size whose grid fits. It stops at
- * `minimum` and lets the rows overlap vertically from there, exactly as a row
- * overlaps horizontally.
- */
-export function fitBlockCardWidth(
-  width: number,
-  height: number,
-  count: number,
-  preferred: number,
-  minimum = MIN_BOARD_CARD
-): number {
-  if (count <= 0 || width <= 0 || height <= 0) return preferred;
-
-  for (let w = Math.floor(preferred); w >= minimum; w -= 2) {
-    const rows = Math.ceil(count / blockColumns(width, w));
-    if (rows * (w / CARD_RATIO + blockGap(w)) - blockGap(w) <= height - BLOCK_LABEL) return w;
-  }
-  return minimum;
-}
-
 export interface ZoneBlockProps {
   /** Stays on the mat at low contrast whether or not the block holds anything. */
   label: string;
   cards: CardInstance[];
+  /**
+   * The largest card the block may draw: a CEILING, not a size.
+   *
+   * `blockLayout` comes down from it to whatever the block's own box will hold,
+   * and having done so it holds that size whether the block has one permanent
+   * in it or ten.
+   */
   cardWidth: number;
   /** Fixed box, so permanents entering and leaving never move the two rows. */
   width: number;
@@ -324,13 +312,21 @@ export function ZoneBlock({
   renderCard,
   className,
 }: ZoneBlockProps) {
-  /* Collapsed: the zone still says where it is, so the mat keeps its geography
-     and a player still knows where an enchantment will appear. */
+  /* Empty: the zone still says where it is, so the mat keeps its geography and
+     a player still knows where an enchantment will appear.
+
+     It keeps its full width while it does. It used to collapse to a 22px spine
+     and hand the width to the two rows, which meant the rows moved every time
+     an artifact resolved or died — one of the reflows behind the owner's *"keep
+     getting weird layout shifting when things happen"*. `supportBlockWidth` is
+     now a constant fraction of the mat and this branch honours it. */
   if (cards.length === 0 || width < BLOCK_SPINE) {
+    const spine = width < BLOCK_SPINE;
     return (
       <div
         className={cn(
-          'relative flex shrink-0 items-start justify-center overflow-hidden rounded-lg bg-foreground/[0.045] pt-2',
+          'relative flex shrink-0 overflow-hidden rounded-lg bg-foreground/[0.045]',
+          spine ? 'items-start justify-center pt-2' : 'items-start justify-start px-2 pt-0.5',
           className
         )}
         style={{ width, height }}
@@ -338,8 +334,8 @@ export function ZoneBlock({
       >
         <span
           aria-hidden="true"
-          className="pointer-events-none select-none whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30"
-          style={{ writingMode: 'vertical-rl' }}
+          className="pointer-events-none select-none truncate whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30"
+          style={spine ? { writingMode: 'vertical-rl' } : undefined}
         >
           {label}
         </span>
@@ -347,33 +343,42 @@ export function ZoneBlock({
     );
   }
 
-  const gap = blockGap(cardWidth);
-  const cardHeight = cardWidth / CARD_RATIO;
-  const cols = blockColumns(width, cardWidth);
+  /* One plan for the whole block, and `cardWidth` is a CEILING here rather than
+     a size. `blockLayout` picks the card from the block's own box, so a
+     permanent arriving cannot resize the ones already there, and steps the rows
+     under each other off a ladder when the block fills — the same two rules
+     `layoutRow` follows for a row, turned ninety degrees. See
+     `blockLayout.ts`; the measurement that forced it is in its header. */
+  const plan = blockLayout(cards.length, width, height, cardWidth);
+  const drawWidth = plan.cardWidth;
+  const gap = blockGap(drawWidth);
+  const cardHeight = drawWidth / CARD_RATIO;
+  const cols = plan.columns;
+  const step = plan.step;
 
   const grid: CardInstance[][] = [];
   for (let i = 0; i < cards.length; i += cols) grid.push(cards.slice(i, i + cols));
 
-  /* Rows slide under each other once the block is full, in the same way cards
-     in a row slide under each other. The step is whatever fits the box, capped
-     at "not overlapping at all" and floored only so two rows can never land on
-     exactly the same pixel — the block must stay inside its own height, because
-     the mat below it belongs to the seat in the next quadrant. */
-  const step =
-    grid.length > 1
-      ? Math.max(
-          8,
-          Math.min(cardHeight + gap, (height - BLOCK_LABEL - cardHeight) / (grid.length - 1))
-        )
-      : 0;
-
   return (
     <div
       className={cn(
-        'relative flex shrink-0 flex-col items-center overflow-visible rounded-lg bg-foreground/[0.045] px-1 pt-3.5',
+        'relative flex shrink-0 flex-col items-start overflow-visible rounded-lg bg-foreground/[0.045] pt-3.5',
         className
       )}
-      style={{ width, height }}
+      /*
+       * The turning room is PADDING, not something the centring happens to
+       * leave over. `blockInner` subtracts exactly this before it counts
+       * columns, and the rows inside are laid from the left, so a centred
+       * container put the whole reserve on the right and left a tapped card in
+       * the first column hanging over the left edge — measured at 9px past the
+       * box on a four-seat table with the block tapped.
+       */
+      style={{
+        width,
+        height,
+        paddingLeft: tapLean(drawWidth) + BLOCK_PADDING / 2,
+        paddingRight: tapLean(drawWidth) + BLOCK_PADDING / 2,
+      }}
       aria-label={`${label}, ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
       <span
@@ -386,7 +391,7 @@ export function ZoneBlock({
       {grid.map((row, rowIndex) => (
         <div
           key={rowIndex}
-          className="relative flex flex-nowrap items-start justify-center"
+          className="relative flex w-full flex-nowrap items-start justify-start"
           style={{
             gap,
             marginTop: rowIndex === 0 ? 0 : step - cardHeight,
@@ -395,7 +400,7 @@ export function ZoneBlock({
         >
           {row.map((card, columnIndex) => (
             <span key={card.instanceId} className="relative block transition-[z-index] hover:z-30">
-              {renderCard(card, rowIndex * cols + columnIndex, cardWidth)}
+              {renderCard(card, rowIndex * cols + columnIndex, drawWidth)}
             </span>
           ))}
         </div>

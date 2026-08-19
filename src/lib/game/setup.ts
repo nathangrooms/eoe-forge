@@ -203,13 +203,28 @@ export function buildTable(options: BuildTableOptions): BuiltTable {
   return { state, botPlayerIds, decksBySeat };
 }
 
+/* -------------------------------------------------------------------------- */
+/* Mulligans (CR 103.4 — the London mulligan)                                 */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Take a mulligan: hand back into the library, reshuffle, draw one fewer.
+ * Take a mulligan: hand back into the library, reshuffle, draw a FULL hand.
+ *
+ * This is the London mulligan, which is how Magic has worked since 2019. You
+ * always draw seven. The price is paid afterwards, by putting one card on the
+ * bottom of your library for each mulligan you have taken. The Paris rule — draw
+ * one fewer every time — is what this used to do, and a six-card hand you cannot
+ * choose from is a materially worse game than a seven-card hand you have to cut
+ * one from.
+ *
+ * The bottoming step is `bottomActions`, and what you owe is `cardsToBottom`.
+ * They are separate on purpose: between the two the player has to LOOK at seven
+ * cards and choose, and one function that did the whole mulligan would have to
+ * choose for them.
  *
  * Returned as actions rather than a new state so it travels the same path as
- * every other move — one code path in, one log, one thing to replay. The London
- * mulligan's "then put N on the bottom" is left to the player and the zone
- * browser, which is exactly how it works on a table.
+ * every other move: one code path in, one log, one thing to replay, and a
+ * networked table broadcasts the same batch.
  */
 export function mulliganActions(
   state: GameState,
@@ -231,6 +246,143 @@ export function mulliganActions(
   }));
 
   actions.push({ type: 'SHUFFLE', playerId, at });
-  actions.push({ type: 'DRAW', playerId, count: Math.max(1, handSize - 1), at });
+  /* A full hand, every time. `startingHandSize` rather than the size of the
+     hand just shuffled away, so a second mulligan still draws seven. */
+  actions.push({ type: 'DRAW', playerId, count: state.rules.startingHandSize, at });
+  return actions;
+}
+
+/**
+ * How many cards you owe the bottom of your library after `taken` mulligans.
+ *
+ * One per mulligan, never more than the hand holds.
+ */
+export function cardsToBottom(taken: number, handSize: number): number {
+  return Math.max(0, Math.min(taken, handSize));
+}
+
+/** Put the chosen cards on the bottom of the library, in the order given. */
+export function bottomActions(instanceIds: readonly string[], at = 0): GameAction[] {
+  return instanceIds.map(instanceId => ({
+    type: 'MOVE_ZONE',
+    instanceId,
+    to: 'library',
+    position: 'bottom',
+    at,
+  }));
+}
+
+/**
+ * Should this seat ship it back? The rule, written down.
+ *
+ * A bot that never mulligans keeps a one-land hand and then does nothing for
+ * six turns, which reads as a broken opponent rather than an unlucky one. This
+ * is deliberately the crudest defensible rule rather than a good one:
+ *
+ *   - keep any hand holding two to five lands;
+ *   - mulligan anything outside that band;
+ *   - stop after two, because a bot mulliganing itself to five is worse to play
+ *     against than a bot with a mediocre hand.
+ *
+ * Pure, and it reads the same `GameState` a human reads. It is not trying to
+ * play well. It is trying to be plausible, which is the whole bot's brief.
+ */
+export function shouldBotMulligan(
+  state: GameState,
+  playerId: PlayerId,
+  taken: number
+): boolean {
+  if (taken >= 2) return false;
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return false;
+
+  let lands = 0;
+  for (const instanceId of player.zones.hand) {
+    const card = state.cards[instanceId];
+    if (card && (card.typeLine ?? '').toLowerCase().includes('land')) lands += 1;
+  }
+  return lands < 2 || lands > 5;
+}
+
+/**
+ * Which cards a bot puts on the bottom, worst first.
+ *
+ * Lands beyond the fourth go first, then the most expensive spells, because the
+ * card a seven-card hand can least afford is the one it will never cast. Ties
+ * break on instance id, so replaying the same log lands on the same hand.
+ */
+export function botBottomChoice(
+  state: GameState,
+  playerId: PlayerId,
+  count: number
+): string[] {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player || count <= 0) return [];
+
+  const isLandLine = (typeLine: string | undefined) =>
+    (typeLine ?? '').toLowerCase().includes('land');
+
+  const hand = player.zones.hand.map(id => state.cards[id]).filter(Boolean);
+  let spareLands = Math.max(0, hand.filter(card => isLandLine(card.typeLine)).length - 4);
+
+  const ranked = hand.slice().sort((a, b) => {
+    const aLand = isLandLine(a.typeLine);
+    const bLand = isLandLine(b.typeLine);
+    if (aLand !== bLand) return aLand ? -1 : 1;
+    return (b.cmc ?? 0) - (a.cmc ?? 0) || a.instanceId.localeCompare(b.instanceId);
+  });
+
+  const chosen: string[] = [];
+  for (const card of ranked) {
+    if (chosen.length >= count) break;
+    if (isLandLine(card.typeLine)) {
+      if (spareLands <= 0) continue;
+      spareLands -= 1;
+    }
+    chosen.push(card.instanceId);
+  }
+  // Short because the hand was all lands and none were spare: take what is left
+  // rather than handing back an illegal partial choice.
+  for (const card of ranked) {
+    if (chosen.length >= count) break;
+    if (chosen.indexOf(card.instanceId) === -1) chosen.push(card.instanceId);
+  }
+
+  return chosen;
+}
+
+/**
+ * Run every bot seat's opening hand to a decision, and hand back the actions.
+ *
+ * Done once, at the table, before the first untap. A bot mulliganing in the
+ * middle of turn one would be a rules violation and would also look like a bug.
+ */
+export function botMulliganActions(
+  state: GameState,
+  botPlayerIds: readonly PlayerId[],
+  at = 0
+): GameAction[] {
+  const actions: GameAction[] = [];
+  let current = state;
+
+  for (const playerId of botPlayerIds) {
+    let taken = 0;
+    while (shouldBotMulligan(current, playerId, taken)) {
+      const batch = mulliganActions(current, playerId, at);
+      if (batch.length === 0) break;
+      for (const action of batch) current = applyAction(current, action);
+      actions.push(...batch);
+      taken += 1;
+    }
+
+    const player = current.players.find(p => p.id === playerId);
+    const owed = cardsToBottom(taken, player?.zones.hand.length ?? 0);
+    if (owed > 0) {
+      const batch = bottomActions(botBottomChoice(current, playerId, owed), at);
+      for (const action of batch) current = applyAction(current, action);
+      actions.push(...batch);
+    }
+  }
+
   return actions;
 }

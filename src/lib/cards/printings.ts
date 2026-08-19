@@ -96,10 +96,17 @@ export async function fetchPrintingSpreads(
   return out;
 }
 
-/** The columns any printing picker needs. Kept short so the payload stays small. */
+/**
+ * The columns any printing picker needs. Kept short so the payload stays small.
+ *
+ * `faces` earns its place despite being null for all but 854 rows: a picked
+ * printing is handed straight back to the caller and used, and for a transform
+ * card the back of it exists only there. Without it, choosing different art for
+ * a Delver of Secrets on a proxy sheet would quietly stop printing its back.
+ */
 export const PRINTING_COLUMNS =
   'id, oracle_id, name, set_code, set_name, collector_number, released_at, rarity, ' +
-  'image_uris, prices, finishes, artist, illustration_id, border_color, frame_effects, ' +
+  'image_uris, faces, prices, finishes, artist, illustration_id, border_color, frame_effects, ' +
   'full_art, promo, variation, layout, type_line, mana_cost, cmc, colors, color_identity, ' +
   'legalities, is_legendary';
 

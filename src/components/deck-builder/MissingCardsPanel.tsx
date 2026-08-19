@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { CardImage } from '@/components/cards';
-import { Search, Plus, Heart, DollarSign, Package, ShoppingCart, Loader2 } from 'lucide-react';
+import { Search, Plus, Heart, DollarSign, Package, Printer, ShoppingCart, Loader2 } from 'lucide-react';
 import { AddToListButton } from '@/components/shopping';
-import { addToList, useCardLists } from '@/lib/shopping';
+import { showListItemCount, useCardLists, type ListKind } from '@/lib/shopping';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 
@@ -40,8 +40,8 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [addingAll, setAddingAll] = useState(false);
-  const reloadLists = useCardLists(state => state.load);
+  const [addingAll, setAddingAll] = useState<ListKind | null>(null);
+  const addMany = useCardLists(state => state.addMany);
 
   useEffect(() => {
     if (deckId) {
@@ -140,41 +140,43 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
   };
 
   /**
-   * Every missing card onto the shopping list in one press.
+   * Every missing card onto one of the lists in one press, and in one request.
    *
    * This is the surface where a bulk action earns its place: somebody looking
    * at twenty cards their deck is short of does not want to press twenty
    * buttons. The quantity is the shortfall, so a deck needing two copies asks
-   * for two, and `card_list_add` raises the quantity of anything already on the
+   * for two, and the database raises the quantity of anything already on the
    * list rather than writing a second row for it.
+   *
+   * It used to be a `for` loop of one `card_list_add` per card, which made a
+   * fifty card shortfall fifty round trips. That is the shape that has taken
+   * this project down twice, so it goes through `card_list_add_many` now: one
+   * statement whatever the size of the deck.
    */
-  const addAllToShoppingList = async () => {
+  const addAll = async (kind: ListKind) => {
     if (missingCards.length === 0) return;
-    setAddingAll(true);
-    let added = 0;
+    setAddingAll(kind);
     try {
-      for (const card of missingCards) {
-        await addToList({
-          kind: 'shopping',
-          cardId: card.card_id,
-          cardName: card.card_name,
+      await addMany({
+        kind,
+        source: 'deck',
+        // Kept so that when the parcel arrives weeks later, filing already
+        // knows which deck was waiting on it.
+        sourceDeckId: deckId,
+        items: missingCards.map(card => ({
+          card_id: card.card_id,
+          card_name: card.card_name,
           quantity: card.quantity,
-          source: 'deck',
-          sourceDeckId: deckId,
-        });
-        added += 1;
-      }
-      // One refresh at the end rather than one per card, so the cart in the
-      // header lands on the right number without twenty round trips.
-      await reloadLists({ force: true });
+        })),
+      });
       showSuccess(
-        'On your shopping list',
-        `${added} ${added === 1 ? 'card' : 'cards'} from “${deckName}”.`
+        kind === 'proxy' ? 'On your proxy list' : 'On your shopping list',
+        `${showListItemCount(missingCards.length)} from “${deckName}”.`
       );
     } catch (error: any) {
       showError('Could not add them all', error?.message ?? 'Please try again.');
     } finally {
-      setAddingAll(false);
+      setAddingAll(null);
     }
   };
 
@@ -278,14 +280,35 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
             </p>
           )}
         </div>
-        <Button
-          className="ml-auto gap-2"
-          onClick={addAllToShoppingList}
-          disabled={addingAll || missingCards.length === 0}
-        >
-          {addingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-          Add them all to my shopping list
-        </Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {/* Proxy the whole shortfall, because playing the deck before paying
+              for it is why a player is looking at this list at all. */}
+          <Button
+            variant="secondary"
+            className="gap-2"
+            onClick={() => addAll('proxy')}
+            disabled={addingAll !== null || missingCards.length === 0}
+          >
+            {addingAll === 'proxy' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            Proxy them all
+          </Button>
+          <Button
+            className="gap-2"
+            onClick={() => addAll('shopping')}
+            disabled={addingAll !== null || missingCards.length === 0}
+          >
+            {addingAll === 'shopping' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-4 w-4" />
+            )}
+            Add them all to my shopping list
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -376,12 +399,22 @@ export function MissingCardsPanel({ deckId, deckName }: MissingCardsPanelProps) 
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {/* The same button as the card page and card search, so
-                          the action reads the same wherever it is taken. */}
+                          the action reads the same wherever it is taken. Proxy
+                          sits beside shopping because this is the exact list
+                          somebody proxies: the cards the deck needs and you do
+                          not own yet. */}
                       <AddToListButton
                         card={{ id: card.card_id, name: card.card_name }}
                         kind="shopping"
+                        quantity={card.quantity}
+                        source="deck"
+                        deckId={deckId}
+                      />
+                      <AddToListButton
+                        card={{ id: card.card_id, name: card.card_name }}
+                        kind="proxy"
                         quantity={card.quantity}
                         source="deck"
                         deckId={deckId}

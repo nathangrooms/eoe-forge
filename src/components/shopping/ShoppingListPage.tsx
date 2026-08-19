@@ -10,11 +10,13 @@ import { cn } from '@/lib/utils';
 import {
   describeUnpricedLines,
   paidTotals,
+  proxyCandidatesFromShopping,
   useCardLists,
   type CardListItem,
   type ShoppingEntry,
 } from '@/lib/shopping';
 import { formatAmount } from '@/lib/pricing';
+import { ListToProxiesPanel } from './ListToProxiesPanel';
 import { PlatformTotals } from './PlatformTotals';
 import { ShoppingEntryTile } from './ShoppingEntryTile';
 import { ArrivingCards } from './ArrivingCards';
@@ -58,6 +60,7 @@ export default function ShoppingListPage() {
   const [tab, setTab] = useState<Tab>('buy');
   const [buying, setBuying] = useState<ShoppingEntry | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [proxying, setProxying] = useState(false);
 
   useEffect(() => {
     void load();
@@ -85,6 +88,11 @@ export default function ShoppingListPage() {
       })),
     [list.toBuy]
   );
+
+  /* Playtesting the deck before buying into it is why people proxy, so the
+     cards you are about to spend money on are exactly the ones worth printing
+     first. Built from the same merged list the page is showing. */
+  const proxyCandidates = useMemo(() => proxyCandidatesFromShopping(list.toBuy), [list.toBuy]);
 
   /**
    * The buying grid is the one list in the product that a player empties one
@@ -115,11 +123,19 @@ export default function ShoppingListPage() {
       description="Everything you still need, from your decks, your wishlist and anywhere you pressed add."
       action={
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" className="gap-2" asChild>
-            <Link to="/proxies">
-              <Printer className="h-4 w-4" />
-              Proxy list
-            </Link>
+          {/* This used to be a link that only went to /proxies, which left a
+              player with a forty card list and no way to print it short of
+              typing it out again. It converts now. The proxy list itself is one
+              click further on, inside the panel and in the left nav. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-2"
+            onClick={() => setProxying(true)}
+            disabled={proxyCandidates.length === 0}
+          >
+            <Printer className="h-4 w-4" />
+            Print as proxies
           </Button>
           <Button
             variant="secondary"
@@ -237,6 +253,13 @@ export default function ShoppingListPage() {
         onOpenChange={setExporting}
         lines={exportLines}
         unpricedNote={describeUnpricedLines(costLines)}
+      />
+      <ListToProxiesPanel
+        open={proxying}
+        onOpenChange={setProxying}
+        candidates={proxyCandidates}
+        sourceLabel="your shopping list"
+        description="Everything you still need to buy. Print it and play the deck before you spend anything."
       />
     </StandardPageLayout>
   );

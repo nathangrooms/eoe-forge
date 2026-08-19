@@ -13,7 +13,9 @@ import {
   MM_TO_PX,
   PAPER,
   PROXY_PER_PAGE,
+  bleedRect,
   chunkIntoPages,
+  cropMarkSegments,
   type PaperSize,
   type ProxySlot,
 } from './proxy-print';
@@ -48,6 +50,12 @@ import './proxy-sheet.css';
 export interface ProxySheetProps {
   slots: ProxySlot[];
   paper: PaperSize;
+  /**
+   * Bleed and crop marks. Nothing it draws lands on a card: it is a black band
+   * around the block of nine, so a cut that misses by a hair keeps black rather
+   * than showing white paper, plus a hairline tick at each end of every cut
+   * line. Off prints the cards and nothing else.
+   */
   cutGuides: boolean;
   /**
    * Fit the sheet to the container width. Off for the hidden measuring pass and
@@ -66,6 +74,44 @@ export interface ProxySheetProps {
 function PageRule({ paper }: { paper: PaperSize }) {
   const { wMm, hMm } = PAPER[paper];
   return <style>{`@media print { @page { size: ${wMm}mm ${hMm}mm; margin: 0; } }`}</style>;
+}
+
+/**
+ * Bleed and crop marks, positioned in millimetres from the corner of the paper.
+ *
+ * Every rectangle comes out of `proxy-geometry.ts`, which is the same array the
+ * PDF export draws, so the printed sheet and the exported file cannot end up
+ * with the marks in different places.
+ *
+ * Absolutely positioned rather than laid out, because `.proxy-page` is a grid
+ * of nine fixed tracks and anything in flow would become a tenth cell. The
+ * black band sits under the cards; the cards cover all of it except the 1.5 mm
+ * that shows around the outside.
+ */
+function CutLayer({ paper }: { paper: PaperSize }) {
+  const band = bleedRect(paper);
+  const marks = cropMarkSegments(paper);
+  const box = (r: { xMm: number; yMm: number; wMm: number; hMm: number }): CSSProperties => ({
+    position: 'absolute',
+    left: `${r.xMm}mm`,
+    top: `${r.yMm}mm`,
+    width: `${r.wMm}mm`,
+    height: `${r.hMm}mm`,
+  });
+
+  return (
+    <>
+      <div className="proxy-bleed" style={box(band)} aria-hidden="true" />
+      {marks.map((mark, i) => (
+        <div
+          key={i}
+          aria-hidden="true"
+          className={mark.tone === 'onBleed' ? 'proxy-mark proxy-mark--on-bleed' : 'proxy-mark proxy-mark--on-paper'}
+          style={box(mark)}
+        />
+      ))}
+    </>
+  );
 }
 
 /** Legible, obviously-not-real stand-in for a printing with no image at all. */
@@ -162,6 +208,7 @@ export const ProxySheet = forwardRef<HTMLDivElement, ProxySheetProps>(function P
         <div className="proxy-sheet__scaler">
           {pages.map((page, pageIndex) => (
             <div className="proxy-page" key={pageIndex}>
+              {cutGuides && <CutLayer paper={paper} />}
               {page.map(slot => (
                 <div className="proxy-slot" key={slot.key}>
                   {slot.imageUrl ? (

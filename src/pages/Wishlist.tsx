@@ -20,10 +20,13 @@ import {
   LayoutGrid,
   List,
   Layers,
+  Printer,
   Search,
   ArrowUpDown,
   SlidersHorizontal,
 } from 'lucide-react';
+import { ListToProxiesPanel } from '@/components/shopping';
+import { proxyCandidatesFromWishlist } from '@/lib/shopping';
 import { useOpenCard } from '@/components/cards';
 import { EnhancedUniversalCardSearch } from '@/components/universal/EnhancedUniversalCardSearch';
 import { WishlistQuickStats } from '@/components/wishlist/WishlistQuickStats';
@@ -117,6 +120,7 @@ export default function Wishlist() {
   const [gapsLoading, setGapsLoading] = useState(true);
   const [moveTarget, setMoveTarget] = useState<WishlistItem | null>(null);
   const [moving, setMoving] = useState(false);
+  const [proxying, setProxying] = useState(false);
 
   const [activeTab, setActiveTab] = useState('wishlist');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -632,6 +636,18 @@ export default function Wishlist() {
   );
 
   /**
+   * The whole wishlist, ready to print.
+   *
+   * The whole list rather than the filtered view: the panel lets any card be
+   * left out, and a hidden filter silently deciding what does and does not get
+   * printed is the kind of surprise a forty card list can hide.
+   */
+  const proxyCandidates = useMemo(
+    () => proxyCandidatesFromWishlist(wishlistItems),
+    [wishlistItems]
+  );
+
+  /**
    * Card ids at least one deck is genuinely short of, straight out of the gap
    * calculation — deck requirement minus copies owned. This is what turns
    * "94 cards you fancy" into "these are the ones a deck is waiting on".
@@ -718,10 +734,24 @@ export default function Wishlist() {
             </p>
           </div>
 
-          <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={wishlistItems.length === 0}>
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            Export
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* People proxy a deck to play it before they buy into it, so a
+                wishlist is the list most worth printing. One action for all of
+                it, not one click per card. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setProxying(true)}
+              disabled={proxyCandidates.length === 0}
+            >
+              <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
+              Print as proxies
+            </Button>
+            <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={wishlistItems.length === 0}>
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+              Export
+            </Button>
+          </div>
         </div>
 
         <WishlistQuickStats
@@ -978,6 +1008,14 @@ export default function Wishlist() {
             />
           </TabsContent>
         </Tabs>
+
+        <ListToProxiesPanel
+          open={proxying}
+          onOpenChange={setProxying}
+          candidates={proxyCandidates}
+          sourceLabel="your wishlist"
+          description="Everything you have your eye on. Print it and play the deck before you spend anything."
+        />
       </div>
     </div>
   );

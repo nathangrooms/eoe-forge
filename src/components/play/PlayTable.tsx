@@ -45,7 +45,6 @@ import { Playmat } from './Playmat';
 import { GameStateProvider } from './GameStateContext';
 import { CombatBar } from './CombatBar';
 import { useLiveSession } from './liveSession';
-import { useMeasuredSize } from './useMeasure';
 import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
 import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
@@ -198,17 +197,6 @@ export function PlayTable({
   const session = useLiveSession(state.id, viewerPlayerId);
   const dispatch = session?.dispatch ?? null;
   const stage = combatStageFor(state, viewerPlayerId);
-
-  /**
-   * Room the combat strip is holding open at the top of the table.
-   *
-   * Measured, not assumed: the strip's sentence wraps to a second line on a
-   * narrow window, and a constant would either clip it or leave a gap under it.
-   * Zero whenever combat is not being declared, so the seats get the pixels
-   * back — this band exists only while there is a decision on it.
-   */
-  const [combatBarRef, combatBar] = useMeasuredSize<HTMLDivElement>();
-  const combatInset = stage && dispatch ? Math.round(combatBar.height) : 0;
 
   /** The blocker picked up and not yet put in front of anything. UI only. */
   const [armedBlockerId, setArmedBlockerId] = useState<string | null>(null);
@@ -453,19 +441,25 @@ export function PlayTable({
       <Playmat tone="board" rounded="rounded-none" className="absolute inset-0 h-full w-full" />
 
       <div
-        className="absolute left-0 right-0 transition-[top] duration-300 ease-out motion-reduce:transition-none"
+        className="absolute left-0 right-0"
         /*
-         * The seats start BELOW the combat strip, not underneath it.
+         * The table does NOT move when combat starts.
          *
-         * The strip used to be able to hang over the top edge because the far
-         * seat spent its first 70px on an identity band, and a band is a thing
-         * you can cover. That band is gone — every pixel of a mat now belongs to
-         * a card — so hanging the strip over the table would put it across the
-         * face of the very creatures it is asking you to block. The table gives
-         * it its own room while it is up, and takes the room back the moment
-         * combat is over.
+         * It used to: the strip measured itself and the seats were pushed down
+         * by its height, so declaring attackers slid every card on every mat.
+         * Measured on a four-seat table, the whole board jumped 59px the moment
+         * combat opened and jumped back when it closed, which is the single
+         * largest instance of the owner's *"keep getting weird layout shifting
+         * when things happen"*.
+         *
+         * The reason the inset existed was that the strip would otherwise cover
+         * the far seat's creature row. That reason is gone: every mat now begins
+         * with an identity band (see `identityBandHeight`), the strip hangs in
+         * exactly that band's depth, and a band is a thing you can cover. What
+         * it covers is a life total and a name — both of which the strip is
+         * restating anyway — and no card at all.
          */
-        style={{ top: topInset + combatInset, bottom: bottomInset }}
+        style={{ top: topInset, bottom: bottomInset }}
       >
         {focused ? (
           <div className="absolute inset-0 p-1">
@@ -473,6 +467,7 @@ export function PlayTable({
               state={state}
               player={focused}
               isViewer={focused.id === viewerPlayerId}
+              viewerPlayerId={viewerPlayerId}
               viewerLabel={viewerLabel}
               isBot={botPlayerIds.indexOf(focused.id) !== -1}
               cardWidth={cardWidth}
@@ -509,6 +504,7 @@ export function PlayTable({
                   state={state}
                   player={player}
                   isViewer={isViewer}
+                  viewerPlayerId={viewerPlayerId}
                   viewerLabel={viewerLabel}
                   isBot={botPlayerIds.indexOf(player.id) !== -1}
                   cardWidth={cardWidth}
@@ -533,26 +529,20 @@ export function PlayTable({
       </div>
 
       {/*
-        Combat's only piece of furniture, and it is a strip rather than a
-        screen.
+        Combat's only piece of furniture, and it is a strip rather than a screen.
 
-        It hangs from the top edge of the board, immediately under the HUD, in a
-        band the table opens for it — see `combatInset` above. It is measured
-        rather than assumed, because the sentence it carries wraps to two lines
-        on a narrow window and a guessed height would either clip it or leave a
-        gap. The player's own board — the one they are declaring from — is
-        untouched and fully visible below it.
+        It floats over the top edge of the board rather than opening a band the
+        seats have to make room for — see the table's own comment above for the
+        59px jump that bought. It lands on the two far seats' identity bands,
+        which carry the same facts it does, and on no card anywhere.
+
+        What a player DOES in combat is on the cards: the sword and the shield
+        chips. What each seat is suffering is on that seat's band. This strip is
+        only what belongs to neither: which opponent to point at, and the press
+        that says the declaration is finished.
       */}
-      {/* The wrapper is always mounted, even with nothing in it: a ResizeObserver
-          attached in a layout effect never sees an element that was not there on
-          mount, so a conditionally rendered strip would measure zero forever and
-          silently go back to covering the creatures it is asking about. */}
       <div
-        ref={combatBarRef}
-        className={cn(
-          'pointer-events-none absolute inset-x-0 z-40 flex justify-center px-2',
-          stage && dispatch && 'pt-1'
-        )}
+        className="pointer-events-none absolute inset-x-0 z-40 flex justify-center px-2 pt-1"
         style={{ top: topInset }}
       >
         {stage && dispatch && (

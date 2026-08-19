@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Layers, ShoppingCart } from 'lucide-react';
+import { Layers, Printer, ShoppingCart } from 'lucide-react';
 import { BulkActionsToolbar } from '@/components/collection/BulkActionsToolbar';
 import { CollectionBrowser } from '@/components/collection/browser/CollectionBrowser';
 import type { BrowserAction } from '@/components/collection/browser/actions';
@@ -10,6 +10,7 @@ import {
   valueOf,
   type BrowserCard,
 } from '@/components/collection/browser/types';
+import { useCardLists } from '@/lib/shopping';
 import { StorageAPI } from '@/lib/api/storageAPI';
 import { CollectionAPI } from '@/server/routes/collection';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
@@ -77,6 +78,7 @@ export function CollectionCardDisplay({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [storageContainers, setStorageContainers] = useState<StorageContainer[]>([]);
+  const addToProxies = useCardLists(state => state.add);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,6 +193,23 @@ export function CollectionCardDisplay({
       onSelect: card => {
         const item = itemsById.get(card.rowId);
         if (item) onAddToDeck(item);
+      },
+    },
+    {
+      /*
+       * A card you own is still worth proxying: people keep the expensive copy
+       * in a binder and play the paper one. The printing is the one in the
+       * collection row, so the sheet prints the art actually owned.
+       */
+      id: 'proxy',
+      label: 'Add to proxy list',
+      icon: Printer,
+      onSelect: card => {
+        void addToProxies({ kind: 'proxy', cardId: card.cardId, cardName: card.name })
+          .then(() => showSuccess('On your proxy list', card.name))
+          .catch((error: any) =>
+            showError('Could not add that', error?.message ?? 'Please try again.')
+          );
       },
     },
   ];

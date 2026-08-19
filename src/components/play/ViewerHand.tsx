@@ -50,6 +50,15 @@ export interface ViewerHandProps {
   onInspect: (card: CardInstance) => void;
   /** The card currently in the preview, lifted out of the fan. */
   selectedId?: string | null;
+  /**
+   * Cards the player has picked out of the fan for something.
+   *
+   * The London mulligan's bottoming step is the caller: you choose N cards to
+   * put back and have to be able to see which N. Drawn with the same lift the
+   * preview selection uses, because to the eye it means the same thing — this
+   * one is picked.
+   */
+  markedIds?: readonly string[];
   /** Rendered width of a card in the fan. A ceiling, not a fixed value. */
   cardWidth?: number;
   /** Include the command zone at the right-hand end of the fan. */
@@ -131,6 +140,7 @@ export function ViewerHand({
   freeCast,
   onInspect,
   selectedId,
+  markedIds,
   /* 104px rendered a Magic card at roughly a third of readable size — the owner
      could not read their own hand, and said so twice. A hand card is the thing
      you study before committing to a play, so it is the largest element on the
@@ -198,7 +208,8 @@ export function ViewerHand({
 
           const playable = land ? !!landPlan?.ok : !!castPlan?.ok;
           const reason = (land ? landPlan?.reason : castPlan?.reason) ?? '';
-          const selected = selectedId === card.instanceId;
+          const selected =
+            selectedId === card.instanceId || !!markedIds?.includes(card.instanceId);
 
           const offset = index - middle;
           const rotate = offset * step;

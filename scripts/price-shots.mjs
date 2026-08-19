@@ -131,7 +131,7 @@ const browser = await puppeteer.launch({
 
 const selectLog = new Map();
 
-async function capture(page, name, { wait = 7000, arg = '' } = {}) {
+async function capture(page, name, { wait = 7000, arg = '', openTabs = [] } = {}) {
   const tab = await browser.newPage();
   await tab.setViewport({ width: 1680, height: 1400, deviceScaleFactor: 1 });
   await tab.evaluateOnNewDocument(SHIM);
@@ -151,6 +151,24 @@ async function capture(page, name, { wait = 7000, arg = '' } = {}) {
   await tab.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await sleep(wait);
 
+  /* Some price surfaces are behind a tab that is not the default one. The
+     marketplace opens on Price Search, and the listings live two tabs in. */
+  for (const label of openTabs) {
+    /* A real mouse click, not `el.click()`. Radix activates a tab on
+       mousedown, so a synthetic click event alone leaves the tab unchanged and
+       the shot silently shows the wrong panel. */
+    let clicked = false;
+    for (const handle of await tab.$$('[role="tab"]')) {
+      const text = await handle.evaluate(el => el.textContent || '');
+      if (!text.toLowerCase().includes(label.toLowerCase())) continue;
+      await handle.click();
+      clicked = true;
+      break;
+    }
+    log(`  tab "${label}" ->`, clicked ? 'opened' : 'NOT FOUND');
+    await sleep(3000);
+  }
+
   const file = `${OUT}/${TAG}-${name}.png`;
   await tab.screenshot({ path: file, fullPage: true });
   log('  shot ->', file);
@@ -167,7 +185,7 @@ async function capture(page, name, { wait = 7000, arg = '' } = {}) {
 
 const only = process.argv.slice(2).filter(a => !a.startsWith('-'));
 const WANT = new Set(only.length ? only : [
-  'collection', 'analytics', 'storage', 'dashboard', 'wishlist', 'deck', 'card', 'marketplace', 'precons',
+  'collection', 'analytics', 'storage', 'dashboard', 'wishlist', 'deck', 'card', 'marketplace', 'listings', 'precons',
 ]);
 
 const DECK_ID = process.env.DECK_ID || '';
@@ -181,6 +199,10 @@ if (WANT.has('wishlist')) await capture('wishlist', 'wishlist');
 if (WANT.has('card')) await capture('card', 'card', { arg: CARD_ID, wait: 9000 });
 if (WANT.has('deck') && DECK_ID) await capture('deck', 'deck', { arg: DECK_ID, wait: 10000 });
 if (WANT.has('marketplace')) await capture('marketplace', 'marketplace');
+/* The seller's own tiles: an asking price beside every price we hold for that
+   exact printing. Two tabs in, so it needs the clicks. */
+if (WANT.has('listings')) await capture('marketplace', 'listings', { openTabs: ['My Listings'], wait: 8000 });
+if (WANT.has('sold')) await capture('marketplace', 'sold', { openTabs: ['My Listings', 'Sold'], wait: 8000 });
 if (WANT.has('precons')) await capture('precons', 'precons', { wait: 12000 });
 
 log('\n=== select lists sent per surface ===');

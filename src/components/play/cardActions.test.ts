@@ -320,3 +320,126 @@ test('a watched preview of your own card still offers the camera, because every 
   });
   assert.deepEqual(ids(actions), ['focus-seat']);
 });
+
+/* -------------------------------------------------------------------------- */
+/* WHEN a card can be cast, not only whether it is paid for                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Found by playing, not by reading. On the opponent's untap, upkeep and draw
+ * steps this preview offered **Cast** on a sorcery-speed creature six times out
+ * of six, and pressing it announced the creature and resolved it onto the
+ * battlefield. `planCastFromHand` answers cost and zone and says nothing about
+ * timing, and nothing here was asking the other question — while Attack and
+ * Block had always asked it.
+ */
+
+/** Your own precombat main with an empty stack: the one legal moment. */
+const inMyMain = (state: GameState): GameState => ({
+  ...state,
+  activePlayerId: 'p1',
+  priorityPlayerId: 'p1',
+  step: 'precombat_main',
+});
+
+test('a creature is offered Cast in your main phase', () => {
+  const state = inMyMain(
+    put(table(), 'bear', { name: 'Grizzly Bears', typeLine: 'Creature — Bear', manaCost: '{1}{G}' }, 'hand')
+  );
+  const { actions } = actionsForCard(state, 'p1', state.cards.bear, { freeCast: true });
+  assert.deepEqual(ids(actions), ['cast']);
+});
+
+test('a creature is NOT offered Cast on the opponent\'s turn, and says why', () => {
+  const base = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', manaCost: '{1}{G}' },
+    'hand'
+  );
+  for (const step of ['untap', 'upkeep', 'draw', 'precombat_main'] as const) {
+    const state: GameState = { ...base, activePlayerId: 'p2', priorityPlayerId: 'p1', step };
+    const { actions, blocked } = actionsForCard(state, 'p1', state.cards.bear, { freeCast: true });
+    assert.deepEqual(ids(actions), [], `${step} offered Cast on the opponent's turn`);
+    assert.equal(blocked.length, 1);
+    assert.match(blocked[0].reason, /not your turn/i);
+  }
+});
+
+test('a creature is NOT offered Cast in your own combat, and says why', () => {
+  const state: GameState = {
+    ...inMyMain(
+      put(table(), 'bear', { name: 'Grizzly Bears', typeLine: 'Creature — Bear', manaCost: '{1}{G}' }, 'hand')
+    ),
+    step: 'declare_attackers',
+  };
+  const { actions, blocked } = actionsForCard(state, 'p1', state.cards.bear, { freeCast: true });
+  assert.deepEqual(ids(actions), []);
+  assert.match(blocked[0].reason, /main phase/i);
+});
+
+test('an instant is still offered on the opponent\'s turn', () => {
+  const base = put(
+    table(),
+    'bolt',
+    { name: 'Lightning Bolt', typeLine: 'Instant', manaCost: '{R}' },
+    'hand'
+  );
+  const state: GameState = { ...base, activePlayerId: 'p2', priorityPlayerId: 'p1', step: 'upkeep' };
+  const { actions } = actionsForCard(state, 'p1', state.cards.bolt, { freeCast: true });
+  assert.deepEqual(ids(actions), ['cast'], 'holding up an instant is the whole point of instants');
+});
+
+test('a creature with flash is offered on the opponent\'s turn too', () => {
+  const base = put(
+    table(),
+    'viper',
+    {
+      name: 'Ambush Viper',
+      typeLine: 'Creature — Snake',
+      manaCost: '{1}{G}',
+      oracleText: 'Flash\nDeathtouch',
+    },
+    'hand'
+  );
+  const state: GameState = { ...base, activePlayerId: 'p2', priorityPlayerId: 'p1', step: 'end' };
+  const { actions } = actionsForCard(state, 'p1', state.cards.viper, { freeCast: true });
+  assert.deepEqual(ids(actions), ['cast']);
+});
+
+test('the timing refusal wins over the mana one, because paying would not help', () => {
+  const base = put(
+    table(),
+    'bear',
+    { name: 'Grizzly Bears', typeLine: 'Creature — Bear', manaCost: '{1}{G}' },
+    'hand'
+  );
+  const state: GameState = { ...base, activePlayerId: 'p2', priorityPlayerId: 'p1', step: 'upkeep' };
+  const { blocked } = actionsForCard(state, 'p1', state.cards.bear);
+  assert.equal(blocked.length, 1);
+  assert.match(blocked[0].reason, /not your turn/i);
+  assert.doesNotMatch(blocked[0].reason, /mana/i);
+});
+
+test('the commander is held to the same timing as anything else', () => {
+  let state = table();
+  state = addCard(
+    state,
+    {
+      instanceId: 'cmd',
+      cardId: 'cmd',
+      ownerId: 'p1',
+      name: 'Yeva',
+      typeLine: 'Legendary Creature — Elf Shaman',
+      manaCost: '{2}{G}{G}',
+      oracleText: '',
+    },
+    'command'
+  );
+  const theirTurn: GameState = { ...state, activePlayerId: 'p2', priorityPlayerId: 'p1', step: 'draw' };
+  assert.deepEqual(ids(actionsForCard(theirTurn, 'p1', theirTurn.cards.cmd, { freeCast: true }).actions), []);
+  assert.deepEqual(
+    ids(actionsForCard(inMyMain(state), 'p1', state.cards.cmd, { freeCast: true }).actions),
+    ['cast']
+  );
+});

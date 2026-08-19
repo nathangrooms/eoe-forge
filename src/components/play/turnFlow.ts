@@ -24,9 +24,15 @@ import {
   eligibleAttackers,
   eligibleBlockers,
   isLand,
+  advanceActions,
+  hasPriority,
+  hasResponse,
   isUnderAttack,
+  manualDutiesFor,
   planCastFromHand,
   planLandDrop,
+  stackOf,
+  type GameAction,
   type GameState,
   type PlayerId,
   // Relative rather than the `@/` alias, for the same reason `combatUi.ts` is:
@@ -47,13 +53,35 @@ export type PlayDecision =
   /** You have creatures that could attack and have not swung yet. */
   | 'attackers'
   /** Someone is attacking you and you have bodies to put in the way. */
-  | 'blockers';
+  | 'blockers'
+  /**
+   * Something on your board goes off this step and the engine will not run it.
+   *
+   * This is the Aether Vial stop. An upkeep trigger has no moment of its own —
+   * nothing enters, nothing dies, nothing lands in the feed — so at 130 ms a
+   * step the whole upkeep was over before a player could have seen it. The
+   * engine already knew the trigger was there and already knew it was declining
+   * it; all that was missing was somewhere to say so and time to act.
+   */
+  | 'manual'
+  /**
+   * Somebody else's spell is on the stack and you are holding an answer.
+   *
+   * Offered ONLY when both halves are true. A prompt whose only answer is "no"
+   * is noise, and a table that asks "respond?" after every cast trains a player
+   * to hammer through it, which is how a real response would then get thrown
+   * away. `hasResponse` in `respond.ts` is that two-part test, and it is the
+   * owner's *"should detect if you can counter a cast from opponent"*.
+   */
+  | 'respond';
 
 export const DECISION_LABEL: Record<PlayDecision, string> = {
   main: 'Your main phase',
   'second-main': 'Second main phase',
   attackers: 'Declare attackers',
   blockers: 'Declare blockers',
+  manual: 'Resolve by hand',
+  respond: 'Respond, or let it resolve',
 };
 
 export interface FlowOptions {
@@ -95,6 +123,15 @@ export function hasPlayableAction(
  */
 export function controlsFlow(state: GameState, playerId: PlayerId): boolean {
   if (state.status !== 'playing') return false;
+  /*
+   * A non-empty stack changes who is holding the game up, and it is not the
+   * active player. Priority passes round the table, so while something is
+   * waiting to resolve the seat that owes a move is whoever holds priority —
+   * that is the whole reason an instant is an instant. Answering this with
+   * "whose turn is it" would leave a spell on the stack that nobody could pass
+   * on, which is a hung game rather than a slow one.
+   */
+  if (stackOf(state).length > 0) return hasPriority(state, playerId);
   if (state.activePlayerId === playerId) return true;
   return state.step === 'declare_blockers' && isUnderAttack(state, playerId);
 }
@@ -129,6 +166,19 @@ export function decisionFor(
 ): PlayDecision | null {
   if (state.status !== 'playing') return null;
 
+  /*
+   * Anything on the stack answers first, and it answers for everybody.
+   *
+   * While a spell is waiting, the only legal thing to do is respond to it or
+   * pass, so every other decision below is moot. Returning null when there is
+   * no response available is what lets the surface pass on the player's behalf
+   * instead of stopping to ask a question with one answer.
+   */
+  if (stackOf(state).length > 0) {
+    if (!hasPriority(state, playerId)) return null;
+    return hasResponse(state, playerId, options) ? 'respond' : null;
+  }
+
   // Blocking is answered before the turn check: it is the one decision a player
   // makes on somebody else's turn.
   if (state.step === 'declare_blockers' && isUnderAttack(state, playerId)) {
@@ -136,6 +186,19 @@ export function decisionFor(
   }
 
   if (state.activePlayerId !== playerId) return null;
+
+  /*
+   * A trigger the engine will not run, in the step it goes off in.
+   *
+   * Checked before the step switch because it is about the step's CONTENT
+   * rather than its name: the upkeep and the end step are both steps this
+   * surface otherwise walks straight past, and walking past is exactly right
+   * when the board holds nothing that needs a person. `manualDutiesFor` returns
+   * an empty list on almost every turn of almost every game, so this costs one
+   * pass over the active player's battlefield against a memoised answer per
+   * card, and buys the one turn where an Aether Vial is sitting there waiting.
+   */
+  if (manualDutiesFor(state, playerId).length > 0) return 'manual';
 
   switch (state.step) {
     case 'precombat_main':
@@ -191,4 +254,26 @@ export function canReachCombat(state: GameState, playerId: PlayerId): boolean {
   if (state.activePlayerId !== playerId) return false;
   if (state.step !== 'precombat_main') return false;
   return eligibleAttackers(state, playerId).length > 0;
+}
+
+/**
+ * What "press next" means for this seat right now.
+ *
+ * One helper, because there are two different next presses and picking the
+ * wrong one is how a game hangs. With something on the stack, next is
+ * `PASS_PRIORITY` — the consequences (resolve the top, or end the step) are
+ * derived by `stackFollowUps` in the engine, so a surface never has to know
+ * which it caused. With an empty stack, next is `advanceActions`, which is
+ * also the only thing that turns the combat damage step into actual damage.
+ *
+ * Returns an empty batch when this seat has nothing to press, so a caller can
+ * dispatch it unconditionally.
+ */
+export function flowActions(state: GameState, playerId: PlayerId, at = 0): GameAction[] {
+  if (state.status !== 'playing') return [];
+  if (stackOf(state).length > 0) {
+    if (!hasPriority(state, playerId)) return [];
+    return [{ type: 'PASS_PRIORITY', playerId, at }];
+  }
+  return advanceActions(state, at);
 }

@@ -25,11 +25,21 @@
  * Pure: no clock (`at` is passed in), no randomness, no I/O.
  */
 
-import type { CardInstance, GameAction, GameState, PlayerId, TokenSpec, Zone } from './types.ts';
+import type {
+  CardInstance,
+  GameAction,
+  GameState,
+  PlayerId,
+  TokenSpec,
+  TriggerTiming,
+  Step,
+  Zone,
+} from './types.ts';
 import { ZONES } from './types.ts';
 import { FLAGGABLE_KEYWORDS, hasKeyword, keywordSupport } from './keywords.ts';
 // Layered, so the number beside the nudge button is the number on the card.
 import { combatPowerIn, combatToughnessIn } from './characteristics.ts';
+import { automationFor } from './effects.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Counters                                                                   */
@@ -450,4 +460,90 @@ export function manualControlsFor(
   // (attach, give control to another player) without every caller changing.
   void state;
   return controls;
+}
+
+/* -------------------------------------------------------------------------- */
+/* What the player owes the table right now                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which trigger timings belong to which step.
+ *
+ * Only the two timings that arrive on a clock are listed. An enters-the-
+ * battlefield or a dies trigger announces itself the moment it happens, and the
+ * feed already carries that line; an upkeep trigger has no such moment, which
+ * is precisely why it gets missed.
+ */
+const TIMING_FOR_STEP: Partial<Record<Step, TriggerTiming>> = {
+  upkeep: 'upkeep',
+  end: 'end-step',
+};
+
+/** One thing the player has to do themselves, right now, on one permanent. */
+export interface ManualDuty {
+  card: CardInstance;
+  timing: TriggerTiming;
+  /** The card's own words for what has to happen. */
+  clause: string;
+}
+
+/**
+ * Put the card's name back where the compiler left a tilde.
+ *
+ * `normalize.ts` rewrites a card's own name to `~` so that one pattern matches
+ * every printing. That is right for matching and wrong the moment a person
+ * reads the clause. Measured by playing on 2026-08-19, the upkeep strip said
+ * *"you may put a charge counter on ~"* — a parser's working notation, on the
+ * table, in the one sentence whose whole job is to tell a player what to do.
+ */
+function readableClause(clause: string, card: CardInstance): string {
+  return clause.replace(/~/g, card.name);
+}
+
+/**
+ * The abilities that are going off THIS step and that the engine will not run.
+ *
+ * Owner: *"I also have an artifact in play, which says at beginning of my
+ * upkeep I can place a charge counter (Aether Vial) — no way to do this."*
+ *
+ * The engine already knew. `automationFor` reads that upkeep trigger out of the
+ * oracle text, marks it as one the engine does not resolve, and nothing ever
+ * asked. From the player's seat an ability the app can see and will not run,
+ * and never mentions, is indistinguishable from a broken engine.
+ *
+ * So this is the question a board should ask itself at the top of every upkeep:
+ * *what is my job this step*. It returns only the permanents this player
+ * controls, only for the step the game is actually in, and only the clauses the
+ * engine declined. An empty list is the normal answer and must draw nothing.
+ *
+ * Deliberately not filtered by `manualResolved`: that flag dismisses the
+ * standing marker on a card, which is a statement about the card in general.
+ * An upkeep trigger happens again every turn, and silently skipping it because
+ * the player once ticked the card off is the same silence this fixes.
+ */
+export function manualDutiesFor(state: GameState, playerId: PlayerId): ManualDuty[] {
+  const timing = TIMING_FOR_STEP[state.step];
+  if (!timing) return [];
+  // The upkeep and end step belong to the active player. Another seat's upkeep
+  // is not this seat's job.
+  if (state.activePlayerId !== playerId) return [];
+
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return [];
+
+  const duties: ManualDuty[] = [];
+  for (const instanceId of player.zones.battlefield) {
+    const card = state.cards[instanceId];
+    if (!card) continue;
+    for (const trigger of automationFor(card).triggers) {
+      if (trigger.timing !== timing) continue;
+      if (trigger.automated && !trigger.residual) continue;
+      duties.push({
+        card,
+        timing,
+        clause: readableClause(trigger.residual ?? trigger.clause, card),
+      });
+    }
+  }
+  return duties;
 }

@@ -63,8 +63,16 @@ import { GameStateProvider } from './GameStateContext';
 import { GameCardView } from './GameCardView';
 import { CARD_RATIO } from './boardMetrics';
 import { actionsForCard, cardNotes, type CardAction } from './cardActions';
+import { ManualPanel } from './ManualPanel';
 import { ManaCost } from '@/components/ui/mana-cost';
-import { statLineIn, type CardInstance, type GameState, type PlayerId, type Zone } from '@/lib/game';
+import {
+  statLineIn,
+  type CardInstance,
+  type GameAction,
+  type GameState,
+  type PlayerId,
+  type Zone,
+} from '@/lib/game';
 
 const ZONE_LABEL: Record<Zone, string> = {
   library: 'Library',
@@ -99,6 +107,14 @@ export interface CenterPreviewProps {
    * broken, which is the complaint this whole surface exists to answer.
    */
   readOnly?: boolean;
+  /**
+   * The game is not open for business yet, and why, in one sentence.
+   *
+   * Set while the opening hand is still being decided. The card stays large and
+   * readable — judging seven cards is the whole decision — and the plays are
+   * replaced by the reason rather than removed without one.
+   */
+  holdReason?: string;
   onCast?: (card: CardInstance) => void;
   onPlayLand?: (card: CardInstance) => void;
   onTapToggle?: (card: CardInstance) => void;
@@ -106,6 +122,16 @@ export interface CenterPreviewProps {
   onBlock?: (card: CardInstance, attackerId: string) => void;
   onMoveZone?: (card: CardInstance, to: Zone) => void;
   onFocusSeat?: (playerId: PlayerId) => void;
+  /**
+   * Send raw actions from the by-hand controls.
+   *
+   * Deliberately not another dozen `onCounter` / `onKeyword` / `onStat` props.
+   * `manual.ts` already returns each control bound to the actions it produces,
+   * so the page only has to be able to dispatch a batch; adding a callback per
+   * control would put the list of what is possible in two places and let them
+   * drift, which is the disease every other part of this screen was cured of.
+   */
+  onDispatch?: (actions: GameAction[]) => void;
   onClose: () => void;
   className?: string;
 }
@@ -154,6 +180,7 @@ export function CenterPreview({
   topInset = 0,
   bottomInset = 0,
   readOnly = false,
+  holdReason,
   onCast,
   onPlayLand,
   onTapToggle,
@@ -161,6 +188,7 @@ export function CenterPreview({
   onBlock,
   onMoveZone,
   onFocusSeat,
+  onDispatch,
   onClose,
   className,
 }: CenterPreviewProps) {
@@ -201,6 +229,7 @@ export function CenterPreview({
     freeCast,
     canFocusSeat: !!onFocusSeat,
     readOnly,
+    holdReason,
   });
 
   const controller = state.players.find(p => p.id === card.controllerId);
@@ -357,6 +386,15 @@ export function CenterPreview({
                 {entry.reason}
               </p>
             ))}
+
+            {/* Everything the engine will not resolve for this card, and the
+                controls to resolve it yourself. Only for a card you control:
+                reaching into an opponent's permanent is a different, larger
+                question and offering it here would be a lie about whose turn
+                it is to act. */}
+            {!readOnly && !holdReason && onDispatch && card.controllerId === viewerPlayerId && (
+              <ManualPanel state={state} card={card} onDispatch={onDispatch} />
+            )}
 
             {moves.length > 0 && (
               <div className="flex w-full shrink-0 flex-wrap gap-1 border-0 pt-0.5">

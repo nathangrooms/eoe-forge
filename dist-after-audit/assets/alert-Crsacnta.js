@@ -1,0 +1,6 @@
+import{c as l,r,j as s,i,T as n}from"./index-DKEGavJ5.js";/**
+ * @license lucide-react v0.462.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const g=l("Infinity",[["path",{d:"M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z",key:"1z0uae"}]]),o=n("relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",{variants:{variant:{default:"bg-background text-foreground",destructive:"border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive"}},defaultVariants:{variant:"default"}}),c=r.forwardRef(({className:e,variant:t,...a},d)=>s.jsx("div",{ref:d,role:"alert",className:i(o({variant:t}),e),...a}));c.displayName="Alert";const v=r.forwardRef(({className:e,...t},a)=>s.jsx("h5",{ref:a,className:i("mb-1 font-medium leading-none tracking-tight",e),...t}));v.displayName="AlertTitle";const u=r.forwardRef(({className:e,...t},a)=>s.jsx("div",{ref:a,className:i("text-sm [&_p]:leading-relaxed",e),...t}));u.displayName="AlertDescription";export{c as A,g as I,u as a};

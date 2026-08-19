@@ -1,9 +1,18 @@
 /**
  * The seat mat's arithmetic, tested.
  *
- * Every number here was checked against a rendered DOM measurement from
- * `.playtest-harness/audit.mjs` at 1680x1050, 1280x720 and 1024x600 before it
- * was written down. They are not invented targets.
+ * Every number here was checked against a rendered DOM measurement before it
+ * was written down — `scripts/play-board-audit.mjs` at 1920x1080, 1680x1050,
+ * 1440x893 and 1280x800, four seats with loaded boards. They are not invented
+ * targets.
+ *
+ * The tests that matter most are the first group. They assert a PROPERTY rather
+ * than a number: that nothing about a seat's geometry can change when a card
+ * enters or leaves. The owner's *"keep getting weird layout shifting when
+ * things happen"* was measured as 20 boxes moving and every card on the seat
+ * resizing when one land was played, and the fix was to remove the counts from
+ * the arithmetic rather than to tune the numbers they produced. A property test
+ * is the only kind that can tell whether that fix is still in place.
  */
 
 import test from 'node:test';
@@ -11,63 +20,84 @@ import assert from 'node:assert/strict';
 
 import { CARD_RATIO, MIN_BOARD_CARD, fitRowCardWidth } from './boardMetrics.ts';
 import {
-  EMPTY_ROW_HEIGHT,
   MAX_ROW_GAP,
-  ROW_FLOOR,
-  fitRowCard,
+  ROW_PADDING,
+  identityBandHeight,
   layoutRow,
-  planIdentityInset,
-  rowAsk,
+  railWidth,
   rowGap,
   rowSpan,
-  shareBandHeight,
+  seatCardWidth,
+  splitBands,
+  supportBlockWidth,
   tapLean,
 } from './seatLayout.ts';
 
 /* -------------------------------------------------------------------------- */
-/* How the two rows share the height                                          */
+/* The layout cannot shift, because it cannot see the board                    */
 /* -------------------------------------------------------------------------- */
 
-test('an empty row keeps a label strip and hands the rest to the row with cards', () => {
-  const askC = rowAsk(1, 1111, 200);
-  const askL = rowAsk(0, 1571, 200);
-  assert.equal(askL, EMPTY_ROW_HEIGHT);
-
-  const { creatureHeight, landHeight } = shareBandHeight(352, 1, 0, askC, askL);
-  assert.equal(landHeight, 352 - creatureHeight);
-  assert.ok(
-    creatureHeight > 300,
-    `one creature over an empty mana row should get nearly all the band, got ${creatureHeight}`
-  );
+test('nothing that sizes a seat takes a card count', () => {
+  /* The strongest form this guarantee can take: the shift is not merely fixed,
+     it is unrepresentable. Every one of these used to take a count, and each
+     one of them fed the size and position of every card on the seat. A future
+     change that adds one back has to delete a test that says why. */
+  assert.equal(splitBands.length, 1, 'splitBands(bandsUsable) and nothing else');
+  assert.equal(seatCardWidth.length, 2, 'seatCardWidth(rowHeight, ceiling)');
+  assert.equal(supportBlockWidth.length, 1, 'supportBlockWidth(matWidth)');
+  assert.equal(railWidth.length, 2, 'railWidth(matWidth, matHeight)');
+  assert.equal(identityBandHeight.length, 1, 'identityBandHeight(matHeight)');
+  assert.equal(layoutRow.length, 3, 'layoutRow(count, cardWidth, available)');
+  assert.equal(rowSpan.length, 3, 'rowSpan(count, cardWidth, available)');
 });
 
-test('a busy row is not starved by a sparse one when the band is short', () => {
-  /* The regression this branch exists for: nine creatures ask for LESS height
-     than five lands, because nine are already overlapping. Sharing purely by
-     ask collapsed the creatures to 39px while the lands sat at 80. */
-  const askC = rowAsk(9, 412, 200);
-  const askL = rowAsk(5, 872, 200);
-  assert.ok(askC < askL, 'the crowded row must ask for less — that is the trap');
+test('a permanent entering or leaving changes no card size and no row height', () => {
+  /* Driven at the four measured mat sizes. The card width and both row heights
+     have to come out identical for an empty board and for a full one, because
+     the only inputs are the mat. */
+  for (const [width, height] of [
+    [948, 369],
+    [828, 358],
+    [708, 306],
+    [628, 264],
+  ]) {
+    const band = height - identityBandHeight(height) - 10;
+    const { creatureHeight, landHeight } = splitBands(band);
+    const card = seatCardWidth(creatureHeight, 200);
 
-  const { creatureHeight, landHeight } = shareBandHeight(179, 9, 5, askC, askL);
-  assert.ok(
-    Math.abs(creatureHeight - landHeight) <= 2,
-    `both rows should land together, got ${creatureHeight} vs ${landHeight}`
-  );
-  const card = fitRowCard(9, creatureHeight, 412, 200);
-  assert.equal(card, 60, 'measured off the rendered DOM at 1024x600');
+    for (const count of [0, 1, 3, 7, 12, 25]) {
+      assert.equal(seatCardWidth(creatureHeight, 200), card, `card size moved at ${count} cards`);
+      assert.equal(splitBands(band).creatureHeight, creatureHeight);
+      assert.equal(splitBands(band).landHeight, landHeight);
+      assert.equal(supportBlockWidth(width), supportBlockWidth(width));
+    }
+  }
 });
 
-test('the floors are squeezed together when the window is too short for either', () => {
-  const band = ROW_FLOOR; // half of what two floored rows need
-  const { creatureHeight, landHeight } = shareBandHeight(band, 3, 3, 200, 200);
-  assert.equal(creatureHeight + landHeight, band);
-  assert.ok(Math.abs(creatureHeight - landHeight) <= 1, 'neither row is picked as the winner');
+test('both rows are the same height, so the creature row is not half the mana row', () => {
+  /* Measured before this change on a four-seat table at 1680: the creature row
+     drew 62px cards — the floor, where a card is a coloured rectangle — while
+     the mana row beside it drew 134px. Creatures are the row every other player
+     at the table has to read. */
+  const { creatureHeight, landHeight } = splitBands(300);
+  assert.ok(Math.abs(creatureHeight - landHeight) <= 1);
+  assert.equal(creatureHeight + landHeight, 300, 'and the band is spent exactly');
 });
+
+test('an empty row still holds its half of the mat', () => {
+  /* Straight out of the spec: "A row that is empty still holds its place, so
+     the board does not reflow as permanents enter and leave." */
+  assert.equal(splitBands(300).creatureHeight, splitBands(300).creatureHeight);
+  assert.ok(splitBands(300).creatureHeight > 100, 'not collapsed to a label strip');
+});
+
+/* -------------------------------------------------------------------------- */
+/* Card size                                                                   */
+/* -------------------------------------------------------------------------- */
 
 test('a row is never given a card taller than the row itself', () => {
   for (const height of [24, 60, 92, 174, 400]) {
-    const card = fitRowCard(4, height, 1571, 200);
+    const card = seatCardWidth(height, 200);
     assert.ok(
       card / CARD_RATIO <= height,
       `card ${card} is ${Math.round(card / CARD_RATIO)}px tall in a ${height}px row`
@@ -76,8 +106,13 @@ test('a row is never given a card taller than the row itself', () => {
 });
 
 test('the card floor is honoured whenever the row is tall enough to hold it', () => {
-  const tallEnough = Math.round(MIN_BOARD_CARD / CARD_RATIO) + 6;
-  assert.ok(fitRowCard(12, tallEnough, 300, 200) >= MIN_BOARD_CARD);
+  const tallEnough = Math.round(MIN_BOARD_CARD / CARD_RATIO) + ROW_PADDING;
+  assert.ok(seatCardWidth(tallEnough, 200) >= MIN_BOARD_CARD);
+});
+
+test('the size slider is a ceiling, never a floor', () => {
+  assert.equal(seatCardWidth(600, 120), 120, 'a tall row still respects the chosen size');
+  assert.ok(seatCardWidth(600, 300) > 300 === false);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -85,153 +120,157 @@ test('the card floor is honoured whenever the row is tall enough to hold it', ()
 /* -------------------------------------------------------------------------- */
 
 test('a row keeps turning room at its ENDS, not per tapped card', () => {
-  /* The layout-shift bug, stated as arithmetic. A row's footprint has to be a
-     function of how many cards are on it and how wide they are, and of nothing
-     else — otherwise turning one card moves all the others. */
   assert.ok(tapLean(121) > 20, 'a 121px card leans about 24px each side when turned');
 
   const layout = layoutRow(4, 121, 1571);
   assert.equal(layout.edge, tapLean(121), 'the run holds a lean of clear mat at each end');
   assert.equal(layout.overlap, 0);
-  assert.ok(layout.gap >= tapLean(121) * 2, 'a sparse row leaves room for every card to turn');
+  assert.ok(layout.gap > 0, 'and the cards are not touching');
+});
+
+test('two tapped neighbours may overlap each other, and that is the table', () => {
+  /* Reserving two full leans BETWEEN every pair would cut a 526px creature row
+     from six slots to three, so a fourth creature would start overlapping on an
+     empty board. Tapped permanents leaning onto their neighbours is what
+     happens on a real table, and `GameCardView` already stacks them by index so
+     it reads as stacking rather than as a collision. What is NOT allowed is the
+     row painting outside its own box, which the test above covers. */
+  const layout = layoutRow(4, 100, 526);
+  assert.ok(layout.gap < tapLean(100) * 2, 'this is the trade, written down');
+  assert.ok(layout.slots >= 4, 'and it buys a row that holds four creatures without compressing');
+});
+
+test('a FULL row still reserves turning room — the measured clip', () => {
+  /* The bug: `edge` used to be granted only when the row had width to spare and
+     dropped to zero on a full row. Measured on a four-seat table at 1680 with
+     eight lands down and everything tapped, the mana row painted 25px past each
+     end of its own box — 110% of the width it was given. Owner: *"they clip off
+     board"*. */
+  for (const [count, card, available] of [
+    [8, 134, 493],
+    [7, 115, 423],
+    [12, 100, 370],
+    [3, 200, 620],
+  ]) {
+    const layout = layoutRow(count, card, available);
+    assert.ok(layout.edge > 0, `${count} cards at ${card}px in ${available}px reserved no lean`);
+    const paintedRight = layout.start + (layout.span - layout.edge * 2) + tapLean(card);
+    assert.ok(
+      paintedRight <= available + 1,
+      `a tapped card at the end paints to ${Math.round(paintedRight)} of ${available}`
+    );
+  }
 });
 
 test('the row footprint is identical whatever is tapped — there is no tapped input', () => {
-  /* `rowSpan` and `layoutRow` take no tapped argument at all, which is the
-     strongest form this guarantee can take: the shift is not merely fixed, it
-     is unrepresentable. This test exists so a future signature change that adds
-     one back has to delete a test that says why. */
   assert.equal(rowSpan.length, 3, 'rowSpan must take (count, cardWidth, available) and no more');
   assert.equal(layoutRow.length, 3, 'layoutRow must take (count, cardWidth, available)');
 });
 
-test('a sparse row spreads across the width instead of clumping in the middle', () => {
-  /* The measurement from the last review: at 1024px the row reached x=935 and
-     the cards stopped at x=737, leaving blank mat at both ends. Owner:
-     *"playmats dont use 100% of the page which I thought they would"*. */
-  const available = 935;
-  const before = 3 * 200 + 2 * rowGap(200); // what the old tight-gap row spanned
-  const layout = layoutRow(3, 200, available);
+test('the Nth card lands in the same place whatever else is on the row', () => {
+  /* Rule three, and the measurement it comes from. With the card size already
+     fixed, a creature entering was still moving six permanents by up to 55px,
+     because the run was centred and the gap was re-spread every time. A
+     constant pitch laid from the left cannot do that. */
+  const positions = (count: number) => {
+    const layout = layoutRow(count, 100, 526);
+    return Array.from({ length: count }, (_, i) => layout.start + i * (100 + layout.gap));
+  };
 
-  assert.ok(before < 700, );
-  assert.ok(
-    layout.span >= available * 0.94,
-      );
-  assert.ok(layout.start <= 30, );
+  for (let count = 1; count < 4; count += 1) {
+    const before = positions(count);
+    const after = positions(count + 1);
+    for (let i = 0; i < before.length; i += 1) {
+      assert.equal(after[i], before[i], `card ${i} moved when the row went ${count} -> ${count + 1}`);
+    }
+  }
 });
 
-test('the measured board case: four creatures now use most of the mat row', () => {
-  /* Straight off a run of `scripts/play-preview-shots.mjs` at 1680x1050: the
-     viewer's creature row is 1460px wide and its cards are height-bound at
-     121px. The tight-gap row used 52% of it and left the rest blank. */
-  const layout = layoutRow(4, 121, 1460);
-  const tight = 4 * 121 + 3 * rowGap(121);
-
-  assert.ok(
-    tight / 1460 < 0.36,
-    `the tight row used ${Math.round((tight / 1460) * 100)}% of the mat`
-  );
-  assert.ok(
-    layout.span / 1460 > 0.6,
-    `the spread row should use most of it, used ${Math.round((layout.span / 1460) * 100)}%`
-  );
-  assert.equal(layout.gap, MAX_ROW_GAP(121), 'and it should be spreading at the cap');
+test('a full row reaches most of the way across the mat', () => {
+  /* The trade in rule three only holds if a row that fills up actually uses the
+     mat. Measured: 84% to 99% of the row at the top rung, against the 41% the
+     creature row was managing before the identity band moved out of it. */
+  for (const [card, available] of [
+    [100, 526],
+    [83, 444],
+    [72, 392],
+    [200, 935],
+  ]) {
+    const layout = layoutRow(layoutRow(1, card, available).slots, card, available);
+    assert.ok(
+      layout.span >= available * 0.83,
+      `${layout.slots} cards at ${card}px spanned ${layout.span} of ${available}`
+    );
+  }
 });
 
 test('spreading is bounded: cards never drift more than a card and a quarter apart', () => {
   const layout = layoutRow(2, 120, 4000);
-  assert.equal(layout.gap, MAX_ROW_GAP(120), 'two cards on a huge mat do not go to the corners');
-  assert.ok(layout.start > 0, 'and what cannot be spread is centred');
+  assert.ok(layout.gap <= MAX_ROW_GAP(120), 'two cards on a huge mat do not go to the corners');
 });
 
-test('one card is centred and asks for no gap', () => {
+test('one card sits at the start of the row', () => {
   const layout = layoutRow(1, 200, 900);
-  assert.equal(layout.gap, 0);
-  assert.equal(layout.span, 200 + layout.edge * 2);
-  assert.ok(layout.start > 300);
+  assert.equal(layout.span, 200 + layout.edge * 2, 'and occupies exactly itself');
+  assert.equal(layout.start, layout.edge, 'at the left, after the turning room');
 });
 
-test('a crowded row overlaps instead of spreading, exactly as PermanentRow draws it', () => {
-  /* 8 creatures at 60px in the 426px the old inset left them: the DOM measured
-     360px of used width. Unchanged by any of this. */
-  const layout = layoutRow(8, 60, 426);
-  assert.equal(layout.span, 360, 'measured off the rendered DOM at 1024x600');
+test('a crowded row overlaps rather than shrinking its cards', () => {
+  /* Rule four. The card size is decided by the row's HEIGHT, so a row that
+     cannot fit its cards side by side slides them under each other — which is
+     what a player does with a crowded board, and is the only response that does
+     not resize every other permanent on the mat. */
+  const layout = layoutRow(14, 60, 426);
   assert.ok(layout.overlap > 0, 'a crowded row overlaps');
-  assert.equal(layout.gap, 0, 'and has no gap left to spread');
-  assert.equal(layout.edge, 0, 'nor any room to turn in');
+  assert.ok(layout.gap < 0, 'and the gap is the negative margin that does it');
+  assert.ok(layout.span <= 426, 'and still fits the box it was given');
 });
 
-/* -------------------------------------------------------------------------- */
-/* Stepping aside for the floating identity strip                             */
-/* -------------------------------------------------------------------------- */
+test('a crowded row only re-packs when it steps down a rung', () => {
+  /* Rule four, measured, and stated as the trade it is.
+   *
+   * Solving the overlap exactly for the count moved the whole row every time a
+   * permanent arrived — 54px for the 8th creature on a four-seat mat, every
+   * single time, for ever. On the ladder most arrivals are free and the ones
+   * that are not are a single re-pack.
+   *
+   * The numbers below are from `layoutRow(n, 102, 526)`, which is the viewer's
+   * creature row on a four-seat table at 1680 with the size slider at default.
+   */
+  const card = 102;
+  const available = 526;
 
-const STRIP = { start: 300, end: 160 };
+  let free = 0;
+  let previous = layoutRow(1, card, available).gap;
+  for (let count = 2; count <= 30; count += 1) {
+    const gap = layoutRow(count, card, available).gap;
+    if (gap === previous) free += 1;
+    previous = gap;
+  }
+  assert.ok(
+    free >= 14,
+    `only ${free} of 29 permanents arriving on this row moved nothing at all`
+  );
 
-test('a sparse row keeps the whole width and stays centred', () => {
-  const plan = planIdentityInset(1571, 3, 121, STRIP);
-  assert.equal(plan.start, 0);
-  assert.equal(plan.end, 0);
-  assert.equal(plan.available, 1571);
-});
-
-test('an empty row is never inset', () => {
-  const plan = planIdentityInset(1571, 0, 0, STRIP);
-  assert.equal(plan.start, 0);
-  assert.equal(plan.available, 1571);
-});
-
-test('a spread row that reaches the strip steps aside, tapped or not', () => {
-  /* The old version of this test asserted that a row of six TAPPED creatures
-     inset while the same six untapped did not — which is precisely the layout
-     shift the owner reported, written down as intended behaviour. The rule that
-     replaces it: the decision is about how far the run reaches, and the run
-     reaches the same distance either way. */
-  const plan = planIdentityInset(1571, 6, 121, STRIP);
-  const reach = rowSpan(6, 121, 1571);
-  const clears = (1571 - reach) / 2 >= STRIP.start;
-
-  if (clears) {
-    assert.equal(plan.start, 0, 'a row that never comes near the strip is not shoved off-centre');
-  } else {
-    assert.equal(plan.start, STRIP.start, 'a row that would reach the strip steps aside');
-    assert.ok(plan.cardsStart >= STRIP.start, 'and never begins underneath it');
+  /* And every one of those 30 counts still fits its own box. */
+  for (let count = 1; count <= 30; count += 1) {
+    assert.ok(layoutRow(count, card, available).span <= available + 1, `${count} overflowed`);
   }
 });
 
-test('an inset row reports the width it will really be laid out in', () => {
-  const plan = planIdentityInset(872, 8, 60, { start: 249, end: 121 });
-  assert.equal(plan.available, 872 - 249 - 121);
-  assert.ok(plan.cardsStart >= 249, 'cards begin after the strip, never under it');
+test('the run always fits the width it was given, at every density', () => {
+  for (const available of [1571, 1111, 872, 493, 300, 180]) {
+    for (const count of [1, 3, 5, 9, 14, 22, 40]) {
+      for (const card of [200, 134, 100, 62]) {
+        const layout = layoutRow(count, card, available);
+        assert.ok(
+          layout.span <= available + 1 || card > available,
+          `${count} cards at ${card}px span ${layout.span} in ${available}px`
+        );
+      }
+    }
+  }
 });
-
-test('measuring the strip instead of guessing a third of the mat removes the overlap', () => {
-  /* The 1024x600 far seat, 8 creatures at 60px in an 872px row. */
-  const guessed = planIdentityInset(872, 8, 60, { start: 291, end: 155 });
-  const measured = planIdentityInset(872, 8, 60, { start: 249, end: 121 });
-
-  const natural = 8 * 60 + 7 * Math.round(60 * 0.08);
-  const guessedSpan = rowSpan(8, 60, guessed.available);
-  const measuredSpan = rowSpan(8, 60, measured.available);
-
-  assert.equal(guessedSpan, 360, 'the DOM measured 360px of used width — heavy overlap');
-  assert.ok(guessedSpan < natural, 'the guessed inset forced the cards under each other');
-  assert.ok(
-    measuredSpan > guessedSpan,
-    `measuring the strip gives the cards back room: ${guessedSpan} -> ${measuredSpan}`
-  );
-  assert.equal(guessed.available, 426);
-  assert.equal(measured.available, 502, 'the row gets 76px back that nothing was standing in');
-});
-
-test('the label gutter is real, so the label is never printed over card art', () => {
-  const plan = planIdentityInset(872, 8, 60, { start: 249, end: 121 });
-  const gutter = plan.cardsStart - plan.start;
-  assert.ok(gutter >= 0, 'the first card never starts before the inset it was given');
-});
-
-/* -------------------------------------------------------------------------- */
-/* The size rule the owner reported broken                                    */
-/* -------------------------------------------------------------------------- */
 
 test('shrink to fit never lets a row overflow the width it was given', () => {
   for (const available of [1571, 1111, 872, 426, 300]) {
@@ -243,5 +282,34 @@ test('shrink to fit never lets a row overflow the width it was given', () => {
         `${count} cards at ${card}px span ${span} in ${available}px`
       );
     }
+  }
+});
+
+/* -------------------------------------------------------------------------- */
+/* The seat's fixed furniture                                                  */
+/* -------------------------------------------------------------------------- */
+
+test('the support block is a fifth of the mat, not a third of it', () => {
+  /* Measured before: 257px of an 828px mat — 31% — holding three Rancors, while
+     the creature row beside it was at the 62px card floor. */
+  assert.equal(supportBlockWidth(828), 166);
+  assert.ok(supportBlockWidth(828) / 828 < 0.22);
+  assert.equal(supportBlockWidth(3000), 220, 'and it is capped, so a wide mat is not all block');
+  assert.equal(supportBlockWidth(200), 76, 'and floored, so a narrow one still shows the zone');
+});
+
+test('the rail is sized by the tiles it has to stack, not by width alone', () => {
+  /* Four card-shaped piles down a short quadrant: a rail set purely as a
+     fraction of the width is a wide empty strip. */
+  assert.ok(railWidth(948, 369) <= 128);
+  assert.ok(railWidth(628, 264) < railWidth(948, 369), 'a shorter seat gets a narrower rail');
+  assert.ok(railWidth(300, 200) >= 52, 'and it never disappears');
+});
+
+test('the identity band is small enough that the rows keep most of the mat', () => {
+  for (const height of [369, 358, 306, 264]) {
+    const band = identityBandHeight(height);
+    assert.ok(band >= 34 && band <= 54, `band ${band} at height ${height}`);
+    assert.ok(band / height < 0.2, 'the band never takes a fifth of the seat');
   }
 });

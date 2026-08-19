@@ -12,19 +12,24 @@ import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { CardImage } from '@/components/cards/CardImage';
 import { ProxySheet } from './ProxySheet';
 import {
+  BLEED_MM,
   CARD_H_MM,
   CARD_W_MM,
   PAPER,
   PRINT_DIALOG_HINT,
   PROXY_PER_PAGE,
   PROXY_QUALITY,
+  bleedRect,
   buildProxySlots,
+  cropMarkSegments,
   hydrateProxyPrintings,
   isolateForPrint,
   mergePrinting,
   preloadProxyImages,
   proxyDpi,
   sheetMargins,
+  sheetPlan,
+  showSheetPlan,
   type HydrateResult,
   type PaperSize,
   type ProxyQuality,
@@ -164,7 +169,10 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
    * double-faced cards.
    */
   const slots = useMemo(() => buildProxySlots(selectedList, quality), [selectedList, quality]);
-  const totalPages = Math.ceil(slots.length / PROXY_PER_PAGE);
+  /* One count of cards and sheets, shared by the stats, the hint, the buttons
+     and the toast, so no two of them can say different numbers. */
+  const plan = sheetPlan(slots.length);
+  const totalPages = plan.sheets;
   const extraFaces = slots.filter(s => s.faceLabel === 'Back').length;
   const missingArt = slots.filter(s => !s.imageUrl).length;
 
@@ -276,9 +284,32 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         return entry;
       };
 
+      /*
+       * Bleed and crop marks, from the same rectangles the CSS sheet uses, so
+       * the file and the printout cannot disagree about where a cut line is.
+       * Drawn first on every page: the band goes under the nine cards and only
+       * its outer 1.5 mm ever shows.
+       */
+      const drawCutLayer = () => {
+        if (!cutGuides) return;
+        const band = bleedRect(paperSize);
+        doc.setFillColor(0, 0, 0);
+        doc.rect(band.xMm, band.yMm, band.wMm, band.hMm, 'F');
+        for (const mark of cropMarkSegments(paperSize)) {
+          if (mark.tone === 'onBleed') doc.setFillColor(255, 255, 255);
+          else doc.setFillColor(138, 138, 138);
+          doc.rect(mark.xMm, mark.yMm, mark.wMm, mark.hMm, 'F');
+        }
+      };
+
+      drawCutLayer();
+
       for (let i = 0; i < slots.length; i++) {
         const slot = slots[i];
-        if (i > 0 && i % PROXY_PER_PAGE === 0) doc.addPage();
+        if (i > 0 && i % PROXY_PER_PAGE === 0) {
+          doc.addPage();
+          drawCutLayer();
+        }
 
         const posOnPage = i % PROXY_PER_PAGE;
         const x = xMm + (posOnPage % 3) * CARD_W_MM;
@@ -296,19 +327,13 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
         }
         if (!drewImage) drawTextProxy(doc, x, y, slot.card);
 
-        if (cutGuides) {
-          doc.setDrawColor(154);
-          doc.setLineWidth(0.2);
-          doc.rect(x, y, CARD_W_MM, CARD_H_MM);
-        }
-
         setProgress(Math.round(((i + 1) / slots.length) * 100));
       }
 
       doc.save(`${deckName.replace(/[^a-z0-9]/gi, '_')}_proxies.pdf`);
       showSuccess(
         'Proxies exported',
-        `${slots.length} cards across ${totalPages} ${totalPages === 1 ? 'page' : 'pages'}.`
+        `${showSheetPlan(plan)}.`
       );
     } catch (error) {
       console.error('Generation failed:', error);
@@ -342,7 +367,8 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             Proxy Generator
           </CardTitle>
           <CardDescription className="text-xs">
-            Full card art at {CARD_W_MM} × {CARD_H_MM} mm, {PROXY_PER_PAGE} per {PAPER[paperSize].label} sheet
+            Full card art at {CARD_W_MM} by {CARD_H_MM} mm, the real size, {PROXY_PER_PAGE} per{' '}
+            {PAPER[paperSize].label} sheet
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -482,7 +508,9 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
               ) : (
                 <>
                   <Printer className="h-3 w-3 mr-1" />
-                  Print
+                  {/* The last thing read before paper is spent says how much
+                      paper. `Print` on its own said nothing. */}
+                  Print {slots.length} on {totalPages} {totalPages === 1 ? 'sheet' : 'sheets'}
                 </>
               )}
             </Button>
@@ -493,13 +521,26 @@ export function DeckProxyGenerator({ deckCards, deckName, commander }: DeckProxy
             <div className="space-y-0.5">
               <p>{PRINT_DIALOG_HINT}</p>
               <p>
-                {PAPER[paperSize].label} leaves {margins.xMm.toFixed(1)} mm left/right and {margins.yMm.toFixed(1)} mm
-                top/bottom.
+                {showSheetPlan(plan)}. {PAPER[paperSize].label} leaves {margins.xMm.toFixed(1)} mm left and right
+                and {margins.yMm.toFixed(1)} mm top and bottom.
+                {cutGuides && ` Cut marks sit in the margin and the block prints on ${BLEED_MM} mm of black, so a cut that misses by a hair keeps black rather than showing white paper.`}
                 {extraFaces > 0 && ` ${extraFaces} back face${extraFaces === 1 ? '' : 's'} printed separately.`}
                 {missingArt > 0 &&
                   (missingArt === 1
                     ? ' 1 card has no art and prints as a text proxy.'
                     : ` ${missingArt} cards have no art and print as text proxies.`)}
+              </p>
+              {/*
+                Wizards' Fan Content Policy requires fan content to be free, so
+                a proxy sheet must never sit behind a payment and nothing here
+                may suggest these are sellable or legal at an event. It is on
+                the screen with the print button rather than in a help article,
+                because the person about to press print is the person who needs
+                to read it.
+              */}
+              <p>
+                These are for playtesting at your own table. They are free, they are not real cards, and they are
+                not legal at any event. Do not sell them.
               </p>
             </div>
           </div>

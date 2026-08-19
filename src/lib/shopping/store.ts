@@ -11,7 +11,9 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  addManyToList,
   addToList,
+  clearList,
   fileArrival,
   loadDeckShortfalls,
   loadListItems,
@@ -22,11 +24,12 @@ import {
   resetItem,
   setQuantity,
   type AddToListInput,
+  type BulkListItem,
   type FileInput,
   type MarkBoughtInput,
 } from './api.ts';
 import { assembleShoppingList, type AssembledList, type DeckShortfallRow, type WishlistSourceRow } from './assemble.ts';
-import type { CardListItem, Finish, ListKind } from './list.ts';
+import type { CardListItem, Finish, ItemSource, ListKind } from './list.ts';
 
 interface CardListState {
   shopping: CardListItem[];
@@ -41,8 +44,17 @@ interface CardListState {
   load: (options?: { force?: boolean }) => Promise<void>;
 
   add: (input: AddToListInput) => Promise<void>;
+  /** A whole list at once. One request however many cards. Returns rows written. */
+  addMany: (input: {
+    kind: ListKind;
+    items: BulkListItem[];
+    source?: ItemSource;
+    sourceDeckId?: string | null;
+  }) => Promise<number>;
   setQuantity: (itemId: string, quantity: number) => Promise<void>;
   remove: (itemId: string) => Promise<void>;
+  /** Empty a list of everything still wanted. Returns how many rows went. */
+  clear: (kind: ListKind) => Promise<number>;
   markBought: (input: MarkBoughtInput) => Promise<void>;
   markArrived: (itemId: string, arrived?: { cardId?: string | null; finish?: Finish | null }) => Promise<void>;
   file: (input: FileInput) => Promise<void>;
@@ -145,6 +157,12 @@ export const useCardLists = create<CardListState>((set, get) => ({
     await get().load({ force: true });
   },
 
+  addMany: async input => {
+    const written = await addManyToList(input);
+    await get().load({ force: true });
+    return written;
+  },
+
   setQuantity: async (itemId, quantity) => {
     await setQuantity(itemId, quantity);
     await get().load({ force: true });
@@ -153,6 +171,12 @@ export const useCardLists = create<CardListState>((set, get) => ({
   remove: async itemId => {
     await removeItem(itemId);
     await get().load({ force: true });
+  },
+
+  clear: async kind => {
+    const gone = await clearList(kind);
+    await get().load({ force: true });
+    return gone;
   },
 
   markBought: async input => {

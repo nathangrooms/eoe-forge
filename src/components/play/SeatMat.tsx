@@ -67,20 +67,29 @@ import { LifeBadge, type CommanderDamagePip, type LifeBadgeSize } from './LifeBa
 import { CardBack, LibraryStack } from './CardBack';
 import {
   CARD_RATIO,
-  MIN_BOARD_CARD,
+  ROW_LABEL_GUTTER,
   ZoneBlock,
   ZoneRow,
-  fitBlockCardWidth,
+  blockCardWidth,
 } from './Battlefield';
 import {
-  EMPTY_ROW_HEIGHT,
-  ROW_PADDING,
-  fitRowCard,
-  planIdentityInset,
-  rowAsk,
-  shareBandHeight,
+  identityBandHeight,
+  railWidth,
+  seatCardWidth,
+  splitBands,
+  supportBlockWidth,
 } from './seatLayout';
 import { BOARD_ROWS, SUPPORT_BLOCK, splitIntoRows } from './boardRows';
+/* What this seat's band says about combat. Pure, and therefore tested — see
+   `seatCombat.test.ts`. It is also the first caller `combatLanes` has ever
+   had. */
+import {
+  combatMarkFor,
+  incomingAttack,
+  incomingSentence,
+  outgoingAttack,
+  outgoingSentence,
+} from './seatCombat';
 import { GameCardView, type CombatChipProps, type Lunge } from './GameCardView';
 import { useMeasuredSize } from './useMeasure';
 import type { LifeDelta } from './useTableMotion';
@@ -96,41 +105,21 @@ import {
   type Zone,
 } from '@/lib/game';
 
-/**
- * Vertical room the identity strip needs, per life-badge size.
- *
- * Every pixel here is a pixel the two rows do not get, and on a four-quadrant
- * board those rows are already sharing about a third of the screen height. So
- * these are exactly `LifeBadge`'s own ring diameters and not one pixel more —
- * anything larger is padding paid for out of card size, anything smaller and
- * the badge overflows onto the creature row behind it. An opponent's hand is
- * drawn into the same strip rather than being given a row of its own: the
- * spec's hand row is the viewer's, and the viewer's hand is the fan along the
- * bottom of the whole board.
- */
-const HEADER_HEIGHT: Record<LifeBadgeSize, number> = { sm: 52, md: 70, lg: 92 };
-
 /** Gap between the two rows, and between the rows and the support block. */
 const BAND_GAP = 4;
-
-/** Width an empty support block keeps, to run its name up as a spine. */
-const SUPPORT_SPINE = 22;
-
-/** `ZoneBlock`'s own horizontal padding, which its width has to cover. */
-const BLOCK_INNER_PADDING = 10;
-
-/**
- * The narrowest the two rows may be squeezed to before the support block stops
- * growing. Two cards and the gap between them: past that the block is winning
- * an argument it should not be in.
- */
-const MIN_ROW_WIDTH = 200;
 
 export interface SeatMatProps {
   state: GameState;
   player: Player;
   /** The seat this device controls. */
   isViewer?: boolean;
+  /**
+   * Who is looking, so combat marks can say "hits you" instead of naming them.
+   *
+   * Not the same question as `isViewer`: an attacker pointed at the viewer sits
+   * on somebody ELSE'S mat, and that mat has to be able to say so.
+   */
+  viewerPlayerId?: PlayerId;
   /**
    * What to call that seat on its own mat.
    *
@@ -268,6 +257,7 @@ export function SeatMat({
   state,
   player,
   isViewer,
+  viewerPlayerId,
   viewerLabel = 'You',
   isBot,
   /* A ceiling, and a deliberately generous one. The owner has now said twice
@@ -300,6 +290,19 @@ export function SeatMat({
   );
   const rows = useMemo(() => splitIntoRows(battlefield), [battlefield]);
 
+  /*
+   * Combat, from this seat's point of view. Recomputed only when the state
+   * object changes identity, which is exactly when the board does: the reducer
+   * returns a new state per action, so this runs once per action per seat and
+   * not once per frame. `combatLanes` walks the declarations, which is a handful
+   * of entries even on a wide board.
+   */
+  const incoming = useMemo(() => incomingAttack(state, player.id), [state, player.id]);
+  const swing = useMemo(() => outgoingAttack(state, player.id), [state, player.id]);
+
+  /* Only ever used to pick a pronoun: "hits you" against "hits Yeva". */
+  const viewerId = viewerPlayerId ?? (isViewer ? player.id : '');
+
   const commander = player.commanders[0];
   const untapped = availableMana(state, player.id);
   const tax = commander ? commanderTax(state, commander.id) : 0;
@@ -315,194 +318,106 @@ export function SeatMat({
     .filter(entry => entry.amount > 0);
 
   /* ---------------------------------------------------------------------- */
-  /* Measurement — the chosen size is a ceiling, never a fixed width         */
+  /* Measurement — geometry is a function of the BOX, never of the board     */
   /* ---------------------------------------------------------------------- */
+  /*
+   * Nothing below reads how many permanents the seat has. That is the fix for
+   * the owner's *"keep getting weird layout shifting when things happen"*, and
+   * it is a fix by construction rather than by tuning: the numbers a new
+   * permanent would have to change are not computed from anything it touches.
+   *
+   * Measured before, driving a real four-seat game and recording every card's
+   * rectangle around each action — tap, untap, draw, damage, counters, life and
+   * step changes were already clean; what moved the board was a card entering
+   * or leaving. `seatLayout.ts` has the numbers.
+   */
 
   const width = mat.width || 480;
   const height = mat.height || 300;
 
-  const lifeSize: LifeBadgeSize = height >= 470 ? 'lg' : height >= 350 ? 'md' : 'sm';
-  const headerHeight = HEADER_HEIGHT[lifeSize];
+  /* The rail down the seat's outer edge: identity at the top, then the four
+     piles. Constant for a given mat. */
+  const sideWidth = railWidth(width, height);
+  const bandHeight = identityBandHeight(height);
+  const tileHeight = Math.max(30, Math.floor((height - bandHeight - 16) / 4) - 3);
+  const tileCardWidth = Math.max(18, Math.round((tileHeight - 10) * CARD_RATIO));
 
-  /* The pile column is exactly as wide as the card it has to hold, and the card
-     it has to hold is limited by a quarter of the mat's height. Sizing it from
-     the height rather than the width is what stops it being a wide empty strip
-     stealing room from the board on a short quadrant. */
-  const tileHeight = Math.max(42, Math.floor((height - 14) / 4) - 3);
-  const tileCardWidth = Math.max(20, Math.round((tileHeight - 12) * CARD_RATIO));
-  const sideWidth = Math.round(
-    Math.min(Math.max(52, width * 0.24), Math.max(52, tileCardWidth + 12))
-  );
-
-  /* The identity strip floats over the mat instead of sitting in a band above
-     it. Those 70px of height were being paid for by every card on the seat —
-     they are half the height of a card — while the row underneath had 900px of
-     width going spare on a 1680px screen. So the strip is paid for sideways
-     instead: the top row keeps its ends clear, and the whole mat height goes to
-     the two rows. Owner: *"no weird small windows or unutilised space"*. */
-  const bandsHeight = Math.max(72, height - 6);
+  /* The life badge is sized to the band it now sits in rather than to the mat,
+     because the band is the thing it has to fit inside. Measured at 1280x800
+     on a four seat table the band is 37px, and the smallest badge used to be
+     52 — it sat proud of its own box. */
+  const lifeSize: LifeBadgeSize = bandHeight >= 54 ? 'md' : bandHeight >= 48 ? 'sm' : 'xs';
 
   /*
-   * Room the floating strip needs at each end of the top row — MEASURED.
+   * The identity band is a BAND again, and the two rows start below it.
    *
-   * It used to be a flat 30% of the mat at the start and 16% at the end, which
-   * on a 1024px window reserved 446px of an 872px row for a strip that painted
-   * 291px of content. The cards paid for the difference by overlapping each
-   * other inside what was left while 220px of the same row stayed blank —
-   * owner: *"no weird small windows or unutilised space"*, *"cards are tiny on
-   * screen"*. So each end is now measured and the fraction is only the ceiling.
-   *
-   * There is no feedback loop here: the strip's own width is decided by
-   * `nameMaxWidth` below, which is derived from the mat width and never from
-   * these numbers. The insets follow the strip; the strip never follows them.
+   * It used to float over the top of the creatures row to buy back its height.
+   * Measured on a four-seat table at 1680, that trade had gone wrong in both
+   * directions at once: the strip painted about 500px of the 493px row it was
+   * floating over — life and name at one end, mana and a fan of seven hand
+   * backs at the other — so the creatures row was inset down to 200px of usable
+   * width, drew its cards at the 62px floor, and had them drawn UNDER the hand
+   * backs anyway. The band costs about 46px of height and gives the creature
+   * row its whole width back, which is worth far more: after the change the two
+   * rows draw the same size card instead of 62px against 134px.
    */
-  const [identityStartRef, identityStartBox] = useMeasuredSize<HTMLDivElement>();
-  const [identityEndRef, identityEndBox] = useMeasuredSize<HTMLDivElement>();
+  const bandsHeight = Math.max(60, height - bandHeight - 8);
+  const bandsUsable = Math.max(40, bandsHeight - BAND_GAP);
+  const { creatureHeight, landHeight } = splitBands(bandsUsable);
 
-  /* The ceiling, and the value used on the very first paint before the observer
-     has read anything — the old behaviour, so a first frame is never broken. */
-  const identityInsetCap = Math.round(Math.min(width * 0.3, 300));
-  const identityInsetEndCap = Math.round(Math.min(width * 0.16, 160));
-  const nameMaxWidth = Math.max(80, identityInsetCap - HEADER_HEIGHT[lifeSize] - 12);
+  /* One card size for the whole seat, from the row height and the player's
+     ceiling. Both rows are the same height, so both draw the same card — and
+     neither of them can change size when a permanent arrives. */
+  const boardCardWidth = seatCardWidth(creatureHeight, cardWidth);
+  const creatureCardWidth = boardCardWidth;
+  const landCardWidth = boardCardWidth;
 
-  const identityInset = identityStartBox.width
-    ? Math.min(identityInsetCap, Math.round(identityStartBox.width) + 10)
-    : identityInsetCap;
-  const identityInsetEnd = identityEndBox.width
-    ? Math.min(identityInsetEndCap, Math.round(identityEndBox.width) + 10)
-    : identityInsetEndCap;
-
-  /* ---------------------------------------------------------------------- */
-  /* How the two rows share the height                                      */
-  /* ---------------------------------------------------------------------- */
-  /*
-   * Not 50/50. An even split means an empty creatures row holds half the mat
-   * open while the mana row underneath it squeezes eight lands into 139px, and
-   * it means the card size is decided by whichever row is worse off.
-   *
-   * Each row instead asks for the height it can actually USE — the height at
-   * which its cards reach the size the width already allows, or the ceiling the
-   * player chose, whichever comes first. An empty row asks for a labelled strip
-   * and nothing more. Then the band is shared out in proportion to those asks,
-   * scaled down together if they do not fit and handed the surplus if they do.
-   *
-   * That is what makes one creature on an otherwise empty board large: the row
-   * below it is asking for 24px, so everything else is his.
-   */
-  /* The block's width depends on the card size and the card size depends on the
-     width left over, so the knot is cut with a provisional card size taken from
-     height alone — which is the constraint that actually binds on this board —
-     and the rows are then fitted against the answer. */
-  const provisionalCard = Math.min(
-    cardWidth,
-    Math.max(MIN_BOARD_CARD, ((bandsHeight - BAND_GAP) / 2 - ROW_PADDING) * CARD_RATIO)
+  /* The support block is a constant fifth of the mat. See `supportBlockWidth`
+     for the measurement that says why it is not a growing third of it. */
+  const supportWidth = Math.min(
+    supportBlockWidth(width),
+    Math.max(0, width - sideWidth - 180 - BAND_GAP - 14)
   );
-
-  /*
-   * The support block is sized to what it HOLDS, not to a fixed share of the
-   * mat. Empty, it collapses to a spine and gives the width to the rows; as
-   * permanents land there it grows a column at a time and takes it back.
-   *
-   * It is never allowed to starve the rows: whatever it asks for, it stops at
-   * the point where the two rows still have room for a readable card.
-   */
-  const supportCap = Math.max(0, width - sideWidth - MIN_ROW_WIDTH - BAND_GAP - 14);
-  const supportPerColumn = Math.max(
-    1,
-    Math.floor(bandsHeight / (provisionalCard / CARD_RATIO + BAND_GAP))
-  );
-  const supportColumns = Math.max(1, Math.ceil(rows.support.length / supportPerColumn));
-  const supportWidth =
-    rows.support.length === 0
-      ? Math.min(SUPPORT_SPINE, supportCap)
-      : Math.round(
-          Math.min(supportCap, supportColumns * (provisionalCard + BAND_GAP) + BLOCK_INNER_PADDING)
-        );
   const supportHeight = bandsHeight;
-
-  const rowWidth = Math.max(80, width - sideWidth - supportWidth - BAND_GAP - 14);
-  /* The top row pays for the identity strip out of its ends; the mana row has
-     the whole width, which is why a big mana base still reads. */
-  const creatureRowWidth = Math.max(80, rowWidth - identityInset - identityInsetEnd);
-
-  const askCreatures = rowAsk(rows.creatures.length, creatureRowWidth, cardWidth);
-  const askLands = rowAsk(rows.lands.length, rowWidth, cardWidth);
-  const bandsUsable = Math.max(2 * EMPTY_ROW_HEIGHT, bandsHeight - BAND_GAP);
-
-  const { creatureHeight, landHeight } = shareBandHeight(
-    bandsUsable,
-    rows.creatures.length,
-    rows.lands.length,
-    askCreatures,
-    askLands
+  /* What the run of cards really gets: the mat, less the rail, less the block,
+     less the row's own label gutter. Handing `layoutRow` a width the cards are
+     not laid out in is how every previous version of this came to paint over
+     its own edge. */
+  const rowWidth = Math.max(
+    80,
+    width - sideWidth - supportWidth - BAND_GAP - 14 - ROW_LABEL_GUTTER
   );
 
   /*
-   * Each row sizes its own card, because the two rows no longer have the same
-   * height. A row is never given a card taller than the row itself — that is
-   * what stops a permanent spilling into the seat below — and never one below
-   * `MIN_BOARD_CARD` unless the row is genuinely too short to hold one.
-   */
-  const creatureCardWidth = fitRowCard(
-    rows.creatures.length,
-    creatureHeight,
-    creatureRowWidth,
-    cardWidth
-  );
-  const landCardWidth = fitRowCard(rows.lands.length, landHeight, rowWidth, cardWidth);
-
-  /*
-   * Where the top row sits relative to the floating identity strip.
+   * The block's card size — and it no longer follows the board either.
    *
-   * It steps aside only when its cards would actually reach the strip. It used
-   * to be handed the row's TAPPED count as well, and that was half of the
-   * owner's *"tapped/untapped on opponents side ... causes layout shifting"*:
-   * tapping one more creature could flip this decision, and the whole row
-   * jumped sideways by the width of the strip. `layoutRow` now holds turning
-   * room at the ends of the run regardless of what is tapped, so this answer
-   * depends on the board's SHAPE and never on its state.
+   * It used to. `fitBlockCardWidth(width, height, COUNT, preferred)` searched
+   * down from the row's size until that many cards tiled inside the block, so
+   * every card in the block resized whenever one arrived: measured on a
+   * four-seat table at 1680, Rancors landing one at a time took the block from
+   * 102px to 100px to 66px to 64px, moving one card 49px and another 101px. It
+   * was defended as contained — the block's outer width is fixed, so the rows
+   * beside it did not move — but "contained" is not the same as "does not
+   * happen", and it is the owner's complaint in the owner's own words.
+   *
+   * `blockCardWidth` takes the box and this ceiling and no count. It reaches
+   * the same 64px the old search reached once four cards were down, so a full
+   * block looks the same and a filling one no longer moves.
    */
-  const creatureInset = planIdentityInset(rowWidth, rows.creatures.length, creatureCardWidth, {
-    start: identityInset,
-    end: identityInsetEnd,
-  });
+  const supportCardWidth = Math.max(26, blockCardWidth(supportWidth, supportHeight, boardCardWidth));
 
-  /* The label prints in the gutter between the strip and the first card, and is
-     told how wide that gutter is so it can never be drawn across card art. */
-  const creatureLabelInset = creatureInset.start || identityInset;
-  const creatureLabelWidth = Math.max(
-    0,
-    Math.round(creatureInset.cardsStart - creatureLabelInset - 6)
-  );
-
-  /* One number for the things that are about the mat rather than about a row —
-     the tap chip's cutoff, and the block's ceiling. */
-  const boardCardWidth = Math.max(creatureCardWidth, landCardWidth, provisionalCard);
-
-  /* The block tiles in two directions, so it gets its own fit rather than the
-     row's — a wide short block and a narrow tall one want different cards. */
-  const supportCardWidth = Math.max(
-    26,
-    Math.min(
-      boardCardWidth,
-      fitBlockCardWidth(
-        supportWidth,
-        supportHeight,
-        rows.support.length,
-        boardCardWidth,
-        Math.min(boardCardWidth, 48)
-      )
-    )
-  );
-
-  /* Below this the identity strip cannot hold everything, so the optional parts
+  /* Below this the identity band cannot hold everything, so the optional parts
      — the "Bot" chip, the word "mana", the spread of face-down cards — drop out
      rather than squeezing the player's name into an ellipsis. */
   const roomy = width >= 340;
 
   const handCount = player.zones.hand.length;
-  const backWidth = Math.max(16, Math.round((headerHeight - 18) * CARD_RATIO));
-  const shownBacks = Math.min(7, handCount);
+  const backWidth = Math.max(14, Math.round((bandHeight - 14) * CARD_RATIO));
+  /* A constant number of slots, not a count. The fan used to be as wide as the
+     hand was big, so drawing a card widened the identity cluster and moved
+     everything that had stepped aside for it. Four backs read as "a fistful of
+     cards" and the exact number is printed beside them. */
+  const shownBacks = Math.min(4, handCount);
 
   const graveyardTop = player.zones.graveyard.length
     ? state.cards[player.zones.graveyard[player.zones.graveyard.length - 1]]
@@ -548,6 +463,11 @@ export function SeatMat({
         onClick={onInspect ? () => onInspect(card) : undefined}
         onTap={onTapCard && tapChipFits(renderWidth) ? () => onTapCard(card) : undefined}
         combat={renderWidth >= 44 ? combat?.chip ?? null : null}
+        /* Who it is hitting, or what it is holding. Drawn on EVERY seat, not
+           just the viewer's: an attacker swinging at you is on somebody else's
+           mat, and "who is attacking whom" is unanswerable if only your own
+           creatures say anything. */
+        combatNote={combatMarkFor(state, card.instanceId, viewerId)}
         title={card.name}
       />
     );
@@ -648,21 +568,15 @@ export function SeatMat({
               key={row.id}
               label={row.label}
               cards={rows[row.id]}
-              /* Per row, not per mat: the two rows no longer have the same
-                 height, so they no longer want the same card. */
+              /* One size for the seat. The two rows are the same height, so a
+                 permanent moving between them cannot resize anything. */
               cardWidth={creatures ? creatureCardWidth : landCardWidth}
               height={creatures ? creatureHeight : landHeight}
-              /* The width the row will REALLY be laid out in. It used to be
-                 handed the inset width whether or not the inset was applied, so
-                 an un-inset row overlapped its cards against a boundary 460px
-                 short of the one it actually had. */
-              available={creatures ? creatureInset.available : rowWidth}
-              /* Only the top row is under the floating identity strip, and only
-                 while its cards would otherwise reach into it. */
-              insetStart={creatures ? creatureInset.start : 0}
-              insetEnd={creatures ? creatureInset.end : 0}
-              labelInset={creatures ? creatureLabelInset : 0}
-              labelMaxWidth={creatures ? creatureLabelWidth : undefined}
+              /* The full width, on both rows. The top row used to give up as
+                 much as 300px of its left end and 160px of its right to a
+                 floating identity strip; the strip is a band now, above the
+                 board, so neither row owes it anything. */
+              available={rowWidth}
               tinted={row.id === 'lands'}
               renderCard={renderCard}
             />
@@ -670,9 +584,11 @@ export function SeatMat({
         })}
       </div>
 
-      {/* The block grows and shrinks with what it holds, so the width eases
-          rather than snapping: a rectangle that jumps open the instant an
-          artifact resolves moves every card on the mat and reads as a glitch. */}
+      {/* A constant fifth of the mat, whether or not anything is in it. It used
+          to grow a column at a time as artifacts resolved and collapse to a
+          22px spine when the last one left, which moved the two rows beside it
+          every single time, and was one of the measured causes of the owner's
+          "weird layout shifting". */}
       <ZoneBlock
         /* The full label is two words too long for a quadrant on a laptop, and
            an ellipsis on a zone name reads as a bug rather than as a label. */
@@ -682,8 +598,175 @@ export function SeatMat({
         width={supportWidth}
         height={supportHeight}
         renderCard={renderCard}
-        className="transition-[width] duration-300 ease-out motion-reduce:transition-none"
       />
+    </div>
+  );
+
+  /*
+   * The identity band: who this is, what they are on, and what is happening to
+   * them. One line, at the top of the mat, above the board rather than floating
+   * over it. See `identityBandHeight` for the measurement that moved it.
+   *
+   * It is also the only place a seat can say something about combat without
+   * covering the creatures the sentence is about, which is why the attack
+   * readout lives here rather than in another floating strip.
+   */
+  const identityBand = (
+    <div
+      className={cn(
+        'flex shrink-0 items-center gap-2 rounded-lg px-2',
+        attacked && !dead ? 'bg-destructive/25' : 'bg-foreground/[0.045]'
+      )}
+      style={{ height: bandHeight }}
+    >
+      <LifeBadge
+        life={player.life}
+        size={lifeSize}
+        startingLife={state.rules.startingLife}
+        poison={player.poison}
+        poisonLethal={state.rules.poisonLethal}
+        commanderDamage={commanderDamage}
+        deltas={lifeDeltas}
+        active={active}
+        dead={dead}
+        className="shrink-0"
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        {/* Never wraps. A narrow quadrant that let this run onto a second line
+            pushed the name and the commander out of a box with a fixed height,
+            and the seat looked broken. */}
+        <div className="flex flex-nowrap items-center gap-1 overflow-hidden">
+          {onFocusSeat ? (
+            <button
+              type="button"
+              onClick={() => onFocusSeat(player.id)}
+              title={`Look at ${player.name} board`}
+              className="truncate rounded text-sm font-semibold text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {player.name}
+            </button>
+          ) : (
+            <h3 className="truncate text-sm font-semibold text-foreground">{player.name}</h3>
+          )}
+          {isViewer && (
+            <span className="shrink-0 rounded-full bg-foreground px-1.5 text-[9px] font-semibold uppercase leading-4 text-background">
+              {viewerLabel}
+            </span>
+          )}
+          {isBot && roomy && (
+            <span className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground">
+              Bot
+            </span>
+          )}
+          {active && !dead && (
+            <span className="shrink-0 rounded-full bg-foreground px-1.5 text-[9px] font-semibold uppercase leading-4 text-background">
+              Turn
+            </span>
+          )}
+          {/*
+            "Out", not the whole reason.
+
+            This row is `flex-nowrap` inside a bounded, `overflow-hidden` box:
+            the name TRUNCATES and every chip is `shrink-0`. So a chip holding a
+            sentence took the whole strip, squeezed the name to nothing, and
+            then clipped itself mid-word anyway. Measured on a knocked-out seat,
+            the header read
+
+              [WATCHING] [BOT] LIFE TOTAL REACHED ZE
+
+            with no player name on it at all. A chip is a chip-sized fact; the
+            reason is a sentence, so it goes where sentences go. The log already
+            records it in full.
+          */}
+          {dead && (
+            <span
+              title={
+                player.lossReasons[0]
+                  ? `Out of the game: ${lossReasonLabel(player.lossReasons[0])}.`
+                  : 'Out of the game.'
+              }
+              className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground"
+            >
+              Out
+            </span>
+          )}
+        </div>
+
+        {/*
+          The second line of the band, and it is the one that changes.
+
+          Combat wins it whenever there is combat, because "attacking and
+          blocking doesn't seem very clear at all" and a commander name is not
+          news. Otherwise it is the commander, which is what a player wants to
+          know about a seat they are reading for the first time.
+        */}
+        {bandHeight >= 34 && (
+          <div className="flex flex-nowrap items-center gap-1 overflow-hidden">
+            {incoming.under ? (
+              <span
+                className={cn(
+                  'truncate text-[10px] font-semibold',
+                  incoming.lethal ? 'text-destructive-foreground' : 'text-foreground/90'
+                )}
+                title={incoming.lanes
+                  .map(lane =>
+                    lane.blockedBy.length
+                      ? `${lane.name} ${lane.power}, blocked by ${lane.blockedBy.length}`
+                      : `${lane.name} ${lane.power}, unblocked`
+                  )
+                  .join(' / ')}
+              >
+                {incoming.lethal ? 'LETHAL. ' : ''}
+                {incomingSentence(incoming)}
+              </span>
+            ) : swing.attacking ? (
+              <span className="truncate text-[10px] font-semibold text-foreground/90">
+                {outgoingSentence(swing)}
+              </span>
+            ) : commander ? (
+              <>
+                <ColorIdentity colors={commander.colorIdentity} size="xs" />
+                <span className="truncate text-[10px] text-muted-foreground">{commander.name}</span>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {/* Untapped mana, and the hand as cards rather than as a number. Both are
+          fixed-width by construction (see `shownBacks`), so drawing a card
+          cannot move anything on the band. */}
+      <span
+        className="shrink-0 rounded-full bg-background/65 px-1.5 text-[10px] font-semibold leading-4 tabular-nums text-foreground"
+        title={`${untapped} untapped mana source${untapped === 1 ? '' : 's'}`}
+      >
+        {untapped}
+        {roomy ? ' mana' : ''}
+      </span>
+
+      {showHandBacks && roomy && handCount > 0 && (
+        <div
+          className="flex shrink-0 items-center"
+          title={`${handCount} card${handCount === 1 ? '' : 's'} in hand`}
+          aria-label={`${player.name} holds ${handCount} cards`}
+        >
+          {Array.from({ length: shownBacks }).map((_, index) => (
+            <CardBack
+              key={index}
+              width={backWidth}
+              style={{
+                marginLeft: index === 0 ? 0 : -backWidth * 0.58,
+                transform: `rotate(${(index - shownBacks / 2) * 4}deg)`,
+                zIndex: index,
+              }}
+            />
+          ))}
+          <span className="ml-1 rounded-full bg-background/70 px-1.5 text-[10px] font-semibold leading-4 tabular-nums text-foreground">
+            {handCount}
+          </span>
+        </div>
+      )}
     </div>
   );
 
@@ -694,7 +777,7 @@ export function SeatMat({
       className={cn('relative h-full w-full', className)}
     >
       <Playmat
-        art={commander?.imageUrl}
+        colors={commander?.colorIdentity}
         tone={active ? 'active' : isViewer ? 'viewer' : 'seat'}
         className={cn(
           'h-full w-full transition-shadow duration-300 motion-reduce:transition-none',
@@ -713,183 +796,17 @@ export function SeatMat({
         <div
           className={cn(
             'relative flex h-full w-full gap-1 px-1',
-            // The pile column belongs on the OUTER edge of the seat, which is
-            // whichever side of the board this quadrant sits against. The board
-            // inside it never mirrors: creatures top, lands bottom, block right,
-            // on every mat at the table.
+            // The rail belongs on the OUTER edge of the seat, which is whichever
+            // side of the board this quadrant sits against. The board inside it
+            // never mirrors: creatures top, lands bottom, block right, on every
+            // mat at the table.
             side === 'left' ? 'flex-row' : 'flex-row-reverse'
           )}
         >
           {pileColumn}
 
-          <div className="relative flex min-w-0 flex-1 flex-col">
-            {/* Who this is, and what they are on. Upright, on every seat.
-
-                It FLOATS over the top of the mat rather than sitting in a band
-                above it. As a band it cost 70px of height on every seat — half
-                a card — and the row beneath it had 900px of width spare on a
-                1680px screen, so the trade was strictly bad. The top row keeps
-                its ends clear for it instead (`identityInset`), which costs
-                width the mat has and buys height it does not.
-
-                `pointer-events-none` on the strip and `auto` on its parts, so
-                the empty middle of it never swallows a click meant for a
-                creature underneath. */}
-            <div
-              className="pointer-events-none absolute left-0 top-0 z-20 flex items-center gap-2 px-1"
-              /* Stops at the support block rather than crossing it: the mana
-                 chip at its right end was landing on the block's spine and
-                 covering the zone's name. */
-              style={{ height: headerHeight, right: supportWidth + BAND_GAP }}
-            >
-              {/* The measured cluster. The creatures row keeps clear of exactly
-                  this box and not of a guessed fraction of the mat — see
-                  `identityInset`. It is `w-fit`, so it reports the width its
-                  contents actually take rather than the width it was offered. */}
-              <div
-                ref={identityStartRef}
-                className="pointer-events-none flex w-fit shrink-0 items-center gap-2"
-              >
-                <LifeBadge
-                  life={player.life}
-                  size={lifeSize}
-                  startingLife={state.rules.startingLife}
-                  poison={player.poison}
-                  poisonLethal={state.rules.poisonLethal}
-                  commanderDamage={commanderDamage}
-                  deltas={lifeDeltas}
-                  active={active}
-                  dead={dead}
-                  className="pointer-events-auto shrink-0"
-                />
-
-                {/* Bounded, not `flex-1`: a strip that stretched across the mat
-                    would put an invisible box over the middle of the creatures
-                    row, and the row is what the player is trying to click. The
-                    bound comes from the mat's width alone — never from
-                    `identityInset`, which is measured FROM this box and would
-                    otherwise chase its own tail. */}
-                <div className="pointer-events-auto min-w-0" style={{ maxWidth: nameMaxWidth }}>
-                {/* Never wraps. A narrow quadrant that let this strip run onto a
-                    second line pushed the name and the commander out of a box
-                    with a fixed height, and the seat looked broken. */}
-                <div className="flex flex-nowrap items-center gap-1 overflow-hidden">
-                  {onFocusSeat ? (
-                    <button
-                      type="button"
-                      onClick={() => onFocusSeat(player.id)}
-                      title={`Look at ${player.name}'s board`}
-                      className="truncate rounded text-sm font-semibold text-foreground drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {player.name}
-                    </button>
-                  ) : (
-                    <h3 className="truncate text-sm font-semibold text-foreground drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-                      {player.name}
-                    </h3>
-                  )}
-                  {isViewer && (
-                    <span className="shrink-0 rounded-full bg-foreground px-1.5 text-[9px] font-semibold uppercase leading-4 text-background">
-                      {viewerLabel}
-                    </span>
-                  )}
-                  {isBot && roomy && (
-                    <span className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground backdrop-blur-sm">
-                      Bot
-                    </span>
-                  )}
-                  {active && !dead && (
-                    <span className="shrink-0 rounded-full bg-foreground px-1.5 text-[9px] font-semibold uppercase leading-4 text-background">
-                      Turn
-                    </span>
-                  )}
-                  {/*
-                    "Out", not the whole reason.
-
-                    This row is `flex-nowrap` inside a bounded, `overflow-hidden`
-                    box: the name TRUNCATES and every chip is `shrink-0`. So a
-                    chip holding a sentence took the whole strip, squeezed the
-                    name to nothing, and then clipped itself mid-word anyway.
-                    Measured on a knocked-out seat, the header read
-
-                      [WATCHING] [BOT] LIFE TOTAL REACHED ZE
-
-                    with no player name on it at all. That is unreadable twice
-                    over: a seat you cannot identify, labelled with half a word.
-                    A chip is a chip-sized fact; the reason is a sentence, so it
-                    goes where sentences go. The log already records it in full.
-                  */}
-                  {dead && (
-                    <span
-                      title={
-                        player.lossReasons[0]
-                          ? `Out of the game: ${lossReasonLabel(player.lossReasons[0])}.`
-                          : 'Out of the game.'
-                      }
-                      className="shrink-0 rounded-full bg-background/70 px-1.5 text-[9px] font-medium uppercase leading-4 text-muted-foreground backdrop-blur-sm"
-                    >
-                      Out
-                    </span>
-                  )}
-                </div>
-
-                {commander && (
-                  <div className="mt-0.5 flex items-center gap-1">
-                    <ColorIdentity colors={commander.colorIdentity} size="xs" />
-                    <span className="truncate text-[10px] text-muted-foreground drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-                      {commander.name}
-                    </span>
-                  </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Nothing between the two clusters but air the cards can be
-                  clicked through — this is the middle of the creatures row. */}
-              <span aria-hidden="true" className="pointer-events-none flex-1" />
-
-              {/* The other measured cluster. The mana count and the opponent's
-                  hand are the only things at this end, and they are far
-                  narrower than the 16% of the mat that used to be reserved for
-                  them. */}
-              <div
-                ref={identityEndRef}
-                className="pointer-events-none flex w-fit shrink-0 items-center gap-2"
-              >
-                <span
-                  className="pointer-events-auto shrink-0 rounded-full bg-background/65 px-1.5 text-[10px] font-semibold leading-4 tabular-nums text-foreground shadow-sm shadow-black/40 backdrop-blur-sm"
-                  title={`${untapped} untapped mana source${untapped === 1 ? '' : 's'}`}
-                >
-                  {untapped}
-                  {roomy ? ' mana' : ''}
-                </span>
-
-                {/* Somebody else's hand: cards, face down. Never a count alone. */}
-                {showHandBacks && roomy && handCount > 0 && (
-                  <div
-                    className="pointer-events-auto flex shrink-0 items-center"
-                    title={`${handCount} card${handCount === 1 ? '' : 's'} in hand`}
-                    aria-label={`${player.name} holds ${handCount} cards`}
-                  >
-                    {Array.from({ length: shownBacks }).map((_, index) => (
-                      <CardBack
-                        key={index}
-                        width={backWidth}
-                        style={{
-                          marginLeft: index === 0 ? 0 : -backWidth * 0.58,
-                          transform: `rotate(${(index - shownBacks / 2) * 3}deg)`,
-                          zIndex: index,
-                        }}
-                      />
-                    ))}
-                    <span className="ml-1 rounded-full bg-background/70 px-1.5 text-[10px] font-semibold leading-4 tabular-nums text-foreground backdrop-blur-sm">
-                      {handCount}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
+          <div className="relative flex min-w-0 flex-1 flex-col gap-1 py-1">
+            {identityBand}
             {board}
           </div>
         </div>

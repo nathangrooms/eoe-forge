@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { CardGrid, CardImage } from '@/components/cards';
+import { AddToListButton } from '@/components/shopping';
 import { formatPrice } from '@/components/collection/browser/types';
 import { PriceTag } from '@/components/pricing';
 import { readAmount } from '@/lib/pricing';
@@ -279,6 +280,15 @@ export function WishlistCardGrid({
                   >
                     <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
+                  {/* The same button as the card page and search results, so
+                      putting a card on the proxy list reads identically here. */}
+                  <AddToListButton
+                    card={{ id: item.card_id, name: item.card_name, oracle_id: item.card?.oracle_id }}
+                    kind="proxy"
+                    display="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                  />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

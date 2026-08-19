@@ -35,6 +35,7 @@
 
 import {
   canBlock,
+  castTiming,
   eligibleAttackers,
   eligibleBlockers,
   isLand,
@@ -112,6 +113,21 @@ export interface CardActionOptions {
    * what is on screen rather than what is in the game.
    */
   readOnly?: boolean;
+  /**
+   * The game is not open for business yet, and why.
+   *
+   * Set while the opening hand is still being decided. A player must be able to
+   * READ the seven cards they are judging — that is the entire decision — so the
+   * preview stays open and the card stays large. What it must not do is let
+   * them play one before they have kept, which is a rules violation and was
+   * measured happening: the screenshot harness played a land on turn one with
+   * the mulligan bar still on screen.
+   *
+   * Carried as prose rather than a boolean so the panel can SAY why the plays
+   * are missing. A button that vanishes with no explanation is the same silence
+   * as a button that does nothing.
+   */
+  holdReason?: string;
 }
 
 /** Zones a card of yours can be sent to by hand, other than the one it is in. */
@@ -136,6 +152,13 @@ export function actionsForCard(
   const mine = card.controllerId === viewerPlayerId;
   const land = isLand(card);
   const controller = state.players.find(p => p.id === card.controllerId);
+
+  /* The opening hand is not settled, so nothing is playable yet. The reason is
+     handed back as a refusal rather than as silence. */
+  if (options.holdReason) {
+    blocked.push({ id: 'hold', reason: options.holdReason });
+    return { actions, blocked, moves };
+  }
 
   /* A watched game. See `readOnly` above: no play, no refusal, and the view
      control only because it moves the camera rather than the game. */
@@ -175,13 +198,33 @@ export function actionsForCard(
     const plan = planCastFromHand(state, viewerPlayerId, card.instanceId, {
       ignoreMana: options.freeCast,
     });
+    /*
+     * WHEN, as well as whether it is paid for.
+     *
+     * `planCastFromHand` answers cost and zone and says nothing about timing —
+     * `rules.ts` documents that as deliberate and points a surface that wants
+     * the real rule at the engine. This was the only thing between a player and
+     * casting a creature during the opponent's untap step: measured by playing
+     * it, the preview offered Cast on a sorcery-speed creature on six out of
+     * six opponent steps, and pressing it resolved the creature onto the board.
+     *
+     * Attack and block have always asked about the step. Cast now does too, and
+     * the refusal is a sentence rather than a dead button, the same as every
+     * other refusal here.
+     */
+    const timing = castTiming(state, viewerPlayerId, card);
     const commander = card.zone === 'command';
     const label = commander
       ? plan.tax > 0
         ? `Cast commander, plus ${plan.tax} tax`
         : 'Cast commander'
       : 'Cast';
-    if (plan.ok) {
+    /* The timing refusal wins when both fail. "Needs 2 mana" is the wrong
+       sentence to read on the opponent's untap step, because paying for it
+       would not help. */
+    if (!timing.ok) {
+      blocked.push({ id: 'cast', reason: timing.reason });
+    } else if (plan.ok) {
       actions.push({
         id: 'cast',
         kind: 'cast',

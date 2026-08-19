@@ -6,16 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Upload, 
-  Download, 
-  Copy, 
-  FileText, 
+import {
+  Upload,
+  Download,
+  Copy,
+  FileText,
   ExternalLink,
   CheckCircle,
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { mergeParsedLines, parseDeckList as readList } from '@/lib/decklist';
 
 interface DeckImportExportProps {
   currentDeck: any[];
@@ -34,126 +35,51 @@ interface ParseResult {
   warnings: string[];
 }
 
-interface ParsedCard {
-  name: string;
-  quantity: number;
-  category: string;
-}
-
 export const DeckImportExport = ({ currentDeck, onImportDeck }: DeckImportExportProps) => {
   const [importText, setImportText] = useState('');
   const [exportFormat, setExportFormat] = useState<'text' | 'csv' | 'arena' | 'modo'>('text');
   const [isParsingDeck, setIsParsingDeck] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
 
-  // Parse different deck list formats
+  /**
+   * Reading the pasted list.
+   *
+   * This used to be a parser written inline in this component, which meant the
+   * proxy list could not use it and would have grown a second one. It lives in
+   * `@/lib/decklist` now, is covered by tests, and understands several formats
+   * this one never did. It also fixes a bug that was losing cards here: the old
+   * heading test was `line.includes('commander')`, so `4 Commander's Sphere`
+   * was read as a section heading and silently thrown away.
+   */
   const parseDeckList = (text: string): ParseResult => {
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    const cards: ParseResult['cards'] = [];
-    const errors: string[] = [];
+    const read = readList(text);
+    const cards = mergeParsedLines(read.cards).map(card => ({
+      name: card.name,
+      quantity: card.quantity,
+      set: card.setCode,
+      category:
+        card.section === 'commander'
+          ? 'commander'
+          : card.section === 'sideboard'
+            ? 'sideboard'
+            : 'main',
+    }));
+
+    const errors = read.unreadable.map(row => `Line ${row.line}: could not read "${row.raw}"`);
     const warnings: string[] = [];
-    
-    let currentCategory = 'main';
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Skip empty lines and comments
-      if (!line || line.startsWith('//') || line.startsWith('#')) continue;
-      
-      // Category headers - Enhanced commander detection
-      if (line.toLowerCase().includes('sideboard') || line.toLowerCase().includes('side board')) {
-        currentCategory = 'sideboard';
-        continue;
-      }
-      
-      if (line.toLowerCase().includes('commander') || line.toLowerCase().includes('command zone') || line.toLowerCase() === 'commander') {
-        currentCategory = 'commander';
-        continue;
-      }
-      
-      // Handle "Deck" section specifically
-      if (line.toLowerCase() === 'deck') {
-        currentCategory = 'main';
-        continue;
-      }
-      
-      // Parse card lines - support multiple formats:
-      // "4 Lightning Bolt"
-      // "4x Lightning Bolt"
-      // "Lightning Bolt x4"
-      // "1 Lightning Bolt (M21) 163"
-      const patterns = [
-        /^(\d+)x?\s+(.+?)(?:\s+\([^)]+\))?(?:\s+\d+)?$/i,  // "4 Name" or "4x Name"
-        /^(.+?)\s+x?(\d+)$/i,  // "Name x4"
-        /^(.+)$/i  // Just card name (assume 1)
-      ];
-      
-      let matched = false;
-      
-      for (const pattern of patterns) {
-        const match = line.match(pattern);
-        if (match) {
-          let quantity: number;
-          let name: string;
-          
-          if (pattern === patterns[1]) {
-            // "Name x4" format
-            name = match[1].trim();
-            quantity = parseInt(match[2]);
-          } else if (pattern === patterns[2]) {
-            // Just name, assume quantity 1
-            name = match[1].trim();
-            quantity = 1;
-          } else {
-            // "4 Name" format
-            quantity = parseInt(match[1]);
-            name = match[2].trim();
-          }
-          
-          if (isNaN(quantity) || quantity < 1) {
-            errors.push(`Line ${i + 1}: Invalid quantity "${match[1]}"`);
-            continue;
-          }
-          
-          if (!name) {
-            errors.push(`Line ${i + 1}: Missing card name`);
-            continue;
-          }
-          
-          // Clean up card name (remove set info, collector numbers)
-          name = name.replace(/\s*\([^)]+\)\s*\d*$/, '').trim();
-          
-          cards.push({
-            name,
-            quantity,
-            category: currentCategory
-          });
-          
-          matched = true;
-          break;
-        }
-      }
-      
-      if (!matched) {
-        errors.push(`Line ${i + 1}: Could not parse "${line}"`);
-      }
-    }
-    
-    // Validation warnings
-    const totalCards = cards.reduce((sum, card) => sum + card.quantity, 0);
+    const totalCards = read.copies;
     if (totalCards < 40) {
       warnings.push(`Deck only has ${totalCards} cards (minimum 40 recommended)`);
     }
     if (totalCards > 100) {
       warnings.push(`Deck has ${totalCards} cards (maximum 100 for most formats)`);
     }
-    
+
     return {
       success: errors.length === 0,
       cards,
       errors,
-      warnings
+      warnings,
     };
   };
 

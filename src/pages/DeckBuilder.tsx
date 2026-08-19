@@ -73,6 +73,46 @@ const DeckBuilder = () => {
   const { isEnabled: isAiOptimizerEnabled, isLoading: aiOptimizerLoading } = useIsFeatureEnabled('ai_deck_optimizer');
 
   // State for deck management
+  /**
+   * Saving optimiser changes, and saying so.
+   *
+   * This used to be `setTimeout(() => deck.updateDeck(id), 500)` at each call
+   * site, with nothing rendered. Three problems, and the owner hit all of them:
+   * the reader had no way to know a save had happened, so the reasonable
+   * assumption was that it had not and no save button existed; applying several
+   * swaps in a row started several overlapping timers; and leaving the page
+   * inside that 500ms window lost the change silently.
+   *
+   * One debounced save now, with a state the interface can show. The timer is
+   * kept in a ref so a second apply reschedules rather than races, and the
+   * result is reported rather than dropped.
+   */
+  const [optimiserSaveState, setOptimiserSaveState] =
+    useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveOptimiserChanges = useCallback(() => {
+    const deckId = deck.currentDeckId;
+    if (!deckId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setOptimiserSaveState('saving');
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await deck.updateDeck(deckId);
+        setOptimiserSaveState('saved');
+      } catch (error) {
+        console.error('Failed to save deck changes', error);
+        setOptimiserSaveState('error');
+      }
+    }, 400);
+  }, [deck]);
+
+  // A pending save must not outlive the page, or it writes against a store the
+  // reader has already navigated away from.
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+  }, []);
+
   const [allDecks, setAllDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1123,6 +1163,8 @@ const DeckBuilder = () => {
                   commander={deck.commander}
                   power={power}
                   edhAnalysis={edhAnalysisData}
+                  onSaveDeck={saveOptimiserChanges}
+                  saveState={optimiserSaveState}
                   onApplyReplacements={async (replacements) => {
                     for (const { remove, add } of replacements) {
                       const cardToRemove = deck.cards.find(c => c.name === remove);
@@ -1136,17 +1178,13 @@ const DeckBuilder = () => {
                         console.error(`Failed to add ${add}:`, error);
                       }
                     }
-                    if (deck.currentDeckId) {
-                      setTimeout(() => deck.updateDeck(deck.currentDeckId!), 500);
-                    }
+                    void saveOptimiserChanges();
                   }}
                   onAddCard={async (cardName) => {
                     try {
                       const newCard = await scryfallAPI.getCardByName(cardName);
                       handleAddCardToDeck(newCard);
-                      if (deck.currentDeckId) {
-                        setTimeout(() => deck.updateDeck(deck.currentDeckId!), 500);
-                      }
+                      void saveOptimiserChanges();
                     } catch (error) {
                       console.error(`Failed to add ${cardName}:`, error);
                       showError(`Failed to add ${cardName}`);

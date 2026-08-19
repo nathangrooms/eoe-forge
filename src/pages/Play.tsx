@@ -86,10 +86,13 @@ import { ZonePanel } from '@/components/play/ZonePanel';
 import { BoardRail, railWidthFor } from '@/components/play/BoardRail';
 import { Playmat } from '@/components/play/Playmat';
 import { CenterPreview } from '@/components/play/CenterPreview';
+import { ManualDuties } from '@/components/play/ManualDuties';
+import { MulliganBar } from '@/components/play/MulliganBar';
+import { StackStrip } from '@/components/play/StackStrip';
 import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
 import { GameMenu } from '@/components/play/GameMenu';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
-import { canReachCombat, controlsFlow, decisionFor } from '@/components/play/turnFlow';
+import { canReachCombat, controlsFlow, decisionFor, flowActions } from '@/components/play/turnFlow';
 import { defaultSeatingFor } from '@/components/play/seatingDefaults';
 
 import { usePlayGame } from '@/hooks/usePlayGame';
@@ -103,16 +106,25 @@ import {
   applyActions,
   botsAwaitingMove,
   buildTable,
+  bottomActions,
+  botMulliganActions,
+  cardsToBottom,
+  castTiming,
   declareAttack,
+  manualDutiesFor,
   mulliganActions,
   planCastFromHand,
   planLandDrop,
+  responseOptions,
   seatingVariants,
+  spellToAnswer,
+  stackOf,
   type BotOptions,
   type BuiltTable,
   type CardInstance,
   type GameAction,
   type PlayDeck,
+  type ResponseOption,
   type PlayerId,
   type SeatingVariant,
   type Zone,
@@ -177,6 +189,33 @@ export default function Play() {
   /** The turn number END TURN was pressed on. Null when nobody is ending one. */
   const [endingTurn, setEndingTurn] = useState<number | null>(null);
 
+  /**
+   * The opening hand, before the game is allowed to start.
+   *
+   * Null once the hand is kept. While it is set, nothing advances: no
+   * auto-walk, no bot timer, no first untap. That is the whole reason this
+   * lives here rather than in a component — a mulligan offered while turn one
+   * is already running is not a mulligan.
+   *
+   * `bottoming` is the second half of the London rule: after N mulligans the
+   * player picks N cards out of the seven to put back, and until they have
+   * picked exactly N there is nothing to confirm.
+   */
+  const [opening, setOpening] = useState<{
+    taken: number;
+    bottoming: boolean;
+    chosen: string[];
+  } | null>(null);
+
+  /**
+   * Manual duties the player has waved away for this step.
+   *
+   * Keyed by turn and step rather than by a bare flag: an upkeep trigger comes
+   * round again every turn, and a dismissal that outlived its own step would
+   * silently reintroduce the exact bug the strip exists to fix.
+   */
+  const [dutiesDismissed, setDutiesDismissed] = useState<string | null>(null);
+
   /* The right-hand rail. At most one of these is showing, in this order:
      the card preview, a zone's contents, the game menu. */
   const [inspectId, setInspectId] = useState<string | null>(null);
@@ -213,7 +252,14 @@ export default function Play() {
     humanPlayerId: HUMAN_SEAT,
     botSpeedMs: 750,
     aggression: setup.aggression,
-    botsPaused,
+    /* The bot timer is held for the opening hand as well as for the menu
+       toggle. A bot that untaps and draws while the player is still deciding
+       whether to keep has already started the game without them. */
+    botsPaused: botsPaused || opening !== null,
+    /* `/play` runs the priority round, so the bot may use the stack: it
+       announces its spells onto it, passes priority, and counters when it is
+       holding an answer it can pay for. */
+    useStack: true,
   });
 
   // Presentation-only memory of the previous board: what life changed, and what
@@ -310,8 +356,23 @@ export default function Play() {
         ],
       });
 
+      /* Every bot answers its own opening hand before the table is handed to
+         the page, so the first thing the human sees is a settled board with
+         only their own decision left on it. Folded into the dealt state rather
+         than dispatched afterwards, because a bot mulliganing on turn one would
+         be both a rules violation and a thing that looks like a bug. */
+      const dealt: BuiltTable = {
+        ...built,
+        state: applyActions(
+          built.state,
+          botMulliganActions(built.state, built.botPlayerIds, Date.now())
+        ),
+      };
+
       setVariant(setup.variant);
       setView('table');
+      setOpening({ taken: 0, bottoming: false, chosen: [] });
+      setDutiesDismissed(null);
       setEndingTurn(null);
       setInspectId(null);
       setZoneTarget(null);
@@ -319,7 +380,7 @@ export default function Play() {
       setViewSeatId(null);
       autoOpenedFrom.current = null;
       dismissedCombatOnTurn.current = null;
-      setTable(built);
+      setTable(dealt);
 
       // A substitution is an error the player has to know about, not an aside.
       for (const notice of notices) toast.warning(notice, { duration: 9000 });
@@ -342,15 +403,41 @@ export default function Play() {
   /* ---------------------------------------------------------------------- */
 
   const botOptions = useMemo<BotOptions>(
-    () => ({ aggression: setup.aggression, waitForPlayerIds: [HUMAN_SEAT] }),
+    () => ({ aggression: setup.aggression, waitForPlayerIds: [HUMAN_SEAT], useStack: true }),
     [setup.aggression]
   );
 
-  /** The decision this seat owes the table, or null while the game can flow. */
-  const decision = useMemo(
-    () => (state ? decisionFor(state, HUMAN_SEAT, { freeCast }) : null),
-    [state, freeCast]
+  /**
+   * Things going off this step that the engine will not resolve, on this seat's
+   * own board. Empty on almost every step of almost every game.
+   */
+  const duties = useMemo(
+    () => (state ? manualDutiesFor(state, HUMAN_SEAT) : []),
+    [state]
   );
+
+  /** The step the duty strip was waved away on, so a dismissal cannot outlive it. */
+  const dutyKey = state ? `${state.turn}:${state.step}` : null;
+  const dutiesShowing = duties.length > 0 && dutiesDismissed !== dutyKey;
+
+  /**
+   * The decision this seat owes the table, or null while the game can flow.
+   *
+   * `decisionFor` reports a manual duty as a decision, which is what stops the
+   * 130 ms auto-walk from running the upkeep out from under a player who has an
+   * Aether Vial to click. Waving the strip away has to release that stop, and
+   * the engine cannot know it was waved away, so the release happens here.
+   */
+  const decision = useMemo(() => {
+    if (!state) return null;
+    const owed = decisionFor(state, HUMAN_SEAT, { freeCast });
+    if (owed === 'manual' && !dutiesShowing) {
+      // Fall through to whatever the step would otherwise have asked for, which
+      // in an upkeep or an end step is nothing.
+      return null;
+    }
+    return owed;
+  }, [state, freeCast, dutiesShowing]);
 
   /**
    * True while another seat still has a move queued. Nothing auto-advances over
@@ -371,8 +458,57 @@ export default function Play() {
 
   const handleCast = useCallback(
     (card: CardInstance) => {
+      if (!state || opening !== null) return;
+      /*
+       * Onto the STACK, not straight onto the battlefield.
+       *
+       * This is the change that makes an instant worth holding. A cast that
+       * lands immediately can never be answered, which is why the owner
+       * reported that counterspells "dont work at all" — the engine's whole
+       * stack was correct and had never been reached, because nothing outside
+       * `src/lib/game` had ever built a `CAST_SPELL`. The spell now sits there
+       * with its caster holding priority, and it reaches the battlefield or the
+       * graveyard only once every living player has passed.
+       */
+      /* WHEN, before whether it is paid for. `cardActions.ts` already refuses
+         to draw the button, and this is the second lock on the same door: the
+         board moves under a preview that is already open, so the state the
+         button was drawn against is not always the state the press lands in. */
+      const timing = castTiming(state, HUMAN_SEAT, card);
+      if (!timing.ok) {
+        toast.error(timing.reason);
+        return;
+      }
+      const plan = planCastFromHand(state, HUMAN_SEAT, card.instanceId, {
+        ignoreMana: freeCast,
+        viaStack: true,
+      });
+      if (!plan.ok) {
+        toast.error(plan.reason);
+        return;
+      }
+      dispatch(plan.actions);
+      setInspectId(null);
+    },
+    [state, dispatch, freeCast, opening]
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Priority                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  /** Answer the spell on the stack with one of your own. */
+  const handleRespond = useCallback(
+    (option: ResponseOption) => {
       if (!state) return;
-      const plan = planCastFromHand(state, HUMAN_SEAT, card.instanceId, { ignoreMana: freeCast });
+      const answering = spellToAnswer(state, HUMAN_SEAT);
+      const plan = planCastFromHand(state, HUMAN_SEAT, option.card.instanceId, {
+        ignoreMana: freeCast,
+        viaStack: true,
+        // Only a card that actually counters gets the target and the effect.
+        // Anything else is a response that resolves as itself.
+        counterStackId: option.counters && answering ? answering.stackId : undefined,
+      });
       if (!plan.ok) {
         toast.error(plan.reason);
         return;
@@ -383,9 +519,15 @@ export default function Play() {
     [state, dispatch, freeCast]
   );
 
+  /** Let the top of the stack resolve. The engine derives what that causes. */
+  const handlePassPriority = useCallback(() => {
+    if (!state) return;
+    dispatch([{ type: 'PASS_PRIORITY', playerId: HUMAN_SEAT, at: Date.now() }]);
+  }, [state, dispatch]);
+
   const handlePlayLand = useCallback(
     (card: CardInstance) => {
-      if (!state) return;
+      if (!state || opening !== null) return;
       const plan = planLandDrop(state, HUMAN_SEAT, card.instanceId);
       if (!plan.ok) {
         toast.error(plan.reason);
@@ -394,8 +536,12 @@ export default function Play() {
       dispatch(plan.actions);
       setInspectId(null);
     },
-    [state, dispatch]
+    [state, dispatch, opening]
   );
+
+  /* ---------------------------------------------------------------------- */
+  /* The opening hand                                                       */
+  /* ---------------------------------------------------------------------- */
 
   const handleMulligan = useCallback(() => {
     if (!state) return;
@@ -403,22 +549,89 @@ export default function Play() {
     if (actions.length === 0) return;
     dispatch(actions);
     setInspectId(null);
+    // The count is what the bottoming step is priced from, so it goes up here
+    // and nowhere else.
+    setOpening(current =>
+      current
+        ? { taken: current.taken + 1, bottoming: false, chosen: [] }
+        : { taken: 1, bottoming: false, chosen: [] }
+    );
   }, [state, dispatch]);
+
+  /**
+   * Keep. A first hand starts the game; anything after that owes the bottom of
+   * the library one card per mulligan taken, and the player picks which.
+   */
+  const handleKeep = useCallback(() => {
+    if (!state) return;
+    const hand = state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand ?? [];
+    const owed = cardsToBottom(opening?.taken ?? 0, hand.length);
+    if (owed === 0) {
+      setOpening(null);
+      return;
+    }
+    setInspectId(null);
+    setOpening(current => (current ? { ...current, bottoming: true, chosen: [] } : null));
+  }, [state, opening]);
+
+  /**
+   * The playtest redraw in the game menu.
+   *
+   * Shuffles back and deals a fresh seven, and deliberately does NOT open the
+   * opening-hand flow: mid-game that would pause a running table and demand a
+   * bottoming step for a mulligan nobody took. It is a goldfishing tool, and it
+   * is labelled as one.
+   */
+  const handleRedraw = useCallback(() => {
+    if (!state) return;
+    const actions = mulliganActions(state, HUMAN_SEAT, Date.now());
+    if (actions.length === 0) return;
+    dispatch(actions);
+    setInspectId(null);
+  }, [state, dispatch]);
+
+  /** Pick, or unpick, one card for the bottom. */
+  const handleChooseBottom = useCallback((instanceId: string) => {
+    setOpening(current => {
+      if (!current || !current.bottoming) return current;
+      const chosen = current.chosen.includes(instanceId)
+        ? current.chosen.filter(id => id !== instanceId)
+        : [...current.chosen, instanceId];
+      return { ...current, chosen };
+    });
+  }, []);
+
+  const handleConfirmBottom = useCallback(() => {
+    if (!state || !opening) return;
+    const hand = state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand ?? [];
+    const owed = cardsToBottom(opening.taken, hand.length);
+    if (opening.chosen.length !== owed) return;
+    dispatch(bottomActions(opening.chosen, Date.now()));
+    setOpening(null);
+  }, [state, opening, dispatch]);
 
   /** Tapping is an action the preview offers, never something a click does. */
   const handleTapToggle = useCallback(
     (card: CardInstance) => {
-      if (!state) return;
+      if (!state || opening !== null) return;
       if (card.zone !== 'battlefield') return;
       if (card.controllerId !== HUMAN_SEAT) return;
       dispatch({ type: card.tapped ? 'UNTAP' : 'TAP', instanceId: card.instanceId });
     },
-    [state, dispatch]
+    [state, dispatch, opening]
   );
 
+  /**
+   * The one "next" press.
+   *
+   * `flowActions`, not `advanceActions`, because there are two different next
+   * presses and picking the wrong one hangs the game: with something on the
+   * stack, next is a pass, and only an empty stack advances a step.
+   */
   const handleAdvance = useCallback(() => {
     if (!state) return;
-    dispatch(advanceActions(state, Date.now()));
+    const actions = flowActions(state, HUMAN_SEAT, Date.now());
+    if (actions.length > 0) dispatch(actions);
   }, [state, dispatch]);
 
   /**
@@ -519,6 +732,8 @@ export default function Play() {
   const handleLeave = useCallback(() => {
     setTable(null);
     setView('table');
+    setOpening(null);
+    setDutiesDismissed(null);
     setEndingTurn(null);
     setInspectId(null);
     setZoneTarget(null);
@@ -559,6 +774,10 @@ export default function Play() {
   useEffect(() => {
     if (!state) return;
 
+    // Nothing at all moves until the opening hand is settled. Not the walk, not
+    // the bots (held in `usePlayGame` above), not the first untap.
+    if (opening !== null) return;
+
     if (state.status !== 'playing') {
       if (endingTurn !== null) setEndingTurn(null);
       return;
@@ -577,12 +796,12 @@ export default function Play() {
     if (!forcing && decision !== null) return;
     if (othersPending) return;
 
-    const timer = window.setTimeout(
-      () => dispatch(advanceActions(state, Date.now())),
-      forcing ? END_TURN_STEP_MS : AUTO_STEP_MS
-    );
+    const timer = window.setTimeout(() => {
+      const actions = flowActions(state, HUMAN_SEAT, Date.now());
+      if (actions.length > 0) dispatch(actions);
+    }, forcing ? END_TURN_STEP_MS : AUTO_STEP_MS);
     return () => window.clearTimeout(timer);
-  }, [state, endingTurn, autoAdvance, botsPaused, decision, othersPending, dispatch]);
+  }, [state, opening, endingTurn, autoAdvance, botsPaused, decision, othersPending, dispatch]);
 
   /* ---------------------------------------------------------------------- */
   /* Combat takes over the view when it matters                             */
@@ -707,6 +926,21 @@ export default function Play() {
   );
 
   const showHand = view === 'table' || view === 'hand';
+  /** True while the player is picking which cards go to the bottom. */
+  const bottoming = opening?.bottoming === true;
+  /* The stack, and what this seat could do about it. Both empty on almost
+     every frame; when they are not, the strip below is the whole answer to
+     "no opportunity to use instants to counter a spell". */
+  const stack = stackOf(state);
+  const yourPriority = state.priorityPlayerId === HUMAN_SEAT;
+  const responses =
+    stack.length > 0 && yourPriority ? responseOptions(state, HUMAN_SEAT, { freeCast }) : [];
+  const openingOwed = opening
+    ? cardsToBottom(
+        opening.taken,
+        state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand.length ?? 0
+      )
+    : 0;
   const seatVariants = seatingVariants(state.players.length).map(layout => layout.variant);
 
   return (
@@ -766,8 +1000,17 @@ export default function Play() {
                     viewerPlayerId={HUMAN_SEAT}
                     freeCast={freeCast}
                     cardWidth={hand.cardWidth}
-                    selectedId={inspectId}
-                    onInspect={card => setInspectId(card.instanceId)}
+                    selectedId={bottoming ? null : inspectId}
+                    markedIds={bottoming ? opening?.chosen : undefined}
+                    /* During the bottoming step a click PICKS the card rather
+                       than previewing it: the question on screen is "which two
+                       go back", and opening a preview instead would answer a
+                       question nobody asked. */
+                    onInspect={
+                      bottoming
+                        ? card => handleChooseBottom(card.instanceId)
+                        : card => setInspectId(card.instanceId)
+                    }
                   />
                 )}
               </div>
@@ -798,12 +1041,59 @@ export default function Play() {
             the hand on the table, kept clear by `FEED_INSET` in the two views
             that have no hand, where it used to land squarely on the focused
             seat's command zone. */}
-        <div className="pointer-events-none absolute bottom-2 left-2 z-40 w-56 max-w-[36vw]">
+        {/* No width here: the feed is 224px collapsed and about 480px open, and
+            it has to be able to say so itself. The wrapper used to pin it to
+            `w-56`, which is why the opened panel truncated 31 of 200 lines. */}
+        <div className="pointer-events-none absolute bottom-2 left-2 z-40 max-w-[46vw]">
           <GameFeed state={state} feed={feed} variant="feed" />
         </div>
 
         {/* Whose turn it is, said out loud for a beat. */}
         <TurnBanner state={state} viewerPlayerId={HUMAN_SEAT} />
+
+        {/*
+          The opening hand, and the things the engine will not do for you.
+
+          Both live in the same band under the HUD, both are made of the mat's
+          own material, and neither covers a seat's board or takes the screen.
+          They are mutually exclusive in practice: the mulligan is answered
+          before the first untap, and a duty cannot arrive until an upkeep.
+        */}
+        {(opening !== null || dutiesShowing || stack.length > 0) && (
+          <div
+            className="pointer-events-none absolute inset-x-0 z-[45] flex justify-center px-2"
+            style={{ top: HUD_INSET + 8 }}
+          >
+            {opening !== null ? (
+              <MulliganBar
+                taken={opening.taken}
+                handSize={state.players.find(p => p.id === HUMAN_SEAT)?.zones.hand.length ?? 0}
+                chosen={opening.chosen.length}
+                owed={openingOwed}
+                bottoming={bottoming}
+                onMulligan={handleMulligan}
+                onKeep={handleKeep}
+                onConfirmBottom={handleConfirmBottom}
+              />
+            ) : stack.length > 0 ? (
+              <StackStrip
+                state={state}
+                viewerPlayerId={HUMAN_SEAT}
+                stack={stack}
+                responses={responses}
+                yourPriority={yourPriority}
+                onRespond={handleRespond}
+                onPass={handlePassPriority}
+              />
+            ) : (
+              <ManualDuties
+                duties={duties}
+                onOpen={instanceId => setInspectId(instanceId)}
+                onDismiss={() => setDutiesDismissed(dutyKey)}
+              />
+            )}
+          </div>
+        )}
 
         {/*
           The result, drawn INTO the mat.
@@ -870,6 +1160,20 @@ export default function Play() {
             onBlock={handleBlockOne}
             onMoveZone={handleMoveZone}
             onFocusSeat={handleFocusSeat}
+            /* The by-hand controls send raw batches. `manual.ts` already binds
+               each control to the actions it produces, so the page only has to
+               be able to dispatch one. */
+            onDispatch={dispatch}
+            /* Read your seven, do not play one. Judging the opening hand is the
+               whole decision, so the card stays large; the plays wait until it
+               is kept. */
+            holdReason={
+              opening !== null
+                ? bottoming
+                  ? 'Choose which cards go to the bottom first.'
+                  : 'Keep this hand or mulligan it before you start playing.'
+                : undefined
+            }
             onClose={() => setInspectId(null)}
           />
         )}
@@ -906,7 +1210,7 @@ export default function Play() {
               variant={variant}
               variants={seatVariants}
               onVariant={setVariant}
-              onMulligan={handleMulligan}
+              onMulligan={handleRedraw}
               onLeave={handleLeave}
               onClose={() => setMenuOpen(false)}
             />

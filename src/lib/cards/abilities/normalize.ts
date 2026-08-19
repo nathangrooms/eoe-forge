@@ -98,6 +98,20 @@ export interface NormalizedOracle {
   backFaceReason: GapReason;
   /** Lowercased, em-dash-flattened type line of the FRONT face only. */
   typeLine: string;
+  /**
+   * T3. The FRONT face's printed power and toughness boxes, verbatim.
+   *
+   * Carried because one rule genuinely needs them and can get them nowhere
+   * else. "Uurg's power is equal to the number of land cards in your graveyard"
+   * defines ONE of the two characteristics, and `Modification` has no member
+   * for setting one; the other half of the box is on the card, printed, as `5`.
+   *
+   * Strings, not numbers, on purpose. `*` and `1+*` are exactly the values that
+   * must make that rule refuse, and turning them into numbers here would be the
+   * `parseInt` guess `printed.ts`'s own header calls wrong and silent.
+   */
+  printedPower: string;
+  printedToughness: string;
   /** FNV-1a over `text`. Detects Scryfall errata moving under an authored entry. */
   hash: string;
 }
@@ -272,6 +286,17 @@ export function frontTypeLine(card: AbilityCard): string {
 }
 
 /**
+ * One printed P/T box of the front face, verbatim, or `''` when there is none.
+ * Read the same way `frontTypeLine` reads the type line, so a double-faced card
+ * reports the face its oracle text came from and not the back one's box.
+ */
+export function frontPrintedPT(card: AbilityCard, box: 'power' | 'toughness'): string {
+  const faces = faceList(card);
+  const source = faces.length >= 2 ? faces[0]?.[box] : (card[box] ?? faces[0]?.[box]);
+  return String(source ?? '').trim();
+}
+
+/**
  * Layouts whose second half is a separate spell you cast in a separate way —
  * that is the declared `alt-cast` gap, not a face-tracking gap. Everything else
  * multi-faced (transform, modal DFC, meld, flip) is `multi-face`.
@@ -319,6 +344,8 @@ export function normalizeCard(card: AbilityCard): NormalizedOracle {
     paragraphs,
     backFaceReason: ALT_CAST_LAYOUTS.has(layout) ? 'alt-cast' : 'multi-face',
     typeLine: frontTypeLine(card),
+    printedPower: frontPrintedPT(card, 'power'),
+    printedToughness: frontPrintedPT(card, 'toughness'),
     hash: oracleHash(text),
   };
 }

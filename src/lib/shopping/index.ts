@@ -50,6 +50,15 @@ export {
 } from './exportFormats.ts';
 
 export {
+  countProxyCopies,
+  proxyCandidatesFromItems,
+  proxyCandidatesFromShopping,
+  proxyCandidatesFromWishlist,
+  showListItemCount,
+  type ProxyCandidate,
+} from './proxies.ts';
+
+export {
   countUnpricedLines,
   describePlatformGap,
   describeUnpricedLines,
@@ -61,7 +70,9 @@ export {
 } from './totals.ts';
 
 export {
+  addManyToList,
   addToList,
+  clearList,
   fileArrival,
   loadDeckShortfalls,
   loadFilingDestinations,
@@ -75,6 +86,7 @@ export {
   resetItem,
   setQuantity,
   type AddToListInput,
+  type BulkListItem,
   type FileInput,
   type FilingDestinations,
   type ListingMatch,

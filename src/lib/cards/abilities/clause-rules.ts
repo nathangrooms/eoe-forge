@@ -14,6 +14,7 @@
 
 import type {
   CardFilter,
+  Condition,
   Cost,
   Modification,
   PlayerSelector,
@@ -30,12 +31,14 @@ import { phraseSelector } from './effect-rules.ts';
 import {
   NUM,
   objectSelector,
+  parseCondition,
   parseCount,
   parseForEachValue,
   parseKeywordList,
   parseKeywordWithParameter,
   parseObject,
   parsePlayer,
+  parseValueExpr,
 } from './grammar.ts';
 
 const N = NUM;
@@ -242,7 +245,7 @@ export function parseCosts(costText: string): Cost[] | null {
     const sac = atom.match(new RegExp(`^sacrifice (?:(${N}) )?(.+)$`));
     if (sac) {
       const ref = parseObject(sac[2]);
-      if (!ref || ref.targeted) return null;
+      if (!ref || ref.targeted || ref.upTo) return null;
       const count = sac[1] ? parseCount(sac[1]) : ref.count;
       if (count === null) return null;
       out.push({ pay: 'sacrifice', what: objectSelector(ref), count });
@@ -278,7 +281,7 @@ export function parseCosts(costText: string): Cost[] | null {
     const exile = atom.match(new RegExp(`^exile (?:(${N}) )?(.+?) from your graveyard$`));
     if (exile) {
       const ref = parseObject(exile[2]);
-      if (!ref || ref.targeted) return null;
+      if (!ref || ref.targeted || ref.upTo) return null;
       const count = exile[1] ? parseCount(exile[1]) : ref.count;
       if (count === null) return null;
       out.push({ pay: 'exile', from: 'graveyard', what: objectSelector({ ...ref, zone: 'graveyard' }), count });
@@ -321,6 +324,27 @@ export function parseLoyaltyCost(symbol: string): Cost[] | null {
 export interface StaticShape {
   affects: Selector;
   modifications: Modification[];
+  /**
+   * "As long as …". Present only when the paragraph stated one, and
+   * `scanStatics` evaluates it before the effect reaches the layer engine, so an
+   * anthem whose condition is false is simply not in the continuous-effect list
+   * rather than being in it and inert.
+   */
+  condition?: Condition;
+}
+
+/**
+ * A printed P/T box as a number, or `null` when it is not a plain integer.
+ *
+ * Deliberately NOT `parseInt`. `printed.ts`'s own header names `parseInt` as
+ * the lossy read that turns Tarmogoyf's `1+*` into a confident `1`, and the
+ * whole value of this helper is that it refuses that string instead. `-1`
+ * (Char-Rumbler and friends) is a real printed value and is accepted.
+ */
+function plainInteger(box: string | undefined): number | null {
+  const s = (box ?? '').trim();
+  if (!/^-?\d+$/.test(s)) return null;
+  return Number(s);
 }
 
 /** The subject of a continuous effect: a group, or an Aura/Equipment's host. */
@@ -347,6 +371,154 @@ function staticSubject(phrase: string, ctx: BuildCtx): Selector | null {
  */
 export function parseStatic(paragraph: string, ctx: BuildCtx): StaticShape | null {
   const p = paragraph.trim().replace(/[.]+$/, '');
+
+  /* "As long as …" and "during your turn", in either order.
+   *
+   * A conditional continuous effect is an ordinary static ability carrying a
+   * `condition`, not a new kind of clause, so the condition comes OFF here and
+   * the remainder goes through the same table every unconditional static uses.
+   * That is where the leverage is: one peel, and every rule below composes with
+   * every condition `parseCondition` can read, rather than each rule growing its
+   * own "as long as" variant.
+   *
+   * Both halves must parse. A readable condition on an unreadable effect, or the
+   * reverse, is refused whole — an anthem that switches on under the wrong
+   * circumstances is a wrong ability, and this file has no marker that makes a
+   * wrong continuous effect safe the way `{do:'manual'}` makes a wrong one-shot
+   * safe.
+   */
+  const conditional = peelCondition(p);
+  if (conditional) {
+    const inner = parseStaticBody(conditional.rest, ctx);
+    if (inner && !inner.condition) return { ...inner, condition: conditional.condition };
+    return null;
+  }
+
+  return parseStaticBody(p, ctx);
+}
+
+/**
+ * Splits "as long as <condition>, <effect>" or "<effect> as long as <condition>".
+ *
+ * "For as long as" is deliberately excluded. It is a DURATION — "target land
+ * doesn't untap for as long as ~ remains tapped" — and reading it as a condition
+ * would turn a one-shot effect with a lasting consequence into a continuous
+ * effect that switches itself off, which is a different card.
+ */
+function peelCondition(p: string): { condition: Condition; rest: string } | null {
+  /* Prefix: "As long as you control an artifact, ~ gets +1/+0." */
+  const prefix = p.match(/^as long as (.+?), (.+)$/);
+  if (prefix) {
+    const condition = parseCondition(prefix[1]);
+    if (condition) return { condition, rest: prefix[2] };
+    return null;
+  }
+
+  /* Prefix: "During your turn, ~ has first strike." */
+  const during = p.match(/^during your turn, (.+)$/);
+  if (during) return { condition: { if: 'your-turn' }, rest: during[1] };
+
+  /* Suffix: "~ gets +2/+2 as long as you control three or more artifacts."
+     Written as a capture rather than a lookbehind on purpose: a lookbehind is
+     ES2018 and this module is bundled for browsers, so the duration guard is a
+     captured "for " that the code then rejects. */
+  const suffix = p.match(/^(.+?) (for )?as long as (.+)$/);
+  if (suffix && !suffix[2]) {
+    const condition = parseCondition(suffix[3]);
+    if (condition) return { condition, rest: suffix[1] };
+    return null;
+  }
+
+  return null;
+}
+
+/** Every static rule that does NOT read an "as long as" for itself. */
+function parseStaticBody(paragraph: string, ctx: BuildCtx): StaticShape | null {
+  const p = paragraph.trim().replace(/[.]+$/, '');
+
+  /* Layer 7b — a characteristic-defining power and toughness.
+   *
+   * `pt-set` and `{v:'count'}` have both been in the DSL since it was written
+   * and `toEffectPart` maps the first straight onto sublayer 7b; what was
+   * missing was a rule that produced them, so every Nightmare, every Tarmogoyf-
+   * shaped creature and every "equal to the number of lands you control" was an
+   * `unrecognised` clause.
+   *
+   * Only the "power AND toughness are EACH equal to" spelling is read. "~'s
+   * power is equal to the number of creatures you control" sets one of the two,
+   * and `pt-set` has no member for that — writing the same expression into both
+   * fields would give the creature a toughness the card never granted it. */
+  const definedPT = p.match(/^~s power and toughness are each equal to (.+)$/);
+  if (definedPT) {
+    const value = parseValueExpr(definedPT[1]);
+    if (value !== null) {
+      return { affects: { sel: 'self' }, modifications: [{ layer: 'pt-set', power: value, toughness: value }] };
+    }
+  }
+
+  /* T3 — Layer 7b, ONE characteristic defined.
+   *
+   * "Uurg's power is equal to the number of land cards in your graveyard" on a
+   * card printed `*`/`5`. Tranche 2 recorded this as blocked and recorded the
+   * blocker in the wrong place: it said `pt-set` needs both fields and that
+   * making one optional "changes what `layers.ts` reads". `layers.ts` line 400
+   * already declares `{ kind:'set-pt'; power?; toughness? }` and line 962 checks
+   * each field for `undefined` before writing it, so the layer engine has
+   * supported one-sided set-pt all along. The real blocker is one function
+   * lower: `toEffectPart` in `src/lib/game/abilities/statics.ts` calls
+   * `evalValue(modification.power, ctx)` unconditionally, so an absent field
+   * arrives as a number that was never computed. That file belongs to another
+   * workflow, so the optional field is still not made here.
+   *
+   * What IS available is the other half of the box, printed on the card. Uurg's
+   * toughness is 5; writing 5 into the toughness field states the card's own
+   * printed value rather than inventing one, and the creature stops being the
+   * 0/5 that `printed.ts`'s `parseInt` fallback currently reports it as.
+   *
+   * Two refusals keep that honest:
+   *
+   *   - the other box must be a plain integer. Lhurgoyf is `*`/`1+*` and
+   *     Nethergoyf is `*`/`1+*`; their toughness is a second CDA this rule
+   *     cannot read, and `parseInt` would turn `1+*` into a confident 1. Those
+   *     cards stay unparsed.
+   *   - the card must have a P/T box at all. An Aura that says "enchanted
+   *     creature's power is equal to …" is a different sentence with a
+   *     different subject and is not matched here anyway.
+   *
+   * The layer is 7b, not the 7a a printed CDA really occupies, which is the
+   * same approximation `toEffectPart` already applies to the two-sided rule
+   * above. It is visible in exactly one situation — another effect setting base
+   * P/T in the same layer — and it is recorded here rather than left to be
+   * discovered. */
+  const definedOne = p.match(/^~s (power|toughness) is equal to (.+)$/);
+  if (definedOne) {
+    const value = parseValueExpr(definedOne[2]);
+    const otherBox = definedOne[1] === 'power' ? ctx.printedToughness : ctx.printedPower;
+    const other = plainInteger(otherBox);
+    if (value !== null && other !== null) {
+      const modification: Modification =
+        definedOne[1] === 'power'
+          ? { layer: 'pt-set', power: value, toughness: other }
+          : { layer: 'pt-set', power: other, toughness: value };
+      return { affects: { sel: 'self' }, modifications: [modification] };
+    }
+  }
+
+  /* Layer 7c — an anthem whose size is counted. "~ gets +1/+0 for each artifact
+     you control." Same `pt-modify` the flat anthem produces, with a computed
+     magnitude instead of a literal one. */
+  const countedAnthem = p.match(/^(.+?) gets? ([+-]\d+)\/([+-]\d+) for each (.+)$/);
+  if (countedAnthem) {
+    const affects = staticSubject(countedAnthem[1], ctx);
+    const factor = parseForEachValue(countedAnthem[4]);
+    if (affects && factor !== null) {
+      const scale = (n: number): ValueExpr => (n === 0 ? 0 : { v: 'mul', of: [n, factor] });
+      return {
+        affects,
+        modifications: [{ layer: 'pt-modify', power: scale(Number(countedAnthem[2])), toughness: scale(Number(countedAnthem[3])) }],
+      };
+    }
+  }
 
   /* Layer 7c — anthems. "Creatures you control get +1/+1". */
   const anthem = p.match(/^(.+?) gets? ([+-]\d+)\/([+-]\d+)$/);

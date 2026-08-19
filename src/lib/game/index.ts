@@ -79,6 +79,7 @@ export * from './sba.ts';
 export * from './triggers.ts';
 export * from './effects.ts';
 export * from './manual.ts';
+export * from './respond.ts';
 export * from './moves.ts';
 export * from './setup.ts';
 export * from './bot.ts';

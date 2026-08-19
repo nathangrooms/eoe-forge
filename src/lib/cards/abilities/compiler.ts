@@ -27,6 +27,7 @@ import type {
   Effect,
   GapReason,
   TargetSpec,
+  TriggerEvent,
   UnparsedClause,
 } from './dsl.ts';
 import { deriveCoverage, hasManualEffect, manual } from './dsl.ts';
@@ -79,18 +80,58 @@ interface AbilityBuild {
   targets: TargetSpec[];
 }
 
-function newBuild(typeLine: string): AbilityBuild {
+/**
+ * T3. The card-level facts every ability on one card shares.
+ *
+ * Was a bare `typeLine: string` threaded by hand through `classify` and
+ * `newBuild`. It became a record when the single-characteristic CDA rule needed
+ * the printed P/T boxes as well, and one record beats a third and a fourth
+ * positional argument that every call site has to keep in the right order.
+ */
+export interface CardShape {
+  typeLine: string;
+  printedPower: string;
+  printedToughness: string;
+}
+
+function newBuild(shape: CardShape): AbilityBuild {
   const targets: TargetSpec[] = [];
   const ctx: BuildCtx = {
-    typeLine,
+    typeLine: shape.typeLine,
+    printedPower: shape.printedPower,
+    printedToughness: shape.printedToughness,
     approximate: false,
+    targetsSoFar: 0,
+    // T2. In an activated, loyalty or spell ability the source is the only
+    // thing a bare "it" can mean before the sentence names something else, so
+    // the binding starts offered and `compileEffectBody` withdraws it on the
+    // bodies that name something first. A TRIGGER is the one shape that can
+    // rename the subject, and branch 3 below clears this when it does.
+    itBinding: { sel: 'self' },
     addTarget(spec) {
       const ref = targets.length;
       targets.push({ ...spec, ref } as TargetSpec);
+      ctx.targetsSoFar = targets.length;
       return ref;
     },
   };
   return { ctx, targets };
+}
+
+/**
+ * T2. Does this trigger's event happen to the source itself?
+ *
+ * The gate on binding a bare "it" to the source inside a trigger's body.
+ * "Whenever this creature attacks, it gets +2/+0" and "Whenever ANOTHER creature
+ * you control dies, return it to its owner's hand" have identical bodies and
+ * different pronouns, and only the event tells them apart. Without this check
+ * the second card would bounce the wrong permanent — itself, from the
+ * battlefield, on somebody else's death.
+ */
+function eventSubjectIsSelf(event: TriggerEvent): boolean {
+  const e = event as { who?: { sel?: string }; source?: { sel?: string }; what?: { sel?: string } };
+  const subject = e.who ?? e.source ?? e.what;
+  return subject?.sel === 'self';
 }
 
 /** An effect list is worth publishing only if at least one clause is real. */
@@ -225,9 +266,10 @@ interface Classified {
  * on a permanent is far more likely to be a static ability we failed to read
  * than a one-shot effect.
  */
-function classify(para: Paragraph, typeLine: string, idAt: number): Classified | null {
+function classify(para: Paragraph, shape: CardShape, idAt: number): Classified | null {
   const norm = para.norm;
   const raw = para.raw;
+  const typeLine = shape.typeLine;
   const id = (n: number) => `a${idAt + n}`;
 
   /* 1. Keyword lines. */
@@ -248,7 +290,7 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
   if (loyalty && /planeswalker/.test(typeLine)) {
     const costs = parseLoyaltyCost(loyalty[1]);
     if (costs) {
-      const build = newBuild(typeLine);
+      const build = newBuild(shape);
       const effects = compileEffectBody(loyalty[2], build.ctx);
       if (anyAutomated(effects)) {
         const a: Ability = {
@@ -265,10 +307,15 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
   /* 3. Triggered abilities. */
   const trigger = norm.match(/^(when|whenever|at) (.+?), (.+)$/);
   if (trigger) {
-    const build = newBuild(typeLine);
+    const build = newBuild(shape);
     const phrase = trigger[1] === 'at' ? `at ${trigger[2]}` : trigger[2];
     const events = parseTriggerEvent(phrase, build.ctx);
     if (events) {
+      // T2 — a bare "it" may mean the source only when the event happened TO
+      // the source. Every event in the run has to agree: "whenever ~ enters or
+      // another creature enters" would otherwise let one reading license the
+      // other.
+      if (!events.every(eventSubjectIsSelf)) build.ctx.itBinding = undefined;
       const effects = compileEffectBody(trigger[3], build.ctx);
       const confidence = build.ctx.approximate ? 'approximate' : 'exact';
       const abilities = events.map((event, n) => {
@@ -286,7 +333,7 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
   if (activated && !/"/.test(norm)) {
     const costs = parseCosts(activated[1]);
     if (costs) {
-      const build = newBuild(typeLine);
+      const build = newBuild(shape);
       // "Activate only as a sorcery" and "only once each turn" are properties of
       // the ABILITY, not effects it produces. Left in the effect body they
       // become `{do:'manual'}` notes, and a note does not stop a player
@@ -324,21 +371,23 @@ function classify(para: Paragraph, typeLine: string, idAt: number): Classified |
   }
 
   /* 6. Static abilities. */
-  const build = newBuild(typeLine);
+  const build = newBuild(shape);
   const stat = parseStatic(norm, build.ctx);
   if (stat) {
-    return {
-      rule: `static:${stat.modifications[0].layer}`,
-      abilities: [{
-        kind: 'static', id: id(0), text: raw, confidence: 'exact',
-        affects: stat.affects, modifications: stat.modifications,
-      }],
+    const ability: Ability = {
+      kind: 'static', id: id(0), text: raw, confidence: 'exact',
+      affects: stat.affects, modifications: stat.modifications,
     };
+    // "As long as …". `scanStatics` asks it before handing the effect to the
+    // layer engine, so an ability that carries one and an ability that does not
+    // take the same path here.
+    if (stat.condition) (ability as { condition?: typeof stat.condition }).condition = stat.condition;
+    return { rule: `static:${stat.modifications[0].layer}${stat.condition ? '+condition' : ''}`, abilities: [ability] };
   }
 
   /* 7. Spell abilities — instants and sorceries only. */
   if (/\b(instant|sorcery)\b/.test(typeLine)) {
-    const spellBuild = newBuild(typeLine);
+    const spellBuild = newBuild(shape);
     const effects = compileEffectBody(norm, spellBuild.ctx);
     if (anyAutomated(effects)) {
       const a: Ability = {
@@ -380,6 +429,12 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
   const consumedSpans: Array<[number, number]> = [];
   const ruleHits: string[] = [];
 
+  const shape: CardShape = {
+    typeLine: normalized.typeLine,
+    printedPower: normalized.printedPower,
+    printedToughness: normalized.printedToughness,
+  };
+
   const paragraphs = normalized.paragraphs;
   for (let i = 0; i < paragraphs.length; i++) {
     const para = paragraphs[i];
@@ -391,7 +446,7 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
     }
 
     // Modal runs read ahead across paragraphs.
-    const modalBuild = newBuild(normalized.typeLine);
+    const modalBuild = newBuild(shape);
     const modal = readModal(paragraphs, i, modalBuild);
     if (modal) {
       const ability = modalAbility(modal, modalBuild, abilities.length, normalized.typeLine);
@@ -404,7 +459,7 @@ export function compileWithTrace(card: AbilityCard): CompileTrace {
       }
     }
 
-    const classified = classify(para, normalized.typeLine, abilities.length);
+    const classified = classify(para, shape, abilities.length);
     if (classified) {
       abilities.push(...classified.abilities);
       ruleHits.push(classified.rule);

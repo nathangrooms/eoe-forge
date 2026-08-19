@@ -314,7 +314,10 @@ export function WatchedTable({
         )}
 
         {/* The log, floating in the strip the hand is held over. */}
-        <div className="pointer-events-none absolute bottom-2 left-2 z-40 w-56 max-w-[36vw]">
+        {/* No width here: the feed is 224px collapsed and about 480px open, and
+            it has to be able to say so itself. The wrapper used to pin it to
+            `w-56`, which is why the opened panel truncated 31 of 200 lines. */}
+        <div className="pointer-events-none absolute bottom-2 left-2 z-40 max-w-[46vw]">
           <GameFeed state={state} feed={feed} variant="feed" />
         </div>
 

@@ -115,3 +115,15 @@ src/dev/__pagingHarness.tsx
 # puppeteer harness scaffolding, written and deleted per run
 *-harness.html
 src/dev/__*.tsx
+
+# paste-a-list screenshot harness, written by scripts/paste-shots.mjs
+paste-harness.html
+src/dev/__pasteHarness.tsx
+
+# reaching-the-proxy-list screenshot harness, written by scripts/proxy-reach-shots.mjs
+proxy-reach-harness.html
+src/dev/__proxyReachHarness.tsx
+
+# proxy sheet millimetre harness, written by scripts/proxy-sheet-measure.mjs
+proxy-sheet-harness.html
+src/dev/__proxySheetHarness.tsx

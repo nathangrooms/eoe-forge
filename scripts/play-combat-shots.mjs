@@ -199,6 +199,11 @@ log((await page.evaluate(() => document.body.innerText)).slice(0, 1500));
 await clickText(/^Cautious$/);
 await sleep(400);
 if (!(await clickByTitleOrText('Start 2-player game'))) throw new Error('no start button');
+
+/* Keep the opening hand. The London mulligan is answered before the first
+   untap and the table does not move until it is. */
+await new Promise(r => setTimeout(r, 4000));
+await clickByTitleOrText('Keep');
 await sleep(6000);
 await shot('table-turn1');
 await say('opening');

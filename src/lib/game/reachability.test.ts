@@ -29,16 +29,18 @@
  *   and never is, which is precisely how counterspells came to be unreachable
  *   rather than broken.
  *
- * WHAT THIS CHECK STILL CANNOT SEE, because it is the larger half of the
- * problem. Any producer satisfies it, so an action the engine builds during
- * resolution counts as reachable even when the *player-initiated* path is
- * missing. `CARD_COUNTER` passes because effects put +1/+1 counters on
- * creatures; that says nothing about Aether Vial, where the player is the one
- * who has to decide whether to add the charge counter, and no control asks.
- * The same holds for `PASS_PRIORITY`, `PUT_ABILITY_ON_STACK`, `COUNTER_SPELL`
- * and `MARK_MANUAL_RESOLVED`: all produced somewhere inside the engine, none
- * offered to a human. Passing this file means no action is entirely orphaned.
- * It does not mean the game asks you everything it should.
+ * The first check below asks only whether SOMETHING builds the action. That is
+ * the easy half, and on its own it is close to useless: an action the engine
+ * builds during its own resolution counts as reachable even when no human can
+ * ever initiate it. `CARD_COUNTER` passed because effects put +1/+1 counters on
+ * creatures, which says nothing about Aether Vial, where the player is the one
+ * who has to decide whether to add the charge counter and no control asked.
+ *
+ * The second check, further down, asks the half that matters: is there a path
+ * from something a PERSON can press to the code that builds the action. It has
+ * to trace that path through the engine rather than grep components for action
+ * literals, because the architecture deliberately puts action construction in
+ * the engine and leaves the interface only dispatching batches.
  *
  * The list below is a ratchet, not a target. It records what was unreachable
  * when the check was written so the build stays green while the gaps close.
@@ -148,5 +150,175 @@ test('the unreachable list does not outlive the gaps it records', () => {
     [],
     `Now reachable, so remove from KNOWN_UNREACHABLE: ${fixed.join(', ')}. ` +
       `Leaving a fixed action on the list lets the next one hide behind it.`,
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* The larger half: is there a control a PERSON can press                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The check above passes as soon as ANYTHING builds an action, so an action the
+ * engine constructs during its own resolution counts as reachable even when no
+ * human can ever initiate it. That is the gap the header admits to, and it is
+ * the one that mattered: `CAST_SPELL`, `PASS_PRIORITY` and `COUNTER_SPELL` all
+ * had engine producers and 32 passing tests, and no player had ever put a spell
+ * on the stack, so no counterspell had ever been castable. The owner reported
+ * that as "counter spells dont work at all", which was the correct conclusion
+ * from the only evidence available at the table.
+ *
+ * So this asks the harder question, and it has to ask it two hops deep. The
+ * architecture is deliberately that the ENGINE builds actions and the interface
+ * dispatches the batch — `manual.ts` returns the +1/+1 counter action and
+ * `ManualPanel.tsx` calls `dispatch(control.actions)` — so a control can be
+ * perfectly reachable with the action literal appearing nowhere near it.
+ * Grepping components for `type: 'CARD_COUNTER'` would therefore report a wired
+ * control as dead and push the next person to inline the literal into a
+ * component, which is the wrong fix.
+ *
+ * The question asked instead: is there an engine export whose own body builds
+ * this action, and is that export named anywhere outside `src/lib/game`.
+ */
+
+/** Split an engine module into its exported declarations, name and body. */
+function exportedChunks(file: string): Array<{ name: string; body: string }> {
+  const text = readFileSync(file, 'utf8');
+  const out: Array<{ name: string; body: string }> = [];
+  const parts = text.split(/\nexport /);
+  for (const part of parts.slice(1)) {
+    const match = part.match(
+      /^(?:declare\s+)?(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z0-9_$]+)/
+    );
+    if (match) out.push({ name: match[1], body: part });
+  }
+  return out;
+}
+
+const ENGINE_EXPORTS = FILES.filter(
+  f => f.startsWith(ENGINE) && f !== join(ENGINE, 'rules.ts')
+).flatMap(exportedChunks);
+
+const OUTSIDE_TEXT = FILES.filter(f => !f.startsWith(ENGINE))
+  .map(f => readFileSync(f, 'utf8'))
+  .join('\n');
+
+const mentions = (text: string, name: string) =>
+  new RegExp(String.raw`\b` + name.replace(/\$/g, String.raw`\$`) + String.raw`\b`).test(text);
+
+/**
+ * Engine exports a control can actually get to, transitively.
+ *
+ * A component names `manualControlsFor`; that function calls `cardCounter`;
+ * `cardCounter` is what builds the action. Stopping at one hop would report a
+ * wired control as dead and push the next person to inline the action literal
+ * into a component, which is the wrong fix — the whole point of the split is
+ * that the engine owns what an action IS and the interface only dispatches it.
+ * So the seed is every export named outside the engine, and the closure follows
+ * engine-to-engine calls from there.
+ */
+const REACHED_FROM_OUTSIDE = (() => {
+  const reached = new Set<string>();
+  for (const chunk of ENGINE_EXPORTS) {
+    if (mentions(OUTSIDE_TEXT, chunk.name)) reached.add(chunk.name);
+  }
+  // Fixed point. Bounded by the number of exports, which is in the hundreds.
+  for (let pass = 0; pass < 12; pass++) {
+    let grew = false;
+    for (const chunk of ENGINE_EXPORTS) {
+      if (!reached.has(chunk.name)) continue;
+      for (const other of ENGINE_EXPORTS) {
+        if (reached.has(other.name)) continue;
+        /* A CALL, not a mention. Following bare names would walk through type
+           annotations and prose in comments and eventually mark the whole
+           engine reachable, which would make this ratchet say nothing. */
+        if (new RegExp(String.raw`\b` + other.name + String.raw`\s*\(`).test(chunk.body)) {
+          reached.add(other.name);
+          grew = true;
+        }
+      }
+    }
+    if (!grew) break;
+  }
+  return reached;
+})();
+
+/** Is there any path from a control a person can press to this action? */
+function offeredToAPlayer(action: string): boolean {
+  const needle = `type: '${action}'`;
+  // One hop: a component builds the literal itself.
+  if (producers(action).ui.length > 0) return true;
+  // Otherwise: is an engine export that builds this action REACHED from
+  // outside. `rules.ts` is excluded for the same reason as above — a `case` in
+  // the reducer consumes an action, it does not produce one.
+  for (const chunk of ENGINE_EXPORTS) {
+    if (!chunk.body.includes(needle)) continue;
+    if (REACHED_FROM_OUTSIDE.has(chunk.name)) return true;
+  }
+  return false;
+}
+
+/**
+ * Actions the ENGINE owns. A control that hands out cards behind the rules'
+ * back is not a missing feature, it is a broken game. Listed so they never land
+ * in the ratchet below and get "fixed" by wiring a button to them.
+ */
+const ENGINE_OWNED = new Set([
+  'DRAW',
+  'MILL',
+  'DAMAGE',
+  'DAMAGE_CARD',
+  'SHUFFLE',
+  'LOSE',
+  'WIN',
+  'CLEANUP',
+  'RESOLVE_STACK',
+  'PHASE_CHANGE',
+  /* Built by a compiled ability resolving, in `abilities/to-actions.ts`. Being
+     the monarch is something a card does to you, not a button you press. */
+  'SET_MONARCH',
+]);
+
+/**
+ * Choices no control offers yet. Shrink it; do not grow it.
+ *
+ * Each name here is a rule the engine implements and a player cannot use. They
+ * are ordinary gaps rather than mysteries: nobody has built the control.
+ */
+const KNOWN_UNOFFERED = new Set([
+  'ADD_REPLACEMENT',
+  'ATTACH',
+  'CAST_COMMANDER',
+  'END_COMBAT',
+  'PASS_TURN',
+  'PUT_ABILITY_ON_STACK',
+  'REMOVE_REPLACEMENT',
+  'RESET',
+  'SET_INITIATIVE',
+  'UNTAP_ALL',
+]);
+
+test('every action that encodes a player choice has a control that builds it', () => {
+  const unoffered = declaredActions().filter(
+    action => !ENGINE_OWNED.has(action) && !offeredToAPlayer(action)
+  );
+
+  const regressed = unoffered.filter(action => !KNOWN_UNOFFERED.has(action));
+  assert.deepEqual(
+    regressed,
+    [],
+    `Implemented in the engine, tested, and nothing a person can press ever ` +
+      `builds one: ${regressed.join(', ')}. The engine sits waiting to be asked ` +
+      `and never is, which from a seat at the table is indistinguishable from ` +
+      `an engine that does not implement the rule.`,
+  );
+});
+
+test('the unoffered list does not outlive the gaps it records', () => {
+  const fixed = [...KNOWN_UNOFFERED].filter(action => offeredToAPlayer(action));
+  assert.deepEqual(
+    fixed,
+    [],
+    `Now offered to a player, so remove from KNOWN_UNOFFERED: ${fixed.join(', ')}. ` +
+      `Leaving a closed gap on the list lets the next one hide behind it.`,
   );
 });

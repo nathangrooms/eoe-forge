@@ -14,6 +14,7 @@
 
 import { commanderTax, getCard, getPlayer } from './rules.ts';
 import {
+  castingCostOf,
   isLand,
   manaSourcesFor,
   planPayment,
@@ -39,9 +40,14 @@ export interface CastPlan {
   reason: string;
 }
 
-/** Commander tax expressed as a cost prefix, so one parser handles both. */
+/**
+ * Commander tax expressed as a cost prefix, so one parser handles both.
+ *
+ * `castingCostOf`, not `card.manaCost`: a card whose printed cost string never
+ * loaded is charged its mana value instead of nothing. See `mana.ts`.
+ */
 function costWithTax(card: CardInstance, tax: number): string {
-  const base = card.manaCost ?? '';
+  const base = castingCostOf(card);
   return tax > 0 ? `{${tax}}${base}` : base;
 }
 
@@ -60,6 +66,30 @@ export interface CastOptions {
   /** Enters tapped. */
   tapped?: boolean;
   at?: number;
+  /**
+   * Announce the spell onto the STACK instead of putting it straight into play.
+   *
+   * Off by default, and that default is load-bearing rather than lazy. Two
+   * surfaces drive this engine — `/play` and `/simulate` — plus a life counter
+   * and a pile of tests, and a spell that sits on the stack waiting for a
+   * priority round it will never receive is a hung game, not a more correct
+   * one. So the stack is opt-in by whoever is prepared to run the round.
+   *
+   * With it on, the batch ends in `CAST_SPELL`: `rules.ts` moves the card to
+   * the stack, `stack.ts` builds the object and gives the caster priority, and
+   * the spell reaches `resolvesTo` only when every living player has passed.
+   * That is the difference between a spell you can respond to and a spell that
+   * has already happened.
+   */
+  viaStack?: boolean;
+  /**
+   * The spell this one is being cast at, for a counter. Its `stackId`.
+   *
+   * Only meaningful with `viaStack`. Attaches the target and the
+   * `counter-spell` effect, so the counter actually counters on resolution
+   * rather than resolving into a graveyard having done nothing.
+   */
+  counterStackId?: string;
 }
 
 /**
@@ -108,14 +138,31 @@ export function planCastFromHand(
   }
 
   const actions: GameAction[] = payment.tapIds.map(id => ({ type: 'TAP', instanceId: id, at }));
-  actions.push({
-    type: 'PLAY',
-    instanceId,
-    to: destination,
-    tapped: options.tapped,
-    controllerId: playerId,
-    at,
-  });
+
+  if (options.viaStack) {
+    actions.push({
+      type: 'CAST_SPELL',
+      instanceId,
+      controllerId: playerId,
+      resolvesTo: destination,
+      ...(options.counterStackId
+        ? {
+            targets: [{ kind: 'stack' as const, stackId: options.counterStackId }],
+            effects: [{ op: 'counter-spell' as const }],
+          }
+        : {}),
+      at,
+    });
+  } else {
+    actions.push({
+      type: 'PLAY',
+      instanceId,
+      to: destination,
+      tapped: options.tapped,
+      controllerId: playerId,
+      at,
+    });
+  }
 
   return { ok: true, actions, payment, destination, tax, reason: '' };
 }

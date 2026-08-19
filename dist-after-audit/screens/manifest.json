@@ -1,0 +1,140 @@
+{
+  "generatedAt": "2026-08-19T12:15:09.460Z",
+  "script": "scripts/app-shots.mjs",
+  "docs": "docs/overhaul/APP-SCREENSHOTS.md",
+  "note": "Screenshots of the real running app. Every page, card, card image, price and type line is the shipped component tree rendering real catalogue rows. The deck is a Wizards precon decklist. Ownership and the tournament events are fixture, because no anonymous request may be shown a real person’s collection and because events live in the organiser’s own browser.",
+  "deck": {
+    "name": "Eldrazi Incursion",
+    "cards": 100
+  },
+  "screens": [
+    {
+      "key": "collection",
+      "caption": "A collection with its cards, its value and what each copy is worth.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/collection-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/collection-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "deck-builder",
+      "caption": "The deck builder holding a real 100-card Commander list, grouped, counted and priced.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/deck-builder-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/deck-builder-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "deck",
+      "caption": "A Commander deck: its commander, its curve, its playability and what it is worth.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/deck-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/deck-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "card",
+      "caption": "The card page: the card whole and large, every printed detail, prices and art variants.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/card-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/card-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "tournament",
+      "caption": "Round three of a Swiss event, with every seat showing the deck it registered.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/tournament-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/tournament-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "tournament-standings",
+      "caption": "Live standings with DCI tiebreakers and every player’s round-by-round record.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/tournament-standings-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/tournament-standings-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "life-counter",
+      "caption": "The life counter mid-game, one panel per seat, each turned to face its player.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/life-counter-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/life-counter-1920.webp"
+        }
+      ]
+    },
+    {
+      "key": "play-table",
+      "caption": "A real game in the browser: a mid-game board, the commander in its zone, the hand along the edge.",
+      "sources": [
+        {
+          "width": 1600,
+          "height": 1000,
+          "src": "/screens/play-table-1600.webp"
+        },
+        {
+          "width": 1920,
+          "height": 1200,
+          "src": "/screens/play-table-1920.webp"
+        }
+      ]
+    }
+  ]
+}

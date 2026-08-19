@@ -56,6 +56,72 @@ export async function addToList(input: AddToListInput): Promise<CardListItem> {
   return data as unknown as CardListItem;
 }
 
+/** One card in a bulk add. The shape `card_list_add_many` reads. */
+export interface BulkListItem {
+  card_id: string;
+  card_name: string;
+  oracle_id?: string | null;
+  quantity?: number;
+  finish?: Finish;
+}
+
+/**
+ * A whole list of cards onto a list, in ONE statement.
+ *
+ * The rule this exists to keep: a 40 card shopping list turned into proxies is
+ * one request, not 40. `card_list_add_many` sums duplicates inside the payload
+ * first and then raises the quantity of anything already on the list, so
+ * pressing the same button twice adds copies rather than making second rows.
+ *
+ * Everything that bulk-adds comes through here, the pasted-list commit in
+ * `@/lib/decklist` included, so there is one caller of the function and one
+ * place its argument names are written.
+ */
+export async function addManyToList(input: {
+  kind: ListKind;
+  items: BulkListItem[];
+  source?: ItemSource;
+  /**
+   * The deck that wanted these, when the whole batch came from one.
+   *
+   * Carried because `FileArrivalPanel` reads it weeks later to preselect the
+   * deck when the parcel turns up. It only fills in where a row does not
+   * already name a deck, so a card first written down for one deck keeps it.
+   */
+  sourceDeckId?: string | null;
+}): Promise<number> {
+  const items = input.items.filter(item => item.card_id && item.card_name);
+  if (items.length === 0) return 0;
+
+  const { data, error } = await supabase.rpc('card_list_add_many' as any, {
+    p_kind: input.kind,
+    p_items: items as any,
+    p_source: input.source ?? 'manual',
+    p_source_deck_id: input.sourceDeckId ?? undefined,
+  });
+  if (error) throw error;
+  return typeof data === 'number' ? data : items.length;
+}
+
+/**
+ * Empty a list of everything still wanted.
+ *
+ * Scoped to `status = 'want'` on purpose. On a proxy list that is every row, so
+ * it clears the lot. On a shopping list it leaves what has already been bought,
+ * which is a record of money spent and not something a Clear button should be
+ * able to destroy. RLS narrows the delete to the caller's own rows.
+ */
+export async function clearList(kind: ListKind): Promise<number> {
+  const { data, error } = await supabase
+    .from('card_list_items')
+    .delete()
+    .eq('kind', kind)
+    .eq('status', 'want')
+    .select('id');
+  if (error) throw error;
+  return (data ?? []).length;
+}
+
 export async function setQuantity(itemId: string, quantity: number): Promise<void> {
   if (quantity < 1) {
     await removeItem(itemId);

@@ -176,13 +176,28 @@ export function GameMenu({
             active={freeCast}
             onClick={onToggleFreeCast}
           />
+          {/*
+            Redraw is a PLAYTEST tool, not the mulligan.
+
+            The mulligan is a rule and it now has a rule's home: the opening
+            hand, on the mat, before the first untap, where the game waits for
+            an answer. Owner: *"No way to mulligan the first hand"* — which was
+            true precisely because the only way in was this button, three
+            presses deep behind a slider icon with nothing on the table saying
+            a decision was owed.
+
+            What is left here is the goldfishing escape hatch: shuffle back and
+            draw a fresh seven at any point, so a playtester can look at another
+            opening without dealing a new table. It says so, rather than
+            claiming to be a mulligan.
+          */}
           <button
             type="button"
             onClick={onMulligan}
-            title="Shuffle your hand back and draw one fewer"
+            title="Playtest tool: shuffle your hand back and draw a fresh seven"
             className="w-full rounded-lg bg-foreground/[0.07] px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Mulligan
+            Redraw your hand
           </button>
         </Section>
 

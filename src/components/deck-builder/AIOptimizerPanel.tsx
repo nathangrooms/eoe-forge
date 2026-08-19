@@ -23,7 +23,7 @@
  *     and the mana-impact delta underneath it are the same measurement.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,6 +38,7 @@ import {
   Trash2,
   Mountain,
   Target,
+  Check,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -133,6 +134,10 @@ interface AIOptimizerPanelProps {
    * deck that has not been saved yet needs the card in hand. See
    * `toReplacement`.
    */
+  /** Explicit save, so the reader is not asked to trust a silent timer. */
+  onSaveDeck?: () => void;
+  /** What that save is currently doing. */
+  saveState?: 'idle' | 'saving' | 'saved' | 'error';
   onApplyReplacements: (
     replacements: Array<{
       remove: string;
@@ -182,6 +187,8 @@ export function AIOptimizerPanel({
   power,
   edhAnalysis,
   onApplyReplacements,
+  onSaveDeck,
+  saveState = 'idle',
   onAddCard,
   onRemoveCard,
 }: AIOptimizerPanelProps) {
@@ -208,6 +215,12 @@ export function AIOptimizerPanel({
   const [isLoadingMoreSwaps, setIsLoadingMoreSwaps] = useState(false);
   const [showConfirmSwaps, setShowConfirmSwaps] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  /** Which steps the reader has actually opened, so the tabs can show progress. */
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']));
+  const openTab = useCallback((value: string) => {
+    setActiveTab(value);
+    setVisitedTabs(prev => (prev.has(value) ? prev : new Set(prev).add(value)));
+  }, []);
   const [useCollection, setUseCollection] = useState(false);
 
   const isCommander = format?.toLowerCase() === 'commander' || format?.toLowerCase() === 'edh';
@@ -871,6 +884,49 @@ export function AIOptimizerPanel({
               )}
             </Button>
           </div>
+
+          {/* WHERE THE SAVE BUTTON WENT.
+
+              Applying anything from the optimiser already writes to the deck:
+              the page calls updateDeck on a 500ms timer and says nothing. So the
+              work WAS being saved and there was no way to know, which is worse
+              than no autosave, because the only safe assumption a reader can
+              make is that nothing happened. This states it, and gives an
+              explicit save for anyone who would rather press a button than
+              trust a timer. */}
+          {onSaveDeck && (
+            <div className="flex w-full items-center justify-between gap-3 border-t border-border/40 pt-4">
+              <p className="text-sm text-muted-foreground">
+                {saveState === 'saving'
+                  ? 'Saving changes to the deck.'
+                  : saveState === 'error'
+                  ? 'That did not save. Press save to try again.'
+                  : saveState === 'saved'
+                  ? 'All changes saved to the deck.'
+                  : 'Anything you apply is written to the deck straight away.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={onSaveDeck}
+                disabled={saveState === 'saving'}
+                className="shrink-0"
+              >
+                {saveState === 'saving' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving
+                  </>
+                ) : saveState === 'saved' ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Saved
+                  </>
+                ) : (
+                  'Save deck'
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -941,54 +997,59 @@ export function AIOptimizerPanel({
 
       {hasResults && !loading && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Real labels at real sizes — the old tabs hid their text below
-                the `xs` breakpoint and showed four bare icons. */}
+          <Tabs value={activeTab} onValueChange={openTab} className="w-full">
+            {/* These read as one pass to work through, not five places you
+                might go. They are numbered, they carry their own counts, and a
+                tab you have already opened is ticked, because the complaint was
+                that nothing said they all needed visiting.
+
+                Cut used to appear ONLY when the deck was over its limit, and Add
+                only when it was not, so the two were mutually exclusive. A legal
+                sized deck could never see a single cut suggestion, which is
+                exactly backwards: a 100 card deck is the case where you most
+                want to know which card is the weakest. Both are always
+                available now. */}
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
               <TabsList className="inline-flex h-auto w-auto min-w-full gap-1 p-1">
-                <TabsTrigger value="overview" className="gap-2 px-4 py-2.5 text-sm">
-                  <Target className="h-4 w-4" />
-                  Overview
-                </TabsTrigger>
-
-                {deckStatus !== 'overloaded' && (
-                  <TabsTrigger value="additions" className="gap-2 px-4 py-2.5 text-sm">
-                    <Plus className="h-4 w-4" />
-                    {deckStatus === 'incomplete' ? 'Add' : 'Ideas'}
-                    {additionSuggestions.length > 0 && (
-                      <TabCount>{additionSuggestions.length}</TabCount>
-                    )}
-                  </TabsTrigger>
-                )}
-
-                {deckStatus === 'overloaded' && (
-                  <TabsTrigger value="removals" className="gap-2 px-4 py-2.5 text-sm">
-                    <Trash2 className="h-4 w-4" />
-                    Cut
-                    {removalSuggestions.length > 0 && (
-                      <TabCount>{removalSuggestions.length}</TabCount>
-                    )}
-                  </TabsTrigger>
-                )}
-
-                <TabsTrigger value="swaps" className="gap-2 px-4 py-2.5 text-sm">
-                  <ArrowRight className="h-4 w-4" />
-                  Swaps
-                  {swapSuggestions.length > 0 && <TabCount>{swapSuggestions.length}</TabCount>}
-                </TabsTrigger>
-
-                <TabsTrigger
-                  value="lands"
-                  className={cn('gap-2 px-4 py-2.5 text-sm', hasLandIssues && 'font-semibold')}
-                >
-                  <Mountain className="h-4 w-4" />
-                  Lands
-                  {landRecommendations.length > 0 && (
-                    <TabCount>{landRecommendations.length}</TabCount>
-                  )}
-                </TabsTrigger>
+                {STEPS.map((step, i) => {
+                  const count =
+                    step.value === 'additions'
+                      ? additionSuggestions.length
+                      : step.value === 'removals'
+                      ? removalSuggestions.length
+                      : step.value === 'swaps'
+                      ? swapSuggestions.length
+                      : step.value === 'lands'
+                      ? landRecommendations.length
+                      : 0;
+                  const Icon = step.icon;
+                  const seen = visitedTabs.has(step.value);
+                  const label =
+                    step.value === 'additions' && deckStatus === 'incomplete' ? 'Add' : step.label;
+                  return (
+                    <TabsTrigger
+                      key={step.value}
+                      value={step.value}
+                      className={cn(
+                        'gap-2 px-4 py-2.5 text-sm',
+                        step.value === 'lands' && hasLandIssues && 'font-semibold'
+                      )}
+                    >
+                      <StepMark index={i + 1} seen={seen} />
+                      <Icon className="h-4 w-4" />
+                      {label}
+                      {count > 0 && <TabCount>{count}</TabCount>}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
             </div>
+
+            <p className="mt-2 text-sm text-muted-foreground">
+              {visitedTabs.size >= STEPS.length
+                ? 'You have been through all five. Anything you applied is already in the deck.'
+                : `Work through all five. ${STEPS.length - visitedTabs.size} still to look at.`}
+            </p>
 
             <TabsContent value="overview" className="mt-6">
               {analysis ? (
@@ -1124,6 +1185,37 @@ export function AIOptimizerPanel({
         </motion.div>
       )}
     </div>
+  );
+}
+
+/**
+ * The optimiser is one pass in five parts, in the order they are worth doing:
+ * see the shape of the deck, find what is missing, find what is weakest, trade
+ * one for the other, then fix the mana that has to cast all of it.
+ *
+ * Every one of these is always present. Add and Cut used to be mutually
+ * exclusive on deck size, which meant a legal sized deck was never shown a
+ * single card worth cutting.
+ */
+const STEPS = [
+  { value: 'overview', label: 'Overview', icon: Target },
+  { value: 'additions', label: 'Ideas', icon: Plus },
+  { value: 'removals', label: 'Cut', icon: Trash2 },
+  { value: 'swaps', label: 'Swaps', icon: ArrowRight },
+  { value: 'lands', label: 'Lands', icon: Mountain },
+] as const;
+
+/** The step number, ticked once the reader has actually opened that tab. */
+function StepMark({ index, seen }: { index: number; seen: boolean }) {
+  return (
+    <span
+      className={cn(
+        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-semibold tabular-nums',
+        seen ? 'bg-foreground/85 text-background' : 'bg-background/60 text-muted-foreground'
+      )}
+    >
+      {seen ? <Check className="h-3 w-3" /> : index}
+    </span>
   );
 }
 

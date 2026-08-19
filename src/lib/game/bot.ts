@@ -38,6 +38,8 @@ import {
 } from './characteristics.ts';
 import { isLand, isPermanent, manaSourcesFor } from './mana.ts';
 import { advanceActions, planCastFromHand, planLandDrop, declareAttack } from './moves.ts';
+import { hasPriority, stackOf } from './stack.ts';
+import { responseOptions, spellToAnswer } from './respond.ts';
 import type { CardInstance, GameAction, GameState, PlayerId } from './types.ts';
 
 /** One visible decision. The surface applies the whole batch, then re-renders. */
@@ -50,6 +52,17 @@ export interface BotMove {
 export interface BotOptions {
   /** Epoch ms stamped onto every action in the batch. */
   at?: number;
+  /**
+   * Announce spells onto the stack, and take priority.
+   *
+   * Off by default so `/simulate` and every existing test keep the immediate
+   * cast they were written against. On, the bot casts through the stack, holds
+   * a real priority round, and — the point of the whole thing — counters an
+   * opponent's spell when it is holding an answer and can pay for it. A bot
+   * that never responds makes every instant in a deck dead weight, and reads as
+   * an engine that does not implement counterspells.
+   */
+  useStack?: boolean;
   /**
    * 'timid' never attacks into a possible trade, 'normal' trades up,
    * 'aggressive' attacks whenever it is not strictly losing the exchange.
@@ -129,7 +142,8 @@ function chooseLand(state: GameState, playerId: PlayerId): CardInstance | null {
 function chooseSpell(
   state: GameState,
   playerId: PlayerId,
-  at: number
+  at: number,
+  viaStack = false
 ): { card: CardInstance; actions: GameAction[] } | null {
   const player = getPlayer(state, playerId);
   if (!player) return null;
@@ -146,10 +160,53 @@ function chooseSpell(
     .sort((a, b) => castScore(state, b) - castScore(state, a));
 
   for (const card of ranked) {
-    const plan = planCastFromHand(state, playerId, card.instanceId, { at });
+    const plan = planCastFromHand(state, playerId, card.instanceId, { at, viaStack });
     if (plan.ok) return { card, actions: plan.actions };
   }
   return null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Priority                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What the bot does while something is on the stack.
+ *
+ * Only two answers, and both are real moves rather than a shrug: counter it, or
+ * pass. Countering is offered when the top of the stack belongs to somebody
+ * else, the bot is holding a card whose text says it counters a spell, and it
+ * can pay for it out of untapped permanents. `responseOptions` answers all
+ * three at once and puts counters first, so this takes the head of the list.
+ *
+ * The bot does not respond to its own spell. Holding priority to stack a second
+ * effect on your own first one is a real Magic play and it is not modelled
+ * here; a bot that did it would need a plan for what the two spells are doing
+ * together, and it does not have one.
+ */
+function priorityMove(state: GameState, playerId: PlayerId, options: BotOptions): BotMove | null {
+  const at = options.at ?? 0;
+  if (!hasPriority(state, playerId)) return null;
+
+  const answering = spellToAnswer(state, playerId);
+  if (answering) {
+    const counter = responseOptions(state, playerId).find(option => option.counters);
+    if (counter) {
+      const plan = planCastFromHand(state, playerId, counter.card.instanceId, {
+        at,
+        viaStack: true,
+        counterStackId: answering.stackId,
+      });
+      if (plan.ok) {
+        return {
+          actions: plan.actions,
+          note: `Counters ${answering.name} with ${counter.card.name}.`,
+        };
+      }
+    }
+  }
+
+  return { actions: [{ type: 'PASS_PRIORITY', playerId, at }], note: 'Passes priority.' };
 }
 
 /**
@@ -239,7 +296,7 @@ function activeMove(state: GameState, playerId: PlayerId, options: BotOptions): 
         }
       }
 
-      const spell = chooseSpell(state, playerId, at);
+      const spell = chooseSpell(state, playerId, at, options.useStack);
       if (spell) {
         const mana = manaSourcesFor(state, playerId).length;
         return {
@@ -458,6 +515,19 @@ export function nextBotMove(
   if (state.status !== 'playing') return null;
   const player = getPlayer(state, playerId);
   if (!player || !isAlive(player)) return null;
+
+  /*
+   * A non-empty stack outranks everything.
+   *
+   * Nothing else may happen while a spell is waiting: not a land drop, not
+   * another cast, not a step change. Checked before the turn test because
+   * priority is the one thing that passes round the table regardless of whose
+   * turn it is — which is exactly what makes an instant an instant.
+   *
+   * Returning null when this bot does not hold priority is what hands control
+   * back to the surface so the human can answer.
+   */
+  if (stackOf(state).length > 0) return priorityMove(state, playerId, options);
 
   if (state.activePlayerId === playerId) return activeMove(state, playerId, options);
   if (state.step === 'declare_blockers') return blockMove(state, playerId, options);

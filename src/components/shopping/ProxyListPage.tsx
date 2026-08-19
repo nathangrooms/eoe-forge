@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Minus, Plus, Printer, ShoppingCart, Trash2 } from 'lucide-react';
+import {
+  ClipboardPaste,
+  Heart,
+  Loader2,
+  Minus,
+  Plus,
+  Printer,
+  ShoppingCart,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +18,7 @@ import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
 import { showError, showSuccess } from '@/components/ui/toast-helpers';
 import { cn } from '@/lib/utils';
 import {
+  BLEED_MM,
   CARD_H_MM,
   CARD_W_MM,
   PAPER,
@@ -19,13 +29,22 @@ import {
   isolateForPrint,
   preloadProxyImages,
   proxyDpi,
+  sheetPlan,
+  showSheetPlan,
   type PaperSize,
   type ProxyQuality,
 } from '@/components/deck-builder/proxy-print';
 import { ProxySheet } from '@/components/deck-builder/ProxySheet';
-import { useCardLists } from '@/lib/shopping';
-import { EmptyPanel } from './ShoppingListPage';
+import {
+  proxyCandidatesFromShopping,
+  proxyCandidatesFromWishlist,
+  showListItemCount,
+  useCardLists,
+  type ProxyCandidate,
+} from '@/lib/shopping';
 import { ListCardBadges } from './ListCardBadges';
+import { ListToProxiesPanel } from './ListToProxiesPanel';
+import { PasteCardList } from './PasteCardList';
 
 /**
  * `/proxies` — a proxy list of your own, printed with real card art.
@@ -55,10 +74,18 @@ export default function ProxyListPage() {
   const loading = useCardLists(state => state.loading);
   const loaded = useCardLists(state => state.loaded);
   const proxies = useCardLists(state => state.proxies);
+  const shopping = useCardLists(state => state.shopping);
+  const wishlist = useCardLists(state => state.wishlist);
+  const shortfalls = useCardLists(state => state.shortfalls);
   const setQuantity = useCardLists(state => state.setQuantity);
   const remove = useCardLists(state => state.remove);
+  const clear = useCardLists(state => state.clear);
 
   const [cardWidth, setCardWidth] = useCardSize('proxies', 170);
+  const [pasting, setPasting] = useState(false);
+  const [bringing, setBringing] = useState<null | 'shopping' | 'wishlist'>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [paper, setPaper] = useState<PaperSize>('a4');
   const [quality, setQuality] = useState<ProxyQuality>('large');
   const [cutGuides, setCutGuides] = useState(true);
@@ -88,7 +115,10 @@ export default function ProxyListPage() {
   );
 
   const slots = useMemo(() => buildProxySlots(printable, quality), [printable, quality]);
-  const pages = Math.ceil(slots.length / PROXY_PER_PAGE);
+  /* One count, read by the headline, the button and the toast. `slots` and not
+     `sum(quantity)`: a double faced card is two physical cards. */
+  const plan = useMemo(() => sheetPlan(slots.length), [slots.length]);
+  const pages = plan.sheets;
   const extraFaces = slots.filter(slot => slot.faceLabel === 'Back').length;
   const missingArt = slots.filter(slot => !slot.imageUrl).length;
 
@@ -96,6 +126,35 @@ export default function ProxyListPage() {
     () => [...new Set(slots.map(slot => slot.imageUrl).filter((u): u is string => Boolean(u)))],
     [slots]
   );
+
+  /*
+   * The two lists a player already keeps, offered here as well as on their own
+   * pages. Somebody who came looking for the proxy page should not have to know
+   * that the button is on the OTHER page. Both come out of the same store this
+   * page is already reading, so offering them costs no extra query.
+   */
+  const fromShopping = useMemo(
+    () => proxyCandidatesFromShopping(useCardLists.getState().assembled().toBuy),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shopping, wishlist, shortfalls]
+  );
+  const fromWishlist = useMemo(() => proxyCandidatesFromWishlist(wishlist), [wishlist]);
+
+  const bringingList: ProxyCandidate[] =
+    bringing === 'shopping' ? fromShopping : bringing === 'wishlist' ? fromWishlist : [];
+
+  const clearAll = useCallback(async () => {
+    setClearing(true);
+    try {
+      const gone = await clear('proxy');
+      setConfirmingClear(false);
+      showSuccess('Proxy list emptied', `${showListItemCount(gone)} taken off.`);
+    } catch (error: any) {
+      showError('Could not empty the list', error?.message ?? 'Please try again.');
+    } finally {
+      setClearing(false);
+    }
+  }, [clear]);
 
   const print = useCallback(async () => {
     if (slots.length === 0) return;
@@ -122,14 +181,14 @@ export default function ProxyListPage() {
          builds never do. Without a second path the app is left with its own
          interface still hidden. */
       window.setTimeout(cleanup, 1000);
-      showSuccess('Sent to the printer', `${slots.length} cards across ${pages} ${pages === 1 ? 'sheet' : 'sheets'}.`);
+      showSuccess('Sent to the printer', `${showSheetPlan(plan)}.`);
     } catch (error: any) {
       showError('Could not print', error?.message ?? 'Please try again.');
     } finally {
       setPrinting(false);
       setProgress(0);
     }
-  }, [imageUrls, pages, slots.length]);
+  }, [imageUrls, plan, slots.length]);
 
   return (
     <StandardPageLayout
@@ -137,15 +196,32 @@ export default function ProxyListPage() {
       description="Cards you want to print and play with. Real art, real card size."
       action={
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" className="gap-2" asChild>
-            <Link to="/shopping">
-              <ShoppingCart className="h-4 w-4" />
-              Shopping list
-            </Link>
-          </Button>
+          <BringInButtons
+            fromShopping={fromShopping.length}
+            fromWishlist={fromWishlist.length}
+            onBring={setBringing}
+          />
+          {proxies.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              onClick={() => setPasting(open => !open)}
+              aria-expanded={pasting}
+            >
+              <ClipboardPaste className="h-4 w-4" />
+              {pasting ? 'Hide the paste box' : 'Paste a list'}
+            </Button>
+          )}
+          {/* The last thing read before paper is spent says how much paper.
+              "Print these" said nothing about the size of the job. */}
           <Button size="sm" className="gap-2" onClick={print} disabled={slots.length === 0 || printing}>
             {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-            {printing ? `Getting the art ready ${progress}%` : 'Print these'}
+            {printing
+              ? `Getting the art ready ${progress}%`
+              : slots.length === 0
+                ? 'Print'
+                : `Print ${slots.length} on ${pages} ${pages === 1 ? 'sheet' : 'sheets'}`}
           </Button>
         </div>
       }
@@ -156,33 +232,75 @@ export default function ProxyListPage() {
           Loading your proxy list
         </div>
       ) : proxies.length === 0 ? (
-        <EmptyPanel
-          icon={Printer}
-          title="Your proxy list is empty"
-          body="Add cards from any card page or search result, then print the sheet and cut them out. The deck builder can still make proxies for a whole deck."
-          action={
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Button variant="secondary" asChild>
-                <Link to="/cards">Find cards</Link>
-              </Button>
-              <Button variant="secondary" asChild>
+        /*
+         * The empty state used to read "Add cards from any card page or search
+         * result", which described a control that did not exist. An empty page
+         * that tells you to do something the product cannot do is worse than an
+         * empty page. It is the paste box now, because pasting a list is the
+         * thing you can actually do, and it is the way most people will.
+         */
+        <div className="space-y-4">
+          <PasteCardList kind="proxy" />
+
+          {(fromShopping.length > 0 || fromWishlist.length > 0) && (
+            <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20">
+              <p className="text-sm text-foreground">
+                You already keep lists of cards you do not own yet. Bring one straight over.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {fromShopping.length > 0 && (
+                  <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('shopping')}>
+                    <ShoppingCart className="h-4 w-4" />
+                    Your shopping list, {showListItemCount(fromShopping.length)}
+                  </Button>
+                )}
+                {fromWishlist.length > 0 && (
+                  <Button variant="secondary" size="sm" className="gap-2" onClick={() => setBringing('wishlist')}>
+                    <Heart className="h-4 w-4" />
+                    Your wishlist, {showListItemCount(fromWishlist.length)}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl bg-muted/20 p-4 text-sm text-muted-foreground">
+            <p>
+              A deck you already have in DeckMatrix does not need pasting. Open it and use Proxies
+              in the deck tools to print the whole thing.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" asChild>
                 <Link to="/decks">Open a deck</Link>
               </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link to="/cards">Search for cards</Link>
+              </Button>
+              {/* Only when the bring-in row above is not already offering it,
+                  so the same words are not on the page twice. */}
+              {fromShopping.length === 0 && fromWishlist.length === 0 && (
+                <Button variant="secondary" size="sm" asChild>
+                  <Link to="/shopping">Your shopping list</Link>
+                </Button>
+              )}
             </div>
-          }
-        />
+          </div>
+          <PlaytestOnlyNote />
+        </div>
       ) : (
         <div className="space-y-6">
+          {pasting && <PasteCardList kind="proxy" onAdded={() => setPasting(false)} />}
           <div className="flex flex-wrap items-center gap-4 rounded-xl bg-card p-4 shadow-lg shadow-black/20">
             <div>
               <p className="text-2xl font-semibold tabular-nums text-foreground">{slots.length}</p>
               <p className="text-xs text-muted-foreground">
                 cards to print, {pages} {pages === 1 ? 'sheet' : 'sheets'}
+                {pages > 1 && plan.onLast < PROXY_PER_PAGE ? `, ${plan.onLast} on the last one` : ''}
               </p>
             </div>
 
             <div className="text-sm text-muted-foreground">
-              {CARD_W_MM} by {CARD_H_MM} mm, nine to a {PAPER[paper].label} sheet, about{' '}
+              {CARD_W_MM} by {CARD_H_MM} mm, the real size, nine to a {PAPER[paper].label} sheet, about{' '}
               {proxyDpi(quality)} dots per inch.
             </div>
 
@@ -208,7 +326,7 @@ export default function ProxyListPage() {
               <div className="flex items-center gap-2">
                 <Switch id="cut-guides" checked={cutGuides} onCheckedChange={setCutGuides} />
                 <Label htmlFor="cut-guides" className="text-sm">
-                  Cut lines
+                  Cut marks
                 </Label>
               </div>
             </div>
@@ -223,11 +341,44 @@ export default function ProxyListPage() {
             </p>
           )}
 
+          <PlaytestOnlyNote />
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               On the list
             </h2>
-            <CardSizeSlider storageKey="proxies" value={cardWidth} onValueChange={setCardWidth} />
+            <div className="flex flex-wrap items-center gap-3">
+              {/*
+                In place, never a centred dialog that dims the page. The button
+                becomes the question and the question carries the number, so
+                nobody empties forty cards thinking they clicked something else.
+              */}
+              {confirmingClear ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Take all {showListItemCount(proxies.length)} off the list?
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={clearAll} disabled={clearing} className="gap-2">
+                    {clearing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Yes, empty it
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmingClear(false)} disabled={clearing}>
+                    Keep them
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setConfirmingClear(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Empty the list
+                </Button>
+              )}
+              <CardSizeSlider storageKey="proxies" value={cardWidth} onValueChange={setCardWidth} />
+            </div>
           </div>
 
           <CardGrid width={cardWidth}>
@@ -266,14 +417,17 @@ export default function ProxyListPage() {
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
+                    {/* Named, not a bare icon. A trash can in the corner of a
+                        card tile reads as decoration until you need it. */}
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
-                      className="ml-auto h-8 w-8 text-muted-foreground hover:text-foreground"
+                      className="ml-auto gap-1.5 px-2 text-muted-foreground hover:text-foreground"
                       aria-label={`Take ${item.card_name} off the proxy list`}
                       onClick={() => void remove(item.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
+                      Remove
                     </Button>
                   </div>
                 </div>
@@ -288,13 +442,101 @@ export default function ProxyListPage() {
               </h2>
               <p className="text-xs text-muted-foreground">{PRINT_DIALOG_HINT}</p>
             </div>
+            {/*
+              Said once, near the thing it describes. Nothing prints on a card:
+              the ticks are in the margin and the black is under the block.
+            */}
+            {cutGuides && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                The nine cards touch, so every cut inside the sheet is shared and a small miss just takes a
+                sliver of the next card's border. The four cuts around the outside sit on {BLEED_MM} mm of
+                black, so a miss there keeps black instead of showing white paper. The ticks in the margin
+                mark every cut line at both ends. Nothing is printed on a card.
+              </p>
+            )}
             <div className="rounded-xl bg-muted/20 p-3">
               <ProxySheet ref={sheetRef} slots={slots} paper={paper} cutGuides={cutGuides} />
             </div>
           </div>
         </div>
       )}
+
+      <ListToProxiesPanel
+        open={bringing !== null}
+        onOpenChange={open => !open && setBringing(null)}
+        candidates={bringingList}
+        sourceLabel={bringing === 'wishlist' ? 'your wishlist' : 'your shopping list'}
+        description={
+          bringing === 'wishlist'
+            ? 'Everything you have your eye on. Print it and play the deck before you spend anything.'
+            : 'Everything you still need to buy. Print it and play the deck before you spend anything.'
+        }
+      />
     </StandardPageLayout>
+  );
+}
+
+/**
+ * The two lists a player already keeps, offered on the proxy page itself.
+ *
+ * Each button carries its own size, so nobody opens a panel to find out there
+ * is nothing in it, and a list that is empty offers no button at all.
+ */
+function BringInButtons({
+  fromShopping,
+  fromWishlist,
+  onBring,
+}: {
+  fromShopping: number;
+  fromWishlist: number;
+  onBring: (source: 'shopping' | 'wishlist') => void;
+}) {
+  if (fromShopping === 0 && fromWishlist === 0) {
+    return (
+      <Button variant="secondary" size="sm" className="gap-2" asChild>
+        <Link to="/shopping">
+          <ShoppingCart className="h-4 w-4" />
+          Shopping list
+        </Link>
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      {fromShopping > 0 && (
+        <Button variant="secondary" size="sm" className="gap-2" onClick={() => onBring('shopping')}>
+          <ShoppingCart className="h-4 w-4" />
+          <span className="hidden sm:inline">Shopping list,</span>
+          <span className="tabular-nums">{fromShopping}</span>
+        </Button>
+      )}
+      {fromWishlist > 0 && (
+        <Button variant="secondary" size="sm" className="gap-2" onClick={() => onBring('wishlist')}>
+          <Heart className="h-4 w-4" />
+          <span className="hidden sm:inline">Wishlist,</span>
+          <span className="tabular-nums">{fromWishlist}</span>
+        </Button>
+      )}
+    </>
+  );
+}
+
+/**
+ * What these sheets are for, said plainly and never hidden.
+ *
+ * Wizards' Fan Content Policy requires fan content to be free, so a proxy sheet
+ * must never sit behind a payment and nothing in this product may suggest these
+ * are sellable or legal at an event. The sentence is short and it is on the
+ * page rather than in a help article, because the person about to press print
+ * is the person who needs to read it.
+ */
+function PlaytestOnlyNote() {
+  return (
+    <p className="text-sm text-muted-foreground">
+      These are for playtesting at your own table. They are free, they are not real cards, and they
+      are not legal at any event. Do not sell them.
+    </p>
   );
 }
 

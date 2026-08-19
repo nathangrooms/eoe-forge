@@ -56,6 +56,15 @@ export interface BuildCtx {
   /** Lowercased front-face type line, for rules that need to know the card type. */
   typeLine: string;
   /**
+   * T3. The front face's printed P/T boxes, verbatim (`5`, `*`, `1+*`, `''`).
+   *
+   * One rule reads them: the single-characteristic CDA in `clause-rules.ts`.
+   * Strings, so `*` can make that rule refuse — see
+   * `NormalizedOracle.printedPower`.
+   */
+  printedPower?: string;
+  printedToughness?: string;
+  /**
    * Set by any rule that resolved something by inference rather than by
    * reading it — an "it" bound to the source, a "reveal" dropped as
    * information-only. The ability it belongs to is published as
@@ -82,6 +91,56 @@ export interface BuildCtx {
    * the caller refuses the whole body rather than shipping unrestricted mana.
    */
   manaRestrictionUsed?: boolean;
+  /**
+   * T2. What a bare "it" in object position is allowed to mean in this ability,
+   * or absent when nothing may claim it.
+   *
+   * "Whenever this creature attacks, it gets +2/+0 until end of turn" says
+   * nothing the compiler cannot already read except the pronoun, and the pool
+   * has 44 cards blocked on exactly that and nothing else. The danger is the
+   * OTHER "it": "When this creature enters, tap target creature. It doesn't
+   * untap during its controller's next untap step" — bind that one to the
+   * source and the wrong permanent stays tapped, which is a wrong ability
+   * rather than a missing one, and this folder treats those as worse.
+   *
+   * So the binding is never assumed. The compiler offers it, and only for a
+   * trigger whose event subject is the source itself; `compileEffectBody`
+   * withdraws it again the moment the sentence names some other object before
+   * the pronoun. See `itMayBind`.
+   */
+  itBinding?: Selector;
+  /**
+   * How many targets this ability has announced so far. A bare "it" after an
+   * announced target is that target far more often than it is the source, so
+   * the binding refuses once this is above zero.
+   */
+  targetsSoFar?: number;
+}
+
+/**
+ * Nouns that steal an "it".
+ *
+ * If any of these appears in the effect body BEFORE the first bare "it", the
+ * pronoun is referring to that noun and not to the source. Deliberately a list
+ * of NOUNS and not of verbs: "put a +1/+1 counter on it" has a verb and a
+ * counter in front of the pronoun and still means the source, while "reveal it"
+ * has a card in front of it and does not.
+ */
+const IT_REFERENT_NOUNS = /\b(target|card|cards|token|tokens|creature|creatures|permanent|permanents|artifact|artifacts|enchantment|enchantments|land|lands|player|players|opponent|opponents|spell|spells|copy)\b/;
+
+/**
+ * May a bare "it" in this effect body mean the source?
+ *
+ * Only when nothing else in the body claimed the pronoun first. The check runs
+ * on the whole body rather than the sentence, which is the conservative
+ * direction: a noun in sentence one withdraws the binding from sentence two as
+ * well, so the compiler gives up a card it might have read rather than risk
+ * reading one wrongly.
+ */
+export function itMayBind(body: string): boolean {
+  const at = body.search(/\bit\b/);
+  if (at < 0) return true;
+  return !IT_REFERENT_NOUNS.test(body.slice(0, at));
 }
 
 export interface EffectRule {
@@ -101,11 +160,30 @@ export interface EffectRule {
  * Shared resolvers
  * ------------------------------------------------------------------ */
 
+/**
+ * A bare "it" -> whatever the compiler said it may mean, or `null` to refuse.
+ *
+ * Three gates, all of which must pass. The compiler must have offered a binding
+ * at all (it does that only for a trigger on the source itself), the body must
+ * not have named another object first (`itMayBind`, applied by
+ * `compileEffectBody`), and this ability must not have announced a target,
+ * because an announced target is the likelier referent. Reading the pronoun is
+ * inference rather than reading, so the ability is published `approximate` and
+ * says so in the log when it resolves.
+ */
+function boundIt(ctx: BuildCtx): Selector | null {
+  if (!ctx.itBinding) return null;
+  if ((ctx.targetsSoFar ?? 0) > 0) return null;
+  ctx.approximate = true;
+  return ctx.itBinding;
+}
+
 /** An object phrase in effect position -> a `Selector`, or `null` to refuse. */
 export function phraseSelector(phrase: string, ctx: BuildCtx, prompt: string): Selector | null {
   const p = phrase.trim().replace(/[.,]+$/, '');
   if (!p) return null;
   if (p === '~' || p === 'itself') return { sel: 'self' };
+  if (p === 'it') return boundIt(ctx);
   // Auras and Equipment refer to their host, never by name.
   if (/^(enchanted|equipped) /.test(p)) return { sel: 'attached' };
   const ref = parseObject(p);
@@ -118,6 +196,15 @@ export function phraseSelector(phrase: string, ctx: BuildCtx, prompt: string): S
     if (typeof ref.count !== 'number') return null;
     return registerTarget(ref, ctx.addTarget, prompt);
   }
+  // "Up to five lands" is a NUMBER THE PLAYER PICKS, anywhere from zero to five,
+  // and `objectSelector` can only say "every match". Peregrine Drake's "untap up
+  // to five lands" therefore compiled to "untap all lands" — every land on the
+  // table, the opponents' included — and because nothing was left unparsed the
+  // card was reported as fully covered. That is the wrong-ability failure this
+  // file exists to prevent, and it is worse than a gap because no marker says it
+  // happened. A targeted "up to" is fine and is handled above: `TargetSpec` has
+  // `min` and `max` and `registerTarget` writes `min: 0`.
+  if (ref.upTo) return null;
   // An untargeted phrase naming a BOUNDED quantity — "a creature you control",
   // "another creature", "two lands you control" — is a choice its controller
   // makes on resolution, and the `Selector` union cannot say "one of these,
@@ -246,11 +333,20 @@ function restrictedMana(effect: Extract<Effect, { do: 'add-mana' }>, ctx: BuildC
   return { ...effect, restriction: ctx.manaRestriction };
 }
 
-/** `"~"` or `"it"` in subject position. `"it"` is inference, so it flags approximate. */
+/**
+ * `"~"` or `"it"` in subject position.
+ *
+ * T2. `"it"` used to bind to the source unconditionally here, and that was
+ * wrong on real cards: Traitor's Roar reads "Tap target untapped creature. It
+ * deals damage equal to its power to its controller", where "it" is the
+ * creature that was just tapped. Bound to the source, the card dealt the
+ * WRONG creature's power to the WRONG player and reported itself understood.
+ * Both pronouns now go through the same gate.
+ */
 function selfSubject(word: string, ctx: BuildCtx): Selector | null {
   const w = word.trim();
   if (w === '~') return { sel: 'self' };
-  if (w === 'it') { ctx.approximate = true; return { sel: 'self' }; }
+  if (w === 'it') return boundIt(ctx);
   return null;
 }
 
@@ -505,6 +601,7 @@ export const EFFECT_RULES: EffectRule[] = [
       if (phrase === '~') return [{ do: 'sacrifice', who, what: { sel: 'self' }, count: 1 }];
       const ref = parseObject(phrase);
       if (!ref || ref.targeted) return null; // you cannot target something you sacrifice
+      if (ref.upTo) return null; // "up to two" is the player's number to pick, not ours
       return [{ do: 'sacrifice', who, what: objectSelector(ref), count: ref.count }];
     },
   },
@@ -540,6 +637,7 @@ export const EFFECT_RULES: EffectRule[] = [
         if (ref.count > 1) spec.distinct = true;
         return [{ do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: { sel: 'target', ref: ctx.addTarget(spec) }, count: ref.count, to }];
       }
+      if (ref.upTo) return null; // an untargeted "up to" is a number the player picks
       return [{ do: 'return-from', zone: 'graveyard', who: { who: 'you' }, what: objectSelector({ ...ref, zone: 'graveyard' }), count: ref.count, to }];
     },
   },
@@ -565,6 +663,11 @@ export const EFFECT_RULES: EffectRule[] = [
     build(m, ctx) {
       const ref = parseObject(m[1]);
       if (!ref || ref.targeted) return null;
+      // "Search your library for up to three artifact cards" lets the searcher
+      // stop at nought, one or two. `count` is a fixed number, so compiling it
+      // would fetch exactly three every time — Disciples of Gix milled three
+      // artifacts off a card that says it may fetch none.
+      if (ref.upTo) return null;
       if (/ reveal /.test(m[0])) ctx.approximate = true;
       const to = m[2] === 'onto the battlefield' ? 'battlefield' : m[2] === 'into your hand' ? 'hand' : 'graveyard';
       const e: Effect = {
@@ -975,6 +1078,21 @@ export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
   const cleaned = body.trim().replace(/[.]+$/, '');
   if (!cleaned) return [];
 
+  /* T2 — withdraw the "it" binding when this body names something else first.
+   *
+   * Saved and restored rather than cleared, because a modal bullet and a nested
+   * "you may …" both come back through here on the same context, and a body that
+   * stole the pronoun must not steal it from its siblings too. */
+  if (ctx.itBinding && !itMayBind(cleaned)) {
+    const saved = ctx.itBinding;
+    ctx.itBinding = undefined;
+    try {
+      return compileEffectBody(cleaned, ctx);
+    } finally {
+      ctx.itBinding = saved;
+    }
+  }
+
   /* E8 — peel "Spend this mana only to …" off the end.
    *
    * It is a property of the mana the rest of the body produced, not a separate
@@ -1015,6 +1133,39 @@ export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
   for (const sentence of cleaned.split(/\.\s+/)) {
     const s = sentence.trim().replace(/[.]+$/, '');
     if (!s) continue;
+
+    /* T2 — "If you do, <effect>" belongs INSIDE the "you may" before it.
+     *
+     * "You may discard a card. If you do, draw a card" arrives here as two
+     * sentences. The first compiles to `{do:'may'}` and the second used to
+     * become a `{do:'manual'}` marker sitting beside it, which made the whole
+     * card SILENT: coverage stopped being 'full', so nothing ran and the player
+     * was never offered the choice at all.
+     *
+     * Folded in, the option carries its consequence. `to-actions.ts` prints a
+     * `may` as "<player> may: <text>" and never takes it automatically, so the
+     * player is offered the whole trade rather than half of it, and the card
+     * lands in PROMPTABLE instead of SILENT. It is NOT counted as automated,
+     * and must not be: the decision is still the player's and no prompt for it
+     * exists yet.
+     *
+     * Only ever attaches to a `may` that is the immediately preceding effect.
+     * "If you do" after anything else names a cost or an event this compiler
+     * has not read, and guessing which one would be inventing the antecedent. */
+    const ifYouDo = s.match(/^if you do,? (.+)$/);
+    const prior = out[out.length - 1];
+    if (ifYouDo && prior && prior.do === 'may') {
+      const consequence = compileEffectPhrase(ifYouDo[1], ctx);
+      if (consequence) {
+        out[out.length - 1] = {
+          ...prior,
+          text: `${prior.text}. ${s}`,
+          effects: [...prior.effects, ...consequence],
+        };
+        continue;
+      }
+    }
+
     const compiled = compileEffectPhrase(s, ctx);
     if (compiled) { out.push(...compiled); continue; }
     out.push(namedManual(s) ?? manual(s));

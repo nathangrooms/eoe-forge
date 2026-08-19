@@ -1,0 +1,1 @@
+import{Q as s}from"./index-DKEGavJ5.js";const r=(t,a)=>{s({title:t,description:a,variant:"default",duration:3e3})},e=(t,a)=>{s({title:t,description:a,variant:"destructive",duration:5e3})};export{r as a,e as s};

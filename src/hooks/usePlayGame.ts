@@ -55,6 +55,16 @@ export interface UsePlayGameOptions {
   /** Delay between bot decisions, so a turn is watchable rather than instant. */
   botSpeedMs?: number;
   aggression?: BotOptions['aggression'];
+  /**
+   * Play through the stack: the bot announces its spells onto it, takes
+   * priority, and counters an opponent's spell when it is holding an answer.
+   *
+   * Off by default because `/simulate` and the tests were written against an
+   * immediate cast, and a spell left on a stack whose priority round nobody
+   * runs is a hung game rather than a more correct one. `/play` turns it on and
+   * runs the round.
+   */
+  useStack?: boolean;
   /** Pause the bot without tearing the table down. */
   botsPaused?: boolean;
 }
@@ -80,7 +90,14 @@ export interface UsePlayGameResult {
 }
 
 export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
-  const { table, humanPlayerId, botSpeedMs = 700, aggression = 'normal', botsPaused } = options;
+  const {
+    table,
+    humanPlayerId,
+    botSpeedMs = 700,
+    aggression = 'normal',
+    botsPaused,
+    useStack = false,
+  } = options;
 
   const [state, setState] = useState<GameState | null>(table ? table.state : null);
   const [transportStatus, setTransportStatus] = useState<TransportStatus>('idle');
@@ -301,7 +318,7 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
       return;
     }
 
-    const botOptions: BotOptions = { aggression, waitForPlayerIds: humanIds };
+    const botOptions: BotOptions = { aggression, waitForPlayerIds: humanIds, useStack };
 
     let actor: PlayerId | null = null;
     let move: BotMove | null = null;
@@ -350,7 +367,7 @@ export function usePlayGame(options: UsePlayGameOptions): UsePlayGameResult {
         botTimerRef.current = null;
       }
     };
-  }, [state, botPlayerIds, botsPaused, botSpeedMs, aggression, humanIds, dispatch, pushFeed]);
+  }, [state, botPlayerIds, botsPaused, botSpeedMs, aggression, useStack, humanIds, dispatch, pushFeed]);
 
   const awaitingHuman = useMemo(() => {
     if (!state || state.status !== 'playing') return false;

@@ -169,19 +169,46 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Cut guides
+ * Bleed and crop marks
+ *
+ * NOTHING HERE TOUCHES A CARD, WHICH IS THE WHOLE CHANGE
+ * -----------------------------------------------------
+ * This used to be one rule: a 0.2 mm grey outline pulled just inside every
+ * slot, so the guide printed on the outermost 0.2 mm of the card itself. On a
+ * black-bordered card that is invisible and the cut removes it anyway. On a
+ * borderless or full-art card, which is the kind of proxy people actually ask
+ * for, it is a grey line across the art, and it survives any cut that lands
+ * even slightly inside the line.
+ *
+ * Now the guides are a black bleed band around the block plus a hairline tick
+ * at each end of every cut line, all of it outside the nine cards. Position and
+ * size are set inline in millimetres from `proxy-geometry.ts`, which is also
+ * what the PDF export draws, so the two outputs cannot put a mark in different
+ * places. This file only says what colour each piece is.
  * ------------------------------------------------------------------ */
 
 /*
- * `outline`, never `border`. A border would add to the box and push every card
- * after it out of position — 0.2 mm per edge compounds to over a millimetre by
- * the third column, which is exactly the drift this file exists to avoid.
- * Outline is painted outside the layout, and the negative offset pulls it
- * inside the slot so it lands on the card's own black frame.
+ * The bleed. Solid black, 1.5 mm proud of the block on every side, sitting
+ * under the cards. The cards cover all but that outer 1.5 mm, which is the part
+ * that stops a slightly wide cut leaving a white sliver down the edge of a
+ * card. Inside cuts never needed it: they are shared with the next card, so a
+ * miss there gains the neighbour's own black border.
  */
-.proxy-sheet--guides .proxy-slot:not(.proxy-slot--empty) {
-  outline: 0.2mm solid #9a9a9a;
-  outline-offset: -0.2mm;
+.proxy-bleed {
+  background: #000;
+}
+
+/*
+ * A crop mark crosses two backgrounds, so it is drawn in two pieces: white
+ * where it lies on the bleed, grey where it lies on bare paper. One colour
+ * would vanish on one side or the other.
+ */
+.proxy-mark--on-bleed {
+  background: #fff;
+}
+
+.proxy-mark--on-paper {
+  background: #8a8a8a;
 }
 
 /* ------------------------------------------------------------------ *
@@ -286,11 +313,15 @@
   }
 
   /* Card art is the entire deliverable; never let a browser drop it to save
-     ink, and never let a dark app theme tint the paper. */
+     ink, and never let a dark app theme tint the paper. The bleed and the marks
+     are on the list for the same reason: a browser that decides a black
+     background is decoration would print the sheet with no bleed at all. */
   .proxy-sheet,
   .proxy-page,
   .proxy-slot,
-  .proxy-slot__img {
+  .proxy-slot__img,
+  .proxy-bleed,
+  .proxy-mark {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

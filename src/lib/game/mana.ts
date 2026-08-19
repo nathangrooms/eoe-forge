@@ -14,13 +14,14 @@
  *     lands whose identity exceeds what they tap for.
  *   - A land with an empty identity (Wastes, most utility lands) produces one
  *     colourless mana, which pays generic and {C} but no coloured pip.
- *   - Mana rocks and dorks are included when their type line is Artifact or
- *     Creature and their oracle-free proxy — colour identity — is non-empty;
- *     an untapped Sol Ring is *not* counted as two, because this module has no
- *     oracle text to read.
+ *   - A non-land permanent is a mana source only when its own rules text says
+ *     it adds mana. See `producedFromOracle` below for why that replaced the
+ *     colour-identity proxy, and what it cost when it did not.
+ *   - One mana per source. An untapped Sol Ring is counted as one, not two,
+ *     which under-counts a fast start and never over-counts one.
  *
  * What it does not model: filter lands, cost reduction, additional costs,
- * alternative costs, X (treated as 0), and any ability that needs oracle text.
+ * alternative costs, X (treated as 0), and any cost that is not a mana cost.
  *
  * The assignment itself is exact rather than greedy — a maximum bipartite
  * matching between coloured pips and sources. Greedy gets it wrong on a real
@@ -122,6 +123,35 @@ export function parseCost(cost: string | null | undefined): ParsedCost {
   };
 }
 
+/**
+ * The cost string this card is actually charged.
+ *
+ * Normally that is the printed `manaCost`. It is not always there: Scryfall
+ * stores no top-level `mana_cost` for a double-faced card, because the cost
+ * belongs to a face, and our own `cards` table holds 802 rows in that shape.
+ * `parseCost(undefined)` reads nothing, `planPayment` charges nothing, and the
+ * spell is free — which is the owner's report, verbatim: *"just played against
+ * an enemy and they placed a 5 mana card on first turn doesnt make any sense."*
+ * The bot was not cheating. The engine believed the cost was zero.
+ *
+ * So when the parsed cost comes to nothing and the card still has a mana value,
+ * the mana value is charged as generic. That is not the real cost — it loses
+ * the colour requirement, so it is more permissive than the card — but it is
+ * the difference between a five-drop costing five and a five-drop costing
+ * nothing, which is the whole complaint.
+ *
+ * A card whose mana value is genuinely zero keeps costing zero. Lands never
+ * reach here; `planCastFromHand` refuses them before this is asked.
+ */
+export function castingCostOf(card: CardInstance | null | undefined): string {
+  if (!card) return '';
+  const printed = card.manaCost ?? '';
+  if (parseCost(printed).total > 0) return printed;
+  const value = Math.max(0, Math.round(card.cmc ?? 0));
+  if (value === 0) return printed;
+  return `{${value}}`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Sources                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -161,16 +191,69 @@ export function resolvesToGraveyard(card: CardInstance | null | undefined): bool
   return line.includes('instant') || line.includes('sorcery');
 }
 
-function producedColors(card: CardInstance): ManaColor[] {
+function identityColors(card: CardInstance): ManaColor[] {
   const identity = card.colorIdentity ?? [];
   return identity.filter((c): c is ManaColor => (COLORS as string[]).includes(c));
 }
 
 /**
+ * What a permanent's own rules text says it adds, or null when it says nothing
+ * about mana at all.
+ *
+ * This replaced "a non-land permanent with a colour identity is a mana rock",
+ * which sounds reasonable and is catastrophic in both directions:
+ *
+ *   - **Every green creature was a Llanowar Elves.** Measured by driving a real
+ *     game: on turn ten, holding five Forests and four Grizzly Bears, the bot
+ *     reported nine untapped sources and deployed a five-drop it could not
+ *     remotely afford. Its whole curve came from bodies that tap for nothing.
+ *   - **Every colourless rock produced nothing.** Sol Ring, Arcane Signet, Mind
+ *     Stone and Mana Crypt all have an empty colour identity, because colour
+ *     identity is about deck legality rather than mana. The most played card in
+ *     the format was scenery.
+ *
+ * Reading the text is the card saying what it does. The same approximation
+ * `src/lib/play/deckSource.ts` makes for lands is made here: a conditional
+ * source is counted as though its condition is met, because erring towards
+ * castable is the right side to err on. A card with no oracle text loaded is
+ * not a source, which is the safe answer rather than a guess.
+ */
+function producedFromOracle(oracle: string | undefined): ManaColor[] | null {
+  if (!oracle) return null;
+
+  const produced = new Set<ManaColor>();
+  let addsMana = false;
+
+  for (const match of oracle.matchAll(/\badds?\b([^.;\n]*)/gi)) {
+    const clause = match[1] ?? '';
+
+    if (/any\s+(?:one\s+)?colou?r|any\s+type|any\s+combination\s+of\s+colou?rs/i.test(clause)) {
+      addsMana = true;
+      for (const color of COLORS) produced.add(color);
+      continue;
+    }
+
+    for (const symbol of clause.matchAll(/\{([WUBRGC])\}/g)) {
+      addsMana = true;
+      // {C} is mana, and it is not a colour. A source that makes only {C} pays
+      // generic and {C}, which is exactly an empty `produces` list.
+      const code = symbol[1] as ManaColor | 'C';
+      if (code !== 'C') produced.add(code as ManaColor);
+    }
+  }
+
+  if (!addsMana) return null;
+  return COLORS.filter(color => produced.has(color));
+}
+
+/**
  * Untapped permanents a player controls that this module is willing to call a
- * mana source: every land, plus artifacts and creatures with a colour identity
- * (rocks and dorks). Summoning-sick creatures are excluded — a mana dork that
- * just landed cannot tap.
+ * mana source.
+ *
+ * Every land, because a land that taps for nothing is rare enough that
+ * refusing all of them would be worse. Plus any other permanent whose rules
+ * text says it adds mana. Summoning-sick creatures are excluded — a mana dork
+ * that just landed cannot tap.
  */
 export function manaSourcesFor(state: GameState, playerId: PlayerId): ManaSource[] {
   const player = state.players.find(p => p.id === playerId);
@@ -183,17 +266,31 @@ export function manaSourcesFor(state: GameState, playerId: PlayerId): ManaSource
 
     const line = (card.typeLine ?? '').toLowerCase();
     const land = line.includes('land');
-    const rock = !land && (line.includes('artifact') || line.includes('creature'));
 
-    if (!land && !rock) continue;
-    if (rock && card.summoningSick && line.includes('creature')) continue;
-    if (rock && producedColors(card).length === 0) continue;
+    if (land) {
+      /* A land's produced colours are rewritten from its oracle text upstream,
+         in `deckSource.playIdentityOf`, because that is where the deck's own
+         colour identity is known and Command Tower needs it. Reading the text
+         again here would be a second, worse copy of that decision. */
+      sources.push({
+        instanceId: card.instanceId,
+        name: card.name,
+        produces: identityColors(card),
+        isLand: true,
+      });
+      continue;
+    }
+
+    if (card.summoningSick && line.includes('creature')) continue;
+
+    const produced = producedFromOracle(card.oracleText);
+    if (produced === null) continue;
 
     sources.push({
       instanceId: card.instanceId,
       name: card.name,
-      produces: producedColors(card),
-      isLand: land,
+      produces: produced,
+      isLand: false,
     });
   }
   return sources;
@@ -341,7 +438,7 @@ export function planCast(
   playerId: PlayerId,
   card: CardInstance
 ): PaymentPlan {
-  return planPayment(card.manaCost, manaSourcesFor(state, playerId));
+  return planPayment(castingCostOf(card), manaSourcesFor(state, playerId));
 }
 
 /** Untapped mana available to a player, for the HUD. */

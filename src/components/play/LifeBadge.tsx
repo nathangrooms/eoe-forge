@@ -15,15 +15,25 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export type LifeBadgeSize = 'sm' | 'md' | 'lg';
+export type LifeBadgeSize = 'xs' | 'sm' | 'md' | 'lg';
 
-const RING: Record<LifeBadgeSize, number> = { sm: 52, md: 70, lg: 92 };
+/**
+ * `xs` exists for one measured reason: a seat's identity band is a fraction of
+ * the mat's height, and on a four-seat table at 1280x800 that band is 37px
+ * while the smallest badge was 52. The badge sat 15px proud of the band it was
+ * supposed to be inside, which reads as a broken box rather than as a token on
+ * the mat. Raising the band to fit a 52px ring instead would have cost that
+ * seat's cards about 10% of their width, which is the wrong end of the trade on
+ * the screen that has the least room.
+ */
+const RING: Record<LifeBadgeSize, number> = { xs: 38, sm: 52, md: 70, lg: 92 };
 const NUMBER: Record<LifeBadgeSize, string> = {
+  xs: 'text-sm',
   sm: 'text-lg',
   md: 'text-2xl',
   lg: 'text-4xl',
 };
-const PIP: Record<LifeBadgeSize, number> = { sm: 17, md: 20, lg: 24 };
+const PIP: Record<LifeBadgeSize, number> = { xs: 14, sm: 17, md: 20, lg: 24 };
 
 export interface CommanderDamagePip {
   id: string;

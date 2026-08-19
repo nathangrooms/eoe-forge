@@ -1,0 +1,1 @@
+const l=["0-1","2","3","4","5","6-7","8-9","10+"],u={"0-1":.5,2:2,3:3,4:4,5:5,"6-7":6.5,"8-9":8.5,"10+":10};function f(t){return l.map(n=>({bin:n,count:Number((t==null?void 0:t[n])??0)}))}function m(t,n=0){const o=f(t),a=Math.max(o[0].count-n,0);let c=a*u["0-1"],e=a;for(const{bin:s,count:r}of o.slice(1))c+=u[s]*r,e+=r;return e>0?c/e:0}export{m as a,f as n};

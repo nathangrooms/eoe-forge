@@ -78,10 +78,13 @@ function HomeFooter() {
     // Borderless (design law 2). The tinted closing section above is the step
     // that separates the footer; a hairline here would be the third one on the
     // page and the owner has asked for none.
-    <footer className="bg-background py-14">
+    <footer className="bg-background py-10 sm:py-14">
       <SectionInner>
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
+        {/* Two columns on a phone, not one. Four groups of links stacked is
+            ~700px of footer at 390px; paired, it is half that and the link rows
+            are still full-width tap targets. */}
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-2 sm:gap-10 lg:grid-cols-4">
+          <div className="col-span-2 sm:col-span-1">
             <p className="font-semibold">DeckMatrix</p>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               A deck builder and collection manager for Magic: The Gathering.
@@ -91,12 +94,15 @@ function HomeFooter() {
           {groups.map(g => (
             <div key={g.heading}>
               <p className="text-sm font-medium">{g.heading}</p>
-              <ul className="mt-3 space-y-2">
+              {/* space-y-1 plus py-1 on the link, rather than space-y-2 on
+                  the row: the gap becomes part of the target instead of dead
+                  space between two 19px ones. */}
+              <ul className="mt-3 space-y-1 sm:space-y-2">
                 {g.links.map(l => (
                   <li key={l.to}>
                     <Link
                       to={l.to}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="block py-3 text-sm text-muted-foreground transition-colors hover:text-foreground sm:py-0"
                     >
                       {l.label}
                     </Link>
@@ -107,7 +113,7 @@ function HomeFooter() {
           ))}
         </div>
 
-        <div className="mt-12">
+        <div className="mt-9 sm:mt-12">
           <p className="text-xs leading-relaxed text-muted-foreground">
             Card data from{' '}
             <a

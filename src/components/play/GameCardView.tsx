@@ -19,13 +19,14 @@
 
 import { memo, type CSSProperties, type MouseEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus } from 'lucide-react';
+import { RotateCcw, RotateCw, Hourglass, Zap, Swords, Shield, ShieldPlus, Hand } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ManaCost } from '@/components/ui/mana-cost';
 import { CardImage } from '@/components/cards/CardImage';
 import { CardBack, CARD_RADIUS } from './CardBack';
 import { CARD_RATIO } from './Battlefield';
 import {
+  automationFor,
   statLine,
   statLineIn,
   isLand,
@@ -145,6 +146,17 @@ export interface GameCardViewProps {
   combat?: CombatChipProps | null;
   /** Combat standing. Shown with elevation and a label, never an outline. */
   role?: 'attacker' | 'blocker' | 'target' | null;
+  /**
+   * Who this creature is hitting, or what it is standing in front of.
+   *
+   * Owner: *"attacking and blocking doesn't seem very clear at all"*. An
+   * attacker used to be drawn lifted and scaled with its power over it, and
+   * that was the whole record on the board of who it was attacking — with four
+   * creatures pointed at four different seats, which is the normal shape of a
+   * Commander game, the board could not answer the question at all. Computed by
+   * `combatMarkFor` in `seatCombat.ts`, which is tested.
+   */
+  combatNote?: { role: 'attacker' | 'blocker'; text: string; detail: string } | null;
   /** Push toward the defending seat while attacking. */
   lunge?: Lunge | null;
   onClick?: () => void;
@@ -206,6 +218,7 @@ export const GameCardView = memo(function GameCardView({
   onTap,
   combat,
   role,
+  combatNote = null,
   lunge,
   onClick,
   onDoubleClick,
@@ -294,6 +307,28 @@ export const GameCardView = memo(function GameCardView({
 
   const counters = Object.entries(card.counters).filter(([, value]) => value !== 0);
   const damage = card.damage;
+
+  /*
+   * "This one is your job."
+   *
+   * `automationFor(card).needsManual` has been computed correctly, and
+   * correctly, for a long time, and no component had ever rendered it. That is
+   * the exact shape of the owner's Aether Vial report: the engine knows the
+   * card has an upkeep trigger it will not run, it marks the card as needing a
+   * human, and the board says nothing. From the player's seat an ability the
+   * app can see and silently declines is indistinguishable from a broken
+   * engine.
+   *
+   * Battlefield only. Measured over the catalogue, 95.7% of cards carry text
+   * this engine does not resolve, so marking every card in every zone would
+   * mark everything and therefore mark nothing. A permanent in play is where
+   * the ability is actually going off and where the player can act on it, and
+   * the preview carries the full account for any card in any zone.
+   *
+   * `automationFor` is memoised per card object in `effects.ts`, so a board of
+   * 120 permanents pays for its regexes once each rather than once per render.
+   */
+  const needsManual = onBattlefield && !hidden && automationFor(card).needsManual;
 
   /*
    * The stat line comes from the layer engine, not from the card.
@@ -592,10 +627,33 @@ export const GameCardView = memo(function GameCardView({
         </span>
       )}
 
+      {/* Quiet on purpose. It sits in the corner the sickness mark does not
+          use, it is a whisper rather than a warning, and it never covers the
+          rules text — it is a standing reminder that this permanent has a job
+          the engine will not do, not an alarm. Clicking the card opens the
+          preview, where the by-hand controls live. */}
+      {needsManual && (
+        <span
+          className="pointer-events-none absolute z-10 flex items-center justify-center rounded-full bg-background/85 text-muted-foreground shadow-md shadow-black/50 backdrop-blur-sm"
+          style={{
+            width: chip * 0.68,
+            height: chip * 0.68,
+            right: -Math.round(chip * 0.16),
+            top: -Math.round(chip * 0.16),
+          }}
+          title={`${card.name} has rules text this app does not resolve for you. Click the card to add counters, flag keywords or move it, and resolve it yourself.`}
+          aria-label="Resolve by hand"
+        >
+          <Hand style={{ width: chip * 0.36, height: chip * 0.36 }} strokeWidth={2.5} />
+        </span>
+      )}
+
       {(role === 'attacker' || role === 'blocker') && (
         <span
+          /* Left, for the same reason the note below is: a crowded row hides
+             the right of every card under the next one. */
           className={cn(
-            'pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full px-1.5 text-[9px] font-semibold leading-4 shadow-md shadow-black/60',
+            'pointer-events-none absolute -top-2 left-0 z-10 rounded-full px-1.5 text-[9px] font-semibold leading-4 shadow-md shadow-black/60',
             role === 'attacker'
               ? 'bg-foreground text-background'
               : 'bg-background/90 text-foreground backdrop-blur-sm'
@@ -604,6 +662,32 @@ export const GameCardView = memo(function GameCardView({
           {/* A middle dot, not an em-dash: the copy rule covers every glyph
               that lands on screen, placeholders included. */}
           {stats ?? '·'}
+        </span>
+      )}
+
+      {/*
+        Who it is hitting, or what it is holding.
+
+        Under the card rather than over it, so it never lands on the art or the
+        rules text, and anchored to the LEFT rather than centred. That is not a
+        style choice: `PermanentRow` gives each card `zIndex: index`, so a
+        crowded row hides the RIGHT of every card under the one after it and the
+        only strip that stays visible is the left edge. A centred label on a
+        row of seven attackers is a label nobody can read, which is the failure
+        this whole mark exists to fix.
+      */}
+      {combatNote && renderedWidth >= 52 && (
+        <span
+          title={combatNote.detail}
+          aria-label={combatNote.detail}
+          className={cn(
+            'pointer-events-none absolute -bottom-1.5 left-0 z-20 max-w-full truncate rounded-full px-1.5 text-[9px] font-semibold leading-4 shadow-md shadow-black/60',
+            combatNote.role === 'attacker'
+              ? 'bg-destructive text-destructive-foreground'
+              : 'bg-background/95 text-foreground backdrop-blur-sm'
+          )}
+        >
+          {combatNote.text}
         </span>
       )}
     </div>

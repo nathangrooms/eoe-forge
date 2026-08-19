@@ -22,6 +22,8 @@
 
 import type {
   CardFilter,
+  Cmp,
+  Condition,
   Duration,
   ManaColor,
   ManaSpendRestriction,
@@ -169,6 +171,23 @@ const SUPERTYPES: readonly string[] = ['basic', 'legendary', 'snow', 'world'];
 /**
  * Derived from the catalogue: every subtype word on three or more rows, minus
  * `SUBTYPE_BLOCKLIST`. Regenerating it is a data question, not a memory one.
+ *
+ * T2 — `scripts/subtype-vocabulary.mjs` asks that question against the cached
+ * bulk file, and asking it turned up a systematic hole rather than a few typos.
+ * The list was derived from the CARD pool, and a token has no card: "Saproling",
+ * "Inkling", "Mite" and "Eldrazi Spawn" exist only on token rows, which the
+ * census discards before it counts anything. So the vocabulary could never have
+ * contained them, while 82 pool cards say "create a 1/1 green Saproling creature
+ * token" and were refused for want of the word — `parseObject` rejects any
+ * phrase carrying a word it cannot place, so one missing subtype refuses the
+ * whole rule and every card that uses it goes SILENT.
+ *
+ * The last group below is that correction. Each word was measured by the cards
+ * it blocks in a token descriptor or a filter phrase, NOT by how often it
+ * appears, because "time" is a subtype on thirty rows and blocks nothing while
+ * "saproling" is on nine and blocks eighty-two. Words that are also ordinary
+ * English were left out and belong in `SUBTYPE_BLOCKLIST` instead; so were the
+ * planeswalker and plane names, which are genuine subtypes and block no card.
  */
 const SUBTYPES_RAW: readonly string[] = [
   'human', 'aura', 'warrior', 'wizard', 'soldier', 'spirit', 'elf', 'elemental',
@@ -209,6 +228,11 @@ const SUBTYPES_RAW: readonly string[] = [
   'nautilus', 'lobster', 'armadillo', 'hedgehog', 'porcupine', 'cockatrice',
   'possum', 'gnoll', 'lammasu', 'brainiac', 'beaver', 'wombat', 'blood',
   'incubator', 'map', 'powerstone', 'junk', 'gold', 'contraption',
+
+  // T2 — token-only subtypes, which no card-derived list can reach.
+  'saproling', 'role', 'spawn', 'army', 'inkling', 'mite', 'servo',
+  'bobblehead', 'spacecraft', 'glimmer', 'dalek', 'cartouche',
+  'assembly-worker', 'moogle', 'hamster', 'klingon', 'snail', 'varmint',
 ];
 
 /**
@@ -237,6 +261,11 @@ export function isSubtypeWord(word: string): boolean {
 
 /** Irregular plurals oracle text actually uses. `s`-stripping handles the rest. */
 const PLURALS: Record<string, string> = {
+  // "Plains" is singular AND plural, and the `s`-stripping fallback turned it
+  // into "plain", which is not a subtype — so "as long as you control a Plains"
+  // and every other phrase naming the land refused. Mapping it to itself is the
+  // whole fix.
+  plains: 'plains',
   elves: 'elf', dwarves: 'dwarf', wolves: 'wolf', werewolves: 'werewolf',
   thieves: 'thief', leaves: 'leaf', fungi: 'fungus', mice: 'mouse',
   oxen: 'ox', foxes: 'fox', boxes: 'box', witches: 'witch',
@@ -323,6 +352,8 @@ export function parseObject(input: string): ObjectRef | null {
   let upTo = false;
   let targeted = false;
   let each = false;
+  /** T3. The phrase stated a number above one, so it can never mean "all". */
+  let countBounded = false;
   const extra: CardFilter[] = [];
 
   // Zone, then controller. Zone first: "creature card in your graveyard" carries
@@ -369,7 +400,13 @@ export function parseObject(input: string): ObjectRef | null {
       const n = parseCount(numMatch[1]);
       if (n === null) return null;
       count = n;
-      if (typeof n === 'number' && n > 1) each = false;
+      // T3. A stated number is BOUNDED, and nothing later in this function may
+      // talk it back into "every match". Clearing `each` here was not enough:
+      // "two creatures you control" strips to the head noun "creatures", the
+      // plural check below sees the `s` and sets `each` again, and the phrase
+      // ends up meaning every creature its controller has. `countBounded` is
+      // sticky and is applied last, in `finish`.
+      if (typeof n === 'number' && n > 1) { each = false; countBounded = true; }
       s = s.slice(numMatch[0].length);
     }
   }
@@ -436,6 +473,13 @@ export function parseObject(input: string): ObjectRef | null {
   // "creature card" / "land card" — an object outside the battlefield.
   let isCard = false;
   if (/ cards?$/.test(s)) {
+    // T3. The plural lives on "cards", and stripping the word threw it away.
+    // "land cards in your graveyard" reported `each: false` while "lands you
+    // control" reported `each: true`, so `parseValueExpr` refused every "the
+    // number of X cards in your graveyard" in the pool — threshold counts,
+    // delirium counts, and every Lhurgoyf-shaped creature. The bare "cards"
+    // branch below already did this; the qualified one did not.
+    if (/ cards$/.test(s)) each = true;
     s = s.replace(/ cards?$/, '');
     isCard = true;
   } else if (s === 'card' || s === 'cards') {
@@ -479,7 +523,7 @@ export function parseObject(input: string): ObjectRef | null {
 
   function finish(head: CardFilter, card: boolean): ObjectRef {
     const filter = extra.length ? andF(head, ...extra) : head;
-    const ref: ObjectRef = { filter, isCard: card, count, upTo, targeted, each };
+    const ref: ObjectRef = { filter, isCard: card, count, upTo, targeted, each: countBounded ? false : each };
     if (controller) ref.controller = controller;
     if (zone) ref.zone = zone;
     return ref;
@@ -616,6 +660,25 @@ export function parseValueExpr(input: string): ValueExpr | null {
 
   for (const [re, who] of PLAYER_GROUP_COUNTS) if (re.test(what)) return { v: 'count-players', of: who };
 
+  /* T3 — counters on the source. A PARITY GAP, not a new idea:
+   * `parseForEachValue` has read "for each +1/+1 counter on ~" since it was
+   * written and this function never learned the same phrase, so
+   * "~ gets +1/+0 for each charge counter on ~" compiled and
+   * "~'s power is equal to the number of charge counters on ~" did not. Ranked
+   * over the pool by `scratch/t3phrases2.mjs`, the counter shapes are the
+   * largest single refusal in "the number of …": +1/+1 (22 uses on `~`, 17 on
+   * "it"), charge (17), verse (11), time (5), and a bare "counters on ~" (6).
+   *
+   * The subject list is `~` and `it` and nothing else, matching
+   * `parseForEachValue` exactly. "The number of +1/+1 counters on that
+   * creature" names a permanent an earlier sentence bound, and counting the
+   * source's counters instead would be a confident wrong number. */
+  const countersOnSelf = what.match(/^(\+\d+\/\+\d+|-\d+\/-\d+|[a-z]+) counters on (?:~|it)$/);
+  if (countersOnSelf) return { v: 'counters', of: { sel: 'self' }, counter: countersOnSelf[1] };
+  /* "The number of counters on ~" with no kind named. `Effect` and `ValueExpr`
+   * both key a counter by its NAME, and there is no "any kind" wildcard, so
+   * this one is refused rather than answered with the +1/+1 count. */
+
   const ref = parseObject(what);
   if (!ref) return null;
   // "The number of TARGET creatures" is not a thing, and a bound count phrase
@@ -641,6 +704,14 @@ export function parseForEachValue(input: string): ValueExpr | null {
     // "for each opponent" is singular where "the number of opponents" is plural.
     if (re.test(s) || re.test(s + 's')) return { v: 'count-players', of: who };
   }
+
+  // "for each oil counter on it" / "for each +1/+1 counter on ~". The counter
+  // lives on the SOURCE, and `{sel:'self'}` is the only subject this can name:
+  // "on that creature" is bound by an earlier sentence and is refused, exactly
+  // as `parseValueExpr` refuses "its power".
+  const onSelf = s.match(/^(\+\d+\/\+\d+|-\d+\/-\d+|[a-z]+) counters? on (?:~|it)$/);
+  if (onSelf) return { v: 'counters', of: { sel: 'self' }, counter: onSelf[1] };
+
   const ref = parseObject(s);
   if (!ref || ref.targeted) return null;
   // Unlike "the number of …", the plural check is NOT applied here. "For each"
@@ -742,6 +813,171 @@ export function parseWatchValue(input: string): ValueExpr | null {
 
   /* "tokens you created this turn". */
   if (/^tokens you created$/.test(body)) return watch({ saw: 'token-created', by: YOU }, 'amount');
+
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Conditions — "as long as …", "during your turn"
+ *
+ * A continuous effect that only sometimes applies is not a different kind of
+ * ability; it is an ordinary static ability with a `condition`, and
+ * `scanStatics` already asks that condition before it hands the effect to the
+ * layer engine. So the whole of "as long as" is a phrase parser, and it lands in
+ * this file beside the other four fragments for the same reason they are here:
+ * one condition table, and every static rule composes with it for free.
+ *
+ * ## What is refused, and why the refusals are the interesting half
+ *
+ * Three shapes are common in the catalogue and all three come back `null`:
+ *
+ *   "as long as ~ is untapped"      — a fact about the SOURCE's own state.
+ *                                     `Condition` has no member that reads it,
+ *                                     and `{if:'count', of:{sel:'all', where:
+ *                                     {is:'untapped'}}}` counts every untapped
+ *                                     permanent on the table instead.
+ *   "as long as you gained life
+ *    this turn"                     — turn history. It would compile to
+ *                                     `{v:'watch'}`, which evaluates to 0 with
+ *                                     no log to fold, and 0 here reads as "the
+ *                                     ability is switched off" — a wrong answer
+ *                                     wearing the clothes of a quiet one.
+ *   "as long as your devotion to
+ *    blue is less than five"        — devotion is not in the value vocabulary.
+ *
+ * Each of those is a `null`, which the caller turns into a counted gap. None of
+ * them is approximated, because an anthem that silently never switches on and
+ * an anthem that silently never switches off are both worse than an anthem the
+ * report says is missing.
+ * ------------------------------------------------------------------ */
+
+const YOU_PLAYER: PlayerSelector = { who: 'you' };
+
+/** "three or more" / "one or fewer" / "no" / "exactly two" -> a bound. */
+function parseBound(phrase: string): { cmp: Cmp; value: ValueExpr; rest: string } | null {
+  const s = phrase.trim();
+
+  const noneOf = s.match(/^no (.+)$/);
+  if (noneOf) return { cmp: 'eq', value: 0, rest: noneOf[1] };
+
+  const exactly = s.match(new RegExp(`^exactly (${NUM}) (.+)$`));
+  if (exactly) {
+    const n = parseCount(exactly[1]);
+    return n === null ? null : { cmp: 'eq', value: n, rest: exactly[2] };
+  }
+
+  const bounded = s.match(new RegExp(`^(${NUM}) or (more|greater|fewer|less) (.+)$`));
+  if (bounded) {
+    const n = parseCount(bounded[1]);
+    if (n === null) return null;
+    const cmp: Cmp = bounded[2] === 'more' || bounded[2] === 'greater' ? 'gte' : 'lte';
+    return { cmp, value: n, rest: bounded[3] };
+  }
+
+  // No quantifier at all: "you control an artifact" means one or more.
+  return { cmp: 'gte', value: 1, rest: s };
+}
+
+/** Zone phrases a condition may count cards in. Only the ones a player owns. */
+const CONDITION_ZONES: Array<[RegExp, Zone]> = [
+  [/^in your graveyard$/, 'graveyard'],
+  [/^in your hand$/, 'hand'],
+  [/^in hand$/, 'hand'],
+];
+
+/**
+ * An "as long as …" phrase -> a `Condition`, or `null` to refuse.
+ *
+ * Reads the shapes the catalogue actually writes most often:
+ *
+ *   "you control an artifact"                     -> controls, one or more
+ *   "you control three or more artifacts"         -> controls, bounded
+ *   "you control no untapped lands"               -> controls, zero
+ *   "there are seven or more cards in your
+ *    graveyard"                                   -> cards-in graveyard
+ *   "you have one or fewer cards in hand"         -> cards-in hand
+ *   "you have 25 or more life"                    -> life total
+ *   "it's your turn"                              -> your-turn
+ */
+export function parseCondition(input: string): Condition | null {
+  const s = input.trim().toLowerCase().replace(/[.,]+$/, '');
+  if (!s) return null;
+
+  if (/^(its|it is) your turn$/.test(s)) return { if: 'your-turn' };
+
+  /* "you have 25 or more life". */
+  const life = s.match(new RegExp(`^you have (${NUM}) or (more|greater|fewer|less) life$`));
+  if (life) {
+    const n = parseCount(life[1]);
+    if (n === null) return null;
+    const cmp: Cmp = life[2] === 'more' || life[2] === 'greater' ? 'gte' : 'lte';
+    return { if: 'value', a: { v: 'life', of: YOU_PLAYER }, cmp, b: n };
+  }
+
+  /* "you have no cards in hand", "you have one or fewer cards in hand". */
+  const have = s.match(/^you have (.+)$/);
+  if (have) {
+    const bound = parseBound(have[1]);
+    if (bound) {
+      const zoned = bound.rest.match(/^cards? (in .+)$/);
+      if (zoned) {
+        for (const [re, zone] of CONDITION_ZONES) {
+          if (re.test(zoned[1])) {
+            return { if: 'value', a: { v: 'cards-in', zone, of: YOU_PLAYER }, cmp: bound.cmp, b: bound.value };
+          }
+        }
+      }
+    }
+    // Anything else after "you have" is a keyword-counter or a designation
+    // ("an enduring story", "the initiative"), none of which is in the value
+    // vocabulary. Refused rather than guessed.
+    return null;
+  }
+
+  /* "there are seven or more cards in your graveyard" and its typed cousin
+     "there are four or more permanent cards in your graveyard". */
+  const thereAre = s.match(/^there (?:are|is) (.+)$/);
+  if (thereAre) {
+    const bound = parseBound(thereAre[1]);
+    if (!bound) return null;
+    const bare = bound.rest.match(/^cards? (in .+)$/);
+    if (bare) {
+      for (const [re, zone] of CONDITION_ZONES) {
+        if (re.test(bare[1])) {
+          return { if: 'value', a: { v: 'cards-in', zone, of: YOU_PLAYER }, cmp: bound.cmp, b: bound.value };
+        }
+      }
+      return null;
+    }
+    // A typed phrase — `parseObject` owns the zone suffix, so it reads
+    // "permanent cards in your graveyard" whole.
+    const ref = parseObject(bound.rest);
+    if (!ref || ref.targeted || !ref.zone) return null;
+    return { if: 'count', of: objectSelector(ref), cmp: bound.cmp, value: bound.value };
+  }
+
+  /* "<player> control(s) <object>". The controller is stated by the sentence,
+     never inferred: "an opponent controls an artifact" and "you control an
+     artifact" switch opposite abilities on. */
+  const controls = s.match(/^(you|an opponent|each opponent|your opponents|a player|each player) controls? (.+)$/);
+  if (controls) {
+    const who: PlayerSelector | null =
+      controls[1] === 'you' ? { who: 'you' }
+      : controls[1] === 'a player' || controls[1] === 'each player' ? { who: 'each-player' }
+      : { who: 'each-opponent' };
+    const bound = parseBound(controls[2]);
+    if (!bound) return null;
+    const ref = parseObject(bound.rest);
+    // A zone phrase inside "controls" is not a thing anyone controls, and a
+    // targeted phrase is not a continuous condition.
+    if (!ref || ref.targeted || (ref.zone && ref.zone !== 'battlefield')) return null;
+    // "you control another creature" is about the source's peers; `{is:'other'}`
+    // is resolved against the source and `{if:'controls'}` has no source to
+    // compare against, so it would count the source itself. Refused.
+    if (JSON.stringify(ref.filter).includes('"other"')) return null;
+    if (ref.controller) return null; // "you control creatures you control" is not a sentence
+    return { if: 'controls', who, what: ref.filter, cmp: bound.cmp, value: bound.value };
+  }
 
   return null;
 }

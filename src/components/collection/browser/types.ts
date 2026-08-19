@@ -274,6 +274,23 @@ export function formatPrice(value: number | null | undefined, currency = 'USD'):
   }).format(n);
 }
 
+/**
+ * Money, or plain words when there is no price to show.
+ *
+ * `formatPrice` coerces null and NaN to 0 and prints "$0.00", which claims the
+ * card is worthless. It cannot be a real price either: measured across all
+ * 52,130 rows of `cards`, the smallest stored `usd` is 0.01 and there is not a
+ * single zero, so a zero reaching this function always means "we do not have
+ * this price". Say that instead. See `src/lib/pricing` for the full model.
+ */
+export function formatPriceOrUnknown(
+  value: number | null | undefined,
+  currency = 'USD'
+): string {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? formatPrice(n, currency) : 'No price';
+}
+
 /** Compact form for stat tiles: $12.3k. */
 export function formatPriceCompact(value: number | null | undefined, currency = 'USD'): string {
   const n = Number.isFinite(Number(value)) ? Number(value) : 0;

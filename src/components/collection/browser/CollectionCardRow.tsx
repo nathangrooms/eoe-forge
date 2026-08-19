@@ -10,7 +10,13 @@ import { ColorIdentity, ManaCost } from '@/components/ui/mana-cost';
 import { Minus, MoreHorizontal, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardImage } from '@/components/cards';
-import { copiesOf, formatPrice, imageCardOf, valueOf, type BrowserCard } from './types';
+import {
+  copiesOf,
+  formatPriceOrUnknown,
+  imageCardOf,
+  valueOf,
+  type BrowserCard,
+} from './types';
 import type { BrowserAction } from './actions';
 
 interface RowProps {
@@ -91,10 +97,10 @@ export function CollectionCardRow({
       <div className="flex shrink-0 items-center gap-3">
         <div className="text-right">
           <div className="text-sm font-medium tabular-nums text-foreground">
-            {formatPrice(valueOf(card))}
+            {formatPriceOrUnknown(valueOf(card))}
           </div>
           <div className="text-xs tabular-nums text-muted-foreground">
-            {copiesOf(card)} × {formatPrice(card.unitPrice)}
+            {copiesOf(card)} × {formatPriceOrUnknown(card.unitPrice)}
             {card.foil > 0 && (
               <span className="ml-1 inline-flex items-center" title={`${card.foil} foil`}>
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
@@ -139,7 +145,26 @@ export function CollectionCardRow({
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="border-0">
+            <DropdownMenuContent
+              align="end"
+              className="border-0"
+              /*
+               * A menu's clicks are the MENU's, and stop here.
+               *
+               * Radix renders this content through `createPortal`, and a React
+               * portal keeps REACT-tree propagation even though the DOM node
+               * lives under `document.body`. So a click on "Remove one copy"
+               * bubbled up the React tree into the card's own `onClick` and
+               * navigated to the card page: the action ran AND you were thrown
+               * onto another screen. Measured in a browser, not reasoned about.
+               *
+               * This is the other half of the owner's report that storage
+               * "often also goes to card page instead of adding properly" — it
+               * was not only the search picker, it was every action menu on
+               * every card in the collection browser.
+               */
+              onClick={event => event.stopPropagation()}
+            >
               {actions.map(action => (
                 <DropdownMenuItem
                   key={action.id}

@@ -6,6 +6,12 @@ interface CollectionQuickStatsProps {
   uniqueCards: number;
   avgCardValue: number;
   recentlyAddedCount?: number;
+  /**
+   * Owned rows the catalogue has no price for. `totalValue` leaves them out
+   * silently, so the header has to say so: an under-count that looks like a
+   * complete answer is the one thing a collection valuation must not be.
+   */
+  unpricedCards?: number;
   loading?: boolean;
 }
 
@@ -25,6 +31,7 @@ export function CollectionQuickStats({
   uniqueCards,
   avgCardValue,
   recentlyAddedCount = 0,
+  unpricedCards = 0,
   loading = false,
 }: CollectionQuickStatsProps) {
   if (loading) {
@@ -40,6 +47,14 @@ export function CollectionQuickStats({
     { value: formatPrice(avgCardValue), label: 'average' },
     { value: recentlyAddedCount.toLocaleString(), label: 'added this week' },
   ];
+
+  // Sits with the money rather than at the end, because it qualifies the money.
+  if (unpricedCards > 0) {
+    stats.splice(3, 0, {
+      value: unpricedCards.toLocaleString(),
+      label: unpricedCards === 1 ? 'card with no price yet' : 'cards with no price yet',
+    });
+  }
 
   return (
     <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">

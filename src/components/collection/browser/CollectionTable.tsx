@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { CardImage } from '@/components/cards';
 import {
   copiesOf,
-  formatPrice,
+  formatPriceOrUnknown,
   imageCardOf,
   valueOf,
   type BrowserCard,
@@ -196,10 +196,10 @@ export function CollectionTable({
                   </td>
                 )}
                 <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                  {formatPrice(card.unitPrice)}
+                  {formatPriceOrUnknown(card.unitPrice)}
                 </td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums">
-                  {formatPrice(valueOf(card))}
+                  {formatPriceOrUnknown(valueOf(card))}
                 </td>
                 {actions.length > 0 && (
                   <td className="px-2">
@@ -214,7 +214,26 @@ export function CollectionTable({
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="border-0">
+                      <DropdownMenuContent
+                        align="end"
+                        className="border-0"
+              /*
+               * A menu's clicks are the MENU's, and stop here.
+               *
+               * Radix renders this content through `createPortal`, and a React
+               * portal keeps REACT-tree propagation even though the DOM node
+               * lives under `document.body`. So a click on "Remove one copy"
+               * bubbled up the React tree into the card's own `onClick` and
+               * navigated to the card page: the action ran AND you were thrown
+               * onto another screen. Measured in a browser, not reasoned about.
+               *
+               * This is the other half of the owner's report that storage
+               * "often also goes to card page instead of adding properly" — it
+               * was not only the search picker, it was every action menu on
+               * every card in the collection browser.
+               */
+              onClick={event => event.stopPropagation()}
+                      >
                         {actions.map(action => (
                           <DropdownMenuItem
                             key={action.id}

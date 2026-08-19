@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StorageQuickAddPanel } from '@/components/storage/StorageQuickAddPanel';
 import { StorageAPI } from '@/lib/api/storageAPI';
-import type { StorageContainer } from '@/types/storage';
+import type { StorageContainer, StorageSlot } from '@/types/storage';
 
 /**
  * `/collection/storage/:containerId/add`.
@@ -13,12 +13,20 @@ import type { StorageContainer } from '@/types/storage';
  * This was a card-search surface nested inside a dialog inside the container
  * view. A search you work through for several minutes is a place, so it has a
  * URL and a back control instead of a backdrop.
+ *
+ * It is no longer the PRIMARY way to add cards. Pressing "Add cards" on a
+ * container now opens the same panel in place, above the list of what is
+ * already filed, because the owner's complaint was precisely that pressing it
+ * "takes me else where". This route stays because it is a real URL that gets
+ * bookmarked and that Back has to keep working, and because a long filing
+ * session is legitimately a place of its own.
  */
 export default function StorageQuickAdd() {
   const { containerId } = useParams<{ containerId: string }>();
   const navigate = useNavigate();
 
   const [container, setContainer] = useState<StorageContainer | null>(null);
+  const [slots, setSlots] = useState<StorageSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedCount, setAddedCount] = useState(0);
 
@@ -26,10 +34,11 @@ export default function StorageQuickAdd() {
     if (!containerId) return;
     let cancelled = false;
 
-    StorageAPI.getOverview()
-      .then(overview => {
+    Promise.all([StorageAPI.getOverview(), StorageAPI.getContainerSlots(containerId)])
+      .then(([overview, slotRows]) => {
         if (cancelled) return;
         setContainer(overview.containers.find(c => c.id === containerId) ?? null);
+        setSlots(slotRows);
       })
       .catch(error => console.error('Failed to load container:', error))
       .finally(() => {
@@ -91,6 +100,8 @@ export default function StorageQuickAdd() {
         <div className="rounded-xl bg-card p-4 shadow-lg shadow-black/20 md:p-6">
           <StorageQuickAddPanel
             containerId={containerId}
+            containerType={container?.type}
+            slots={slots}
             onAdded={() => setAddedCount(n => n + 1)}
           />
         </div>

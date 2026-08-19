@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueCards } from '@/lib/cards/cardQuery';
 import { showSuccess, showError } from '@/components/ui/toast-helpers';
 import { Bell, Plus, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
 
@@ -64,8 +65,10 @@ export function EnhancedPriceAlerts() {
       if (!user) throw new Error('Not authenticated');
 
       // Search for the card
-      const { data: cards, error: searchError } = await supabase
-        .from('cards')
+      // An alert is about a card, not a printing. Searching the printings and
+      // taking the first row would pin the alert to an arbitrary reprint whose
+      // price has nothing to do with the one the user is watching.
+      const { data: cards, error: searchError } = await uniqueCards()
         .select('id, name')
         .ilike('name', `%${newAlert.cardName}%`)
         .limit(1);

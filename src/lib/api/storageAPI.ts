@@ -1,11 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ownedValueUSD } from "@/features/collection/value";
-import { 
-  StorageContainer, 
-  StorageSlot, 
-  StorageItem, 
-  StorageOverview, 
-  StorageAssignRequest, 
+import {
+  StorageContainer,
+  StorageSlot,
+  StorageItem,
+  StorageOverview,
+  StorageAssignRequest,
+  StorageMoveRequest,
   StorageUnassignRequest,
   StorageItemWithCard,
   StoragePreviewCard,
@@ -255,8 +256,11 @@ export class StorageAPI {
       .select(`
         *,
         card:cards(id, name, image_uris, prices, set_code, rarity, type_line, cmc, colors),
-        slot:storage_slots(name)
+        slot:storage_slots(id, name, position)
       `)
+      // The slot embed asked for `name` alone, so nothing downstream could tell
+      // WHICH page a card was on even if it had wanted to. It carries the id and
+      // the position now, which is what the page selector filters on.
       .eq('container_id', containerId)
       .order('created_at') as { data: any[] | null, error: any };
 
@@ -293,7 +297,10 @@ export class StorageAPI {
       .select('*')
       .eq('container_id', request.container_id)
       .eq('card_id', request.card_id)
-      .eq('foil', request.foil);
+      .eq('foil', request.foil)
+      // A pocketed row is one specific card in one specific pocket and never
+      // merges; only the loose stacks accumulate.
+      .is('pocket', null);
 
     // Handle slot_id properly - null values need special handling
     if (request.slot_id) {
@@ -302,11 +309,11 @@ export class StorageAPI {
       query = query.is('slot_id', null);
     }
 
-    const { data: existing, error: existingError } = await query.single();
+    const { data: existing, error: existingError } = await query.maybeSingle();
 
-    if (existingError && existingError.code !== 'PGRST116') throw existingError;
+    if (existingError) throw existingError;
 
-    if (existing) {
+    if (existing && !request.pocket) {
       // Update existing item
       const { data: updated, error } = await supabase
         .from('storage_items')
@@ -321,13 +328,85 @@ export class StorageAPI {
       // Create new item
       const { data: newItem, error } = await supabase
         .from('storage_items')
-        .insert(request)
+        .insert({
+          container_id: request.container_id,
+          slot_id: request.slot_id ?? null,
+          pocket: request.pocket ?? null,
+          card_id: request.card_id,
+          qty: request.qty,
+          foil: request.foil,
+        })
         .select()
         .single();
 
       if (error) throw error;
       return newItem;
     }
+  }
+
+  /**
+   * Move copies from one storage row to another place. One action.
+   *
+   * The alternative that existed before this — unassign then assign — is two
+   * unrelated writes with no transaction around them, so a failure between them
+   * loses the card outright, and the re-add re-derives the printing instead of
+   * carrying it. `storage_move_cards` does the whole thing inside one statement:
+   * it carries `card_id` and `foil` across from the source row, merges into a
+   * matching stack at the destination when there is one, and splits the stack
+   * when only part of it is moving. Three copies here, move one, two stay.
+   *
+   * Returns the id of the row the cards landed in.
+   */
+  static async moveCards(request: StorageMoveRequest): Promise<string> {
+    const { data, error } = await supabase.rpc('storage_move_cards', {
+      p_item_id: request.item_id,
+      p_qty: request.qty,
+      p_to_container: request.to_container_id,
+      p_to_slot: request.to_slot_id ?? null,
+      p_to_pocket: request.to_pocket ?? null,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as string;
+  }
+
+  /**
+   * Add a page, divider or shelf. The database numbers it from what is already
+   * there, so two tabs cannot both create the same position.
+   */
+  static async addSlot(containerId: string, name: string): Promise<StorageSlot> {
+    const { data, error } = await supabase.rpc('storage_add_slot', {
+      p_container: containerId,
+      p_name: name,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as unknown as StorageSlot;
+  }
+
+  static async renameSlot(slotId: string, name: string): Promise<void> {
+    const { error } = await supabase
+      .from('storage_slots')
+      .update({ name })
+      .eq('id', slotId);
+
+    if (error) throw error;
+  }
+
+  /**
+   * Remove a page or divider. The cards behind it stay in the container and
+   * become unfiled, which is what pulling a divider out of a real box does.
+   */
+  static async deleteSlot(slotId: string): Promise<void> {
+    const { error: clearError } = await supabase
+      .from('storage_items')
+      .update({ slot_id: null, pocket: null })
+      .eq('slot_id', slotId);
+
+    if (clearError) throw clearError;
+
+    const { error } = await supabase.from('storage_slots').delete().eq('id', slotId);
+    if (error) throw error;
   }
 
   static async unassignCard(request: StorageUnassignRequest): Promise<void> {
@@ -369,4 +448,90 @@ export class StorageAPI {
     if (error) throw error;
     return slots || [];
   }
+
+  /** Containers the signed-in user owns, newest last, for a destination picker. */
+  static async listContainers(): Promise<StorageContainer[]> {
+    const { data, error } = await supabase
+      .from('storage_containers')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []).map(row => ({ ...row, type: row.type as StorageType })) as StorageContainer[];
+  }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Filing cards from somewhere else in the product
+ * -------------------------------------------------------------------------- */
+
+/** One card to file, at the printing and finish it actually is. */
+export interface CardToFile {
+  /** A real `cards.id`. The printing matters: storage records what you own. */
+  card_id: string;
+  qty: number;
+  foil?: boolean;
+}
+
+export interface FiledCardsResult {
+  /** Copies that reached the container. */
+  filed: number;
+  /** Cards that did not, with the reason as it should be shown to a person. */
+  failed: { card_id: string; reason: string }[];
+}
+
+/**
+ * File a batch of cards into a container. The one entry point for anywhere in
+ * the product that ends with "and now it is in a box".
+ *
+ * Written for the shopping list's "arrived" step, and it is the call to use
+ * rather than reaching for `StorageAPI.assignCard` in a loop:
+ *
+ *   const result = await fileCardsIntoContainer(containerId, [
+ *     { card_id: '02e8e540-…', qty: 2 },
+ *     { card_id: 'befb996b-…', qty: 1, foil: true },
+ *   ]);
+ *
+ * Three things it guarantees that a hand-rolled loop does not:
+ *
+ * 1. **A card must already be in the collection.** Storage records WHERE a card
+ *    you own is, so filing something you do not own would invent inventory. Add
+ *    it to `user_collections` first, then call this. A card short of collection
+ *    copies comes back in `failed` with the reason, and the rest still file.
+ * 2. **One bad card does not lose the batch.** Every entry is attempted and the
+ *    failures are reported; nothing is left half done and unreported.
+ * 3. **`slotId` is optional and stays optional.** Callers that have no opinion
+ *    about a page or a divider pass nothing, and the cards land in the
+ *    container unfiled, which is a normal, visible place to be.
+ *
+ * To move cards that are ALREADY in storage, use `StorageAPI.moveCards`, which
+ * is atomic and keeps the printing. Do not remove and re-add.
+ */
+export async function fileCardsIntoContainer(
+  containerId: string,
+  cards: CardToFile[],
+  slotId?: string | null
+): Promise<FiledCardsResult> {
+  const result: FiledCardsResult = { filed: 0, failed: [] };
+
+  for (const card of cards) {
+    if (!card.card_id || !(card.qty > 0)) continue;
+    try {
+      await StorageAPI.assignCard({
+        container_id: containerId,
+        slot_id: slotId ?? null,
+        card_id: card.card_id,
+        qty: card.qty,
+        foil: Boolean(card.foil),
+      });
+      result.filed += card.qty;
+    } catch (error) {
+      result.failed.push({
+        card_id: card.card_id,
+        reason: error instanceof Error ? error.message : 'Could not file this card',
+      });
+    }
+  }
+
+  return result;
 }

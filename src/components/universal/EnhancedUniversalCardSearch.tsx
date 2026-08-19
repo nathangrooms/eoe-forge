@@ -84,8 +84,53 @@ interface EnhancedUniversalCardSearchProps {
    * Keep the selection inside this component instead of navigating to the card
    * page. Set by embedded pickers (add-to-deck, commander choice) where leaving
    * the page would abandon what the user is doing.
+   *
+   * Prefer `mode="pick"`, which says the same thing and also turns the card
+   * body into the add control. This stays for callers that intercept the click
+   * themselves and want nothing else to change.
    */
   suppressNavigate?: boolean;
+  /**
+   * ## What a click on a card means, and the one place it means something else
+   *
+   * `'browse'` is the default and is the standing rule everywhere in this
+   * product: a card is a link to `/cards/:id`, because on a browsing surface
+   * the thing you want is the card.
+   *
+   * `'pick'` is a scoped exception, and it exists because of a real report from
+   * the owner about storage: *"if i click add cards currently, its not good UI,
+   * often also goes to card page instead of adding properly."* He was right,
+   * and the cause was this component being mounted as a PICKER while still
+   * behaving like a browser. Halfway through filing a box, a click that
+   * navigates away throws the whole task on the floor.
+   *
+   * So: **while the user is adding or filing, a click on the card body adds
+   * that card** and the page does not move. The card's own page is still one
+   * click away, through the small eye control on the tile, which is the
+   * explicit affordance for it. Body picks, eye opens.
+   *
+   * DO NOT "fix" this back to navigating. If both behaviours are wanted on one
+   * surface, they are both already here, and the split between them is body
+   * versus affordance rather than one or the other.
+   *
+   * ### Who mounts this, and as what
+   *
+   * Storage was the surface the complaint came from, but it was never the only
+   * picker. Every mount is listed here so the next person can see at a glance
+   * that `'pick'` is the majority case and `'browse'` is the exception:
+   *
+   * | Mount | Mode | Why |
+   * |---|---|---|
+   * | `pages/Cards.tsx` | `browse` | The card search page. You came to look at cards. |
+   * | `components/storage/StorageQuickAddPanel.tsx` | `pick` | Filling a box. |
+   * | `pages/Collection.tsx` (Add tab) | `pick` | Adding to a collection, deck or box. |
+   * | `pages/DeckBuilder.tsx` (Cards tab) | `pick` | Adding to, or swapping into, a deck. |
+   * | `pages/Wishlist.tsx` (Add tab) | `pick` | Adding to the wishlist. |
+   *
+   * If you add a mount, decide which it is. "Am I here to look at a card, or to
+   * put a card somewhere?" answers it every time.
+   */
+  mode?: 'browse' | 'pick';
   /** Called when the query text settles, so a page can mirror it elsewhere. */
   onQueryChange?: (query: string) => void;
   placeholder?: string;
@@ -93,6 +138,15 @@ interface EnhancedUniversalCardSearchProps {
   showAddButton?: boolean;
   showWishlistButton?: boolean;
   onCardWishlist?: (card: any) => void;
+  /**
+   * Show the shopping-list and proxy-list buttons on every result.
+   *
+   * Off by default because most mounts of this component are pickers, where the
+   * body click already means "put this somewhere". The dedicated card search
+   * page turns it on: browsing is exactly when a player decides to buy or proxy
+   * something.
+   */
+  showListButtons?: boolean;
   showViewModes?: boolean;
   initialQuery?: string;
   showPresets?: boolean;
@@ -205,12 +259,14 @@ export function EnhancedUniversalCardSearch({
   onCardSelect,
   browseViews,
   suppressNavigate = false,
+  mode = 'browse',
   onQueryChange,
-  placeholder = 'Search Magic cards — name, or Scryfall syntax like t:creature mv<=3',
+  placeholder = 'Search Magic cards by name, or use Scryfall syntax like t:creature mv<=3',
   showFilters = true,
   showAddButton = true,
   showWishlistButton = true,
   onCardWishlist,
+  showListButtons = false,
   showViewModes = true,
   initialQuery = '',
   showPresets = true,
@@ -401,16 +457,31 @@ export function EnhancedUniversalCardSearch({
     [patch, shownOrder, shownDir]
   );
 
-  const handleCardClick = (card: any) => {
-    /* Clicking a search result opens the full card page, every time. A docked
-       pane was tried here and rejected: on a browsing surface the expectation
-       is to go TO the card, not to preview it beside the grid.
+  const picking = mode === 'pick';
 
-       onCardSelect still fires first, so embedded consumers that use this
-       search as a picker (add-to-deck, commander choice) keep their behaviour
-       and opt out of the navigation by passing suppressNavigate. */
+  const handleCardClick = (card: any) => {
+    /* Clicking a search result opens the full card page — while BROWSING. A
+       docked pane was tried here and rejected: on a browsing surface the
+       expectation is to go TO the card, not to preview it beside the grid.
+
+       In `mode="pick"` the click adds instead, and the page stays put. See the
+       `mode` prop for why that exception exists and why it must not be undone.
+
+       onCardSelect still fires first either way, so embedded consumers that
+       want to intercept the click keep their behaviour and opt out of the
+       navigation by passing suppressNavigate. */
     onCardSelect?.(card);
+    if (picking) {
+      onCardAdd?.(card);
+      return;
+    }
     if (suppressNavigate) return;
+    const path = cardDetailPath(card);
+    if (path) navigate(path);
+  };
+
+  /** The explicit affordance: the eye on a tile always opens the card page. */
+  const handleCardOpen = (card: any) => {
     const path = cardDetailPath(card);
     if (path) navigate(path);
   };
@@ -627,7 +698,7 @@ export function EnhancedUniversalCardSearch({
               {loading
                 ? 'Searching…'
                 : !hasCriteria && browseView
-                  ? `${browseView.caption} — showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()}`
+                  ? `${browseView.caption}. Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()}`
                   : `Showing ${results.length.toLocaleString()} of ${totalResults.toLocaleString()} cards`}
             </p>
 
@@ -739,9 +810,14 @@ export function EnhancedUniversalCardSearch({
               sort={tableSort}
               onSortChange={handleSortKey}
               onCardClick={handleCardClick}
+              // Only while picking. On a browsing surface the body click
+              // already opens the card, so a second control that does the same
+              // thing is noise.
+              onCardOpen={picking ? handleCardOpen : undefined}
               onCardAdd={showAddButton ? onCardAdd : undefined}
               onCardWishlist={showWishlistButton ? onCardWishlist : undefined}
               showWishlistButton={showWishlistButton}
+              showListButtons={showListButtons}
             />
 
             <div ref={sentinelRef} className="h-px" aria-hidden />
@@ -756,7 +832,8 @@ export function EnhancedUniversalCardSearch({
 
             {!hasMore && (
               <p className="text-center text-xs text-muted-foreground">
-                End of results — {totalResults.toLocaleString()} cards matched.
+                End of results. {totalResults.toLocaleString()}{' '}
+                {totalResults === 1 ? 'card' : 'cards'} matched.
               </p>
             )}
           </>

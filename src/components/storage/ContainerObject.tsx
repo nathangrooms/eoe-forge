@@ -103,6 +103,23 @@ const SHEEN =
 const MOULDED =
   'pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-b from-white/[0.11] via-transparent to-black/35';
 
+/**
+ * The same surfaces, shared with the one other place that draws a binder page.
+ *
+ * `BinderPageView` draws a page you can actually put a card into — the pockets
+ * there are controls, not a picture. It takes its tints from here rather than
+ * choosing its own, so the page you file into and the page on the shelf are
+ * unmistakably the same object rather than two drawings that drift apart.
+ */
+export const BINDER_SURFACES = {
+  shell: SHELL,
+  page: PAGE,
+  hollow: HOLLOW,
+  well: WELL,
+  objectShadow: OBJECT_SHADOW,
+  sheen: SHEEN,
+} as const;
+
 interface FormProps {
   cards: StoragePreviewCard[];
   eager?: boolean;

@@ -15,6 +15,7 @@ import {
   rarityCode,
 } from '@/lib/scryfall/card-utils';
 import { ArrowDown, ArrowUp, Eye, Heart, Plus } from 'lucide-react';
+import { AddToListButton } from '@/components/shopping/AddToListButton';
 
 /**
  * How a set of card results is drawn.
@@ -56,9 +57,25 @@ interface UniversalCardDisplayProps {
   cards: any[];
   viewMode: CardViewMode;
   onCardClick?: (card: any) => void;
+  /**
+   * Open the card's own page, as an explicit control rather than a body click.
+   *
+   * Given only where the body click means something ELSE — a picker, where a
+   * click adds the card and navigating away would abandon the task. Body picks,
+   * eye opens. When this is absent the eye falls back to `onCardClick`, which
+   * is the browsing case where they are the same thing.
+   */
+  onCardOpen?: (card: any) => void;
   onCardAdd?: (card: any) => void;
   onCardWishlist?: (card: any) => void;
   showWishlistButton?: boolean;
+  /**
+   * Show "add to shopping list" and "add to proxy list" beside the other row
+   * actions. Off by default: on a picker, where the body click is already
+   * choosing the card for something, two more destinations are noise. On a
+   * browsing surface like card search they are the point.
+   */
+  showListButtons?: boolean;
   selectionMode?: boolean;
   selectedCards?: Set<string>;
   /**
@@ -130,16 +147,20 @@ function RowThumb({ card, width = 34 }: { card: any; width?: number }) {
 function RowActions({
   card,
   onCardClick,
+  onCardOpen,
   onCardAdd,
   onCardWishlist,
   showWishlistButton,
+  showListButtons,
   tone = 'row',
 }: {
   card: any;
   onCardClick?: (card: any) => void;
+  onCardOpen?: (card: any) => void;
   onCardAdd?: (card: any) => void;
   onCardWishlist?: (card: any) => void;
   showWishlistButton?: boolean;
+  showListButtons?: boolean;
   /** `overlay` sits directly on card art and needs its own opaque surface. */
   tone?: 'row' | 'overlay';
 }) {
@@ -156,13 +177,17 @@ function RowActions({
 
   return (
     <div className="flex items-center gap-1">
-      {onCardClick && (
+      {/* The eye is the way to the card's own page. On a browsing surface that
+          is the same thing the body click does; in a picker it is the ONLY way,
+          because there the body adds the card instead. */}
+      {(onCardOpen ?? onCardClick) && (
         <Button
           size="sm"
           variant="ghost"
           className={buttonClass}
-          aria-label={`View ${card.name}`}
-          onClick={stop(onCardClick)}
+          aria-label={`Open ${card.name}`}
+          title={onCardOpen ? `Open the page for ${card.name}` : undefined}
+          onClick={stop(onCardOpen ?? onCardClick)}
         >
           <Eye className="h-3.5 w-3.5" />
         </Button>
@@ -188,6 +213,14 @@ function RowActions({
         >
           <Heart className="h-3.5 w-3.5" />
         </Button>
+      )}
+      {/* The same component the card page and the marketplace use, so adding a
+          card to a list looks and behaves identically wherever it is done. */}
+      {showListButtons && (
+        <>
+          <AddToListButton card={card} kind="shopping" display="icon" variant="ghost" className={buttonClass} />
+          <AddToListButton card={card} kind="proxy" display="icon" variant="ghost" className={buttonClass} />
+        </>
       )}
     </div>
   );
@@ -250,9 +283,11 @@ export function UniversalCardDisplay({
   cards,
   viewMode,
   onCardClick,
+  onCardOpen,
   onCardAdd,
   onCardWishlist,
   showWishlistButton = false,
+  showListButtons = false,
   selectionMode = false,
   selectedCards = new Set(),
   cardWidth = CARD_WIDTH_DEFAULT,
@@ -427,9 +462,11 @@ export function UniversalCardDisplay({
                       <RowActions
                         card={card}
                         onCardClick={onCardClick}
+                        onCardOpen={onCardOpen}
                         onCardAdd={onCardAdd}
                         onCardWishlist={onCardWishlist}
                         showWishlistButton={showWishlistButton}
+                        showListButtons={showListButtons}
                       />
                     </div>
                   </td>
@@ -495,9 +532,11 @@ export function UniversalCardDisplay({
                 <RowActions
                   card={card}
                   onCardClick={onCardClick}
+                  onCardOpen={onCardOpen}
                   onCardAdd={onCardAdd}
                   onCardWishlist={onCardWishlist}
                   showWishlistButton={showWishlistButton}
+                  showListButtons={showListButtons}
                 />
               </div>
             </div>
@@ -558,20 +597,35 @@ export function UniversalCardDisplay({
                 )}
 
                 {/* Actions ride the top-right; the flip control owns bottom-right. */}
-                {!selectionMode && (onCardClick || onCardAdd || onCardWishlist) && (
+                {!selectionMode &&
+                  (onCardClick || onCardOpen || onCardAdd || onCardWishlist || showListButtons) && (
                   <div
                     className={cn(
-                      'absolute right-1.5 top-1.5 z-20 opacity-0 transition-opacity duration-150',
+                      'absolute right-1.5 top-1.5 z-20 transition-opacity duration-150',
                       'motion-reduce:transition-none',
-                      'group-hover:opacity-100 group-focus-within:opacity-100'
+                      /* While PICKING, these controls are always on screen.
+                         `onCardOpen` is only ever given by a picker, and in a
+                         picker the eye is the ONLY route to the card's page,
+                         because the body click adds the card instead. Hiding it
+                         until hover means it does not exist on a phone, where
+                         there is no hover, so the "click the card body, use the
+                         small control for the card page" split would only work
+                         with a mouse. Browsing keeps the hover reveal: there the
+                         body click already opens the card, so nothing is lost
+                         while the art stays uncovered. */
+                      onCardOpen
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
                     )}
                   >
                     <RowActions
                       card={card}
                       onCardClick={onCardClick}
+                      onCardOpen={onCardOpen}
                       onCardAdd={onCardAdd}
                       onCardWishlist={onCardWishlist}
                       showWishlistButton={showWishlistButton}
+                      showListButtons={showListButtons}
                       tone="overlay"
                     />
                   </div>

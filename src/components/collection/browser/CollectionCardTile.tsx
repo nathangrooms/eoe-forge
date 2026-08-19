@@ -9,7 +9,13 @@ import { ManaCost } from '@/components/ui/mana-cost';
 import { Check, MoreHorizontal, Minus, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CardImage } from '@/components/cards';
-import { copiesOf, formatPrice, imageCardOf, valueOf, type BrowserCard } from './types';
+import {
+  copiesOf,
+  formatPriceOrUnknown,
+  imageCardOf,
+  valueOf,
+  type BrowserCard,
+} from './types';
 import type { BrowserAction } from './actions';
 
 interface TileProps {
@@ -98,7 +104,7 @@ export function CollectionCardTile({
         {/* Price rides the art at thumbnail sizes, where there is no meta strip. */}
         {!showMeta && (
           <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded bg-black/75 px-1 py-0.5 text-[10px] font-medium tabular-nums text-white backdrop-blur-sm">
-            {formatPrice(valueOf(card))}
+            {formatPriceOrUnknown(valueOf(card))}
           </span>
         )}
 
@@ -116,7 +122,26 @@ export function CollectionCardTile({
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-0">
+              <DropdownMenuContent
+                align="end"
+                className="border-0"
+              /*
+               * A menu's clicks are the MENU's, and stop here.
+               *
+               * Radix renders this content through `createPortal`, and a React
+               * portal keeps REACT-tree propagation even though the DOM node
+               * lives under `document.body`. So a click on "Remove one copy"
+               * bubbled up the React tree into the card's own `onClick` and
+               * navigated to the card page: the action ran AND you were thrown
+               * onto another screen. Measured in a browser, not reasoned about.
+               *
+               * This is the other half of the owner's report that storage
+               * "often also goes to card page instead of adding properly" — it
+               * was not only the search picker, it was every action menu on
+               * every card in the collection browser.
+               */
+              onClick={event => event.stopPropagation()}
+              >
                 {actions.map(action => (
                   <DropdownMenuItem
                     key={action.id}
@@ -176,7 +201,7 @@ export function CollectionCardTile({
               </span>
             </span>
             <span className="shrink-0 tabular-nums text-foreground">
-              {formatPrice(valueOf(card))}
+              {formatPriceOrUnknown(valueOf(card))}
             </span>
           </div>
 

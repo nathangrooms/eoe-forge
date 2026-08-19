@@ -55,7 +55,18 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
     const foilValue = rows.reduce((sum, r) => sum + r.foilValue, 0);
     const nonFoilValue = rows.reduce((sum, r) => sum + r.nonFoilValue, 0);
 
+    /*
+     * Only cards we can actually price belong in a list of the most valuable
+     * ones. `toNumber` above turns a missing price into 0, so an unpriced card
+     * fell to the bottom of the ranking and was then printed there as
+     * "2x @ $0.00 each · $0.00 · 0.0%", which states that the card is worth
+     * nothing rather than that we do not know. Nothing in `cards` is stored at
+     * $0.00, so a row worth nothing is always a row we could not price.
+     */
+    const unpricedCards = rows.filter(r => r.quantity + r.foil > 0 && r.value <= 0).length;
+
     const sortedCards = [...rows]
+      .filter(r => r.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 10)
       .map(r => ({
@@ -82,6 +93,7 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
       top10Percent,
       avgValue,
       totalCards,
+      unpricedCards,
     };
   }, [collectionCards]);
 
@@ -167,6 +179,13 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Most Valuable Cards</CardTitle>
+          {analytics.unpricedCards > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {analytics.unpricedCards === 1
+                ? '1 card is missing because we have no price for it yet'
+                : `${analytics.unpricedCards} cards are missing because we have no price for them yet`}
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -177,7 +196,9 @@ export function CollectionValueTrends({ collectionCards }: CollectionValueTrends
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{card.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {card.quantity}x @ {formatPrice(card.singlePrice)} each
+                      {card.singlePrice > 0
+                        ? `${card.quantity}x @ ${formatPrice(card.singlePrice)} each`
+                        : `${card.quantity}x, foil price only`}
                     </div>
                   </div>
                 </div>

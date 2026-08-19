@@ -333,8 +333,8 @@ function EmptyShelf({
           Your shelf is empty
         </h3>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-          Every other site knows what you own. This one knows where it is — but only once you
-          tell it what you keep your cards in. Start with one.
+          Every other site knows what you own. This one knows where it is. Tell it what you
+          keep your cards in, starting with one.
         </p>
         {/* The user's own number, and the whole argument for the feature: these
             cards exist, and right now nothing records where they are. It used
@@ -345,8 +345,8 @@ function EmptyShelf({
             <span className="font-semibold tabular-nums">
               {unassignedCount.toLocaleString()}
             </span>{' '}
-            {unassignedCount === 1 ? 'card' : 'cards'} in your collection —{' '}
-            {formatPrice(unassignedValue)} — have nowhere recorded.
+            {unassignedCount === 1 ? 'card' : 'cards'} in your collection, worth{' '}
+            {formatPrice(unassignedValue)}, have nowhere recorded.
           </p>
         )}
       </div>

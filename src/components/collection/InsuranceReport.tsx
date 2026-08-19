@@ -20,6 +20,14 @@ interface InsuranceReportProps {
   collectionValue: number;
   cardCount: number;
   topCards?: InsuranceLineItem[];
+  /**
+   * Owned cards the catalogue holds no price for, which `collectionValue`
+   * therefore leaves out. This document exists to be handed to an insurer, so a
+   * figure that quietly omits part of the collection has to say how much it
+   * omits, both on screen and in the downloaded copy. A claim settled against a
+   * silently short total is a real loss, not a cosmetic one.
+   */
+  unpricedCards?: number;
   /** The routed copy at /collection/insurance hides its own link to itself. */
   showOpenLink?: boolean;
 }
@@ -33,6 +41,7 @@ export function InsuranceReport({
   collectionValue = 0,
   cardCount = 0,
   topCards = [],
+  unpricedCards = 0,
   showOpenLink = true,
 }: InsuranceReportProps) {
   const items = topCards
@@ -56,6 +65,13 @@ export function InsuranceReport({
       `Total cards: ${cardCount.toLocaleString()}`,
       `Total value: ${formatPrice(collectionValue)}`,
       `Average card value: ${formatPrice(cardCount > 0 ? collectionValue / cardCount : 0)}`,
+      ...(unpricedCards > 0
+        ? [
+            `Cards with no market price on record: ${unpricedCards.toLocaleString()}`,
+            'Those cards are not included in the total above, so the real value',
+            'of this collection is higher than the figure given.',
+          ]
+        : []),
       '',
     ];
 
@@ -126,6 +142,15 @@ export function InsuranceReport({
             <p className="text-2xl font-bold tabular-nums">{formatPrice(collectionValue)}</p>
           </div>
         </div>
+
+        {unpricedCards > 0 && (
+          <p className="rounded-lg bg-muted/40 px-4 py-3 text-sm text-foreground">
+            {unpricedCards === 1
+              ? '1 card has no market price on record and is not counted above.'
+              : `${unpricedCards.toLocaleString()} cards have no market price on record and are not counted above.`}{' '}
+            Your collection is worth more than this figure.
+          </p>
+        )}
 
         {items.length > 0 ? (
           <div>

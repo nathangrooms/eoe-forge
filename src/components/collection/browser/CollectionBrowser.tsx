@@ -177,14 +177,27 @@ export function CollectionBrowser({
     return sortCards(kept, sortKey, sortDir);
   }, [projected, filters.state, ownership, sortKey, sortDir]);
 
+  /**
+   * Copies on screen, what they are worth, and how many of them we could not
+   * price.
+   *
+   * The third number is the one that was missing. Prices are absent for
+   * thousands of printings (5,186 of 52,130 rows carry no `usd` at all), and
+   * those copies used to add 0 to this sum, so the total looked exact while
+   * being quietly too low. The valuation rule itself is unchanged, because
+   * changing it would move every user's reported collection value.
+   */
   const visibleTotals = useMemo(() => {
     let copies = 0;
     let value = 0;
+    let unpriced = 0;
     for (const card of visible) {
       copies += (card.quantity || 0) + (card.foil || 0);
       value += valueOf(card);
+      if (!(card.unitPrice > 0)) unpriced += card.quantity || 0;
+      if (!(card.foilPrice > 0)) unpriced += card.foil || 0;
     }
-    return { copies, value };
+    return { copies, value, unpriced };
   }, [visible]);
 
   const ownedCount = ownershipFilterCount(ownership);
@@ -427,6 +440,13 @@ export function CollectionBrowser({
           <span className="font-medium text-foreground">
             {formatPrice(visibleTotals.value)}
           </span>
+          {visibleTotals.unpriced > 0 && (
+            <span title="We hold no price for these copies, so the total above is lower than the real one.">
+              {' · '}
+              {visibleTotals.unpriced.toLocaleString()}
+              {visibleTotals.unpriced === 1 ? ' copy' : ' copies'} with no price
+            </span>
+          )}
         </p>
       )}
 
@@ -553,7 +573,7 @@ function SearchBox({
       <Input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        placeholder="Name, type, or Scryfall syntax — t:creature mv<=3"
+        placeholder="Name, type, or Scryfall syntax like t:creature mv<=3"
         aria-label="Search cards"
         spellCheck={false}
         className="border-0 bg-muted/50 pl-8 focus-visible:ring-1 focus-visible:ring-offset-0"

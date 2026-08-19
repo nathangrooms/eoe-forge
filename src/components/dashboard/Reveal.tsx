@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { usePrefersReducedMotion } from '@/lib/motion';
 
 /**
  * Load animation for the dashboard.
@@ -16,22 +17,13 @@ import { cn } from '@/lib/utils';
  * asked for less motion the animation classes are simply never applied.
  */
 
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(query.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
-
-  return reduced;
-}
+/**
+ * Re-exported, not reimplemented. There were three answers to "does this person
+ * want less motion" in the repo — this one, the life counter's, and
+ * framer-motion's inside play mode. This one is now `@/lib/motion`'s, kept
+ * exported here so the dashboard's existing imports still resolve.
+ */
+export { usePrefersReducedMotion };
 
 /** Stagger step. Small enough that the page reads as one movement, not a queue. */
 export const REVEAL_STEP_MS = 60;

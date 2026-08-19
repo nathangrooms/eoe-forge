@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Changed } from '@/components/motion';
 import { formatTotal } from '@/lib/pricing';
 import { describePlatformGap, platformTotals, type CostLine } from '@/lib/shopping';
 
@@ -53,7 +54,15 @@ export function PlatformTotals({ lines, className, size = 'lg' }: PlatformTotals
                 size === 'lg' ? 'text-2xl' : 'text-lg'
               )}
             >
-              {amount ?? <span className="text-base font-normal text-muted-foreground">No prices yet</span>}
+              {/* What the list costs is the number that moves most on this
+                  page: every card bought, removed or re-counted changes it.
+                  Landing it rather than swapping it is the difference between
+                  "the total is 41.20" and "the total just went down". */}
+              {amount ? (
+                <Changed value={total.amount}>{amount}</Changed>
+              ) : (
+                <span className="text-base font-normal text-muted-foreground">No prices yet</span>
+              )}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {gap ?? `${total.pricedCopies} ${total.pricedCopies === 1 ? 'card' : 'cards'} priced`}

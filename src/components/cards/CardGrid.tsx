@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { forwardRef, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { CardImageSkeleton } from './CardImage';
 import { CARD_WIDTH_DEFAULT } from './CardSizeSlider';
@@ -24,17 +24,21 @@ export interface CardGridProps {
   children: ReactNode;
 }
 
-export function CardGrid({
-  width = CARD_WIDTH_DEFAULT,
-  gap,
-  className,
-  style,
-  children,
-}: CardGridProps) {
+/**
+ * Forwards its ref so `useFlipOnChange` can be handed the grid itself rather
+ * than the page around it. Without that, a list whose rows move would have to
+ * be wrapped in an extra box to have something to measure inside — a new
+ * element in the layout of every card surface, bought with an animation.
+ */
+export const CardGrid = forwardRef<HTMLDivElement, CardGridProps>(function CardGrid(
+  { width = CARD_WIDTH_DEFAULT, gap, className, style, children },
+  ref
+) {
   const gutter = gap ?? (width < 120 ? 8 : width < 200 ? 12 : 16);
 
   return (
     <div
+      ref={ref}
       className={cn('grid', className)}
       style={{
         gridTemplateColumns: `repeat(auto-fill, minmax(min(${width}px, 100%), 1fr))`,
@@ -45,7 +49,7 @@ export function CardGrid({
       {children}
     </div>
   );
-}
+});
 
 /** Placeholder grid with the same geometry, for the first paint of a search. */
 export function CardGridSkeleton({

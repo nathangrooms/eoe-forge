@@ -42,9 +42,27 @@ export interface ShoppingEntryTileProps {
   entry: ShoppingEntry;
   width: number;
   onBuy: (entry: ShoppingEntry) => void;
+  /**
+   * This tile's identity for the list-motion primitives in `@/lib/motion`. It is
+   * what lets a tile that moved be slid from where it was to where it now is,
+   * rather than simply appearing there.
+   */
+  motionKey?: string;
+  /**
+   * This card has just been bought or taken off the list and is on its way out.
+   * It holds its place in the grid while it goes, so nothing else moves until it
+   * is actually gone.
+   */
+  leaving?: boolean;
 }
 
-export function ShoppingEntryTile({ entry, width, onBuy }: ShoppingEntryTileProps) {
+export function ShoppingEntryTile({
+  entry,
+  width,
+  onBuy,
+  motionKey,
+  leaving = false,
+}: ShoppingEntryTileProps) {
   const setQuantity = useCardLists(state => state.setQuantity);
   const remove = useCardLists(state => state.remove);
 
@@ -55,7 +73,11 @@ export function ShoppingEntryTile({ entry, width, onBuy }: ShoppingEntryTileProp
   const editable = Boolean(entry.item);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div
+      data-flip-key={motionKey}
+      aria-hidden={leaving || undefined}
+      className={cn('flex min-w-0 flex-col gap-2', leaving && 'motion-leaving')}
+    >
       <Link
         to={href}
         aria-label={`Open ${entry.cardName}`}

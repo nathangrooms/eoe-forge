@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, PackageCheck, Printer, RefreshCw, Send, ShoppingCart, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CardGrid, CardGridSkeleton, CardSizeSlider, useCardSize } from '@/components/cards';
 import { StandardPageLayout } from '@/components/layouts/StandardPageLayout';
+import { Changed } from '@/components/motion';
+import { useFlipOnChange, useLeavingList } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import {
   describeUnpricedLines,
@@ -83,6 +85,20 @@ export default function ShoppingListPage() {
       })),
     [list.toBuy]
   );
+
+  /**
+   * The buying grid is the one list in the product that a player empties one
+   * card at a time, so it is the one where a row vanishing between frames is
+   * most obviously wrong. `useLeavingList` holds a bought card in place long
+   * enough to be seen going; `useFlipOnChange` then slides the cards after it
+   * up into the gap instead of letting them snap into it.
+   *
+   * The signature deliberately includes the leaving rows: while one is still on
+   * its way out nothing has actually moved, so there is nothing to slide.
+   */
+  const gridRef = useRef<HTMLDivElement>(null);
+  const buyRows = useLeavingList(list.toBuy, entry => entry.key);
+  useFlipOnChange(gridRef, buyRows.map(row => row.key).join(' '));
 
   const copies = list.toBuy.reduce((sum, entry) => sum + entry.quantity, 0);
   const inTransit = [...list.arriving, ...list.arrived].reduce((sum, item) => sum + item.quantity, 0);
@@ -181,11 +197,13 @@ export default function ShoppingListPage() {
                   {copies === 1 ? 'copy' : 'copies'} in total.
                   {inTransit > 0 && ` ${inTransit} more already on the way.`}
                 </p>
-                <CardGrid width={cardWidth}>
-                  {list.toBuy.map(entry => (
+                <CardGrid ref={gridRef} width={cardWidth}>
+                  {buyRows.map(row => (
                     <ShoppingEntryTile
-                      key={entry.key}
-                      entry={entry}
+                      key={row.key}
+                      motionKey={row.key}
+                      leaving={row.leaving}
+                      entry={row.item}
                       width={cardWidth}
                       onBuy={setBuying}
                     />
@@ -250,7 +268,7 @@ function MoneyInThePost({ items }: { items: CardListItem[] }) {
             Paid in {MONEY_WORD[total.currency]}
           </p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
-            {formatAmount(total.amount, total.currency)}
+            <Changed value={total.amount}>{formatAmount(total.amount, total.currency)}</Changed>
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {total.copies} {total.copies === 1 ? 'card' : 'cards'}
@@ -261,7 +279,7 @@ function MoneyInThePost({ items }: { items: CardListItem[] }) {
         <div className="min-w-0 rounded-xl bg-muted/30 px-4 py-3">
           <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">No price kept</p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
-            {copiesWithNoPrice}
+            <Changed value={copiesWithNoPrice}>{copiesWithNoPrice}</Changed>
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {copiesWithNoPrice === 1 ? 'card is' : 'cards are'} missing from these totals

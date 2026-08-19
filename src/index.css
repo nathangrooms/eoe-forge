@@ -273,6 +273,24 @@ All colors MUST be HSL.
     border-color: hsl(var(--border));
     border-width: 0;
   }
+  /* Reserve the scrollbar's width whether or not a scrollbar is showing.
+
+     Radix locks body scroll when a slide-over or dialog opens. Without a
+     reserved gutter the scrollbar disappears, the page gets 8px wider, and
+     every fixed, right-aligned control jumps 8px left at the exact moment the
+     panel animates in. Measured on /shopping: documentElement.clientWidth
+     1268 to 1276 and the top bar's right edge with it. Radix does not add
+     compensating padding, and body padding-right stayed 0 throughout.
+
+     This also settles the quieter version of the same jump: navigating from a
+     page that scrolls to one that does not used to shift the whole layout by
+     the scrollbar width. The cost is an 8px empty strip on pages short enough
+     not to scroll, which is a fair trade against the app's most-reported
+     complaint. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground;
     background-image: var(--gradient-starfield);
@@ -384,6 +402,306 @@ All colors MUST be HSL.
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ===========================================================================
+   MOTION
+   ===========================================================================
+
+   The whole product's motion, in one place. Five durations, three easings and
+   a handful of classes built from them. The JavaScript half of the same
+   vocabulary is `src/lib/motion/tokens.ts`, and `tokens.test.ts` fails if the
+   two drift apart.
+
+   THE RULE
+   --------
+   Every animation here moves `transform` and `opacity` and nothing else. Those
+   two are composited, which means — the part that matters — they cannot move
+   anything else on the page. A width, height, top or margin tween is layout
+   shift with a duration attached. Where an element genuinely must change size,
+   reserve the space instead.
+
+   REDUCED MOTION
+   --------------
+   The durations are redeclared at 1ms below, so anything reading a token is
+   already covered and no stylesheet has to remember `motion-reduce:`. 1ms and
+   not 0 because `animationend` still has to fire: Radix keeps a closing panel
+   mounted until it does.
+   =========================================================================== */
+
+@layer base {
+  :root {
+    /* A control acknowledging a press. Finishes before the finger lifts. */
+    --motion-press: 120ms;
+    /* Something arriving: a page, a section, content replacing a skeleton. */
+    --motion-enter: 180ms;
+    /* Something leaving. Shorter than its entrance. */
+    --motion-exit: 140ms;
+    /* A slide-over crossing the width of itself. The longest journey here. */
+    --motion-panel: 220ms;
+    /* A value that changed, saying so. Narrates; never gates. */
+    --motion-emphasis: 380ms;
+
+    /* Arrivals: quick off the mark, settling rather than stopping. The curve
+       play mode already flies cards on, kept rather than reinvented. */
+    --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    /* Departures: accelerate away, no settle, because nothing is landing. */
+    --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+    /* Both ends, for something moving from one place to another and staying. */
+    --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* How far a thing travels as it arrives. Small: 40px reads as a slideshow,
+       8px reads as the page settling and is barely noticed, which is the job. */
+    --motion-rise: 8px;
+    --motion-press-scale: 0.965;
+
+    /* Set per panel by SheetContent, from the press that opened it. Zero means
+       we do not know where it was opened from, so nothing is invented. */
+    --motion-panel-from-y: 0px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --motion-press: 1ms;
+      --motion-enter: 1ms;
+      --motion-exit: 1ms;
+      --motion-panel: 1ms;
+      --motion-emphasis: 1ms;
+      --motion-rise: 0px;
+      --motion-press-scale: 1;
+      --motion-panel-from-y: 0px;
+    }
+  }
+}
+
+@layer components {
+  /* Every arrival ends at `transform: none`, never at `translate3d(0, 0, 0)`.
+     These animations fill forwards, so the final keyframe is what the element
+     computes to for the rest of its life — and a computed transform of zero is
+     still a transform, which would make the element a containing block for any
+     `position: fixed` descendant it ever gains. `none` leaves nothing behind. */
+  @keyframes motion-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, var(--motion-rise), 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes motion-leave {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+
+  @keyframes motion-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes motion-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* Content arriving where a skeleton was, or a section settling into place.
+     `both` so it is invisible before its turn rather than flashing at full
+     opacity for one frame. */
+  .motion-reveal {
+    animation: motion-enter var(--motion-enter) var(--motion-ease-out) both;
+  }
+
+  /* A row on its way off a list. It keeps its place in the flow while it goes,
+     so nothing moves until it is actually gone — see `useLeavingList`. */
+  .motion-leaving {
+    animation: motion-leave var(--motion-exit) var(--motion-ease-in) forwards;
+    pointer-events: none;
+  }
+
+  /* -------------------------------------------------------------------------
+     Press feedback. On the Button base, so no control is silent.
+
+     The doubled class is deliberate and load-bearing. Tailwind's utilities are
+     emitted after this block, so a single `.motion-press` would lose its
+     `transition-property` to the `transition-colors` that is also on the button
+     — and a scale with no transition is a snap, which is worse than no feedback
+     at all. Two classes out-specify one utility regardless of source order.
+
+     Which means this rule owns the whole transition for anything it is put on,
+     so it has to carry the colour properties too, not just `transform`.
+     ------------------------------------------------------------------------- */
+  .motion-press.motion-press {
+    transition-property: transform, color, background-color, border-color,
+      text-decoration-color, fill, stroke, opacity;
+    transition-duration: var(--motion-press);
+    transition-timing-function: var(--motion-ease-out);
+  }
+  .motion-press:active:not(:disabled):not([aria-disabled='true']) {
+    transform: scale(var(--motion-press-scale));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* A scale with no duration is a jump, which is worse than no feedback at
+       all — and `scale(1)` is still a transform, so the control would become a
+       containing block for anything positioned inside it. The selector repeats
+       the one above exactly: a shorter one would be less specific and would
+       lose, which is the sort of override that silently does nothing. */
+    .motion-press:active:not(:disabled):not([aria-disabled='true']) {
+      transform: none;
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+     Slide-overs.
+
+     Replaces tailwindcss-animate's `slide-in-from-right`, which was right in
+     kind and wrong in degree: 500ms to open and 300ms to close, so the app's
+     most-used in-context surface was also its slowest thing, and it took longer
+     to arrive than to leave.
+
+     `--motion-panel-from-y` is what makes the panel come from the control that
+     opened it rather than from the middle of the edge.
+     ------------------------------------------------------------------------- */
+  .motion-panel {
+    animation-duration: var(--motion-panel);
+    animation-timing-function: var(--motion-ease-out);
+    animation-fill-mode: both;
+  }
+  .motion-panel[data-state='closed'] {
+    animation-duration: var(--motion-exit);
+    animation-timing-function: var(--motion-ease-in);
+  }
+
+  .motion-panel-right[data-state='open'] {
+    animation-name: motion-panel-in-right;
+  }
+  .motion-panel-right[data-state='closed'] {
+    animation-name: motion-panel-out-right;
+  }
+  .motion-panel-left[data-state='open'] {
+    animation-name: motion-panel-in-left;
+  }
+  .motion-panel-left[data-state='closed'] {
+    animation-name: motion-panel-out-left;
+  }
+  .motion-panel-top[data-state='open'] {
+    animation-name: motion-panel-in-top;
+  }
+  .motion-panel-top[data-state='closed'] {
+    animation-name: motion-panel-out-top;
+  }
+  .motion-panel-bottom[data-state='open'] {
+    animation-name: motion-panel-in-bottom;
+  }
+  .motion-panel-bottom[data-state='closed'] {
+    animation-name: motion-panel-out-bottom;
+  }
+
+  @keyframes motion-panel-in-right {
+    from {
+      opacity: 0;
+      transform: translate3d(100%, var(--motion-panel-from-y), 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes motion-panel-out-right {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(100%, 0, 0);
+    }
+  }
+  @keyframes motion-panel-in-left {
+    from {
+      opacity: 0;
+      transform: translate3d(-100%, var(--motion-panel-from-y), 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes motion-panel-out-left {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(-100%, 0, 0);
+    }
+  }
+  @keyframes motion-panel-in-top {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -100%, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes motion-panel-out-top {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, -100%, 0);
+    }
+  }
+  @keyframes motion-panel-in-bottom {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 100%, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes motion-panel-out-bottom {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, 100%, 0);
+    }
+  }
+
+  /* The dimmed sheet behind a panel. Opacity only: the backdrop blur is set
+     once and never animated, because animating a blur repaints the whole
+     screen every frame. */
+  .motion-scrim[data-state='open'] {
+    animation: motion-fade-in var(--motion-panel) var(--motion-ease-out) both;
+  }
+  .motion-scrim[data-state='closed'] {
+    animation: motion-fade-out var(--motion-exit) var(--motion-ease-in) both;
   }
 }
 

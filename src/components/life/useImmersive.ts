@@ -8,35 +8,19 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePrefersReducedMotion } from '@/lib/motion';
 
 /* -------------------------------------------------------------------------- */
 /* Reduced motion                                                             */
 /* -------------------------------------------------------------------------- */
 
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return false;
-    return window.matchMedia(REDUCED_MOTION_QUERY).matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const query = window.matchMedia(REDUCED_MOTION_QUERY);
-    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
-
-    // Safari below 14 only has the deprecated listener API.
-    if (query.addEventListener) {
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    }
-    query.addListener(onChange);
-    return () => query.removeListener(onChange);
-  }, []);
-
-  return reduced;
-}
+/**
+ * Re-exported rather than reimplemented. This file used to carry its own copy,
+ * byte-for-byte the same question as the dashboard's copy. The answer belongs
+ * with the rest of the motion vocabulary in `@/lib/motion`; the export stays
+ * here so the life counter's existing imports still resolve.
+ */
+export { usePrefersReducedMotion };
 
 /* -------------------------------------------------------------------------- */
 /* Scroll lock                                                                */

@@ -1,0 +1,33 @@
+{
+  /*
+   * Typecheck for the playtest harness only.
+   *
+   * The project's own command is `npx tsc --noEmit -p tsconfig.app.json`, and
+   * that config includes `src` alone — the harness lives under `scripts/`, so
+   * it would never be checked at all. This config exists so the harness is held
+   * to a type standard without changing the project's command or its include
+   * list. Run it with:
+   *
+   *   npx tsc --noEmit -p scripts/playtest/tsconfig.json
+   *
+   * Compiler options mirror `tsconfig.app.json` so the engine files the harness
+   * imports are read exactly as the app reads them. Checking them under
+   * stricter settings would report a pile of findings against a tree this
+   * workflow has read-only access to, which helps nobody.
+   */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts"]
+}

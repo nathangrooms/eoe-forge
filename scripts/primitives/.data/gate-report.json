@@ -1,0 +1,506 @@
+{
+  "summary": {
+    "specs": 20,
+    "typecheckPassed": 20,
+    "purityPassed": 20,
+    "behaviourPassed": 20,
+    "differentialPassed": 17,
+    "differentialNoReference": 3,
+    "allFourPassed": 17,
+    "behaviourTestsRun": 104,
+    "behaviourTestsFailed": 0,
+    "projectErrorsOutsidePrimitives": 0,
+    "projectErrorFilesOutsidePrimitives": [],
+    "xmageClone": "C:/Users/natha/AppData/Local/Temp/claude/xmage-spike/mage",
+    "xmageCommit": "07ecb7cf263df8dbc05b39b61bad9e9d2c63d18d",
+    "xmageOnPinnedCommit": true
+  },
+  "rows": [
+    {
+      "id": "P01",
+      "name": "pumpToContinuous",
+      "family": "effect-handler",
+      "implements": "pump",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": 1320,
+        "measuredTouches": 1414,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P02",
+      "name": "gainControlToContinuous",
+      "family": "effect-handler",
+      "implements": "gain-control",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "gain-control",
+        "measuredSolo": 6,
+        "measuredTouches": 7,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P03",
+      "name": "damageToPermanent",
+      "family": "effect-handler",
+      "implements": "damage",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "damage:permanent",
+        "measuredSolo": 333,
+        "measuredTouches": 396,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P04",
+      "name": "addManaToActions",
+      "family": "effect-handler",
+      "implements": "add-mana",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "add-mana",
+        "measuredSolo": 262,
+        "measuredTouches": 638,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P05",
+      "name": "returnFromForced",
+      "family": "effect-handler",
+      "implements": "return-from",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "return-from",
+        "measuredSolo": 178,
+        "measuredTouches": 255,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P06",
+      "name": "searchLibraryForced",
+      "family": "effect-handler",
+      "implements": "search-library",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "search-library",
+        "measuredSolo": 119,
+        "measuredTouches": 184,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P07",
+      "name": "counterTargetSpell",
+      "family": "effect-handler",
+      "implements": "counter",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "counter",
+        "measuredSolo": 66,
+        "measuredTouches": 82,
+        "source": "scripts/primitives/rank-engine-primitives.ts"
+      }
+    },
+    {
+      "id": "P08",
+      "name": "scryToActions",
+      "family": "effect-handler",
+      "implements": "scry",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "manual: scry N",
+        "measuredSolo": 108,
+        "measuredTouches": 168,
+        "source": "scripts/primitives/rank-missing-verbs.ts"
+      }
+    },
+    {
+      "id": "P09",
+      "name": "surveilToActions",
+      "family": "effect-handler",
+      "implements": "surveil",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "manual: surveil N",
+        "measuredSolo": 49,
+        "measuredTouches": 94,
+        "source": "scripts/primitives/rank-missing-verbs.ts"
+      }
+    },
+    {
+      "id": "P10",
+      "name": "regenerateShield",
+      "family": "effect-handler",
+      "implements": "regenerate",
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "regenerate",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "docs/overhaul/PRIMITIVE-BUILD-ORDER.md rank 29, 33 new cards in the XMage ranking. NOT measured against our own catalogue: the compiler has no regenerate rule, so it is not in either of our two measured tables."
+      }
+    },
+    {
+      "id": "P11",
+      "name": "ptModifyPart",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P01; its cards are counted once, on P01"
+      }
+    },
+    {
+      "id": "P12",
+      "name": "grantAbilityPart",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P01"
+      }
+    },
+    {
+      "id": "P13",
+      "name": "durationToExpiry",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P01 and P02"
+      }
+    },
+    {
+      "id": "P14",
+      "name": "assembleContinuous",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": false,
+      "differentialStatus": "no-reference",
+      "allFour": false,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": [
+          "the spec declares no XMage class; this is reported, never counted as a pass"
+        ]
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P01 and P02"
+      }
+    },
+    {
+      "id": "P15",
+      "name": "selectorToLayerSelector",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "pump",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P01 and P02"
+      }
+    },
+    {
+      "id": "P16",
+      "name": "parseManaSymbols",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "add-mana",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P04"
+      }
+    },
+    {
+      "id": "P17",
+      "name": "zonePool",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": false,
+      "differentialStatus": "no-reference",
+      "allFour": false,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": [
+          "the spec declares no XMage class; this is reported, never counted as a pass"
+        ]
+      },
+      "unlocks": {
+        "blockerKey": "return-from",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P05 and P06"
+      }
+    },
+    {
+      "id": "P18",
+      "name": "stackTargetsOf",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "counter",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P07"
+      }
+    },
+    {
+      "id": "P19",
+      "name": "sourceHasDeathtouch",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": true,
+      "differentialStatus": "agrees",
+      "allFour": true,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": []
+      },
+      "unlocks": {
+        "blockerKey": "damage:permanent",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P03"
+      }
+    },
+    {
+      "id": "P20",
+      "name": "libraryTop",
+      "family": "pure-fn",
+      "implements": null,
+      "typecheck": true,
+      "purity": true,
+      "behaviour": true,
+      "differential": false,
+      "differentialStatus": "no-reference",
+      "allFour": false,
+      "detail": {
+        "typecheck": [],
+        "purity": [],
+        "behaviour": [],
+        "differential": [
+          "the spec declares no XMage class; this is reported, never counted as a pass"
+        ]
+      },
+      "unlocks": {
+        "blockerKey": "manual: scry N",
+        "measuredSolo": null,
+        "measuredTouches": null,
+        "source": "supporting primitive for P08 and P09"
+      }
+    }
+  ]
+}

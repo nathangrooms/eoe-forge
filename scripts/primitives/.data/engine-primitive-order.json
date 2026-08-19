@@ -1,0 +1,162 @@
+{
+  "measuredAt": "1970-01-01 (see git log; nothing here reads a clock)",
+  "printings": 38603,
+  "distinctOracleIds": 33037,
+  "compileErrors": 0,
+  "representableFull": 7580,
+  "automatedBaselineNoBlockers": 4192,
+  "histogram": [
+    {
+      "key": "pump",
+      "verdict": "missing",
+      "cards": 1441
+    },
+    {
+      "key": "add-mana",
+      "verdict": "missing",
+      "cards": 685
+    },
+    {
+      "key": "choose-mode",
+      "verdict": "choice",
+      "cards": 517
+    },
+    {
+      "key": "damage:permanent",
+      "verdict": "wrong",
+      "cards": 411
+    },
+    {
+      "key": "return-from",
+      "verdict": "missing",
+      "cards": 261
+    },
+    {
+      "key": "may",
+      "verdict": "choice",
+      "cards": 242
+    },
+    {
+      "key": "discard",
+      "verdict": "choice-conditional",
+      "cards": 192
+    },
+    {
+      "key": "search-library",
+      "verdict": "missing",
+      "cards": 185
+    },
+    {
+      "key": "counter",
+      "verdict": "missing",
+      "cards": 82
+    },
+    {
+      "key": "sacrifice",
+      "verdict": "choice-conditional",
+      "cards": 47
+    },
+    {
+      "key": "gain-control",
+      "verdict": "missing",
+      "cards": 7
+    },
+    {
+      "key": "unless-pays",
+      "verdict": "missing",
+      "cards": 2
+    }
+  ],
+  "order": [
+    {
+      "rank": 1,
+      "key": "pump",
+      "verdict": "missing",
+      "touches": 1441,
+      "solo": 1342,
+      "marginal": 1342,
+      "cumulative": 5534
+    },
+    {
+      "rank": 2,
+      "key": "damage:permanent",
+      "verdict": "wrong",
+      "touches": 411,
+      "solo": 344,
+      "marginal": 352,
+      "cumulative": 5886
+    },
+    {
+      "rank": 3,
+      "key": "add-mana",
+      "verdict": "missing",
+      "touches": 685,
+      "solo": 292,
+      "marginal": 319,
+      "cumulative": 6205
+    },
+    {
+      "rank": 4,
+      "key": "return-from",
+      "verdict": "missing",
+      "touches": 261,
+      "solo": 183,
+      "marginal": 188,
+      "cumulative": 6393
+    },
+    {
+      "rank": 5,
+      "key": "discard",
+      "verdict": "choice-conditional",
+      "touches": 192,
+      "solo": 166,
+      "marginal": 177,
+      "cumulative": 6570
+    },
+    {
+      "rank": 6,
+      "key": "search-library",
+      "verdict": "missing",
+      "touches": 185,
+      "solo": 119,
+      "marginal": 128,
+      "cumulative": 6698
+    },
+    {
+      "rank": 7,
+      "key": "counter",
+      "verdict": "missing",
+      "touches": 82,
+      "solo": 66,
+      "marginal": 71,
+      "cumulative": 6769
+    },
+    {
+      "rank": 8,
+      "key": "sacrifice",
+      "verdict": "choice-conditional",
+      "touches": 47,
+      "solo": 39,
+      "marginal": 44,
+      "cumulative": 6813
+    },
+    {
+      "rank": 9,
+      "key": "gain-control",
+      "verdict": "missing",
+      "touches": 7,
+      "solo": 6,
+      "marginal": 7,
+      "cumulative": 6820
+    },
+    {
+      "rank": 10,
+      "key": "unless-pays",
+      "verdict": "missing",
+      "touches": 2,
+      "solo": 2,
+      "marginal": 2,
+      "cumulative": 6822
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "P05",
+  "name": "returnFromForced",
+  "family": "effect-handler",
+  "implements": "return-from",
+  "file": "zones.ts",
+  "signature": "export function returnFromForced(effect: Extract<Effect, { do: 'return-from' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 400.7 a card in a new zone is a new object", "CR 608.2 the resolving object does as much as it can"],
+  "layerOrTiming": "resolution",
+  "contract": [
+    "When the eligible pool is at most count, no choice exists: emit one MOVE_ZONE per card and defer nothing. This is the whole point - today the engine defers even when there is nothing to decide.",
+    "When the pool is larger than count, emit nothing and defer once, naming the player, the count and the source zone.",
+    "An empty pool emits nothing and defers nothing; CR 608.2 says do as much as you can, and nothing is what can be done.",
+    "The pool comes from P17 so ordering is deterministic across clients.",
+    "count of zero or less emits nothing."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.ReturnFromGraveyardToHandTargetEffect",
+    "evidence": [
+      { "claim": "cards move as a set and an empty set is a no-op", "mustContain": "!cards.isEmpty() && controller.moveCards(cards, Zone.HAND, source, game)" }
+    ]
+  },
+  "cards": [
+    { "name": "Raise Dead", "why": { "textMustContain": "from your graveyard to your hand" } },
+    { "name": "Regrowth", "why": { "textMustContain": "from your graveyard to your hand" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Raise Dead with exactly one creature in the graveyard", "expect": "one MOVE_ZONE to hand, zero deferred" },
+    { "id": "A2", "given": "Raise Dead with three creatures in the graveyard", "expect": "zero actions, one deferred naming the choice" },
+    { "id": "A3", "given": "an empty graveyard", "expect": "zero actions and zero deferred" },
+    { "id": "A4", "given": "count 2 with exactly 2 eligible", "expect": "two MOVE_ZONE actions, zero deferred" },
+    { "id": "A5", "given": "a graveyard holding a land when the filter says creature", "expect": "the land is not eligible and is not moved" }
+  ],
+  "unlocks": { "blockerKey": "return-from", "measuredSolo": 178, "measuredTouches": 255, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

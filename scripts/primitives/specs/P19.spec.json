@@ -1,0 +1,37 @@
+{
+  "id": "P19",
+  "name": "sourceHasDeathtouch",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "damage.ts",
+  "signature": "export function sourceHasDeathtouch(ctx: AbilityContext): boolean",
+  "rules": ["CR 702.2b any nonzero damage from a deathtouch source is lethal", "CR 613.1f deathtouch can be granted in layer 6"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Reads the LAYERED view of the damage source, not the printed card. A deathtouch granted by an anthem or an aura counts, and a printed-only read would miss it and let a creature survive that should have died.",
+    "Returns false when the source is not on the battlefield or has no view.",
+    "Comparison is case-insensitive on the keyword string, because the compiler emits mixed case and layers.ts stores lower case.",
+    "Returns a boolean and nothing else. It does not decide lethality; CR 704.5h does, in sba.ts, and a second copy of that decision here would drift."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.keyword.DeathtouchAbility",
+    "evidence": [{ "claim": "deathtouch is a static ability on the source", "mustContain": "deathtouch" }]
+  },
+  "cards": [
+    { "name": "Vampire Nighthawk", "why": { "textMustContain": "deathtouch" } },
+    { "name": "Basilisk Collar", "why": { "textMustContain": "deathtouch" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "a source printed with deathtouch", "expect": "true" },
+    { "id": "A2", "given": "a vanilla source", "expect": "false" },
+    { "id": "A3", "given": "a vanilla source with deathtouch granted through the layered view", "expect": "true" },
+    { "id": "A4", "given": "a source that has left the battlefield", "expect": "false" }
+  ],
+  "unlocks": {
+    "blockerKey": "damage:permanent",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P03"
+  }
+}

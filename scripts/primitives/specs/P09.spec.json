@@ -1,0 +1,34 @@
+{
+  "id": "P09",
+  "name": "surveilToActions",
+  "family": "effect-handler",
+  "implements": "surveil",
+  "newDslMember": "{ do: 'surveil'; who: PlayerSelector; count: ValueExpr }",
+  "file": "library-order.ts",
+  "signature": "export function surveilToActions(effect: Extract<ExtendedEffect, { do: 'surveil' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 701.44 surveil", "CR 701.44a look at the top N, put any number into the graveyard, rest on top in any order"],
+  "layerOrTiming": "resolution",
+  "contract": [
+    "Same decision shape as scry, different destination: graveyard rather than bottom of library. The two must not share an implementation that parameterises the destination, because their deferred text differs and a player reading the log must see which one happened.",
+    "An empty library emits nothing and defers nothing.",
+    "Surveil 1 defers: graveyard or top is a real choice.",
+    "It emits no MOVE_ZONE to the graveyard speculatively. Milling a card the player would have kept is not a recoverable mistake."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.keyword.SurveilEffect",
+    "evidence": [
+      { "claim": "surveil is a player decision delegated to the player object", "mustContain": "player.surveil(surveilNumber, source, game)" }
+    ]
+  },
+  "cards": [
+    { "name": "Thought Erasure", "why": { "textMustContain": "Surveil 1" } },
+    { "name": "Discovery", "why": { "textMustContain": "Surveil" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "surveil 1 with a three-card library", "expect": "zero actions, one deferred that says surveil and not scry" },
+    { "id": "A2", "given": "an empty library", "expect": "zero actions and zero deferred" },
+    { "id": "A3", "given": "surveil 2 with one card in the library", "expect": "the deferred line names one card, not two" }
+  ],
+  "unlocks": { "blockerKey": "manual: surveil N", "measuredSolo": 49, "measuredTouches": 94, "source": "scripts/primitives/rank-missing-verbs.ts" }
+}

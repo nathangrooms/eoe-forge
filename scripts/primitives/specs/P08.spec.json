@@ -1,0 +1,36 @@
+{
+  "id": "P08",
+  "name": "scryToActions",
+  "family": "effect-handler",
+  "implements": "scry",
+  "newDslMember": "{ do: 'scry'; who: PlayerSelector; count: ValueExpr }",
+  "file": "library-order.ts",
+  "signature": "export function scryToActions(effect: Extract<ExtendedEffect, { do: 'scry' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 701.18 scry", "CR 701.18a look at the top N, put any number on the bottom, rest on top in any order"],
+  "layerOrTiming": "resolution",
+  "contract": [
+    "Scrying with an empty library emits nothing and defers nothing: there is nothing to look at and no decision to make.",
+    "Scry 1 with exactly one card in the library is STILL a decision - top or bottom - so it defers. A primitive that treated a one-card look as forced would be silently choosing for the player.",
+    "The deferred line names the player and the number, verbatim enough that the log shows what was skipped.",
+    "It emits no MOVE_ZONE speculatively: reordering the top of a library the player has not chosen is a hidden, unreplayable state change.",
+    "count of zero or less emits nothing and defers nothing."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.keyword.ScryEffect",
+    "evidence": [
+      { "claim": "scry is a player decision delegated to the player object", "mustContain": "player.scry(this.amount.calculate(game, source, this), source, game)" }
+    ]
+  },
+  "cards": [
+    { "name": "Preordain", "why": { "textMustContain": "Scry 2" } },
+    { "name": "Serum Visions", "why": { "textMustContain": "Scry 2" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Preordain with a five-card library", "expect": "zero actions, one deferred naming scry 2" },
+    { "id": "A2", "given": "an empty library", "expect": "zero actions and zero deferred" },
+    { "id": "A3", "given": "scry 1 with a one-card library", "expect": "still deferred - top or bottom is a real choice" },
+    { "id": "A4", "given": "scry over a library shorter than the count", "expect": "the deferred line names the number of cards actually looked at" }
+  ],
+  "unlocks": { "blockerKey": "manual: scry N", "measuredSolo": 108, "measuredTouches": 168, "source": "scripts/primitives/rank-missing-verbs.ts" }
+}

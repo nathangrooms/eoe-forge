@@ -1,0 +1,33 @@
+{
+  "id": "P12",
+  "name": "grantAbilityPart",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "continuous.ts",
+  "signature": "export function grantAbilityPart(grant: readonly string[] | undefined): EffectPart | null",
+  "rules": ["CR 613.1f layer 6"],
+  "layerOrTiming": "6a",
+  "contract": [
+    "Returns one EffectPart at 6a adding the named abilities, lower-cased, because layers.ts compares ability strings case-sensitively and the compiler emits mixed case.",
+    "An empty or absent list returns null rather than an empty part: computeLayers already filters effects with no parts, and an empty part would be a silent no-op that still consumed a timestamp.",
+    "Never removes abilities. Removal is a different modification with different CR 613.6 consequences."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.continuous.GainAbilityTargetEffect",
+    "evidence": [{ "claim": "ability grants are layer 6", "mustContain": "Layer.AbilityAddingRemovingEffects_6" }]
+  },
+  "cards": [{ "name": "Rancor", "why": { "textMustContain": "trample" } }],
+  "assertions": [
+    { "id": "A1", "given": "one entry, Trample", "expect": "6a, addAbilities holding the lower-cased word" },
+    { "id": "A2", "given": "an empty array", "expect": "null" },
+    { "id": "A3", "given": "Flying and Vigilance", "expect": "both, both lower-cased, order preserved" },
+    { "id": "A4", "given": "undefined", "expect": "null" }
+  ],
+  "unlocks": {
+    "blockerKey": "pump",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P01"
+  }
+}

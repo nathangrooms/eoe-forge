@@ -1,0 +1,36 @@
+{
+  "id": "P17",
+  "name": "zonePool",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "zones.ts",
+  "signature": "export function zonePool(zone: Zone, playerId: PlayerId, what: Selector, ctx: AbilityContext): InstanceId[]",
+  "rules": ["CR 400.1 zones", "CR 400.2 a hidden zone is still ordered internally"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Returns the ids in the named zone of the named player that satisfy the selector filter, in the zone's own stored order.",
+    "Order is the stored order and never a sort. A sort would be a second ordering that the reducer does not share, and a search that returned cards in a different order on two clients would desynchronise a replay.",
+    "A selector that is not a filtered all-selector returns an empty pool rather than the whole zone. An over-wide pool would let a forced-choice fast path move cards the effect never named, which is the direction that corrupts a game.",
+    "An unknown zone or unknown player returns empty.",
+    "The filter is evaluated with the same matchesFilter the rest of the engine uses, so a card in a graveyard is judged by the same predicate as a card on the battlefield."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": null,
+  "cards": [
+    { "name": "Raise Dead", "why": { "textMustContain": "from your graveyard to your hand" } },
+    { "name": "Rampant Growth", "why": { "textMustContain": "Search your library for a basic land card" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "a graveyard of two creatures and one land, filter creature", "expect": "the two creatures, in stored order" },
+    { "id": "A2", "given": "an empty zone", "expect": "empty" },
+    { "id": "A3", "given": "a self selector", "expect": "empty - not a filtered all-selector, so no pool" },
+    { "id": "A4", "given": "the same call twice", "expect": "identical arrays" },
+    { "id": "A5", "given": "another player's graveyard", "expect": "only that player's cards" }
+  ],
+  "unlocks": {
+    "blockerKey": "return-from",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P05 and P06"
+  }
+}

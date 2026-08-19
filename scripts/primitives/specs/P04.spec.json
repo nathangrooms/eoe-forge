@@ -1,0 +1,33 @@
+{
+  "id": "P04",
+  "name": "addManaToActions",
+  "family": "effect-handler",
+  "implements": "add-mana",
+  "file": "mana.ts",
+  "signature": "export function addManaToActions(effect: Extract<Effect, { do: 'add-mana' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 106.1 mana", "CR 106.4 the mana pool empties as a step ends", "CR 605.1 mana abilities do not use the stack"],
+  "layerOrTiming": "resolution of a mana ability; the pool it feeds empties at end of step",
+  "contract": [
+    "Parses the mana string with P16 and never with its own regex, so one grammar covers costs and production.",
+    "GameState carries no mana pool and GameAction has no member that adds to one. This primitive therefore returns a deferred line naming exactly what would be added, and emits no action.",
+    "It must NOT invent a state write, and must NOT return an empty result: an unrepresentable effect that says nothing is the silent no-op the engine exists to prevent.",
+    "An unparseable mana string is reported as unparseable, not silently treated as zero mana."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.mana.BasicManaEffect",
+    "evidence": [
+      { "claim": "mana production is a checked Mana object, not an integer", "mustContain": "Mana" }
+    ]
+  },
+  "cards": [
+    { "name": "Llanowar Elves", "why": { "textMustContain": "Add {G}" } },
+    { "name": "Sol Ring", "why": { "textMustContain": "Add {C}{C}" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Add {G}", "expect": "no actions, exactly one deferred line naming one green mana" },
+    { "id": "A2", "given": "Add {C}{C}", "expect": "the deferred line names two colourless" },
+    { "id": "A3", "given": "a malformed string", "expect": "a deferred line that says it could not be parsed, not a silent zero" }
+  ],
+  "unlocks": { "blockerKey": "add-mana", "measuredSolo": 262, "measuredTouches": 638, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

@@ -1,0 +1,133 @@
+{
+  "distinctOracleIds": 33037,
+  "representableFull": 7580,
+  "automatedBefore": 4712,
+  "automatedAfterAdoption": 6231,
+  "newlyAutomated": 1519,
+  "threwBefore": 0,
+  "threwAfter": 0,
+  "sampleNewlyAutomated": [
+    "Aegis of the Heavens",
+    "Afflict",
+    "Angel of Glory's Rise",
+    "Battlewand Oak",
+    "Beast-Kin Ranger",
+    "Bogardan Rager",
+    "Boreal Centaur",
+    "Cathar's Companion",
+    "Charge",
+    "Collective Nightmare",
+    "Crashing Drawbridge",
+    "Deathless Angel",
+    "Diamond Faerie",
+    "Dragon Engine",
+    "Drifting Shade",
+    "Fire Urchin",
+    "Firefist Adept",
+    "Ghor-Clan Bloodscale",
+    "Give In to Violence",
+    "Glimmer Bairn",
+    "Grove Rumbler",
+    "Interjection",
+    "Living Lightning",
+    "Locthwain Gargoyle",
+    "Mage il-Vec",
+    "Mutilate",
+    "Otepec Huntmaster",
+    "Path of Anger's Flame",
+    "Pull Under",
+    "Qilin's Blessing",
+    "Ragnarok, Divine Deliverance",
+    "Ranger's Guile",
+    "Shape the Sands",
+    "Snarling Undorak",
+    "Stonefare Crocodile",
+    "Surly Farrier",
+    "Tattered Apparition",
+    "The Underworld Cookbook",
+    "Trading Post",
+    "Twinblade Slasher"
+  ],
+  "stillBlockedBy": [
+    [
+      "add-mana",
+      685
+    ],
+    [
+      "choose-mode",
+      517
+    ],
+    [
+      "may",
+      242
+    ],
+    [
+      "pump",
+      156
+    ],
+    [
+      "search-library",
+      116
+    ],
+    [
+      "destroy",
+      88
+    ],
+    [
+      "counter",
+      82
+    ],
+    [
+      "damage",
+      70
+    ],
+    [
+      "draw",
+      70
+    ],
+    [
+      "return-from",
+      68
+    ],
+    [
+      "add-counters",
+      48
+    ],
+    [
+      "create-token",
+      47
+    ],
+    [
+      "gain-life",
+      46
+    ],
+    [
+      "untap",
+      24
+    ],
+    [
+      "move-zone",
+      23
+    ],
+    [
+      "tap",
+      22
+    ],
+    [
+      "sacrifice",
+      16
+    ],
+    [
+      "discard",
+      15
+    ],
+    [
+      "mill",
+      14
+    ],
+    [
+      "lose-life",
+      10
+    ]
+  ]
+}

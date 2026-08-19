@@ -1,0 +1,33 @@
+{
+  "id": "P02",
+  "name": "gainControlToContinuous",
+  "family": "effect-handler",
+  "implements": "gain-control",
+  "file": "continuous.ts",
+  "signature": "export function gainControlToContinuous(effect: Extract<Effect, { do: 'gain-control' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 613.1b layer 2", "CR 613.10 control-change timestamps"],
+  "layerOrTiming": "2a control",
+  "contract": [
+    "Produces one ContinuousEffect at sublayer 2a naming the new controller as a concrete PlayerId, never a PlayerSelector.",
+    "Declares `provides: ['control-change']` so CR 613.8 dependency ordering can see it.",
+    "An unresolvable controller produces no effect and one deferred line.",
+    "Emits zero GameActions: control change is a layer, not a state write."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.continuous.GainControlTargetEffect",
+    "evidence": [
+      { "claim": "layer 2, no sublayer", "mustContain": "Layer.ControlChangingEffects_2, SubLayer.NA" }
+    ]
+  },
+  "cards": [
+    { "name": "Act of Treason", "why": { "textMustContain": "Gain control of target creature" } },
+    { "name": "Mind Control", "why": { "textMustContain": "control enchanted creature" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Act of Treason on an opponent's creature", "expect": "one 2a control effect naming this player's id" },
+    { "id": "A2", "given": "that effect fed to computeLayers", "expect": "the creature's controller reads as the thief" },
+    { "id": "A3", "given": "a PlayerSelector resolving to nobody", "expect": "no effect and one deferred line" }
+  ],
+  "unlocks": { "blockerKey": "gain-control", "measuredSolo": 6, "measuredTouches": 7, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

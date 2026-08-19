@@ -1,0 +1,41 @@
+{
+  "id": "P01",
+  "name": "pumpToContinuous",
+  "family": "effect-handler",
+  "implements": "pump",
+  "file": "continuous.ts",
+  "signature": "export function pumpToContinuous(effect: Extract<Effect, { do: 'pump' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 613.1g layer 7", "CR 613.4c sublayer 7c", "CR 611.2b duration"],
+  "layerOrTiming": "7c modify-pt, plus 6a when `grant` is present",
+  "contract": [
+    "Produces one ContinuousEffect naming exactly the permanents the selector resolves to at resolution time (CR 613.6 locks the set).",
+    "Power and toughness are evaluated once, here, to plain numbers; a ValueExpr must never reach the layer engine unevaluated.",
+    "A `grant` list adds a second EffectPart at sublayer 6a in the same effect, so one timestamp covers both.",
+    "Resolving against an empty selector produces no continuous effect and one deferred line, never a silent nothing.",
+    "The effect id is derived from env, never minted from a uuid or a clock.",
+    "Emits zero GameActions: a pump changes no state the reducer owns."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.continuous.BoostTargetEffect",
+    "evidence": [
+      { "claim": "layer 7, sublayer 7c", "mustContain": "Layer.PTChangingEffects_7, SubLayer.ModifyPT_7c" },
+      { "claim": "the default duration is end of turn", "mustContain": "Duration.EndOfTurn" },
+      { "claim": "it adds to power and toughness rather than setting them", "mustContain": "target.addPower(" }
+    ]
+  },
+  "cards": [
+    { "name": "Giant Growth", "why": { "textMustContain": "gets +3/+3" } },
+    { "name": "Titanic Growth", "why": { "textMustContain": "gets +4/+4" } },
+    { "name": "Glorious Anthem", "why": { "textMustContain": "get +1/+1" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Giant Growth targeting a 2/2 bear", "expect": "one continuous effect, sublayer 7c, modify-pt +3/+3, affecting only the bear" },
+    { "id": "A2", "given": "the same effect fed to computeLayers", "expect": "the bear reads 5/5" },
+    { "id": "A3", "given": "a pump with grant ['trample']", "expect": "two parts, 7c and 6a, in one effect with one id and one timestamp" },
+    { "id": "A4", "given": "a selector resolving to nothing", "expect": "no continuous effect and exactly one deferred line" },
+    { "id": "A5", "given": "the same call run twice with the same env", "expect": "byte-identical results including the effect id" },
+    { "id": "A6", "given": "power expressed as {v:'count'} over two creatures", "expect": "the part carries the number 2, not the expression" }
+  ],
+  "unlocks": { "blockerKey": "pump", "measuredSolo": 1320, "measuredTouches": 1414, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

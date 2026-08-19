@@ -1,0 +1,37 @@
+{
+  "id": "P10",
+  "name": "regenerateShield",
+  "family": "effect-handler",
+  "implements": "regenerate",
+  "newDslMember": "{ do: 'regenerate'; what: Selector; count: ValueExpr }",
+  "file": "regenerate.ts",
+  "signature": "export function regenerateShield(effect: Extract<ExtendedEffect, { do: 'regenerate' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 701.15 regenerate", "CR 701.15a the next time this permanent would be destroyed, instead tap it, remove it from combat and heal all damage"],
+  "layerOrTiming": "resolution; the shield is consumed by a later destruction event, until end of turn",
+  "contract": [
+    "Regeneration is a SHIELD, not a prevention and not an indestructible grant. It is placed now and consumed later, so this primitive creates the shield and does not itself stop anything.",
+    "The shield is expressed as a counter on the permanent, because GameState has a per-card counter map and no shield list. The counter name is fixed and namespaced so it can never collide with a printed counter type.",
+    "One CARD_COUNTER per affected permanent, delta equal to the evaluated count.",
+    "A permanent that is not on the battlefield gets no shield.",
+    "It must NOT emit SET_KEYWORD indestructible: a regeneration shield is used up, and indestructible is not."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.RegenerateSourceEffect",
+    "evidence": [
+      { "claim": "regeneration is a counted shield, not a boolean flag", "mustContain": "RegenerateSourceEffect.incRegenerationShieldsAmount(game, permanent.getId())" },
+      { "claim": "the shield lasts until end of turn", "mustContain": "Duration.EndOfTurn" }
+    ]
+  },
+  "cards": [
+    { "name": "Regeneration", "why": { "textMustContain": "Regenerate" } },
+    { "name": "Troll Ascetic", "why": { "textMustContain": "Regenerate" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "regenerate targeting one creature", "expect": "one CARD_COUNTER with the namespaced shield counter, delta 1" },
+    { "id": "A2", "given": "count 2", "expect": "delta 2 on one action, not two actions of 1" },
+    { "id": "A3", "given": "a target that has left the battlefield", "expect": "no action" },
+    { "id": "A4", "given": "any input at all", "expect": "no SET_KEYWORD action is ever emitted" }
+  ],
+  "unlocks": { "blockerKey": "regenerate", "measuredSolo": null, "measuredTouches": null, "source": "docs/overhaul/PRIMITIVE-BUILD-ORDER.md rank 29, 33 new cards in the XMage ranking. NOT measured against our own catalogue: the compiler has no regenerate rule, so it is not in either of our two measured tables." }
+}

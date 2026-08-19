@@ -1,0 +1,32 @@
+{
+  "id": "P11",
+  "name": "ptModifyPart",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "continuous.ts",
+  "signature": "export function ptModifyPart(power: ValueExpr, toughness: ValueExpr, ctx: AbilityContext): EffectPart",
+  "rules": ["CR 613.4c sublayer 7c"],
+  "layerOrTiming": "7c",
+  "contract": [
+    "Returns exactly one EffectPart at sublayer 7c with a modify-pt modification.",
+    "Both values are evaluated to plain numbers here. layers.ts has its own DynamicValue for per-object recomputation and nothing the compiler emits needs it; reaching for it speculatively would add a second place a number can be wrong.",
+    "Negative values are passed through unchanged: minus three on both sides is a legal pump."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.continuous.BoostTargetEffect",
+    "evidence": [{ "claim": "sublayer 7c", "mustContain": "SubLayer.ModifyPT_7c" }]
+  },
+  "cards": [{ "name": "Giant Growth", "why": { "textMustContain": "+3/+3" } }],
+  "assertions": [
+    { "id": "A1", "given": "3 and 3", "expect": "sublayer 7c, kind modify-pt, power 3, toughness 3" },
+    { "id": "A2", "given": "minus 3 on both sides", "expect": "the negatives survive" },
+    { "id": "A3", "given": "a count expression over two creatures", "expect": "the number 2, not the expression" }
+  ],
+  "unlocks": {
+    "blockerKey": "pump",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P01; its cards are counted once, on P01"
+  }
+}

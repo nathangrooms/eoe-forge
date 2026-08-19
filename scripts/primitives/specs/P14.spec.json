@@ -1,0 +1,33 @@
+{
+  "id": "P14",
+  "name": "assembleContinuous",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "continuous.ts",
+  "signature": "export function assembleContinuous(parts: readonly EffectPart[], affects: LayerSelector, ctx: AbilityContext, env: PrimitiveEnv, note: string): ContinuousEffect | null",
+  "rules": ["CR 613.6 the affected set is locked when the effect starts applying", "CR 613.7 timestamp order"],
+  "layerOrTiming": "n/a - assembles the record layers.ts consumes",
+  "contract": [
+    "Returns null when parts is empty. computeLayers already filters those, but returning one would burn an id and a timestamp on nothing.",
+    "The id is derived from env alone, so two clients replaying one log build the same effect list.",
+    "The timestamp is the caller-supplied env timestamp, which comes from state.version. Never a clock: the last anthem winning must mean the same thing on both screens.",
+    "provides is derived from the parts, not passed in, so a caller cannot forget it and quietly break CR 613.8 ordering.",
+    "fromAbility is left unset. These effects come from a resolved spell or ability and must outlive their source, which is exactly what the CR 613.6 note in layers.ts describes."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": null,
+  "cards": [{ "name": "Giant Growth", "why": { "textMustContain": "+3/+3" } }],
+  "assertions": [
+    { "id": "A1", "given": "an empty parts array", "expect": "null" },
+    { "id": "A2", "given": "one modify-pt part", "expect": "provides includes modify-pt" },
+    { "id": "A3", "given": "the same env twice", "expect": "the same id both times" },
+    { "id": "A4", "given": "two different ordinals", "expect": "different ids" },
+    { "id": "A5", "given": "any result", "expect": "it survives assertSerialisable" }
+  ],
+  "unlocks": {
+    "blockerKey": "pump",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P01 and P02"
+  }
+}

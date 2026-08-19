@@ -1,0 +1,38 @@
+{
+  "id": "P13",
+  "name": "durationToExpiry",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "continuous.ts",
+  "signature": "export function durationToExpiry(duration: Duration, state: GameState, controllerId: PlayerId): Expiry",
+  "rules": ["CR 611.2b until end of turn", "CR 514.2 cleanup ends until-end-of-turn effects"],
+  "layerOrTiming": "n/a - describes when an effect stops",
+  "contract": [
+    "Returns pure JSON. A closure would not survive the jsonb column or a replay on a client that received only the action log, which is the DSL central promise.",
+    "end-of-turn expires at the cleanup step of the turn that is current WHEN THE EFFECT IS CREATED, recorded as an absolute turn number, not as a relative countdown a replay could mis-decrement.",
+    "your-next-turn records the controller and a turn number, so a skipped turn does not end it early.",
+    "while-source-on-battlefield records no turn at all: it is not time-based, and inventing a turn for it would end an anthem at cleanup.",
+    "permanent never expires."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.constants.Duration",
+    "evidence": [
+      { "claim": "end of turn is a named duration", "mustContain": "EndOfTurn" },
+      { "claim": "while on battlefield is a separate, non-time-based duration", "mustContain": "WhileOnBattlefield" }
+    ]
+  },
+  "cards": [{ "name": "Giant Growth", "why": { "textMustContain": "until end of turn" } }],
+  "assertions": [
+    { "id": "A1", "given": "end-of-turn on turn 7", "expect": "kind end-of-turn, turn 7" },
+    { "id": "A2", "given": "permanent", "expect": "kind never" },
+    { "id": "A3", "given": "while-source-on-battlefield", "expect": "kind while-source, and no turn field at all" },
+    { "id": "A4", "given": "any result", "expect": "it survives assertSerialisable" }
+  ],
+  "unlocks": {
+    "blockerKey": "pump",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P01 and P02"
+  }
+}

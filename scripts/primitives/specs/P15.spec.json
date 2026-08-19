@@ -1,0 +1,34 @@
+{
+  "id": "P15",
+  "name": "selectorToLayerSelector",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "continuous.ts",
+  "signature": "export function selectorToLayerSelector(selector: Selector, ctx: AbilityContext): LayerSelector",
+  "rules": ["CR 613.6 the set is locked at the moment the effect starts applying"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Resolves the DSL selector against the CURRENT board and returns an ids selector holding those concrete ids. It does not translate the filter tree into a LayerMatchFilter.",
+    "That is the point. CR 613.6 locks the affected set when a one-shot effect starts applying, so Giant Growth on a bear must keep pumping THAT bear and must not start pumping a creature that arrives later. A translated match filter would re-evaluate on every layer pass and pump the newcomer.",
+    "An empty resolution returns the none selector, not the all selector. The failure direction matters: none is a visible no-op, all would pump the whole table.",
+    "Ids come back in resolveSelector order, which is seat order, so the list is identical on every client."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.ContinuousEffectImpl",
+    "evidence": [{ "claim": "affected objects are pinned rather than re-matched", "mustContain": "affectedObjectsSet" }]
+  },
+  "cards": [{ "name": "Giant Growth", "why": { "textMustContain": "Target creature" } }],
+  "assertions": [
+    { "id": "A1", "given": "a target selector naming one bear", "expect": "ids kind, exactly that one id" },
+    { "id": "A2", "given": "a selector resolving to nothing", "expect": "none kind" },
+    { "id": "A3", "given": "an all-creatures-you-control selector on a board of two", "expect": "ids kind with both, in seat order" },
+    { "id": "A4", "given": "a creature added to the board after the call", "expect": "the returned selector does not include it" }
+  ],
+  "unlocks": {
+    "blockerKey": "pump",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P01 and P02"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "P16",
+  "name": "parseManaSymbols",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "mana.ts",
+  "signature": "export function parseManaSymbols(mana: string): ManaParse",
+  "rules": ["CR 107.4 mana symbols", "CR 107.4e hybrid", "CR 107.4f Phyrexian"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Parses a braced mana string into a list of typed symbols plus a generic total. It does not decide anything about the game.",
+    "Recognises the five colours and colourless, generic numbers, X, hybrid, colour-slash-2 hybrid, and Phyrexian.",
+    "Any symbol it does not recognise goes into an unrecognised list and the parse is marked not ok. It must never drop a symbol silently, because a dropped symbol is a card producing or costing less mana than it says.",
+    "Case is normalised to upper for colour letters; Scryfall writes them upper but the compiler does not guarantee it.",
+    "An empty string parses ok with nothing in it. That is different from a failed parse and the two must not be conflated.",
+    "REPAIR ROUND, added after the behaviour gate rejected the first implementation at 74.82 percent: a cost containing a double slash is a split or modal-DFC card. Parse each face separately and expose them as faces, front face first. The top-level symbols and generic describe the FRONT face only, because merging both faces would make Fire // Ice cost five mana, which is a worse answer than failing to parse."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.constants.ColoredManaSymbol",
+    "evidence": [{ "claim": "the five colours are the enumerated coloured symbols", "mustContain": "W" }]
+  },
+  "cards": [
+    { "name": "Llanowar Elves", "why": { "textMustContain": "Add {G}" } },
+    { "name": "Sol Ring", "why": { "textMustContain": "Add {C}{C}" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "a single green symbol", "expect": "ok, one coloured symbol G" },
+    { "id": "A2", "given": "two colourless symbols", "expect": "ok, two colourless" },
+    { "id": "A3", "given": "a generic 2 followed by a white symbol", "expect": "generic 2 and one coloured W" },
+    { "id": "A4", "given": "a hybrid white-blue symbol", "expect": "ok, one hybrid carrying both colours" },
+    { "id": "A5", "given": "a Phyrexian black symbol", "expect": "ok, marked phyrexian" },
+    { "id": "A6", "given": "an unknown symbol", "expect": "not ok, and the symbol is listed as unrecognised" },
+    { "id": "A7", "given": "the empty string", "expect": "ok and empty, distinct from a failed parse" },
+    { "id": "A8", "given": "every mana cost in the catalogue", "expect": "the parse recognises at least 99 percent of distinct mana strings, and every failure is listed rather than dropped" }
+  ],
+  "unlocks": {
+    "blockerKey": "add-mana",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P04"
+  }
+}

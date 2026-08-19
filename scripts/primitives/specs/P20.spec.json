@@ -1,0 +1,35 @@
+{
+  "id": "P20",
+  "name": "libraryTop",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "library-order.ts",
+  "signature": "export function libraryTop(state: GameState, playerId: PlayerId, count: number): InstanceId[]",
+  "rules": ["CR 401.1 the library is an ordered zone", "CR 701.18a scry looks at the top N", "CR 701.44a surveil looks at the top N"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Returns the first count entries of the player's library, which is stored top-first.",
+    "A count larger than the library returns the whole library. CR 701.18a says look at the top N, and looking at fewer than N because there are fewer is not an error.",
+    "A count of zero or less returns empty.",
+    "An unknown player returns empty.",
+    "It returns a NEW array. Returning the live library array would let a caller reorder a library by accident, which is the mutation the purity gate exists to catch."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": null,
+  "cards": [
+    { "name": "Preordain", "why": { "textMustContain": "Scry 2" } },
+    { "name": "Thought Erasure", "why": { "textMustContain": "Surveil 1" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "a five-card library and count 2", "expect": "the first two ids, top first" },
+    { "id": "A2", "given": "count 10 on a three-card library", "expect": "all three" },
+    { "id": "A3", "given": "count 0", "expect": "empty" },
+    { "id": "A4", "given": "the returned array is then sorted by the caller", "expect": "the library in state is unchanged" }
+  ],
+  "unlocks": {
+    "blockerKey": "manual: scry N",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P08 and P09"
+  }
+}

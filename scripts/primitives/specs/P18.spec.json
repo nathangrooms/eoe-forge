@@ -1,0 +1,36 @@
+{
+  "id": "P18",
+  "name": "stackTargetsOf",
+  "family": "pure-fn",
+  "implements": null,
+  "file": "stack.ts",
+  "signature": "export function stackTargetsOf(ctx: AbilityContext): StackObjectId[]",
+  "rules": ["CR 601.2c targets are chosen on announcement", "CR 608.2b an illegal target is not affected"],
+  "layerOrTiming": "n/a",
+  "contract": [
+    "Returns the stack object ids among the announced targets, in announcement order.",
+    "Only targets of kind stack count. A card target and a player target are not stack objects and including one would let a counterspell aim at a permanent.",
+    "A stack id that is no longer present on the stack is DROPPED, not returned. CR 608.2b says an illegal target is simply not affected, and returning it would make the caller counter whatever now sits at that id.",
+    "A state with no stack at all returns empty rather than throwing: the stack field is optional so a state persisted before it existed still loads.",
+    "Duplicate announcements collapse to one entry, in first-seen order."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.game.stack.SpellStack",
+    "evidence": [{ "claim": "countering is keyed on a stack object id looked up in the stack", "mustContain": "counter(" }]
+  },
+  "cards": [{ "name": "Counterspell", "why": { "textMustContain": "Counter target spell" } }],
+  "assertions": [
+    { "id": "A1", "given": "one live stack target", "expect": "that one id" },
+    { "id": "A2", "given": "a stack target whose object has left the stack", "expect": "empty" },
+    { "id": "A3", "given": "a card target and a player target only", "expect": "empty" },
+    { "id": "A4", "given": "a state with no stack field", "expect": "empty, no throw" },
+    { "id": "A5", "given": "the same stack id announced twice", "expect": "one entry" }
+  ],
+  "unlocks": {
+    "blockerKey": "counter",
+    "measuredSolo": null,
+    "measuredTouches": null,
+    "source": "supporting primitive for P07"
+  }
+}

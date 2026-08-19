@@ -1,0 +1,33 @@
+{
+  "id": "P07",
+  "name": "counterTargetSpell",
+  "family": "effect-handler",
+  "implements": "counter",
+  "file": "stack.ts",
+  "signature": "export function counterTargetSpell(effect: Extract<Effect, { do: 'counter' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 701.5 counter", "CR 608.2b a spell whose targets are all illegal does not resolve"],
+  "layerOrTiming": "resolution",
+  "contract": [
+    "Reads the announced stack target through P18 and emits COUNTER_SPELL with that stackId.",
+    "A target that is no longer on the stack emits nothing and defers once, saying the target had already left. It must not counter a different object.",
+    "No announced stack target at all defers once; it never guesses at the top of the stack.",
+    "Emits at most one COUNTER_SPELL per announced target."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.CounterTargetEffect",
+    "evidence": [
+      { "claim": "countering is delegated to the stack, keyed on the announced target id", "mustContain": "game.getStack().counter(targetId, source, game)" }
+    ]
+  },
+  "cards": [
+    { "name": "Counterspell", "why": { "textMustContain": "Counter target spell" } },
+    { "name": "Negate", "why": { "textMustContain": "Counter target noncreature spell" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Counterspell with a live stack target", "expect": "one COUNTER_SPELL naming that stackId" },
+    { "id": "A2", "given": "the target already gone from the stack", "expect": "zero actions, one deferred, and no COUNTER_SPELL aimed anywhere else" },
+    { "id": "A3", "given": "no announced target", "expect": "zero actions, one deferred" }
+  ],
+  "unlocks": { "blockerKey": "counter", "measuredSolo": 66, "measuredTouches": 82, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

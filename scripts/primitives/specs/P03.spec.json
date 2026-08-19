@@ -1,0 +1,39 @@
+{
+  "id": "P03",
+  "name": "damageToPermanent",
+  "family": "effect-handler",
+  "implements": "damage",
+  "file": "damage.ts",
+  "signature": "export function damageToPermanent(effect: Extract<Effect, { do: 'damage' }>, ctx: AbilityContext, env: PrimitiveEnv): PrimitiveResult",
+  "rules": ["CR 119.3 damage is marked", "CR 704.5g lethal damage is a state-based action", "CR 702.2b deathtouch"],
+  "layerOrTiming": "resolution; destruction happens later, in state-based actions",
+  "contract": [
+    "Emits one DAMAGE_CARD per affected permanent and NEVER a MOVE_ZONE: whether marked damage is lethal is CR 704.5g's business, and sba.ts already decides it.",
+    "Carries `deathtouch: true` when the source has deathtouch in the LAYERED view, because a granted deathtouch counts and a printed-only read would miss it.",
+    "Zero or negative amounts emit nothing.",
+    "Does not check indestructible: CR 704.5g does, and duplicating it here would be a second implementation that drifts.",
+    "Damage aimed at a PlayerSelector is not this primitive's job and returns an empty result."
+  ],
+  "purity": { "noClock": true, "noRandom": true, "noMutation": true, "noAmbientState": true },
+  "xmage": {
+    "fqn": "mage.abilities.effects.common.DamageTargetEffect",
+    "evidence": [
+      { "claim": "damage is marked on the permanent", "mustContain": "permanent.damage(amount.calculate(game, source, this), source.getSourceId(), source, game, false, preventable)" },
+      { "claim": "the effect never destroys anything itself", "mustNotContain": "permanent.destroy(" }
+    ]
+  },
+  "cards": [
+    { "name": "Shock", "why": { "textMustContain": "deals 2 damage" } },
+    { "name": "Lightning Bolt", "why": { "textMustContain": "deals 3 damage" } },
+    { "name": "Pyroclasm", "why": { "textMustContain": "deals 2 damage to each creature" } }
+  ],
+  "assertions": [
+    { "id": "A1", "given": "Shock at a 3/3", "expect": "one DAMAGE_CARD of 2 and no MOVE_ZONE" },
+    { "id": "A2", "given": "Shock at a 2/2 (lethal)", "expect": "still one DAMAGE_CARD and still no MOVE_ZONE - the kill is the SBA's" },
+    { "id": "A3", "given": "the DAMAGE_CARD from A2 applied, then state-based actions", "expect": "the 2/2 is in the graveyard, destroyed under CR 704.5g" },
+    { "id": "A4", "given": "a source with deathtouch granted by a layer effect", "expect": "deathtouch: true on the action" },
+    { "id": "A5", "given": "damage to an indestructible creature", "expect": "the DAMAGE_CARD is still emitted; nothing here second-guesses 704.5g" },
+    { "id": "A6", "given": "amount evaluating to 0", "expect": "no actions at all" }
+  ],
+  "unlocks": { "blockerKey": "damage:permanent", "measuredSolo": 333, "measuredTouches": 396, "source": "scripts/primitives/rank-engine-primitives.ts" }
+}

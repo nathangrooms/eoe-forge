@@ -1,83 +1,32 @@
-import { Link } from 'react-router-dom';
-import {
-  Activity,
-  Camera,
-  CheckCircle2,
-  Eye,
-  Heart,
-  Layers,
-  Pencil,
-  Plus,
-  Sparkles,
-  Star,
-  Tag,
-  Trash2,
-  Upload,
-  type LucideIcon,
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { CardImage, CARD_ASPECT } from '@/components/cards';
+import { Activity } from 'lucide-react';
 import { formatTimeAgo } from '@/features/dashboard/value';
-import { useActivityFeed, type ActivityEntry } from '@/features/dashboard/activity';
+import { useActivityFeed } from '@/features/dashboard/activity';
 import { useCardLookup } from '@/features/dashboard/cardLookup';
-import { cn } from '@/lib/utils';
-import { Reveal } from './Reveal';
+import { RailSection, RailEmpty, railTileWidth } from './RailSection';
+import { RailTile } from './RailTile';
 
 /**
- * Recent activity, told through the cards it happened to.
+ * What you did last, told through the cards it happened to, two at a time.
  *
- * The row used to read "Added 1 card" beside a grey icon square, which is a
- * receipt rather than a memory. Every entry now leads with the artwork of the
- * card involved — the card that was scanned or added, or the commander of the
- * deck that was touched — at the real card aspect ratio, so the column scans as
- * a strip of Magic cards instead of a list of sentences.
+ * The owner's layout: "recent activity should show 2 only (same size as recent
+ * decks) so 5 total in first row. Also scrollbar on activity." Same rail as the
+ * decks beside it, same tile component, so the two really are the same size
+ * rather than close enough. The rest of the feed pages behind these two.
  *
- * The two-column grid draws each card at roughly 130 px, so the size token is
- * pinned to `sm`. Left to default the component resolves `fill` to `md`, which
- * asks Scryfall for the 672 px `large` asset — thirteen of them on first paint,
- * about five times the pixels a 130 px box can show. `sm` requests `normal`
- * (488 px), still comfortably over the 260 device pixels a 2x display needs.
+ * Every row leads with artwork: the card that was scanned or added, or the
+ * commander of the deck that was touched. A row used to read "Added 1 card"
+ * beside a grey square, which is a receipt rather than a memory.
  */
 
-const THUMB_WIDTH = 120;
+const PER_VIEW = 2;
 
-/** Fallback glyph for entries with no card behind them — imports, bulk scans. */
-const ACTIVITY_ICONS: Record<string, LucideIcon> = {
-  deck_created: Plus,
-  deck_updated: Pencil,
-  deck_deleted: Trash2,
-  deck_favorited: Star,
-  deck_opened: Eye,
-  card_added: Plus,
-  collection_added: Plus,
-  collection_updated: Pencil,
-  collection_import: Upload,
-  wishlist_added: Heart,
-  listing_created: Tag,
-  sale_completed: CheckCircle2,
-  ai_build_run: Sparkles,
-  scan_completed: Camera,
-};
+/** Enough to page through without making the feed a second collection browser. */
+const FEED_LENGTH = 12;
 
-/** Same footprint and corner geometry as a card, so the column stays aligned. */
-function FallbackThumb({ entry }: { entry: ActivityEntry }) {
-  const Icon = ACTIVITY_ICONS[entry.type] ?? (entry.kind === 'deck' ? Layers : Activity);
-  return (
-    <div
-      className="grid w-full place-items-center bg-muted shadow-sm shadow-black/30"
-      style={{ aspectRatio: CARD_ASPECT, borderRadius: '4.75% / 3.4%' }}
-      aria-hidden="true"
-    >
-      <Icon className="h-4 w-4 text-muted-foreground" />
-    </div>
-  );
-}
+export function RecentActivity({ className }: { className?: string }) {
+  const { entries, loading, error } = useActivityFeed(FEED_LENGTH);
 
-export function RecentActivity() {
-  const { entries, loading, error } = useActivityFeed(6);
-
-  /* One batched join back to `cards` for the whole feed — the added card for a
+  /* One batched join back to `cards` for the whole feed: the added card for a
      collection entry, the commander for a deck entry. */
   const lookup = useCardLookup(
     entries.map(entry => entry.artCardId),
@@ -85,103 +34,52 @@ export function RecentActivity() {
   );
 
   return (
-    <Card className="h-full">
-      <CardHeader className="space-y-0 pb-4">
-        <CardTitle className="text-base font-semibold">Recent activity</CardTitle>
-      </CardHeader>
+    <RailSection
+      title="Recent activity"
+      perView={PER_VIEW}
+      className={className}
+      loading={loading}
+      error={error}
+      isEmpty={entries.length === 0}
+      empty={
+        <RailEmpty
+          icon={Activity}
+          headline="Nothing here yet"
+          body="Scan a card, add one to your collection or open a deck and it shows up here, with the card itself."
+          actionLabel="Scan a card"
+          actionTo="/scan"
+        />
+      }
+    >
+      {entries.map((entry, index) => {
+        const card = lookup.resolve(entry.artCardId, entry.artCardName);
 
-      <CardContent className="pt-0">
-        {loading ? (
-          <ul className="grid grid-cols-2 gap-5">
-            {[0, 1, 2, 3, 4].map(i => (
-              <li key={i} className="flex items-center gap-3 px-2 py-2">
-                <Skeleton
-                  className="shrink-0 rounded-md"
-                  style={{ width: THUMB_WIDTH, aspectRatio: CARD_ASPECT }}
-                />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : error ? (
-          <p className="py-8 text-center text-sm text-destructive">{error}</p>
-        ) : entries.length === 0 ? (
-          <div className="py-10 text-center">
-            <Activity className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">Nothing here yet</p>
-            <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-              Scanning a card, adding to your collection or opening a deck shows up here — with the
-              card itself.
-            </p>
+        /* Clicking a card always opens that card's page. Only fall back to the
+           entry's own destination when there is no card to open. */
+        const to = card ? `/cards/${card.id}` : (entry.href ?? '/collection');
+
+        return (
+          <div key={entry.id} className={railTileWidth(PER_VIEW)}>
+            <RailTile
+              to={to}
+              card={card}
+              colors={card?.color_identity ?? []}
+              fallbackNote="No card art for this one"
+              eager={index < PER_VIEW}
+              title={entry.title}
+              overlay={
+                entry.quantity && entry.quantity > 1 ? (
+                  <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground backdrop-blur">
+                    &times;{entry.quantity}
+                  </span>
+                ) : undefined
+              }
+              subtitle={entry.detail ? <span className="block truncate">{entry.detail}</span> : undefined}
+              meta={<span className="block truncate">{formatTimeAgo(entry.at)}</span>}
+            />
           </div>
-        ) : (
-          <ul className="grid grid-cols-2 gap-5">
-            {entries.map((entry, index) => {
-              const card = lookup.resolve(entry.artCardId, entry.artCardName);
-
-              const body = (
-                <>
-                  {/* Card on top at size, details beneath — the card is the
-                      subject of the entry, so it leads. */}
-                  <div className="relative w-full">
-                    {card ? (
-                      <CardImage card={card} size="sm" fill hideFlip eager={index < 4}>
-                        {entry.quantity && entry.quantity > 1 ? (
-                          <span className="absolute bottom-0 right-0 rounded-tl-md bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-foreground backdrop-blur">
-                            &times;{entry.quantity}
-                          </span>
-                        ) : null}
-                      </CardImage>
-                    ) : (
-                      <FallbackThumb entry={entry} />
-                    )}
-                  </div>
-
-                  <div className="mt-2.5 min-w-0 w-full">
-                    <p className="truncate text-sm font-medium text-foreground">{entry.title}</p>
-                    {entry.detail && (
-                      <p className="truncate text-xs text-muted-foreground">{entry.detail}</p>
-                    )}
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {formatTimeAgo(entry.at)}
-                    </p>
-                  </div>
-                </>
-              );
-
-              /* Clicking a card always goes to that card's page. Only fall back
-                 to the entry's own destination when there is no card to open. */
-              const href = card ? `/cards/${card.id}` : entry.href;
-
-              const rowClass = cn(
-                'flex h-full flex-col items-start rounded-xl p-2 transition-colors duration-200',
-                'motion-reduce:transition-none'
-              );
-
-              return (
-                <Reveal as="li" key={entry.id} index={index} delay={index * 45}>
-                  {href ? (
-                    <Link
-                      to={href}
-                      className={cn(
-                        rowClass,
-                        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-                      )}
-                    >
-                      {body}
-                    </Link>
-                  ) : (
-                    <div className={rowClass}>{body}</div>
-                  )}
-                </Reveal>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+        );
+      })}
+    </RailSection>
   );
 }

@@ -22,11 +22,32 @@ import { cn } from '@/lib/utils';
 export function CardRail({
   children,
   className,
+  contentClassName,
+  arrowsInside,
   label,
   scrollRef,
 }: {
   children: ReactNode;
   className?: string;
+  /**
+   * Overrides on the scrolling row itself, which is where the gap lives.
+   *
+   * The dashboard needs it: its first row is five tiles of equal width split
+   * across two rails, and they only come out equal if the gap inside each rail
+   * matches the gap of the grid the rails sit in.
+   */
+  contentClassName?: string;
+  /**
+   * Keep the arrows within the rail's own width instead of letting them hang a
+   * third of their width outside it.
+   *
+   * Hanging out is right on the card page, where a rail is the full width of the
+   * content and the overhang lands in the page margin. It is wrong on the
+   * dashboard, where two rails sit side by side in one grid: the left rail's
+   * right arrow landed on top of the right rail's first card, and the right
+   * rail's arrow was clipped by the page's own `overflow-x-hidden`.
+   */
+  arrowsInside?: boolean;
   /** Announced to screen readers, e.g. "Cards that share Metalcraft". */
   label?: string;
   /**
@@ -88,7 +109,7 @@ export function CardRail({
           type="button"
           aria-label="Scroll left"
           onClick={() => page(-1)}
-          className={cn(arrow, 'left-0 -translate-x-1/3')}
+          className={cn(arrow, 'left-0', arrowsInside ? 'translate-x-1' : '-translate-x-1/3')}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -99,7 +120,7 @@ export function CardRail({
         onScroll={measure}
         role={label ? 'group' : undefined}
         aria-label={label}
-        className="scrollbar-none flex snap-x gap-3 overflow-x-auto pb-2"
+        className={cn('scrollbar-none flex snap-x gap-3 overflow-x-auto pb-2', contentClassName)}
       >
         {children}
       </div>
@@ -109,7 +130,7 @@ export function CardRail({
           type="button"
           aria-label="Scroll right"
           onClick={() => page(1)}
-          className={cn(arrow, 'right-0 translate-x-1/3')}
+          className={cn(arrow, 'right-0', arrowsInside ? '-translate-x-1' : 'translate-x-1/3')}
         >
           <ChevronRight className="h-5 w-5" />
         </button>

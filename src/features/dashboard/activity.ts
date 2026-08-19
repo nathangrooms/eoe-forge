@@ -228,19 +228,50 @@ function collapseRuns(entries: ActivityEntry[]): ActivityEntry[] {
 
   for (const entry of entries) {
     const previous = out[out.length - 1];
+
+    /*
+     * Two rows about the SAME CARD, next to each other, are one thing that
+     * happened, whatever the two writers called it.
+     *
+     * The types deliberately do not have to match. A scan writes both a
+     * `card_added` log row and a `user_collections` row, and when those land
+     * further apart than the ten-minute de-duplication window above, the feed
+     * showed the same card twice: once as "Scanned into collection" and once as
+     * "Collection updated". With only two activity tiles in the first row now,
+     * that spent the entire section on one card.
+     *
+     * Decks still require a matching type, because "Deck created" followed by
+     * "Deck updated" really are two events worth reading.
+     */
+    const subject = (item: ActivityEntry) => item.artCardId ?? item.artCardName;
+    const sameCard =
+      previous &&
+      previous.kind === 'card' &&
+      entry.kind === 'card' &&
+      Boolean(subject(previous)) &&
+      subject(previous) === subject(entry);
+
     const sameSubject =
       previous &&
       previous.kind === entry.kind &&
-      previous.type === entry.type &&
-      previous.title === entry.title &&
-      (previous.artCardId ?? previous.artCardName) ===
-        (entry.artCardId ?? entry.artCardName) &&
+      (sameCard || (previous.type === entry.type && previous.title === entry.title)) &&
+      subject(previous) === subject(entry) &&
       new Date(previous.at).getTime() - new Date(entry.at).getTime() < RUN_WINDOW_MS;
 
     if (sameSubject) {
       previous.occurrences += 1;
       if (previous.quantity !== null) {
-        previous.quantity += entry.quantity ?? 1;
+        /*
+         * A run of identical events is a run of separate additions, so those
+         * add up. Two DIFFERENT records of one event are not: a scan of four
+         * copies writes a log row saying 4 and a collection row saying 4, and
+         * summing them would report eight copies of a card the user has four
+         * of. Whichever record counted more is the answer.
+         */
+        previous.quantity =
+          previous.type === entry.type
+            ? previous.quantity + (entry.quantity ?? 1)
+            : Math.max(previous.quantity, entry.quantity ?? 1);
       }
       continue;
     }

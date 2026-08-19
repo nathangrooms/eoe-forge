@@ -335,6 +335,18 @@ export const GameCardView = memo(function GameCardView({
       className={cn('relative shrink-0', className)}
       style={{ width: renderedWidth, ...style }}
       onDoubleClick={onDoubleClick}
+      /*
+       * The card's identity, on the element, so a screenshot run can measure a
+       * specific permanent rather than guessing from its name.
+       *
+       * Not decoration: a fallback deck holds four Grizzly Bears and both seats
+       * are dealt from the same list, so "did tapping this card move that one"
+       * was being answered by matching on NAME and silently comparing one
+       * player's bear against another's. The layout-shift measurement in
+       * `scripts/play-preview-shots.mjs` reads this.
+       */
+      data-instance={card.instanceId}
+      data-tapped={card.tapped ? 'true' : 'false'}
     >
       {/* The rotation lives on an inner element: a CSS rotate does not change
           the layout box, so tapping a card must not reflow the row around it. */}

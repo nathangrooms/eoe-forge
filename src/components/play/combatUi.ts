@@ -129,7 +129,7 @@ export function attacksAgainst(state: GameState, viewerId: PlayerId) {
 function whyCannotAttack(state: GameState, card: CardInstance): string {
   if (card.tapped) return `${card.name} is tapped.`;
   if (card.summoningSick && !hasKeywordIn(state, card, 'haste')) {
-    return `${card.name} came down this turn and has no haste — it cannot attack yet.`;
+    return `${card.name} came down this turn and has no haste, so it cannot attack yet.`;
   }
   if (hasKeywordIn(state, card, 'defender')) return `${card.name} has defender.`;
   return `${card.name} cannot attack right now.`;
@@ -173,7 +173,7 @@ export function cardCombatFor(
       return {
         chip: 'attacking',
         enabled: true,
-        label: `${card.name} is attacking — press to call it back`,
+        label: `${card.name} is attacking. Press to call it back.`,
         dimmed: false,
       };
     }
@@ -183,7 +183,7 @@ export function cardCombatFor(
       return {
         chip: 'attack',
         enabled: true,
-        label: `Attack with ${card.name} (${statLineIn(state, card) ?? '—'})`,
+        label: `Attack with ${card.name} (${statLineIn(state, card) ?? '?'})`,
         dimmed: false,
       };
     }
@@ -203,7 +203,7 @@ export function cardCombatFor(
       return {
         chip: 'blocking',
         enabled: true,
-        label: `${card.name} is blocking ${attacker?.name ?? 'an attacker'} — press to take it back`,
+        label: `${card.name} is blocking ${attacker?.name ?? 'an attacker'}. Press to take it back.`,
         dimmed: false,
       };
     }
@@ -215,8 +215,8 @@ export function cardCombatFor(
         chip: isArmed ? 'armed' : 'block',
         enabled: true,
         label: isArmed
-          ? `${card.name} is ready — now press the attacker it blocks`
-          : `Block with ${card.name} (${statLineIn(state, card) ?? '—'})`,
+          ? `${card.name} is ready. Now press the attacker it blocks.`
+          : `Block with ${card.name} (${statLineIn(state, card) ?? '?'})`,
         dimmed: false,
       };
     }
@@ -235,7 +235,7 @@ export function cardCombatFor(
     return {
       chip: 'target',
       enabled: false,
-      label: `${card.name} is attacking you — pick one of your creatures first, then press this`,
+      label: `${card.name} is attacking you. Pick one of your creatures first, then press this.`,
       dimmed: false,
     };
   }
@@ -252,7 +252,7 @@ export function cardCombatFor(
   return {
     chip: 'target',
     enabled: true,
-    label: `Block ${card.name} (${statLineIn(state, card) ?? '—'}) with ${armed.name}`,
+    label: `Block ${card.name} (${statLineIn(state, card) ?? '?'}) with ${armed.name}`,
     dimmed: false,
   };
 }

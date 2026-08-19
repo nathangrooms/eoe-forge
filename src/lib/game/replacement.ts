@@ -61,6 +61,7 @@ import type {
   ReplacementMatch,
 } from './types.ts';
 import { getCard, getPlayer } from './rules.ts';
+import { intrinsicReplacementsFor } from './intrinsic.ts';
 
 /* -------------------------------------------------------------------------- */
 /* The event                                                                  */
@@ -247,6 +248,19 @@ function matchesEvent(
 /**
  * Every effect that would apply to this event right now — active, matching, and
  * not already used on it (CR 614.5).
+ *
+ * Two sources, deliberately:
+ *
+ *   - the **registered** effects in `state.replacements`, which is where a
+ *     board-wide or one-shot effect belongs, because it genuinely is state;
+ *   - the **intrinsic** ones a card carries in its own oracle text, derived
+ *     from the entering permanent rather than registered. "This land enters
+ *     tapped" is not something the table remembers, it is something the card
+ *     says, and `intrinsic.ts` explains at length why deriving it is the only
+ *     version of that wire nobody can forget to connect.
+ *
+ * Both go through the same match, the same CR 614.5 `replacedBy` check and the
+ * same CR 616.1 ordering, so nothing downstream has to know the difference.
  */
 export function applicableReplacements(
   state: GameState,
@@ -256,7 +270,17 @@ export function applicableReplacements(
   const target = event ?? eventForAction(state, action);
   if (!target) return [];
   const used = action.replacedBy ?? [];
-  return activeReplacements(state).filter(
+
+  /* Only asked for an arrival, and only about the permanent that is arriving —
+     which is the one card whose text can possibly carry a self-replacement.
+     Every other action pays a single `kind` comparison for this. */
+  const intrinsic =
+    target.kind === 'enters' ? intrinsicReplacementsFor(state, target.instanceId) : [];
+
+  const candidates =
+    intrinsic.length === 0 ? activeReplacements(state) : [...activeReplacements(state), ...intrinsic];
+
+  return candidates.filter(
     effect =>
       effect.event === target.kind &&
       !used.includes(effect.id) &&
@@ -499,10 +523,19 @@ function describeEvent(event: ReplaceableEvent): string {
 export function replaceAction(state: GameState, action: GameAction): GameAction[] | null {
   const used = action.replacedBy ?? [];
   if (used.length >= MAX_REPLACEMENTS_PER_EVENT) return null;
-  if (replacementsOf(state).length === 0) return null;
 
   const event = eventForAction(state, action);
   if (!event) return null;
+
+  /* The cheap way out, and it has to know about both sources.
+   *
+   * It used to be `if (replacementsOf(state).length === 0) return null` before
+   * the event was even derived, which was true of every game this project has
+   * ever played — nothing registers replacements — and so the whole layer was
+   * dead code in practice. A permanent's own "enters tapped" comes from its
+   * oracle text rather than from `state.replacements`, so an arrival always has
+   * to be asked about. Everything else still leaves in one comparison. */
+  if (replacementsOf(state).length === 0 && event.kind !== 'enters') return null;
 
   const candidates = applicableReplacements(state, action, event);
   if (candidates.length === 0) return null;

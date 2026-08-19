@@ -29,6 +29,7 @@
 
 import type { GameAction, GameState, InstanceId, PlayerId } from '../types.ts';
 import type { Effect, PlayerSelector, Selector } from '../../cards/abilities/dsl.ts';
+import { watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import type { AbilityContext } from './context.ts';
 import {
   cardOf,
@@ -88,6 +89,22 @@ export function runEffects(
   options: RunOptions
 ): EffectRun {
   const scope: RunScope = { options, counter: { value: 0 }, out: [], deferred: [] };
+
+  // E6 honesty gate, and it runs BEFORE anything else so the note is the first
+  // thing in the log rather than buried under actions computed from a zero.
+  //
+  // A `{v:'watch'}` evaluated with no folded log answers 0. Zero is a wrong
+  // answer, not a neutral one — "draw a card for each creature that died this
+  // turn" would draw nothing and look like a card that simply did not do much.
+  // So the query is named, verbatim, before the effects run.
+  if (!ctx.watch) {
+    for (const query of watchQueriesIn(effects)) {
+      scope.deferred.push(
+        `needs turn history the engine does not fold yet: ${query.measure} of ${query.event.saw} (${query.window}) — any amount computed from it is 0 and is not the real number`
+      );
+    }
+  }
+
   for (const effect of effects) runEffect(effect, ctx, scope);
   return { actions: scope.out, deferred: scope.deferred };
 }
@@ -397,14 +414,24 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
 
     /* --- mana and table --- */
 
-    case 'add-mana':
+    case 'add-mana': {
       // `mana.ts` derives available mana from untapped permanents rather than
       // tracking a pool. Saying so is honest; a second pool here would be a
       // second implementation that drifts from the first.
+      //
+      // E8 and E9 both land in the SAME note rather than being dropped from it.
+      // A note reading "adds {G}" when the card added five, or omitting "spend
+      // this mana only to cast creature spells", is a note a player acts on
+      // wrongly — the same failure as saying nothing, one step later.
+      const copies = Math.max(0, evalValue(effect.count ?? 1, ctx));
+      if (copies === 0) break;
+      const pool = effect.mana.repeat(copies);
+      const restriction = effect.restriction ? ` — ${effect.restriction.text}` : '';
       for (const playerId of resolvePlayers(effect.who, ctx)) {
-        scope.deferred.push(`${nameOf(state, playerId)} adds ${effect.mana}`);
+        scope.deferred.push(`${nameOf(state, playerId)} adds ${pool}${restriction}`);
       }
       break;
+    }
 
     case 'player-counter': {
       const count = evalValue(effect.count, ctx);
@@ -502,6 +529,34 @@ function runEffect(effect: Effect, ctx: AbilityContext, scope: RunScope): void {
       // Never taken automatically: "you may" is the player's word, not ours.
       const [playerId] = resolvePlayers(effect.who, ctx);
       scope.deferred.push(`${nameOf(state, playerId)} may: ${effect.text}`);
+      break;
+    }
+
+    case 'unless-pays': {
+      // The decision belongs to somebody who is not the ability's controller,
+      // and there is no way to ask them from inside a pure interpreter. Running
+      // the effects would resolve Rhystic Study as though every opponent always
+      // declined; skipping them would resolve it as though they always paid.
+      // Both are wrong, so neither happens and the table is told what is owed.
+      const askedIds = resolvePlayers(effect.who, ctx);
+      const owed = effect.cost
+        .map(cost => (cost.pay === 'mana' ? cost.cost : cost.pay))
+        .join(', ');
+      const asked = askedIds.length
+        ? askedIds.map(playerId => nameOf(state, playerId)).join(', ')
+        : // `{who:'trigger-player'}` with nothing bound. Naming the gap beats
+          // naming a player who was never asked.
+          'the player this triggered on (not identified — the trigger bound no player)';
+      scope.deferred.push(`${asked} may pay ${owed}; if not, the ability resolves`);
+      for (const inner of effect.effects) {
+        // Reported, never run: the note has to describe what the opponent is
+        // buying out of, or "may pay {1}" tells them nothing about the stakes.
+        const preview = runEffects([inner], ctx, scope.options);
+        for (const action of preview.actions) {
+          scope.deferred.push(`  if not paid: ${action.type.toLowerCase().replace(/_/g, ' ')}`);
+        }
+        for (const decision of preview.deferred) scope.deferred.push(`  if not paid: ${decision}`);
+      }
       break;
     }
 

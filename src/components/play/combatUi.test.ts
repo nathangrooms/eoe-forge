@@ -271,7 +271,7 @@ test('your untapped creature offers a shield, and arming it changes the chip', (
     armedBlockerId: 'bears',
   });
   assert.equal(armed.chip, 'armed');
-  assert.match(armed.label, /now press the attacker/, 'the gesture explains its second half');
+  assert.match(armed.label, /now press the attacker/i, 'the gesture explains its second half');
 });
 
 test('an attacker carries an inert chip before a blocker is armed, and says so', () => {
@@ -280,7 +280,7 @@ test('an attacker carries an inert chip before a blocker is armed, and says so',
 
   assert.equal(info.chip, 'target', 'the chip exists so the gesture is discoverable');
   assert.equal(info.enabled, false);
-  assert.match(info.label, /pick one of your creatures first/);
+  assert.match(info.label, /pick one of your creatures first/i);
 });
 
 test('with a blocker armed, a legal pairing goes live and an illegal one does not', () => {
@@ -394,4 +394,48 @@ test('a swing split across two seats counts them rather than naming one', () => 
 test('nothing declared says nothing at all', () => {
   const state = at(table([{ id: 'bears', owner: 'p1' }]), 'declare_attackers', 'p1');
   assert.equal(combatSentence(state, 'p1'), '');
+});
+
+/* ------------------------------------------------------------------ *
+ * Copy rules, on the strings this module hands to a tooltip
+ * ------------------------------------------------------------------ */
+
+test('no combat label or refusal contains an em-dash', () => {
+  /* `cardCombatFor().label` lands on `title` and `aria-label` of the chip in
+     `GameCardView.tsx`, so it is read by a person and by a screen reader. It
+     carried eight em-dashes, including one standing in for a stat line that
+     could not be read. Project copy rules forbid them. */
+  const state = table([
+    { id: 'mine', owner: 'p1', name: 'Bears' },
+    { id: 'sick', owner: 'p1', name: 'Baloth', summoningSick: true },
+    { id: 'tapped', owner: 'p1', name: 'Elves', tapped: true },
+    { id: 'wall', owner: 'p1', name: 'Wall', keywords: ['defender'] },
+    { id: 'theirs', owner: 'p2', name: 'Ogre' },
+  ]);
+
+  const ids = ['mine', 'sick', 'tapped', 'wall', 'theirs'];
+  const labels: string[] = [];
+  const collect = (
+    from: GameState,
+    stage: 'attackers' | 'blockers',
+    armed?: InstanceId | null
+  ) => {
+    for (const id of ids) {
+      const instance = from.cards[id];
+      if (!instance) continue;
+      const info = cardCombatFor(from, 'p1', instance, stage, { armedBlockerId: armed ?? null });
+      if (info.label) labels.push(info.label);
+    }
+  };
+
+  collect(at(state, 'declare_attackers', 'p1'), 'attackers');
+  collect(at(state, 'declare_attackers', 'p1', [{ attacker: 'mine', defender: 'p2' }]), 'attackers');
+  const incoming = at(state, 'declare_blockers', 'p2', [{ attacker: 'theirs', defender: 'p1' }]);
+  collect(incoming, 'blockers');
+  collect(incoming, 'blockers', 'mine');
+
+  assert.ok(labels.length > 0, 'the sweep produced no labels to check');
+  for (const label of labels) {
+    assert.equal(label.indexOf('—'), -1, `em-dash in a combat label: ${label}`);
+  }
 });

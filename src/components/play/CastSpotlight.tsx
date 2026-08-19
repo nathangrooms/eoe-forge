@@ -26,10 +26,19 @@ import { GameCardView } from './GameCardView';
 import type { CastSpotlightEntry } from './useTableMotion';
 import type { GameState } from '@/lib/game';
 
+/*
+ * Where the card went, as a label rather than as a sentence.
+ *
+ * It used to be a verb phrase agreeing with a third-person subject
+ * ("resolves onto the battlefield") pinned to the caster's name — and the
+ * viewer's own seat is called "You", so the caption on every spell the player
+ * cast read "You resolves onto the battlefield". A caption with no verb in it
+ * cannot get subject and verb agreement wrong.
+ */
 const DESTINATION: Record<string, string> = {
-  battlefield: 'resolves onto the battlefield',
-  graveyard: 'resolves',
-  exile: 'is exiled',
+  battlefield: 'onto the battlefield',
+  graveyard: 'to the graveyard',
+  exile: 'to exile',
 };
 
 export interface CastSpotlightProps {
@@ -91,7 +100,7 @@ export function CastSpotlight({ state, entry, width = 260, className }: CastSpot
                 {caster?.name ?? 'Someone'}
               </span>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                {DESTINATION[entry.to] ?? 'plays a card'}
+                {DESTINATION[entry.to] ?? 'played'}
               </span>
               <ManaCost cost={entry.card.manaCost} size="xs" className="shrink-0" />
             </div>

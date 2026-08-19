@@ -30,49 +30,23 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import type { CardInstance } from '@/lib/game';
 
-/** Fraction of a card that may be hidden by its neighbour before it stops. */
-const MAX_OVERLAP = 0.62;
-
-/**
- * Below this, a card on the battlefield stops being identifiable at a glance.
- *
- * Owner, twice: *"cards are tiny on screen overall"*. 44px was a thumbnail —
- * you could tell a land from a creature by its frame colour and nothing else.
- * The floor is now a size at which the art reads and the name is a shape you
- * recognise; shrink-to-fit still exists, it just bottoms out somewhere honest.
- */
-export const MIN_BOARD_CARD = 62;
-
-/** A real card is 63 × 88 mm: height = width ÷ this. */
-export const CARD_RATIO = 0.7176;
-
-/**
- * How far each card slides under the one before it so `count` cards occupy the
- * width of `capacity` cards.
- */
-export function overlapFor(count: number, capacity: number): number {
-  if (count <= capacity || count < 2) return 0;
-  return Math.min(MAX_OVERLAP, Math.max(0, 1 - (capacity - 1) / (count - 1)));
-}
-
-/**
- * The widest card that still lets `count` of them fit inside `available` px.
- *
- * A row of n overlapped cards occupies `w * (1 + (n-1) * (1 - overlap))`, so
- * solving that at maximum overlap gives the largest card that can possibly fit.
- * `preferred` is the ceiling the player chose with the size slider; this only
- * ever comes down from it.
- */
-export function fitRowCardWidth(
-  available: number,
-  count: number,
-  preferred: number,
-  minimum = MIN_BOARD_CARD
-): number {
-  if (count <= 0 || available <= 0) return preferred;
-  const spans = 1 + (count - 1) * (1 - MAX_OVERLAP);
-  return Math.max(minimum, Math.min(preferred, Math.floor(available / spans)));
-}
+/* The row arithmetic lives in `boardMetrics.ts` so `node --test` can reach it —
+   it cannot parse this file's JSX. Re-exported here because every existing
+   importer asks `./Battlefield` for these, and moving a file is not a reason to
+   make thirty other files change their import. */
+export {
+  CARD_RATIO,
+  MAX_OVERLAP,
+  MIN_BOARD_CARD,
+  fitRowCardWidth,
+  overlapFor,
+} from './boardMetrics';
+import { CARD_RATIO, MIN_BOARD_CARD, fitRowCardWidth } from './boardMetrics';
+/* One row layout, measured in `seatLayout.ts` (where `node --test` can reach
+   it) and rendered here. They were two copies of the same arithmetic once and
+   the copies disagreed about tapped cards, which is how the layout shift got
+   in. There is now nothing here to disagree with. */
+import { layoutRow } from './seatLayout';
 
 export interface PermanentRowProps {
   cards: CardInstance[];
@@ -98,24 +72,26 @@ export function PermanentRow({
 }: PermanentRowProps) {
   if (cards.length === 0) return null;
 
-  const gap = Math.round(cardWidth * 0.08);
-  const capacity = Math.max(1, Math.floor(available / Math.max(1, cardWidth + gap)));
-  const overlap = overlapFor(cards.length, capacity);
-
   /*
-   * A tapped permanent turns ninety degrees and therefore paints a rectangle
-   * wider than its own layout box — by half the difference between its height
-   * and its width, on each side. The row used to ignore that, so a mana row of
-   * five tapped lands drew five cards on top of each other and you could not
-   * tell one from another. Where there is room, a tapped card is given the
-   * width it actually occupies; where there is not, the existing overlap rule
-   * takes over, because a crowded row has nothing to give.
+   * Every number below comes from `layoutRow`, and not one of them looks at
+   * which cards are tapped.
+   *
+   * That is the fix for the owner's *"sometimes when cards are tapped/untapped
+   * on opponents side it causes layout shifting"*. This row used to add a
+   * lean's worth of margin per TAPPED card, which changed the run's total
+   * width — and a centred run of a different width means every card on it
+   * moves, including the ones nobody touched. Turning room is now held at the
+   * two ENDS of the run, for the whole row, whether or not anything is turned.
+   * A card rotating inside its own box then changes nothing outside it, which
+   * is exactly what `GameCardView`'s inner rotation element was always meant to
+   * guarantee.
+   *
+   * `layoutRow` also spreads the surplus width into the gaps before centring
+   * whatever is left, so a sparse row reaches across the mat instead of
+   * clumping in the middle of it — owner: *"playmats dont use 100% of the page
+   * which I thought they would"*.
    */
-  const lean = Math.round((cardWidth / CARD_RATIO - cardWidth) / 2);
-  const tapped = cards.reduce((total, card) => total + (card.tapped ? 1 : 0), 0);
-  const natural =
-    cards.length * cardWidth + (cards.length - 1) * gap + tapped * lean * 2;
-  const roomToTurn = overlap === 0 && natural <= available;
+  const layout = layoutRow(cards.length, cardWidth, available);
 
   return (
     <div
@@ -124,34 +100,21 @@ export function PermanentRow({
         align === 'center' ? 'justify-center' : 'justify-start',
         className
       )}
+      style={{ paddingLeft: layout.edge || undefined, paddingRight: layout.edge || undefined }}
     >
-      {cards.map((card, index) => {
-        const turning = roomToTurn
-          ? (card.tapped ? lean : 0) + (cards[index - 1]?.tapped ? lean : 0)
-          : 0;
-
-        return (
-          <span
-            key={card.instanceId}
-            className="relative block transition-[z-index] hover:z-30"
-            style={{
-              marginLeft:
-                index === 0
-                  ? roomToTurn && card.tapped
-                    ? lean
-                    : 0
-                  : overlap > 0
-                    ? -cardWidth * overlap
-                    : gap + turning,
-              marginRight:
-                roomToTurn && card.tapped && index === cards.length - 1 ? lean : 0,
-              zIndex: index,
-            }}
-          >
-            {renderCard(card, index, cardWidth)}
-          </span>
-        );
-      })}
+      {cards.map((card, index) => (
+        <span
+          key={card.instanceId}
+          className="relative block transition-[z-index] hover:z-30"
+          style={{
+            marginLeft:
+              index === 0 ? 0 : layout.overlap > 0 ? -cardWidth * layout.overlap : layout.gap,
+            zIndex: index,
+          }}
+        >
+          {renderCard(card, index, cardWidth)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -170,9 +133,48 @@ export interface ZoneRowProps {
    * separating them — surface and spacing, never a border.
    */
   tinted?: boolean;
+  /**
+   * Room to keep clear at each end of the row, in px.
+   *
+   * The seat's identity strip — life, name, commander, mana — floats over the
+   * top of the mat instead of reserving a full-width band above it, because
+   * that band cost 70px of HEIGHT out of every card on the seat while the row
+   * underneath it had 900px of WIDTH going spare. The strip is therefore paid
+   * for in the direction the mat can afford: the top row keeps its ends clear
+   * and centres its cards in what is left.
+   *
+   * `available` is reduced by the same amount by the caller, so the overlap
+   * arithmetic still measures the space the cards can really use.
+   */
+  insetStart?: number;
+  insetEnd?: number;
+  /**
+   * Where the row's own name is printed, independent of the card inset.
+   *
+   * The cards only move out of the strip's way when they would actually reach
+   * it, but the label sits in the top-left corner where the strip always is, so
+   * it needs to stand clear whether the cards do or not.
+   */
+  labelInset?: number;
+  /**
+   * How much clear mat the label has before the first card starts.
+   *
+   * Without it the label was printed at `labelInset` and the cards were centred
+   * independently, so on a crowded inset row the two landed on top of each
+   * other and "CREATURES" was drawn at 30% opacity across the art of the first
+   * creature. That reads as a render fault, which is the exact thing the label
+   * was moved to avoid. Given the real gutter it truncates on empty mat, and
+   * when the gutter is too narrow to say anything honest it says nothing —
+   * a row packed with creatures is not ambiguous about what it holds, and the
+   * label matters for the EMPTY row, which always has the whole row to print in.
+   */
+  labelMaxWidth?: number;
   renderCard: (card: CardInstance, index: number, width: number) => ReactNode;
   className?: string;
 }
+
+/** Narrower than this and the label can only lie about itself, so it is dropped. */
+const LABEL_MIN_WIDTH = 30;
 
 /** One band of a seat's mat: a labelled, tinted strip that holds its height. */
 export function ZoneRow({
@@ -182,9 +184,14 @@ export function ZoneRow({
   height,
   available,
   tinted,
+  insetStart = 0,
+  insetEnd = 0,
+  labelInset,
+  labelMaxWidth,
   renderCard,
   className,
 }: ZoneRowProps) {
+  const labelFits = labelMaxWidth === undefined || labelMaxWidth >= LABEL_MIN_WIDTH;
   return (
     <div
       className={cn(
@@ -192,18 +199,27 @@ export function ZoneRow({
         tinted && 'bg-foreground/[0.045]',
         className
       )}
-      style={{ height }}
+      style={{ height, paddingLeft: insetStart || undefined, paddingRight: insetEnd || undefined }}
       aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
     >
       {/* Above the cards, not behind them. A full row used to slice its own
           label in half — "CREATURES" arriving as "CR" reads as a broken render
           rather than as a zone name printed on the mat. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute left-2 top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
-      >
-        {label}
-      </span>
+      {labelFits && (
+        <span
+          aria-hidden="true"
+          /* Clear of the identity strip, not underneath it — the row's name and
+             the player's name overlapping read as a render fault. Bounded by
+             the gutter it actually has, so it never runs onto card art. */
+          style={{
+            left: (labelInset ?? insetStart) + 8,
+            maxWidth: labelMaxWidth,
+          }}
+          className="pointer-events-none absolute top-0.5 z-10 max-w-[calc(100%-1rem)] select-none truncate text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
+        >
+          {label}
+        </span>
+      )}
 
       <PermanentRow
         cards={cards}
@@ -277,6 +293,13 @@ export interface ZoneBlockProps {
 }
 
 /**
+ * Below this the block has no room to draw a card, so it draws itself instead:
+ * a spine with its name running up it, holding the geography without holding
+ * the space.
+ */
+const BLOCK_SPINE = 34;
+
+/**
  * The non-creature permanents, as their own square on the right of the mat.
  *
  * Owner: *"enchanements/artifacts etc should have its own square right side or
@@ -284,6 +307,13 @@ export interface ZoneBlockProps {
  * third full-width band — it is a block that tiles, wrapping into as many
  * columns as it has room for and then overlapping its rows downward rather than
  * shrinking forever. Same surface tint and spacing as a row, no border.
+ *
+ * **An empty block does not hold a rectangle open.** It used to reserve a fixed
+ * ~23% of the mat whether or not anything was in it, which on a real game was a
+ * 393 x 282px hole for most of the match — owner: *"no weird small windows or
+ * unutilised space"*. It now collapses to a labelled spine and hands that width
+ * to the two rows, and takes it back the moment a permanent lands there. The
+ * width is animated by `SeatMat` so the board does not jump when it does.
  */
 export function ZoneBlock({
   label,
@@ -294,6 +324,29 @@ export function ZoneBlock({
   renderCard,
   className,
 }: ZoneBlockProps) {
+  /* Collapsed: the zone still says where it is, so the mat keeps its geography
+     and a player still knows where an enchantment will appear. */
+  if (cards.length === 0 || width < BLOCK_SPINE) {
+    return (
+      <div
+        className={cn(
+          'relative flex shrink-0 items-start justify-center overflow-hidden rounded-lg bg-foreground/[0.045] pt-2',
+          className
+        )}
+        style={{ width, height }}
+        aria-label={`${label} — ${cards.length} card${cards.length === 1 ? '' : 's'}`}
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none select-none whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/30"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          {label}
+        </span>
+      </div>
+    );
+  }
+
   const gap = blockGap(cardWidth);
   const cardHeight = cardWidth / CARD_RATIO;
   const cols = blockColumns(width, cardWidth);

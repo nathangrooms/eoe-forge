@@ -9,23 +9,28 @@
  * than a new page.
  *
  * ---------------------------------------------------------------------------
- * Click → preview → act or close
+ * Click → preview IN THE CENTRE → act or close
  * ---------------------------------------------------------------------------
  * Owner: *"Most important thing on play mode though, just so you dont forget,
  * is being able to click and preview your card, then select a button action or
- * close."*
+ * close."* And then, once it existed but in the wrong place: *"I just clicked a
+ * card and it didnt show in centre, still using right menu??"*
  *
  * A tap is never the action. Clicking a card anywhere — hand, battlefield, a
  * graveyard, an opponent's board — sets `inspectId` and nothing else happens.
- * `CardInspector` then draws that card at readable size with explicit buttons
- * for whatever the engine says is legal, and only a button dispatches.
+ * `CenterPreview` then draws that card in the MIDDLE of the mat at the largest
+ * readable size, with the real actions for that card in that zone in a row
+ * BENEATH it, and only a button dispatches.
  *
- * The preview is not a dialog. Owner: *"Make sure no modals in play, it should
- * be beautiful within the playmat system."* It renders into `BoardRail`, a real
- * column of the layout on the right edge, made of the same mat material as the
- * table. When it opens the board narrows and re-fits its cards; nothing is ever
- * covered, so a player reading a card is still watching the game. The zone
- * browser and the game menu share that rail for exactly the same reason.
+ * The spec amendment of 19 Aug 2026 separates two things that had been
+ * conflated. Clicking a card is a DECISION, so it takes the centre of the
+ * table. A card being CAST is an ANNOUNCEMENT, so `CastSpotlight` keeps the
+ * right edge, where play can continue around it. Both are still on the mat:
+ * no dialog, no portal, no backdrop, nothing covered.
+ *
+ * `BoardRail` therefore no longer takes card clicks. It keeps the two jobs that
+ * are about browsing rather than deciding — the contents of a zone, and the
+ * game menu — and the board narrows for those exactly as before.
  *
  * ---------------------------------------------------------------------------
  * One renderer, three views
@@ -62,6 +67,13 @@ import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useCardSize } from '@/components/cards/CardSizeSlider';
+import {
+  BOARD_CARD_DEFAULT,
+  FEED_INSET,
+  HAND_CARD_DEFAULT,
+  HUD_INSET,
+  handMetrics,
+} from '@/components/play/tableMetrics';
 
 import { PlayHUD, type PlayViewId } from '@/components/play/PlayHUD';
 import { PlaySetup, playerCountFor, type PlaySetupValue } from '@/components/play/PlaySetup';
@@ -73,7 +85,9 @@ import { GameFeed } from '@/components/play/GameFeed';
 import { TurnBanner } from '@/components/play/TurnBanner';
 import { ZonePanel } from '@/components/play/ZonePanel';
 import { BoardRail, railWidthFor } from '@/components/play/BoardRail';
-import { CardInspector } from '@/components/play/CardInspector';
+import { Playmat } from '@/components/play/Playmat';
+import { CenterPreview } from '@/components/play/CenterPreview';
+import { ZoneTravelLayer } from '@/components/play/ZoneTravelLayer';
 import { GameMenu } from '@/components/play/GameMenu';
 import { useCastSpotlight, useLifeDeltas } from '@/components/play/useTableMotion';
 import { canReachCombat, controlsFlow, decisionFor } from '@/components/play/turnFlow';
@@ -107,77 +121,11 @@ import {
 
 const HUMAN_SEAT: PlayerId = 'p1';
 
-/** Height of the floating HUD — the board is held off the top edge by this. */
-const HUD_INSET = 56;
-
-/**
- * Height of the strip along the bottom edge that the game feed lives in.
- *
- * The feed is a float, not a panel, so it needs somewhere to float that belongs
- * to nobody. On the table and in hand mode that is the strip the viewer's hand
- * is held over, which is already reserved. In view and combat mode there is no
- * hand — and a full-bleed single seat put its command zone and its creature row
- * exactly where the feed was sitting. So those two modes reserve the strip for
- * the feed instead: same place on screen in every mode, never on top of
- * somebody's board in any of them.
- */
-const FEED_INSET = 74;
-
-/** A real card is 63 × 88 mm: height = width ÷ this. */
-const CARD_RATIO = 0.7176;
-
-/**
- * Starting ceilings, in px, until the player moves the sliders.
- *
- * Owner, twice: *"Cards need to be much bigger in general"*, then *"cards are
- * tiny on screen overall"*. Both surfaces shrink below their ceiling to fit the
- * room they measure, so a low default buys nothing on a large screen and costs
- * everything on it. Start big and let the fit take it down.
- */
-const BOARD_CARD_DEFAULT = 200;
-const HAND_CARD_DEFAULT = 300;
-
-/**
- * How the hand is sized against the screen it is being held over.
- *
- * `ViewerHand` treats its `cardWidth` as a ceiling and shrinks to fit the width
- * available, which is the right rule for a wide screen and the wrong one for a
- * short one: a laptop at 800px tall would otherwise hand you cards taller than
- * the table. So the page caps the player's chosen ceiling by *height* and
- * reserves a matching strip along the bottom edge.
- *
- * The reserved strip is deliberately smaller than a card. The fan overlaps the
- * viewer's own mat, exactly as a hand held over the near edge of a table would;
- * what the strip buys is that the seats above it are not crushed to make room.
- *
- * Hand mode gets far more of both, because there is only one seat to fit above
- * it and reading your hand is the entire job of that view.
- */
-function handMetrics(
-  viewportHeight: number,
-  ceiling: number,
-  focused: boolean
-): { cardWidth: number; inset: number } {
-  const height = Math.max(480, viewportHeight);
-  const share = focused ? 0.42 : 0.25;
-  const cardWidth = Math.round(Math.min(ceiling, Math.max(96, height * share * CARD_RATIO)));
-
-  // The strip is a fraction of the card's own height, so the fan laps over the
-  // near mat by the same proportion however big the cards are.
-  //
-  // It used to reserve the full card height on the four-quadrant table, because
-  // the row nearest the bottom edge was the CREATURES row of the two near seats
-  // and a hand held over it hid half of every creature. The mat now puts
-  // creatures on top and LANDS along the bottom edge — owner: *"lands should
-  // always be bottom, creatures top"* — so the strip the fan laps over is the
-  // foot of the mana row, which is mat rather than card, and those pixels can
-  // go back to the board instead. Every one of them is a bigger card on all
-  // four seats. In hand mode the fan laps further still, because the only board
-  // underneath it is your own and the view exists to make the hand as large as
-  // it can be.
-  const overhang = focused ? 0.9 : 1;
-  return { cardWidth, inset: Math.round((cardWidth / CARD_RATIO) * overhang) };
-}
+/* The insets, the starting card sizes and the hand arithmetic all live in
+   `tableMetrics.ts`. They used to live here, and a second copy with different
+   numbers lived in `WatchedTable.tsx`, so the playtest that exists to TEST this
+   screen laid its hand out differently from it. One copy, in a `.ts` the test
+   runner can reach. See `tableMetrics.test.ts`. */
 
 /**
  * Pace of the automatic walk between decisions.
@@ -727,9 +675,16 @@ export default function Play() {
   /* The card in the preview is looked up fresh on every render, so tapping it
      or moving it between zones updates the panel rather than freezing it. */
   const inspected = inspectId ? state.cards[inspectId] ?? null : null;
-  const railContent =
-    inspected !== null ? 'inspect' : zoneTarget !== null ? 'zone' : menuOpen ? 'menu' : null;
+  /* The rail no longer holds the card preview — that is the centre of the mat
+     now. What is left in it is the two things that are about BROWSING rather
+     than deciding, and they can be open at the same time as a preview. */
+  const railContent = zoneTarget !== null ? 'zone' : menuOpen ? 'menu' : null;
   const railWidth = railWidthFor(viewport.width);
+  /* The board's own box, which the centre preview sizes itself against. It is
+     the viewport minus the rail when the rail is open, minus the HUD along the
+     top and the hand along the bottom — the mat you can actually see. */
+  const boardWidth = viewport.width - (railContent ? railWidth : 0);
+  const boardHeight = viewport.height;
 
   const focusedSeat = view === 'hand' ? HUMAN_SEAT : view === 'view' ? viewSeatId : null;
 
@@ -837,45 +792,80 @@ export default function Play() {
         {/* Whose turn it is, said out loud for a beat. */}
         <TurnBanner state={state} viewerPlayerId={HUMAN_SEAT} />
 
+        {/*
+          The result, drawn INTO the mat.
+
+          This used to be a centred panel on `bg-background/85` with
+          `backdrop-blur-md` behind it — a translucent sheet of chrome smearing
+          the board it was sitting on, which is a modal in everything but name
+          and a breach of the no-modals rule the rest of this screen keeps. It
+          is now a banner made of the same `Playmat` material as the table,
+          opaque, in the band the combat strip uses, blurring nothing and
+          covering no seat's board. The final position of the game stays
+          readable underneath it, which is the thing a player wants to look at
+          when a game ends.
+        */}
         {state.status === 'complete' && (
           <div
-            className="pointer-events-none absolute inset-x-0 z-[60] flex justify-center"
-            style={{ top: HUD_INSET + 16 }}
+            /* Above the centre preview rather than beside it in the stack: a
+               game that has ended is the one thing on this screen that outranks
+               whatever card you were in the middle of reading. */
+            className="pointer-events-none absolute inset-x-0 z-[46] flex justify-center px-2"
+            style={{ top: HUD_INSET + 8 }}
           >
-            <div className="pointer-events-auto rounded-2xl bg-background/85 px-6 py-4 text-center shadow-2xl shadow-black/70 backdrop-blur-md">
-              <p className="text-lg font-semibold text-foreground">
-                {state.winnerIds.length > 0
-                  ? `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`
-                  : 'The game is a draw.'}
+            <div className="pointer-events-auto relative flex items-center gap-4 overflow-hidden rounded-xl px-5 py-3 shadow-[0_18px_46px_rgba(0,0,0,0.7)]">
+              <Playmat tone="board" rounded="rounded-xl" className="absolute inset-0 h-full w-full" />
+              <p className="relative text-base font-semibold text-foreground">
+                {/* The viewer's seat is called "You", so the winner line has to
+                    agree with it or it reads "You wins." */}
+                {state.winnerIds.length === 0
+                  ? 'The game is a draw.'
+                  : state.winnerIds[0] === HUMAN_SEAT
+                    ? 'You win.'
+                    : `${state.players.find(p => p.id === state.winnerIds[0])?.name} wins.`}
               </p>
-              <Button size="sm" className="mt-3 h-8 text-xs" onClick={handleLeave}>
+              <Button size="sm" className="relative h-8 text-xs" onClick={handleLeave}>
                 Set up another game
               </Button>
             </div>
           </div>
         )}
+
+        {/*
+          THE CENTRE PREVIEW.
+
+          Inside the board's own box, so it is centred on the playmat surface
+          rather than on the window, and so it moves with the board when the
+          rail opens. No backdrop, no portal, no dimming: the wrapper is
+          `pointer-events-none` and only the panel itself takes clicks, which is
+          what leaves every control on the table live underneath it.
+        */}
+        {inspected && (
+          <CenterPreview
+            state={state}
+            viewerPlayerId={HUMAN_SEAT}
+            card={inspected}
+            freeCast={freeCast}
+            boardWidth={boardWidth}
+            boardHeight={boardHeight}
+            topInset={HUD_INSET}
+            bottomInset={showHand ? hand.inset : FEED_INSET}
+            onCast={handleCast}
+            onPlayLand={handlePlayLand}
+            onTapToggle={handleTapToggle}
+            onAttack={handleAttackOne}
+            onBlock={handleBlockOne}
+            onMoveZone={handleMoveZone}
+            onFocusSeat={handleFocusSeat}
+            onClose={() => setInspectId(null)}
+          />
+        )}
       </div>
 
-      {/* The rail: preview, zone, menu. Part of the board, never on top of it. */}
+      {/* The rail: a zone's contents, or the game menu. Part of the board, never
+          on top of it. The card preview left for the centre of the mat. */}
       {railContent && (
         <BoardRail width={railWidth} topInset={HUD_INSET}>
-          {railContent === 'inspect' && inspected && (
-            <CardInspector
-              state={state}
-              viewerPlayerId={HUMAN_SEAT}
-              card={inspected}
-              freeCast={freeCast}
-              onCast={handleCast}
-              onPlayLand={handlePlayLand}
-              onTapToggle={handleTapToggle}
-              onAttack={handleAttackOne}
-              onBlock={handleBlockOne}
-              onMoveZone={handleMoveZone}
-              onFocusSeat={handleFocusSeat}
-              onClose={() => setInspectId(null)}
-            />
-          )}
-
           {railContent === 'zone' && zoneTarget && (
             <ZonePanel
               state={state}
@@ -910,6 +900,17 @@ export default function Play() {
           )}
         </BoardRail>
       )}
+
+      {/*
+        Cards changing zones, seen to change zones.
+
+        Spec: *"A card moving zones should travel from where it was to where it
+        is going. The movement IS the feedback."* It is a sheet of ghosts over
+        everything, it takes no clicks and it gates nothing — the reducer
+        committed before it started drawing, so a player clicking straight
+        through never waits on it.
+      */}
+      <ZoneTravelLayer state={state} viewerPlayerId={HUMAN_SEAT} />
 
       {/* The HUD floats over the table; the board is inset to make room. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-50">

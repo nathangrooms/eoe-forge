@@ -58,6 +58,10 @@ import type {
 // combat -> characteristics -> statics -> context -> combat.
 import { powerOf, toughnessOf } from '../printed.ts';
 import { effectiveKeywords } from '../keywords.ts';
+// `watch.ts` imports `parseTypeLine` from this module and nothing else, and
+// imports no other engine module, so the pair is a leaf and the edge is safe.
+import type { WatchLog } from './watch.ts';
+import { countWatched, playerSelectorOfEvent } from './watch.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Characteristics                                                            */
@@ -177,6 +181,23 @@ export interface AbilityContext {
   triggerSourceId?: InstanceId;
   /** The other party to the event — the creature that was blocked, and so on. */
   triggerSubjectId?: InstanceId;
+  /**
+   * The PLAYER a trigger was about — the opponent who cast the spell, the one
+   * who drew the card. Read by `{who:'trigger-player'}`, which is Rhystic
+   * Study's "that player" and Smothering Tithe's. Unset resolves to nobody
+   * rather than to every opponent, so a missing binding is a visible no-op
+   * instead of a table-wide tax.
+   */
+  triggerPlayerId?: PlayerId;
+  /**
+   * E6. Facts folded from the action log, for `{v:'watch'}`. See `watch.ts`.
+   *
+   * Absent means the caller could not supply one, and every watch expression
+   * then answers 0 — which is a WRONG answer, not a neutral one. Two things
+   * stop that being silent: `runEffects` emits a note naming the query, and
+   * `unrunnableReason` keeps such cards away from the ability engine entirely.
+   */
+  watch?: WatchLog;
   /** Bound by `{do:'for-each'}` over a `Selector`; read by `{sel:'each'}`. */
   eachCardId?: InstanceId;
   /** Bound by `{do:'for-each'}` over a `PlayerSelector`. */
@@ -302,6 +323,12 @@ export function resolvePlayers(selector: PlayerSelector, ctx: AbilityContext): P
 
     case 'monarch':
       return state.monarchId ? [state.monarchId] : [];
+
+    case 'trigger-player':
+      // Same discipline as 'defending': only when the trigger actually named a
+      // player. Falling back to every opponent would make Smothering Tithe tax
+      // three seats for one player's draw.
+      return ctx.triggerPlayerId ? [ctx.triggerPlayerId] : [];
 
     case 'target-player': {
       const target = ctx.targets[selector.ref];
@@ -498,7 +525,13 @@ export function matchesFilter(filter: CardFilter, instanceId: InstanceId, ctx: A
  */
 export function evalValue(expr: ValueExpr, ctx: AbilityContext): number {
   const value = evalValueRaw(expr, ctx);
-  return Number.isFinite(value) ? Math.trunc(value) : 0;
+  if (!Number.isFinite(value)) return 0;
+  // `+ 0` collapses negative zero, which `{v:'mul', of:[-1, 0]}` produces the
+  // moment a computed count comes back empty. It is numerically 0 either way,
+  // but `Object.is(-0, 0)` is false, so it would make two runs that agree on
+  // every number disagree on `deepEqual` — a difference that shows up in a
+  // replay comparison and nowhere a player could see it.
+  return Math.trunc(value) + 0;
 }
 
 function evalValueRaw(expr: ValueExpr, ctx: AbilityContext): number {
@@ -565,6 +598,17 @@ function evalValueRaw(expr: ValueExpr, ctx: AbilityContext): number {
 
     case 'if':
       return evalCondition(expr.condition, ctx) ? evalValue(expr.then, ctx) : evalValue(expr.else, ctx);
+
+    case 'watch': {
+      // E6. No log means the question genuinely cannot be answered here, and 0
+      // is the WRONG answer rather than a neutral one. It is returned anyway
+      // because `evalValue` has nowhere else to go — and the two places that
+      // could hide it do not: `runEffects` emits a note naming the query, and
+      // `unrunnableReason` never lets the ability engine own such a card.
+      if (!ctx.watch) return 0;
+      const selector = playerSelectorOfEvent(expr.query.event);
+      return countWatched(expr.query, ctx.watch, selector ? resolvePlayers(selector, ctx) : undefined);
+    }
 
     default:
       return 0;

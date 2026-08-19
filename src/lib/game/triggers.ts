@@ -88,6 +88,14 @@ import {
   manualNoteAction,
   noteForDeclinedTrigger,
 } from './effects.ts';
+import {
+  abilityEngineOwns,
+  describeAsDetected,
+  dslConditionHolds,
+  dslTriggerActions,
+  gameEventKindFor,
+  ownedTriggersOf,
+} from './abilities/trigger-bridge.ts';
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -448,10 +456,38 @@ export function triggersForEvents(
 
   events.forEach((event, eventIndex) => {
     for (const card of sourcesFor(state, event)) {
+      const controllerId = controllerOf(card);
+
+      // ── The ownership fork ────────────────────────────────────────────────
+      // Exactly one of these two branches runs for any given card. This is the
+      // only place in the engine where a card's triggers are enumerated, so
+      // taking one list or the other — never the concatenation — is what makes
+      // a doubled enters-the-battlefield trigger structurally impossible rather
+      // than merely unlikely. See `abilities/trigger-bridge.ts`.
+      if (abilityEngineOwns(card)) {
+        ownedTriggersOf(card).forEach((ability, abilityIndex) => {
+          if (gameEventKindFor(ability.event) !== event.kind) return;
+          // CR 603.4, first check — the compiled condition, evaluated for real.
+          if (!dslConditionHolds(state, ability, { instanceId: card.instanceId, controllerId })) {
+            return;
+          }
+
+          out.push({
+            id: `t${eventIndex}.${out.length}:${card.instanceId}#${abilityIndex}`,
+            sourceInstanceId: card.instanceId,
+            sourceName: card.name,
+            controllerId,
+            event,
+            ability: describeAsDetected(ability),
+            dsl: ability,
+          });
+        });
+        continue;
+      }
+
       abilitiesOf(card).forEach((ability, abilityIndex) => {
         if (TIMING_EVENT[ability.timing] !== event.kind) return;
 
-        const controllerId = controllerOf(card);
         // CR 603.4, first check. `null` (a condition we cannot judge) is treated
         // as "trigger anyway" so the player is told about it, rather than an
         // ability disappearing on a technicality nobody can see.
@@ -670,6 +706,44 @@ export function resolveTriggerActions(
     ];
   }
 
+  // ── The ownership fork, resolution half ─────────────────────────────────
+  // `dsl` is present exactly when `triggersForEvents` took the ability-engine
+  // branch for this card, so these two paths are as mutually exclusive here as
+  // they were at detection. The old `actionsForTrigger` below never sees an
+  // owned trigger, and `to-actions.ts` never sees an unowned one.
+  if (trigger.dsl) {
+    // CR 603.4, second check — the same compiled condition, re-evaluated as the
+    // ability resolves. A condition that has gone false says so rather than
+    // vanishing, exactly as the old path does.
+    if (!dslConditionHolds(state, trigger.dsl, {
+      instanceId: trigger.sourceInstanceId,
+      controllerId: trigger.controllerId,
+    })) {
+      return [
+        {
+          type: 'NOTE',
+          instanceId: trigger.sourceInstanceId,
+          message: `${trigger.sourceName}'s triggered ability did nothing — its condition was no longer true when it resolved: ${trigger.dsl.text}`,
+          at,
+        },
+      ];
+    }
+
+    return dslTriggerActions(
+      state,
+      trigger.dsl,
+      { instanceId: trigger.sourceInstanceId, controllerId: trigger.controllerId },
+      {
+        at,
+        cause,
+        // Derived from the trigger's own deterministic id and the state
+        // version, so any token this ability mints gets the same id on every
+        // client replaying the log.
+        idPrefix: `${trigger.id}:${state.version}`,
+      }
+    );
+  }
+
   const out: GameAction[] = [];
   if (ability.automated) {
     out.push(...actionsForTrigger(state, card, ability, at).map(a => ({ ...a, cause })));
@@ -779,6 +853,20 @@ export function drainTriggers(
  * handoff: at the point a player would receive priority, the waiting list is
  * emptied onto the real stack and the ordinary resolution machinery takes it
  * from there.
+ *
+ * ## NOT YET TAUGHT ABOUT THE ABILITY ENGINE — read before wiring this up
+ *
+ * This path and `stackEffectsFor` below still speak only the old
+ * `DetectedEffect` vocabulary. A trigger owned by the ability engine carries
+ * `PendingTrigger.dsl`, and its `ability.automated` is `false`, so it degrades
+ * here to a "resolve by hand" line: safe and honest, but wrong — the engine
+ * *would* have resolved it, through `drainTriggers` → `resolveTriggerActions`.
+ *
+ * Do not fix that by adding a second switch over `Effect` here. `to-actions.ts`
+ * is deliberately the ONE switch over that union, and a second one is how the
+ * two drift apart. The right fix is for `PUT_ABILITY_ON_STACK` to carry the
+ * compiled ability and let resolution call `to-actions.ts`, the same way
+ * `resolveTriggerActions` already does.
  *
  * The `effects` list is deliberately only what the engine understands. A
  * trigger it does not understand still goes on the stack — the ability really

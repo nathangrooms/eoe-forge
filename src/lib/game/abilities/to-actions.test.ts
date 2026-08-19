@@ -529,3 +529,165 @@ test('replaying the same effect actions twice lands on identical state', () => {
 
   assert.equal(JSON.stringify(fold()), JSON.stringify(fold()));
 });
+
+/* ------------------------------------------------------------------ *
+ * The four DSL extensions, on the honesty side
+ *
+ * Each of these asserts that something was NOT done, and says what the player
+ * is told instead. That is the half of this file that matters: a new effect
+ * member that quietly produces no actions and no note is indistinguishable
+ * from a card that never resolved.
+ * ------------------------------------------------------------------ */
+
+test('E6: a watch value with no folded log is NAMED, not quietly answered as 0', () => {
+  // The number really is 0 (asserted in watch.test.ts) and 0 really is wrong.
+  // This is the guard that stops it being silent: the query is reported before
+  // any effect computed from it runs.
+  const state = game([{ id: 's', name: 'Source' }]);
+  const effects: Effect[] = [
+    {
+      do: 'draw',
+      who: { who: 'you' },
+      count: {
+        v: 'watch',
+        query: {
+          event: { saw: 'died', what: { is: 'type', value: 'creature' } },
+          window: 'this-turn',
+          measure: 'events',
+        },
+      },
+    },
+  ];
+
+  const { actions, deferred } = run(effects, state);
+  assert.equal(actions.length, 0, 'nothing is drawn, because the count evaluated to 0');
+  assert.ok(
+    deferred.some(line => line.includes('needs turn history') && line.includes('died')),
+    `the query must be named verbatim; got ${JSON.stringify(deferred)}`
+  );
+});
+
+test('E6: with a log supplied there is no note and the real number is used', () => {
+  const state = game([{ id: 's', name: 'Source' }]);
+  const log = {
+    turn: state.turn,
+    facts: [
+      { seq: 0, turn: state.turn, kind: 'died' as const, playerId: 'p1', amount: 1,
+        object: { instanceId: 'x', name: 'X', types: ['creature'], subtypes: [], supertypes: [], colors: [], manaValue: 1, controllerId: 'p1', isToken: false, isCommander: false } },
+    ],
+  };
+  const ctx = makeContext(state, 's', 'p1', { watch: log });
+  const { actions, deferred } = runEffects(
+    [
+      {
+        do: 'draw',
+        who: { who: 'you' },
+        count: {
+          v: 'watch',
+          query: { event: { saw: 'died', what: { is: 'type', value: 'creature' } }, window: 'this-turn', measure: 'events' },
+        },
+      },
+    ],
+    ctx,
+    OPTIONS
+  );
+
+  assert.deepEqual(deferred, [], 'no note once the question can be answered');
+  assert.equal(actions.length, 1);
+  assert.equal((actions[0] as { count?: number }).count, 1);
+});
+
+test('E4: unless-pays runs neither branch and says what is owed and what is at stake', () => {
+  // Running the effects resolves Rhystic Study as though every opponent always
+  // declined. Skipping them resolves it as though they always paid. Both are
+  // wrong, so neither happens.
+  const state = game([{ id: 's', name: 'Source' }]);
+  const effects: Effect[] = [
+    {
+      do: 'unless-pays',
+      who: { who: 'trigger-player' },
+      cost: [{ pay: 'mana', cost: '{1}' }],
+      effects: [{ do: 'draw', who: { who: 'you' }, count: 1 }],
+    },
+  ];
+
+  const { actions, deferred } = run(effects, state);
+  assert.equal(actions.length, 0, 'no card is drawn and no cost is charged');
+  assert.ok(deferred.some(line => line.includes('may pay {1}')), 'the cost is quoted');
+  assert.ok(deferred.some(line => line.includes('if not paid')), 'and so is the consequence');
+});
+
+test('E4: an unbound "that player" is reported as unidentified, never as everybody', () => {
+  const state = game([{ id: 's', name: 'Source' }]);
+  const { deferred } = run(
+    [
+      {
+        do: 'unless-pays',
+        who: { who: 'trigger-player' },
+        cost: [{ pay: 'mana', cost: '{2}' }],
+        effects: [{ do: 'gain-life', who: { who: 'you' }, amount: 1 }],
+      },
+    ],
+    state
+  );
+  assert.ok(
+    deferred.some(line => line.includes('not identified')),
+    `an unbound trigger player must say so; got ${JSON.stringify(deferred)}`
+  );
+});
+
+test('E4: a bound trigger player is named, and only that one player', () => {
+  const state = game([{ id: 's', name: 'Source' }], 3);
+  const ctx = makeContext(state, 's', 'p1', { triggerPlayerId: 'p2' });
+  const { deferred } = runEffects(
+    [
+      {
+        do: 'unless-pays',
+        who: { who: 'trigger-player' },
+        cost: [{ pay: 'mana', cost: '{2}' }],
+        effects: [{ do: 'gain-life', who: { who: 'you' }, amount: 1 }],
+      },
+    ],
+    ctx,
+    OPTIONS
+  );
+  assert.ok(deferred[0].startsWith('P2 may pay {2}'), deferred[0]);
+  assert.equal(deferred[0].includes('P3'), false, 'one opponent, not the table');
+});
+
+test('E8: the note carries the spend restriction and the computed count', () => {
+  // A note reading "adds {G}" when the card added five, or omitting "only to
+  // cast creature spells", is a note a player acts on wrongly — which is the
+  // same failure as saying nothing, one step later.
+  const state = game([
+    { id: 's', name: 'Source' },
+    { id: 'c1', name: 'Creature One' },
+    { id: 'c2', name: 'Creature Two' },
+  ]);
+
+  const { deferred } = run(
+    [
+      {
+        do: 'add-mana',
+        who: { who: 'you' },
+        mana: '{G}',
+        count: { v: 'count', of: { sel: 'all', where: { is: 'type', value: 'creature' }, controller: { who: 'you' }, zone: 'battlefield' } },
+        restriction: { spendOn: 'cast', what: { is: 'type', value: 'creature' }, text: 'spend this mana only to cast a creature spell' },
+      },
+    ],
+    state
+  );
+
+  assert.equal(deferred.length, 1);
+  assert.ok(deferred[0].includes('{G}{G}{G}'), `three creatures on board; got ${deferred[0]}`);
+  assert.ok(deferred[0].includes('only to cast a creature spell'), deferred[0]);
+});
+
+test('E8: zero copies of mana produces no note at all', () => {
+  const state = game([{ id: 's', name: 'Source', typeLine: 'Artifact' }]);
+  const { deferred } = run(
+    [{ do: 'add-mana', who: { who: 'you' }, mana: '{G}', count: { v: 'count', of: { sel: 'all', where: { is: 'type', value: 'creature' }, controller: { who: 'you' }, zone: 'battlefield' } } }],
+    state
+  );
+  assert.deepEqual(deferred, []);
+});

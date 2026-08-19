@@ -23,6 +23,9 @@
  *   - `combat.ts`    what a declared attack actually does, expressed as actions
  *   - `stack.ts`     the stack, priority, targeting, fizzling and countering
  *   - `replacement.ts` CR 614 replacement effects, applied one at a time
+ *   - `intrinsic.ts` the replacement effects a card carries in its own oracle
+ *                    text — "this land enters tapped" — derived rather than
+ *                    registered, so no code path can forget to wire one up
  *   - `effects.ts`   the triggers we detect, and an honest marker for the rest
  *   - `manual.ts`    the two-tap controls for everything the engine will not do
  *   - `moves.ts`     composite moves (cast, land drop, advance) shared by UI and bot
@@ -71,6 +74,7 @@ export * from './characteristics.ts';
 export * from './combat.ts';
 export * from './stack.ts';
 export * from './replacement.ts';
+export * from './intrinsic.ts';
 export * from './sba.ts';
 export * from './triggers.ts';
 export * from './effects.ts';

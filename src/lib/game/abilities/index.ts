@@ -24,7 +24,13 @@
  *                           for `computeLayers`. `layers.ts` says outright that
  *                           the compiler is what will produce this list; this is
  *                           that producer.
+ *   - `watch.ts`          — E6: "what happened earlier this turn", answered by
+ *                           FOLDING the action log rather than by a mutable
+ *                           watcher object. A query, not a piece of state.
  *   - `to-actions.ts`     — the ONE switch over `Effect`, producing `GameAction[]`
+ *   - `trigger-bridge.ts` — which of the two trigger systems owns a given card,
+ *                           so exactly one of them enumerates its triggers and
+ *                           an enters-the-battlefield trigger can never fire twice
  *
  * ## The two properties everything here preserves
  *
@@ -42,5 +48,7 @@
 
 export * from './card-abilities.ts';
 export * from './context.ts';
+export * from './watch.ts';
 export * from './statics.ts';
+export * from './trigger-bridge.ts';
 export * from './to-actions.ts';

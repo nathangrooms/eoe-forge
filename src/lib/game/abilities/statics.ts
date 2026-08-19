@@ -29,7 +29,8 @@
  */
 
 import type { GameState, InstanceId, PlayerId } from '../types.ts';
-import type { Modification, Restriction, StaticAbility } from '../../cards/abilities/dsl.ts';
+import type { Modification, Restriction, Selector, StaticAbility } from '../../cards/abilities/dsl.ts';
+import { watchQueriesIn } from '../../cards/abilities/dsl.ts';
 import type {
   CardType,
   ContinuousEffect,
@@ -41,7 +42,7 @@ import type {
 } from '../layers.ts';
 import { CARD_TYPES, computeStateLayers } from '../layers.ts';
 import type { AbilityContext, CharacteristicView } from './context.ts';
-import { evalCondition, evalValue, makeContext, resolvePlayers, resolveSelector } from './context.ts';
+import { evalCondition, evalValue, makeContext, matchesFilter, resolvePlayers, resolveSelector } from './context.ts';
 import { staticAbilitiesOf } from './card-abilities.ts';
 
 /* -------------------------------------------------------------------------- */
@@ -70,8 +71,34 @@ export interface ActiveCostMod {
   /** Signed generic-mana delta. Negative reduces. */
   delta: number;
   genericOnly: boolean;
-  appliesTo: InstanceId[];
+  /**
+   * The selector as the card wrote it, NOT a resolved id list.
+   *
+   * It used to be `appliesTo: InstanceId[]`, resolved at scan time, and that
+   * shape made cost reduction a guaranteed no-op. The compiler writes
+   * `zone:'stack'` because the thing being made cheaper is a *spell*, while
+   * every caller asks about a card still in HAND — a cost is computed before
+   * the spell is announced — so the resolved ids never contained the card being
+   * asked about and the adjustment was always 0. This folder's own test pinned
+   * that as a known gap rather than papering over it; this is the fix that test
+   * describes, and the test now asserts the reduction instead of the gap.
+   */
+  applies: Selector;
   forWhom: PlayerId[];
+  /**
+   * The delta was computed from a `{v:'watch'}` query and nothing folds a log,
+   * so `delta` above is 0 and **0 is wrong, not neutral**. "This spell costs {1}
+   * less to cast for each creature that attacked this turn" would read as no
+   * reduction at all.
+   *
+   * `costAdjustmentFor` skips these entirely rather than applying a wrong
+   * number. That leaves the spell at its printed cost, which is the
+   * conservative direction this folder already takes for costs — a spell cast
+   * too cheaply is the failure with no safe marker — and the flag is here so a
+   * caller can SAY the reduction is not being applied instead of a player
+   * wondering why their Witchstalker Frenzy cost full price.
+   */
+  needsHistory: boolean;
 }
 
 export interface StaticScan {
@@ -284,8 +311,11 @@ function runScan(state: GameState, view: Record<InstanceId, CharacteristicView> 
                 abilityId: ability.id,
                 delta: evalValue(modification.delta, ctx),
                 genericOnly: modification.genericOnly ?? true,
-                appliesTo: resolveSelector(modification.applies, ctx),
+                applies: modification.applies,
                 forWhom: resolvePlayers(modification.forWhom, ctx),
+                needsHistory: watchQueriesIn([
+                  { do: 'gain-life', who: { who: 'you' }, amount: modification.delta },
+                ]).length > 0,
               });
               continue;
             }
@@ -428,6 +458,40 @@ export function hasRestriction(
 }
 
 /**
+ * Does one cost modifier apply to one card being cast?
+ *
+ * The card is matched **wherever it currently is**, and the selector's `zone`
+ * is deliberately ignored. That is not sloppiness: the compiler writes
+ * `zone:'stack'` because the object being taxed or discounted is a *spell*,
+ * while a cost is computed before the spell is announced, so the card is still
+ * in hand (or the command zone, or a graveyard under a recursion effect).
+ * Honouring the zone literally is what made this always answer 0.
+ *
+ * Everything else about the selector IS honoured — the filter and the
+ * controller — so "artifact spells YOU cast" still does not discount an
+ * opponent's, and the caster check in `costAdjustmentFor` is separate from it.
+ */
+function costModApplies(mod: ActiveCostMod, instanceId: InstanceId, ctx: AbilityContext): boolean {
+  const selector = mod.applies;
+  switch (selector.sel) {
+    case 'self':
+      return instanceId === mod.sourceInstanceId;
+    case 'all': {
+      if (!matchesFilter(selector.where, instanceId, ctx)) return false;
+      if (!selector.controller) return true;
+      const owners = resolvePlayers(selector.controller, ctx);
+      const controller = ctx.state.cards[instanceId]?.controllerId;
+      return !!controller && owners.includes(controller);
+    }
+    default:
+      // Any other selector names something the caster is not: a target that was
+      // never announced, a trigger subject with no trigger. Nothing, not
+      // everything.
+      return false;
+  }
+}
+
+/**
  * Total generic-mana adjustment for casting this card. Negative reduces.
  * Handed to `mana.ts`, which stays the one implementation of paying for things.
  */
@@ -437,7 +501,16 @@ export function costAdjustmentFor(
   casterId: PlayerId
 ): number {
   return scanStatics(state)
-    .costMods.filter(mod => mod.forWhom.includes(casterId) && mod.appliesTo.includes(instanceId))
+    .costMods.filter(mod => {
+      if (!mod.forWhom.includes(casterId)) return false;
+      // A delta computed from turn history evaluated to 0 above, and 0 is a
+      // wrong reduction rather than a small one. Skipped, so the spell stays at
+      // its printed cost instead of being quietly discounted by nothing.
+      if (mod.needsHistory) return false;
+      const source = state.cards[mod.sourceInstanceId];
+      const ctx = makeContext(state, mod.sourceInstanceId, source?.controllerId ?? casterId);
+      return costModApplies(mod, instanceId, ctx);
+    })
     .reduce((total, mod) => total + mod.delta, 0);
 }
 

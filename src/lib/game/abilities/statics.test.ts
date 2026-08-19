@@ -27,13 +27,13 @@ import { addCard, createGame } from '../rules.ts';
 import type { GameState, Zone } from '../types.ts';
 import {
   abilitiesFor,
-  abilityEngineOwns,
   abilityNeedsManual,
   coverageSummary,
   resetAbilityCache,
   staticAbilitiesOf,
   triggeredAbilitiesOf,
 } from './card-abilities.ts';
+import { abilityEngineOwns } from './trigger-bridge.ts';
 import {
   characteristicView,
   continuousEffectsFor,
@@ -42,7 +42,8 @@ import {
   layeredState,
   scanStatics,
 } from './statics.ts';
-import { matchesFilter, resolveSelector } from './context.ts';
+import { evalValue, makeContext, matchesFilter, resolveSelector } from './context.ts';
+import { compileCardAbilities } from '../../cards/abilities/compiler.ts';
 
 /* ------------------------------------------------------------------ *
  * Fixtures
@@ -158,18 +159,46 @@ test('the memo returns the same record for the same card, and survives a reset',
   assert.deepEqual(afterReset, first, 'but an identical one — the compiler is pure');
 });
 
-test('abilityEngineOwns is true only for cards with triggers or replacements', () => {
+test('abilityEngineOwns claims a card only when the engine understands all of it', () => {
   // This is the predicate that stops effects.ts and this bridge both firing for
   // one card and doubling every enters-the-battlefield trigger in the game.
+  //
+  // It is deliberately stricter than "has a triggered ability". Ownership is
+  // all-or-nothing per card, because a card split across the two systems is the
+  // partial-ownership bug: the half the compiler did not model would stop
+  // firing, since the old detector no longer looks at an owned card at all.
   const state = game([
-    { id: 'warden', name: 'Soul Warden', oracleText: 'Whenever another creature enters, you gain 1 life.' },
-    { id: 'anthem', name: 'Glorious Anthem', typeLine: 'Enchantment', oracleText: 'Creatures you control get +1/+1.' },
+    {
+      id: 'self',
+      name: 'Kindly Healer',
+      oracleText: 'When this creature enters, you gain 2 life.',
+    },
+    {
+      id: 'other',
+      name: 'Soul Warden',
+      oracleText: 'Whenever another creature enters, you gain 1 life.',
+    },
+    {
+      id: 'anthem',
+      name: 'Glorious Anthem',
+      typeLine: 'Enchantment',
+      oracleText: 'Creatures you control get +1/+1.',
+    },
     { id: 'bear', name: 'Grizzly Bears', typeLine: 'Creature — Bear' },
   ]);
 
-  assert.equal(abilityEngineOwns(state.cards.warden), true);
+  assert.equal(
+    abilityEngineOwns(state.cards.self),
+    true,
+    'a self-referential ETB the compiler fully understood'
+  );
+  assert.equal(
+    abilityEngineOwns(state.cards.other),
+    false,
+    '"another creature enters" is a battlefield-wide event the engine does not derive'
+  );
   assert.equal(abilityEngineOwns(state.cards.anthem), false, 'a static is not a trigger');
-  assert.equal(abilityEngineOwns(state.cards.bear), false);
+  assert.equal(abilityEngineOwns(state.cards.bear), false, 'no rules text at all');
   assert.equal(abilityEngineOwns(undefined), false);
 });
 
@@ -357,6 +386,90 @@ test('scanStatics separates restrictions and cost modifiers from characteristics
   assert.equal(costAdjustmentFor(state, 'bear', 'p1'), 0);
 });
 
+test('costAdjustmentFor now sees a spell being cast from hand — E4', () => {
+  // This test used to pin the OPPOSITE as a known gap, and the gap was real:
+  // the modifier's selector carries `zone: 'stack'` because the object being
+  // discounted is a spell, while a cost is computed while the card is still in
+  // HAND. `ActiveCostMod.appliesTo` was resolved at scan time against that
+  // zone, so it never contained the card anybody asked about and the adjustment
+  // was always 0 — cost reduction that read as wired and changed nothing.
+  //
+  // `ActiveCostMod` now carries the selector rather than a resolved id list,
+  // and `costAdjustmentFor` matches the FILTER and the CONTROLLER against the
+  // card wherever it actually is. The zone is ignored deliberately; everything
+  // else about the selector is still enforced, which the two negative cases
+  // below hold to.
+  const state = game([
+    {
+      id: 'reducer',
+      name: 'Cost Reducer',
+      oracleText: 'Creature spells you cast cost {1} less to cast.',
+    },
+    { id: 'giant', name: 'Big Guy', typeLine: 'Creature — Giant', zone: 'hand' },
+    { id: 'rock', name: 'A Rock', typeLine: 'Artifact', zone: 'hand' },
+  ]);
+
+  const scan = scanStatics(state);
+  assert.equal(scan.costMods.length, 1, 'the modifier IS found — the compiler works');
+  assert.equal(scan.costMods[0].delta, -1);
+  assert.equal(scan.costMods[0].applies.sel, 'all');
+
+  assert.equal(costAdjustmentFor(state, 'giant', 'p1'), -1, 'a creature spell in hand IS discounted');
+  assert.equal(costAdjustmentFor(state, 'rock', 'p1'), 0, 'an artifact spell is not — the filter still applies');
+  assert.equal(costAdjustmentFor(state, 'giant', 'p2'), 0, '"you cast" still means the controller only');
+});
+
+test('a whole-table tax applies to its own controller too', () => {
+  // "Spells cost {1} more to cast" has no "you cast" in it, so it taxes every
+  // player including the one who played it. The old rule hardcoded
+  // `forWhom: you`, which made Sphere of Resistance a one-sided tax the caster
+  // silently never paid.
+  const state = game([
+    { id: 'sphere', name: 'Sphere of Resistance', oracleText: 'Spells cost {1} more to cast.' },
+    { id: 'giant', name: 'Big Guy', typeLine: 'Creature — Giant', zone: 'hand' },
+  ]);
+
+  assert.equal(costAdjustmentFor(state, 'giant', 'p1'), 1, 'the controller pays it');
+  assert.equal(costAdjustmentFor(state, 'giant', 'p2'), 1, 'and so does everybody else');
+});
+
+test('a computed cost reduction is a ValueExpr, evaluated against the board — E4 x E9', () => {
+  // "This spell costs {1} less to cast for each artifact you control" is the
+  // most common cost-modifying clause in the catalogue. `Modification.delta`
+  // has always been a `ValueExpr`; nothing but a front end was missing.
+  const state = game([
+    {
+      id: 'affinity',
+      name: 'Cheap Thing',
+      oracleText: 'This spell costs {1} less to cast for each artifact you control.',
+      zone: 'hand',
+    },
+    { id: 'rock1', name: 'Rock One', typeLine: 'Artifact' },
+    { id: 'rock2', name: 'Rock Two', typeLine: 'Artifact' },
+  ]);
+
+  // The source is in hand, so it is not on the battlefield for `scanStatics` to
+  // find — which is correct for a static ability, and is exactly why this one
+  // is asserted through the compiler rather than the scan.
+  const compiled = compileCardAbilities({
+    id: 'affinity',
+    oracle_id: 'affinity',
+    name: 'Cheap Thing',
+    type_line: 'Artifact',
+    oracle_text: 'This spell costs {1} less to cast for each artifact you control.',
+  });
+  const modification = (compiled.abilities[0] as { modifications: Array<{ layer: string; delta: unknown }> })
+    .modifications[0];
+  assert.equal(modification.layer, 'cost-modify');
+  assert.deepEqual(modification.delta, {
+    v: 'mul',
+    of: [-1, { v: 'count', of: { sel: 'all', where: { is: 'type', value: 'artifact' }, controller: { who: 'you' }, zone: 'battlefield' } }],
+  });
+
+  // And the value evaluates against a real board: two artifacts, so -2.
+  assert.equal(evalValue(modification.delta as never, makeContext(state, 'affinity', 'p1')), -2);
+});
+
 /* ------------------------------------------------------------------ *
  * Purity
  * ------------------------------------------------------------------ */
@@ -419,4 +532,56 @@ test('abilityNeedsManual finds a manual clause nested inside control flow', () =
     ],
   } as never;
   assert.equal(abilityNeedsManual(withManual), true, 'and a nested one is still found');
+});
+
+test('a cost reduction computed from turn history is SKIPPED, not applied as zero', () => {
+  // "This spell costs {1} less to cast for each creature that attacked this
+  // turn" compiles exactly — E4 for the cost modifier, E6 for the count. But
+  // nothing folds an action log, so `evalValue` answers 0 for the count, and a
+  // reduction of 0 is a WRONG reduction rather than a small one.
+  //
+  // `costAdjustmentFor` skips it entirely, leaving the spell at its printed
+  // cost. That is the direction this folder takes on costs everywhere else — a
+  // spell cast too cheaply is the failure with no safe marker — and the
+  // `needsHistory` flag is on the record so a caller can say the reduction is
+  // not being applied rather than leaving a player to wonder.
+  const state = game([
+    {
+      id: 'frenzy',
+      name: 'Witchstalker Frenzy',
+      oracleText: 'This spell costs {1} less to cast for each creature that attacked this turn.',
+    },
+  ]);
+
+  const scan = scanStatics(state);
+  assert.equal(scan.costMods.length, 1, 'the modifier is found and recorded');
+  assert.equal(scan.costMods[0].needsHistory, true, 'and flagged as unanswerable');
+  assert.equal(scan.costMods[0].delta, 0, 'its delta really did evaluate to zero');
+
+  assert.equal(
+    costAdjustmentFor(state, 'frenzy', 'p1'),
+    0,
+    'skipped rather than applied — the printed cost stands'
+  );
+});
+
+test('an ordinary computed reduction is NOT flagged and IS applied', () => {
+  // The control for the test above: a board count is answerable, so nothing is
+  // skipped and the reduction is real.
+  const state = game([
+    {
+      id: 'cheap',
+      name: 'Cheap Thing',
+      typeLine: 'Artifact',
+      oracleText: 'This spell costs {1} less to cast for each artifact you control.',
+    },
+    { id: 'r1', name: 'Rock One', typeLine: 'Artifact' },
+    { id: 'r2', name: 'Rock Two', typeLine: 'Artifact' },
+  ]);
+
+  const scan = scanStatics(state);
+  assert.equal(scan.costMods[0].needsHistory, false);
+  // Three artifacts on the battlefield, the source included.
+  assert.equal(scan.costMods[0].delta, -3);
+  assert.equal(costAdjustmentFor(state, 'cheap', 'p1'), -3);
 });

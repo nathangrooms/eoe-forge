@@ -24,7 +24,7 @@
  * It is still guarded rather than trusted. `useLiveSession` is asked for the
  * table id and seat it expects and returns `null` on any mismatch, so:
  *
- *   - `/simulate`, which renders the same `PlayTable` over `useAutoGame` and
+ *   - `/simulate`, which renders the same `PlayTable` over `useWatchedGame` and
  *     has no human seat, gets `null` and draws no combat controls — correct,
  *     because nobody is playing that game;
  *   - a stale publication left by a table that has gone away cannot drive a

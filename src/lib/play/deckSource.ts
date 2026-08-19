@@ -644,19 +644,58 @@ function spellPool(identity: readonly ManaColor[]): Promise<CardRow[]> {
   });
 }
 
-/** Every basic land, once, for the whole table. Sixteen rows, one query, cached. */
+/**
+ * One printing of every basic land, for the whole table. Six small queries.
+ *
+ * ## Why this is six queries and not one `.in(...)`
+ *
+ * It used to be `.in('name', names).limit(120)`, which was right when the
+ * catalogue held roughly one printing per card. It is not right now: the sync
+ * moved to `unique=prints` (CLAUDE.md 6.3), so this project's `cards` table
+ * holds **805 basic-land rows**. An unordered `.in(...) LIMIT 120` returns
+ * whatever 120 rows Postgres reaches first, and measured against the live
+ * database on 2026-08-19 that was **120 Forests and nothing else**.
+ *
+ * The consequence was not cosmetic. `buildSeedDeck` narrows this pool to the
+ * commander's own basics, so every seeded deck outside green got an EMPTY
+ * basic list, and the land loop below was guarded by `if (basicList.length >
+ * 0)` — so 38 lands silently became 0. A white/black commander was dealt a
+ * 61-card landless deck with no land in its opening hand, and the owner
+ * reported the visible half of that: *"wouldnt even let me play a land"*.
+ * There was nothing to play.
+ *
+ * Asking per name makes the limit per name, so a Swamp can never be crowded
+ * out by a Forest.
+ *
+ * ## And still no `ORDER BY`
+ *
+ * The module header above explains at length that `.order(...)` is what timed
+ * the seeded pool queries out — `statement_timeout` at 3s for `anon`. It is the
+ * same trap here and it was walked into once during this fix: adding
+ * `.order('id').limit(1)` per name made the lobby hang on Start instead of
+ * dealing a table. So the ordering is done in JavaScript over a couple of dozen
+ * rows, which is free, and the database is only ever asked for an unordered
+ * page. `byName` breaks ties on `id`, so the printing chosen for a given set of
+ * rows is the same on every client.
+ */
+const BASIC_PRINTINGS_PER_NAME = 24;
+
 function basicPool(): Promise<CardRow[]> {
   const names = [...Object.values(BASIC_FOR_COLOR), 'Wastes'];
   return cachedPool('basics', async () => {
-    const rows = await selectCardRows('basic lands', () =>
-      supabase
-        .from('cards')
-        .select(SEED_CARD_COLUMNS)
-        .in('name', names)
-        .not('image_uris', 'is', null)
-        .limit(120)
+    const perName = await Promise.all(
+      names.map(name =>
+        selectCardRows(`basic land ${name}`, () =>
+          supabase
+            .from('cards')
+            .select(SEED_CARD_COLUMNS)
+            .eq('name', name)
+            .not('image_uris', 'is', null)
+            .limit(BASIC_PRINTINGS_PER_NAME)
+        )
+      )
     );
-    return rows.sort(byName);
+    return perName.flat().sort(byName);
   });
 }
 
@@ -714,10 +753,26 @@ export async function buildSeedDeck(options: SeedDeckOptions = {}): Promise<Play
   }
   const basicList = Array.from(basicByName.values());
 
-  const lands: PlayCard[] = [];
-  if (basicList.length > 0) {
-    for (let i = 0; i < landCount; i++) lands.push(basicList[i % basicList.length]);
+  /*
+   * A deck that asked for lands and got none is a broken deck, and it must say
+   * so rather than be dealt.
+   *
+   * The old body was `if (basicList.length > 0) { ... }`, which turned "the
+   * basic-land query answered with the wrong six rows" into a 61-card landless
+   * commander deck that looked perfectly normal until the player tried to play
+   * a land and found there were none. Throwing hands `resolveDeckDetailed` its
+   * documented job: it drops to the offline list, which HAS lands, and puts a
+   * sentence in front of the player saying what happened.
+   */
+  if (landCount > 0 && basicList.length === 0) {
+    throw new Error(
+      `No basic lands found for ${commander.name}'s colours ` +
+        `(${identity.join('') || 'colourless'}). A deck without lands cannot be played.`
+    );
   }
+
+  const lands: PlayCard[] = [];
+  for (let i = 0; i < landCount; i++) lands.push(basicList[i % basicList.length]);
 
   /* Arrow functions, not a bare `.map(toPlayCard)`: `Array.map` hands the
      callback (element, index, array), so a point-free reference would pass the

@@ -54,6 +54,15 @@ export interface ViewerHandProps {
   cardWidth?: number;
   /** Include the command zone at the right-hand end of the fan. */
   includeCommandZone?: boolean;
+  /**
+   * What to say when there is nothing in the fan.
+   *
+   * The fan is not always the reader's own hand: `/simulate` draws this same
+   * component for whichever seat is being watched, and "Your hand is empty" is
+   * simply wrong about somebody else's. The sentence comes from the caller so
+   * the two surfaces can share the component instead of forking it.
+   */
+  emptyLabel?: string;
   className?: string;
 }
 
@@ -128,6 +137,7 @@ export function ViewerHand({
      table; the fan comes down from this ceiling when the screen is small. */
   cardWidth = 300,
   includeCommandZone = true,
+  emptyLabel = 'Your hand is empty',
   className,
 }: ViewerHandProps) {
   const reduceMotion = useReducedMotion();
@@ -162,7 +172,7 @@ export function ViewerHand({
     return (
       <div ref={fanRef} className={cn('flex items-end justify-center pb-2', className)}>
         <p className="rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground shadow-md shadow-black/40 backdrop-blur-sm">
-          Your hand is empty
+          {emptyLabel}
         </p>
       </div>
     );
@@ -199,12 +209,17 @@ export function ViewerHand({
           const arcDrop = middle === 0 ? 0 : ((offset * offset) / (middle * middle)) * arc - arc;
           const drop = playable || freeCast ? arcDrop : arcDrop + UNPLAYABLE_STEP_BACK;
 
-          const state_ = playable
+          /* Copy rules: no em-dash, and no doubled full stop. The refusals
+             `planCastFromHand` returns are already whole sentences ("You have
+             already played a land this turn."), so appending another period
+             produced "…this turn.. Click to preview." in every tooltip and in
+             every screen reader. */
+          const standing = playable
             ? land
-              ? 'playable as a land drop'
-              : 'castable'
-            : reason || 'not playable right now';
-          const label = `${card.name} — ${state_}. Click to preview.`;
+              ? 'You can play this as a land drop'
+              : 'You can cast this'
+            : (reason || 'You cannot play this right now').replace(/\.\s*$/, '');
+          const label = `${card.name}. ${standing}. Click to preview.`;
 
           return (
             <motion.div

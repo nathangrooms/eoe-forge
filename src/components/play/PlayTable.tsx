@@ -45,6 +45,7 @@ import { Playmat } from './Playmat';
 import { GameStateProvider } from './GameStateContext';
 import { CombatBar } from './CombatBar';
 import { useLiveSession } from './liveSession';
+import { useMeasuredSize } from './useMeasure';
 import { cardCombatFor, combatSentence, combatStageFor } from './combatUi';
 import type { CombatChipProps, Lunge } from './GameCardView';
 import type { LifeDeltaMap } from './useTableMotion';
@@ -73,6 +74,11 @@ export interface PlayTableProps {
   focusPlayerId?: PlayerId | null;
   /** Ceiling for a battlefield card. Each mat comes down from it to fit. */
   cardWidth?: number;
+  /**
+   * What the viewer's own seat is called on its mat. "You" on `/play`; on
+   * `/simulate` the same seat is the one being watched rather than played.
+   */
+  viewerLabel?: string;
   /** A click on any card opens the preview. It is never the action itself. */
   onInspect?: (card: CardInstance) => void;
   /**
@@ -116,6 +122,7 @@ export function PlayTable({
   botPlayerIds,
   variant = 'quads',
   focusPlayerId = null,
+  viewerLabel,
   /* A ceiling. Every mat shrinks below it to fit the room it actually has, so
      the only thing a low default buys is a board of icons on a big screen. */
   cardWidth = 200,
@@ -191,6 +198,17 @@ export function PlayTable({
   const session = useLiveSession(state.id, viewerPlayerId);
   const dispatch = session?.dispatch ?? null;
   const stage = combatStageFor(state, viewerPlayerId);
+
+  /**
+   * Room the combat strip is holding open at the top of the table.
+   *
+   * Measured, not assumed: the strip's sentence wraps to a second line on a
+   * narrow window, and a constant would either clip it or leave a gap under it.
+   * Zero whenever combat is not being declared, so the seats get the pixels
+   * back — this band exists only while there is a decision on it.
+   */
+  const [combatBarRef, combatBar] = useMeasuredSize<HTMLDivElement>();
+  const combatInset = stage && dispatch ? Math.round(combatBar.height) : 0;
 
   /** The blocker picked up and not yet put in front of anything. UI only. */
   const [armedBlockerId, setArmedBlockerId] = useState<string | null>(null);
@@ -435,8 +453,19 @@ export function PlayTable({
       <Playmat tone="board" rounded="rounded-none" className="absolute inset-0 h-full w-full" />
 
       <div
-        className="absolute left-0 right-0"
-        style={{ top: topInset, bottom: bottomInset }}
+        className="absolute left-0 right-0 transition-[top] duration-300 ease-out motion-reduce:transition-none"
+        /*
+         * The seats start BELOW the combat strip, not underneath it.
+         *
+         * The strip used to be able to hang over the top edge because the far
+         * seat spent its first 70px on an identity band, and a band is a thing
+         * you can cover. That band is gone — every pixel of a mat now belongs to
+         * a card — so hanging the strip over the table would put it across the
+         * face of the very creatures it is asking you to block. The table gives
+         * it its own room while it is up, and takes the room back the moment
+         * combat is over.
+         */
+        style={{ top: topInset + combatInset, bottom: bottomInset }}
       >
         {focused ? (
           <div className="absolute inset-0 p-1">
@@ -444,6 +473,7 @@ export function PlayTable({
               state={state}
               player={focused}
               isViewer={focused.id === viewerPlayerId}
+              viewerLabel={viewerLabel}
               isBot={botPlayerIds.indexOf(focused.id) !== -1}
               cardWidth={cardWidth}
               onInspect={onInspect}
@@ -479,6 +509,7 @@ export function PlayTable({
                   state={state}
                   player={player}
                   isViewer={isViewer}
+                  viewerLabel={viewerLabel}
                   isBot={botPlayerIds.indexOf(player.id) !== -1}
                   cardWidth={cardWidth}
                   onInspect={onInspect}
@@ -499,33 +530,45 @@ export function PlayTable({
           })
         )}
 
-        {/*
-          Combat's only piece of furniture, and it is a strip rather than a
-          screen.
+      </div>
 
-          It hangs from the top edge of the board, immediately under the HUD,
-          which is the one band of the table that belongs to no creature row:
-          every mat now puts creatures at its top and lands at its foot, so the
-          strip crosses the far seat's identity strip and nothing else. The
-          player's own board — the one they are declaring from — is untouched
-          and fully visible underneath it.
-        */}
+      {/*
+        Combat's only piece of furniture, and it is a strip rather than a
+        screen.
+
+        It hangs from the top edge of the board, immediately under the HUD, in a
+        band the table opens for it — see `combatInset` above. It is measured
+        rather than assumed, because the sentence it carries wraps to two lines
+        on a narrow window and a guessed height would either clip it or leave a
+        gap. The player's own board — the one they are declaring from — is
+        untouched and fully visible below it.
+      */}
+      {/* The wrapper is always mounted, even with nothing in it: a ResizeObserver
+          attached in a layout effect never sees an element that was not there on
+          mount, so a conditionally rendered strip would measure zero forever and
+          silently go back to covering the creatures it is asking about. */}
+      <div
+        ref={combatBarRef}
+        className={cn(
+          'pointer-events-none absolute inset-x-0 z-40 flex justify-center px-2',
+          stage && dispatch && 'pt-1'
+        )}
+        style={{ top: topInset }}
+      >
         {stage && dispatch && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex justify-center px-2 pt-1">
-            <CombatBar
-              stage={stage}
-              sentence={combatSentence(state, viewerPlayerId)}
-              hint={combatHint}
-              damage={swing.damage}
-              lethal={swing.lethal}
-              count={stage === 'attackers' ? declared.length : blockCount}
-              targets={opponents}
-              targetId={targetId}
-              onTarget={setTargetId}
-              onConfirm={confirmCombat}
-              blockedReason={blockIssue}
-            />
-          </div>
+          <CombatBar
+            stage={stage}
+            sentence={combatSentence(state, viewerPlayerId)}
+            hint={combatHint}
+            damage={swing.damage}
+            lethal={swing.lethal}
+            count={stage === 'attackers' ? declared.length : blockCount}
+            targets={opponents}
+            targetId={targetId}
+            onTarget={setTargetId}
+            onConfirm={confirmCombat}
+            blockedReason={blockIssue}
+          />
         )}
       </div>
     </div>

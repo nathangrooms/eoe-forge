@@ -24,6 +24,13 @@
  * alias one of them if a file ever needs both.
  */
 
+/*
+ * The only import in this file, and deliberately `import type`: it erases at
+ * compile time, so this module still pulls in no runtime code and a `GameState`
+ * remains plain JSON. `TriggeredAbility` is itself a pure data shape.
+ */
+import type { TriggeredAbility } from '../cards/abilities/dsl.ts';
+
 export type PlayerId = string;
 export type InstanceId = string;
 /**
@@ -706,6 +713,24 @@ export interface PendingTrigger {
   controllerId: PlayerId;
   event: TriggerEvent;
   ability: DetectedTrigger;
+  /**
+   * The compiled ability, when the ability engine owns this card's triggers.
+   *
+   * Present exactly when `abilityEngineOwns(source)` was true at the moment the
+   * trigger was detected, and its presence is what routes resolution through
+   * `to-actions.ts` instead of the older `effects.ts` path. The two are never
+   * both used for one trigger — see `trigger-bridge.ts`.
+   *
+   * Embedded rather than recompiled for the reason the whole interface is:
+   * a client replaying the log resolves exactly the ability that was put on the
+   * stack. It is plain JSON — no closures, no class instances — so it
+   * round-trips through `JSON.stringify` like everything else in the state.
+   *
+   * `ability` above stays populated alongside it, describing the same clause in
+   * the old vocabulary, so labels and any consumer that has not been taught
+   * about the ability engine keep working.
+   */
+  dsl?: TriggeredAbility;
 }
 
 /* -------------------------------------------------------------------------- */

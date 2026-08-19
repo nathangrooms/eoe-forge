@@ -58,6 +58,7 @@ import { useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { automationFor } from '@/lib/game/effects';
 import { Playmat } from './Playmat';
 import { GameStateProvider } from './GameStateContext';
 import { GameCardView } from './GameCardView';
@@ -155,7 +156,15 @@ const MAX_HEIGHT_SHARE = 0.86;
 const MAX_WIDTH_SHARE = 0.5; // retained for reference; the panel is width-led now
 
 /** One action. Surface tint and weight, never an outline, never a raw hue. */
-function ActionButton({ action, onClick }: { action: CardAction; onClick: () => void }) {
+function ActionButton({
+  action,
+  onClick,
+  className,
+}: {
+  action: CardAction;
+  onClick: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
@@ -167,7 +176,8 @@ function ActionButton({ action, onClick }: { action: CardAction; onClick: () => 
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         action.tone === 'primary'
           ? 'bg-foreground text-background shadow-lg shadow-black/50 hover:bg-foreground/90'
-          : 'bg-foreground/[0.10] text-foreground hover:bg-foreground/[0.18]'
+          : 'bg-foreground/[0.10] text-foreground hover:bg-foreground/[0.18]',
+        className
       )}
     >
       {action.label}
@@ -240,6 +250,16 @@ export function CenterPreview({
   const controller = state.players.find(p => p.id === card.controllerId);
   const notes = cardNotes(state, card);
   const stats = statLineIn(state, card);
+
+  /* WHAT THIS CARD DOES, AND WHO HAS TO DO IT.
+     `automationFor` already works this out for every card and nothing had ever
+     shown it. It is the difference between a player trusting the board and a
+     player wondering whether the game noticed their trigger. Owner: "it should
+     automatically detect the cards action/events/control/abilities etc, but
+     then give the user a way of manually controlling how it's played." */
+  const automation = automationFor(card);
+  const handled = automation.engineKeywords;
+  const yours = [...automation.advisoryKeywords, ...automation.manualNotes];
 
   /* CARD LEFT, EVERYTHING ELSE RIGHT, and the sizing follows from that.
      Stacked, the card ate the height and the text below it overflowed, so the
@@ -352,7 +372,7 @@ export function CenterPreview({
             {/* Everything else, beside it. */}
             <div className="flex min-w-0 flex-1 flex-col gap-2.5">
             <div className="flex w-full shrink-0 items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="rounded-full bg-foreground/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {ZONE_LABEL[card.zone]}
                 {controller ? ` · ${controller.name}` : ''}
               </span>
@@ -400,13 +420,73 @@ export function CenterPreview({
                 available. The room this gained is what the owner asked it to
                 buy: "This could give room to overwrite actions on the card too." */}
             {actions.length > 0 && (
-              /* Two columns, because the details column has real width now. A
-                 long action list used to run down the panel and was the other
-                 half of why it scrolled. */
-              <div className="grid w-full shrink-0 grid-cols-2 gap-2">
-                {actions.map(action => (
-                  <ActionButton key={action.id} action={action} onClick={() => run(action)} />
-                ))}
+              <div className="w-full shrink-0 space-y-2">
+                {/* THE PLAY, on its own and unmistakable. `tone: 'primary'` is
+                    the engine's own answer to "what are you most likely here to
+                    do", and burying it in a grid with four zone moves was the
+                    reason this needed reading rather than glancing at. */}
+                {actions
+                  .filter(action => action.tone === 'primary')
+                  .map(action => (
+                    <ActionButton
+                      key={action.id}
+                      action={action}
+                      onClick={() => run(action)}
+                      className="h-12 w-full text-sm"
+                    />
+                  ))}
+                {actions.some(action => action.tone !== 'primary') && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {actions
+                      .filter(action => action.tone !== 'primary')
+                      .map(action => (
+                        <ActionButton key={action.id} action={action} onClick={() => run(action)} />
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* WHAT THE GAME IS DOING FOR YOU, AND WHAT IT IS NOT.
+                Two lists, never merged, because the whole value is the
+                distinction. A green mark means the rules engine enforces it and
+                you can forget about it. An amber one means the card says it and
+                nothing will happen unless you make it happen, which is what the
+                manual controls underneath are for. */}
+            {(handled.length > 0 || yours.length > 0) && (
+              <div className="w-full shrink-0 space-y-1.5">
+                {handled.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Automatic
+                    </span>
+                    {handled.map(word => (
+                      <span
+                        key={word}
+                        title="The rules engine applies this for you"
+                        className="rounded-full bg-emerald-400/[0.14] px-2 text-[11px] capitalize leading-5 text-emerald-200/90"
+                      >
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {yours.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      You resolve
+                    </span>
+                    {yours.map(word => (
+                      <span
+                        key={word}
+                        title="The engine does not apply this. Use the controls below."
+                        className="rounded-full bg-amber-400/[0.14] px-2 text-[11px] leading-5 text-amber-200/90"
+                      >
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -432,7 +512,19 @@ export function CenterPreview({
                 question and offering it here would be a lie about whose turn
                 it is to act. */}
             {!readOnly && !holdReason && onDispatch && card.controllerId === viewerPlayerId && (
-              <ManualPanel state={state} card={card} onDispatch={onDispatch} />
+              <div className="w-full shrink-0 rounded-lg bg-foreground/[0.04] p-2.5">
+                <div className="mb-1.5 flex items-baseline gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Play it yourself
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/70">
+                    {automation.needsManual
+                      ? 'This card needs you'
+                      : 'Override anything the engine did'}
+                  </span>
+                </div>
+                <ManualPanel state={state} card={card} onDispatch={onDispatch} />
+              </div>
             )}
 
             {moves.length > 0 && (

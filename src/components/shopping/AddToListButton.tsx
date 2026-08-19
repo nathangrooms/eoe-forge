@@ -202,16 +202,33 @@ export function AddToListActions({
   deckId,
   source,
   className,
+  /** Match whatever row this sits in. The card page's action stack is `default`. */
+  size = 'sm',
 }: {
   card: AddableCard;
   deckId?: string | null;
   source?: ItemSource;
   className?: string;
+  size?: 'sm' | 'default' | 'lg';
 }) {
   return (
     <div className={cn('grid grid-cols-2 gap-2', className)}>
-      <AddToListButton card={card} kind="shopping" deckId={deckId} source={source} />
-      <AddToListButton card={card} kind="proxy" deckId={deckId} source={source} />
+      <AddToListButton
+        card={card}
+        kind="shopping"
+        deckId={deckId}
+        source={source}
+        size={size}
+        display="full"
+      />
+      <AddToListButton
+        card={card}
+        kind="proxy"
+        deckId={deckId}
+        source={source}
+        size={size}
+        display="full"
+      />
     </div>
   );
 }

@@ -19,7 +19,7 @@ import { CardPrintingsRow } from '@/components/cards/CardPrintingsRow';
 import { CardPriceHistory } from '@/components/cards/CardPriceHistory';
 import { CardWorksWellWith, CardSimilar } from '@/components/cards/CardRelated';
 import { CardAddToDeckPanel } from '@/components/cards/CardAddToDeckPanel';
-import { AddToListButton } from '@/components/shopping';
+import { AddToListActions } from '@/components/shopping';
 import {
   canBeCommander,
   edhrecUrl,
@@ -597,19 +597,31 @@ export default function CardDetailPage() {
                       </Button>
                     </div>
 
-                    {/* The proxy list, alongside the other three places a card
-                        can go. Owner: "card pages dont have add proxy". */}
+                    {/* Shopping list and proxy list, as a pair.
+
+                        The proxy button used to own a full width row of its
+                        own, giving a niche action the same footprint as Add to
+                        collection. Owner: "Proxy list CTA button far too large
+                        and not sure on place ... it shouldn't be main thing."
+                        It now sits at half width in its own row, matching Add
+                        to deck and Wishlist above it.
+
+                        The shopping list had NO entry point here at all, on a
+                        page whose entire job is deciding what to do with a
+                        card, while the list itself holds hundreds and sits in
+                        the main nav. Owner: "Also no add to shopping list
+                        button?"
+
+                        `AddToListActions` already existed and already rendered
+                        exactly this pair. It simply was not being used. */}
                     {proxyPrintingId ? (
-                      <AddToListButton
+                      <AddToListActions
                         card={{
                           id: proxyPrintingId,
                           name: card.name,
                           oracle_id: card.oracle_id ?? dbCard?.oracle_id ?? null,
                         }}
-                        kind="proxy"
                         size="default"
-                        variant="secondary"
-                        display="full"
                       />
                     ) : (
                       <Button
@@ -618,12 +630,12 @@ export default function CardDetailPage() {
                         onClick={() =>
                           showError(
                             'Not in the card database',
-                            'This printing has not synced into DeckMatrix yet, so we have no art to print.'
+                            'This printing has not synced into DeckMatrix yet, so it cannot go on a list.'
                           )
                         }
                       >
                         <Printer className="h-4 w-4" />
-                        Proxy list
+                        Shopping and proxy lists
                       </Button>
                     )}
                   </div>
